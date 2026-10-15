@@ -1,0 +1,86 @@
+package com.tacresq.app.data.model
+
+import com.google.gson.annotations.SerializedName
+
+// Note: Gson does not enforce Kotlin nullability. If the server omits a field that is
+// declared non-null here, it arrives as null at runtime. Keep docs/API.md and these
+// classes in sync.
+
+enum class Role(val label: String) {
+    @SerializedName("requester") REQUESTER("Emergency requester"),
+    @SerializedName("responder") RESPONDER("Field responder"),
+    @SerializedName("driver") DRIVER("Driver"),
+    @SerializedName("dispatcher") DISPATCHER("Dispatcher"),
+}
+
+enum class DutyStatus(val label: String) {
+    @SerializedName("off_duty") OFF_DUTY("Off duty"),
+    @SerializedName("available") AVAILABLE("Available"),
+    @SerializedName("en_route") EN_ROUTE("En route"),
+    @SerializedName("on_scene") ON_SCENE("On scene"),
+    @SerializedName("transporting") TRANSPORTING("Transporting"),
+}
+
+enum class IncidentType(val label: String) {
+    @SerializedName("medical") MEDICAL("Medical"),
+    @SerializedName("fire") FIRE("Fire"),
+    @SerializedName("vehicular") VEHICULAR("Vehicular accident"),
+    @SerializedName("disaster") DISASTER("Flood or disaster"),
+    @SerializedName("other") OTHER("Other"),
+}
+
+enum class IncidentStatus(val label: String) {
+    @SerializedName("pending") PENDING("Waiting for dispatch"),
+    @SerializedName("assigned") ASSIGNED("Unit assigned"),
+    @SerializedName("en_route") EN_ROUTE("Unit en route"),
+    @SerializedName("on_scene") ON_SCENE("Unit on scene"),
+    @SerializedName("transporting") TRANSPORTING("Transporting"),
+    @SerializedName("resolved") RESOLVED("Resolved"),
+    @SerializedName("cancelled") CANCELLED("Cancelled");
+
+    val isActive: Boolean
+        get() = this != RESOLVED && this != CANCELLED
+}
+
+/** The statuses a unit may move an incident to next. The server must enforce the same rules. */
+fun IncidentStatus.nextSteps(): List<IncidentStatus> = when (this) {
+    IncidentStatus.ASSIGNED -> listOf(IncidentStatus.EN_ROUTE)
+    IncidentStatus.EN_ROUTE -> listOf(IncidentStatus.ON_SCENE)
+    IncidentStatus.ON_SCENE -> listOf(IncidentStatus.TRANSPORTING, IncidentStatus.RESOLVED)
+    IncidentStatus.TRANSPORTING -> listOf(IncidentStatus.RESOLVED)
+    else -> emptyList()
+}
+
+data class User(
+    val id: Long,
+    val name: String,
+    val email: String,
+    val phone: String? = null,
+    val role: Role,
+    @SerializedName("duty_status") val dutyStatus: DutyStatus? = null,
+)
+
+data class Incident(
+    val id: Long,
+    val type: IncidentType,
+    val description: String? = null,
+    val latitude: Double,
+    val longitude: Double,
+    @SerializedName("accuracy_m") val accuracyM: Float? = null,
+    val status: IncidentStatus,
+    @SerializedName("requester_name") val requesterName: String? = null,
+    @SerializedName("requester_phone") val requesterPhone: String? = null,
+    @SerializedName("assigned_to") val assignedTo: Long? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+)
+
+data class Session(val token: String, val user: User)
+
+sealed interface SessionState {
+    data object Loading : SessionState
+    data object LoggedOut : SessionState
+    data class LoggedIn(val session: Session) : SessionState
+}
+
+/** One GPS reading. */
+data class GeoFix(val latitude: Double, val longitude: Double, val accuracyM: Float?)
