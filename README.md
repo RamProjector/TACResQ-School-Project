@@ -1,6 +1,6 @@
 # TACResQ Android starter (Kotlin + Jetpack Compose)
 
-Source files to drop into a fresh Android Studio project. It runs on a built-in fake backend, so it works with no server, paid API, subscription, or cloud account.
+Source files to drop into a fresh Android Studio project. It supports an offline fake backend and a Supabase-backed mode for shared accounts and persistent dispatch data. Supabase's free tier is suitable for a school prototype, subject to the provider's current limits.
 
 ## Setup (about 10 minutes)
 
@@ -48,23 +48,35 @@ implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
 
 Try it end to end: sign in as the responder, tap **Available**, log out. Sign in as the requester, send an SOS. Sign in as the dispatcher to see the queue, available units, and manual assignment controls. Sign back in as the responder and step it through en route, on scene, resolved. The requester's list updates on its own.
 
-## Switching to the real Laravel API
+## Supabase backend
 
-Edit `AppConfig.kt`:
+The app is configured to use the TACResQ Supabase project by default. It contains only a **publishable** Supabase key; never put a service-role key in Android code. The database schema and security policies are in `supabase/migrations/202610150001_tacresq_core.sql` and have been applied to the connected project.
 
-- `USE_FAKE_API = false`
-- `BASE_URL`: emulator `http://10.0.2.2:8000/api/`; real phone `http://<your-PC-LAN-IP>:8000/api/` (run `php artisan serve --host=0.0.0.0`)
+The Android adapter uses Supabase Auth and narrowly scoped Postgres RPC functions. Row Level Security is enabled, with role checks and incident-status rules enforced in the database. Set `AppConfig.USE_FAKE_API = true` for the self-contained offline demo.
 
-The routes and JSON the app expects are in `docs/API.md`. Plain `http://` only works in debug builds (`app/src/debug/AndroidManifest.xml`); use HTTPS for release.
+### Setting up a different Supabase project
+1. Apply the SQL migration in `supabase/migrations/` to your project.
+2. Copy its Project URL and **publishable** key into `AppConfig.kt`. Do not use a service-role/secret key in the client.
+3. Choose whether Supabase Auth requires email confirmation. If enabled, confirm email before login; signup without a session displays a confirmation message.
+4. Register requester accounts in the app. Public registration is limited to requesters. Provision responders, drivers, and dispatchers through a trusted administrator in the Supabase SQL editor, setting `role` and `duty_status` together. Example:
+   ```sql
+   update public.profiles
+   set role = 'responder', duty_status = 'off_duty'
+   where email = 'responder@example.com';
+   ```
+5. Run on a device with internet and location permission. SOS captures a one-time GPS location.
+
+`docs/API.md` retains the old Laravel REST contract for reference; it is not used by the current Supabase backend. The database has audit history and location-log storage, but continuous/background GPS, the dispatcher web dashboard/map, FCM push notifications, and offline synchronization are not yet implemented in the Android client. Current screens poll for updates. This remains a prototype, not an operational emergency-dispatch service.
 
 ## What is in the code
 
 ```
 com.tacresq.app
-  AppConfig.kt             fake/real switch, base URL
+  AppConfig.kt             fake/Supabase switch and project config
   AppContainer.kt          wires everything (no Hilt)
   data/model/Models.kt     Role, DutyStatus, Incident, ... and the status rules
   data/remote/TacApi.kt    Retrofit interface = the API contract
+  data/remote/SupabaseTacApi.kt Supabase Auth + Postgres RPC adapter
   data/remote/FakeTacApi   in-memory backend for demos
   data/local/SessionStore  keeps the login (DataStore)
   data/repo/TacRepository  one place for errors and session state
@@ -100,6 +112,6 @@ If a compatible Laravel API is running, point the same test at it:
 python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 ```
 
-## If Gradle sync or the build fails
+## Validation notes
 
-This was written without the Android SDK available, so it has not been compiled. Paste the first error and it can be fixed quickly.
+The offline smoke test runs without Android Studio or network access. This repository is a source pack, not a complete Gradle project; Android compilation requires merging it into the fresh project described above.

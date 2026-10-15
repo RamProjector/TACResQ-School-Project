@@ -2,8 +2,8 @@ package com.tacresq.app
 
 import android.content.Context
 import com.tacresq.app.data.local.SessionStore
-import com.tacresq.app.data.remote.ApiClient
 import com.tacresq.app.data.remote.FakeTacApi
+import com.tacresq.app.data.remote.SupabaseTacApi
 import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.data.repo.TokenHolder
@@ -22,7 +22,7 @@ class AppContainer(context: Context) {
         if (AppConfig.USE_FAKE_API) {
             FakeTacApi { tokenHolder.value }
         } else {
-            ApiClient.create { tokenHolder.value }
+            SupabaseTacApi.create { tokenHolder.value }
         }
 
     val repository = TacRepository(api, SessionStore(appContext), tokenHolder, appScope)
