@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && docker-php-ext-install pdo_pgsql mbstring bcmath zip \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=composer-bin /usr/bin/composer /usr/bin/composer
-WORKDIR /var/www
+WORKDIR /app
 
 # Create a conventional Laravel 11 application, then overlay this repository's API files.
 RUN composer create-project laravel/laravel:^11.0 . --no-interaction
