@@ -1,5 +1,7 @@
 # TACResQ REST API contract (proposal v0.1)
 
+This contract is used only when `USE_FAKE_API = false` and `USE_SUPABASE_API = false` (the Laravel/Render adapter). The Supabase adapter uses the RPC contract in [`SUPABASE_BACKEND.md`](SUPABASE_BACKEND.md).
+
 The Android app expects these routes. They live in one file, `TacApi.kt`, with the JSON shapes in `Models.kt`.
 If your Laravel API already exists with different routes or field names, change those two files instead of the backend.
 
