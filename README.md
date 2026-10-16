@@ -1,6 +1,6 @@
 # TACResQ Android starter (Kotlin + Jetpack Compose)
 
-Source files to drop into a fresh Android Studio project. It runs on a built-in fake backend, so it works with no server, paid API, subscription, or cloud account.
+Source files to drop into a fresh Android Studio project. Choose between an offline in-memory demo backend, a Render-hosted Laravel API, or Supabase Auth + Postgres RPC. The app defaults to the offline demo; configure one live backend when needed.
 
 ## Setup (about 10 minutes)
 
@@ -35,7 +35,31 @@ implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
      ```
    - Add `android:name=".TacResqApp"` to the `<application ...>` tag.
 5. **Sync Gradle**, then run on an emulator (use an image with Google Play or Google APIs).
-6. Emulator GPS: `...` (Extended controls) > Location > pick a point > Send. The SOS needs a location.
+6. Emulator GPS: `...` (Extended controls) > Location > pick a point > Send. SOS requires a location no older than two minutes.
+
+## Backend selection
+
+Edit `AppConfig.kt`. Pick exactly one mode:
+
+| Mode | `USE_FAKE_API` | `USE_SUPABASE_API` | Additional setting |
+|---|---:|---:|---|
+| Offline demo (default) | `true` | `false` | None |
+| Render/Laravel | `false` | `false` | Set `BASE_URL` to `https://<service>.onrender.com/api/` |
+| Supabase | `false` | `true` | Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` |
+
+`AppContainer` wires the selected implementation: `FakeTacApi`, the Laravel Retrofit `ApiClient`, or `SupabaseTacApi`. The fake auto-dispatch option is disabled by default; set `FAKE_AUTO_DISPATCH = true` only to demonstrate automatic dispatch rather than dispatcher assignment.
+
+### Render-hosted Laravel API
+
+The repository includes a Dockerized Laravel + Sanctum API and PostgreSQL schema in [`backend/`](backend/README.md). Deploy the `backend` directory as a Render Docker Web Service, attach a Render PostgreSQL database, and configure the required server environment variables in that guide. After deployment, use the service URL for `BASE_URL` and rebuild the Android app. The app uses HTTPS for the hosted service.
+
+The Android app itself does not need the database URL, database password, Laravel `APP_KEY`, or any server secret. Those belong only in Render’s server environment. See [`docs/API.md`](docs/API.md) for this API contract.
+
+### Supabase backend
+
+The Android adapter uses Supabase Auth and narrowly scoped Postgres RPC functions. Row Level Security is enabled, with role checks and incident-status rules enforced in the database. The SQL schema and security policies are in [`supabase/migrations/`](supabase/migrations/), and setup/provisioning steps are in [`docs/SUPABASE_BACKEND.md`](docs/SUPABASE_BACKEND.md).
+
+Set `USE_FAKE_API = false` and `USE_SUPABASE_API = true`, then put your Supabase project URL and **publishable** key in `AppConfig.kt`. Never put a service-role/secret key in Android code. Public sign-up creates requesters only; provision responders, drivers, and dispatchers through a trusted administrator. The configured Supabase URL/key in the source are publishable client settings, not server secrets.
 
 ## Demo accounts (fake backend, password `demo123`)
 
@@ -44,45 +68,36 @@ implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
 | requester@demo.com | Emergency requester |
 | responder@demo.com | Field responder |
 | driver@demo.com | Driver |
-| dispatcher@demo.com | Dispatcher (placeholder screen) |
+| dispatcher@demo.com | Dispatcher |
 
-Try it end to end: sign in as the responder, tap **Available**, log out. Sign in as the requester, send an SOS. Sign in as the dispatcher to see the pending queue and manually assign the available unit. Sign back in as the responder and step it through en route, on scene, resolved. The requester's list updates on its own. Fake auto-dispatch is off by default; set `FAKE_AUTO_DISPATCH = true` in `AppConfig.kt` only when you specifically want the automatic demo behavior.
-
-## Switching to the real Laravel API
-
-The repository now includes a Render-ready Laravel + Sanctum backend and PostgreSQL schema in [`backend/`](backend/README.md). Follow that guide to deploy the API and connect the app; the offline fake backend remains the easiest way to demo without hosting.
-
-Edit `AppConfig.kt`:
-
-- `USE_FAKE_API = false`
-- `BASE_URL`: emulator `http://10.0.2.2:8000/api/`; real phone `http://<your-PC-LAN-IP>:8000/api/` (run `php artisan serve --host=0.0.0.0`)
-
-The routes and JSON the app expects are in `docs/API.md`. Plain `http://` only works in debug builds (`app/src/debug/AndroidManifest.xml`); use HTTPS for release.
+Demo data is in memory and resets when the app process restarts. Try it end to end: sign in as the responder, tap **Available**, log out. Sign in as the requester, send an SOS. Sign in as the dispatcher to see the pending queue and manually assign the available unit. Sign back in as the responder and step it through en route, on scene, resolved. The requester's list refreshes automatically while the screen is active.
 
 ## What is in the code
 
 ```
 com.tacresq.app
-  AppConfig.kt             fake/real switch, base URL
-  AppContainer.kt          wires everything (no Hilt)
-  data/model/Models.kt     Role, DutyStatus, Incident, ... and the status rules
-  data/remote/TacApi.kt    Retrofit interface = the API contract
-  data/remote/FakeTacApi   in-memory backend for demos
+  AppConfig.kt             backend selection, URLs and publishable client config
+  AppContainer.kt          wires the selected backend
+  data/model/Models.kt     Role, DutyStatus, Incident, ... and status rules
+  data/remote/TacApi.kt    shared Retrofit interface/API contract
+  data/remote/SupabaseTacApi.kt Supabase Auth + Postgres RPC adapter
+  data/remote/FakeTacApi  in-memory fake backend
   data/local/SessionStore  keeps the login (DataStore)
-  data/repo/TacRepository  one place for errors and session state
-  location/LocationProvider  one GPS fix for the SOS
-  ui/                      AppRoot (routes by role), auth, requester, responder, dispatcher
+  data/repo/TacRepository one place for errors and session state
+  location/LocationProvider one recent GPS fix for the SOS
+  ui/                     role-based auth, requester, responder and dispatcher screens
 ```
 
 ## Deferred after the free UI prototype
 
-- FCM push notifications (replaces the 8-second polling in `PollWhileStarted`)
+- FCM push notifications (currently screens poll every 8 seconds)
 - Live GPS tracking for responders (foreground service) and map screens (Maps SDK + API key)
 - Offline queue that syncs GPS and status updates when signal returns
-- Dispatcher web dashboard (Laravel)
-- Encrypting the saved token (Android Keystore), HTTPS-only release config
+- Dispatcher web dashboard
+- Encrypting the saved token (Android Keystore)
+- Production operational monitoring, abuse controls and emergency-service readiness review
 
-The current dispatcher console is intentionally inside the Android prototype so the complete workflow can be demonstrated before a separate Laravel web dashboard is built. See `docs/PROTOTYPE_SCOPE.md` for the requirements matrix and test checklist.
+This remains a school prototype, not an operational emergency-dispatch service. It does not yet implement continuous/background responder tracking, dispatcher map/fleet display, FCM push, or offline write synchronization.
 
 ## Automated workflow smoke test
 
@@ -92,16 +107,14 @@ Run this from the repository root:
 python3 tools/test_workflow.py
 ```
 
-It uses only Python's standard library and runs fully offline. It verifies the complete prototype flow:
+It uses only Python's standard library and runs fully offline. It verifies the modeled flow:
 
 `requester submits SOS → dispatcher sees and assigns → responder updates status → requester sees resolved`
 
-If a compatible Laravel API is running, point the same test at it:
+If a compatible Laravel API is running with test users provisioned, point the same test at it:
 
 ```bash
 python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 ```
 
-## If Gradle sync or the build fails
-
-This was written without the Android SDK available, so it has not been compiled. Paste the first error and it can be fixed quickly.
+The offline smoke test is a Python workflow model; it does not compile or exercise the Android app. This repository is a source pack, not a complete Gradle project; Android compilation requires merging it into the fresh project described above.

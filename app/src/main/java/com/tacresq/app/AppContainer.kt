@@ -4,6 +4,7 @@ import android.content.Context
 import com.tacresq.app.data.local.SessionStore
 import com.tacresq.app.data.remote.ApiClient
 import com.tacresq.app.data.remote.FakeTacApi
+import com.tacresq.app.data.remote.SupabaseTacApi
 import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.data.repo.TokenHolder
@@ -18,12 +19,11 @@ class AppContainer(context: Context) {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val tokenHolder = TokenHolder()
 
-    private val api: TacApi =
-        if (AppConfig.USE_FAKE_API) {
-            FakeTacApi({ tokenHolder.value }, AppConfig.FAKE_AUTO_DISPATCH)
-        } else {
-            ApiClient.create { tokenHolder.value }
-        }
+    private val api: TacApi = when {
+        AppConfig.USE_FAKE_API -> FakeTacApi({ tokenHolder.value }, AppConfig.FAKE_AUTO_DISPATCH)
+        AppConfig.USE_SUPABASE_API -> SupabaseTacApi.create { tokenHolder.value }
+        else -> ApiClient.create { tokenHolder.value }
+    }
 
     val repository = TacRepository(api, SessionStore(appContext), tokenHolder, appScope)
     val locationProvider = LocationProvider(appContext)
