@@ -1,6 +1,6 @@
 # TACResQ API backend (Render)
 
-Laravel 11 + Sanctum API implementing [`../docs/API.md`](../docs/API.md), prepared for deployment as a **Render Web Service** with a managed Render PostgreSQL database. The Android app can use the same endpoints and JSON shapes as its Retrofit interface.
+Laravel 13 + Sanctum API implementing [`../docs/API.md`](../docs/API.md), prepared for deployment as a **Render Web Service** with a managed Render PostgreSQL database. The Android app can use the same endpoints and JSON shapes as its Retrofit interface.
 
 ## Deploy on Render
 

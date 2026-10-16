@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=composer-bin /usr/bin/composer /usr/bin/composer
 WORKDIR /app
 
-# Create a conventional Laravel 11 application, then overlay this repository's API files.
-RUN composer create-project laravel/laravel:^11.0 . --no-interaction
+# Create a conventional Laravel 13 application, then overlay this repository's API files.
+RUN composer create-project laravel/laravel:^13.0 . --no-interaction
 RUN composer require laravel/sanctum:^4.0 --no-interaction
 RUN rm -f database/migrations/*.php
 COPY src/ ./
