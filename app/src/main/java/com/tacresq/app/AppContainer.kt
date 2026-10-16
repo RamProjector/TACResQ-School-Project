@@ -20,7 +20,7 @@ class AppContainer(context: Context) {
 
     private val api: TacApi =
         if (AppConfig.USE_FAKE_API) {
-            FakeTacApi { tokenHolder.value }
+            FakeTacApi({ tokenHolder.value }, AppConfig.FAKE_AUTO_DISPATCH)
         } else {
             ApiClient.create { tokenHolder.value }
         }

@@ -54,7 +54,7 @@ All demo accounts use password `demo123`:
 4. Run the app with an emulator GPS location configured, or on an Android phone with location permission enabled.
 5. Sign in as `responder@demo.com`, set the duty status to **Available**, and log out.
 6. Sign in as `requester@demo.com`, grant location permission, and send a medical SOS.
-7. Sign in as `dispatcher@demo.com`. The incident should appear in the queue. Assign it manually to the available responder, or wait for the fake dispatch demonstration.
+7. Sign in as `dispatcher@demo.com`. The incident should appear in the queue. Assign it manually to the available responder. Fake auto-dispatch is disabled by default; it can be explicitly enabled with `FAKE_AUTO_DISPATCH` in `AppConfig.kt` for a separate demo.
 8. Sign in as `responder@demo.com` and move the incident through the available status buttons.
 9. Sign in as `requester@demo.com` and confirm the incident status updates.
 

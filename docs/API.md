@@ -52,7 +52,7 @@ Wrong credentials: 422 with a `message`.
 
 ### POST /register (public)
 
-Request: `{ "name": "...", "email": "...", "phone": "...", "password": "..." }` (no password confirmation field)
+Request: `{ "name": "...", "email": "...", "phone": "...", "password": "..." }` (no password confirmation field; password must be at least 8 characters)
 Response 200: `{ "token": "...", "user": { User } }`
 Always creates a **requester**. Responders, drivers and dispatchers are created by an admin (seeder or the dispatcher dashboard).
 

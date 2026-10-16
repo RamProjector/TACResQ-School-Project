@@ -57,7 +57,7 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
             name.isBlank() -> "Enter your full name."
             !email.contains("@") -> "Enter a valid email address."
             phone.isBlank() -> "Enter your mobile number so responders can reach you."
-            password.length < 6 -> "Password must be at least 6 characters."
+            password.length < 8 -> "Password must be at least 8 characters."
             else -> null
         }
         if (problem != null) {
@@ -172,8 +172,9 @@ fun AuthScreen(vm: AuthViewModel) {
 
         if (AppConfig.USE_FAKE_API) {
             Text(
-                "Demo mode (no server). Sign in with requester@demo.com, responder@demo.com, " +
-                    "driver@demo.com or dispatcher@demo.com. Password: demo123",
+                "Demo mode (no server; demo data resets when the app process restarts). Sign in with " +
+                    "requester@demo.com, responder@demo.com, driver@demo.com or dispatcher@demo.com. " +
+                    "Password: demo123",
                 style = MaterialTheme.typography.bodySmall,
             )
         }

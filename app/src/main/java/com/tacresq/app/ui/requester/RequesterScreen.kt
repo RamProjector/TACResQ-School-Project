@@ -86,7 +86,7 @@ class RequesterViewModel(
             val fix = location.current()
             if (fix == null) {
                 _state.update {
-                    it.copy(sending = false, error = "Couldn't get your location. Turn on GPS and try again.")
+                    it.copy(sending = false, error = "Couldn't get a recent location. Turn on GPS, wait for a fix, and try again.")
                 }
                 return@launch
             }

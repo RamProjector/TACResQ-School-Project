@@ -22,11 +22,15 @@ import java.util.UUID
  * Fake server used when AppConfig.USE_FAKE_API = true. It follows the same rules as docs/API.md,
  * so the UI can be built and demoed before the Laravel API exists.
  *
- * Demo flow: requester sends SOS -> after ~5 s the fake "dispatcher" assigns it to an
- * AVAILABLE responder or driver -> that unit steps the incident through its statuses.
+ * Default demo flow: requester sends SOS -> dispatcher manually assigns an AVAILABLE unit ->
+ * that unit steps the incident through its statuses. Optional auto-dispatch is controlled by
+ * AppConfig.FAKE_AUTO_DISPATCH and is off by default.
  * Demo accounts (password demo123): requester@, responder@, driver@, dispatcher@demo.com
  */
-class FakeTacApi(private val tokenProvider: () -> String?) : TacApi {
+class FakeTacApi(
+    private val tokenProvider: () -> String?,
+    private val autoDispatchEnabled: Boolean = false,
+) : TacApi {
 
     private data class Account(val user: User, val password: String)
 
@@ -61,8 +65,8 @@ class FakeTacApi(private val tokenProvider: () -> String?) : TacApi {
             if (accounts.any { it.user.email.equals(body.email, ignoreCase = true) }) {
                 throw httpError(422, "The email has already been taken.")
             }
-            if (body.password.length < 6) {
-                throw httpError(422, "The password must be at least 6 characters.")
+            if (body.password.length < 8) {
+                throw httpError(422, "The password must be at least 8 characters.")
             }
             val user = User(nextUserId++, body.name, body.email, body.phone, Role.REQUESTER)
             accounts += Account(user, body.password)
@@ -238,6 +242,7 @@ class FakeTacApi(private val tokenProvider: () -> String?) : TacApi {
 
     /** Pretends to be the dispatcher: gives the oldest pending incident to a free, available unit. */
     private fun dispatchLater(delayMs: Long) {
+        if (!autoDispatchEnabled) return
         scope.launch {
             delay(delayMs)
             synchronized(lock) {

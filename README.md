@@ -46,7 +46,7 @@ implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
 | driver@demo.com | Driver |
 | dispatcher@demo.com | Dispatcher (placeholder screen) |
 
-Try it end to end: sign in as the responder, tap **Available**, log out. Sign in as the requester, send an SOS. Sign in as the dispatcher to see the queue, available units, and manual assignment controls. Sign back in as the responder and step it through en route, on scene, resolved. The requester's list updates on its own.
+Try it end to end: sign in as the responder, tap **Available**, log out. Sign in as the requester, send an SOS. Sign in as the dispatcher to see the pending queue and manually assign the available unit. Sign back in as the responder and step it through en route, on scene, resolved. The requester's list updates on its own. Fake auto-dispatch is off by default; set `FAKE_AUTO_DISPATCH = true` in `AppConfig.kt` only when you specifically want the automatic demo behavior.
 
 ## Switching to the real Laravel API
 

@@ -7,6 +7,9 @@ object AppConfig {
      */
     const val USE_FAKE_API = true
 
+    /** Optional demo behavior. Keep off for the normal dispatcher-controlled workflow. */
+    const val FAKE_AUTO_DISPATCH = false
+
     /**
      * Laravel API root. Must end with "/".
      * Emulator   -> your PC's localhost is 10.0.2.2
