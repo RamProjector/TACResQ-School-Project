@@ -50,6 +50,8 @@ Try it end to end: sign in as the responder, tap **Available**, log out. Sign in
 
 ## Switching to the real Laravel API
 
+The repository now includes a Render-ready Laravel + Sanctum backend and PostgreSQL schema in [`backend/`](backend/README.md). Follow that guide to deploy the API and connect the app; the offline fake backend remains the easiest way to demo without hosting.
+
 Edit `AppConfig.kt`:
 
 - `USE_FAKE_API = false`

@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:10000"
+    environment:
+      APP_KEY: ${APP_KEY}
+      APP_ENV: local
+      APP_DEBUG: "true"
+      LOG_CHANNEL: stderr
+      DATABASE_URL: postgresql://tacresq:tacresq@db:5432/tacresq
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tacresq
+      POSTGRES_USER: tacresq
+      POSTGRES_PASSWORD: tacresq
+    ports:
+      - "5432:5432"
+    volumes:
+      - tacresq-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tacresq -d tacresq"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  tacresq-db:
