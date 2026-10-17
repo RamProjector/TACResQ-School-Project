@@ -1,6 +1,6 @@
 # TACRU Response Operations
 
-A responsive dispatcher console for the TACResQ school-project prototype. This Vite + React website uses the existing Supabase Auth and RPC contract; it does not introduce a second schema or a server-role key.
+A responsive dispatcher console for the TACResQ school-project prototype. The Laravel Docker image builds this Vite + React app into `public/dispatch/` and serves it at `/dispatch/`. The browser uses the existing Supabase Auth and RPC contract; Laravel's own API/PostgreSQL data path is unchanged.
 
 ## Run locally
 
@@ -9,6 +9,8 @@ A responsive dispatcher console for the TACResQ school-project prototype. This V
 3. Copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` from the project's existing client configuration. These are browser-facing values. Never use a service-role/secret key here.
 4. Run `pnpm dev` and open the Vite URL shown in the terminal.
 5. `pnpm build` runs TypeScript checking and creates the static site in `dist/`.
+
+For local Vite development, the `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` values are read from `.env.local`. In the Laravel deployment, configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` on the backend service instead; Laravel provides these browser-safe values through `/dispatch/config.json` at runtime, so they are not baked into the Docker build.
 
 ## Supabase behavior
 

@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export type TacruRole = "requester" | "responder" | "driver" | "dispatcher";
 export type DutyStatus = "off_duty" | "available" | "en_route" | "on_scene" | "transporting";
@@ -28,25 +28,61 @@ export interface Incident {
   created_at: string | null;
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
-const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
+type TacruDatabase = {
+  public: {
+    Tables: Record<string, never>;
+    Views: Record<string, never>;
+    Functions: {
+      api_me: { Args: Record<string, never>; Returns: TacruProfile };
+      api_all_incidents: { Args: Record<string, never>; Returns: Incident[] };
+      api_units: { Args: Record<string, never>; Returns: TacruProfile[] };
+      api_assign_incident: { Args: { p_id: number; p_user_id: number }; Returns: Incident };
+    };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl!, supabasePublishableKey!, {
-      auth: {
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        persistSession: true,
-      },
-    })
-  : null;
+interface RuntimeSupabaseConfig {
+  supabaseUrl?: string | null;
+  supabasePublishableKey?: string | null;
+}
+
+let supabaseClient: SupabaseClient<TacruDatabase> | null = null;
+
+export async function initializeSupabase(): Promise<boolean> {
+  let supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() ?? "";
+  let supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
+
+  if (!supabaseUrl || !supabasePublishableKey) {
+    try {
+      const response = await fetch("/dispatch/config.json", { cache: "no-store" });
+      if (response.ok) {
+        const runtimeConfig = await response.json() as RuntimeSupabaseConfig;
+        supabaseUrl ||= runtimeConfig.supabaseUrl?.trim() ?? "";
+        supabasePublishableKey ||= runtimeConfig.supabasePublishableKey?.trim() ?? "";
+      }
+    } catch {
+      // Local Vite development can instead use VITE_SUPABASE_* in .env.local.
+    }
+  }
+
+  if (!supabaseUrl || !supabasePublishableKey) return false;
+  supabaseClient = createClient<TacruDatabase>(supabaseUrl, supabasePublishableKey, {
+    auth: {
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      persistSession: true,
+    },
+  });
+  return true;
+}
 
 export function getSupabase() {
-  if (!supabase) {
-    throw new Error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.");
+  if (!supabaseClient) {
+    throw new Error("Supabase has not been initialized. Configure the Laravel runtime or local VITE_SUPABASE_* values.");
   }
-  return supabase;
+  return supabaseClient;
 }
 
 function throwIfError(error: { message: string } | null) {

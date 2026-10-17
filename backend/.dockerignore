@@ -1,0 +1,7 @@
+.git
+.env
+src/.env
+web/.env.local
+web/.env.*.local
+web/node_modules
+web/dist
