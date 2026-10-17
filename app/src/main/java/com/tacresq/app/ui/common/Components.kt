@@ -36,12 +36,24 @@ import java.util.Locale
 
 @Composable
 fun ScreenHeader(title: String, subtitle: String, onLogout: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium)
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "TACRU",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onLogout) { Text("Sign out") }
         }
-        TextButton(onClick = onLogout) { Text("Log out") }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            StatusPill("SECURE SESSION", MaterialTheme.colorScheme.secondary)
+        }
     }
 }
 
@@ -118,7 +130,10 @@ fun IncidentCard(
             val time = formatTime(incident.createdAt)
             if (time.isNotEmpty()) Text(time, style = MaterialTheme.typography.bodySmall)
             val note = incident.description
-            if (!note.isNullOrBlank()) Text(note)
+            if (!note.isNullOrBlank()) {
+                Text("Report details", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text(note)
+            }
             Text(locationText(incident), style = MaterialTheme.typography.bodySmall)
             actions()
         }

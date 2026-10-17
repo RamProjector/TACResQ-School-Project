@@ -19,10 +19,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -123,11 +125,12 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
 
     var selectedType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
     var description by rememberSaveable { mutableStateOf("") }
+    var confirmingSos by rememberSaveable { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
-        if (grants.values.any { it }) vm.sendSos(selectedType, description) else vm.onLocationDenied()
+        if (grants.values.any { it }) confirmingSos = true else vm.onLocationDenied()
     }
 
     // Clear the text box once a request has gone through.
@@ -159,7 +162,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Text("Choose the emergency type. Your GPS location is sent with the request.")
+                    Text("Choose the emergency type. Your current GPS location will be shared with the response team.")
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(IncidentType.entries) { type ->
                             FilterChip(
@@ -180,7 +183,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     Button(
                         onClick = {
                             if (vm.hasLocationPermission()) {
-                                vm.sendSos(selectedType, description)
+                                confirmingSos = true
                             } else {
                                 permissionLauncher.launch(
                                     arrayOf(
@@ -201,7 +204,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 color = MaterialTheme.colorScheme.onError,
                             )
                         } else {
-                            Text("Send SOS", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Text("Review and send SOS", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -222,5 +225,26 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         items(state.incidents, key = { it.id }) { incident ->
             IncidentCard(incident)
         }
+    }
+
+    if (confirmingSos) {
+        AlertDialog(
+            onDismissRequest = { confirmingSos = false },
+            title = { Text("Send emergency request?") },
+            text = {
+                Text(
+                    "This will notify dispatch of a ${selectedType.label.lowercase()} emergency and share your current location. Only continue if help is needed now.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingSos = false
+                    vm.sendSos(selectedType, description)
+                }) { Text("Send SOS") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingSos = false }) { Text("Go back") }
+            },
+        )
     }
 }

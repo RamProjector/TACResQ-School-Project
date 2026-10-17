@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.tacresq.app.AppConfig
 import com.tacresq.app.data.repo.TacRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -170,13 +169,5 @@ fun AuthScreen(vm: AuthViewModel) {
             Text(if (registering) "I already have an account" else "New requester? Create an account")
         }
 
-        if (AppConfig.USE_FAKE_API) {
-            Text(
-                "Demo mode (no server; demo data resets when the app process restarts). Sign in with " +
-                    "requester@demo.com, responder@demo.com, driver@demo.com or dispatcher@demo.com. " +
-                    "Password: demo123",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
     }
 }
