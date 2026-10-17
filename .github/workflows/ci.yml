@@ -1,0 +1,112 @@
+name: TACResQ CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  source-checks:
+    name: Source checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run offline dispatcher workflow test
+        run: python3 tools/test_workflow.py
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: backend/web/pnpm-lock.yaml
+
+      - name: Install dashboard dependencies
+        working-directory: backend/web
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check and build dashboard for /dispatch/
+        working-directory: backend/web
+        env:
+          VITE_BASE_PATH: /dispatch/
+        run: pnpm build
+
+  backend-integration:
+    name: Laravel and dashboard integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: source-checks
+    env:
+      SUPABASE_URL: https://tacresq-ci.example.test
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Generate an ephemeral Laravel test key
+        run: echo "APP_KEY=base64:$(openssl rand -base64 32 | tr -d '\n')" >> "$GITHUB_ENV"
+
+      - name: Build and start the Laravel/Postgres stack
+        working-directory: backend
+        run: docker compose up -d --build
+
+      - name: Wait for Laravel readiness
+        working-directory: backend
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8000/up >/dev/null; then
+              echo "Laravel is ready."
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs api db
+          exit 1
+
+      - name: Run Laravel feature tests
+        working-directory: backend
+        run: docker compose exec -T api php artisan test
+
+      - name: Verify dashboard and public runtime configuration
+        working-directory: backend
+        run: |
+          curl --fail --silent http://127.0.0.1:8000/dispatch/ --output /tmp/dispatch.html
+          grep -q '<title>TACRU | Response Operations</title>' /tmp/dispatch.html
+          grep -q '/dispatch/assets/' /tmp/dispatch.html
+          curl --fail --silent http://127.0.0.1:8000/dispatch/tacru-mark.svg --output /dev/null
+          curl --fail --silent --dump-header /tmp/config-headers.txt \
+            http://127.0.0.1:8000/dispatch/config.json --output /tmp/dispatch-config.json
+          grep -Eqi '^cache-control:[[:space:]]*no-store, private' /tmp/config-headers.txt
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          config = json.loads(Path('/tmp/dispatch-config.json').read_text())
+          assert config == {
+              'supabaseUrl': 'https://tacresq-ci.example.test',
+              'supabasePublishableKey': 'sb_publishable_ci_placeholder',
+          }, config
+          print('Dashboard assets and runtime configuration verified.')
+          PY
+
+      - name: Stop test services
+        if: always()
+        working-directory: backend
+        run: docker compose down --volumes --remove-orphans
