@@ -1,25 +1,23 @@
-# TACResQ API backend (Render)
+# TACResQ dispatcher host (Render)
 
-Laravel 13 + Sanctum API implementing [`../docs/API.md`](../docs/API.md), prepared for deployment as a **Render Web Service** with a managed Render PostgreSQL database. The Android app can use the same endpoints and JSON shapes as its Retrofit interface.
+Laravel 13 hosts the TACRU dispatcher console on Render. Supabase is the source of truth for authentication, data, and RPC operations; the temporary Render PostgreSQL database is not required.
 
 ## Deploy on Render
 
 1. Push this repository to GitHub.
-2. In Render, create a **PostgreSQL** database in the region you want. Keep its internal connection URL private.
-3. Create a **Web Service** from the GitHub repository. Choose **Docker** and set **Root Directory** to `backend`.
-4. Add environment variables to the Web Service:
+2. Create a **Web Service** from the GitHub repository. Choose **Docker** and set **Root Directory** to `backend`.
+3. Add environment variables to the Web Service:
    - `APP_KEY`: generate a fresh key once with `printf 'base64:%s' "$(openssl rand -base64 32)"` and set the complete output. Keep it private and stable across deploys.
    - `APP_ENV=production`
    - `APP_DEBUG=false`
    - `LOG_CHANNEL=stderr`
-   - `DATABASE_URL`: the Render PostgreSQL **internal** database URL (copy it from the database page; do not commit it).
    - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: the browser-safe settings for the TACRU dashboard at `/dispatch/`. Never use a service-role key.
-5. Deploy. The container runs `php artisan migrate --force` before serving HTTP on Render's assigned `$PORT`.
-6. Check `https://<your-service>.onrender.com/up`; expected response is `200`.
-7. Open `https://<your-service>.onrender.com/dispatch/` for the TACRU dashboard. Its `/dispatch/config.json` endpoint returns only the configured Supabase URL and publishable key, with caching disabled.
-8. Set the Android app's `BASE_URL` to `https://<your-service>.onrender.com/api/` and set `USE_FAKE_API = false`.
+4. Deploy. The container clears Laravel's config cache and serves HTTP on Render's assigned `$PORT`; it does not connect to or migrate a Render database.
+5. Check `https://<your-service>.onrender.com/up`; expected response is `200`.
+6. Open `https://<your-service>.onrender.com/dispatch/` for the TACRU dashboard. Its `/dispatch/config.json` endpoint returns only the configured Supabase URL and publishable key, with caching disabled.
+7. Configure the Android app for direct Supabase mode: `USE_FAKE_API = false` and `USE_SUPABASE_API = true`.
 
-Render free instances may spin down when idle; first request after inactivity can take a while. Keep the database in the same region and use its internal URL. Configure backups/retention according to the needs of your deployment.
+Render free instances may spin down when idle; first request after inactivity can take a while. Supabase remains independent of Render instance lifecycle.
 
 ## Seed demo users (optional; demo password is not production-safe)
 
@@ -61,7 +59,7 @@ python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 
 The same Laravel service serves the responsive dispatcher console at `/dispatch/`. Its source is in `backend/web/`; the Dockerfile installs the pinned pnpm toolchain, builds the React app under the `/dispatch/` base path, and copies the static assets into Laravel's public directory. The Laravel `GET /dispatch/config.json` endpoint exposes only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` at runtime with `Cache-Control: no-store`.
 
-The dashboard deliberately keeps its sign-in, incident/unit reads, and assignment RPC on Supabase. Laravel continues to use its separate PostgreSQL database and Sanctum API for the Android Laravel mode. Configure the Supabase URL and **publishable** key on the Laravel service; do not use a Supabase service-role/secret key.
+The dashboard deliberately keeps its sign-in, incident/unit reads, and assignment RPC on Supabase. The Render Laravel service only hosts the dashboard and runtime configuration endpoint. Configure the Supabase URL and **publishable** key on the Laravel service; do not use a Supabase service-role/secret key.
 
 For local Compose setup, copy `.env.example` to `.env`, then set the Supabase URL and publishable key along with a generated `APP_KEY`. To run the frontend separately during UI development, use `backend/web/README.md`: copy `web/.env.example` to `web/.env.local`, fill in the same browser-safe Supabase values, and run `pnpm dev` from `backend/web/`.
 

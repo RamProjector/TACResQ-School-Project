@@ -7,13 +7,14 @@ object AppConfig {
      * only when intentionally connecting the app directly to Supabase.
      */
     const val USE_FAKE_API = false
-    const val USE_SUPABASE_API = false
+    const val USE_SUPABASE_API = true
 
     /** Optional demo behavior. Keep off for the normal dispatcher-controlled workflow. */
     const val FAKE_AUTO_DISPATCH = false
 
     /**
-     * Laravel API root. Must end with "/". Use the Render service URL in production.
+     * Laravel API root. Retained for the optional Laravel adapter; the app currently
+     * uses Supabase directly, so no Render database is required.
      */
     const val BASE_URL = "https://tacresq-school-project.onrender.com/api/"
 
