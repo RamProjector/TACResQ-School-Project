@@ -9,6 +9,8 @@ services:
       APP_DEBUG: "true"
       LOG_CHANNEL: stderr
       DATABASE_URL: postgresql://tacresq:tacresq@db:5432/tacresq
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
     depends_on:
       db:
         condition: service_healthy

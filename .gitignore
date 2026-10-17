@@ -12,3 +12,11 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Backend and TACRU dashboard local files
+backend/.env
+backend/src/.env
+backend/web/node_modules/
+backend/web/dist/
+backend/web/.env.local
+backend/web/.env.*.local

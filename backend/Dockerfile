@@ -1,3 +1,12 @@
+FROM node:22-alpine AS dashboard-build
+WORKDIR /dashboard
+RUN corepack enable && corepack prepare pnpm@10.18.0 --activate
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY web/ ./
+ENV VITE_BASE_PATH=/dispatch/
+RUN pnpm build
+
 FROM composer:2 AS composer-bin
 FROM php:8.3-cli
 
@@ -13,6 +22,7 @@ RUN composer create-project laravel/laravel:^13.0 . --no-interaction
 RUN composer require laravel/sanctum:^4.0 --no-interaction
 RUN rm -f database/migrations/*.php
 COPY src/ ./
+COPY --from=dashboard-build /dashboard/dist/ ./public/dispatch/
 COPY docker/entrypoint.sh /usr/local/bin/tacresq-entrypoint
 RUN chmod +x /usr/local/bin/tacresq-entrypoint \
     && php artisan optimize:clear
