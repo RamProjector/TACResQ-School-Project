@@ -6,6 +6,8 @@ The selected repository is an Android source pack for **TACResQ**, built with Ko
 
 The app can run against an in-memory fake backend, a Laravel API, or Supabase. `AppConfig.kt` currently selects the offline fake backend by default. The Supabase adapter is already implemented in `SupabaseTacApi.kt` and calls Supabase Auth plus Postgres RPCs.
 
+The dispatcher website is now located under `backend/web/` and is built into the Laravel image for `/dispatch/`. Laravel serves the frontend and supplies its public Supabase settings at runtime; the website continues to use Supabase Auth/RPCs for identity and dispatch data. The Laravel API's own PostgreSQL/Sanctum path remains separate and unchanged.
+
 ## Existing Supabase contract
 
 The repository documents and migrates the `profiles`, `incidents`, `incident_status_logs`, and `location_logs` tables. Row Level Security and role/status guards are enabled. The dispatcher flow uses these RPCs:
