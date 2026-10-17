@@ -93,7 +93,6 @@ com.tacresq.app
 - FCM push notifications (currently screens poll every 8 seconds)
 - Live GPS tracking for responders (foreground service) and map screens (Maps SDK + API key)
 - Offline queue that syncs GPS and status updates when signal returns
-- Dispatcher web dashboard
 - Encrypting the saved token (Android Keystore)
 - Production operational monitoring, abuse controls and emergency-service readiness review
 
@@ -118,3 +117,10 @@ python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 ```
 
 The offline smoke test is a Python workflow model; it does not compile or exercise the Android app. This repository is a source pack, not a complete Gradle project; Android compilation requires merging it into the fresh project described above.
+
+
+## TACRU web dispatch dashboard
+
+A standalone responsive dispatcher console lives in [`web/`](web/README.md). It uses the existing Supabase Auth/RPC contract (`api_me`, `api_all_incidents`, `api_units`, and `api_assign_incident`) and preserves the database role checks and Row Level Security. Follow the web guide to configure the existing browser-safe Supabase URL and publishable key. No schema migration or service-role key is required.
+
+The console is dispatcher-only; dispatcher accounts remain administrator-provisioned. It supports queue search/status filters, field-unit availability, and an explicit confirmation before a pending incident assignment is written. It is still a school prototype, not a real emergency-service system; it does not add push notifications, live fleet tracking, or offline write synchronization.
