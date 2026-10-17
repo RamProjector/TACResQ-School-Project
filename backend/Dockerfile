@@ -27,6 +27,10 @@ COPY docker/entrypoint.sh /usr/local/bin/tacresq-entrypoint
 RUN chmod +x /usr/local/bin/tacresq-entrypoint \
     && php artisan optimize:clear
 
-ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr
+# These are browser-safe Supabase client settings, not service-role credentials.
+# Render environment variables may override them when configured successfully.
+ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr \
+    SUPABASE_URL=https://kttguamhznoflzagfutr.supabase.co \
+    SUPABASE_PUBLISHABLE_KEY=sb_publishable_1-_oEKiNRWO0tvEOr5Gr3g_USY07s2g
 EXPOSE 10000
 CMD ["/usr/local/bin/tacresq-entrypoint"]
