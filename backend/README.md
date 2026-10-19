@@ -65,3 +65,8 @@ The dashboard deliberately keeps its sign-in, incident/unit reads, and assignmen
 For local Compose setup, copy `.env.example` to `.env`, then set the Supabase URL and publishable key along with a generated `APP_KEY`. To run the frontend separately during UI development, use `backend/web/README.md`: copy `web/.env.example` to `web/.env.local`, fill in the same browser-safe Supabase values, and run `pnpm dev` from `backend/web/`.
 
 The console remains dispatcher-only, requires an administrator-provisioned dispatcher profile, and is a school prototype—not an operational emergency service. It does not add live GPS tracking, FCM, offline write synchronization, or map-based fleet visualization.
+
+
+## Automated CI tests
+
+GitHub Actions runs `tools/test_workflow.py`, type-checks/builds the dashboard with its `/dispatch/` base path, builds and starts the Docker Compose Laravel/PostgreSQL stack with disposable test settings, runs the Laravel feature tests, and smoke-tests the served dashboard and `/dispatch/config.json` response. The integration job uses placeholder Supabase settings and an ephemeral database; it does not contact or write to the project's live Supabase database.
