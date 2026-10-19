@@ -107,6 +107,7 @@ jobs:
           from pathlib import Path
 
           html = Path('/tmp/dispatch.html').read_text()
+          print(f'Served /dispatch/ HTML: {html[:800]!r}')
           assert '<title>TACRU | Response Operations</title>' in html, 'TACRU page title missing'
           assert '/dispatch/assets/' in html, 'Dashboard asset base path missing'
           print('Dashboard document and logo were served successfully.')
