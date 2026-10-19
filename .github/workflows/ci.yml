@@ -104,11 +104,16 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:8000/dispatch/ --output /tmp/dispatch.html
           curl --fail --silent --show-error http://127.0.0.1:8000/dispatch/tacru-mark.svg --output /dev/null
           python3 - <<'PY'
+          import re
           from pathlib import Path
 
           html = Path('/tmp/dispatch.html').read_text()
-          print(f'Served /dispatch/ HTML: {html[:800]!r}')
-          assert '<title>TACRU | Response Operations</title>' in html, 'TACRU page title missing'
+          source = Path('web/index.html').read_text()
+          title_match = re.search(r'<title>.*?</title>', source)
+          assert title_match, 'Dashboard title missing from source index'
+          expected_title = title_match.group(0)
+          print(f'Expected dashboard title from source: {expected_title}')
+          assert expected_title in html, f'Served dashboard title differs from source: {expected_title}'
           assert '/dispatch/assets/' in html, 'Dashboard asset base path missing'
           print('Dashboard document and logo were served successfully.')
           PY
