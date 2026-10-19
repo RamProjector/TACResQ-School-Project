@@ -98,26 +98,39 @@ jobs:
         working-directory: backend
         run: docker compose exec -T api php artisan test
 
-      - name: Verify dashboard and public runtime configuration
+      - name: Verify dashboard document and static assets
         working-directory: backend
         run: |
-          curl --fail --silent http://127.0.0.1:8000/dispatch/ --output /tmp/dispatch.html
-          grep -q '<title>TACRU | Response Operations</title>' /tmp/dispatch.html
-          grep -q '/dispatch/assets/' /tmp/dispatch.html
-          curl --fail --silent http://127.0.0.1:8000/dispatch/tacru-mark.svg --output /dev/null
-          curl --fail --silent --dump-header /tmp/config-headers.txt \
+          curl --fail --silent --show-error http://127.0.0.1:8000/dispatch/ --output /tmp/dispatch.html
+          curl --fail --silent --show-error http://127.0.0.1:8000/dispatch/tacru-mark.svg --output /dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+
+          html = Path('/tmp/dispatch.html').read_text()
+          assert '<title>TACRU | Response Operations</title>' in html, 'TACRU page title missing'
+          assert '/dispatch/assets/' in html, 'Dashboard asset base path missing'
+          print('Dashboard document and logo were served successfully.')
+          PY
+
+      - name: Verify runtime configuration endpoint
+        working-directory: backend
+        run: |
+          curl --fail --silent --show-error --dump-header /tmp/config-headers.txt \
             http://127.0.0.1:8000/dispatch/config.json --output /tmp/dispatch-config.json
-          grep -Eqi '^cache-control:[[:space:]]*no-store, private' /tmp/config-headers.txt
           python3 - <<'PY'
           import json
           from pathlib import Path
 
           config = json.loads(Path('/tmp/dispatch-config.json').read_text())
-          assert config == {
+          headers = Path('/tmp/config-headers.txt').read_text().lower().replace('\r', '')
+          expected = {
               'supabaseUrl': 'https://tacresq-ci.example.test',
               'supabasePublishableKey': 'sb_publishable_ci_placeholder',
-          }, config
-          print('Dashboard assets and runtime configuration verified.')
+          }
+          print(f'Runtime config response: {config!r}')
+          assert config == expected, f'Expected {expected!r}'
+          assert 'cache-control: no-store, private' in headers, 'Cache-Control must disable storage'
+          print('Runtime configuration is correct and non-cacheable.')
           PY
 
       - name: Stop test services
