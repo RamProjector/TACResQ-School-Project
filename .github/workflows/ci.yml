@@ -63,6 +63,12 @@ jobs:
       - name: Generate an ephemeral Laravel test key
         run: echo "APP_KEY=base64:$(openssl rand -base64 32 | tr -d '\n')" >> "$GITHUB_ENV"
 
+      - name: Write disposable Compose environment
+        working-directory: backend
+        run: |
+          printf 'APP_KEY=%s\nSUPABASE_URL=%s\nSUPABASE_PUBLISHABLE_KEY=%s\n' \
+            "$APP_KEY" "$SUPABASE_URL" "$SUPABASE_PUBLISHABLE_KEY" > .env
+
       - name: Build and start the Laravel/Postgres stack
         working-directory: backend
         run: docker compose up -d --build
@@ -79,6 +85,14 @@ jobs:
           done
           docker compose logs api db
           exit 1
+
+      - name: Verify Supabase settings reach the API container
+        working-directory: backend
+        run: |
+          docker compose exec -T api sh -ec '
+            test "$SUPABASE_URL" = "https://tacresq-ci.example.test"
+            test "$SUPABASE_PUBLISHABLE_KEY" = "sb_publishable_ci_placeholder"
+          '
 
       - name: Run Laravel feature tests
         working-directory: backend
@@ -109,4 +123,6 @@ jobs:
       - name: Stop test services
         if: always()
         working-directory: backend
-        run: docker compose down --volumes --remove-orphans
+        run: |
+          docker compose down --volumes --remove-orphans || true
+          rm -f .env
