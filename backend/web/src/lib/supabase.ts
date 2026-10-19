@@ -18,9 +18,11 @@ export interface Incident {
   id: number;
   type: IncidentType;
   description: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   accuracy_m: number | null;
+  location_notes?: string | null;
+  location_recorded_at?: string | null;
   status: IncidentStatus;
   requester_name: string | null;
   requester_phone: string | null;

@@ -12,11 +12,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,7 +44,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Local prototype state for the dispatcher console. */
 data class DispatcherUiState(
     val incidents: List<Incident> = emptyList(),
     val units: List<User> = emptyList(),
@@ -98,6 +102,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
+    var assignmentCandidate by remember { mutableStateOf<Pair<Incident, User>?>(null) }
 
     val pending = state.incidents.filter { it.status == IncidentStatus.PENDING }
     val active = state.incidents.count { it.status.isActive }
@@ -143,7 +148,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
                 } else {
                     availableUnits.forEach { unit ->
                         Button(
-                            onClick = { vm.assign(incident, unit) },
+                            onClick = { assignmentCandidate = incident to unit },
                             enabled = !state.busy,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
@@ -164,6 +169,23 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
 
         item { Text("Field units", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         items(state.units, key = { it.id }) { unit -> UnitCard(unit) }
+    }
+
+    assignmentCandidate?.let { (incident, unit) ->
+        AlertDialog(
+            onDismissRequest = { assignmentCandidate = null },
+            title = { Text("Confirm assignment") },
+            text = { Text("Assign incident #${incident.id} to ${unit.name}? This will move the incident to Unit assigned.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    assignmentCandidate = null
+                    vm.assign(incident, unit)
+                }) { Text("Assign unit") }
+            },
+            dismissButton = {
+                TextButton(onClick = { assignmentCandidate = null }) { Text("Cancel") }
+            },
+        )
     }
 }
 

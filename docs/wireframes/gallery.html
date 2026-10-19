@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#142a31" />
+  <title>TACResQ — Interactive Wireframes</title>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
+  <link rel="preconnect" href="https://tile.openstreetmap.org" crossorigin />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="tacru-wireframes.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+  <script src="tacru-prototype.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#phone-screen">Skip to prototype screen</a>
+  <div class="studio-shell">
+    <aside class="studio-rail" aria-label="Prototype controls">
+      <a class="studio-brand" href="#" aria-label="TACResQ wireframe studio home">
+        <img class="brand-mark" src="../brand/tacresq-app-icon.png" alt="" />
+        <span><b>TACResQ</b><small>DESIGN PREVIEW</small></span>
+      </a>
+      <div class="rail-heading">USER ROLE</div>
+      <div class="role-picker" role="group" aria-label="Choose prototype role">
+        <button class="role-choice is-active" data-role="requester"><span class="role-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span><span>Requester</span></button>
+        <button class="role-choice" data-role="responder"><span class="role-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10h18v8H3zM7 10l2-5h6l2 5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg></span><span>Responder / Driver</span></button>
+        <button class="role-choice" data-role="dispatcher"><span class="role-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></span><span>Dispatcher</span></button>
+      </div>
+      <div class="rail-heading rail-gap">SIMULATE CONDITIONS</div>
+      <label class="control-label" for="network-mode">Network</label>
+      <select id="network-mode" class="control-select">
+        <option value="online">Connected</option>
+        <option value="offline">Offline</option>
+        <option value="weak">Weak signal</option>
+      </select>
+      <label class="control-label" for="gps-mode">GPS condition</label>
+      <select id="gps-mode" class="control-select">
+        <option value="ready">Permission granted · precise fix</option>
+        <option value="permission">Permission not granted</option>
+        <option value="poor">Low accuracy · 180 m</option>
+        <option value="stale">Last fix is stale</option>
+        <option value="unavailable">GPS unavailable</option>
+      </select>
+      <p class="rail-tip">Controls simulate app network/GPS states only. The real street map loads tiles from OpenStreetMap. No phone GPS, dispatch, SMS, or backend action is performed.</p>
+      <div class="rail-bottom">
+        <span class="demo-dot"></span>
+        <span><b>Prototype data only</b><small>Do not use for emergencies</small></span>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="workspace-header">
+        <div><div class="eyebrow">TACRESQ MOBILE SYSTEM</div><h1>Role-based wireframe prototype</h1></div>
+        <a class="spec-link" href="DESIGN_SPEC.md" target="_blank" rel="noopener">Read flow &amp; safeguards <span aria-hidden="true">↗</span></a>
+      </header>
+      <div class="workspace-content">
+        <section class="device-column" aria-label="Mobile application preview">
+          <div class="device-caption"><span>ANDROID · PORTRAIT</span><span class="device-caption-right">INTERACTIVE DEMO</span></div>
+          <div class="device-frame">
+            <div class="device-camera" aria-hidden="true"></div>
+            <div class="device-screen" id="phone-screen" tabindex="-1">
+              <div id="app-root" aria-live="polite"></div>
+              <div id="modal-root"></div>
+              <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+            </div>
+          </div>
+          <div class="device-footnote">OpenStreetMap provides the street basemap. Incident coordinates are sample data; this preview does not read device GPS or contact dispatch.</div>
+        </section>
+        <aside class="inspector" aria-label="Current screen and prototype notes">
+          <div class="inspector-card screen-card">
+            <div class="eyebrow">CURRENT SCREEN</div>
+            <h2 id="screen-title">Requester home</h2>
+            <p id="screen-description">Submit an emergency request with explicit location-sharing context.</p>
+            <div id="screen-tags" class="tag-list"></div>
+          </div>
+          <div class="inspector-card">
+            <div class="inspector-heading"><span class="live-pulse"></span><h3>Prototype state</h3></div>
+            <div id="state-summary" class="state-summary"></div>
+            <button class="text-action" id="reset-prototype" type="button">Reset demo scenario</button>
+          </div>
+          <div class="inspector-card principles-card">
+            <div class="eyebrow">NON-NEGOTIABLE SAFETY RULES</div>
+            <ul>
+              <li>No successful SOS shown without a confirmed user action.</li>
+              <li>One active requester incident at a time in this prototype.</li>
+              <li>Never label a stale or missing position as live.</li>
+              <li>Dispatcher assignment requires an available unit and confirmation.</li>
+              <li>Resolution and cancellation each require an explicit confirmation in this demo.</li>
+            </ul>
+          </div>
+          <div class="inspector-footer">Design preview only. Production use requires an operational review, security/privacy review, and real device testing.</div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

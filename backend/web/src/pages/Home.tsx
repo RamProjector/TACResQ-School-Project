@@ -115,10 +115,9 @@ function LoginScreen() {
         <div className="login-story__body">
           <p className="eyebrow eyebrow--light"><span className="live-dot" /> TACRU FIELD OPERATIONS</p>
           <h1>One clear view<br />for every response.</h1>
-          <p className="login-story__copy">A practical dispatch workspace for the TACResQ school prototype — built around the team, the queue, and the next step.</p>
+          <p className="login-story__copy">A practical dispatch workspace for TACRU response operations — built around the team, the queue, and the next step.</p>
           <div className="login-story__signal" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><b>RESPONSE LINE</b></div>
         </div>
-        <div className="prototype-stamp"><ShieldAlert size={16} /> SCHOOL PROTOTYPE · NOT FOR REAL EMERGENCY DISPATCH</div>
       </section>
 
       <section className="login-form-wrap">
@@ -139,7 +138,7 @@ function LoginScreen() {
           </form>
           <div className="login-access-note"><BadgeCheck size={17} /><p>Access is role-checked by Supabase. New public sign-ups are requesters; dispatcher accounts must be provisioned by a trusted administrator.</p></div>
         </div>
-        <p className="login-footnote">TACRU RESPONSE OPERATIONS <span>·</span> PROTOTYPE BUILD</p>
+        <p className="login-footnote">TACRU RESPONSE OPERATIONS</p>
       </section>
     </main>
   );
@@ -177,8 +176,15 @@ function IncidentCard({
   onSelect: (value: string) => void;
   onRequestAssignment: (unit: TacruProfile) => void;
 }) {
-  const coordinates = `${incident.latitude.toFixed(4)}, ${incident.longitude.toFixed(4)}`;
-  const mapHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${incident.latitude},${incident.longitude}`)}`;
+  const latitude = incident.latitude;
+  const longitude = incident.longitude;
+  const location = typeof latitude === "number" && Number.isFinite(latitude) &&
+    typeof longitude === "number" && Number.isFinite(longitude)
+    ? {
+      coordinates: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+      mapHref: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${latitude},${longitude}`)}`,
+    }
+    : null;
 
   return (
     <article className={`incident-card incident-card--${incident.status}`}>
@@ -196,9 +202,17 @@ function IncidentCard({
         <div className="incident-card__details">
           <span className="requester-name">{incident.requester_name || "Requester not available"}</span>
           {incident.requester_phone && <a className="contact-link" href={`tel:${incident.requester_phone}`}>{incident.requester_phone}</a>}
-          <span className="location-readout"><MapPin size={14} /> {coordinates}</span>
-          {incident.accuracy_m != null && <span className="accuracy-readout">±{Math.round(incident.accuracy_m)} m</span>}
-          <a className="map-link" href={mapHref} target="_blank" rel="noreferrer">Open coordinates <ArrowUpRight size={13} /></a>
+          {location ? (
+            <span className="location-readout"><MapPin size={14} /> {location.coordinates}</span>
+          ) : (
+            <span className="location-readout location-readout--missing"><MapPin size={14} /> No GPS pin shared</span>
+          )}
+          {location && incident.accuracy_m != null && <span className="accuracy-readout">Reported ±{Math.ceil(incident.accuracy_m)} m</span>}
+          {location && <span className={`capture-readout${incident.location_recorded_at ? "" : " capture-readout--missing"}`}>
+            {incident.location_recorded_at ? `Captured ${formatTimestamp(incident.location_recorded_at)}` : "Capture time unavailable; verify with requester"}
+          </span>}
+          {incident.location_notes?.trim() && <span className="location-note-readout">Location note: {incident.location_notes.trim()}</span>}
+          {location && <a className="map-link" href={location.mapHref} target="_blank" rel="noreferrer">Open coordinates <ArrowUpRight size={13} /></a>}
         </div>
         {incident.status === "pending" ? (
           <div className="assignment-row">
@@ -351,7 +365,6 @@ function DispatcherBoard({ session, profile, onSignOut }: { session: Session; pr
         <div className="sidebar-info-row"><CircleDot size={16} /><span>Awaiting dispatch</span><span className={pendingCount ? "sidebar-count sidebar-count--alert" : "sidebar-count"}>{pendingCount.toString().padStart(2, "0")}</span></div>
         <div className="sidebar__bottom">
           <div className="network-card"><span className="network-card__dot" /><div><strong>SUPABASE LINK</strong><small>{error ? "Sync needs attention" : "Authenticated channel"}</small></div></div>
-          <div className="sidebar-disclaimer"><ShieldAlert size={15} /><span>School prototype only.<br />Not for real emergency use.</span></div>
           <div className="sidebar-version">TACRU · RESPONSE OPERATIONS</div>
         </div>
       </aside>
@@ -431,11 +444,10 @@ function DispatcherBoard({ session, profile, onSignOut }: { session: Session; pr
                   </article>
                 ))}
               </div>
-              <div className="units-footnote"><MapPin size={15} /><p>Map-based fleet tracking is not part of this prototype. Incident coordinates open in an external map.</p></div>
-              <div className="prototype-note"><ShieldAlert size={15} /><p>Prototype notice: confirm contact details and procedures outside this demonstration before acting.</p></div>
+              <div className="units-footnote"><MapPin size={15} /><p>Incident coordinates open in an external map.</p></div>
             </aside>
           </div>
-          <footer className="workspace-footer"><span>TACRU · RESPONSE OPERATIONS</span><span>School project prototype · Not an emergency service</span></footer>
+          <footer className="workspace-footer"><span>TACRU · RESPONSE OPERATIONS</span><span>Supabase-secured dispatch workspace</span></footer>
         </div>
       </main>
 

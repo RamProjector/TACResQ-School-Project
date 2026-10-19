@@ -1,13 +1,16 @@
 package com.tacresq.app.ui.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -24,6 +27,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -31,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.tacresq.app.AppConfig
+import com.tacresq.app.R
 import com.tacresq.app.data.repo.TacRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -100,7 +105,14 @@ fun AuthScreen(vm: AuthViewModel) {
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("TACResQ", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Image(
+                painter = painterResource(id = R.drawable.tacresq_app_icon),
+                contentDescription = null,
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)),
+            )
+            Text("TACResQ", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+        }
         Text(
             if (registering) "Create a requester account" else "Sign in",
             style = MaterialTheme.typography.titleMedium,
@@ -170,13 +182,5 @@ fun AuthScreen(vm: AuthViewModel) {
             Text(if (registering) "I already have an account" else "New requester? Create an account")
         }
 
-        if (AppConfig.USE_FAKE_API) {
-            Text(
-                "Demo mode (no server; demo data resets when the app process restarts). Sign in with " +
-                    "requester@demo.com, responder@demo.com, driver@demo.com or dispatcher@demo.com. " +
-                    "Password: demo123",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
     }
 }
