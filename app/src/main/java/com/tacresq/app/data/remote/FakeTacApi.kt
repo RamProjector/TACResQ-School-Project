@@ -152,6 +152,8 @@ class FakeTacApi(
                 latitude = body.latitude,
                 longitude = body.longitude,
                 accuracyM = body.accuracyM,
+                locationNotes = body.locationNotes,
+                locationRecordedAt = body.locationRecordedAt,
                 status = IncidentStatus.PENDING,
                 requesterName = me.name,
                 requesterPhone = me.phone,

@@ -77,9 +77,11 @@ data class DutyStatusRequest(@SerializedName("duty_status") val dutyStatus: Duty
 data class CreateIncidentRequest(
     val type: IncidentType,
     val description: String?,
-    val latitude: Double,
-    val longitude: Double,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     @SerializedName("accuracy_m") val accuracyM: Float?,
+    @SerializedName("location_notes") val locationNotes: String? = null,
+    @SerializedName("location_recorded_at") val locationRecordedAt: String? = null,
 )
 
 data class UpdateStatusRequest(val status: IncidentStatus)

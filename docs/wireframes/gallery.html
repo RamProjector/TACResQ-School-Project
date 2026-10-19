@@ -3,24 +3,28 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0b2633" />
-  <title>TACRU TACResQ — Interactive Wireframes</title>
+  <meta name="theme-color" content="#142a31" />
+  <title>TACResQ — Interactive Wireframes</title>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
+  <link rel="preconnect" href="https://tile.openstreetmap.org" crossorigin />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="tacru-wireframes.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
   <script src="tacru-prototype.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#phone-screen">Skip to prototype screen</a>
   <div class="studio-shell">
     <aside class="studio-rail" aria-label="Prototype controls">
-      <a class="studio-brand" href="#" aria-label="TACRU wireframe studio home">
-        <span class="brand-mark" aria-hidden="true">T</span>
-        <span><b>TACRU</b><small>DESIGN PREVIEW</small></span>
+      <a class="studio-brand" href="#" aria-label="TACResQ wireframe studio home">
+        <img class="brand-mark" src="../brand/tacresq-app-icon.png" alt="" />
+        <span><b>TACResQ</b><small>DESIGN PREVIEW</small></span>
       </a>
       <div class="rail-heading">USER ROLE</div>
       <div class="role-picker" role="group" aria-label="Choose prototype role">
-        <button class="role-choice is-active" data-role="requester"><span class="role-glyph">R</span><span>Requester</span></button>
-        <button class="role-choice" data-role="responder"><span class="role-glyph">U</span><span>Responder / Driver</span></button>
-        <button class="role-choice" data-role="dispatcher"><span class="role-glyph">D</span><span>Dispatcher</span></button>
+        <button class="role-choice is-active" data-role="requester"><span class="role-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span><span>Requester</span></button>
+        <button class="role-choice" data-role="responder"><span class="role-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10h18v8H3zM7 10l2-5h6l2 5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg></span><span>Responder / Driver</span></button>
+        <button class="role-choice" data-role="dispatcher"><span class="role-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></span><span>Dispatcher</span></button>
       </div>
       <div class="rail-heading rail-gap">SIMULATE CONDITIONS</div>
       <label class="control-label" for="network-mode">Network</label>
@@ -37,7 +41,7 @@
         <option value="stale">Last fix is stale</option>
         <option value="unavailable">GPS unavailable</option>
       </select>
-      <p class="rail-tip">These controls simulate design states only. No phone permission, GPS, network, dispatch, SMS, or backend action is performed.</p>
+      <p class="rail-tip">Controls simulate app network/GPS states only. The real street map loads tiles from OpenStreetMap. No phone GPS, dispatch, SMS, or backend action is performed.</p>
       <div class="rail-bottom">
         <span class="demo-dot"></span>
         <span><b>Prototype data only</b><small>Do not use for emergencies</small></span>
@@ -60,7 +64,7 @@
               <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
             </div>
           </div>
-          <div class="device-footnote">Sample names, incidents, and map points are invented. The drawn map is schematic and not geographically accurate.</div>
+          <div class="device-footnote">OpenStreetMap provides the street basemap. Incident coordinates are sample data; this preview does not read device GPS or contact dispatch.</div>
         </section>
         <aside class="inspector" aria-label="Current screen and prototype notes">
           <div class="inspector-card screen-card">

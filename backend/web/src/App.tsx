@@ -22,7 +22,7 @@ function ConfigurationScreen() {
       <section className="config-card">
         <div className="config-icon"><Activity size={22} /></div>
         <p className="eyebrow">CONNECTION REQUIRED</p>
-        <h1>Connect the TACRU dispatch desk</h1>
+        <h1>Connect the TACResQ dispatch desk</h1>
         <p className="muted">
           Configure the Supabase URL and publishable key used by the TACResQ app. The backend serves
           these browser-safe settings at runtime; the console uses the existing RPCs and Row Level Security.

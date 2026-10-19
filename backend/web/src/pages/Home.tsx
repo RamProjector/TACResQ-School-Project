@@ -176,8 +176,15 @@ function IncidentCard({
   onSelect: (value: string) => void;
   onRequestAssignment: (unit: TacruProfile) => void;
 }) {
-  const coordinates = `${incident.latitude.toFixed(4)}, ${incident.longitude.toFixed(4)}`;
-  const mapHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${incident.latitude},${incident.longitude}`)}`;
+  const latitude = incident.latitude;
+  const longitude = incident.longitude;
+  const location = typeof latitude === "number" && Number.isFinite(latitude) &&
+    typeof longitude === "number" && Number.isFinite(longitude)
+    ? {
+      coordinates: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+      mapHref: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${latitude},${longitude}`)}`,
+    }
+    : null;
 
   return (
     <article className={`incident-card incident-card--${incident.status}`}>
@@ -195,9 +202,17 @@ function IncidentCard({
         <div className="incident-card__details">
           <span className="requester-name">{incident.requester_name || "Requester not available"}</span>
           {incident.requester_phone && <a className="contact-link" href={`tel:${incident.requester_phone}`}>{incident.requester_phone}</a>}
-          <span className="location-readout"><MapPin size={14} /> {coordinates}</span>
-          {incident.accuracy_m != null && <span className="accuracy-readout">±{Math.round(incident.accuracy_m)} m</span>}
-          <a className="map-link" href={mapHref} target="_blank" rel="noreferrer">Open coordinates <ArrowUpRight size={13} /></a>
+          {location ? (
+            <span className="location-readout"><MapPin size={14} /> {location.coordinates}</span>
+          ) : (
+            <span className="location-readout location-readout--missing"><MapPin size={14} /> No GPS pin shared</span>
+          )}
+          {location && incident.accuracy_m != null && <span className="accuracy-readout">Reported ±{Math.ceil(incident.accuracy_m)} m</span>}
+          {location && <span className={`capture-readout${incident.location_recorded_at ? "" : " capture-readout--missing"}`}>
+            {incident.location_recorded_at ? `Captured ${formatTimestamp(incident.location_recorded_at)}` : "Capture time unavailable; verify with requester"}
+          </span>}
+          {incident.location_notes?.trim() && <span className="location-note-readout">Location note: {incident.location_notes.trim()}</span>}
+          {location && <a className="map-link" href={location.mapHref} target="_blank" rel="noreferrer">Open coordinates <ArrowUpRight size={13} /></a>}
         </div>
         {incident.status === "pending" ? (
           <div className="assignment-row">

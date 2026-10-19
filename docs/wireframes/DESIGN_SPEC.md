@@ -4,11 +4,11 @@
 
 This revision turns the previous four static happy-path screen illustrations into a clickable, role-aware design prototype. It demonstrates requester, responder/driver, and dispatcher navigation; SOS review and confirmation; assignment confirmation; status transitions; map entry; privacy and safety information; and simulated GPS/network states.
 
-It is a **wireframe prototype, not an operational emergency system**. It has no authentication, database, phone GPS, Android permission prompts, map provider, navigation route, push notifications, emergency-number integration, or server. All names, incident data, timestamps, statuses, and plotted locations are invented. The map is a schematic drawing, not a Tacloban street map. A button that changes prototype state does not notify TACRU.
+It is a **wireframe prototype, not an operational emergency system**. It has no authentication, database, phone GPS, Android permission prompts, navigation route, push notifications, emergency-number integration, or server. When online, the map screen loads real OpenStreetMap street tiles through Leaflet. Its Tacloban center and any incident pin are fixed sample data; it never reads the phone's location. A button that changes prototype state does not notify TACRU.
 
 ## Global navigation and visual rules
 
-Every signed-in role has a five-position bottom navigation layout with two ordinary destinations on each side of a raised center **GPS Map** control. The map control uses a location target symbol and an explicit text label, stays centered between the surrounding destinations, has a larger high-contrast hit target, and shows a selected state while its destination is open. Its accessibility name is “Open full-screen GPS map.” The center map control is separate from the requester’s red SOS action.
+Every signed-in role has a five-position bottom navigation layout with two ordinary destinations on each side of a raised center **GPS Map** control. All destinations are icon-only visually, with accessible names retained for assistive technology. The map control stays centered between the surrounding destinations, has a larger high-contrast hit target, and shows a selected state while its full-screen destination is open. Its accessibility name is “Open full-screen GPS map.” The center map control is separate from the requester’s red SOS action.
 
 | Requester | Responder / driver | Dispatcher |
 |---|---|---|
@@ -62,9 +62,13 @@ The sign-in preview identifies requester self-registration separately from privi
 
 **Field units:** Show duty state independently from GPS state. “Available” must not imply a live position. Show that the live-unit feed is absent; use an explicit no-GPS label rather than a blank marker or fabricated point.
 
-**Dispatcher map:** Show sample incident locations only. Clearly label schematic map and missing live responder coordinates. Unit GPS must be shown only if the server provides a timestamped position; stale/offline positions need an age label and warning. Do not infer ETA or proximity until routing/location data are integrated and its accuracy is validated.
+**Dispatcher map:** Show the real OpenStreetMap basemap with sample incident locations only. Keep a clear warning that live responder GPS is not connected. Unit GPS must be shown only if the server provides a timestamped position; stale/offline positions need an age label and warning. Do not infer ETA or proximity until routing/location data are integrated and its accuracy is validated.
 
 **Activity:** Show a chronological demo event list. A production audit trail must be server-generated and resistant to client alteration. Distinguish local queued events from confirmed server events.
+
+### Map provider and location boundary
+
+The map uses Leaflet 1.9.4 and the standard OpenStreetMap raster tile endpoint for ordinary visible-viewport requests. Required OpenStreetMap contributor attribution stays visible. The initial center and sample incident pin use invented Tacloban coordinates; map controls pan and zoom the street basemap, and the center control returns to that fixed demo point. They do not access device location. Map tiles require an internet connection and the page must be served over HTTP/HTTPS. The public tile server is best-effort, has no SLA, and must not be used for bulk prefetching or offline packs. Before production, select a map provider that supports the expected traffic and availability or self-host tiles, then review its privacy and service terms. Opening a real user-location map in production could disclose the visible tile area to that provider.
 
 ## GPS, permission, connectivity, and error-state coverage
 
@@ -89,7 +93,7 @@ Open [`gallery.html`](gallery.html). In the left control panel, choose a role an
 A primary walkthrough:
 
 1. As Requester, choose an incident type and review the location disclosure. Check the acknowledgement, then confirm the SOS.
-2. Tap the centered **GPS Map** destination. Confirm the screen identifies the pin as an initial sample fix, not a live position.
+2. Tap the centered **GPS Map** destination. Confirm the real street basemap shows the incident pin as a sample coordinate, not a live position; pan and zoom, then use the center control to return to the sample point.
 3. Switch to Dispatcher, review the queue, assign the incident to the available sample unit, and confirm.
 4. Switch to Responder / Driver, review the assignment and advance each status through confirmation.
 5. Return as Requester to see status changes; return as Dispatcher to inspect units/activity.
@@ -99,4 +103,4 @@ Try failure paths by changing Network to Offline and GPS condition to Permission
 
 ## Remaining work before production or a formal field evaluation
 
-This design is intentionally not a “full-proof” or operational release. The following remain beyond wireframes: buildable Android project integration, real map provider and attribution, live requester/responder location policy and collection service, real authorization/consent storage, actual dispatch APIs and push delivery, offline database/sync, server-side role checks and audit records, approved emergency/support contacts, privacy policy and data-retention process, abuse/duplicate safeguards, operational procedures, accessibility testing, device/GPS/network testing, security review, and evaluation with TACRU and representative requesters. Define acceptance criteria and scope with TACRU before treating any simulated UI state as an operational capability.
+This design is intentionally not a “full-proof” or operational release. The following remain beyond wireframes: buildable Android project integration, production-grade map provider and availability, live requester/responder location policy and collection service, real authorization/consent storage, actual dispatch APIs and push delivery, offline database/sync, server-side role checks and audit records, approved emergency/support contacts, privacy policy and data-retention process, abuse/duplicate safeguards, operational procedures, accessibility testing, device/GPS/network testing, security review, and evaluation with TACRU and representative requesters. Define acceptance criteria and scope with TACRU before treating any simulated UI state as an operational capability.

@@ -1,0 +1,214 @@
+-- One-time requester location is attached to an incident, never collected as a background stream.
+-- Version the create RPC so existing clients can continue using api_create_incident(...5 args).
+
+begin;
+
+alter table public.incidents
+  alter column latitude drop not null,
+  alter column longitude drop not null;
+
+alter table public.incidents
+  add column if not exists location_notes text,
+  add column if not exists location_recorded_at timestamptz;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'incidents_coordinates_pair_check'
+      and conrelid = 'public.incidents'::regclass
+  ) then
+    alter table public.incidents
+      add constraint incidents_coordinates_pair_check
+      check ((latitude is null and longitude is null) or (latitude is not null and longitude is not null));
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'incidents_location_metadata_check'
+      and conrelid = 'public.incidents'::regclass
+  ) then
+    alter table public.incidents
+      add constraint incidents_location_metadata_check
+      check (
+        (location_recorded_at is null or (latitude is not null and longitude is not null))
+        and (accuracy_m is null or (latitude is not null and longitude is not null))
+        and (location_notes is null or length(location_notes) <= 500)
+      );
+  end if;
+end $$;
+
+-- Existing clients still send a required coordinate pair; keep their RPC signature intact.
+create or replace function public.api_create_incident(
+  p_type text,
+  p_description text,
+  p_latitude double precision,
+  p_longitude double precision,
+  p_accuracy_m real
+) returns jsonb
+language plpgsql security invoker set search_path = public, pg_temp as $$
+declare p public.profiles; i public.incidents;
+begin
+  select * into p from public.profiles where auth_user_id = auth.uid();
+  if p.id is null or p.role <> 'requester' then
+    raise exception 'Only requesters can submit incidents' using errcode = '42501';
+  end if;
+  if p_latitude is null or p_longitude is null then
+    raise exception 'A coordinate pair is required by this client version' using errcode = '22023';
+  end if;
+  insert into public.incidents(requester_id, type, description, latitude, longitude, accuracy_m)
+  values (p.id, p_type, p_description, p_latitude, p_longitude, p_accuracy_m)
+  returning * into i;
+  return jsonb_build_object(
+    'id', i.id, 'type', i.type, 'description', i.description,
+    'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
+    'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+    'status', i.status, 'requester_name', p.name, 'requester_phone', p.phone,
+    'assigned_to', i.assigned_to, 'created_at', i.created_at
+  );
+end $$;
+
+create or replace function public.api_create_incident_v2(
+  p_type text,
+  p_description text,
+  p_latitude double precision,
+  p_longitude double precision,
+  p_accuracy_m real,
+  p_location_notes text,
+  p_location_recorded_at timestamptz
+) returns jsonb
+language plpgsql security invoker set search_path = public, pg_temp as $$
+declare p public.profiles; i public.incidents;
+begin
+  select * into p from public.profiles where auth_user_id = auth.uid();
+  if p.id is null or p.role <> 'requester' then
+    raise exception 'Only requesters can submit incidents' using errcode = '42501';
+  end if;
+  if p_type is null or p_type not in ('medical', 'fire', 'vehicular', 'disaster', 'other') then
+    raise exception 'Invalid incident type' using errcode = '22023';
+  end if;
+  if p_description is not null and length(p_description) > 2000 then
+    raise exception 'Incident details exceed 2000 characters' using errcode = '22023';
+  end if;
+  if p_location_notes is not null and length(p_location_notes) > 500 then
+    raise exception 'Location notes exceed 500 characters' using errcode = '22023';
+  end if;
+  if (p_latitude is null) <> (p_longitude is null) then
+    raise exception 'Latitude and longitude must be supplied together' using errcode = '22023';
+  end if;
+  if p_latitude is null and (p_accuracy_m is not null or p_location_recorded_at is not null) then
+    raise exception 'GPS accuracy and capture time require coordinates' using errcode = '22023';
+  end if;
+  if p_latitude is not null and p_location_recorded_at is null then
+    raise exception 'A GPS capture time is required with coordinates' using errcode = '22023';
+  end if;
+  if p_accuracy_m is not null and (p_accuracy_m < 0 or p_accuracy_m > 100000) then
+    raise exception 'GPS accuracy is outside the supported range' using errcode = '22023';
+  end if;
+
+  insert into public.incidents(
+    requester_id, type, description, latitude, longitude, accuracy_m,
+    location_notes, location_recorded_at
+  ) values (
+    p.id, p_type, nullif(trim(p_description), ''), p_latitude, p_longitude, p_accuracy_m,
+    nullif(trim(p_location_notes), ''), p_location_recorded_at
+  ) returning * into i;
+
+  return jsonb_build_object(
+    'id', i.id, 'type', i.type, 'description', i.description,
+    'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
+    'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+    'status', i.status, 'requester_name', p.name, 'requester_phone', p.phone,
+    'assigned_to', i.assigned_to, 'created_at', i.created_at
+  );
+end $$;
+
+create or replace function public.api_my_incidents()
+returns jsonb language sql stable security invoker set search_path = public, pg_temp as $$
+  select coalesce(
+    jsonb_agg(jsonb_build_object(
+      'id', i.id, 'type', i.type, 'description', i.description,
+      'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
+      'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+      'status', i.status, 'requester_name', r.name, 'requester_phone', r.phone,
+      'assigned_to', i.assigned_to, 'created_at', i.created_at
+    ) order by i.created_at desc), '[]'::jsonb
+  )
+  from public.incidents i
+  join public.profiles r on r.id = i.requester_id
+  where i.requester_id in (select id from public.profiles where auth_user_id = auth.uid())
+     or i.assigned_to in (select id from public.profiles where auth_user_id = auth.uid());
+$$;
+
+create or replace function public.api_all_incidents()
+returns jsonb language plpgsql stable security invoker set search_path = public, pg_temp as $$
+begin
+  if not exists(select 1 from public.profiles where auth_user_id = auth.uid() and role = 'dispatcher') then
+    raise exception 'Only dispatchers can view the queue' using errcode = '42501';
+  end if;
+  return (
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', i.id, 'type', i.type, 'description', i.description,
+      'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
+      'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+      'status', i.status, 'requester_name', r.name, 'requester_phone', r.phone,
+      'assigned_to', i.assigned_to, 'created_at', i.created_at
+    ) order by i.created_at desc), '[]'::jsonb)
+    from public.incidents i join public.profiles r on r.id = i.requester_id
+  );
+end $$;
+
+create or replace function public.api_update_incident_status(p_id bigint, p_status text)
+returns jsonb language plpgsql security invoker set search_path = public, pg_temp as $$
+declare p public.profiles; i public.incidents; allowed boolean;
+begin
+  select * into p from public.profiles where auth_user_id = auth.uid();
+  select * into i from public.incidents where id = p_id for update;
+  if not found then raise exception 'Incident not found' using errcode = 'P0002'; end if;
+  if i.assigned_to <> p.id or p.role not in ('responder', 'driver') then
+    raise exception 'Incident is not assigned to this field unit' using errcode = '42501';
+  end if;
+  allowed := (i.status = 'assigned' and p_status = 'en_route')
+    or (i.status = 'en_route' and p_status = 'on_scene')
+    or (i.status = 'on_scene' and p_status in ('transporting', 'resolved'))
+    or (i.status = 'transporting' and p_status = 'resolved');
+  if not allowed then raise exception 'Invalid incident status transition' using errcode = '22023'; end if;
+  update public.incidents set status = p_status where id = i.id returning * into i;
+  return jsonb_build_object(
+    'id', i.id, 'type', i.type, 'description', i.description,
+    'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
+    'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+    'status', i.status, 'requester_name', (select name from public.profiles where id = i.requester_id),
+    'requester_phone', (select phone from public.profiles where id = i.requester_id),
+    'assigned_to', i.assigned_to, 'created_at', i.created_at
+  );
+end $$;
+
+create or replace function public.api_assign_incident(p_id bigint, p_user_id bigint)
+returns jsonb language plpgsql security invoker set search_path = public, pg_temp as $$
+declare i public.incidents; u public.profiles;
+begin
+  if not exists(select 1 from public.profiles where auth_user_id = auth.uid() and role = 'dispatcher') then
+    raise exception 'Only dispatchers can assign incidents' using errcode = '42501';
+  end if;
+  select * into i from public.incidents where id = p_id for update;
+  if not found or i.status <> 'pending' then raise exception 'Only pending incidents can be assigned' using errcode = '22023'; end if;
+  select * into u from public.profiles where id = p_user_id for update;
+  if u.role not in ('responder', 'driver') or u.duty_status <> 'available'
+     or exists(select 1 from public.incidents where assigned_to = u.id and status in ('assigned', 'en_route', 'on_scene', 'transporting')) then
+    raise exception 'Selected unit is not available' using errcode = '22023';
+  end if;
+  update public.incidents set status = 'assigned', assigned_to = u.id where id = i.id returning * into i;
+  return jsonb_build_object(
+    'id', i.id, 'type', i.type, 'description', i.description,
+    'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
+    'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+    'status', i.status, 'requester_name', (select name from public.profiles where id = i.requester_id),
+    'requester_phone', (select phone from public.profiles where id = i.requester_id),
+    'assigned_to', i.assigned_to, 'created_at', i.created_at
+  );
+end $$;
+
+revoke all on function public.api_create_incident_v2(text, text, double precision, double precision, real, text, timestamptz) from public, anon;
+grant execute on function public.api_create_incident_v2(text, text, double precision, double precision, real, text, timestamptz) to authenticated;
+
+commit;

@@ -1,11 +1,15 @@
 package com.tacresq.app.ui.common
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -19,13 +23,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.tacresq.app.AppConfig
+import com.tacresq.app.R
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
 import kotlinx.coroutines.delay
@@ -33,13 +40,20 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.ceil
 
 @Composable
 fun ScreenHeader(title: String, subtitle: String, onLogout: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(id = R.drawable.tacresq_app_icon),
+                contentDescription = null,
+                modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)),
+            )
+            Spacer(modifier = Modifier.width(9.dp))
             Text(
-                "TACRU",
+                "TACResQ",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
@@ -141,9 +155,22 @@ fun IncidentCard(
 }
 
 private fun locationText(incident: Incident): String {
-    val coords = String.format(Locale.US, "%.5f, %.5f", incident.latitude, incident.longitude)
-    val accuracy = incident.accuracyM?.let { " (within ${it.toInt()} m)" } ?: ""
-    return "Location: $coords$accuracy"
+    val latitude = incident.latitude
+    val longitude = incident.longitude
+    val hasCoordinates = latitude != null && longitude != null
+    val coords = when {
+        latitude != null && longitude != null -> String.format(Locale.US, "GPS pin: %.5f, %.5f", latitude, longitude)
+        latitude == null && longitude == null -> "No GPS pin was shared"
+        else -> "Incomplete location data — do not rely on a map pin"
+    }
+    val accuracy = if (hasCoordinates) incident.accuracyM?.let { " · reported accuracy ±${ceil(it.toDouble()).toInt()} m" } ?: "" else ""
+    val captured = if (hasCoordinates) {
+        incident.locationRecordedAt?.let { formatTime(it) }?.takeIf { it.isNotBlank() }
+            ?.let { " · captured $it" } ?: " · capture time unavailable; verify with requester"
+    } else ""
+    val notes = incident.locationNotes?.trim()?.takeIf { it.isNotEmpty() }
+        ?.let { "\nLocation note: $it" } ?: ""
+    return "$coords$accuracy$captured$notes"
 }
 
 private val timeFormatter: DateTimeFormatter =
