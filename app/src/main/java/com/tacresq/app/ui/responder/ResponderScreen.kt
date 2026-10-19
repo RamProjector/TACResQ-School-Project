@@ -153,11 +153,21 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                     .joinToString(", ")
                 if (contact.isNotBlank()) Text("Requester: $contact")
 
-                OutlinedButton(
-                    onClick = { openNavigation(context, incident.latitude, incident.longitude) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Navigate in Google Maps")
+                val latitude = incident.latitude
+                val longitude = incident.longitude
+                if (latitude != null && longitude != null) {
+                    OutlinedButton(
+                        onClick = { openNavigation(context, latitude, longitude) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Navigate in Google Maps")
+                    }
+                } else {
+                    Text(
+                        "No GPS pin was shared. Do not navigate to an assumed location; use the landmark note and contact the requester to confirm.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
 
                 incident.status.nextSteps().forEach { next ->

@@ -16,9 +16,12 @@ $incidentJson = static function (Incident $incident): array {
     $incident->loadMissing('requester:id,name,phone');
     return [
         'id' => $incident->id, 'type' => $incident->type,
-        'description' => $incident->description, 'latitude' => (float) $incident->latitude,
-        'longitude' => (float) $incident->longitude,
+        'description' => $incident->description,
+        'latitude' => $incident->latitude === null ? null : (float) $incident->latitude,
+        'longitude' => $incident->longitude === null ? null : (float) $incident->longitude,
         'accuracy_m' => $incident->accuracy_m === null ? null : (float) $incident->accuracy_m,
+        'location_notes' => $incident->location_notes,
+        'location_recorded_at' => $incident->location_recorded_at?->toISOString(),
         'status' => $incident->status, 'requester_name' => $incident->requester?->name,
         'requester_phone' => $incident->requester?->phone, 'assigned_to' => $incident->assigned_to,
         'created_at' => $incident->created_at?->toISOString(),
@@ -70,9 +73,23 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         $data = $request->validate([
             'type' => ['required', Rule::in(['medical', 'fire', 'vehicular', 'disaster', 'other'])],
             'description' => ['nullable', 'string', 'max:2000'],
-            'latitude' => ['required', 'numeric', 'between:-90,90'], 'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
             'accuracy_m' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'location_notes' => ['nullable', 'string', 'max:500'],
+            'location_recorded_at' => ['nullable', 'date'],
         ]);
+        abort_if(
+            isset($data['latitude']) !== isset($data['longitude']),
+            422,
+            'Latitude and longitude must be supplied together.'
+        );
+        abort_if(
+            ($data['latitude'] ?? null) === null && (($data['accuracy_m'] ?? null) !== null || ($data['location_recorded_at'] ?? null) !== null),
+            422,
+            'Accuracy and capture time require a GPS coordinate pair.'
+        );
+        $data['location_notes'] = isset($data['location_notes']) ? (trim($data['location_notes']) ?: null) : null;
         $incident = DB::transaction(function () use ($data, $request) {
             $incident = Incident::create([...$data, 'requester_id' => $request->user()->id, 'status' => 'pending']);
             $incident->statusLogs()->create(['status' => 'pending', 'changed_by' => $request->user()->id]);

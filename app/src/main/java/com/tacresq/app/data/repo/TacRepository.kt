@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.IOException
+import java.time.Instant
 
 /** Holds the current bearer token so the HTTP layer can read it without depending on the repository. */
 class TokenHolder {
@@ -79,9 +80,22 @@ class TacRepository(
 
     suspend fun units(): Result<List<User>> = call { api.units() }
 
-    suspend fun createIncident(type: IncidentType, description: String?, fix: GeoFix): Result<Incident> = call {
+    suspend fun createIncident(
+        type: IncidentType,
+        description: String?,
+        fix: GeoFix?,
+        locationNotes: String?,
+    ): Result<Incident> = call {
         api.createIncident(
-            CreateIncidentRequest(type, description, fix.latitude, fix.longitude, fix.accuracyM)
+            CreateIncidentRequest(
+                type = type,
+                description = description,
+                latitude = fix?.latitude,
+                longitude = fix?.longitude,
+                accuracyM = fix?.accuracyM,
+                locationNotes = locationNotes?.trim()?.ifBlank { null },
+                locationRecordedAt = fix?.let { Instant.ofEpochMilli(it.capturedAtEpochMillis).toString() },
+            )
         )
     }
 

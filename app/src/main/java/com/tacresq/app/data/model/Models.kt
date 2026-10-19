@@ -64,9 +64,11 @@ data class Incident(
     val id: Long,
     val type: IncidentType,
     val description: String? = null,
-    val latitude: Double,
-    val longitude: Double,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     @SerializedName("accuracy_m") val accuracyM: Float? = null,
+    @SerializedName("location_notes") val locationNotes: String? = null,
+    @SerializedName("location_recorded_at") val locationRecordedAt: String? = null,
     val status: IncidentStatus,
     @SerializedName("requester_name") val requesterName: String? = null,
     @SerializedName("requester_phone") val requesterPhone: String? = null,
@@ -82,5 +84,12 @@ sealed interface SessionState {
     data class LoggedIn(val session: Session) : SessionState
 }
 
-/** One GPS reading. */
-data class GeoFix(val latitude: Double, val longitude: Double, val accuracyM: Float?)
+/** A single, user-requested GPS reading; elapsed time is used only to reject stale fixes locally. */
+data class GeoFix(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracyM: Float?,
+    val capturedAtEpochMillis: Long,
+    val elapsedRealtimeNanos: Long,
+    val hasPrecisePermission: Boolean,
+)

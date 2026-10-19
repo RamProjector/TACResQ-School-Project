@@ -24,18 +24,26 @@ implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 implementation("com.google.android.gms:play-services-location:21.3.0")
 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
+implementation("androidx.core.locationbutton:locationbutton:1.0.0-alpha01")
+implementation("androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01")
 ```
 
-4. In `app/src/main/AndroidManifest.xml`:
+4. In the fresh project's existing `app/src/main/AndroidManifest.xml`:
    - Add above `<application>`:
      ```xml
      <uses-permission android:name="android.permission.INTERNET" />
-     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
      <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:usesPermissionFlags="onlyForLocationButton" />
+     <uses-permission android:name="android.permission.USE_LOCATION_BUTTON" />
      ```
    - Add `android:name=".TacResqApp"` to the `<application ...>` tag.
+   - For an Android 17 / API 37 Play build, compile against API 37 and set `targetSdk` to 37 or later; use the location-button permissions shown above.
 5. **Sync Gradle**, then run on an emulator (use an image with Google Play or Google APIs).
-6. Emulator GPS: `...` (Extended controls) > Location > pick a point > Send. SOS requires a location no older than two minutes.
+6. Emulator GPS: `...` (Extended controls) > Location > pick a point > Send. The requester taps Android's **Share precise location** button to obtain a fresh, one-time fix. A stale last-known fix is never substituted. If GPS is denied, disabled, or times out, an SOS can still be sent without a pin; the app clearly warns dispatch and allows an optional landmark note.
+
+### One-time location privacy and Android 17
+
+TACResQ does not request background location or continuously track requesters. The system Location Button is used for the user-initiated one-time share; Android 16 and lower receive the library's standard permission-prompt fallback. The `onlyForLocationButton` fine-location flag and `USE_LOCATION_BUTTON` permission are included for Android 17 (API 37) targeting. The AndroidX Location Button library is currently alpha, so verify its latest release notes before a production Play submission. See [Android's Location Button guide](https://developer.android.com/guide/topics/permissions/private-alternatives/location-button), [Google Play's location permissions policy](https://support.google.com/googleplay/android-developer/answer/16909972), and the detailed [TACResQ location implementation notes](docs/GPS_LOCATION_NOTES.md).
 
 ## Backend selection
 
@@ -84,7 +92,7 @@ com.tacresq.app
   data/remote/FakeTacApi  in-memory fake backend
   data/local/SessionStore  keeps the login (DataStore)
   data/repo/TacRepository one place for errors and session state
-  location/LocationProvider one recent GPS fix for the SOS
+  location/LocationProvider one fresh, user-triggered GPS fix for the SOS; never a cached fallback
   ui/                     role-based auth, requester, responder and dispatcher screens
 ```
 

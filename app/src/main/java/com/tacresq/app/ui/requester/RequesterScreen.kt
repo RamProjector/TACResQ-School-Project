@@ -1,25 +1,29 @@
 package com.tacresq.app.ui.requester
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -31,33 +35,47 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.locationbutton.compose.LocationButton
+import androidx.core.locationbutton.compose.LocationButtonTextType
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentType
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
+import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationProvider
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.formatTime
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.ceil
 
 data class RequesterUiState(
     val incidents: List<Incident> = emptyList(),
     val loading: Boolean = true,
     val sending: Boolean = false,
+    val capturingLocation: Boolean = false,
+    val locationFix: GeoFix? = null,
+    val locationError: String? = null,
     val notice: String? = null,
     val error: String? = null,
 )
@@ -70,7 +88,7 @@ class RequesterViewModel(
     val state: StateFlow<RequesterUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
 
-    fun hasLocationPermission(): Boolean = location.hasPermission()
+    fun isFresh(fix: GeoFix): Boolean = location.isFresh(fix)
 
     fun refresh() {
         if (refreshJob?.isActive == true) return
@@ -81,24 +99,112 @@ class RequesterViewModel(
         }
     }
 
-    fun sendSos(type: IncidentType, description: String) {
+    /** Called only after the user activates the Android LocationButton. */
+    fun captureLocation() {
+        if (_state.value.capturingLocation || _state.value.sending) return
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    capturingLocation = true,
+                    locationFix = null,
+                    locationError = null,
+                    error = null,
+                )
+            }
+            val result = try {
+                location.currentFix()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                LocationCaptureResult.Unavailable
+            }
+            when (result) {
+                is LocationCaptureResult.Success -> _state.update {
+                    it.copy(
+                        capturingLocation = false,
+                        locationFix = result.fix,
+                        locationError = null,
+                    )
+                }
+                LocationCaptureResult.PermissionDenied -> showLocationError(
+                    "Location wasn't shared. You can try the location button again or send the SOS without a GPS pin."
+                )
+                LocationCaptureResult.ServicesDisabled -> showLocationError(
+                    "Device Location is turned off. Turn it on and retry, or send the SOS without a GPS pin."
+                )
+                LocationCaptureResult.TimedOut -> showLocationError(
+                    "A fresh GPS fix wasn't available within 15 seconds. Move near a window and retry, or send without a pin."
+                )
+                LocationCaptureResult.InvalidFix -> showLocationError(
+                    "The location provider returned an invalid or stale fix. No pin was attached; retry or send without GPS."
+                )
+                LocationCaptureResult.Unavailable -> showLocationError(
+                    "Current location is temporarily unavailable. Retry, add a landmark, or send without a GPS pin."
+                )
+            }
+        }
+    }
+
+    fun onLocationDenied() = showLocationError(
+        "Location permission wasn't granted. No GPS data was read. You can still send an SOS without a pin."
+    )
+
+    fun onLocationButtonError() = showLocationError(
+        "The secure location prompt couldn't start. Retry the location button or send without GPS."
+    )
+
+    fun clearLocationFix() {
+        _state.update { it.copy(locationFix = null, locationError = null) }
+    }
+
+    fun expireStaleLocation() {
+        val fix = _state.value.locationFix ?: return
+        if (!location.isFresh(fix)) {
+            _state.update {
+                it.copy(
+                    locationFix = null,
+                    locationError = "The saved GPS fix is older than two minutes and will not be sent. Capture a fresh fix or review the SOS without a pin.",
+                )
+            }
+        }
+    }
+
+    private fun showLocationError(message: String) {
+        _state.update { it.copy(capturingLocation = false, locationFix = null, locationError = message) }
+    }
+
+    fun sendSos(type: IncidentType, description: String, locationNotes: String) {
         if (_state.value.sending) return
+        val current = _state.value
+        if (current.locationFix != null && !location.isFresh(current.locationFix)) {
+            _state.update {
+                it.copy(
+                    locationFix = null,
+                    locationError = "The GPS fix expired while you were reviewing. No request was sent; capture a new fix or review again without a pin.",
+                )
+            }
+            return
+        }
+        val fix = current.locationFix
         viewModelScope.launch {
             _state.update { it.copy(sending = true, notice = null, error = null) }
-            val fix = location.current()
-            if (fix == null) {
-                _state.update {
-                    it.copy(sending = false, error = "Couldn't get a recent location. Turn on GPS, wait for a fix, and try again.")
-                }
-                return@launch
-            }
-            val note = description.trim().ifBlank { null }
-            repo.createIncident(type, note, fix)
+            val report = description.trim().ifBlank { null }
+            val landmark = locationNotes.trim().take(500).ifBlank { null }
+            repo.createIncident(type, report, fix, landmark)
                 .onSuccess { created ->
+                    val locationConfirmed = locationResponseMatches(fix, landmark, created)
+                    val status = when {
+                        !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
+                        fix != null -> "SOS sent. Dispatch confirmed a one-time GPS pin; TACResQ is not tracking you continuously."
+                        else -> "SOS sent without a GPS pin. Dispatch received your request and can call you; any landmark note is included."
+                    }
                     _state.update {
                         it.copy(
                             sending = false,
-                            notice = "Help request sent. Dispatch has your location.",
+                            locationFix = null,
+                            locationError = null,
+                            notice = status,
+                            error = if (locationConfirmed) null else "Do not resend this SOS. The server accepted the request, but the GPS pin or location note did not match what you approved. Contact dispatch to verify the location.",
                             incidents = listOf(created) + it.incidents,
                         )
                     }
@@ -107,14 +213,29 @@ class RequesterViewModel(
         }
     }
 
-    fun onLocationDenied() {
-        _state.update {
-            it.copy(error = "Location permission is needed so responders can find you. Allow it and try again.")
+    private fun locationResponseMatches(fix: GeoFix?, notes: String?, incident: Incident): Boolean {
+        if (incident.locationNotes?.trim().orEmpty() != notes?.trim().orEmpty()) return false
+        if (fix == null) {
+            return incident.latitude == null && incident.longitude == null &&
+                incident.accuracyM == null && incident.locationRecordedAt.isNullOrBlank()
         }
+        val latitude = incident.latitude ?: return false
+        val longitude = incident.longitude ?: return false
+        if (abs(latitude - fix.latitude) > 0.000001 || abs(longitude - fix.longitude) > 0.000001) return false
+        val accuracyMatches = when {
+            fix.accuracyM == null -> incident.accuracyM == null
+            incident.accuracyM == null -> false
+            else -> abs(incident.accuracyM.toDouble() - fix.accuracyM.toDouble()) <= 1.0
+        }
+        if (!accuracyMatches) return false
+        val returnedAt = incident.locationRecordedAt?.let {
+            runCatching { Instant.parse(it).toEpochMilli() }.getOrNull()
+        } ?: return false
+        return abs(returnedAt - fix.capturedAtEpochMillis) <= 2_000L
     }
 
     fun dismissMessages() {
-        _state.update { it.copy(notice = null, error = null) }
+        _state.update { it.copy(notice = null, error = null, locationError = null) }
     }
 }
 
@@ -125,17 +246,16 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
 
     var selectedType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
     var description by rememberSaveable { mutableStateOf("") }
+    var locationNotes by rememberSaveable { mutableStateOf("") }
     var confirmingSos by rememberSaveable { mutableStateOf(false) }
+    val freshFix = state.locationFix?.takeIf(vm::isFresh)
+    val activeIncident = state.incidents.firstOrNull { it.status.isActive }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { grants ->
-        if (grants.values.any { it }) confirmingSos = true else vm.onLocationDenied()
-    }
-
-    // Clear the text box once a request has gone through.
     LaunchedEffect(state.notice) {
-        if (state.notice != null) description = ""
+        if (state.notice != null) {
+            description = ""
+            locationNotes = ""
+        }
     }
 
     LazyColumn(
@@ -157,12 +277,8 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        "Need help?",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text("Choose the emergency type. Your current GPS location will be shared with the response team.")
+                    Text("Need help?", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text("Choose the emergency type and share one current location if available.")
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(IncidentType.entries) { type ->
                             FilterChip(
@@ -174,26 +290,73 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     }
                     OutlinedTextField(
                         value = description,
-                        onValueChange = { description = it },
+                        onValueChange = { if (it.length <= 2000) description = it },
                         label = { Text("What is happening? (optional)") },
                         minLines = 2,
                         maxLines = 4,
                         modifier = Modifier.fillMaxWidth(),
                     )
+
+                    Text("Location sharing", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Your location is read only after you tap the system location button. If you send this SOS, that one fix is shared with dispatch and the assigned response team. No background tracking.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    if (state.capturingLocation) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text("Finding a fresh location… this can take up to 15 seconds.")
+                        }
+                    } else {
+                        LocationButton(
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            textType = LocationButtonTextType.SharePreciseLocation,
+                            backgroundColor = MaterialTheme.colorScheme.primary,
+                            strokeColor = MaterialTheme.colorScheme.primary,
+                            textColor = MaterialTheme.colorScheme.onPrimary,
+                            iconTint = MaterialTheme.colorScheme.onPrimary,
+                            onPermissionResult = { granted ->
+                                if (granted) vm.captureLocation() else vm.onLocationDenied()
+                            },
+                            onError = { vm.onLocationButtonError() },
+                        )
+                    }
+
+                    when {
+                        freshFix != null -> LocationFixCard(freshFix, onClear = vm::clearLocationFix)
+                        state.locationFix != null -> LocationNoticeCard(
+                            title = "GPS fix expired",
+                            text = "This older fix will not be sent. Capture a new fix or continue without a GPS pin.",
+                        )
+                        state.locationFix == null && !state.capturingLocation -> LocationNoticeCard(
+                            title = "No GPS pin selected",
+                            text = "You can send without a pin. Add a nearby landmark or access detail below; the app will not invent coordinates.",
+                        )
+                    }
+
+                    state.locationError?.let { message ->
+                        Banner(message, isError = true, onDismiss = vm::dismissMessages)
+                    }
+
+                    OutlinedTextField(
+                        value = locationNotes,
+                        onValueChange = { if (it.length <= 500) locationNotes = it },
+                        label = { Text("Landmark or access detail (optional)") },
+                        minLines = 1,
+                        maxLines = 3,
+                        supportingText = { Text("${locationNotes.length}/500 · sent with this SOS") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
                     Button(
                         onClick = {
-                            if (vm.hasLocationPermission()) {
-                                confirmingSos = true
-                            } else {
-                                permissionLauncher.launch(
-                                    arrayOf(
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION,
-                                    )
-                                )
-                            }
+                            vm.expireStaleLocation()
+                            confirmingSos = true
                         },
-                        enabled = !state.sending,
+                        enabled = !state.sending && !state.capturingLocation,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                         modifier = Modifier.fillMaxWidth().height(64.dp),
                     ) {
@@ -211,20 +374,14 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             }
         }
 
-        state.notice?.let { message ->
-            item { Banner(message, isError = false, onDismiss = vm::dismissMessages) }
-        }
-        state.error?.let { message ->
-            item { Banner(message, isError = true, onDismiss = vm::dismissMessages) }
-        }
+        state.notice?.let { message -> item { Banner(message, isError = false, onDismiss = vm::dismissMessages) } }
+        state.error?.let { message -> item { Banner(message, isError = true, onDismiss = vm::dismissMessages) } }
 
         item { Text("My requests", style = MaterialTheme.typography.titleMedium) }
         if (state.incidents.isEmpty() && !state.loading) {
             item { Text("No requests yet.") }
         }
-        items(state.incidents, key = { it.id }) { incident ->
-            IncidentCard(incident)
-        }
+        items(state.incidents, key = { it.id }) { incident -> IncidentCard(incident) }
     }
 
     if (confirmingSos) {
@@ -232,14 +389,34 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             onDismissRequest = { confirmingSos = false },
             title = { Text("Send emergency request?") },
             text = {
-                Text(
-                    "This will notify dispatch of a ${selectedType.label.lowercase()} emergency and share your current location. Only continue if help is needed now.",
-                )
+                Column(
+                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("This will notify dispatch of a ${selectedType.label.lowercase()} emergency.")
+                    description.trim().takeIf { it.isNotEmpty() }?.let { Text("Report details: $it") }
+                    if (freshFix != null) {
+                        Text(locationSummary(freshFix))
+                        Text("The pin is a single capture, not live tracking.", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Text("No GPS pin will be attached. Dispatch may need to call you to confirm where you are.")
+                    }
+                    locationNotes.trim().takeIf { it.isNotEmpty() }?.let {
+                        Text("Location note to share: $it")
+                    }
+                    activeIncident?.let {
+                        Text(
+                            "You already have active request #${it.id} (${it.status.label}). This will create a second request; continue only if it is a separate emergency.",
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Text("Only continue if help is needed now.", style = MaterialTheme.typography.bodySmall)
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
                     confirmingSos = false
-                    vm.sendSos(selectedType, description)
+                    vm.sendSos(selectedType, description, locationNotes)
                 }) { Text("Send SOS") }
             },
             dismissButton = {
@@ -247,4 +424,56 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             },
         )
     }
+}
+
+@Composable
+private fun LocationFixCard(fix: GeoFix, onClear: () -> Unit) {
+    val accuracy = fix.accuracyM?.let { "±${ceil(it.toDouble()).toInt()} m" } ?: "not reported"
+    val captured = runCatching { formatTime(Instant.ofEpochMilli(fix.capturedAtEpochMillis).toString()) }
+        .getOrDefault("just now")
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("One-time GPS fix ready", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Reported accuracy: $accuracy · captured $captured", style = MaterialTheme.typography.bodySmall)
+            Text(
+                if (fix.hasPrecisePermission) "Precise location access was granted for this action."
+                else "Approximate location access is active; the pin may be broad.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (fix.accuracyM == null || fix.accuracyM > 100f) {
+                Text(
+                    "This fix is broad or has no reported accuracy. Add a landmark, or remove the location pin if you can't confirm it identifies you.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            TextButton(onClick = onClear) { Text("Remove location pin") }
+        }
+    }
+}
+
+@Composable
+private fun LocationNoticeCard(title: String, text: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(text, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+private fun locationSummary(fix: GeoFix): String {
+    val accuracy = fix.accuracyM?.let { "reported accuracy ±${ceil(it.toDouble()).toInt()} m" }
+        ?: "accuracy not reported"
+    val timestamp = runCatching { formatTime(Instant.ofEpochMilli(fix.capturedAtEpochMillis).toString()) }
+        .getOrDefault("just now")
+    val precision = if (fix.hasPrecisePermission) "GPS pin" else "approximate GPS pin"
+    return "One $precision ($accuracy), captured $timestamp, will be sent to dispatch."
 }
