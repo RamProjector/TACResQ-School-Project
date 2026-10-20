@@ -105,7 +105,7 @@ class TacRepository(
     }
 
     suspend fun assignIncident(incidentId: Long, userId: Long): Result<Incident> = call {
-        api.assignIncident(AssignIncidentRequest(userId))
+        api.assignIncident(incidentId, AssignIncidentRequest(userId))
     }
 
     /** Reserved for the explicit foreground tracking lifecycle; callers must gate this on en_route. */
