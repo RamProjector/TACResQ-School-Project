@@ -21,7 +21,7 @@ The Android source check also validates the checked-in Gradle project and verifi
 
 ## Android debug and release builds
 
-GitHub Actions installs Android SDK Platform 37 and Build-Tools 36.0.0, verifies the wrapper checksum, then runs `assembleDebug` and `assembleRelease`. If the wrapper is absent, CI falls back to source-contract validation and clearly reports that no APK was built.
+GitHub Actions installs Android SDK Platform 37 and Build-Tools 36.0.0, verifies the wrapper checksum, then runs `assembleDebug` and `assembleRelease`. If the wrapper is absent, CI falls back to source-contract validation and clearly reports that no APK was built. The debug APK is automatically signed for testing. Release signing is optional and uses the repository secrets `ANDROID_SIGNING_KEYSTORE_BASE64`, `ANDROID_SIGNING_STORE_PASSWORD`, `ANDROID_SIGNING_KEY_ALIAS`, and `ANDROID_SIGNING_KEY_PASSWORD`. Configure all four only after creating and securely backing up your own keystore. If none are present, the release APK is unsigned and the workflow summary says so; if only some are present, the build fails to avoid a misleading artifact. Do not commit the keystore or put its passwords in source control.
 
 Validate locally with:
 
