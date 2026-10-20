@@ -30,6 +30,15 @@ export interface Incident {
   created_at: string | null;
 }
 
+export interface ResponderLocation {
+  incident_id: number;
+  user_id: number;
+  latitude: number;
+  longitude: number;
+  accuracy_m: number | null;
+  recorded_at: string;
+}
+
 type TacruDatabase = {
   public: {
     Tables: Record<string, never>;
@@ -39,6 +48,7 @@ type TacruDatabase = {
       api_all_incidents: { Args: Record<string, never>; Returns: Incident[] };
       api_units: { Args: Record<string, never>; Returns: TacruProfile[] };
       api_assign_incident: { Args: { p_id: number; p_user_id: number }; Returns: Incident };
+      api_active_responder_locations: { Args: Record<string, never>; Returns: ResponderLocation[] };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -108,6 +118,12 @@ export async function getFieldUnits(): Promise<TacruProfile[]> {
   const { data, error } = await getSupabase().rpc("api_units");
   throwIfError(error);
   return (data as unknown as TacruProfile[] | null) ?? [];
+}
+
+export async function getActiveResponderLocations(): Promise<ResponderLocation[]> {
+  const { data, error } = await getSupabase().rpc("api_active_responder_locations");
+  throwIfError(error);
+  return (data as unknown as ResponderLocation[] | null) ?? [];
 }
 
 export async function assignIncident(incidentId: number, unitId: number): Promise<Incident> {

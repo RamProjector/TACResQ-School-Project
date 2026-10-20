@@ -273,6 +273,26 @@ a { color: inherit; }
 .unit-status--available > i { background: #55a372; }
 .unit-status--en_route, .unit-status--on_scene, .unit-status--transporting { color: #55758a; }
 .unit-status--en_route > i, .unit-status--on_scene > i, .unit-status--transporting > i { background: #6a90aa; }
+.responder-location-panel { padding: 0 13px 9px; border-top: 1px solid #edf0e9; }
+.responder-location-panel__heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 13px 1px 8px; }
+.responder-location-panel__heading .eyebrow { margin: 0 0 4px; color: #8a9590; font: 600 7px var(--mono); letter-spacing: .1em; }
+.responder-location-panel__heading h3 { margin: 0; color: var(--ink-deep); font: 600 13px var(--display); }
+.responder-location-panel__heading > span { color: #82908b; font: 500 7px var(--mono); letter-spacing: .06em; }
+.responder-location-empty { margin: 0; padding: 5px 1px 10px; color: #87928e; font-size: 9px; }
+.responder-location-error { margin: 0 0 7px; padding: 7px; border: 1px solid #f0d3cc; border-radius: 4px; color: #963d31; background: #fff3ee; font-size: 8px; line-height: 1.45; }
+.responder-location-card { display: grid; gap: 5px; padding: 10px 9px; border: 1px solid #e5e9e1; border-radius: 6px; background: #fbfcf8; }
+.responder-location-card + .responder-location-card { margin-top: 7px; }
+.responder-location-card--stale, .responder-location-card--aging { background: #fffaf1; }
+.responder-location-card__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.responder-location-card__top strong { color: #44595a; font: 600 8px var(--mono); }
+.responder-location-card p { margin: 0; color: #64736f; font-size: 9px; }
+.responder-location-card small { color: #858f8a; font-size: 8px; line-height: 1.45; }
+.location-freshness { padding: 3px 5px; border-radius: 3px; color: #687873; background: #eef1eb; font: 600 7px var(--mono); text-transform: uppercase; }
+.location-freshness--fresh { color: #347251; background: #e9f4eb; }
+.location-freshness--aging { color: #956a20; background: #fff0d2; }
+.location-freshness--stale { color: #984e32; background: #ffebe1; }
+.location-freshness--unavailable { color: #707b76; background: #eef0ec; }
+.responder-location-card .map-link { margin-top: 2px; }
 .units-footnote, .prototype-note { display: flex; gap: 8px; margin: 0 13px; padding: 12px 1px; border-top: 1px solid #edf0e9; color: #7e8d8a; }
 .units-footnote svg, .prototype-note svg { flex: 0 0 auto; margin-top: 1px; color: #7d9d8a; }
 .units-footnote p, .prototype-note p { margin: 0; font-size: 8px; line-height: 1.55; }

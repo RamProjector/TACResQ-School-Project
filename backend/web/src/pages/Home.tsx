@@ -27,12 +27,13 @@ import {
 import { Brand } from "@/components/Brand";
 import {
   assignIncident,
+  getActiveResponderLocations,
   getAllIncidents,
   getFieldUnits,
   getMyProfile,
   getSupabase,
 } from "@/lib/supabase";
-import type { Incident, IncidentStatus, IncidentType, TacruProfile } from "@/lib/supabase";
+import type { Incident, IncidentStatus, IncidentType, ResponderLocation, TacruProfile } from "@/lib/supabase";
 
 interface HomeProps {
   session: Session | null;
@@ -71,6 +72,16 @@ function formatTimestamp(value: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Time not recorded";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function locationFreshness(location: ResponderLocation | undefined): "unavailable" | "fresh" | "aging" | "stale" {
+  if (!location) return "unavailable";
+  const recordedAt = new Date(location.recorded_at).getTime();
+  const ageMs = Date.now() - recordedAt;
+  if (!Number.isFinite(recordedAt) || ageMs < 0) return "stale";
+  if (ageMs < 30_000) return "fresh";
+  if (ageMs <= 120_000) return "aging";
+  return "stale";
 }
 
 function TypeIcon({ type }: { type: IncidentType }) {
@@ -274,6 +285,8 @@ function ConfirmAssignment({
 function DispatcherBoard({ session, profile, onSignOut }: { session: Session; profile: TacruProfile; onSignOut: () => void }) {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [units, setUnits] = useState<TacruProfile[]>([]);
+  const [responderLocations, setResponderLocations] = useState<ResponderLocation[]>([]);
+  const [locationError, setLocationError] = useState(false);
   const [queueLoading, setQueueLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -291,6 +304,13 @@ function DispatcherBoard({ session, profile, onSignOut }: { session: Session; pr
       const [nextIncidents, nextUnits] = await Promise.all([getAllIncidents(), getFieldUnits()]);
       setIncidents(nextIncidents);
       setUnits(nextUnits);
+      try {
+        setResponderLocations(await getActiveResponderLocations());
+        setLocationError(false);
+      } catch {
+        setResponderLocations([]);
+        setLocationError(true);
+      }
       setLastSyncedAt(new Date());
       setError(null);
     } catch (cause) {
@@ -443,6 +463,34 @@ function DispatcherBoard({ session, profile, onSignOut }: { session: Session; pr
                   </article>
                 ))}
               </div>
+              <section className="responder-location-panel" aria-label="Responder location freshness">
+                <div className="responder-location-panel__heading">
+                  <div><p className="eyebrow">ACTIVE RESPONSE</p><h3>Responder locations</h3></div>
+                  <span>EN ROUTE ONLY</span>
+                </div>
+                {locationError && <p className="responder-location-error">Location data is not configured. Apply the Phase 2 migration; no live marker is shown.</p>}
+                {incidents.filter((incident) => incident.status === "en_route").length === 0 ? (
+                  <p className="responder-location-empty">No responders are currently en route.</p>
+                ) : incidents.filter((incident) => incident.status === "en_route").map((incident) => {
+                  const unit = units.find((candidate) => candidate.id === incident.assigned_to);
+                  const location = responderLocations.find((candidate) => candidate.incident_id === incident.id);
+                  const freshness = locationFreshness(location);
+                  const mapHref = location
+                    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${location.latitude},${location.longitude}`)}`
+                    : null;
+                  return <article className={`responder-location-card responder-location-card--${freshness}`} key={incident.id}>
+                    <div className="responder-location-card__top">
+                      <strong>Incident #{incident.id}</strong>
+                      <span className={`location-freshness location-freshness--${freshness}`}>{freshness}</span>
+                    </div>
+                    <p>{unit?.name ?? `Assigned unit ${incident.assigned_to ?? "unknown"}`}</p>
+                    {location ? <>
+                      <small>Last reported {formatTimestamp(location.recorded_at)}{location.accuracy_m == null ? " · accuracy unavailable" : ` · ±${Math.round(location.accuracy_m)} m`}</small>
+                      <a className="map-link" href={mapHref ?? undefined} target="_blank" rel="noreferrer"><MapPin size={13} /> Open last reported point <ArrowUpRight size={13} /></a>
+                    </> : <small>No responder location has been received for this active response.</small>}
+                  </article>;
+                })}
+              </section>
               <div className="units-footnote"><MapPin size={15} /><p>Incident coordinates open in an external map.</p></div>
             </aside>
           </div>

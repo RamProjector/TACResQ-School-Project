@@ -1,6 +1,5 @@
 -- Incident-bound responder location contract.
--- This migration defines the server boundary for a future foreground-only client.
--- It does not enable tracking by itself and must not be applied until the client lifecycle is ready.
+-- The client must start foreground tracking only after explicit response consent.
 
 begin;
 
@@ -16,21 +15,21 @@ drop policy if exists location_logs_read_dispatcher_or_owner on public.location_
 create policy location_logs_read_dispatcher_or_owner on public.location_logs for select to authenticated
 using (
   (
-    user_id in (select id from public.profiles where auth_user_id = (select auth.uid()))
-    and (
-      incident_id is null
-      or exists (
-        select 1 from public.incidents i
-        where i.id = location_logs.incident_id
-          and i.assigned_to = user_id
-      )
+    user_id in (select id from public.profiles where auth_user_id = (select auth.uid()) and role in ('responder', 'driver'))
+    and exists (
+      select 1 from public.incidents i
+      where i.id = location_logs.incident_id
+        and i.assigned_to = user_id
+        and i.status = 'en_route'
     )
   )
   or (
     (select private.tacresq_actor_role()) = 'dispatcher'
-    and (
-      incident_id is null
-      or exists (select 1 from public.incidents i where i.id = location_logs.incident_id)
+    and exists (
+      select 1 from public.incidents i
+      where i.id = location_logs.incident_id
+        and i.assigned_to = location_logs.user_id
+        and i.status = 'en_route'
     )
   )
 );
@@ -58,7 +57,7 @@ create or replace function public.api_record_location_v2(
   p_accuracy_m real,
   p_recorded_at timestamptz
 ) returns bigint
-language plpgsql security invoker set search_path = public, pg_temp as $$
+language plpgsql security definer set search_path = pg_catalog, public, pg_temp as $$
 declare
   actor_id bigint;
   incident_status text;
@@ -92,6 +91,9 @@ begin
     raise exception 'Location tracking is only available to the assigned en-route unit' using errcode = '42501';
   end if;
 
+  -- Serialize this responder's writes so simultaneous RPC calls cannot race the throttle check.
+  perform pg_advisory_xact_lock(actor_id);
+
   if exists (
     select 1 from public.location_logs l
      where l.user_id = actor_id
@@ -113,9 +115,45 @@ revoke all on function public.api_record_location_v2(bigint, double precision, d
 grant execute on function public.api_record_location_v2(bigint, double precision, double precision, real, timestamptz) to authenticated;
 
 grant select on public.location_logs to authenticated;
-grant insert on public.location_logs to authenticated;
+-- Clients must write through the validating/rate-limited RPC, not the table.
+revoke insert on public.location_logs from authenticated;
 
 comment on function public.api_record_location_v2(bigint, double precision, double precision, real, timestamptz)
 is 'Writes a validated responder GPS fix only for the authenticated unit assigned to this incident while it is en route.';
+
+create or replace function public.api_active_responder_locations()
+returns table (
+  incident_id bigint,
+  user_id bigint,
+  latitude double precision,
+  longitude double precision,
+  accuracy_m real,
+  recorded_at timestamptz
+)
+language plpgsql security invoker set search_path = pg_catalog, public, pg_temp as $$
+begin
+  if (select private.tacresq_actor_role()) is distinct from 'dispatcher' then
+    raise exception 'Only dispatchers can view responder locations' using errcode = '42501';
+  end if;
+
+  return query
+    select distinct on (i.id)
+      i.id, l.user_id, l.latitude, l.longitude, l.accuracy_m, l.recorded_at
+    from public.incidents i
+    join public.location_logs l
+      on l.incident_id = i.id
+     and l.user_id = i.assigned_to
+    where i.status = 'en_route'
+      and l.latitude between -90 and 90
+      and l.longitude between -180 and 180
+      and (l.accuracy_m is null or l.accuracy_m >= 0)
+      and l.recorded_at <= now() + interval '5 minutes'
+    order by i.id, l.recorded_at desc, l.created_at desc;
+end;
+$$;
+revoke all on function public.api_active_responder_locations() from public, anon;
+grant execute on function public.api_active_responder_locations() to authenticated;
+comment on function public.api_active_responder_locations()
+is 'Returns the latest incident-bound responder fix only for active en-route incidents; dispatchers only.';
 
 commit;

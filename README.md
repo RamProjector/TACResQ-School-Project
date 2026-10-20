@@ -44,7 +44,8 @@ The [GPS map UI recommendation](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) explai
 | Responder status progression | Implemented |
 | TACRU web dispatcher dashboard | Implemented |
 | Centered role-aware GPS Map destination | Implemented |
-| Continuous/background responder tracking | Not yet implemented |
+| Foreground responder location sharing | Implemented in source; approximate, consent-gated, and stops when the app leaves the foreground; not device-validated |
+| Background responder tracking | Not implemented |
 | In-app map tiles and live fleet markers | Not yet implemented |
 | FCM push notifications | Not yet implemented |
 | Offline write synchronization | Not yet implemented |
