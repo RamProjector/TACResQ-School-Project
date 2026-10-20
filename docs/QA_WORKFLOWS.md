@@ -11,6 +11,7 @@ python3 tools/check_android_source.py
 python3 tools/test_workflow.py
 python3 tools/test_prototype.py
 python3 tools/test_location_contract.py
+python3 tools/test_stress_test.py
 pnpm --dir backend/web install --frozen-lockfile
 pnpm --dir backend/web build
 python3 tools/ai_security_review.py

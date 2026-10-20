@@ -26,6 +26,9 @@ jobs:
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
+      - name: Test bounded stress utility without Docker
+        run: python3 tools/test_stress_test.py
+
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
