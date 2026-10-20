@@ -126,6 +126,20 @@ python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 
 The offline smoke test is a Python workflow model; it does not compile or exercise the Android app. This repository is a source pack, not a complete Gradle project; Android compilation requires merging it into the fresh project described above.
 
+## Pull-request checks
+
+Every pull request runs the existing backend/dashboard checks plus:
+
+- **Android build gate:** when a Gradle wrapper is present, CI runs both `assembleDebug` and `assembleRelease`. Until this source pack is merged into a complete Android Studio project, CI runs `tools/check_android_source.py` so required Kotlin sources and the debug manifest are still checked instead of pretending an APK was built.
+- **Browser flow test:** `python3 tools/test_prototype.py` opens the interactive prototype in Chromium and verifies bottom navigation, role switching, SOS consent/submission, dispatcher assignment, and the responder status sequence through resolution.
+- **Visual screenshot check:** `python3 tools/visual_regression.py` captures stable mobile screens and compares them with `tests/visual/baseline/`. A changed screen fails the PR check and is uploaded with a Markdown report as the `tacresq-visual-regression` Actions artifact. Map screens are excluded because third-party OpenStreetMap tiles are nondeterministic in CI.
+
+When an intentional UI change is made, review the uploaded screenshots and regenerate the four checked-in baselines locally with:
+
+```bash
+python3 tools/visual_regression.py --update
+```
+
 
 ## TACRU web dispatch dashboard
 

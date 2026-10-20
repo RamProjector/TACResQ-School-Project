@@ -20,3 +20,5 @@ backend/web/node_modules/
 backend/web/dist/
 backend/web/.env.local
 backend/web/.env.*.local
+# Local Playwright visual-regression output
+artifacts/
