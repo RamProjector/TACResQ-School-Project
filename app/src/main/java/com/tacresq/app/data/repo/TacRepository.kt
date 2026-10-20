@@ -16,6 +16,7 @@ import com.tacresq.app.data.remote.CreateIncidentRequest
 import com.tacresq.app.data.remote.DutyStatusRequest
 import com.tacresq.app.data.remote.LoginRequest
 import com.tacresq.app.data.remote.RegisterRequest
+import com.tacresq.app.data.remote.ResponderLocationRequest
 import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.remote.UpdateStatusRequest
 import kotlinx.coroutines.CancellationException
@@ -104,7 +105,20 @@ class TacRepository(
     }
 
     suspend fun assignIncident(incidentId: Long, userId: Long): Result<Incident> = call {
-        api.assignIncident(incidentId, AssignIncidentRequest(userId))
+        api.assignIncident(AssignIncidentRequest(userId))
+    }
+
+    /** Reserved for the explicit foreground tracking lifecycle; callers must gate this on en_route. */
+    suspend fun recordResponderLocation(incidentId: Long, fix: GeoFix): Result<Long> = call {
+        api.recordLocation(
+            ResponderLocationRequest(
+                incidentId = incidentId,
+                latitude = fix.latitude,
+                longitude = fix.longitude,
+                accuracyM = fix.accuracyM,
+                recordedAt = Instant.ofEpochMilli(fix.capturedAtEpochMillis).toString(),
+            )
+        )
     }
 
     // ---- internals ----

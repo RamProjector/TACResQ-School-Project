@@ -59,6 +59,10 @@ interface TacApi {
         @Path("id") id: Long,
         @Body body: AssignIncidentRequest,
     ): Incident
+
+    /** Reserved for foreground responder tracking while the assigned incident is en route. */
+    @POST("me/locations")
+    suspend fun recordLocation(@Body body: ResponderLocationRequest): Long
 }
 
 data class LoginRequest(val email: String, val password: String)
@@ -87,3 +91,11 @@ data class CreateIncidentRequest(
 data class UpdateStatusRequest(val status: IncidentStatus)
 
 data class AssignIncidentRequest(@SerializedName("user_id") val userId: Long)
+
+data class ResponderLocationRequest(
+    @SerializedName("incident_id") val incidentId: Long,
+    val latitude: Double,
+    val longitude: Double,
+    @SerializedName("accuracy_m") val accuracyM: Float?,
+    @SerializedName("recorded_at") val recordedAt: String,
+)

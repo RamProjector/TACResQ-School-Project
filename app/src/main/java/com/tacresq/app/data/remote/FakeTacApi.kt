@@ -221,6 +221,25 @@ class FakeTacApi(
         }
     }
 
+    override suspend fun recordLocation(body: ResponderLocationRequest): Long {
+        delay(100)
+        synchronized(lock) {
+            val me = current()
+            val incident = incidents.firstOrNull { it.id == body.incidentId }
+                ?: throw httpError(404, "Incident not found.")
+            if (me.role != Role.RESPONDER && me.role != Role.DRIVER || incident.assignedTo != me.id) {
+                throw httpError(403, "This incident is not assigned to you.")
+            }
+            if (incident.status != IncidentStatus.EN_ROUTE) {
+                throw httpError(422, "Location sharing is only available while en route.")
+            }
+            if (body.latitude !in -90.0..90.0 || body.longitude !in -180.0..180.0) {
+                throw httpError(422, "Location coordinates are invalid.")
+            }
+            1L
+        }
+    }
+
     // ---- helpers (call only while holding `lock`, except dispatchLater/httpError) ----
 
     private fun issueToken(userId: Long): String =

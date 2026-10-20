@@ -61,6 +61,8 @@ class SupabaseTacApi private constructor(
         rpc.updateIncidentStatus(UpdateIncidentRpc(id, body.status.wireValue))
     override suspend fun assignIncident(id: Long, body: AssignIncidentRequest): Incident =
         rpc.assignIncident(AssignIncidentRpc(id, body.userId))
+    override suspend fun recordLocation(body: ResponderLocationRequest): Long =
+        rpc.recordLocation(RecordLocationRpc(body.incidentId, body.latitude, body.longitude, body.accuracyM, body.recordedAt))
 
     companion object {
         fun create(tokenProvider: () -> String?): TacApi {
@@ -122,6 +124,9 @@ private interface SupabaseRpcWire {
 
     @POST("rest/v1/rpc/api_assign_incident")
     suspend fun assignIncident(@Body body: AssignIncidentRpc): Incident
+
+    @POST("rest/v1/rpc/api_record_location_v2")
+    suspend fun recordLocation(@Body body: RecordLocationRpc): Long
 }
 
 private data class SupabaseSession(@SerializedName("access_token") val accessToken: String?)
@@ -139,6 +144,13 @@ private data class CreateIncidentV2Rpc(
 )
 private data class UpdateIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_status") val status: String)
 private data class AssignIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_id") val userId: Long)
+private data class RecordLocationRpc(
+    @SerializedName("p_incident_id") val incidentId: Long,
+    @SerializedName("p_latitude") val latitude: Double,
+    @SerializedName("p_longitude") val longitude: Double,
+    @SerializedName("p_accuracy_m") val accuracyM: Float?,
+    @SerializedName("p_recorded_at") val recordedAt: String,
+)
 
 private val DutyStatus.wireValue: String get() = when (this) {
     DutyStatus.OFF_DUTY -> "off_duty"

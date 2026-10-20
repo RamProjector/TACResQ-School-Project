@@ -24,6 +24,7 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - Removed the misleading dispatcher self-location route planner; the web dashboard keeps incident-coordinate links, while responder navigation remains in the assigned responder client.
 - Added an explicit responder confirmation before advancing an assigned incident to `en_route`; the confirmation states that live responder GPS is not shared by the current build.
 - Added the dormant Supabase migration `202610200002_responder_location_tracking.sql` with incident-bound location records, assigned-unit/en-route authorization, coordinate/timestamp validation, and server-side update throttling. It is not applied to the shared database yet.
+- Added the typed Android `recordResponderLocation` repository/API boundary for the incident-bound RPC, with fake and Supabase adapters. No watcher calls it yet, so the client still does not collect or upload live location.
 - Wrote `plan.md` with the agreed implementation plan: dispatcher-only responder tracking while en route, explicit responder start/stop lifecycle, incident-bound backend authorization, freshness states, realtime fallback, notifications, offline behavior, audit history, and deferred requester-facing GPS.
 
 ## Current implementation boundaries
@@ -36,6 +37,7 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - The dispatcher dashboard does not request or track dispatcher browser location.
 - Responder navigation already opens the confirmed incident coordinate locally; responder live-location upload is not implemented yet.
 - The backend now has a future `api_record_location_v2` contract, but the Android client does not call it and the dispatcher has no live responder map yet.
+- The Android client is prepared for the future location call, but foreground permission, update cadence, lifecycle start/stop, and dispatcher reads/map rendering remain unimplemented.
 - The repository is an Android source pack without a checked-in Gradle wrapper.
 
 ## Validation
@@ -49,7 +51,7 @@ python3 tools/test_prototype.py
 pnpm --dir backend/web build
 ```
 
-The Android, workflow, prototype, and migration-source checks passed again. `git diff --check` also passed. The incident-bound backend contract is validated locally and is ready to commit; the shared Supabase database was not modified.
+The Android source, workflow, prototype, and migration-source checks passed again. `git diff --check` also passed. The incident-bound Android API boundary is validated locally; no shared Supabase database was modified.
 
 ## Resume checklist
 

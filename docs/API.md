@@ -117,7 +117,7 @@ Only the user in `assigned_to` may change an incident's status (403 otherwise).
 
 | Route | Purpose |
 |---|---|
-| `POST /me/locations` | Batch of `{ latitude, longitude, accuracy_m, recorded_at }` for live tracking and offline sync |
+| `POST /me/locations` | Reserved incident-bound foreground update `{ incident_id, latitude, longitude, accuracy_m, recorded_at }`; server accepts it only from the assigned unit while the incident is `en_route`. Offline replay and background tracking are not implemented. |
 | `POST /me/fcm-token` | Register the phone's FCM token for push notifications |
 | `GET /incidents` | Dispatcher: full incident queue |
 | `POST /incidents/{id}/assign` | Dispatcher: `{ "user_id": 2 }`, sets `assigned_to` and `status: "assigned"`, sends FCM |
