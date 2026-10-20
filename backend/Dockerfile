@@ -8,7 +8,7 @@ ENV VITE_BASE_PATH=/dispatch/
 RUN pnpm build
 
 FROM composer:2 AS composer-bin
-FROM php:8.3-cli
+FROM php:8.5-cli
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git unzip libpq-dev libzip-dev libonig-dev libxml2-dev \
