@@ -88,3 +88,19 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - No live Supabase data/schema, Render deployment, or real emergency data touched.
 - Validation: CI must run on the PR. No local shell, Android emulator, or device test was available through this connector-only workflow.
 - Next action: inspect diffs, open PR, and review CI; merge only if checks pass.
+
+## Agent handoff — uniform Android UI baseline (2026-10-21)
+
+- **Objective:** Make the Android app visually consistent enough for practical testing without redesigning the product or changing backend behavior.
+- **Base:** `main` at `d9d1871d272abcffd4c1b8f8ece01aafe9a62332` (after merged PR #31).
+- **Branch:** `agent/uniform-android-ui`.
+- **Implementation committed so far:**
+  - `app/src/main/java/com/tacresq/app/ui/theme/Theme.kt`: shared rounded shape tokens for cards/fields/buttons.
+  - `app/build.gradle.kts`: Compose Material core icons dependency.
+  - `app/src/main/java/com/tacresq/app/ui/RoleShell.kt`: consistent five-item bottom navigation with icons, equal-width destinations, and a visually emphasized central GPS Map.
+  - `app/src/main/java/com/tacresq/app/ui/AppRoot.kt`: shared header and consistent card-based content for secondary, safety, and profile/activity sections; empty states are explicit rather than pretending records/alerts exist.
+  - `app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt`: sign-in/registration use the same card, color, spacing, and button language as the authenticated UI.
+- **Latest branch commit observed before handoff update:** `5943a6a2f3b8935f7784623066b27e35a4e142d2`.
+- **Validation:** Not run yet in this connector-only workflow. No local checkout, Gradle command, emulator, or physical-device run was available. CI must validate Kotlin compilation and existing source/visual/integration checks after the PR is opened.
+- **Safety/scope:** No backend, Supabase schema/data, secrets, Render deployment, or real emergency records changed. Existing request/response logic was intentionally left untouched.
+- **Next actions:** Open a focused PR, inspect CI results, fix any compile/source-check failures, then leave the PR open for review. Do not merge unless the user separately asks.
