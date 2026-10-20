@@ -96,8 +96,57 @@ jobs:
         if: hashFiles('gradlew') != ''
         run: ./gradlew --no-daemon assembleDebug
 
+      - name: Configure optional Android release signing
+        if: hashFiles('gradlew') != ''
+        env:
+          ANDROID_SIGNING_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+        run: |
+          configured=0
+          for value in \
+            "$ANDROID_SIGNING_KEYSTORE_BASE64" \
+            "$ANDROID_SIGNING_STORE_PASSWORD" \
+            "$ANDROID_SIGNING_KEY_ALIAS" \
+            "$ANDROID_SIGNING_KEY_PASSWORD"; do
+            if [ -n "$value" ]; then
+              configured=$((configured + 1))
+            fi
+          done
+
+          if [ "$configured" -eq 0 ]; then
+            {
+              echo "### Android release signing"
+              echo ""
+              echo "No release-signing secrets are configured. The release APK is built unsigned; use the debug APK for direct device testing."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "Release signing is not configured; continuing with an unsigned release APK."
+            exit 0
+          fi
+
+          if [ "$configured" -ne 4 ]; then
+            echo "Release signing is partially configured. Set all four ANDROID_SIGNING_* secrets or remove them all." >&2
+            exit 1
+          fi
+
+          keystore_path="$RUNNER_TEMP/tacresq-release.keystore"
+          printf '%s' "$ANDROID_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          chmod 600 "$keystore_path"
+          test -s "$keystore_path"
+          echo "ANDROID_SIGNING_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+          {
+            echo "### Android release signing"
+            echo ""
+            echo "Release signing credentials were found and the release APK will be signed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build release APK
         if: hashFiles('gradlew') != ''
+        env:
+          ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
         run: ./gradlew --no-daemon assembleRelease
 
       - name: Upload Android APKs
