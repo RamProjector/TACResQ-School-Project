@@ -37,6 +37,7 @@ import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.SyncStatus
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +52,8 @@ data class DispatcherUiState(
     val busy: Boolean = false,
     val notice: String? = null,
     val error: String? = null,
+    val syncError: String? = null,
+    val lastSyncedAtEpochMs: Long? = null,
 )
 
 class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
@@ -63,13 +66,14 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
         refreshJob = viewModelScope.launch {
             val incidents = repo.allIncidents()
             val units = repo.units()
-            val error = incidents.exceptionOrNull() ?: units.exceptionOrNull()
+            val refreshError = incidents.exceptionOrNull() ?: units.exceptionOrNull()
             _state.update { current ->
                 current.copy(
                     incidents = incidents.getOrNull() ?: current.incidents,
                     units = units.getOrNull() ?: current.units,
                     loading = false,
-                    error = error?.message,
+                    syncError = refreshError?.message,
+                    lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else current.lastSyncedAtEpochMs,
                 )
             }
         }
@@ -120,6 +124,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
                 onLogout = onLogout,
             )
         }
+        item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
         item {
             OutlinedButton(onClick = vm::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 Text("Refresh queue")
