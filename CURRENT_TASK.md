@@ -4,25 +4,25 @@
 **Repository:** `RamProjector/TACResQ-School-Project`
 **Base branch:** `main` at `320ddec6db46f7909c6ddf4c1493f4915f212702` (verified before this task)
 **Active task branch:** `agent/setup-coding-agent-workflow`
-**Latest observed task-branch commit before this handoff update:** `03398157a18ad5c85d4f766598047686364c61a6`
+**Pull request:** [#21 — docs: establish review-first autonomous coding workflow](https://github.com/RamProjector/TACResQ-School-Project/pull/21), open and unmerged
 **Working-tree note:** Work was performed through the GitHub connector; no local checkout/status was available to inspect. Do not infer a local working-tree state from remote branch commits.
 
 ## Current objective
 
 Set up TACResQ for autonomous, feature-by-feature development with validation and pull requests prepared for human review. Do not merge or deploy as part of the default workflow.
 
-## Current session — in progress
+## Current session
 
 - Inspected repository metadata, default branch, top-level directory structure, agent instructions, handoff, project analysis, plan, contributing guide, CI workflow, latest commits, branches, open PRs, and current GitHub Actions state.
-- Verified `main` was at `320ddec6db46f7909c6ddf4c1493f4915f212702`; it is the only existing branch and is not protected according to GitHub's branch metadata.
+- Verified `main` was at `320ddec6db46f7909c6ddf4c1493f4915f212702`; it was the only existing branch at inspection and is not protected according to GitHub's branch metadata.
 - Latest main CI run checked: [run 39402253764](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39402253764), successful. Source checks, prototype/visual checks, and Laravel/dashboard integration passed. Android debug/release build steps were skipped because no Gradle wrapper is checked in.
 - No open pull requests were present at inspection time.
-- Created the task branch `agent/setup-coding-agent-workflow` from `main`.
+- Created `agent/setup-coding-agent-workflow` from `main`.
 - Updated `AGENTS.md` with review-first feature work, task-scoped branches, explicit non-merge/non-deploy defaults, validation honesty, and side-effect boundaries. Commit: `0cbc0e139efdbd25d65424de0bbce7a6ed2870f8`.
 - Added `docs/AGENT_WORKFLOW.md` describing task intake, implementation loop, validation, PR requirements, handoff, and repository-level enforcement limits. Commit: `f895a8080eae5b0fb7d17f6b189983ee0848c5c3`.
 - Updated `CONTRIBUTING.md` to link the workflow and align contribution/PR guidance. Commit: `03398157a18ad5c85d4f766598047686364c61a6`.
-
-**Not yet done:** update the handoff for this session is being written now; verify latest CI on the branch/PR; open a focused PR and leave it unmerged.
+- Refreshed this handoff to remove the old note that dependency compatibility fixes were still uncommitted; those fixes were already on the verified main tip before this task.
+- Opened [PR #21](https://github.com/RamProjector/TACResQ-School-Project/pull/21). It is open and not merged. It contains only documentation/process changes; application source, dependencies, migrations, Supabase settings, deployment, and repository security settings were not changed.
 
 ## Project structure
 
@@ -44,7 +44,7 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 
 ## Validation and evidence
 
-- The latest observed main CI run above completed successfully for the checks described. This is evidence about the main commit only; the agent workflow branch has not yet had PR CI validation.
+- The latest observed main CI run above completed successfully for the checks described. This is evidence about the main commit only; the latest PR-head CI is still being checked.
 - Android debug and release build steps were skipped, not passed.
 - Prior repository notes record passing source/workflow/prototype/location-contract/stress/dashboard checks for earlier feature work. Those historical results do not substitute for checks on new changes.
 - This session used GitHub connector reads and commits; no local shell, Android SDK, emulator, or test-device run occurred.
@@ -52,7 +52,7 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 
 ## Next concrete actions
 
-1. Finish this handoff update and verify the task branch's changed files/commit history.
-2. Open a focused PR from `agent/setup-coding-agent-workflow` to `main` with a summary of the agent workflow and the latest CI outcomes.
-3. Inspect the PR's Actions checks and report passed/failed/skipped status. Leave it open for user review; do not merge.
+1. Check the latest CI run(s) for PR #21 and review job-level outcomes, including any skipped Android build steps.
+2. Resolve any documentation or CI problems within this focused PR, if found.
+3. Report the outcome and leave the PR open for user review; do not merge.
 4. After the workflow is accepted, the next recommended separately scoped engineering task is to make the Android source pack a complete buildable Gradle project, then validate debug/release builds and device behavior. Treat this as a separate task/PR.
