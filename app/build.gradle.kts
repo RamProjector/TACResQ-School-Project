@@ -3,6 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseSigningConfigured = listOf(
+    System.getenv("ANDROID_SIGNING_STORE_FILE"),
+    System.getenv("ANDROID_SIGNING_STORE_PASSWORD"),
+    System.getenv("ANDROID_SIGNING_KEY_ALIAS"),
+    System.getenv("ANDROID_SIGNING_KEY_PASSWORD"),
+).all { !it.isNullOrBlank() } && System.getenv("ANDROID_RELEASE_SIGNING_CONFIGURED") == "true"
+
 android {
     namespace = "com.tacresq.app"
     compileSdk {
@@ -30,9 +37,23 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(System.getenv("ANDROID_SIGNING_STORE_FILE")!!)
+                storePassword = System.getenv("ANDROID_SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_SIGNING_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }
