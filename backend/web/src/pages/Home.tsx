@@ -20,6 +20,7 @@ import {
   Search,
   ShieldAlert,
   Siren,
+  Navigation,
   Users,
   Waves,
   X,
@@ -71,6 +72,24 @@ function formatTimestamp(value: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Time not recorded";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function googleMapsRouteHref(origin: { latitude: number; longitude: number }, destination: { latitude: number; longitude: number }) {
+  const params = new URLSearchParams({
+    api: "1",
+    origin: `${origin.latitude},${origin.longitude}`,
+    destination: `${destination.latitude},${destination.longitude}`,
+    travelmode: "driving",
+    dir_action: "navigate",
+  });
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+interface DeviceLocation {
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  recordedAt: number;
 }
 
 function TypeIcon({ type }: { type: IncidentType }) {
@@ -285,6 +304,45 @@ function DispatcherBoard({ session, profile, onSignOut }: { session: Session; pr
   const [assignmentTarget, setAssignmentTarget] = useState<{ incident: Incident; unit: TacruProfile } | null>(null);
   const [assigningIncident, setAssigningIncident] = useState<number | null>(null);
   const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
+  const [locationTracking, setLocationTracking] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [routeIncidentId, setRouteIncidentId] = useState<number | "">("");
+
+  useEffect(() => {
+    if (!locationTracking) return;
+    if (!navigator.geolocation) {
+      setLocationError("This browser does not provide location access.");
+      setLocationTracking(false);
+      return;
+    }
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setDeviceLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
+          recordedAt: Date.now(),
+        });
+        setLocationError(null);
+      },
+      (error) => {
+        setLocationError(error.code === error.PERMISSION_DENIED
+          ? "Location access was denied. Enable it in the browser to plan a route from this device."
+          : "The browser could not get a current location.");
+        setLocationTracking(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15_000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [locationTracking]);
+
+  const routeIncident = incidents.find((incident) => incident.id === routeIncidentId) ?? null;
+  const routeDestination = routeIncident && typeof routeIncident.latitude === "number" && Number.isFinite(routeIncident.latitude)
+    && typeof routeIncident.longitude === "number" && Number.isFinite(routeIncident.longitude)
+    ? { latitude: routeIncident.latitude, longitude: routeIncident.longitude }
+    : null;
+  const routeHref = deviceLocation && routeDestination ? googleMapsRouteHref(deviceLocation, routeDestination) : null;
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -405,6 +463,33 @@ function DispatcherBoard({ session, profile, onSignOut }: { session: Session; pr
             {error ? <AlertCircle size={17} /> : <CheckCircle2 size={17} />}<span>{error || notice}</span>
             <button type="button" aria-label="Dismiss message" onClick={() => { setError(null); setNotice(null); }}><X size={16} /></button>
           </div>}
+
+          <section className="route-planner" aria-labelledby="route-planner-title">
+            <div className="route-planner__intro">
+              <div className="route-planner__icon"><Navigation size={19} /></div>
+              <div><p className="eyebrow">CURRENT DEVICE ROUTE</p><h2 id="route-planner-title">Navigate to a confirmed incident pin</h2><p>Location stays in this browser. Google Maps chooses the fastest available driving route; traffic and road conditions can change.</p></div>
+            </div>
+            <div className="route-planner__controls">
+              <label htmlFor="route-incident">Destination</label>
+              <select id="route-incident" value={routeIncidentId} onChange={(event) => setRouteIncidentId(event.target.value ? Number(event.target.value) : "")}>
+                <option value="">Choose an incident with GPS</option>
+                {incidents.filter((incident) => typeof incident.latitude === "number" && typeof incident.longitude === "number").map((incident) => (
+                  <option key={incident.id} value={incident.id}>#{incident.id} · {typeNames[incident.type]} · {statusNames[incident.status]}</option>
+                ))}
+              </select>
+              <button className="button button--quiet" type="button" onClick={() => { setLocationError(null); setLocationTracking((current) => !current); }}>
+                <MapPin size={15} /> {locationTracking ? "Stop location" : "Use my location"}
+              </button>
+              {routeHref && <a className="button button--primary" href={routeHref} target="_blank" rel="noreferrer"><Navigation size={15} /> Open route</a>}
+            </div>
+            <div className="route-planner__status" role="status">
+              <span className={`route-status-dot${deviceLocation ? " route-status-dot--ready" : locationError ? " route-status-dot--error" : ""}`} />
+              {locationError || (deviceLocation
+                ? `Current location updated ${Math.max(0, Math.round((Date.now() - deviceLocation.recordedAt) / 1000))}s ago${deviceLocation.accuracy != null ? ` · ±${Math.ceil(deviceLocation.accuracy)} m` : ""}`
+                : "Location is off until you choose Use my location.")}
+              {routeIncident && !routeDestination && <span> · This incident has no confirmed GPS coordinates.</span>}
+            </div>
+          </section>
 
           <div className="board-layout">
             <section className="queue-panel">

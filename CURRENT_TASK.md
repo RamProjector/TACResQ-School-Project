@@ -4,7 +4,7 @@
 **Repository:** `RamProjector/TACResQ-School-Project`
 **Branch:** `main`
 **Current commit:** verify with `git log -1 --oneline origin/main` before resuming
-**Working tree:** clean at the last handoff
+**Working tree:** web route-planner changes are uncommitted; no generated build output is tracked
 
 ## Objective
 
@@ -21,6 +21,7 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - Added the full-screen confirmed-coordinate GPS Map destination.
 - Added wireframe and screenshot documentation for requester, responder, and dispatcher flows.
 - Removed stale merged branches and local generated build artifacts.
+- Added a dispatcher web route planner that requests the current browser location only after an explicit click, displays freshness/accuracy/error state, and opens Google Maps driving navigation from that device to a confirmed incident coordinate.
 
 ## Current implementation boundaries
 
@@ -28,6 +29,7 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - The GPS Map shows confirmed incident coordinates and timestamps only.
 - Continuous/background responder tracking is not implemented.
 - In-app map tiles, live fleet markers, FCM push notifications, and offline write synchronization are not implemented.
+- The web route planner does not write browser coordinates to Supabase or present them as responder/unit tracking; it is a local navigation handoff only. Google Maps selects the available route and traffic may change.
 - The repository is an Android source pack without a checked-in Gradle wrapper.
 
 ## Validation
@@ -38,9 +40,10 @@ The last validation passed:
 python3 tools/check_android_source.py
 python3 tools/test_workflow.py
 python3 tools/test_prototype.py
+pnpm --dir backend/web build
 ```
 
-The repository was clean and synchronized with `origin/main` at the last handoff.
+The Android and workflow checks passed again after the web change. `git diff --check` also passed. The repository has the two intended uncommitted web source changes and this handoff update.
 
 ## Resume checklist
 
@@ -48,7 +51,7 @@ The repository was clean and synchronized with `origin/main` at the last handoff
 2. Run `git status --short --branch` and `git log -5 --oneline --decorate`.
 3. Fetch and inspect the latest `main` and pull requests before editing.
 4. Confirm whether the user wants Android source, wireframes, backend, Supabase, dashboard, or public-repository work.
-5. Update this file before stopping, including any unfinished work and the exact next action.
+5. Review and commit the current web route-planner changes if the user wants them retained, then update this file with the commit ID.
 
 ## Next recommended work
 
