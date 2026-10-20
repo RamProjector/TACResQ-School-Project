@@ -1,0 +1,107 @@
+name: TACResQ quality assurance
+
+on:
+  workflow_dispatch:
+    inputs:
+      stress_requests:
+        description: Total safe GET requests for the local stack
+        required: false
+        default: "120"
+      run_ai_review:
+        description: Run the optional AI review when OPENAI_API_KEY is configured
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: "17 2 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  screen-capture:
+    name: Capture every prototype screen and activity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Playwright and Chromium
+        run: |
+          python -m pip install --upgrade pip playwright pillow
+          python -m playwright install --with-deps chromium
+      - name: Capture all activated screen and state flows
+        run: python3 tools/capture_wireframe_screenshots.py --output artifacts/screenshots
+      - name: Upload screenshot gallery
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tacresq-screen-gallery
+          path: artifacts/screenshots
+          if-no-files-found: error
+
+  stress:
+    name: Local stack stress smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate disposable Laravel key
+        run: echo "APP_KEY=base64:$(openssl rand -base64 32 | tr -d '\n')" >> "$GITHUB_ENV"
+      - name: Start local API and dashboard
+        working-directory: backend
+        env:
+          SUPABASE_URL: https://tacresq-ci.example.test
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+        run: |
+          printf 'APP_KEY=%s\nSUPABASE_URL=%s\nSUPABASE_PUBLISHABLE_KEY=%s\n' "$APP_KEY" "$SUPABASE_URL" "$SUPABASE_PUBLISHABLE_KEY" > .env
+          docker compose up -d --build
+          for attempt in $(seq 1 60); do curl --fail --silent http://127.0.0.1:8000/up >/dev/null && exit 0; sleep 2; done
+          docker compose logs api db
+          exit 1
+      - name: Run bounded GET stress test
+        run: python3 tools/stress_test.py --base-url http://127.0.0.1:8000 --allow-localhost --requests "${{ inputs.stress_requests || '120' }}" --concurrency 8
+      - name: Collect logs and stop stack
+        if: always()
+        working-directory: backend
+        run: |
+          docker compose logs --no-color > ../artifacts-stress.log || true
+          docker compose down --volumes --remove-orphans || true
+          rm -f .env
+      - name: Upload stress logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tacresq-stress-logs
+          path: artifacts-stress.log
+          if-no-files-found: ignore
+
+  security:
+    name: Static and AI-assisted security review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run repository security guardrails
+        run: python3 tools/ai_security_review.py
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript, actions
+      - uses: github/codeql-action/analyze@v3
+      - name: Optional AI review
+        if: ${{ inputs.run_ai_review == true || github.event_name == 'schedule' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          AI_SECURITY_MODEL: ${{ vars.AI_SECURITY_MODEL }}
+        run: python3 tools/ai_security_review.py --ai
+      - name: Dependency review for pull requests
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4

@@ -4,7 +4,7 @@
 **Repository:** `RamProjector/TACResQ-School-Project`
 **Branch:** `main`
 **Phase 2 implementation commit:** `2d72eca` (pushed to `origin/main`); this handoff-only update is the subsequent branch tip.
-**Working tree:** clean and synchronized with `origin/main` after this handoff update is pushed
+**Working tree:** QA workflow changes are in progress; not yet committed or pushed
 
 ## Objective
 
@@ -32,6 +32,11 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - Added visible last-send time, reported accuracy, and location/API error state, plus explicit stop and resume controls. The callback is unregistered when collection is cancelled; sharing state stops on app background, responder-screen disposal, permission denial, non-en-route/reassigned status observed by refresh, and incident progression. Resume after foreground return requires an explicit user action.
 - Updated README and GPS privacy notes to distinguish requester one-time precise GPS from approximate foreground responder sharing and to state the Android source/device validation limits.
 - Wrote `plan.md` with the agreed implementation plan: dispatcher-only responder tracking while en route, explicit responder start/stop lifecycle, incident-bound backend authorization, freshness states, realtime fallback, notifications, offline behavior, audit history, and deferred requester-facing GPS.
+- Added `docs/QA_WORKFLOWS.md` with executable local and GitHub Actions instructions for Android debug/release builds, web navigation, full-state screenshots, bounded stress testing, and static/AI-assisted security review.
+- Added `tools/stress_test.py`, a bounded GET-only concurrency test for the local Laravel/dashboard stack.
+- Added `tools/ai_security_review.py`, deterministic source guardrails plus an opt-in bounded OpenAI-compatible review that never reads environment files or binaries.
+- Added `.github/workflows/quality-assurance.yml` for full prototype screenshot artifacts, local-stack stress smoke testing, CodeQL, dependency review, and optional scheduled/manual AI review.
+- Linked the QA runbook from `README.md`.
 
 ## Current implementation boundaries
 
@@ -61,6 +66,8 @@ git diff --check
 ```
 
 All listed offline checks passed for this work session, including the dashboard TypeScript/production build and 12 location-contract assertions (including Android consent/lifecycle source assertions). Dashboard dependencies were installed with `pnpm install --frozen-lockfile`. Android was checked only through source-pack and static contract checks; no Gradle project/wrapper, Kotlin compiler, or Android SDK is available here, so compilation and device validation remain required. Supabase migration `20261020062532` is recorded as applied to the explicitly approved project. Read-only Postgres verification confirmed the new column and RPCs, `SECURITY DEFINER` on the write RPC, authenticated/anon RPC grants, denied direct authenticated inserts, enabled RLS, installed policies, dispatcher guard, en-route guard, advisory-lock throttle, and revoked authenticated access to the legacy write RPC. No role-based SQL integration tests or device tests were run, and the migration did not upload location rows. The feature implementation and deployment handoff are committed and pushed to `origin/main`; the current working tree is clean and synchronized.
+
+The QA additions also passed `python3 tools/ai_security_review.py`, `python3 tools/test_workflow.py`, `python3 tools/test_prototype.py`, and `pnpm --dir backend/web build`. The full screenshot artifact and Docker stress workflow were added but were not run in this sandbox session.
 
 ## Resume checklist
 

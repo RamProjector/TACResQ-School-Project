@@ -138,6 +138,8 @@ python3 tools/visual_regression.py
 
 The CI workflow also type-checks and builds the dashboard, runs Laravel integration checks, and validates the Android source pack. When a Gradle wrapper is added, CI automatically activates debug and release Android builds.
 
+For the complete operator runbook covering debug/release builds, web navigation, all-state screenshots, bounded stress tests, and static/AI-assisted security review, see [`docs/QA_WORKFLOWS.md`](docs/QA_WORKFLOWS.md).
+
 ## Repository guide
 
 - [`app/`](app/) — Android Kotlin and Jetpack Compose source pack
@@ -149,6 +151,7 @@ The CI workflow also type-checks and builds the dashboard, runs Laravel integrat
 - [`docs/GPS_LOCATION_NOTES.md`](docs/GPS_LOCATION_NOTES.md) — location privacy and Android behavior
 - [`docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md`](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) — centered GPS Map navigation
 - [`PROJECT_ANALYSIS.md`](PROJECT_ANALYSIS.md) — project analysis and implementation context
+- [`docs/QA_WORKFLOWS.md`](docs/QA_WORKFLOWS.md) — actionable build, browser, screenshot, stress, and security workflows
 - [`CURRENT_TASK.md`](CURRENT_TASK.md) — current cross-chat task handoff and resume state
 - [`AGENTS.md`](AGENTS.md) — repository continuity and safety instructions for agents and contributors
 
