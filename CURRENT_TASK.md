@@ -3,8 +3,8 @@
 **Last updated:** 2026-10-20
 **Repository:** `RamProjector/TACResQ-School-Project`
 **Branch:** `main`
-**Current commit:** verify with `git log -1 --oneline origin/main` before resuming
-**Working tree:** web route-planner changes are uncommitted; no generated build output is tracked
+**Current commit:** `a9f4a06 Add current-device incident route planner`
+**Working tree:** clean and synchronized with `origin/main`
 
 ## Objective
 
@@ -43,7 +43,7 @@ python3 tools/test_prototype.py
 pnpm --dir backend/web build
 ```
 
-The Android and workflow checks passed again after the web change. `git diff --check` also passed. The repository has the two intended uncommitted web source changes and this handoff update.
+The Android and workflow checks passed again after the web change. `git diff --check` also passed. Commit `a9f4a06` is pushed to `origin/main` and the working tree is clean.
 
 ## Resume checklist
 
@@ -51,7 +51,7 @@ The Android and workflow checks passed again after the web change. `git diff --c
 2. Run `git status --short --branch` and `git log -5 --oneline --decorate`.
 3. Fetch and inspect the latest `main` and pull requests before editing.
 4. Confirm whether the user wants Android source, wireframes, backend, Supabase, dashboard, or public-repository work.
-5. Review and commit the current web route-planner changes if the user wants them retained, then update this file with the commit ID.
+5. Review the live dashboard route planner after the next requested change; the current implementation is committed in `a9f4a06`.
 
 ## Next recommended work
 
