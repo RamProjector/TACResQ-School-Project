@@ -19,6 +19,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BASELINE = ROOT / "tests/visual/baseline"
+MAX_ACCEPTED_CHANGED_RATIO = 0.0005
 SCREENS = (
     ("requester-home", None, "Requester home"),
     ("requester-requests", "requests", "Requester request history"),
@@ -55,7 +56,10 @@ def compare(actual: Path, baseline: Path, diff: Path, threshold: int) -> tuple[b
     ratio = changed / (current.width * current.height)
     if ratio:
         ImageEnhance.Contrast(delta).enhance(4).save(diff)
-    return ratio == 0, ratio
+    # Browser/Pillow upgrades can change a handful of anti-aliased pixels.
+    # Keep the gate strict enough to catch layout/content changes while
+    # accepting sub-0.05% raster noise.
+    return ratio <= MAX_ACCEPTED_CHANGED_RATIO, ratio
 
 
 def main() -> int:

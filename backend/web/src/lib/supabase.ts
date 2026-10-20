@@ -68,7 +68,7 @@ export async function initializeSupabase(): Promise<boolean> {
 
   if (!supabaseUrl || !supabasePublishableKey) {
     try {
-      const response = await fetch("/dispatch/config.json", { cache: "no-store" });
+      const response = await fetch("/runtime-config.json", { cache: "no-store" });
       if (response.ok) {
         const runtimeConfig = await response.json() as RuntimeSupabaseConfig;
         supabaseUrl ||= runtimeConfig.supabaseUrl?.trim() ?? "";

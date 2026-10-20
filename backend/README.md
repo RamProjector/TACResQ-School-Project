@@ -14,7 +14,7 @@ Laravel 13 hosts the TACRU dispatcher console on Render. Supabase is the source 
    - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: the browser-safe settings for the TACRU dashboard at `/dispatch/`. Never use a service-role key.
 4. Deploy. The container clears Laravel's config cache and serves HTTP on Render's assigned `$PORT`; it does not connect to or migrate a Render database.
 5. Check `https://<your-service>.onrender.com/up`; expected response is `200`.
-6. Open `https://<your-service>.onrender.com/dispatch/` for the TACRU dashboard. Its `/dispatch/config.json` endpoint returns only the configured Supabase URL and publishable key, with caching disabled.
+6. Open `https://<your-service>.onrender.com/dispatch/` for the TACRU dashboard. Its `/runtime-config.json` endpoint returns only the configured Supabase URL and publishable key, with caching disabled. `/dispatch/config.json` remains an alias.
 7. Configure the Android app for direct Supabase mode: `USE_FAKE_API = false` and `USE_SUPABASE_API = true`.
 
 Render free instances may spin down when idle; first request after inactivity can take a while. Supabase remains independent of Render instance lifecycle.
@@ -58,7 +58,7 @@ python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 
 ## TACRU dispatcher web console
 
-The same Laravel service serves the responsive dispatcher console at `/dispatch/`. Its source is in `backend/web/`; the Dockerfile installs the pinned pnpm toolchain, builds the React app under the `/dispatch/` base path, and copies the static assets into Laravel's public directory. The Laravel `GET /dispatch/config.json` endpoint exposes only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` at runtime with `Cache-Control: no-store`.
+The same Laravel service serves the responsive dispatcher console at `/dispatch/`. Its source is in `backend/web/`; the Dockerfile installs the pinned pnpm toolchain, builds the React app under the `/dispatch/` base path, and copies the static assets into Laravel's public directory. The Laravel `GET /runtime-config.json` endpoint exposes only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` at runtime with `Cache-Control: no-store`; `/dispatch/config.json` remains an alias.
 
 The dashboard deliberately keeps its sign-in, incident/unit reads, and assignment RPC on Supabase. The Render Laravel service only hosts the dashboard and runtime configuration endpoint. Configure the Supabase URL and **publishable** key on the Laravel service; do not use a Supabase service-role/secret key.
 
@@ -69,4 +69,4 @@ The console remains dispatcher-only, requires an administrator-provisioned dispa
 
 ## Automated CI tests
 
-GitHub Actions runs `tools/test_workflow.py`, type-checks/builds the dashboard with its `/dispatch/` base path, builds and starts the Docker Compose Laravel/PostgreSQL stack with disposable test settings, runs the Laravel feature tests, and smoke-tests the served dashboard and `/dispatch/config.json` response. The integration job uses placeholder Supabase settings and an ephemeral database; it does not contact or write to the project's live Supabase database.
+GitHub Actions runs `tools/test_workflow.py`, type-checks/builds the dashboard with its `/dispatch/` base path, builds and starts the Docker Compose Laravel/PostgreSQL stack with disposable test settings, runs the Laravel feature tests, and smoke-tests the served dashboard and `/runtime-config.json` response. The integration job uses placeholder Supabase settings and an ephemeral database; it does not contact or write to the project's live Supabase database.

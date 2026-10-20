@@ -16,7 +16,7 @@ class DispatchConfigTest extends TestCase
         $this->assertIsString($publishableKey);
         $this->assertNotSame('', $publishableKey);
 
-        $this->getJson('/dispatch/config.json')
+        $this->getJson('/runtime-config.json')
             ->assertOk()
             ->assertHeader('Cache-Control', 'no-store, private')
             ->assertExactJson([
