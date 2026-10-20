@@ -41,6 +41,7 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - Added `tools/test_stress_test.py`, a Docker-free regression test for the bounded stress utility, and wired it into the main CI source-check job.
 - Diagnosed failed checks: current `main` CI is green; the failed Gradle Dependabot runs report `No files found in /` because the Android Gradle project is not checked in. Removed that premature Dependabot entry and documented when to add it.
 - Applied compatibility fixes for remaining dependency updates: TypeScript 7 no longer uses removed `baseUrl`; Node 26 installs pnpm directly instead of relying on removed Corepack behavior; PHP 8.5 gets a runtime-config route outside the `/dispatch/` static directory with the old path retained as an alias; visual regression accepts only sub-0.05% raster noise.
+- Corrected the PHP 8.5 route implementation to register the two runtime-config URIs separately; Laravel does not accept an array of URI patterns in `Route::get`.
 
 ## Current implementation boundaries
 
@@ -76,6 +77,8 @@ The QA additions also passed `python3 tools/ai_security_review.py`, `python3 too
 The direct QA regression update also passed `python3 tools/test_stress_test.py`; Docker remains unavailable in this sandbox, so the Compose-backed stress job still requires GitHub Actions.
 
 The dependency compatibility patch passed the dashboard production build, prototype smoke test, visual regression, security guardrails, stress utility test, and `git diff --check`. Docker/Laravel integration remains to be verified by GitHub Actions.
+
+The follow-up route correction passed the same browser/security/stress checks; PHP syntax and Docker integration remain GitHub-only because PHP and Docker are unavailable in this sandbox.
 
 ## Resume checklist
 
