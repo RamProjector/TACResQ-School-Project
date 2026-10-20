@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -62,7 +64,7 @@ fun AppRoot(container: AppContainer) {
                         val vmState by vm.state.collectAsStateWithLifecycle()
                         RoleApp(user.role, vmState.incidents, user, logout) { destination ->
                             if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout)
-                            else RoleSectionScreen(destination, user, logout)
+                            else RoleSectionScreen(destination, user, logout, vmState.incidents)
                         }
                     }
                     Role.RESPONDER, Role.DRIVER -> {
@@ -113,7 +115,7 @@ private fun RoleApp(
 }
 
 @Composable
-private fun RoleSectionScreen(destination: AppDestination, user: User, logout: () -> Unit) {
+private fun RoleSectionScreen(destination: AppDestination, user: User, logout: () -> Unit, incidents: List<Incident>) {
     val role = user.role
     val title = when (destination) {
         AppDestination.SECONDARY -> when (role) {
@@ -130,7 +132,7 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         ScreenHeader(
@@ -156,7 +158,7 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            "No separate records are available in this view yet. Use Home to test the currently implemented request and response workflow.",
+                            if (role == Role.DISPATCHER) "Unit availability is not connected to this view yet." else if (incidents.isEmpty()) "No incident records were returned for this account yet. Create or receive a test incident from Home to verify this list." else "Showing ${incidents.size} incident record(s) from the latest successful refresh.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -186,6 +188,61 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                         )
                     }
                     AppDestination.PRIMARY, AppDestination.MAP -> Unit
+                }
+            }
+        }
+
+        if (destination == AppDestination.SECONDARY && role != Role.DISPATCHER) {
+            if (incidents.isEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text("No requests yet", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "When the service returns incidents for this account, they will appear here with their current status. This screen does not create sample records.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            } else {
+                incidents.forEach { incident ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                "Incident #${incident.id} • ${incident.type.label}",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                incident.status.label,
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                            incident.description?.takeIf { it.isNotBlank() }?.let {
+                                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            incident.locationNotes?.takeIf { it.isNotBlank() }?.let {
+                                Text("Location note: $it", style = MaterialTheme.typography.bodySmall)
+                            }
+                            val hasCoordinates = incident.latitude != null &&
+                                incident.longitude != null &&
+                                incident.latitude in -90.0..90.0 &&
+                                incident.longitude in -180.0..180.0
+                            Text(
+                                if (hasCoordinates) "GPS coordinates recorded" else "No valid GPS pin recorded",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            incident.createdAt?.takeIf { it.isNotBlank() }?.let {
+                                Text("Submitted: $it", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
                 }
             }
         }
