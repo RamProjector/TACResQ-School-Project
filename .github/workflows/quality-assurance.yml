@@ -25,13 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-<<<<<<< HEAD
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
-=======
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
->>>>>>> origin/main
         with:
           python-version: "3.11"
       - name: Install Playwright and Chromium
@@ -89,13 +84,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-<<<<<<< HEAD
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
-=======
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
->>>>>>> origin/main
         with:
           python-version: "3.11"
       - name: Run repository security guardrails
