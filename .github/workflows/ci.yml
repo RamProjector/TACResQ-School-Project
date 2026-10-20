@@ -194,7 +194,7 @@ jobs:
         working-directory: backend
         run: |
           curl --fail --silent --show-error --dump-header /tmp/config-headers.txt \
-            http://127.0.0.1:8000/dispatch/config.json --output /tmp/dispatch-config.json
+            http://127.0.0.1:8000/runtime-config.json --output /tmp/dispatch-config.json
           python3 - <<'PY'
           import json
           from pathlib import Path

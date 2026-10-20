@@ -1,6 +1,6 @@
-FROM node:22-alpine AS dashboard-build
+FROM node:26-alpine AS dashboard-build
 WORKDIR /dashboard
-RUN corepack enable && corepack prepare pnpm@10.18.0 --activate
+RUN npm install --global pnpm@10.18.0
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY web/ ./
@@ -8,7 +8,7 @@ ENV VITE_BASE_PATH=/dispatch/
 RUN pnpm build
 
 FROM composer:2 AS composer-bin
-FROM php:8.3-cli
+FROM php:8.5-cli
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git unzip libpq-dev libzip-dev libonig-dev libxml2-dev \

@@ -56,7 +56,7 @@ python3 -m playwright install chromium
 python3 tools/capture_wireframe_screenshots.py --output artifacts/screenshots
 ```
 
-The generated `artifacts/screenshots/README.md` is a browsable gallery. CI uploads the entire gallery as `tacresq-screen-gallery`; map tiles are external and therefore visual regression excludes them.
+The generated `artifacts/screenshots/README.md` is a browsable gallery. CI uploads the entire gallery as `tacresq-screen-gallery`; map tiles are external and therefore visual regression excludes them. The stable visual gate accepts only sub-0.05% raster noise from browser/Pillow anti-aliasing changes; larger layout or content changes still fail.
 
 ## Stress smoke test
 
