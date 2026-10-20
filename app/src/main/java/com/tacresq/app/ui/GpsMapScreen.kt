@@ -108,7 +108,7 @@ fun GpsMapScreen(
             ) {
                 val marker = Marker(mapView).apply {
                     position = GeoPoint(latitude, longitude)
-                    title = "Incident #${incident.id} · ${incident.type.label}"
+                    setTitle("Incident #${incident.id} · ${incident.type.label}")
                     snippet = incident.locationNotes?.takeIf { it.isNotBlank() }
                         ?: "Status: ${incident.status.label}"
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
