@@ -22,6 +22,7 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - Added wireframe and screenshot documentation for requester, responder, and dispatcher flows.
 - Removed stale merged branches and local generated build artifacts.
 - Added a dispatcher web route planner that requests the current browser location only after an explicit click, displays freshness/accuracy/error state, and opens Google Maps driving navigation from that device to a confirmed incident coordinate.
+- Wrote `plan.md` with the agreed implementation plan: dispatcher-only responder tracking while en route, explicit responder start/stop lifecycle, incident-bound backend authorization, freshness states, realtime fallback, notifications, offline behavior, audit history, and deferred requester-facing GPS.
 
 ## Current implementation boundaries
 
@@ -51,7 +52,7 @@ The Android and workflow checks passed again after the web change. `git diff --c
 2. Run `git status --short --branch` and `git log -5 --oneline --decorate`.
 3. Fetch and inspect the latest `main` and pull requests before editing.
 4. Confirm whether the user wants Android source, wireframes, backend, Supabase, dashboard, or public-repository work.
-5. Review the live dashboard route planner after the next requested change; the current implementation is committed in `a9f4a06`.
+5. Start Phase 1 from `plan.md`: remove/reframe the dispatcher current-device route planner, add responder assignment detail/local navigation, and tighten the assignment/status lifecycle.
 
 ## Next recommended work
 
