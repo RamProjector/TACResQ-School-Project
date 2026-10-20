@@ -25,8 +25,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
+=======
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+>>>>>>> origin/main
         with:
           python-version: "3.11"
       - name: Install Playwright and Chromium
@@ -37,7 +42,7 @@ jobs:
         run: python3 tools/capture_wireframe_screenshots.py --output artifacts/screenshots
       - name: Upload screenshot gallery
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tacresq-screen-gallery
           path: artifacts/screenshots
@@ -73,7 +78,7 @@ jobs:
           rm -f .env
       - name: Upload stress logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tacresq-stress-logs
           path: artifacts-stress.log
@@ -84,17 +89,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+<<<<<<< HEAD
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
+=======
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+>>>>>>> origin/main
         with:
           python-version: "3.11"
       - name: Run repository security guardrails
         run: python3 tools/ai_security_review.py
       - name: Run CodeQL analysis
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript, actions
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
       - name: Optional AI review
         if: ${{ inputs.run_ai_review == true || github.event_name == 'schedule' }}
         env:
@@ -104,4 +114,4 @@ jobs:
         run: python3 tools/ai_security_review.py --ai
       - name: Dependency review for pull requests
         if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5

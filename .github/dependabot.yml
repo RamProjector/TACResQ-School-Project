@@ -27,14 +27,3 @@ updates:
     labels:
       - dependencies
       - docker
-
-  # Activates automatically when the Android Gradle project and wrapper are
-  # checked in at the repository root.
-  - package-ecosystem: gradle
-    directory: /
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 10
-    labels:
-      - dependencies
-      - android

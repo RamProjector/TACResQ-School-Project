@@ -11,6 +11,7 @@ python3 tools/check_android_source.py
 python3 tools/test_workflow.py
 python3 tools/test_prototype.py
 python3 tools/test_location_contract.py
+python3 tools/test_stress_test.py
 pnpm --dir backend/web install --frozen-lockfile
 pnpm --dir backend/web build
 python3 tools/ai_security_review.py
@@ -81,7 +82,7 @@ The optional AI pass is evidence-based and bounded. It requires `OPENAI_API_KEY`
 OPENAI_API_KEY=... python3 tools/ai_security_review.py --ai
 ```
 
-GitHub Actions also runs CodeQL and dependency review. Dependabot is configured in [`.github/dependabot.yml`](../.github/dependabot.yml) for GitHub Actions, the dashboard’s pnpm dependencies, the backend Docker image, and the future Android Gradle project. The optional AI review is available from `workflow_dispatch` or the weekly schedule. Treat model output as triage, not proof: reproduce every finding with a test, code review, or an authorized staging check. For Supabase changes, add role-based SQL tests for RLS, RPC authorization, malformed/future/stale coordinates, direct insert denial, and dispatcher-only reads before applying a migration to a real project.
+GitHub Actions also runs CodeQL and dependency review. Dependabot is configured in [`.github/dependabot.yml`](../.github/dependabot.yml) for GitHub Actions, the dashboard’s pnpm dependencies, and the backend Docker image. Add its Gradle entry only after the Android Gradle project and wrapper are checked in; enabling it against today’s source pack causes `dependency_file_not_found` failures. The optional AI review is available from `workflow_dispatch` or the weekly schedule. Treat model output as triage, not proof: reproduce every finding with a test, code review, or an authorized staging check. For Supabase changes, add role-based SQL tests for RLS, RPC authorization, malformed/future/stale coordinates, direct insert denial, and dispatcher-only reads before applying a migration to a real project.
 
 ## GitHub workflows
 
