@@ -13,7 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
@@ -114,7 +114,7 @@ private fun RowScope.NavigationItem(
         AppDestination.SECONDARY -> Icons.Filled.List
         AppDestination.ALERTS -> Icons.Filled.Warning
         AppDestination.PROFILE -> Icons.Filled.Person
-        AppDestination.MAP -> Icons.Filled.Map
+        AppDestination.MAP -> Icons.Filled.LocationOn
     }
     Column(
         modifier = Modifier
@@ -167,7 +167,7 @@ private fun RowScope.GpsMapNavigationItem(
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Map,
+                    imageVector = Icons.Filled.LocationOn,
                     contentDescription = null,
                     modifier = Modifier.size(21.dp),
                 )
