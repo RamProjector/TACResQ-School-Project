@@ -103,7 +103,7 @@ private fun NavigationItem(
     val active = destination == selected
     Column(
         modifier = Modifier
-            .weight(1f)
+            .fillMaxWidth(0.2f)
             .clickable { onDestinationSelected(destination) }
             .semantics { contentDescription = label }
             .padding(horizontal = 2.dp, vertical = 12.dp),
@@ -132,6 +132,7 @@ private fun GpsMapNavigationItem(
         shape = CircleShape,
         shadowElevation = 8.dp,
         modifier = Modifier
+            .fillMaxWidth(0.2f)
             .semantics { contentDescription = "Open full-screen GPS map" }
             .clickable { onDestinationSelected(AppDestination.MAP) },
     ) {
