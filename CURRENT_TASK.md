@@ -2,47 +2,65 @@
 
 **Last updated:** 2026-10-20
 **Repository:** `RamProjector/TACResQ-School-Project`
-**Base:** `main` at `320ddec6db46f7909c6ddf4c1493f4915f212702`
-**Task branch:** `agent/android-gradle-wrapper`
-**Related existing PR:** [#21 — Review-first autonomous coding workflow](https://github.com/RamProjector/TACResQ-School-Project/pull/21), separate and still unmerged when this task began.
+**Base branch:** `main` at `320ddec6db46f7909c6ddf4c1493f4915f212702` when PR #22 was opened
+**Active branch:** `agent/android-gradle-wrapper`
+**Pull request:** [#22 — build(android): add Gradle project and wrapper](https://github.com/RamProjector/TACResQ-School-Project/pull/22), open and unmerged
+**Previous workflow PR:** [#21 — review-first autonomous coding workflow](https://github.com/RamProjector/TACResQ-School-Project/pull/21), separate and still unmerged at last check
 
-## Objective
+## Current objective and status
 
-Add a complete Android Gradle project/wrapper so CI performs real debug/release builds, and retry the earlier Docker integration failure without changing Render or Supabase production configuration.
+Make TACResQ a complete, buildable Android Gradle project, validate debug/release APK builds in CI, and diagnose the earlier Docker integration error. The Android Gradle and CI work is now validated by a successful GitHub Actions run. Keep PR #22 open for user review; do not merge or deploy.
 
-## Verified findings
+## Completed in this task
 
-- The Android source was missing root Gradle settings/build files, app module configuration, a main Android manifest, and the Gradle Wrapper.
-- Existing README documents Android API 37 and the AndroidX location-button permissions.
-- Build compatibility selected for this first build setup: JDK 17, Android Gradle Plugin 9.1.1, Kotlin/Compose plugins 2.2.10, Gradle 9.3.1, compile/target SDK 37. Gradle 9.3.1 distribution checksum is pinned in `gradle-wrapper.properties`. The wrapper JAR and its SHA-256 reference are from the upstream Gradle v9.3.1 source.
-- Earlier CI failure was `docker compose up -d --build`, which received HTTP 502 from Docker Hub while fetching metadata for `node:26-alpine`. The failed job was rerun with GitHub Actions rerun-failed-jobs: run [39431224588, attempt 2](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39431224588) completed successfully. This supports a transient registry failure rather than a source defect. No Dockerfile change is justified by that evidence.
-- No Render service, Supabase database, live data, or deployment settings were changed.
+- Added root `settings.gradle.kts`, root `build.gradle.kts`, `gradle.properties`, and `app/build.gradle.kts` for the Kotlin/Jetpack Compose Android app.
+- Added `app/src/main/AndroidManifest.xml` with the application, launcher activity, internet permission, and the location-button-related permissions used by the existing flow. Preserved `app/src/debug/AndroidManifest.xml` for debug-only cleartext traffic.
+- Added Gradle 9.3.1 wrapper scripts and JAR, checksum-pinned distribution URL, and wrapper-JAR checksum record. Gradle Actions confirmed the wrapper JAR is valid and `tools/check_android_source.py` verifies its SHA-256.
+- Configured JDK 17, Android Gradle Plugin 9.1.1, Kotlin/Compose built-in Kotlin support, compile SDK API 37.0, minimum SDK 26, and CI SDK Build-Tools 36.0.0.
+- Updated `.github/workflows/ci.yml` to validate the wrapper, install the Android SDK package named `platforms;android-37.0`, then actually run `./gradlew --no-daemon assembleDebug` and `assembleRelease` when the wrapper exists.
+- Updated `tools/check_android_source.py`, `README.md`, `docs/QA_WORKFLOWS.md`, `PROJECT_ANALYSIS.md`, and `docs/SUPABASE_BACKEND.md` to describe the complete Gradle project and current validated source state.
+- Fixed actual Kotlin errors uncovered after the first APK compilation: `FakeTacApi.recordLocation` now returns its synchronized result; `TacRepository.assignIncident` supplies the incident ID and request body; `AppRoot.kt` imports Compose `setValue`; and responder location timestamp rendering snapshots the delegated timestamp before null checking.
+- Opened PR #22 and updated its description with final validation results. Latest fully successful run: [39440473771](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39440473771) on commit `5ed7297b2c9f185f7948d6e26d7ffa3b937bb18e`.
 
-## Task changes prepared on the branch
+## CI validation
 
-- Add root `settings.gradle.kts`, `build.gradle.kts`, `gradle.properties`, and `app/build.gradle.kts`.
-- Add `app/src/main/AndroidManifest.xml` while retaining the existing debug-only cleartext manifest.
-- Add Gradle 9.3.1 wrapper scripts, JAR, wrapper properties with the distribution checksum, and wrapper-JAR checksum file.
-- Update Android CI to install API 37/build-tools 36.0.0, always run the Android source/wrapper-integrity check, and perform actual debug/release builds when the wrapper is present.
-- Update README and QA/project/backend documentation that described the Android client as an unbuildable source pack or stated that responder foreground location was not wired into the RPC.
-- No application Kotlin source or Supabase migrations are intentionally modified.
+Run `39440473771` completed successfully:
 
-## Validation status
+- Android Gradle wrapper/checksum validation: passed.
+- Android SDK API 37.0 and Build-Tools 36.0.0 provisioning: passed.
+- `assembleDebug`: passed.
+- `assembleRelease`: passed.
+- Source/workflow/stress/location-contract checks and dashboard production build: passed.
+- Prototype navigation and visual regression: passed.
+- Laravel/Postgres and dashboard integration (Compose build/start, readiness, feature tests, static assets, runtime config): passed.
 
-- Earlier documentation PR #21 CI, including Laravel/dashboard integration, passed on retry attempt 2. Android steps in that unrelated PR were skipped because no wrapper existed at that commit.
-- This branch's Gradle build has **not yet run**; it must be validated by PR CI after committing these files.
-- The local environment has no Gradle installation, and `git clone` could not reach GitHub due DNS/network restrictions. Use GitHub Actions to validate Gradle dependency resolution and APK builds.
-- The wrapper JAR source Git blob SHA matches the upstream Gradle repository blob SHA `61285a659d17295f1de7c53e24fdf13ad755c379`. The CI source check validates the stored JAR against the official checksum file.
-- Treat Android compilation as unverified until the actual `assembleDebug` and `assembleRelease` steps pass.
+The earlier Laravel/Postgres integration job failed because Docker Hub returned HTTP 502 while retrieving the `node:26-alpine` image metadata. Rerunning the failed job in [run 39431224588](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39431224588), attempt 2, passed. No Dockerfile change was justified by that non-reproducible external registry error.
 
-## Safety boundaries
+Several intermediate Android setup/build attempts failed while surfacing real setup mistakes and pre-existing compile errors; these were corrected before the successful run. Do not report any intermediate failed run as the final result.
 
-TACResQ remains an educational prototype, not an emergency-services provider. Preserve authorization, explicit location consent, minimal location sharing, and truthful location freshness. Do not deploy, modify live data, apply migrations, or adjust production services for this task.
+## TACResQ architecture and safety context
+
+- `app/`: Kotlin/Jetpack Compose Android app for requester, responder/driver, dispatcher, authentication, GPS Map, API clients, repository, and location provider.
+- `supabase/migrations/`: schema, RLS policies, authorization RPCs, incident location and responder-location contracts.
+- `backend/src/`: Laravel API adapter and integration-test target.
+- `backend/web/`: React/TypeScript TACRU dispatcher dashboard served by Laravel at `/dispatch/`.
+- `tools/`, `tests/`, `.github/workflows/`: source contract checks, workflow tests, browser/visual regression, security/stress review, and CI.
+
+TACResQ is an educational prototype, not an emergency-services provider. Requester GPS is one-time and user-initiated. Responder sharing in source is consent-gated, approximate, incident-bound, and foreground-only. Background tracking, embedded live fleet maps, FCM push, and offline write synchronization are not implemented. Successful APK builds do not establish correct behavior on physical devices.
+
+The responder-location migration `202610200002_responder_location_tracking.sql` was previously applied with explicit approval to the TACResQ Supabase project as migration version `20261020062532`. Do not reapply it to that project.
+
+## Side effects and limitations
+
+- No Render services, environment variables, deploys, or service settings were changed in this task.
+- No Supabase settings, live data, or database migrations were changed.
+- No deployment was triggered.
+- This environment had no accessible local Android SDK/Gradle checkout; all successful Gradle build validation was performed by GitHub Actions.
+- `main` was previously observed as unprotected. This PR remains review-first by process, but GitHub server-side branch protection is a separate repository-admin setting.
 
 ## Next actions
 
-1. Commit the prepared Gradle, CI, and documentation changes to this task branch only.
-2. Open a focused pull request to `main`; do not merge.
-3. Inspect CI jobs and logs. Fix any reproducible Kotlin/Gradle/SDK/dependency errors found, and distinguish them from infrastructure/transient failures.
-4. Verify the final run actually executes and passes `./gradlew --no-daemon assembleDebug` and `./gradlew --no-daemon assembleRelease`. If Docker Hub 502 recurs, rerun the failed integration job and only alter image sources/pinning if evidence shows a persistent issue.
-5. Update this handoff with final commit, PR, and test results.
+1. Review PR #22 and leave it open for approval; do not merge without the user's separate authorization.
+2. Confirm CI on any later handoff/documentation-only commit if one is pushed.
+3. Next engineering slice, as a separate PR: validate sign-in and location permission flows on emulator/physical devices, including permission denied/revoked, location services disabled, foreground stop/resume, incident reassignment, sign-out, and no upload outside the permitted en-route state.
+4. Do not change Render or Supabase live resources unless a future task identifies a concrete issue and explicitly authorizes the relevant operation.
