@@ -163,14 +163,25 @@ class LocationProvider(context: Context) {
         }
     }
 
-    private fun isLocationEnabled(): Boolean = runCatching {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            locationManager.isLocationEnabled
+    /**
+     * Check the platform-wide switch and provider state independently. Some OEM builds briefly
+     * report isLocationEnabled=false while a provider is still enabled after a settings change.
+     * Provider checks are isolated because a device may not expose every provider.
+     */
+    private fun isLocationEnabled(): Boolean {
+        val platformEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            runCatching { locationManager.isLocationEnabled }.getOrDefault(false)
         } else {
-            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
-                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            false
         }
-    }.getOrDefault(false)
+        val gpsEnabled = runCatching {
+            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        }.getOrDefault(false)
+        val networkEnabled = runCatching {
+            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        }.getOrDefault(false)
+        return platformEnabled || gpsEnabled || networkEnabled
+    }
 
     private fun Location.isValidCurrentFix(): Boolean {
         val ageNanos = SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos
