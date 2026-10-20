@@ -148,6 +148,12 @@ The CI workflow also type-checks and builds the dashboard, runs Laravel integrat
 - [`docs/GPS_LOCATION_NOTES.md`](docs/GPS_LOCATION_NOTES.md) — location privacy and Android behavior
 - [`docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md`](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) — centered GPS Map navigation
 - [`PROJECT_ANALYSIS.md`](PROJECT_ANALYSIS.md) — project analysis and implementation context
+- [`CURRENT_TASK.md`](CURRENT_TASK.md) — current cross-chat task handoff and resume state
+- [`AGENTS.md`](AGENTS.md) — repository continuity and safety instructions for agents and contributors
+
+## Task continuity
+
+Work that may be resumed by another chat is documented in [`CURRENT_TASK.md`](CURRENT_TASK.md). Read it before starting repository work and update it before stopping. The handoff never contains credentials, tokens, personal information, or real emergency data.
 
 ## Contributing and security
 
