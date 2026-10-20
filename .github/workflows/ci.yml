@@ -29,6 +29,9 @@ jobs:
       - name: Test bounded stress utility without Docker
         run: python3 tools/test_stress_test.py
 
+      - name: Test bounded Docker Compose retry helper
+        run: python3 tools/test_docker_compose_retry.py
+
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
@@ -143,7 +146,7 @@ jobs:
 
       - name: Build and start the Laravel/Postgres stack
         working-directory: backend
-        run: docker compose up -d --build
+        run: bash ../tools/docker_compose_retry.sh
 
       - name: Wait for Laravel readiness
         working-directory: backend
