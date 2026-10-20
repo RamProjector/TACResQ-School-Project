@@ -337,9 +337,10 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                                 else "Responder location is not currently being shared.",
                                 style = MaterialTheme.typography.bodyMedium,
                             )
-                            if (sharing && state.lastLocationSentAt != null) {
+                            val lastLocationSentAt = state.lastLocationSentAt
+                            if (sharing && lastLocationSentAt != null) {
                                 val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
-                                    .format(java.util.Date(state.lastLocationSentAt))
+                                    .format(java.util.Date(lastLocationSentAt))
                                 Text(
                                     "Last sent $time${state.lastLocationAccuracyM?.let { " · reported accuracy ±${it.toInt()} m" } ?: " · accuracy unavailable"}",
                                     style = MaterialTheme.typography.bodySmall,

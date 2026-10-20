@@ -56,3 +56,12 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 2. Resolve any documentation or CI problems within this focused PR, if found.
 3. Report the outcome and leave the PR open for user review; do not merge.
 4. After the workflow is accepted, the next recommended separately scoped engineering task is to make the Android source pack a complete buildable Gradle project, then validate debug/release builds and device behavior. Treat this as a separate task/PR.
+
+## Agent handoff — current status after PR #21 merge
+
+- PR #21 (review-first autonomous coding workflow) was merged on 2026-10-20 as commit `e8039caa598d284a47214636b773710c2ea01344`.
+- PR #22 (Android Gradle project and wrapper) remains under validation on `agent/android-gradle-wrapper`. Its prior CI run passed Android debug/release builds, source/dashboard checks, prototype/visual checks, and Laravel/Postgres integration.
+- The PR #22 branch is being synchronized with the updated `main` handoff so the task remains resumable; this update does not alter Android source or live services.
+- PR #23 (bounded Docker Compose retries) remains open. It shares `.github/workflows/ci.yml` with PR #22; validate the combined workflow after the Android PR is integrated.
+- No merge, deployment, or live Supabase/Render change is implied by this handoff. The user has now explicitly authorized merging PRs when all relevant checks pass.
+- Physical-device/emulator validation of Android location permission and foreground lifecycle remains outstanding. Use synthetic test accounts/incidents only.

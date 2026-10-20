@@ -223,7 +223,7 @@ class FakeTacApi(
 
     override suspend fun recordLocation(body: ResponderLocationRequest): Long {
         delay(100)
-        synchronized(lock) {
+        return synchronized(lock) {
             val me = current()
             val incident = incidents.firstOrNull { it.id == body.incidentId }
                 ?: throw httpError(404, "Incident not found.")

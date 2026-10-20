@@ -68,6 +68,22 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Validate Android app and Gradle wrapper
+        run: python3 tools/check_android_source.py
+
+      - name: Accept Android SDK licenses and install API 37
+        if: hashFiles('gradlew') != ''
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "sdkmanager was not found under $ANDROID_HOME/cmdline-tools"
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" --install "platforms;android-37.0" "build-tools;36.0.0"
+
       - name: Set up Gradle
         if: hashFiles('gradlew') != ''
         uses: gradle/actions/setup-gradle@v6
@@ -80,13 +96,9 @@ jobs:
         if: hashFiles('gradlew') != ''
         run: ./gradlew --no-daemon assembleRelease
 
-      - name: Validate documented Android source pack
-        if: hashFiles('gradlew') == ''
-        run: python3 tools/check_android_source.py
-
       - name: Explain missing Gradle build
         if: hashFiles('gradlew') == ''
-        run: echo 'No Gradle project is checked in; debug/release build steps activate when the Android project is merged into this repository.'
+        run: echo 'No Gradle wrapper is checked in; Android source-contract validation ran instead of APK builds.'
 
   prototype-browser-checks:
     name: Prototype navigation, functions, and visual screenshots
