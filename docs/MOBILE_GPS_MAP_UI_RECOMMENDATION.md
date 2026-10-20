@@ -31,12 +31,11 @@ On narrow screens, the center control can overlap the bar's top edge, but labels
 
 The checked-in project is an Android source pack, not a complete Gradle application. Its existing requester, responder, and dispatcher screens are single scrollable screens and have no tab shell or embedded map. It currently captures one GPS fix with a requester SOS and opens Google Maps for responder navigation. Its README explicitly defers Maps SDK screens, continuous/background tracking, and dispatcher fleet visualization.
 
-Therefore, the center button can be specified and placed as navigation, but a production map must not imply tracking that the app/backend do not provide. The map implementation should be delivered in stages:
+The shared center-docked navigation shell and role-aware full-screen GPS Map destination are now implemented in the Android source pack. The current map surface deliberately shows confirmed incident coordinates and recorded timestamps only; it does not imply continuous requester or responder tracking that the app/backend do not yet provide. The remaining production stages are:
 
-1. Add the shared, role-aware bottom navigation shell and center “GPS Map” entry point.
-2. Add an in-app map provider and map screen with only confirmed coordinates and source/freshness metadata.
-3. Add the requester and responder location-update lifecycle, authorization/consent, and stale/offline handling before presenting live tracking.
-4. Add dispatcher unit markers only after the backend returns responder location data with a timestamp.
+1. Replace the coordinate surface with an in-app map provider while preserving confirmed-coordinate and freshness metadata.
+2. Add the requester and responder location-update lifecycle, authorization/consent, and stale/offline handling before presenting live tracking.
+3. Add dispatcher unit markers only after the backend returns responder location data with a timestamp.
 
 ## Research references
 
