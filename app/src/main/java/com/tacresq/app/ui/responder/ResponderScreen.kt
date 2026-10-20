@@ -128,7 +128,15 @@ class ResponderViewModel(
     fun resumeTracking(incidentId: Long) {
         if (_state.value.busy) return
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, trackingError = null) }
+            _state.update {
+                it.copy(
+                    busy = true,
+                    trackingError = null,
+                    // A resumed session must not present a previous session's send as current.
+                    lastLocationSentAt = null,
+                    lastLocationAccuracyM = null,
+                )
+            }
             val current = repo.myIncidents()
             val incident = current.getOrNull()?.firstOrNull { it.id == incidentId }
             val failure = when {
@@ -258,7 +266,10 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             ScreenHeader(
                 title = "Hello, ${user.name.substringBefore(' ')}",
                 subtitle = user.role.label,
-                onLogout = onLogout,
+                onLogout = {
+                    vm.stopTracking("Location sharing stopped because you signed out.")
+                    onLogout()
+                },
             )
         }
 
