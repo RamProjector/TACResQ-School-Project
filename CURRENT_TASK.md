@@ -3,7 +3,7 @@
 **Last updated:** 2026-10-20
 **Repository:** `RamProjector/TACResQ-School-Project`
 **Branch:** `main`
-**Current commit:** `a9f4a06 Add current-device incident route planner`
+**Current commit:** `6874a94 Plan dispatcher responder tracking workflow`
 **Working tree:** clean and synchronized with `origin/main`
 
 ## Objective
@@ -44,7 +44,7 @@ python3 tools/test_prototype.py
 pnpm --dir backend/web build
 ```
 
-The Android and workflow checks passed again after the web change. `git diff --check` also passed. Commit `a9f4a06` is pushed to `origin/main` and the working tree is clean.
+The Android and workflow checks passed again after the web change. `git diff --check` also passed. Commit `6874a94` is pushed to `origin/main` and the working tree is clean.
 
 ## Resume checklist
 
@@ -52,7 +52,7 @@ The Android and workflow checks passed again after the web change. `git diff --c
 2. Run `git status --short --branch` and `git log -5 --oneline --decorate`.
 3. Fetch and inspect the latest `main` and pull requests before editing.
 4. Confirm whether the user wants Android source, wireframes, backend, Supabase, dashboard, or public-repository work.
-5. Start Phase 1 from `plan.md`: remove/reframe the dispatcher current-device route planner, add responder assignment detail/local navigation, and tighten the assignment/status lifecycle.
+5. Start Phase 1 from `plan.md`: remove/reframe the dispatcher current-device route planner, add responder assignment detail/local navigation, and tighten the assignment/status lifecycle. The plan baseline is committed in `6874a94`.
 
 ## Next recommended work
 
