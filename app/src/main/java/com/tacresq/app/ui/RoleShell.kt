@@ -25,6 +25,7 @@ enum class AppDestination(val label: String) {
     PRIMARY("Home"),
     SECONDARY("Requests"),
     MAP("GPS Map"),
+    ALERTS("Safety"),
     PROFILE("Profile"),
 }
 
@@ -45,9 +46,7 @@ fun RoleShell(
             )
         },
     ) { padding ->
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier.padding(padding),
-        ) {
+        androidx.compose.foundation.layout.Box(modifier = Modifier.padding(padding)) {
             if (selected == AppDestination.MAP) mapContent() else content()
         }
     }
@@ -59,22 +58,16 @@ private fun TacruBottomNavigation(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
-    val secondaryLabel = when (role) {
-        Role.REQUESTER -> "Requests"
-        Role.RESPONDER, Role.DRIVER -> "History"
-        Role.DISPATCHER -> "Units"
+    val labels = when (role) {
+        Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
+        Role.RESPONDER, Role.DRIVER -> listOf("Current call", "History", "Safety", "Profile")
+        Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Activity")
     }
     val destinations = listOf(
-        AppDestination.PRIMARY to when (role) {
-            Role.REQUESTER -> "Home"
-            Role.RESPONDER, Role.DRIVER -> "Current call"
-            Role.DISPATCHER -> "Queue"
-        },
-        AppDestination.SECONDARY to secondaryLabel,
-        AppDestination.PROFILE to when (role) {
-            Role.DISPATCHER -> "Activity"
-            else -> "Profile"
-        },
+        AppDestination.PRIMARY to labels[0],
+        AppDestination.SECONDARY to labels[1],
+        AppDestination.ALERTS to labels[2],
+        AppDestination.PROFILE to labels[3],
     )
 
     Surface(
@@ -85,9 +78,9 @@ private fun TacruBottomNavigation(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(82.dp)
+                .height(88.dp)
                 .navigationBarsPadding()
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
@@ -95,6 +88,7 @@ private fun TacruBottomNavigation(
             NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected)
             GpsMapNavigationItem(selected, onDestinationSelected)
             NavigationItem(destinations[2].first, destinations[2].second, selected, onDestinationSelected)
+            NavigationItem(destinations[3].first, destinations[3].second, selected, onDestinationSelected)
         }
     }
 }
@@ -107,15 +101,23 @@ private fun NavigationItem(
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
     val active = destination == selected
-    Text(
-        text = label,
-        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+    Column(
         modifier = Modifier
+            .fillMaxWidth(0.2f)
             .clickable { onDestinationSelected(destination) }
-            .padding(horizontal = 8.dp, vertical = 18.dp),
-    )
+            .semantics { contentDescription = label }
+            .padding(horizontal = 2.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = label,
+            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+        )
+    }
 }
 
 @Composable
@@ -130,11 +132,12 @@ private fun GpsMapNavigationItem(
         shape = CircleShape,
         shadowElevation = 8.dp,
         modifier = Modifier
+            .fillMaxWidth(0.2f)
             .semantics { contentDescription = "Open full-screen GPS map" }
             .clickable { onDestinationSelected(AppDestination.MAP) },
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 15.dp, vertical = 11.dp),
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {

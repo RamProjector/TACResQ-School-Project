@@ -117,6 +117,7 @@ private fun RoleSectionScreen(destination: AppDestination, role: Role) {
             Role.RESPONDER, Role.DRIVER -> "Response history"
             Role.DISPATCHER -> "Field units"
         }
+        AppDestination.ALERTS -> "Safety and alerts"
         AppDestination.PROFILE -> when (role) {
             Role.DISPATCHER -> "Activity log"
             else -> "Profile and safety"
@@ -125,6 +126,7 @@ private fun RoleSectionScreen(destination: AppDestination, role: Role) {
     }
     val body = when (destination) {
         AppDestination.SECONDARY -> "Review role-specific records while the GPS Map remains available at the center of the navigation bar."
+        AppDestination.ALERTS -> "Review emergency safety guidance and important status messages. Emergency updates shown here must come from the service, not simulated alerts."
         AppDestination.PROFILE -> "Review account details, location permissions, privacy controls, and sign-out options here."
         AppDestination.PRIMARY, AppDestination.MAP -> ""
     }
