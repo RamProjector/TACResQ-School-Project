@@ -76,3 +76,15 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - No live Supabase data/schema, Render deployment, or real emergency data touched.
 - Validation status: implementation committed on branch; CI must run before PR review. No local Android build, emulator, or device test was run from this connector-only workflow.
 - Next action: run CI on the PR and inspect results. Keep PR open for review; no merge until checks pass.
+
+
+## Agent handoff — incident sync health (2026-10-21)
+
+- Latest verified task base: merged main commit `e4ced2d73ef773a40e083793db6a437d5b907bd7` (PR #25; all four CI jobs passed before merge).
+- Active branch: `agent/incident-sync-health`.
+- Objective: expose periodic refresh success/failure on requester, responder/driver, and dispatcher screens without representing cached data as current.
+- Implementation: each role tracks last successful sync time separately from action errors; failed refreshes preserve cached data and do not advance the timestamp; shared SyncStatus renders the last success and current refresh failure.
+- Added static contract assertions to `tools/check_android_source.py`.
+- No live Supabase data/schema, Render deployment, or real emergency data touched.
+- Validation: CI must run on the PR. No local shell, Android emulator, or device test was available through this connector-only workflow.
+- Next action: inspect diffs, open PR, and review CI; merge only if checks pass.
