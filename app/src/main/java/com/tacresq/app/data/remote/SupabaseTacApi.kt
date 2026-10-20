@@ -32,8 +32,8 @@ class SupabaseTacApi private constructor(
 
     private suspend fun authenticate(request: suspend () -> SupabaseSession): AuthResponse {
         val result = request()
-        val token = result.accessToken ?: throw IOException(
-            "Account created. Check your email to confirm it, then sign in. If email confirmation is disabled, try again."
+        val token = result.accessToken ?: throw IllegalStateException(
+            "Account created. Check your email and tap the confirmation link, then return to TACResQ and sign in."
         )
         val profile = rpc.me("Bearer $token")
         return AuthResponse(token = token, user = profile)
@@ -94,7 +94,10 @@ private interface SupabaseAuthWire {
     suspend fun login(@Body body: LoginRequest, @Query("grant_type") grantType: String = "password"): SupabaseSession
 
     @POST("auth/v1/signup")
-    suspend fun signup(@Body body: SignupBody): SupabaseSession
+    suspend fun signup(
+        @Body body: SignupBody,
+        @Query("redirect_to") redirectTo: String = AppConfig.AUTH_REDIRECT_URL,
+    ): SupabaseSession
 
     @POST("auth/v1/logout")
     suspend fun logout()
