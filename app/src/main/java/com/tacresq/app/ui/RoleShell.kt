@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -101,7 +102,7 @@ private fun TacruBottomNavigation(
 }
 
 @Composable
-private fun NavigationItem(
+private fun RowScope.NavigationItem(
     destination: AppDestination,
     label: String,
     selected: AppDestination,
@@ -141,7 +142,7 @@ private fun NavigationItem(
 }
 
 @Composable
-private fun GpsMapNavigationItem(
+private fun RowScope.GpsMapNavigationItem(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
