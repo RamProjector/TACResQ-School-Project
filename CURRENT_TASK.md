@@ -88,3 +88,14 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - No live Supabase data/schema, Render deployment, or real emergency data touched.
 - Validation: CI must run on the PR. No local shell, Android emulator, or device test was available through this connector-only workflow.
 - Next action: inspect diffs, open PR, and review CI; merge only if checks pass.
+
+
+## Agent handoff — optional Android release signing (2026-10-21)
+
+- Latest verified base: `main` at `d2e300ff41a019bd5d2f166819b072538fc40f6f`; main CI run [39507693694](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39507693694) completed successfully.
+- Active branch: `agent/optional-android-release-signing`.
+- Objective: make release signing work when the owner supplies signing credentials through GitHub Actions secrets, while keeping CI builds possible without a keystore.
+- Planned changes: conditionally configure Android release signing from environment variables; workflow validates all-or-none signing secrets, decodes the keystore into runner temp storage, and reports whether release output is signed; README and QA docs explain setup and unsigned-build limitation.
+- Required secrets if the owner later creates a keystore: `ANDROID_SIGNING_KEYSTORE_BASE64`, `ANDROID_SIGNING_STORE_PASSWORD`, `ANDROID_SIGNING_KEY_ALIAS`, `ANDROID_SIGNING_KEY_PASSWORD`. None are created or populated by this task. No private signing material is available in this connector-only session.
+- Safety: no backend secrets, Supabase data/schema, Render deployment, or emergency data changed. The repository uses GitHub connector only; no local working tree, local Gradle invocation, or device test is available.
+- Validation status: PR CI pending after commit/PR creation. Confirm build outputs and workflow syntax in GitHub Actions before considering merge.

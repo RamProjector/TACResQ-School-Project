@@ -64,20 +64,7 @@ Build from the repository root:
 
 On Windows, use `gradlew.bat` instead of `./gradlew`. APK outputs are written to `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`. The wrapper pins Gradle 9.3.1 and validates the distribution checksum; `gradle/wrapper/gradle-wrapper.jar.sha256` records the upstream wrapper-JAR checksum.
 
-### Optional release APK signing
-
-The Actions workflow always builds the debug APK and release variant. Without signing credentials, the release output is **unsigned** and is not ready for distribution. Debug APKs are automatically signed with Android's debug key and are suitable for testing only.
-
-To have CI produce a signed release APK, first create and safely back up your own Android upload/release keystore. Then add these four repository **Actions secrets** under **Settings → Secrets and variables → Actions**:
-
-- `ANDROID_SIGNING_KEYSTORE_BASE64` — the keystore file encoded as one Base64 string
-- `ANDROID_SIGNING_KEY_ALIAS` — the alias inside that keystore
-- `ANDROID_SIGNING_KEY_PASSWORD` — that key's password
-- `ANDROID_SIGNING_STORE_PASSWORD` — the keystore password
-
-Do not commit the keystore or paste passwords into source code, issues, or chat. Keep a separate encrypted backup: losing the keystore may prevent future updates signed with the same key. If all four secrets are present, CI decodes the keystore into the runner's temporary directory, signs the release APK, and verifies its signature. If none are present, CI continues without signing; if only some are present, CI fails rather than silently producing an unexpected artifact.
-
-No OpenAI key, Render API key, or Supabase service-role key is required for APK compilation or release signing. Signing credentials are separate from backend connectivity.
+The CI artifact `tacresq-android-apks` contains both debug and release APKs. The debug APK is signed automatically for testing. The release APK is signed only when all four GitHub Actions repository secrets are configured: `ANDROID_SIGNING_KEYSTORE_BASE64`, `ANDROID_SIGNING_STORE_PASSWORD`, `ANDROID_SIGNING_KEY_ALIAS`, and `ANDROID_SIGNING_KEY_PASSWORD`. The Base64 secret must contain the complete Android signing keystore. If none are configured, CI deliberately produces an **unsigned release APK** and reports that status in the run summary; use the debug APK for ordinary testing. A partial set of signing secrets fails the build instead of silently producing an unsigned release. Never commit the keystore or paste passwords into chat.
 
 The main Android manifest contains the app entry point, internet access, and the location-button permissions used by the current requester flow. The debug manifest allows cleartext traffic only in debug builds; release remains HTTPS-only by default. The CI workflow installs Android API 37 and runs both debug and release builds whenever the wrapper is present.
 

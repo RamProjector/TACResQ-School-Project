@@ -3,12 +3,17 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseSigningKeystorePath = System.getenv("ANDROID_SIGNING_KEYSTORE_PATH")
+val releaseSigningStorePassword = System.getenv("ANDROID_SIGNING_STORE_PASSWORD")
+val releaseSigningKeyAlias = System.getenv("ANDROID_SIGNING_KEY_ALIAS")
+val releaseSigningKeyPassword = System.getenv("ANDROID_SIGNING_KEY_PASSWORD")
 val releaseSigningConfigured = listOf(
-    System.getenv("ANDROID_SIGNING_STORE_FILE"),
-    System.getenv("ANDROID_SIGNING_STORE_PASSWORD"),
-    System.getenv("ANDROID_SIGNING_KEY_ALIAS"),
-    System.getenv("ANDROID_SIGNING_KEY_PASSWORD"),
-).all { !it.isNullOrBlank() } && System.getenv("ANDROID_RELEASE_SIGNING_CONFIGURED") == "true"
+    releaseSigningKeystorePath,
+    releaseSigningStorePassword,
+    releaseSigningKeyAlias,
+    releaseSigningKeyPassword,
+).all { !it.isNullOrBlank() }
+
 
 android {
     namespace = "com.tacresq.app"
@@ -40,10 +45,10 @@ android {
     signingConfigs {
         if (releaseSigningConfigured) {
             create("release") {
-                storeFile = file(System.getenv("ANDROID_SIGNING_STORE_FILE")!!)
-                storePassword = System.getenv("ANDROID_SIGNING_STORE_PASSWORD")
-                keyAlias = System.getenv("ANDROID_SIGNING_KEY_ALIAS")
-                keyPassword = System.getenv("ANDROID_SIGNING_KEY_PASSWORD")
+                storeFile = file(requireNotNull(releaseSigningKeystorePath))
+                storePassword = requireNotNull(releaseSigningStorePassword)
+                keyAlias = requireNotNull(releaseSigningKeyAlias)
+                keyPassword = requireNotNull(releaseSigningKeyPassword)
             }
         }
     }
