@@ -1,4 +1,4 @@
-FROM node:22-alpine AS dashboard-build
+FROM node:26-alpine AS dashboard-build
 WORKDIR /dashboard
 RUN corepack enable && corepack prepare pnpm@10.18.0 --activate
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
