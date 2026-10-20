@@ -2,10 +2,13 @@ package com.tacresq.app.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 
 private val TacruLightColors = lightColorScheme(
     primary = Color(0xFF0B4F6C),
@@ -53,6 +56,12 @@ private val TacruDarkColors = darkColorScheme(
     onSurfaceVariant = Color(0xFFBEC9CE),
 )
 
+private val TacruShapes = Shapes(
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp),
+)
+
 @Composable
 fun TACResQTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -60,6 +69,7 @@ fun TACResQTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) TacruDarkColors else TacruLightColors,
+        shapes = TacruShapes,
         content = content,
     )
 }
