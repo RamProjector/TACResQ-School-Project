@@ -40,6 +40,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.text.DateFormat
+import java.util.Date
 import kotlin.math.ceil
 
 @Composable
@@ -180,6 +182,29 @@ private val timeFormatter: DateTimeFormatter =
 fun formatTime(iso: String?): String {
     if (iso.isNullOrBlank()) return ""
     return runCatching { timeFormatter.format(Instant.parse(iso)) }.getOrDefault(iso)
+}
+
+/**
+ * Shows when incident data last synchronized successfully and whether the latest refresh failed.
+ * The timestamp only advances after successful refreshes.
+ */
+@Composable
+fun SyncStatus(lastSyncedAtEpochMs: Long?, error: String?) {
+    val syncedTime = lastSyncedAtEpochMs?.let {
+        DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))
+    }
+    val message = when {
+        error != null && syncedTime != null -> "Updates unavailable. Showing data last synced $syncedTime. $error"
+        error != null -> "Updates unavailable. No successful sync yet. $error"
+        syncedTime != null -> "Last synced $syncedTime"
+        else -> "Waiting for the first successful sync…"
+    }
+    Text(
+        text = message,
+        style = MaterialTheme.typography.bodySmall,
+        color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /**

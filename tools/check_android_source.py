@@ -33,6 +33,30 @@ for path in kotlin_files:
 if bad_packages:
     raise SystemExit("Unexpected Kotlin package declaration in:\n" + "\n".join(bad_packages))
 
+sync_contract = {
+    "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt": (
+        "SyncStatus(state.lastSyncedAtEpochMs, state.syncError)",
+        "lastSyncedAtEpochMs = System.currentTimeMillis()",
+        "syncError = e.message",
+    ),
+    "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt": (
+        "SyncStatus(state.lastSyncedAtEpochMs, state.syncError)",
+        "lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis()",
+        "syncError = refreshError?.message",
+    ),
+    "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt": (
+        "SyncStatus(state.lastSyncedAtEpochMs, state.syncError)",
+        "lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis()",
+        "syncError = refreshError?.message",
+    ),
+}
+for relative_path, required_text in sync_contract.items():
+    source = (ROOT / relative_path).read_text(encoding="utf-8")
+    missing = [snippet for snippet in required_text if snippet not in source]
+    if missing:
+        raise SystemExit(f"Sync health contract failed for {relative_path}: missing " + ", ".join(missing))
+print("Incident sync-health contract OK: requester, responder, and dispatcher status is observable.")
+
 if (ROOT / "gradlew").is_file():
     required_build_files = (
         "gradlew",

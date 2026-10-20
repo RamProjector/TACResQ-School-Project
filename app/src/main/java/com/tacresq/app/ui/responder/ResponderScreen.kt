@@ -57,6 +57,7 @@ import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.SyncStatus
 import com.tacresq.app.ui.common.actionLabel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,6 +77,8 @@ data class ResponderUiState(
     val trackingError: String? = null,
     val lastLocationSentAt: Long? = null,
     val lastLocationAccuracyM: Float? = null,
+    val syncError: String? = null,
+    val lastSyncedAtEpochMs: Long? = null,
 )
 
 /** Used for both the Field Responder and Driver roles. */
@@ -92,6 +95,7 @@ class ResponderViewModel(
         refreshJob = viewModelScope.launch {
             val me = repo.me()
             val mine = repo.myIncidents()
+            val refreshError = me.exceptionOrNull() ?: mine.exceptionOrNull()
             _state.update { s ->
                 val serverIncidents = mine.getOrNull()
                 val trackingEnded = s.trackingIncidentId != null && serverIncidents != null &&
@@ -102,7 +106,8 @@ class ResponderViewModel(
                     incidents = serverIncidents ?: s.incidents,
                     trackingIncidentId = if (trackingEnded) null else s.trackingIncidentId,
                     trackingError = if (trackingEnded) "Location sharing stopped because this incident is no longer assigned en route." else s.trackingError,
-                    error = (me.exceptionOrNull() ?: mine.exceptionOrNull())?.message,
+                    syncError = refreshError?.message,
+                    lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else s.lastSyncedAtEpochMs,
                 )
             }
         }
@@ -272,6 +277,8 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                 },
             )
         }
+
+        item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
 
         item {
             DutyCard(
