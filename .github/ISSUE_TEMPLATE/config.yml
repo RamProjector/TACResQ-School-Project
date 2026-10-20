@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability report
+    url: https://github.com/RamProjector/TACResQ-School-Project/security/advisories/new
+    about: Report security issues privately instead of opening a public issue.
+  - name: Project support
+    url: https://github.com/RamProjector/TACResQ-School-Project/blob/main/SUPPORT.md
+    about: Read setup and support guidance before opening an issue.

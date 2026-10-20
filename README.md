@@ -1,16 +1,66 @@
-# TACResQ Android starter (Kotlin + Jetpack Compose)
+# TACResQ
 
-Source files to drop into a fresh Android Studio project. Choose between an offline in-memory demo backend, a Render-hosted Laravel API, or Supabase Auth + Postgres RPC. The app defaults to the offline demo; configure one live backend when needed.
+TACResQ is a role-based emergency response coordination system for requesters, field responders, drivers, and dispatchers.
 
-## Setup (about 10 minutes)
+The repository contains an Android client source pack, a Supabase-backed data contract, a TACRU dispatcher dashboard, and documented mobile response workflows.
 
-1. **Android Studio** (latest) > New Project > **Empty Activity**.
-   - Name: `TACResQ`
-   - Package name: `com.tacresq.app` (must match exactly)
-   - Language: Kotlin, Build configuration: Kotlin DSL
-   - Minimum SDK: **API 26**
-2. Unzip this pack into the project root, so `app/` merges into your `app/`. Say yes to replace `MainActivity.kt` and `Theme.kt`.
-3. In `app/build.gradle.kts`, add inside `dependencies { }`:
+> **Safety boundary:** TACResQ is an educational and engineering project, not an emergency-services provider. Do not use it as a substitute for local emergency services or real emergency dispatch.
+
+[![CI](https://github.com/RamProjector/TACResQ-School-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/RamProjector/TACResQ-School-Project/actions/workflows/ci.yml)
+
+## Product flows
+
+### Requester
+
+Submit an incident, review the location-sharing explanation, optionally share one current GPS fix, add a landmark, send an SOS, and monitor the request status.
+
+### Responder or driver
+
+Set duty status, review an assigned incident, open external turn-by-turn navigation, and advance the response through the allowed status sequence.
+
+### Dispatcher
+
+Review the incident queue, inspect available field units, confirm assignments, and review confirmed incident coordinates through the TACRU operations dashboard.
+
+### GPS Map
+
+Every authenticated role has a centered **GPS Map** destination in the mobile navigation shell. The current implementation displays confirmed incident coordinates and recorded timestamps only. It does not claim continuous requester or responder tracking.
+
+## Screens and wireframes
+
+The [TACRU mobile wireframe gallery](docs/wireframes/screenshots/README.md) documents role-specific screens, consent states, safety confirmations, GPS states, dispatcher workflows, and map destinations.
+
+The [GPS map UI recommendation](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) explains the centered map entry point and the boundary between confirmed coordinates and future live tracking.
+
+## Current implementation status
+
+| Area | Status |
+|---|---|
+| Android role-based Compose UI | Implemented as a source pack |
+| Supabase Auth and Postgres RPC | Implemented |
+| Requester SOS with one-time GPS sharing | Implemented |
+| No-GPS and stale-GPS safety states | Implemented |
+| Dispatcher queue and assignment confirmation | Implemented |
+| Responder status progression | Implemented |
+| TACRU web dispatcher dashboard | Implemented |
+| Centered role-aware GPS Map destination | Implemented |
+| Continuous/background responder tracking | Not yet implemented |
+| In-app map tiles and live fleet markers | Not yet implemented |
+| FCM push notifications | Not yet implemented |
+| Offline write synchronization | Not yet implemented |
+
+## Android setup
+
+This repository is currently an Android source pack rather than a complete Gradle project. To run the client:
+
+1. Open Android Studio and create an **Empty Activity** project.
+2. Use package name `com.tacresq.app`, Kotlin, Kotlin DSL, and minimum SDK API 26.
+3. Merge the checked-in `app/` directory into the new project's `app/` directory.
+4. Add the dependencies listed below.
+5. Add the permissions and application declaration below.
+6. Sync Gradle and run on an emulator or Android device with Google Play or Google APIs.
+
+### Required dependencies
 
 ```kotlin
 implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
@@ -28,121 +78,81 @@ implementation("androidx.core.locationbutton:locationbutton:1.0.0-alpha01")
 implementation("androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01")
 ```
 
-4. In the fresh project's existing `app/src/main/AndroidManifest.xml`:
-   - Add above `<application>`:
-     ```xml
-     <uses-permission android:name="android.permission.INTERNET" />
-     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:usesPermissionFlags="onlyForLocationButton" />
-     <uses-permission android:name="android.permission.USE_LOCATION_BUTTON" />
-     ```
-   - Add `android:name=".TacResqApp"` to the `<application ...>` tag.
-   - For an Android 17 / API 37 Play build, compile against API 37 and set `targetSdk` to 37 or later; use the location-button permissions shown above.
-5. **Sync Gradle**, then run on an emulator (use an image with Google Play or Google APIs).
-6. Emulator GPS: `...` (Extended controls) > Location > pick a point > Send. The requester taps Android's **Share precise location** button to obtain a fresh, one-time fix. A stale last-known fix is never substituted. If GPS is denied, disabled, or times out, an SOS can still be sent without a pin; the app clearly warns dispatch and allows an optional landmark note.
+Add these permissions above `<application>`:
 
-### One-time location privacy and Android 17
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:usesPermissionFlags="onlyForLocationButton" />
+<uses-permission android:name="android.permission.USE_LOCATION_BUTTON" />
+```
 
-TACResQ does not request background location or continuously track requesters. The system Location Button is used for the user-initiated one-time share; Android 16 and lower receive the library's standard permission-prompt fallback. The `onlyForLocationButton` fine-location flag and `USE_LOCATION_BUTTON` permission are included for Android 17 (API 37) targeting. The AndroidX Location Button library is currently alpha, so verify its latest release notes before a production Play submission. See [Android's Location Button guide](https://developer.android.com/guide/topics/permissions/private-alternatives/location-button), [Google Play's location permissions policy](https://support.google.com/googleplay/android-developer/answer/16909972), and the detailed [TACResQ location implementation notes](docs/GPS_LOCATION_NOTES.md).
+Add `android:name=".TacResqApp"` to the `<application>` element. For an Android 17 / API 37 Play build, compile against API 37 and set `targetSdk` to 37 or later. See [GPS location notes](docs/GPS_LOCATION_NOTES.md) for the one-time location privacy boundary.
 
-## Backend selection
+## Backend configuration
 
-Edit `AppConfig.kt`. Pick exactly one mode:
+The checked-in Android configuration uses Supabase Auth and Postgres RPC. The optional Laravel adapter remains available, but the temporary Render database is not required by the current Supabase path.
 
-| Mode | `USE_FAKE_API` | `USE_SUPABASE_API` | Additional setting |
-|---|---:|---:|---|
-| Offline demo (default) | `true` | `false` | None |
-| Render/Laravel | `false` | `false` | Set `BASE_URL` to `https://<service>.onrender.com/api/` |
-| Supabase | `false` | `true` | Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` |
+For Supabase:
 
-`AppContainer` wires the selected implementation: `FakeTacApi`, the Laravel Retrofit `ApiClient`, or `SupabaseTacApi`. The fake auto-dispatch option is disabled by default; set `FAKE_AUTO_DISPATCH = true` only to demonstrate automatic dispatch rather than dispatcher assignment.
+1. Apply the migrations in [`supabase/migrations/`](supabase/migrations/).
+2. Follow [`docs/SUPABASE_BACKEND.md`](docs/SUPABASE_BACKEND.md).
+3. Set `USE_FAKE_API = false` and `USE_SUPABASE_API = true`.
+4. Use only a Supabase publishable client key in Android code. Never use a service-role or secret key in the client.
+5. Provision responder, driver, and dispatcher accounts through a trusted administrator. Public registration creates requester accounts only.
 
-### Render-hosted Laravel API
+The Supabase publishable key is client configuration, not a server secret. Database access must remain protected by authentication, Row Level Security, and the RPC role checks in the migrations.
 
-The repository includes a Dockerized Laravel + Sanctum API and PostgreSQL schema in [`backend/`](backend/README.md). Deploy the `backend` directory as a Render Docker Web Service, attach a Render PostgreSQL database, and configure the required server environment variables in that guide. After deployment, use the service URL for `BASE_URL` and rebuild the Android app. The app uses HTTPS for the hosted service.
+For the Laravel adapter and API contract, see [`backend/README.md`](backend/README.md) and [`docs/API.md`](docs/API.md).
 
-The Android app itself does not need the database URL, database password, Laravel `APP_KEY`, or any server secret. Those belong only in Render’s server environment. See [`docs/API.md`](docs/API.md) for this API contract.
+## Fake backend workflow
 
-### Supabase backend
+The in-memory fake backend is available for offline UI demonstrations when `USE_FAKE_API` is intentionally set to `true`. Its data resets when the app process restarts.
 
-The Android adapter uses Supabase Auth and narrowly scoped Postgres RPC functions. Row Level Security is enabled, with role checks and incident-status rules enforced in the database. The SQL schema and security policies are in [`supabase/migrations/`](supabase/migrations/), and setup/provisioning steps are in [`docs/SUPABASE_BACKEND.md`](docs/SUPABASE_BACKEND.md).
-
-Set `USE_FAKE_API = false` and `USE_SUPABASE_API = true`, then put your Supabase project URL and **publishable** key in `AppConfig.kt`. Never put a service-role/secret key in Android code. Public sign-up creates requesters only; provision responders, drivers, and dispatchers through a trusted administrator. The configured Supabase URL/key in the source are publishable client settings, not server secrets.
-
-## Demo accounts (fake backend, password `demo123`)
+The documented fake accounts use password `demo123`:
 
 | Email | Role |
 |---|---|
-| requester@demo.com | Emergency requester |
-| responder@demo.com | Field responder |
-| driver@demo.com | Driver |
-| dispatcher@demo.com | Dispatcher |
+| `requester@demo.com` | Emergency requester |
+| `responder@demo.com` | Field responder |
+| `driver@demo.com` | Driver |
+| `dispatcher@demo.com` | Dispatcher |
 
-Demo data is in memory and resets when the app process restarts. Try it end to end: sign in as the responder, tap **Available**, log out. Sign in as the requester, send an SOS. Sign in as the dispatcher to see the pending queue and manually assign the available unit. Sign back in as the responder and step it through en route, on scene, resolved. The requester's list refreshes automatically while the screen is active.
+Do not use fake accounts, real personal data, or real emergency data in public screenshots or deployed environments.
 
-## What is in the code
+## TACRU dispatcher dashboard
 
-```
-com.tacresq.app
-  AppConfig.kt             backend selection, URLs and publishable client config
-  AppContainer.kt          wires the selected backend
-  data/model/Models.kt     Role, DutyStatus, Incident, ... and status rules
-  data/remote/TacApi.kt    shared Retrofit interface/API contract
-  data/remote/SupabaseTacApi.kt Supabase Auth + Postgres RPC adapter
-  data/remote/FakeTacApi  in-memory fake backend
-  data/local/SessionStore  keeps the login (DataStore)
-  data/repo/TacRepository one place for errors and session state
-  location/LocationProvider one fresh, user-triggered GPS fix for the SOS; never a cached fallback
-  ui/                     role-based auth, requester, responder and dispatcher screens
-```
+The responsive dispatcher console is bundled into the Laravel backend from [`backend/web/`](backend/web/README.md) and served at `/dispatch/`. It uses Supabase Auth and role-checked RPC calls. The dashboard supports queue filters, field-unit availability, confirmed-coordinate review, and explicit assignment confirmation.
 
-## Deferred after the free UI prototype
+## Validation
 
-- FCM push notifications (currently screens poll every 8 seconds)
-- Live GPS tracking for responders (foreground service) and map screens (Maps SDK + API key)
-- Offline queue that syncs GPS and status updates when signal returns
-- Encrypting the saved token (Android Keystore)
-- Production operational monitoring, abuse controls and emergency-service readiness review
-
-This remains a school prototype, not an operational emergency-dispatch service. It does not yet implement continuous/background responder tracking, dispatcher map/fleet display, FCM push, or offline write synchronization.
-
-## Automated workflow smoke test
-
-Run this from the repository root:
+Run the source-pack and workflow checks from the repository root:
 
 ```bash
+python3 tools/check_android_source.py
 python3 tools/test_workflow.py
+python3 tools/test_prototype.py
+python3 tools/visual_regression.py
 ```
 
-It uses only Python's standard library and runs fully offline. It verifies the modeled flow:
+The CI workflow also type-checks and builds the dashboard, runs Laravel integration checks, and validates the Android source pack. When a Gradle wrapper is added, CI automatically activates debug and release Android builds.
 
-`requester submits SOS → dispatcher sees and assigns → responder updates status → requester sees resolved`
+## Repository guide
 
-If a compatible Laravel API is running with test users provisioned, point the same test at it:
+- [`app/`](app/) — Android Kotlin and Jetpack Compose source pack
+- [`backend/`](backend/) — Laravel API and TACRU web dashboard
+- [`supabase/migrations/`](supabase/migrations/) — schema, RLS, and RPC migrations
+- [`docs/wireframes/screenshots/`](docs/wireframes/screenshots/) — mobile workflow screenshots
+- [`docs/API.md`](docs/API.md) — API contract
+- [`docs/SUPABASE_BACKEND.md`](docs/SUPABASE_BACKEND.md) — Supabase setup and provisioning
+- [`docs/GPS_LOCATION_NOTES.md`](docs/GPS_LOCATION_NOTES.md) — location privacy and Android behavior
+- [`docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md`](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) — centered GPS Map navigation
+- [`PROJECT_ANALYSIS.md`](PROJECT_ANALYSIS.md) — project analysis and implementation context
 
-```bash
-python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
-```
+## Contributing and security
 
-The offline smoke test is a Python workflow model; it does not compile or exercise the Android app. This repository is a source pack, not a complete Gradle project; Android compilation requires merging it into the fresh project described above.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. Security reports should follow [`SECURITY.md`](SECURITY.md). Please do not include real emergency information, credentials, access tokens, or personal data in issues, screenshots, tests, or pull requests.
 
-## Pull-request checks
+## License
 
-Every pull request runs the existing backend/dashboard checks plus:
-
-- **Android build gate:** when a Gradle wrapper is present, CI runs both `assembleDebug` and `assembleRelease`. Until this source pack is merged into a complete Android Studio project, CI runs `tools/check_android_source.py` so required Kotlin sources and the debug manifest are still checked instead of pretending an APK was built.
-- **Browser flow test:** `python3 tools/test_prototype.py` opens the interactive prototype in Chromium and verifies bottom navigation, role switching, SOS consent/submission, dispatcher assignment, and the responder status sequence through resolution.
-- **Visual screenshot check:** `python3 tools/visual_regression.py` captures stable mobile screens and compares them with `tests/visual/baseline/`. A changed screen fails the PR check and is uploaded with a Markdown report as the `tacresq-visual-regression` Actions artifact. Map screens are excluded because third-party OpenStreetMap tiles are nondeterministic in CI.
-
-When an intentional UI change is made, review the uploaded screenshots and regenerate the four checked-in baselines locally with:
-
-```bash
-python3 tools/visual_regression.py --update
-```
-
-
-## TACRU web dispatch dashboard
-
-A responsive dispatcher console is bundled into the Laravel backend from [`backend/web/`](backend/web/README.md) and served by that backend at `/dispatch/`. The website still uses the existing Supabase Auth/RPC contract (`api_me`, `api_all_incidents`, `api_units`, and `api_assign_incident`) for authentication and data, preserving database role checks and Row Level Security. No schema migration or service-role key is required.
-
-The console is dispatcher-only; dispatcher accounts remain administrator-provisioned. It supports queue search/status filters, field-unit availability, and an explicit confirmation before a pending incident assignment is written. Configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the backend runtime as documented in [`backend/README.md`](backend/README.md). It is still a school prototype, not a real emergency-service system; it does not add push notifications, live fleet tracking, or offline write synchronization.
+TACResQ is licensed under the [MIT License](LICENSE).

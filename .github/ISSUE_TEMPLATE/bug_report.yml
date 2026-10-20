@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a reproducible problem without including private or real emergency data.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include real names, phone numbers, coordinates, credentials, access tokens, or emergency records.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the problem and the affected role or workflow.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Use fake accounts and disposable data only.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Android version, browser, OS, commit, or backend mode
+  - type: textarea
+    id: checks
+    attributes:
+      label: Checks and screenshots
+      description: Include relevant test results and screenshots with sensitive data removed.

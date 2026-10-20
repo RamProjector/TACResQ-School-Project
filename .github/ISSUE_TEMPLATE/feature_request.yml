@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest a focused improvement to TACResQ.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not include real emergency records, private user data, credentials, or production coordinates.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Which role and workflow is affected?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the user-facing behavior and any safety or privacy considerations.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Project boundaries
+      options:
+        - label: I have considered privacy, location, and role permissions.
+          required: true
+        - label: I understand TACResQ is not an emergency-services provider.
+          required: true

@@ -20,5 +20,11 @@ backend/web/node_modules/
 backend/web/dist/
 backend/web/.env.local
 backend/web/.env.*.local
+
+# Any local environment file; checked-in .env.example files remain visible
+**/.env
+**/.env.*
+!**/.env.example
+
 # Local Playwright visual-regression output
 artifacts/
