@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -22,12 +21,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.Role
 import com.tacresq.app.data.model.User
@@ -35,6 +43,9 @@ import com.tacresq.app.ui.common.StatusPill
 import com.tacresq.app.ui.common.formatTime
 import com.tacresq.app.ui.common.pillColor
 import java.util.Locale
+
+private const val TACLOBAN_LATITUDE = 11.2443
+private const val TACLOBAN_LONGITUDE = 125.0030
 
 @Composable
 fun GpsMapScreen(
@@ -44,6 +55,7 @@ fun GpsMapScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val visibleIncidents = when (role) {
         Role.REQUESTER, Role.RESPONDER, Role.DRIVER -> incidents.filter { it.status.isActive }
         Role.DISPATCHER -> incidents.filter { it.status.isActive || it.status.name == "PENDING" }
@@ -55,44 +67,114 @@ fun GpsMapScreen(
     }
     val description = when (role) {
         Role.REQUESTER -> "Confirmed incident coordinates and response status. Your location is not continuously tracked."
-        Role.RESPONDER, Role.DRIVER -> "Assigned incident coordinates only. Live responder tracking is not enabled until a fresh unit fix is available."
+        Role.RESPONDER, Role.DRIVER -> "Assigned incident coordinates only. Live responder tracking appears only when the backend provides a fresh unit fix."
         Role.DISPATCHER -> "Confirmed incident coordinates only. Unit markers appear only when the backend provides a fresh GPS timestamp."
     }
+    val mapView = remember(context) {
+        Configuration.getInstance().userAgentValue = context.packageName
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            isTilesScaledToDpi = true
+            controller.setZoom(12.0)
+            controller.setCenter(GeoPoint(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
+        }
+    }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    DisposableEffect(mapView, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView.onPause()
+            mapView.onDetach()
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(mapView, visibleIncidents) {
+        mapView.overlays.removeAll { it is Marker }
+        visibleIncidents.forEach { incident ->
+            val latitude = incident.latitude
+            val longitude = incident.longitude
+            if (latitude != null && longitude != null &&
+                latitude.isFinite() && longitude.isFinite() &&
+                latitude in -90.0..90.0 && longitude in -180.0..180.0
+            ) {
+                val marker = Marker(mapView).apply {
+                    position = GeoPoint(latitude, longitude)
+                    title = "Incident #${incident.id} · ${incident.type.label}"
+                    snippet = incident.locationNotes?.takeIf { it.isNotBlank() }
+                        ?: "Status: ${incident.status.label}"
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                }
+                mapView.overlays.add(marker)
+            }
+        }
+        mapView.invalidate()
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("TACRU · GPS MAP", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Text("TACRESQ · GPS MAP", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             }
             OutlinedButton(onClick = onBack) { Text("Close") }
         }
-        Text(description, modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            description,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
-        Box(modifier = Modifier.fillMaxWidth().weight(1f).padding(16.dp)) {
-            MapSurface(incidents = visibleIncidents)
-            Card(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("GPS STATUS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Text("Confirmed coordinates only", fontWeight = FontWeight.SemiBold)
-                    Text("No fabricated live positions are shown.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+        Box(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 12.dp, vertical = 8.dp)) {
+            AndroidView(
+                factory = { mapView },
+                modifier = Modifier.fillMaxSize(),
+                update = { view ->
+                    view.invalidate()
+                },
+            )
+        }
+
+        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("MAP STATUS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Text(
+                    if (visibleIncidents.any { it.latitude != null && it.longitude != null })
+                        "Real map · confirmed incident pins only"
+                    else "Real map · no confirmed incident pins yet",
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    "Map tiles require an internet connection. No guessed or live-tracked positions are displayed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
         LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.height(190.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (visibleIncidents.isEmpty()) {
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text("No confirmed coordinates", fontWeight = FontWeight.SemiBold)
-                            Text("When an active incident includes a verified GPS pin, it will appear here.", style = MaterialTheme.typography.bodySmall)
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text("No active incidents with coordinates", fontWeight = FontWeight.SemiBold)
+                            Text("An incident appears as a pin only after the service returns valid coordinates.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -106,47 +188,24 @@ fun GpsMapScreen(
 }
 
 @Composable
-private fun MapSurface(incidents: List<Incident>) {
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFE4EEF0))) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val road = Color(0xFFC5D7D8)
-            for (x in 0..6) drawLine(road, Offset(x * size.width / 6f, 0f), Offset((x + 2) * size.width / 6f, size.height), strokeWidth = 5f)
-            for (y in 1..5) drawLine(road, Offset(0f, y * size.height / 6f), Offset(size.width, (y - 1) * size.height / 6f), strokeWidth = 5f)
-            incidents.mapNotNull { incident ->
-                val lat = incident.latitude ?: return@mapNotNull null
-                val lng = incident.longitude ?: return@mapNotNull null
-                val normalizedX = ((lng + 180.0) / 360.0).toFloat().coerceIn(0.12f, 0.88f)
-                val normalizedY = ((90.0 - lat) / 180.0).toFloat().coerceIn(0.12f, 0.88f)
-                Offset(normalizedX * size.width, normalizedY * size.height)
-            }.forEach { point ->
-                drawCircle(Color(0xFFB42318), radius = 17f, center = point.copy(x = point.x + 2f, y = point.y + 3f), alpha = .18f)
-                drawCircle(Color(0xFFB42318), radius = 9f, center = point)
-                drawCircle(Color.White, radius = 3f, center = point)
-            }
-        }
-        Text("MAP VIEW", modifier = Modifier.align(androidx.compose.ui.Alignment.BottomStart).padding(12.dp), style = MaterialTheme.typography.labelSmall, color = Color(0xFF53636D), fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
 private fun MapIncidentCard(incident: Incident, context: Context) {
     val lat = incident.latitude
     val lng = incident.longitude
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Incident #${incident.id}", fontWeight = FontWeight.Bold)
                 StatusPill(incident.status.label, incident.status.pillColor())
             }
             Text(incident.type.label, style = MaterialTheme.typography.titleMedium)
-            if (lat != null && lng != null) {
+            if (lat != null && lng != null && lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0) {
                 Text(String.format(Locale.US, "%.5f, %.5f", lat, lng), style = MaterialTheme.typography.bodySmall)
                 incident.locationRecordedAt?.let { Text("GPS recorded ${formatTime(it)}", style = MaterialTheme.typography.bodySmall) }
                 OutlinedButton(onClick = { openExternalMaps(context, lat, lng) }, modifier = Modifier.fillMaxWidth()) {
                     Text("Open turn-by-turn maps")
                 }
             } else {
-                Text("No GPS pin was shared for this incident.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text("No valid GPS pin was shared for this incident.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
