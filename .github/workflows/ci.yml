@@ -92,6 +92,32 @@ jobs:
         if: hashFiles('gradlew') != ''
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Configure optional release signing
+        id: release-signing
+        if: hashFiles('gradlew') != ''
+        env:
+          ANDROID_SIGNING_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+          ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+        run: |
+          values="${ANDROID_SIGNING_KEYSTORE_BASE64:+1}${ANDROID_SIGNING_KEY_ALIAS:+1}${ANDROID_SIGNING_KEY_PASSWORD:+1}${ANDROID_SIGNING_STORE_PASSWORD:+1}"
+          if [ -z "$values" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Release signing secrets are not configured; the release APK will be unsigned."
+            exit 0
+          fi
+          if [ "${#values}" -ne 4 ]; then
+            echo "::error::Configure all four Android signing secrets together, or leave all four unset."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/tacresq-signing"
+          printf '%s' "$ANDROID_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/tacresq-signing/release.jks"
+          test -s "$RUNNER_TEMP/tacresq-signing/release.jks"
+          echo "ANDROID_SIGNING_STORE_FILE=$RUNNER_TEMP/tacresq-signing/release.jks" >> "$GITHUB_ENV"
+          echo "ANDROID_RELEASE_SIGNING_CONFIGURED=true" >> "$GITHUB_ENV"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
       - name: Build debug APK
         if: hashFiles('gradlew') != ''
         run: ./gradlew --no-daemon assembleDebug
@@ -99,6 +125,13 @@ jobs:
       - name: Build release APK
         if: hashFiles('gradlew') != ''
         run: ./gradlew --no-daemon assembleRelease
+
+      - name: Verify signed release APK when signing is configured
+        if: hashFiles('gradlew') != '' && steps.release-signing.outputs.configured == 'true'
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
 
       - name: Upload Android APKs
         if: hashFiles('gradlew') != ''
