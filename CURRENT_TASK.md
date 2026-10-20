@@ -65,3 +65,14 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - PR #23 (bounded Docker Compose retries) remains open. It shares `.github/workflows/ci.yml` with PR #22; validate the combined workflow after the Android PR is integrated.
 - No merge, deployment, or live Supabase/Render change is implied by this handoff. The user has now explicitly authorized merging PRs when all relevant checks pass.
 - Physical-device/emulator validation of Android location permission and foreground lifecycle remains outstanding. Use synthetic test accounts/incidents only.
+
+
+## Agent handoff — responder location resume safety (2026-10-21)
+
+- Current base verified before task: `main` at `4dc878e90cb493cad24d39b03dbebc6d5ee491e0`.
+- Created review branch `agent/responder-location-resume-safety` from that exact commit.
+- Focused implementation: clear prior location-send time/accuracy when a responder explicitly resumes tracking, so the UI cannot present a previous session's send as fresh; stop tracking synchronously from the responder screen's sign-out action before invoking logout.
+- Added source-contract assertions for both behaviors in `tools/test_location_contract.py`.
+- No live Supabase data/schema, Render deployment, or real emergency data touched.
+- Validation status: implementation committed on branch; CI must run before PR review. No local Android build, emulator, or device test was run from this connector-only workflow.
+- Next action: run CI on the PR and inspect results. Keep PR open for review; no merge until checks pass.
