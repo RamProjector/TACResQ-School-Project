@@ -4,12 +4,21 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +46,7 @@ fun RoleShell(
     content: @Composable () -> Unit,
     mapContent: @Composable () -> Unit,
 ) {
-    androidx.compose.material3.Scaffold(
+    Scaffold(
         bottomBar = {
             TacruBottomNavigation(
                 role = role,
@@ -71,16 +80,15 @@ private fun TacruBottomNavigation(
     )
 
     Surface(
-        tonalElevation = 4.dp,
+        tonalElevation = 3.dp,
         shadowElevation = 8.dp,
         color = MaterialTheme.colorScheme.surface,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(88.dp)
                 .navigationBarsPadding()
-                .padding(horizontal = 4.dp),
+                .padding(horizontal = 4.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
@@ -94,22 +102,35 @@ private fun TacruBottomNavigation(
 }
 
 @Composable
-private fun NavigationItem(
+private fun RowScope.NavigationItem(
     destination: AppDestination,
     label: String,
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
     val active = destination == selected
+    val icon = when (destination) {
+        AppDestination.PRIMARY -> Icons.Filled.Home
+        AppDestination.SECONDARY -> Icons.Filled.List
+        AppDestination.ALERTS -> Icons.Filled.Warning
+        AppDestination.PROFILE -> Icons.Filled.Person
+        AppDestination.MAP -> Icons.Filled.LocationOn
+    }
     Column(
         modifier = Modifier
-            .fillMaxWidth(0.2f)
+            .weight(1f)
             .clickable { onDestinationSelected(destination) }
             .semantics { contentDescription = label }
-            .padding(horizontal = 2.dp, vertical = 12.dp),
+            .padding(horizontal = 1.dp, vertical = 7.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Text(
             text = label,
             color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -121,28 +142,37 @@ private fun NavigationItem(
 }
 
 @Composable
-private fun GpsMapNavigationItem(
+private fun RowScope.GpsMapNavigationItem(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
     val active = selected == AppDestination.MAP
-    Surface(
-        color = if (active) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-        contentColor = if (active) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onPrimary,
-        shape = CircleShape,
-        shadowElevation = 8.dp,
+    Column(
         modifier = Modifier
-            .fillMaxWidth(0.2f)
+            .weight(1f)
+            .clickable { onDestinationSelected(AppDestination.MAP) }
             .semantics { contentDescription = "Open full-screen GPS map" }
-            .clickable { onDestinationSelected(AppDestination.MAP) },
+            .padding(horizontal = 2.dp, vertical = 1.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+        Surface(
+            color = if (active) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+            contentColor = if (active) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onPrimary,
+            shape = RoundedCornerShape(16.dp),
+            shadowElevation = 4.dp,
         ) {
-            Text("GPS", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black)
-            Text("Map", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Column(
+                modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(1.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.LocationOn,
+                    contentDescription = null,
+                    modifier = Modifier.size(21.dp),
+                )
+                Text("GPS Map", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
         }
     }
 }
