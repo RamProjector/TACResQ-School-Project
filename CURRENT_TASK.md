@@ -37,6 +37,7 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - Added `tools/ai_security_review.py`, deterministic source guardrails plus an opt-in bounded OpenAI-compatible review that never reads environment files or binaries.
 - Added `.github/workflows/quality-assurance.yml` for full prototype screenshot artifacts, local-stack stress smoke testing, CodeQL, dependency review, and optional scheduled/manual AI review.
 - Linked the QA runbook from `README.md`.
+- Added `.github/dependabot.yml` for weekly GitHub Actions, pnpm, Docker, and future Android Gradle dependency updates.
 
 ## Current implementation boundaries
 
