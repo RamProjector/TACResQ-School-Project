@@ -1,3 +1,14 @@
+val releaseSigningKeystorePath = System.getenv("ANDROID_SIGNING_KEYSTORE_PATH")
+val releaseSigningStorePassword = System.getenv("ANDROID_SIGNING_STORE_PASSWORD")
+val releaseSigningKeyAlias = System.getenv("ANDROID_SIGNING_KEY_ALIAS")
+val releaseSigningKeyPassword = System.getenv("ANDROID_SIGNING_KEY_PASSWORD")
+val releaseSigningConfigured = listOf(
+    releaseSigningKeystorePath,
+    releaseSigningStorePassword,
+    releaseSigningKeyAlias,
+    releaseSigningKeyPassword,
+).all { !it.isNullOrBlank() }
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -30,9 +41,23 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseSigningKeystorePath))
+                storePassword = requireNotNull(releaseSigningStorePassword)
+                keyAlias = requireNotNull(releaseSigningKeyAlias)
+                keyPassword = requireNotNull(releaseSigningKeyPassword)
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }
