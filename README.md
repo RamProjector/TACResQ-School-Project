@@ -52,7 +52,7 @@ The [GPS map UI recommendation](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) explai
 
 ## Android setup
 
-The repository includes a complete Gradle project and the Gradle Wrapper. Use JDK 17 and install Android SDK Platform 37 plus Android SDK Build-Tools 36.0.0. Android Studio can open the repository root directly.
+The repository includes a complete Gradle project and the Gradle Wrapper. Use JDK 17 and install Android SDK Platform 37.0 plus Android SDK Build-Tools 36.0.0. Android Studio can open the repository root directly.
 
 Build from the repository root:
 
