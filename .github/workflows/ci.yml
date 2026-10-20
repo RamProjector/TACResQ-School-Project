@@ -71,13 +71,11 @@ jobs:
       - name: Validate Android app and Gradle wrapper
         run: python3 tools/check_android_source.py
 
-      - name: Set up Android SDK
+      - name: Accept Android SDK licenses and install API 37
         if: hashFiles('gradlew') != ''
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android API 37 and build tools
-        if: hashFiles('gradlew') != ''
-        run: sdkmanager --install "platforms;android-37" "build-tools;36.0.0"
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "platforms;android-37" "build-tools;36.0.0"
 
       - name: Set up Gradle
         if: hashFiles('gradlew') != ''
