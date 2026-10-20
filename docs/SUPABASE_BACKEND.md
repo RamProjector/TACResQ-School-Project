@@ -26,7 +26,7 @@ All RPC calls require a signed-in Supabase user and use `POST /rest/v1/rpc/<func
 | `api_create_incident(p_type,p_description,p_latitude,p_longitude,p_accuracy_m)` | Preserved for older clients. |
 | `api_assign_incident(p_id,p_user_id)` | Dispatcher assigns a pending request to an available field unit. |
 | `api_update_incident_status(p_id,p_status)` | Assigned unit advances a valid incident status. |
-| `api_record_location(p_latitude,p_longitude,p_accuracy_m,p_recorded_at)` | Authenticated field-unit location write endpoint for a future client feature. |
+| `api_record_location_v2(p_incident_id,p_latitude,p_longitude,p_accuracy_m,p_recorded_at)` | Reserved incident-bound field-unit location write endpoint; accepts only the assigned unit while the incident is `en_route`. |
 
 The v2 create function uses `SECURITY INVOKER`, checks the signed-in profile's requester role, and relies on the existing Row Level Security policy. The new migration preserves the original five-argument RPC for old app versions. The coordinate pair must be wholly present or wholly absent. Accuracy and `location_recorded_at` require coordinates. The Android client uses an ISO-8601 device capture time and records no continuous requester path.
 
@@ -34,7 +34,7 @@ A database trigger writes status history and updates unit duty status when an in
 
 ## App setup and role provisioning
 
-1. Apply the numbered migrations in order, including `202610200001_incident_one_time_location.sql`.
+1. Apply the numbered migrations in order, including `202610200001_incident_one_time_location.sql` and `202610200002_responder_location_tracking.sql` when the foreground responder-tracking client is ready. The second migration defines the contract but does not start tracking by itself.
 2. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `AppConfig.kt`. Use only a publishable key in the app; never use a service-role/secret key.
 3. Register requester accounts in the app. For example, to promote a previously registered account:
    ```sql
@@ -46,4 +46,4 @@ A database trigger writes status history and updates unit duty status when an in
 
 ## Current limitations
 
-The app supports requester SOS submission, manual dispatcher assignment, duty-status controls, incident status progression, polling, and a user-initiated one-time requester GPS capture. A fix is sent only with the SOS and is visible to the requester, dispatcher, and assigned field unit under the existing incident access rules. If GPS is unavailable, the SOS can be submitted without coordinates and with an optional landmark; responders see that no pin was shared. The requester flow does **not** collect continuous or background location. The `location_logs` table/RPC is reserved for a future field-unit feature and is not used by the current Android client. This implementation is a school prototype and is not an emergency-services production deployment.
+The app supports requester SOS submission, manual dispatcher assignment, duty-status controls, incident status progression, polling, and a user-initiated one-time requester GPS capture. A fix is sent only with the SOS and is visible to the requester, dispatcher, and assigned field unit under the existing incident access rules. If GPS is unavailable, the SOS can be submitted without coordinates and with an optional landmark; responders see that no pin was shared. The requester flow does **not** collect continuous or background location. Migration `202610200002_responder_location_tracking.sql` adds an incident-bound, en-route-only location-write contract, but the current Android client does not call it yet; foreground tracking and dispatcher map reads remain the next implementation slice. This implementation is a school prototype and is not an emergency-services production deployment.
