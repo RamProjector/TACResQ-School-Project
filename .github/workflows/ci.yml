@@ -82,7 +82,7 @@ jobs:
             exit 1
           fi
           yes | "$SDKMANAGER" --licenses >/dev/null
-          "$SDKMANAGER" --install "platforms;android-37" "build-tools;36.0.0"
+          "$SDKMANAGER" --install "platforms;android-37.0" "build-tools;36.0.0"
 
       - name: Set up Gradle
         if: hashFiles('gradlew') != ''
