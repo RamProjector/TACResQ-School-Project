@@ -64,6 +64,8 @@ Build from the repository root:
 
 On Windows, use `gradlew.bat` instead of `./gradlew`. APK outputs are written to `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`. The wrapper pins Gradle 9.3.1 and validates the distribution checksum; `gradle/wrapper/gradle-wrapper.jar.sha256` records the upstream wrapper-JAR checksum.
 
+The CI artifact `tacresq-android-apks` contains both debug and release APKs. The debug APK is signed automatically for testing. The release APK is signed only when all four GitHub Actions repository secrets are configured: `ANDROID_SIGNING_KEYSTORE_BASE64`, `ANDROID_SIGNING_STORE_PASSWORD`, `ANDROID_SIGNING_KEY_ALIAS`, and `ANDROID_SIGNING_KEY_PASSWORD`. The Base64 secret must contain the complete Android signing keystore. If none are configured, CI deliberately produces an **unsigned release APK** and reports that status in the run summary; use the debug APK for ordinary testing. A partial set of signing secrets fails the build instead of silently producing an unsigned release. Never commit the keystore or paste passwords into chat.
+
 The main Android manifest contains the app entry point, internet access, and the location-button permissions used by the current requester flow. The debug manifest allows cleartext traffic only in debug builds; release remains HTTPS-only by default. The CI workflow installs Android API 37 and runs both debug and release builds whenever the wrapper is present.
 
 ## Backend configuration
