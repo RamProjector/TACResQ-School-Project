@@ -2,9 +2,9 @@
 
 ## Repository shape
 
-The selected repository is an Android source pack for **TACResQ**, built with Kotlin and Jetpack Compose. It is not a complete Gradle project and contains no existing browser application. The mobile screens define requester, responder/driver, and dispatcher roles; `app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt` is the closest existing interface model for a web console.
+The repository contains a Kotlin/Jetpack Compose Android application and a separate browser-based TACRU dispatcher dashboard. The Android Gradle project and wrapper use Android API 37. The mobile screens define requester, responder/driver, and dispatcher roles; `app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt` is the closest existing interface model for a mobile dispatcher console.
 
-The app can run against an in-memory fake backend, a Laravel API, or Supabase. `AppConfig.kt` currently selects the offline fake backend by default. The Supabase adapter is already implemented in `SupabaseTacApi.kt` and calls Supabase Auth plus Postgres RPCs.
+The app has an in-memory fake backend and both Laravel and Supabase adapters. `AppConfig.kt` currently selects Supabase Auth plus Postgres RPCs; the offline fake backend must be selected intentionally for demos.
 
 The dispatcher website is now located under `backend/web/` and is built into the Laravel image for `/dispatch/`. Laravel serves the frontend and supplies its public Supabase settings at runtime; the website continues to use Supabase Auth/RPCs for identity and dispatch data. The Laravel API's own PostgreSQL/Sanctum path remains separate and unchanged.
 
