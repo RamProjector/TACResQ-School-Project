@@ -93,6 +93,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Configure optional release signing
+        id: release-signing
         if: hashFiles('gradlew') != ''
         env:
           ANDROID_SIGNING_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
@@ -102,6 +103,7 @@ jobs:
         run: |
           values="${ANDROID_SIGNING_KEYSTORE_BASE64:+1}${ANDROID_SIGNING_KEY_ALIAS:+1}${ANDROID_SIGNING_KEY_PASSWORD:+1}${ANDROID_SIGNING_STORE_PASSWORD:+1}"
           if [ -z "$values" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "Release signing secrets are not configured; the release APK will be unsigned."
             exit 0
           fi
@@ -114,6 +116,7 @@ jobs:
           test -s "$RUNNER_TEMP/tacresq-signing/release.jks"
           echo "ANDROID_SIGNING_STORE_FILE=$RUNNER_TEMP/tacresq-signing/release.jks" >> "$GITHUB_ENV"
           echo "ANDROID_RELEASE_SIGNING_CONFIGURED=true" >> "$GITHUB_ENV"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
 
       - name: Build debug APK
         if: hashFiles('gradlew') != ''
@@ -124,7 +127,7 @@ jobs:
         run: ./gradlew --no-daemon assembleRelease
 
       - name: Verify signed release APK when signing is configured
-        if: hashFiles('gradlew') != '' && env.ANDROID_RELEASE_SIGNING_CONFIGURED == 'true'
+        if: hashFiles('gradlew') != '' && steps.release-signing.outputs.configured == 'true'
         run: |
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
