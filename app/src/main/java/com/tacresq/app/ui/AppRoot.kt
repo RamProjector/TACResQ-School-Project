@@ -70,7 +70,7 @@ fun AppRoot(container: AppContainer) {
                         val vmState by vm.state.collectAsStateWithLifecycle()
                         RoleApp(user.role, vmState.incidents, user, logout) { destination ->
                             if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, logout)
-                            else RoleSectionScreen(destination, user.role)
+                            else RoleSectionScreen(destination, user, logout)
                         }
                     }
                     Role.DISPATCHER -> {
@@ -78,7 +78,7 @@ fun AppRoot(container: AppContainer) {
                         val vmState by vm.state.collectAsStateWithLifecycle()
                         RoleApp(user.role, vmState.incidents, user, logout) { destination ->
                             if (destination == AppDestination.PRIMARY) DispatcherScreen(vm, user, logout)
-                            else RoleSectionScreen(destination, user.role)
+                            else RoleSectionScreen(destination, user, logout)
                         }
                     }
                 }
