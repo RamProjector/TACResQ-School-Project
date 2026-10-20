@@ -2,65 +2,66 @@
 
 **Last updated:** 2026-10-20
 **Repository:** `RamProjector/TACResQ-School-Project`
-**Base branch:** `main` at `320ddec6db46f7909c6ddf4c1493f4915f212702` when PR #22 was opened
-**Active branch:** `agent/android-gradle-wrapper`
-**Pull request:** [#22 — build(android): add Gradle project and wrapper](https://github.com/RamProjector/TACResQ-School-Project/pull/22), open and unmerged
-**Previous workflow PR:** [#21 — review-first autonomous coding workflow](https://github.com/RamProjector/TACResQ-School-Project/pull/21), separate and still unmerged at last check
+**Base branch:** `main` at `320ddec6db46f7909c6ddf4c1493f4915f212702` (verified before this task)
+**Active task branch:** `agent/setup-coding-agent-workflow`
+**Pull request:** [#21 — docs: establish review-first autonomous coding workflow](https://github.com/RamProjector/TACResQ-School-Project/pull/21), open and unmerged
+**Working-tree note:** Work was performed through the GitHub connector; no local checkout/status was available to inspect. Do not infer a local working-tree state from remote branch commits.
 
-## Current objective and status
+## Current objective
 
-Make TACResQ a complete, buildable Android Gradle project, validate debug/release APK builds in CI, and diagnose the earlier Docker integration error. The Android Gradle and CI work is now validated by a successful GitHub Actions run. Keep PR #22 open for user review; do not merge or deploy.
+Set up TACResQ for autonomous, feature-by-feature development with validation and pull requests prepared for human review. Do not merge or deploy as part of the default workflow.
 
-## Completed in this task
+## Current session
 
-- Added root `settings.gradle.kts`, root `build.gradle.kts`, `gradle.properties`, and `app/build.gradle.kts` for the Kotlin/Jetpack Compose Android app.
-- Added `app/src/main/AndroidManifest.xml` with the application, launcher activity, internet permission, and the location-button-related permissions used by the existing flow. Preserved `app/src/debug/AndroidManifest.xml` for debug-only cleartext traffic.
-- Added Gradle 9.3.1 wrapper scripts and JAR, checksum-pinned distribution URL, and wrapper-JAR checksum record. Gradle Actions confirmed the wrapper JAR is valid and `tools/check_android_source.py` verifies its SHA-256.
-- Configured JDK 17, Android Gradle Plugin 9.1.1, Kotlin/Compose built-in Kotlin support, compile SDK API 37.0, minimum SDK 26, and CI SDK Build-Tools 36.0.0.
-- Updated `.github/workflows/ci.yml` to validate the wrapper, install the Android SDK package named `platforms;android-37.0`, then actually run `./gradlew --no-daemon assembleDebug` and `assembleRelease` when the wrapper exists.
-- Updated `tools/check_android_source.py`, `README.md`, `docs/QA_WORKFLOWS.md`, `PROJECT_ANALYSIS.md`, and `docs/SUPABASE_BACKEND.md` to describe the complete Gradle project and current validated source state.
-- Fixed actual Kotlin errors uncovered after the first APK compilation: `FakeTacApi.recordLocation` now returns its synchronized result; `TacRepository.assignIncident` supplies the incident ID and request body; `AppRoot.kt` imports Compose `setValue`; and responder location timestamp rendering snapshots the delegated timestamp before null checking.
-- Opened PR #22 and updated its description with final validation results. Latest fully successful run: [39440473771](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39440473771) on commit `5ed7297b2c9f185f7948d6e26d7ffa3b937bb18e`.
+- Inspected repository metadata, default branch, top-level directory structure, agent instructions, handoff, project analysis, plan, contributing guide, CI workflow, latest commits, branches, open PRs, and current GitHub Actions state.
+- Verified `main` was at `320ddec6db46f7909c6ddf4c1493f4915f212702`; it was the only existing branch at inspection and is not protected according to GitHub's branch metadata.
+- Latest main CI run checked: [run 39402253764](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39402253764), successful. Source checks, prototype/visual checks, and Laravel/dashboard integration passed. Android debug/release build steps were skipped because no Gradle wrapper is checked in.
+- No open pull requests were present at inspection time.
+- Created `agent/setup-coding-agent-workflow` from `main`.
+- Updated `AGENTS.md` with review-first feature work, task-scoped branches, explicit non-merge/non-deploy defaults, validation honesty, and side-effect boundaries. Commit: `0cbc0e139efdbd25d65424de0bbce7a6ed2870f8`.
+- Added `docs/AGENT_WORKFLOW.md` describing task intake, implementation loop, validation, PR requirements, handoff, and repository-level enforcement limits. Commit: `f895a8080eae5b0fb7d17f6b189983ee0848c5c3`.
+- Updated `CONTRIBUTING.md` to link the workflow and align contribution/PR guidance. Commit: `03398157a18ad5c85d4f766598047686364c61a6`.
+- Refreshed this handoff to remove the old note that dependency compatibility fixes were still uncommitted; those fixes were already on the verified main tip before this task.
+- Opened [PR #21](https://github.com/RamProjector/TACResQ-School-Project/pull/21). It is open and not merged. It contains only documentation/process changes; application source, dependencies, migrations, Supabase settings, deployment, and repository security settings were not changed.
 
-## CI validation
+## Project structure
 
-Run `39440473771` completed successfully:
+- `app/`: Kotlin/Jetpack Compose Android source pack with requester, responder/driver, dispatcher, auth, GPS Map, API, repository, and location code.
+- `supabase/migrations/`: Postgres schema, RLS/RPC and incident/location changes.
+- `backend/src/`: Laravel API adapter.
+- `backend/web/`: React/TypeScript dispatcher dashboard, served by Laravel at `/dispatch/`.
+- `tools/`, `tests/`, `.github/workflows/`: source checks, workflow/prototype tests, visual regression, security/stress helpers, and GitHub Actions.
 
-- Android Gradle wrapper/checksum validation: passed.
-- Android SDK API 37.0 and Build-Tools 36.0.0 provisioning: passed.
-- `assembleDebug`: passed.
-- `assembleRelease`: passed.
-- Source/workflow/stress/location-contract checks and dashboard production build: passed.
-- Prototype navigation and visual regression: passed.
-- Laravel/Postgres and dashboard integration (Compose build/start, readiness, feature tests, static assets, runtime config): passed.
+## Implementation and safety boundaries
 
-The earlier Laravel/Postgres integration job failed because Docker Hub returned HTTP 502 while retrieving the `node:26-alpine` image metadata. Rerunning the failed job in [run 39431224588](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39431224588), attempt 2, passed. No Dockerfile change was justified by that non-reproducible external registry error.
+- The Android code is currently documented as a source pack, not a complete Gradle project; debug/release compilation and device behavior remain unverified.
+- Requester GPS is one-time and user initiated.
+- Responder location sharing is foreground-only, consent-gated, approximate, and implemented in source but not device-validated. No background tracking is implemented.
+- Embedded map tiles/live fleet markers, FCM push notifications, and offline write synchronization are not implemented.
+- The repository is an educational prototype, not an emergency-services provider.
+- Preserve role authorization, explicit location consent, minimized location access, truthful stale/unavailable states, and no fabricated GPS. Never put secrets, personal information, or real emergency data in source, tests, screenshots, commits, or handoffs.
+- The responder-location migration `202610200002_responder_location_tracking.sql` was previously applied to the explicitly approved Supabase project `TACResQ-School-Project` as migration version `20261020062532`. Do not reapply it there.
 
-Several intermediate Android setup/build attempts failed while surfacing real setup mistakes and pre-existing compile errors; these were corrected before the successful run. Do not report any intermediate failed run as the final result.
+## Validation and evidence
 
-## TACResQ architecture and safety context
+- The latest observed main CI run above completed successfully for the checks described. This is evidence about the main commit only; the latest PR-head CI is still being checked.
+- Android debug and release build steps were skipped, not passed.
+- Prior repository notes record passing source/workflow/prototype/location-contract/stress/dashboard checks for earlier feature work. Those historical results do not substitute for checks on new changes.
+- This session used GitHub connector reads and commits; no local shell, Android SDK, emulator, or test-device run occurred.
+- Do not claim the workflow branch is protected or that PR review is enforced by GitHub: main branch protection was absent at inspection, and the available integration does not expose branch-protection write settings.
 
-- `app/`: Kotlin/Jetpack Compose Android app for requester, responder/driver, dispatcher, authentication, GPS Map, API clients, repository, and location provider.
-- `supabase/migrations/`: schema, RLS policies, authorization RPCs, incident location and responder-location contracts.
-- `backend/src/`: Laravel API adapter and integration-test target.
-- `backend/web/`: React/TypeScript TACRU dispatcher dashboard served by Laravel at `/dispatch/`.
-- `tools/`, `tests/`, `.github/workflows/`: source contract checks, workflow tests, browser/visual regression, security/stress review, and CI.
+## Next concrete actions
 
-TACResQ is an educational prototype, not an emergency-services provider. Requester GPS is one-time and user-initiated. Responder sharing in source is consent-gated, approximate, incident-bound, and foreground-only. Background tracking, embedded live fleet maps, FCM push, and offline write synchronization are not implemented. Successful APK builds do not establish correct behavior on physical devices.
+1. Check the latest CI run(s) for PR #21 and review job-level outcomes, including any skipped Android build steps.
+2. Resolve any documentation or CI problems within this focused PR, if found.
+3. Report the outcome and leave the PR open for user review; do not merge.
+4. After the workflow is accepted, the next recommended separately scoped engineering task is to make the Android source pack a complete buildable Gradle project, then validate debug/release builds and device behavior. Treat this as a separate task/PR.
 
-The responder-location migration `202610200002_responder_location_tracking.sql` was previously applied with explicit approval to the TACResQ Supabase project as migration version `20261020062532`. Do not reapply it to that project.
+## Agent handoff — current status after PR #21 merge
 
-## Side effects and limitations
-
-- No Render services, environment variables, deploys, or service settings were changed in this task.
-- No Supabase settings, live data, or database migrations were changed.
-- No deployment was triggered.
-- This environment had no accessible local Android SDK/Gradle checkout; all successful Gradle build validation was performed by GitHub Actions.
-- `main` was previously observed as unprotected. This PR remains review-first by process, but GitHub server-side branch protection is a separate repository-admin setting.
-
-## Next actions
-
-1. Review PR #22 and leave it open for approval; do not merge without the user's separate authorization.
-2. Confirm CI on any later handoff/documentation-only commit if one is pushed.
-3. Next engineering slice, as a separate PR: validate sign-in and location permission flows on emulator/physical devices, including permission denied/revoked, location services disabled, foreground stop/resume, incident reassignment, sign-out, and no upload outside the permitted en-route state.
-4. Do not change Render or Supabase live resources unless a future task identifies a concrete issue and explicitly authorizes the relevant operation.
+- PR #21 (review-first autonomous coding workflow) was merged on 2026-10-20 as commit `e8039caa598d284a47214636b773710c2ea01344`.
+- PR #22 (Android Gradle project and wrapper) remains under validation on `agent/android-gradle-wrapper`. Its prior CI run passed Android debug/release builds, source/dashboard checks, prototype/visual checks, and Laravel/Postgres integration.
+- The PR #22 branch is being synchronized with the updated `main` handoff so the task remains resumable; this update does not alter Android source or live services.
+- PR #23 (bounded Docker Compose retries) remains open. It shares `.github/workflows/ci.yml` with PR #22; validate the combined workflow after the Android PR is integrated.
+- No merge, deployment, or live Supabase/Render change is implied by this handoff. The user has now explicitly authorized merging PRs when all relevant checks pass.
+- Physical-device/emulator validation of Android location permission and foreground lifecycle remains outstanding. Use synthetic test accounts/incidents only.
