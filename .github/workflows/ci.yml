@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -98,6 +99,15 @@ jobs:
       - name: Build release APK
         if: hashFiles('gradlew') != ''
         run: ./gradlew --no-daemon assembleRelease
+
+      - name: Upload Android APKs
+        if: hashFiles('gradlew') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: tacresq-android-apks
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Explain missing Gradle build
         if: hashFiles('gradlew') == ''
