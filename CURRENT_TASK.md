@@ -4,7 +4,7 @@
 **Repository:** `RamProjector/TACResQ-School-Project`
 **Branch:** `main`
 **Phase 2 implementation commit:** `2d72eca` (pushed to `origin/main`); this handoff-only update is the subsequent branch tip.
-**Working tree:** QA workflow changes are in progress; not yet committed or pushed
+**Working tree:** dependency compatibility fixes in progress; not yet committed or pushed
 
 ## Objective
 
@@ -38,6 +38,9 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - Added `.github/workflows/quality-assurance.yml` for full prototype screenshot artifacts, local-stack stress smoke testing, CodeQL, dependency review, and optional scheduled/manual AI review.
 - Linked the QA runbook from `README.md`.
 - Added `.github/dependabot.yml` for weekly GitHub Actions, pnpm, Docker, and future Android Gradle dependency updates.
+- Added `tools/test_stress_test.py`, a Docker-free regression test for the bounded stress utility, and wired it into the main CI source-check job.
+- Diagnosed failed checks: current `main` CI is green; the failed Gradle Dependabot runs report `No files found in /` because the Android Gradle project is not checked in. Removed that premature Dependabot entry and documented when to add it.
+- Applied compatibility fixes for remaining dependency updates: TypeScript 7 no longer uses removed `baseUrl`; Node 26 installs pnpm directly instead of relying on removed Corepack behavior; PHP 8.5 gets a runtime-config route outside the `/dispatch/` static directory with the old path retained as an alias; visual regression accepts only sub-0.05% raster noise.
 
 ## Current implementation boundaries
 
@@ -69,6 +72,10 @@ git diff --check
 All listed offline checks passed for this work session, including the dashboard TypeScript/production build and 12 location-contract assertions (including Android consent/lifecycle source assertions). Dashboard dependencies were installed with `pnpm install --frozen-lockfile`. Android was checked only through source-pack and static contract checks; no Gradle project/wrapper, Kotlin compiler, or Android SDK is available here, so compilation and device validation remain required. Supabase migration `20261020062532` is recorded as applied to the explicitly approved project. Read-only Postgres verification confirmed the new column and RPCs, `SECURITY DEFINER` on the write RPC, authenticated/anon RPC grants, denied direct authenticated inserts, enabled RLS, installed policies, dispatcher guard, en-route guard, advisory-lock throttle, and revoked authenticated access to the legacy write RPC. No role-based SQL integration tests or device tests were run, and the migration did not upload location rows. The feature implementation and deployment handoff are committed and pushed to `origin/main`; the current working tree is clean and synchronized.
 
 The QA additions also passed `python3 tools/ai_security_review.py`, `python3 tools/test_workflow.py`, `python3 tools/test_prototype.py`, and `pnpm --dir backend/web build`. The full screenshot artifact and Docker stress workflow were added but were not run in this sandbox session.
+
+The direct QA regression update also passed `python3 tools/test_stress_test.py`; Docker remains unavailable in this sandbox, so the Compose-backed stress job still requires GitHub Actions.
+
+The dependency compatibility patch passed the dashboard production build, prototype smoke test, visual regression, security guardrails, stress utility test, and `git diff --check`. Docker/Laravel integration remains to be verified by GitHub Actions.
 
 ## Resume checklist
 
