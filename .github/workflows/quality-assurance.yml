@@ -104,4 +104,4 @@ jobs:
         run: python3 tools/ai_security_review.py --ai
       - name: Dependency review for pull requests
         if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
