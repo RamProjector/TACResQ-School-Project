@@ -56,6 +56,7 @@ import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.SyncStatus
 import com.tacresq.app.ui.common.formatTime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -78,6 +79,8 @@ data class RequesterUiState(
     val locationError: String? = null,
     val notice: String? = null,
     val error: String? = null,
+    val syncError: String? = null,
+    val lastSyncedAtEpochMs: Long? = null,
 )
 
 class RequesterViewModel(
@@ -94,8 +97,12 @@ class RequesterViewModel(
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
             repo.myIncidents()
-                .onSuccess { list -> _state.update { it.copy(incidents = list, loading = false) } }
-                .onFailure { e -> _state.update { it.copy(loading = false, error = e.message) } }
+                .onSuccess { list ->
+                    _state.update { it.copy(incidents = list, loading = false, syncError = null, lastSyncedAtEpochMs = System.currentTimeMillis()) }
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(loading = false, syncError = e.message ?: "Couldn't refresh incident updates.") }
+                }
         }
     }
 
@@ -270,6 +277,8 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                 onLogout = onLogout,
             )
         }
+
+        item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
