@@ -20,6 +20,8 @@ object AppConfig {
 
     /** Supabase project URL and publishable key. Never put a service-role key in an app. */
     const val SUPABASE_URL = "https://kttguamhznoflzagfutr.supabase.co"
+    /** Supabase email confirmation returns to the installed Android app, not a local web dev server. */
+    const val AUTH_REDIRECT_URL = "tacresq://auth/callback"
     const val SUPABASE_PUBLISHABLE_KEY = "sb_publishable_1-_oEKiNRWO0tvEOr5Gr3g_USY07s2g"
 
     /** How often incident and status screens refresh until FCM push is added. */

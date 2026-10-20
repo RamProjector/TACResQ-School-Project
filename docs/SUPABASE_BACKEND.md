@@ -36,7 +36,8 @@ A database trigger writes status history and updates unit duty status when an in
 
 1. Apply the numbered migrations in order, including `202610200001_incident_one_time_location.sql` and `202610200002_responder_location_tracking.sql` when the foreground responder-tracking client is ready. The second migration defines the contract but does not start tracking by itself.
 2. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `AppConfig.kt`. Use only a publishable key in the app; never use a service-role/secret key.
-3. Register requester accounts in the app. For example, to promote a previously registered account:
+3. In Supabase Dashboard → Authentication → URL Configuration, add `tacresq://auth/callback` to the allowed Redirect URLs. The Android sign-up request explicitly sends this redirect, so confirmation emails return to TACResQ rather than the old `http://localhost:3000` Site URL. The installed app handles this deep link; after confirming, the user can return to TACResQ and sign in.
+4. Register requester accounts in the app. For example, to promote a previously registered account:
    ```sql
    update public.profiles
    set role = 'dispatcher', duty_status = null
