@@ -4,7 +4,7 @@
 **Repository:** `RamProjector/TACResQ-School-Project`
 **Branch:** `main`
 **Phase 2 implementation commit:** `2d72eca` (pushed to `origin/main`); this handoff-only update is the subsequent branch tip.
-**Working tree:** direct QA regression update in progress; not yet committed or pushed
+**Working tree:** Dependabot configuration correction in progress; not yet committed or pushed
 
 ## Objective
 
@@ -39,6 +39,7 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - Linked the QA runbook from `README.md`.
 - Added `.github/dependabot.yml` for weekly GitHub Actions, pnpm, Docker, and future Android Gradle dependency updates.
 - Added `tools/test_stress_test.py`, a Docker-free regression test for the bounded stress utility, and wired it into the main CI source-check job.
+- Diagnosed failed checks: current `main` CI is green; the failed Gradle Dependabot runs report `No files found in /` because the Android Gradle project is not checked in. Removed that premature Dependabot entry and documented when to add it.
 
 ## Current implementation boundaries
 
