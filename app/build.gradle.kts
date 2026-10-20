@@ -1,3 +1,8 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.plugin.compose")
+}
+
 val releaseSigningKeystorePath = System.getenv("ANDROID_SIGNING_KEYSTORE_PATH")
 val releaseSigningStorePassword = System.getenv("ANDROID_SIGNING_STORE_PASSWORD")
 val releaseSigningKeyAlias = System.getenv("ANDROID_SIGNING_KEY_ALIAS")
@@ -9,10 +14,6 @@ val releaseSigningConfigured = listOf(
     releaseSigningKeyPassword,
 ).all { !it.isNullOrBlank() }
 
-plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.plugin.compose")
-}
 
 android {
     namespace = "com.tacresq.app"
