@@ -22,6 +22,7 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - Added wireframe and screenshot documentation for requester, responder, and dispatcher flows.
 - Removed stale merged branches and local generated build artifacts.
 - Removed the misleading dispatcher self-location route planner; the web dashboard keeps incident-coordinate links, while responder navigation remains in the assigned responder client.
+- Added an explicit responder confirmation before advancing an assigned incident to `en_route`; the confirmation states that live responder GPS is not shared by the current build.
 - Wrote `plan.md` with the agreed implementation plan: dispatcher-only responder tracking while en route, explicit responder start/stop lifecycle, incident-bound backend authorization, freshness states, realtime fallback, notifications, offline behavior, audit history, and deferred requester-facing GPS.
 
 ## Current implementation boundaries
@@ -32,6 +33,7 @@ Maintain TACResQ as a clean, publicly presentable project with a role-based Andr
 - In-app map tiles, live fleet markers, FCM push notifications, and offline write synchronization are not implemented.
 - The web route planner does not write browser coordinates to Supabase or present them as responder/unit tracking; it is a local navigation handoff only. Google Maps selects the available route and traffic may change.
 - The dispatcher dashboard does not request or track dispatcher browser location.
+- Responder navigation already opens the confirmed incident coordinate locally; responder live-location upload is not implemented yet.
 - The repository is an Android source pack without a checked-in Gradle wrapper.
 
 ## Validation
@@ -45,7 +47,7 @@ python3 tools/test_prototype.py
 pnpm --dir backend/web build
 ```
 
-The Android and workflow checks passed again after the web change. `git diff --check` also passed. The Phase 1 dispatcher cleanup is validated locally and is ready to commit.
+The Android and workflow checks passed again after the web change and responder confirmation update. `git diff --check` also passed. The Phase 1 responder confirmation is validated locally and is ready to commit.
 
 ## Resume checklist
 
@@ -53,7 +55,7 @@ The Android and workflow checks passed again after the web change. `git diff --c
 2. Run `git status --short --branch` and `git log -5 --oneline --decorate`.
 3. Fetch and inspect the latest `main` and pull requests before editing.
 4. Confirm whether the user wants Android source, wireframes, backend, Supabase, dashboard, or public-repository work.
-5. Continue Phase 1 from `plan.md`: add responder assignment detail/local navigation confirmation and tighten the assignment/status lifecycle.
+5. Continue Phase 1 from `plan.md`: add server-backed assignment/status hardening and incident detail/history before implementing responder location ingestion.
 
 ## Next recommended work
 
