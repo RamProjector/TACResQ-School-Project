@@ -255,6 +255,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
     var confirmingSos by rememberSaveable { mutableStateOf(false) }
+    var requestStep by rememberSaveable { mutableStateOf(1) }
     val freshFix = state.locationFix?.takeIf(vm::isFresh)
     val activeIncident = state.incidents.firstOrNull { it.status.isActive }
 
@@ -262,6 +263,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         if (state.notice != null) {
             description = ""
             locationNotes = ""
+            requestStep = 1
         }
     }
 
@@ -286,97 +288,80 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("Need help?", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text("Choose the emergency type and share one current location if available.")
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(IncidentType.entries) { type ->
-                            FilterChip(
-                                selected = type == selectedType,
-                                onClick = { selectedType = type },
-                                label = { Text(type.label) },
-                            )
+                    Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text("Step $requestStep of 3 · Your request is not sent until you confirm.")
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        (1..3).forEach { step ->
+                            Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(
+                                containerColor = if (step == requestStep) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                            )) {
+                                Text(when (step) { 1 -> "Details"; 2 -> "Location"; else -> "Review" },
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (step == requestStep) FontWeight.Bold else FontWeight.Normal)
+                            }
                         }
                     }
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { if (it.length <= 2000) description = it },
-                        label = { Text("What is happening? (optional)") },
-                        minLines = 2,
-                        maxLines = 4,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    Text("Location sharing", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Your location is read only after you tap the system location button. If you send this SOS, that one fix is shared with dispatch and the assigned response team. No background tracking.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    if (state.capturingLocation) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(10.dp))
-                            Text("Finding a fresh location… this can take up to 15 seconds.")
+                    when (requestStep) {
+                        1 -> {
+                            Text("What kind of help do you need?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(IncidentType.entries) { type ->
+                                    FilterChip(selected = type == selectedType, onClick = { selectedType = type }, label = { Text(type.label) })
+                                }
+                            }
+                            OutlinedTextField(value = description, onValueChange = { if (it.length <= 2000) description = it },
+                                label = { Text("What is happening? (optional)") }, minLines = 3, maxLines = 5, modifier = Modifier.fillMaxWidth())
+                            Button(onClick = { requestStep = 2 }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Continue to location") }
                         }
-                    } else {
-                        LocationButton(
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            textType = LocationButtonTextType.SharePreciseLocation,
-                            backgroundColor = MaterialTheme.colorScheme.primary,
-                            strokeColor = MaterialTheme.colorScheme.primary,
-                            textColor = MaterialTheme.colorScheme.onPrimary,
-                            iconTint = MaterialTheme.colorScheme.onPrimary,
-                            onPermissionResult = { granted ->
-                                if (granted) vm.captureLocation() else vm.onLocationDenied()
-                            },
-                            onError = { vm.onLocationButtonError() },
-                        )
-                    }
-
-                    when {
-                        freshFix != null -> LocationFixCard(freshFix, onClear = vm::clearLocationFix)
-                        state.locationFix != null -> LocationNoticeCard(
-                            title = "GPS fix expired",
-                            text = "This older fix will not be sent. Capture a new fix or continue without a GPS pin.",
-                        )
-                        state.locationFix == null && !state.capturingLocation -> LocationNoticeCard(
-                            title = "No GPS pin selected",
-                            text = "You can send without a pin. Add a nearby landmark or access detail below; the app will not invent coordinates.",
-                        )
-                    }
-
-                    state.locationError?.let { message ->
-                        Banner(message, isError = true, onDismiss = vm::dismissMessages)
-                    }
-
-                    OutlinedTextField(
-                        value = locationNotes,
-                        onValueChange = { if (it.length <= 500) locationNotes = it },
-                        label = { Text("Landmark or access detail (optional)") },
-                        minLines = 1,
-                        maxLines = 3,
-                        supportingText = { Text("${locationNotes.length}/500 · sent with this SOS") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    Button(
-                        onClick = {
-                            vm.expireStaleLocation()
-                            confirmingSos = true
-                        },
-                        enabled = !state.sending && !state.capturingLocation,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        modifier = Modifier.fillMaxWidth().height(64.dp),
-                    ) {
-                        if (state.sending) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onError,
-                            )
-                        } else {
-                            Text("Review and send SOS", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        2 -> {
+                            Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Location is requested only after you use the Android location button. A GPS pin is attached only after a fresh fix is returned and you confirm sending.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (state.capturingLocation) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    Spacer(Modifier.width(10.dp)); Text("Finding a fresh location…")
+                                }
+                            } else {
+                                LocationButton(modifier = Modifier.fillMaxWidth().height(56.dp), textType = LocationButtonTextType.SharePreciseLocation,
+                                    backgroundColor = MaterialTheme.colorScheme.primary, strokeColor = MaterialTheme.colorScheme.primary,
+                                    textColor = MaterialTheme.colorScheme.onPrimary, iconTint = MaterialTheme.colorScheme.onPrimary,
+                                    onPermissionResult = { granted -> if (granted) vm.captureLocation() else vm.onLocationDenied() },
+                                    onError = { vm.onLocationButtonError() })
+                            }
+                            when {
+                                freshFix != null -> LocationFixCard(freshFix, onClear = vm::clearLocationFix)
+                                state.locationFix != null -> LocationNoticeCard("GPS fix expired", "This fix will not be sent. Capture a new fix or continue without GPS.")
+                                !state.capturingLocation -> LocationNoticeCard("No GPS pin selected", "If GPS is unavailable, continue without coordinates and add a landmark. TACResQ will not invent a location.")
+                            }
+                            state.locationError?.let { Banner(it, isError = true, onDismiss = vm::dismissMessages) }
+                            OutlinedTextField(value = locationNotes, onValueChange = { if (it.length <= 500) locationNotes = it },
+                                label = { Text("Landmark or access detail (optional)") }, minLines = 2, maxLines = 3,
+                                supportingText = { Text("${locationNotes.length}/500 · shared with dispatch") }, modifier = Modifier.fillMaxWidth())
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { requestStep = 1 }, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
+                                Button(onClick = { vm.expireStaleLocation(); requestStep = 3 }, enabled = !state.capturingLocation,
+                                    modifier = Modifier.weight(1f).height(52.dp)) { Text("Review request") }
+                            }
+                        }
+                        else -> {
+                            Text("Review before sending", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Emergency type: ${selectedType.label}", fontWeight = FontWeight.SemiBold)
+                            description.trim().takeIf { it.isNotEmpty() }?.let { Text("Details: $it") }
+                            if (freshFix != null) LocationFixCard(freshFix, onClear = { vm.clearLocationFix(); requestStep = 2 })
+                            else LocationNoticeCard("Sending without a GPS pin", "Dispatch may need to call you to confirm the exact location.")
+                            locationNotes.trim().takeIf { it.isNotEmpty() }?.let { Text("Landmark/access detail: $it") }
+                            activeIncident?.let { Text("You already have active request #${it.id}. Only continue if this is a separate emergency.", color = MaterialTheme.colorScheme.error) }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { requestStep = 2 }, enabled = !state.sending, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
+                                Button(onClick = { confirmingSos = true }, enabled = !state.sending && !state.capturingLocation,
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                    modifier = Modifier.weight(1f).height(52.dp)) {
+                                    if (state.sending) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    else Text("Confirm SOS", fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
                 }
