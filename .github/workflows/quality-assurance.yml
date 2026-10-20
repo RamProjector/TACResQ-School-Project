@@ -37,7 +37,7 @@ jobs:
         run: python3 tools/capture_wireframe_screenshots.py --output artifacts/screenshots
       - name: Upload screenshot gallery
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tacresq-screen-gallery
           path: artifacts/screenshots
@@ -73,7 +73,7 @@ jobs:
           rm -f .env
       - name: Upload stress logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tacresq-stress-logs
           path: artifacts-stress.log

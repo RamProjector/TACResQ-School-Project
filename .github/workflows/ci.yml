@@ -111,7 +111,7 @@ jobs:
 
       - name: Upload visual report and changed screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tacresq-visual-regression
           path: artifacts/visual/
