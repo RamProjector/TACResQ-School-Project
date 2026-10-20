@@ -1,6 +1,6 @@
 # TACResQ QA workflows
 
-This repository has two kinds of client artifacts: an Android source pack and a browser-based TACRU dispatcher dashboard. The commands below are intentionally safe for demo data only. TACResQ is not an emergency-services provider; never point stress tests, screenshots, or fake accounts at a live emergency system.
+This repository contains a Kotlin/Jetpack Compose Android application and a browser-based TACRU dispatcher dashboard. The commands below are intentionally safe for demo data only. TACResQ is not an emergency-services provider; never point stress tests, screenshots, or fake accounts at a live emergency system.
 
 ## Fast pre-commit gate
 
@@ -17,13 +17,13 @@ pnpm --dir backend/web build
 python3 tools/ai_security_review.py
 ```
 
-The Android command is a source-contract check until a complete Gradle project and wrapper are checked in.
+The Android source check also validates the checked-in Gradle project and verifies the Gradle Wrapper JAR checksum.
 
 ## Android debug and release builds
 
-GitHub Actions runs `assembleDebug` and `assembleRelease` automatically when `gradlew` is present. The current repository is still an Android source pack, so CI falls back to `tools/check_android_source.py` and does not pretend that an APK was built.
+GitHub Actions installs Android SDK Platform 37 and Build-Tools 36.0.0, verifies the wrapper checksum, then runs `assembleDebug` and `assembleRelease`. If the wrapper is absent, CI falls back to source-contract validation and clearly reports that no APK was built.
 
-When the Android project is merged, validate locally with:
+Validate locally with:
 
 ```bash
 ./gradlew --no-daemon clean assembleDebug
@@ -82,7 +82,7 @@ The optional AI pass is evidence-based and bounded. It requires `OPENAI_API_KEY`
 OPENAI_API_KEY=... python3 tools/ai_security_review.py --ai
 ```
 
-GitHub Actions also runs CodeQL and dependency review. Dependabot is configured in [`.github/dependabot.yml`](../.github/dependabot.yml) for GitHub Actions, the dashboard’s pnpm dependencies, and the backend Docker image. Add its Gradle entry only after the Android Gradle project and wrapper are checked in; enabling it against today’s source pack causes `dependency_file_not_found` failures. The optional AI review is available from `workflow_dispatch` or the weekly schedule. Treat model output as triage, not proof: reproduce every finding with a test, code review, or an authorized staging check. For Supabase changes, add role-based SQL tests for RLS, RPC authorization, malformed/future/stale coordinates, direct insert denial, and dispatcher-only reads before applying a migration to a real project.
+GitHub Actions also runs CodeQL and dependency review. Dependabot is configured in [`.github/dependabot.yml`](../.github/dependabot.yml) for GitHub Actions, the dashboard’s pnpm dependencies, and the backend Docker image. The Android Gradle project and wrapper are now checked in; Dependabot can be configured to update Gradle/AGP once the initial wrapper build is confirmed green. The optional AI review is available from `workflow_dispatch` or the weekly schedule. Treat model output as triage, not proof: reproduce every finding with a test, code review, or an authorized staging check. For Supabase changes, add role-based SQL tests for RLS, RPC authorization, malformed/future/stale coordinates, direct insert denial, and dispatcher-only reads before applying a migration to a real project.
 
 ## GitHub workflows
 

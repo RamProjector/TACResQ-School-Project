@@ -2,7 +2,7 @@
 
 TACResQ is a role-based emergency response coordination system for requesters, field responders, drivers, and dispatchers.
 
-The repository contains an Android client source pack, a Supabase-backed data contract, a TACRU dispatcher dashboard, and documented mobile response workflows.
+The repository contains a Kotlin/Jetpack Compose Android application with a Gradle build, a Supabase-backed data contract, a TACRU dispatcher dashboard, and documented mobile response workflows.
 
 > **Safety boundary:** TACResQ is an educational and engineering project, not an emergency-services provider. Do not use it as a substitute for local emergency services or real emergency dispatch.
 
@@ -36,7 +36,7 @@ The [GPS map UI recommendation](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) explai
 
 | Area | Status |
 |---|---|
-| Android role-based Compose UI | Implemented as a source pack |
+| Android role-based Compose UI | Implemented; debug/release builds run in CI |
 | Supabase Auth and Postgres RPC | Implemented |
 | Requester SOS with one-time GPS sharing | Implemented |
 | No-GPS and stale-GPS safety states | Implemented |
@@ -52,43 +52,19 @@ The [GPS map UI recommendation](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) explai
 
 ## Android setup
 
-This repository is currently an Android source pack rather than a complete Gradle project. To run the client:
+The repository includes a complete Gradle project and the Gradle Wrapper. Use JDK 17 and install Android SDK Platform 37 plus Android SDK Build-Tools 36.0.0. Android Studio can open the repository root directly.
 
-1. Open Android Studio and create an **Empty Activity** project.
-2. Use package name `com.tacresq.app`, Kotlin, Kotlin DSL, and minimum SDK API 26.
-3. Merge the checked-in `app/` directory into the new project's `app/` directory.
-4. Add the dependencies listed below.
-5. Add the permissions and application declaration below.
-6. Sync Gradle and run on an emulator or Android device with Google Play or Google APIs.
+Build from the repository root:
 
-### Required dependencies
-
-```kotlin
-implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
-implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
-implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-implementation("androidx.datastore:datastore-preferences:1.1.1")
-implementation("com.squareup.retrofit2:retrofit:2.11.0")
-implementation("com.squareup.retrofit2:converter-gson:2.11.0")
-implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-implementation("com.google.android.gms:play-services-location:21.3.0")
-implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
-implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
-implementation("androidx.core.locationbutton:locationbutton:1.0.0-alpha01")
-implementation("androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01")
+```bash
+./gradlew --no-daemon assembleDebug
+./gradlew --no-daemon test
+./gradlew --no-daemon assembleRelease
 ```
 
-Add these permissions above `<application>`:
+On Windows, use `gradlew.bat` instead of `./gradlew`. APK outputs are written to `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`. The wrapper pins Gradle 9.3.1 and validates the distribution checksum; `gradle/wrapper/gradle-wrapper.jar.sha256` records the upstream wrapper-JAR checksum.
 
-```xml
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:usesPermissionFlags="onlyForLocationButton" />
-<uses-permission android:name="android.permission.USE_LOCATION_BUTTON" />
-```
-
-Add `android:name=".TacResqApp"` to the `<application>` element. For an Android 17 / API 37 Play build, compile against API 37 and set `targetSdk` to 37 or later. See [GPS location notes](docs/GPS_LOCATION_NOTES.md) for the one-time location privacy boundary.
+The main Android manifest contains the app entry point, internet access, and the location-button permissions used by the current requester flow. The debug manifest allows cleartext traffic only in debug builds; release remains HTTPS-only by default. The CI workflow installs Android API 37 and runs both debug and release builds whenever the wrapper is present.
 
 ## Backend configuration
 
@@ -136,13 +112,13 @@ python3 tools/test_prototype.py
 python3 tools/visual_regression.py
 ```
 
-The CI workflow also type-checks and builds the dashboard, runs Laravel integration checks, and validates the Android source pack. When a Gradle wrapper is added, CI automatically activates debug and release Android builds.
+The CI workflow type-checks and builds the dashboard, runs Laravel integration checks, validates the Android wrapper checksum, and attempts real Android debug and release builds. The source checker distinguishes missing build tooling from successful APK compilation.
 
 For the complete operator runbook covering debug/release builds, web navigation, all-state screenshots, bounded stress tests, and static/AI-assisted security review, see [`docs/QA_WORKFLOWS.md`](docs/QA_WORKFLOWS.md).
 
 ## Repository guide
 
-- [`app/`](app/) — Android Kotlin and Jetpack Compose source pack
+- [`app/`](app/) — Android Kotlin and Jetpack Compose application
 - [`backend/`](backend/) — Laravel API and TACRU web dashboard
 - [`supabase/migrations/`](supabase/migrations/) — schema, RLS, and RPC migrations
 - [`docs/wireframes/screenshots/`](docs/wireframes/screenshots/) — mobile workflow screenshots
