@@ -81,9 +81,12 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
             !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Enter a valid email address."
             else -> null
         }
+        val phoneDigits = phone.count { it.isDigit() }
         val phoneError = when {
             phone.isBlank() -> "Enter your mobile number so responders can reach you."
-            phone.count { it.isDigit() } < 7 -> "Enter a valid mobile number."
+            phone.any { !it.isDigit() && it !in "+- ()" } ->
+                "Use digits and optional +, spaces, hyphens, or parentheses."
+            phoneDigits !in 7..15 -> "Enter a valid mobile number with 7–15 digits."
             else -> null
         }
         val passwordError = when {
