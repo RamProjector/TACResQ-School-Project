@@ -2,6 +2,8 @@ package com.tacresq.app.ui.requester
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -247,6 +249,7 @@ class RequesterViewModel(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -306,9 +309,17 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     when (requestStep) {
                         1 -> {
                             Text("What kind of help do you need?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(IncidentType.entries) { type ->
-                                    FilterChip(selected = type == selectedType, onClick = { selectedType = type }, label = { Text(type.label) })
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                IncidentType.entries.forEach { type ->
+                                    FilterChip(
+                                        selected = type == selectedType,
+                                        onClick = { selectedType = type },
+                                        label = { Text(type.label) },
+                                    )
                                 }
                             }
                             OutlinedTextField(value = description, onValueChange = { if (it.length <= 2000) description = it },
