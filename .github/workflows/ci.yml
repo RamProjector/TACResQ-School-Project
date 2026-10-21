@@ -39,6 +39,9 @@ jobs:
       - name: Test bounded Docker Compose retry helper
         run: python3 tools/test_docker_compose_retry.py
 
+      - name: Check incident report authorization contract
+        run: python3 tools/test_incident_authorization.py
+
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
