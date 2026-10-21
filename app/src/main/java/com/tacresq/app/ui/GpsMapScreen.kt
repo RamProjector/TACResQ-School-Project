@@ -74,7 +74,7 @@ private fun ResponderLocation.isFreshMapLocation(now: Instant = Instant.now()): 
     if (!latitude.isFinite() || !longitude.isFinite() || latitude !in -90.0..90.0 || longitude !in -180.0..180.0) return false
     val recorded = runCatching { Instant.parse(recordedAt) }.getOrNull() ?: return false
     val age = runCatching { Duration.between(recorded, now).seconds }.getOrNull() ?: return false
-    return age in 0..120
+    return age in 0L..120L
 }
 
 @Composable
