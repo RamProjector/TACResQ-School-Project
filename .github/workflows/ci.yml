@@ -118,9 +118,18 @@ jobs:
           echo "ANDROID_RELEASE_SIGNING_CONFIGURED=true" >> "$GITHUB_ENV"
           echo "configured=true" >> "$GITHUB_OUTPUT"
 
-      - name: Build debug APK
+      - name: Build demo-mode debug APK
         if: hashFiles('gradlew') != ''
-        run: ./gradlew --no-daemon assembleDebug
+        run: |
+          ./gradlew --no-daemon assembleDebug
+          mkdir -p artifacts/android
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/android/tacresq-demo-debug.apk
+
+      - name: Build Supabase-mode debug APK
+        if: hashFiles('gradlew') != ''
+        run: |
+          ./gradlew --no-daemon assembleDebug -PuseSupabase=true
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/android/tacresq-supabase-debug.apk
 
       - name: Build release APK
         if: hashFiles('gradlew') != ''
@@ -133,12 +142,16 @@ jobs:
           test -s "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
 
+      - name: Collect release APK
+        if: hashFiles('gradlew') != ''
+        run: cp app/build/outputs/apk/release/app-release.apk artifacts/android/tacresq-release.apk
+
       - name: Upload Android APKs
         if: hashFiles('gradlew') != ''
         uses: actions/upload-artifact@v7
         with:
           name: tacresq-android-apks
-          path: app/build/outputs/apk/**/*.apk
+          path: artifacts/android/*.apk
           if-no-files-found: error
           retention-days: 14
 
