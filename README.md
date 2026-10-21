@@ -24,7 +24,7 @@ Review the incident queue, inspect available field units, confirm assignments, a
 
 ### GPS Map
 
-Every authenticated role has a centered **GPS Map** destination in the mobile navigation shell. The current implementation displays confirmed incident coordinates and recorded timestamps only. It does not claim continuous requester or responder tracking.
+Every authenticated role has a centered **GPS Map** destination in the mobile navigation shell. The map displays valid coordinates returned for visible incidents and offers **Show incident pins** to frame one pin or all available pins. **Locate me** requests permission only after a tap, centers on one fresh device fix, and shows a device-only marker; that preview is not uploaded or continuously tracked. The map does not yet show live field-unit markers.
 
 ## Screens and wireframes
 
