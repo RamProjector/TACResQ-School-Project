@@ -172,11 +172,21 @@ private fun locationText(incident: Incident): String {
     val longitude = incident.longitude
     val hasCoordinates = latitude != null && longitude != null
     val coords = when {
-        latitude != null && longitude != null -> String.format(Locale.US, "GPS pin: %.5f, %.5f", latitude, longitude)
-        latitude == null && longitude == null -> "No GPS pin was shared"
+        latitude != null && longitude != null -> {
+            val label = when (incident.locationSource) {
+                "gps" -> "GPS pin"
+                "manual" -> "Manual map pin"
+                else -> "Location pin (source unverified)"
+            }
+            String.format(Locale.US, "$label: %.5f, %.5f", latitude, longitude)
+        }
+        latitude == null && longitude == null && incident.locationSource in listOf(null, "none") ->
+            "No location pin was shared"
         else -> "Incomplete location data — do not rely on a map pin"
     }
-    val accuracy = if (hasCoordinates) incident.accuracyM?.let { " · reported accuracy ±${ceil(it.toDouble()).toInt()} m" } ?: "" else ""
+    val accuracy = if (hasCoordinates && incident.locationSource == "gps") {
+        incident.accuracyM?.let { " · reported accuracy ±${ceil(it.toDouble()).toInt()} m" } ?: ""
+    } else ""
     val captured = if (hasCoordinates) {
         incident.locationRecordedAt?.let { formatTime(it) }?.takeIf { it.isNotBlank() }
             ?.let { " · captured $it" } ?: " · capture time unavailable; verify with requester"
