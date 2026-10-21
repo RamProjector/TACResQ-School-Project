@@ -97,7 +97,8 @@ gps_map_location_contract = {
         "LocationCaptureResult.ServicesDisabled",
         "LocationCaptureResult.TimedOut",
         "LocationCaptureResult.InvalidFix",
-        "Text(if (deviceFix == null) \"Locate me\" else \"Refresh my location\")",
+        "deviceFix == null",
+        "Refresh my location",
     ),
     "app/src/main/java/com/tacresq/app/ui/AppRoot.kt": (
         "locationProvider = locationProvider",
