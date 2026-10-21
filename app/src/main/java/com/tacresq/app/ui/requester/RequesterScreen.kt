@@ -322,13 +322,13 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     ) {
         item {
             ScreenHeader(
-                title = "Hello, ${user.name.substringBefore(' ')}",
+                title = "Home",
                 subtitle = "",
                 onLogout = onLogout,
             )
         }
 
-        item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
+        if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -389,12 +389,12 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             when {
                                 freshFix != null -> LocationFixCard(freshFix, onClear = vm::clearLocationFix)
                                 state.locationFix != null -> LocationNoticeCard("GPS fix expired", "This fix will not be sent. Capture a new fix or continue without GPS.")
-                                !state.capturingLocation -> LocationNoticeCard("No GPS pin selected", "If GPS is unavailable, continue without coordinates and add a landmark. TACResQ will not invent a location.")
+                                !state.capturingLocation -> LocationNoticeCard("No GPS pin", "Add a landmark or continue without GPS.")
                             }
                             state.locationError?.let { Banner(it, isError = true, onDismiss = vm::dismissMessages) }
                             OutlinedTextField(value = locationNotes, onValueChange = { if (it.length <= 500) locationNotes = it },
                                 label = { Text("Landmark or access detail (optional)") }, minLines = 2, maxLines = 3,
-                                supportingText = { Text("${locationNotes.length}/500 · shared with dispatch") }, modifier = Modifier.fillMaxWidth())
+                                modifier = Modifier.fillMaxWidth())
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { requestStep = 1 }, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
                                 Button(onClick = { vm.expireStaleLocation(); requestStep = 3 }, enabled = !state.capturingLocation,
