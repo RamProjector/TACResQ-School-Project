@@ -20,3 +20,17 @@ Source: https://codelabs.developers.google.com/jetpack-compose-adaptability
 ## Application to TACResQ
 
 These sources inform the layout rules, not a wholesale copy of another app. TACResQ's emergency map and centered Map destination are product-specific needs. They should be evaluated against usability and actual phone screenshots rather than assumed to be validated by the references alone.
+
+## 4. Material Components — Navigation bar guidance and Jetpack Compose implementation
+Why selected: the component guidance states that a bar supports three to five destinations, each represented by icon and label. The Compose `NavigationBarItem` implementation specifically notes that with five destinations, inactive labels may be shown if space permits. This is important nuance: keeping all labels visible is the product's preferred first prototype, not an absolute rule that overrides legibility or platform guidance.
+
+Source: https://github.com/material-components/material-components-android/blob/master/docs/components/BottomNavigation.md
+Source: https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/NavigationBar.kt
+
+## 5. Android Developers — Adaptive layout and navigation
+Why selected: official guidance recommends choosing navigation patterns based on window size and interaction context instead of using the same bottom bar at every size.
+
+Source: https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns
+
+## Research implication
+A good result is not “labels must never be hidden.” It is “labels should not be hidden casually to conceal a layout defect.” Prototype a labeled five-slot baseline, measure text and available width, then compare the standard Material behavior and TACResQ's custom centered Map treatment on actual narrow phones. Select the option that remains clear, balanced, and accessible.
