@@ -1,22 +1,23 @@
 # TACResQ UI design research and reference pack
 
-Status: **research and exploration; final design is not selected.** The SVG is an original, locally stored concept board made for TACResQ. It is not a screenshot of the current app, not an implementation preview, and not proof of current functionality.
+Status: **secondary priority; visual design is intentionally provisional while functionality is the primary priority.** The SVG is an original, locally stored concept board made for TACResQ. It is not a screenshot of the current app, not an implementation preview, and not proof of current functionality.
+
+## Project priority
+
+1. **Primary — functional correctness:** revise, add, or remove features where appropriate; ensure every visible control has a real, understandable behavior and the underlying workflow works end-to-end. A control is not considered functional merely because it looks clickable.
+2. **Secondary — visual design and refinement:** keep a coherent, readable baseline so features can be tested. Polish, animation, decorative details, and final styling may change later after workflows stabilize.
+3. **Always required — clear, visible, testable affordances:** a feature may be visually basic, but its purpose, current state, and next action must be understandable. Loading, success, empty, failure, permission-denied, and retry states should be visible where relevant.
 
 ## Read this first
 
-- `COMPARATIVE_RESEARCH.md` — the main research document. It compares Android navigation, adaptive layouts, emergency response patterns, live location sharing, and location permission handling; keeps multiple design options open; and provides an evaluation checklist.
-- `tacresq-ui-inspiration.svg` — an original concept board with Home, Live Map, and Incident Detail directions. Use it as a starting hypothesis, not the final visual target.
-- `design-tokens.json` — draft tokens to discuss; these are not wired into the app theme.
-- `SOURCE_NOTES.md` — selected source notes and why the sources are relevant.
+- `COMPARATIVE_RESEARCH.md` — research findings, competing design options, evaluation checklist, and limitations.
+- `tacresq-ui-inspiration.svg` — original concept board with Home, Live Map, and Incident Detail directions. Inspiration only; not a committed final design.
+- `design-tokens.json` — draft tokens, not wired into the app theme.
+- `SOURCE_NOTES.md` — selected sources and why they matter.
 
-## Research posture
+## Implementation rule
 
-Do not narrow the final design based on the concept board alone. Compare:
-1. Standard Material navigation with five persistent labels.
-2. A standard navigation bar plus a distinct Map action.
-3. The custom center-emphasized Map destination, retaining all five labels.
-
-Also compare full-screen map with an expandable incident sheet, map with a compact status strip, and synchronized incident-list/map presentation. Use actual project code and device/emulator screenshots to judge these options.
+Functionality comes first, but not at the expense of testability. When a feature is implemented, users and testers must be able to see where it is, understand what it does, invoke it, and observe the result or error. Use clear labels and inline feedback; do not leave dead buttons, placeholder actions disguised as complete features, fake live data, or silent failures.
 
 ## Design principles under investigation
 
@@ -25,7 +26,7 @@ Also compare full-screen map with an expandable incident sheet, map with a compa
 - Adaptive layouts based on actual available window size.
 - Map controls, incident freshness, and location-permission fallbacks that are explicit and honest.
 - Role-appropriate incident information and location privacy.
-- Consistent type scale, icon family, spacing, semantic colors, and accessible touch targets.
+- Consistent typography, icon family, spacing, semantic colors, and accessible touch targets.
 
 ## Guardrails
 
@@ -33,3 +34,4 @@ Also compare full-screen map with an expandable incident sheet, map with a compa
 - Do not treat illustrative pins, coordinates, status, or route lines as live data.
 - Do not claim visual verification until real emulator/device screenshots have been inspected.
 - Do not merge or apply a final style solely because the concept board looks attractive.
+- Prefer working, observable functionality over final visual polish; retain enough UI clarity to make that functionality testable.
