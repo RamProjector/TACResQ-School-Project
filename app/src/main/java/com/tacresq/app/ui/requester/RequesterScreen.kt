@@ -8,8 +8,6 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,9 +29,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -215,8 +213,8 @@ class RequesterViewModel(
                     val locationConfirmed = locationResponseMatches(fix, landmark, created)
                     val status = when {
                         !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
-                        fix != null -> "SOS sent. Dispatch confirmed a one-time GPS pin; TACResQ is not tracking you continuously."
-                        else -> "SOS sent without a GPS pin. Dispatch received your request and can call you; any landmark note is included."
+                        fix != null -> "SOS sent. Dispatch confirmed the one-time GPS pin you submitted."
+                        else -> "SOS sent without a GPS pin. Dispatch received your request; any landmark note is included."
                     }
                     _state.update {
                         it.copy(
@@ -259,7 +257,6 @@ class RequesterViewModel(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -348,17 +345,32 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     when (requestStep) {
                         1 -> {
                             Text("What kind of help do you need?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            FlowRow(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 IncidentType.entries.forEach { type ->
-                                    FilterChip(
-                                        selected = type == selectedType,
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (type == selectedType)
+                                                MaterialTheme.colorScheme.secondaryContainer
+                                            else MaterialTheme.colorScheme.surface,
+                                        ),
                                         onClick = { selectedType = type },
-                                        label = { Text(type.label) },
-                                    )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            RadioButton(
+                                                selected = type == selectedType,
+                                                onClick = { selectedType = type },
+                                            )
+                                            Text(type.label, style = MaterialTheme.typography.bodyLarge)
+                                        }
+                                    }
                                 }
                             }
                             OutlinedTextField(value = description, onValueChange = { if (it.length <= 2000) description = it },
