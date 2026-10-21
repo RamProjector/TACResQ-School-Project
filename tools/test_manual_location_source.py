@@ -29,6 +29,14 @@ checks = {
             'Coordinates chosen by you on the map · selected',
         )
     ) and "val manuallySelected: Boolean = false" in models,
+    "manual pin map follows Android lifecycle and uses app-private tile cache": all(
+        text in requester for text in (
+            "LifecycleEventObserver", "Lifecycle.Event.ON_RESUME -> mapView.onResume()",
+            "Lifecycle.Event.ON_PAUSE -> mapView.onPause()", "mapView.onDetach()",
+            "config.setOsmdroidBasePath(osmdroidBase)", "config.setOsmdroidTileCache(tileCache)",
+            "config.userAgentValue =",
+        )
+    ),
     "incident creation carries source through the Supabase RPC": all(
         text in repository for text in ('fix.manuallySelected -> "manual"', 'fix == null -> "none"')
     ) and all(text in api for text in ('api_create_incident_v3', 'body.locationSource', 'p_location_source')),
