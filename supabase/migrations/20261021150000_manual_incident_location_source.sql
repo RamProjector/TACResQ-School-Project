@@ -32,7 +32,7 @@ create or replace function public.api_create_incident_v2(
   p_location_notes text,
   p_location_recorded_at timestamptz
 ) returns jsonb
-language plpgsql security invoker set search_path = pg_catalog as $
+language plpgsql security invoker set search_path = pg_catalog as $$
 declare p public.profiles; i public.incidents;
 begin
   select * into p from public.profiles where auth_user_id = auth.uid();
