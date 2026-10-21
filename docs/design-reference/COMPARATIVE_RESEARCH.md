@@ -85,3 +85,30 @@ Start with standard Material navigation as the baseline and compare it with the 
 - Feature descriptions are not a substitute for inspecting the actual production apps on a device.
 - The current SVG is an original concept board, not a downloaded third-party screen, not the actual app, and not proof of implemented functionality.
 - No final style, navigation layout, or map composition is locked by this document.
+
+## 22 October 2026 — code-grounded audit of the current navigation baseline
+
+The repository's current `main` version of `app/src/main/java/com/tacresq/app/ui/RoleShell.kt` was inspected after writing the initial research. This is a source-code inspection, not a visual/device test.
+
+Observed in current `main`:
+- The bar renders four role-specific destinations plus a centered GPS Map destination, giving five equal `weight(1f)` slots.
+- The four non-map destinations use 20dp icons, persistent one-line labels, and horizontal/vertical padding. The center Map control has a separate elevated rounded surface and its own internal content.
+- The bar uses `Arrangement.SpaceEvenly` in addition to equal weights. Because weighted children already occupy the available row width, `SpaceEvenly` is unlikely to be the right tool for creating the intended spacing; padding inside the children and the central control's visual footprint deserve inspection in actual screenshots.
+- The bottom bar is intentionally hidden while the MAP destination is selected, so the map can occupy the Scaffold content area. That is a separate product decision from whether labels should be visible in the navigation bar on other screens.
+- Role-specific labels include “Current call” and “Activity,” which are wider than “Home” and “Units.” A single compact-width rule must be tested against the longest labels, the device's font scale, and localization rather than assuming one breakpoint will fit every phone.
+
+### Implications for the next prototype
+
+1. Do not merge the compact-label proposal as the chosen design merely because it reduces width. The open PR #67 hides inactive labels on narrow screens, which conflicts with the first research comparison's requirement to keep all labels visible.
+2. Prototype a standard five-destination Material-style bar first: five stable, equal-width slots, consistent icon/label spacing and baseline, selected-state indicator, no separately floating center element. Treat it as the control version.
+3. Prototype the centered Map variant second: retain five stable slots and all labels; make the center Map destination visually prominent without changing its slot width or pushing adjacent labels out of alignment.
+4. Only test label compression, adaptive rail, or alternate navigation after measuring the narrowest supported viewport and checking font scale/accessibility. If all labels cannot fit at readable sizes, compare a deliberate adaptive pattern against a separate Map action rather than silently hiding labels.
+5. Inspect the map separately in full-screen mode. Test the map's top/system insets, recenter and zoom controls, bottom-sheet collision, loading/permission states, and the transition back to the other four destinations.
+
+### Remaining evidence gaps
+
+- No real TACResQ phone screenshots or emulator captures have been inspected in this research update.
+- No measured width/font-scale matrix has been run.
+- No usability test has been conducted with requesters, responders, or dispatchers.
+- The concept SVG and JSON tokens remain provisional; neither is wired into the app.
+- A real build/CI result is required before any navigation implementation is accepted.
