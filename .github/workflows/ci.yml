@@ -36,6 +36,9 @@ jobs:
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
+      - name: Check incident report authorization contract
+        run: python3 tools/test_incident_authorization.py
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
