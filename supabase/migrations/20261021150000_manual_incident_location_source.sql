@@ -33,7 +33,7 @@ create or replace function public.api_create_incident_v2(
   p_location_notes text,
   p_location_recorded_at timestamptz
 ) returns jsonb
-language plpgsql security invoker set search_path = public, pg_temp as $
+language plpgsql security invoker set search_path = pg_catalog as $
 declare p public.profiles; i public.incidents;
 begin
   select * into p from public.profiles where auth_user_id = auth.uid();
@@ -91,7 +91,7 @@ create or replace function public.api_create_incident_v3(
   p_location_recorded_at timestamptz,
   p_location_source text
 ) returns jsonb
-language plpgsql security invoker set search_path = public, pg_temp as $$
+language plpgsql security invoker set search_path = pg_catalog as $$
 declare p public.profiles; i public.incidents;
 begin
   select * into p from public.profiles where auth_user_id = auth.uid();
@@ -148,7 +148,7 @@ end $$;
 
 
 create or replace function public.api_my_incidents()
-returns jsonb language sql stable security invoker set search_path = public, pg_temp as $$
+returns jsonb language sql stable security invoker set search_path = pg_catalog as $$
   select coalesce(
     jsonb_agg(jsonb_build_object(
       'id', i.id, 'type', i.type, 'description', i.description,
@@ -165,7 +165,7 @@ returns jsonb language sql stable security invoker set search_path = public, pg_
 $$;
 
 create or replace function public.api_all_incidents()
-returns jsonb language plpgsql stable security invoker set search_path = public, pg_temp as $$
+returns jsonb language plpgsql stable security invoker set search_path = pg_catalog as $$
 begin
   if not exists(select 1 from public.profiles where auth_user_id = auth.uid() and role = 'dispatcher') then
     raise exception 'Only dispatchers can view the queue' using errcode = '42501';
@@ -183,7 +183,7 @@ begin
 end $$;
 
 create or replace function public.api_update_incident_status(p_id bigint, p_status text)
-returns jsonb language plpgsql security invoker set search_path = public, pg_temp as $$
+returns jsonb language plpgsql security invoker set search_path = pg_catalog as $$
 declare p public.profiles; i public.incidents; allowed boolean;
 begin
   select * into p from public.profiles where auth_user_id = auth.uid();
@@ -209,7 +209,7 @@ begin
 end $$;
 
 create or replace function public.api_assign_incident(p_id bigint, p_user_id bigint)
-returns jsonb language plpgsql security invoker set search_path = public, pg_temp as $$
+returns jsonb language plpgsql security invoker set search_path = pg_catalog as $$
 declare i public.incidents; u public.profiles;
 begin
   if not exists(select 1 from public.profiles where auth_user_id = auth.uid() and role = 'dispatcher') then
