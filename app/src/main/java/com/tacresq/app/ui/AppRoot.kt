@@ -164,34 +164,34 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     when (destination) {
-                    AppDestination.SECONDARY -> {
-                        if (role == Role.DISPATCHER) {
+                        AppDestination.SECONDARY -> {
+                            if (role == Role.DISPATCHER) {
+                                Text(
+                                    "${units.size} field units",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        AppDestination.ALERTS -> {
+                            Text("Safety information", style = MaterialTheme.typography.titleLarge)
                             Text(
-                                "${units.size} field units",
-                                style = MaterialTheme.typography.bodyMedium,
+                                "Share your location only when needed and verify incident details before responding.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "For a real emergency, contact local emergency services.",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                    }
-                    AppDestination.ALERTS -> {
-                        Text("Safety information", style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            "Share your location only when needed and verify the incident details before responding.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            "For a real emergency, contact local emergency services.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    AppDestination.PROFILE -> {
-                        Text("Account details", style = MaterialTheme.typography.titleLarge)
-                        Text(user.name, style = MaterialTheme.typography.titleMedium)
-                        Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Role: ${role.label}")
-                        user.phone?.let { Text("Mobile: $it") }
-                    }
+                        AppDestination.PROFILE -> {
+                            Text("Account details", style = MaterialTheme.typography.titleLarge)
+                            Text(user.name, style = MaterialTheme.typography.titleMedium)
+                            Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Role: ${role.label}")
+                            user.phone?.let { Text("Mobile: $it") }
+                        }
                         AppDestination.PRIMARY, AppDestination.MAP -> Unit
                     }
                 }
