@@ -1,5 +1,4 @@
 -- Distinguish a GPS-derived location from a pin manually chosen on the map.
-begin;
 
 alter table public.incidents add column if not exists location_source text;
 update public.incidents
