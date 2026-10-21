@@ -126,3 +126,15 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - **Safety:** no Auth users were created, no SQL/schema/data or Supabase project settings changed, no credentials or real incident data used. Fake incidents/users are local in-memory demo data.
 - **Validation:** source-contract and Android build CI must run on the PR. No local Android build, emulator, or physical-device test was run via the GitHub connector.
 - **Next:** inspect the diff and PR CI. Fix any failures before reporting. The user has authorized merging when checks pass; after a green run, merge and verify the merge.
+
+
+## Agent handoff — GPS Map one-time device location preview (2026-10-21)
+
+- **Previous completed task:** PR #36 merged as `5c9c2418e6a70960f92235e6e699f4abbf6f247b`; all four CI jobs passed. Debug uses fake role accounts by default, release uses Supabase, and fake sessions stay in memory.
+- **Current objective:** let a signed-in user explicitly show their current device location on the centered GPS Map alongside confirmed incident pins, without uploading that fix or starting continuous tracking.
+- **Base:** `main` at `5c9c2418e6a70960f92235e6e699f4abbf6f247b`.
+- **Branch:** `agent/gps-map-current-location`.
+- **Implementation in progress:** added a Locate me / Refresh my location action, approximate-permission request, one-time fresh fix via existing `LocationProvider.currentFix()`, map centering, device-only marker, and clear permission/services/timeout/invalid/unavailable states. Passed the existing location provider through `AppRoot`; documented the privacy boundary and added source-contract checks.
+- **Safety:** map location is only collected after an explicit tap, is held in screen memory, is not sent to the API, and is not continuously refreshed. Existing requester SOS confirmation and responder consented foreground-sharing flows remain separate. No Supabase, Render, schema, credentials, or live emergency data changed.
+- **Validation:** CI has not yet run for this branch; no local Android build, emulator, or physical-device test was available via the GitHub connector.
+- **Next:** inspect the exact source diff, open a focused PR, check all CI jobs, fix failures, then merge only if all relevant checks pass. Device GPS and tile loading remain manual QA requirements.
