@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -80,7 +81,6 @@ import java.time.Instant
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
-import kotlinx.coroutines.launch
 
 data class RequesterUiState(
     val incidents: List<Incident> = emptyList(),
