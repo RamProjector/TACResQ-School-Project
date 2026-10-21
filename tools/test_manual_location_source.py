@@ -78,7 +78,7 @@ checks = {
     ),
     "migration PL/pgSQL dollar quotes are balanced": (
         all(not line.rstrip().endswith("as $") for line in migration.splitlines())
-        and migration.count("as $") == migration.count("$;")
+        and migration.count("$$;") == migration.count("as $$") + migration.count("do $$")
     ),
     "legacy GPS RPC default remains compatible while missing locations use none": (
         "alter column location_source set default 'gps'" in migration
