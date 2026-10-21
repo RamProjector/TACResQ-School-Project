@@ -21,6 +21,8 @@ checks = {
         "tacresq-demo-debug.apk" in workflow and "tacresq-supabase-debug.apk" in workflow,
     "release artifact remains clearly labeled":
         "tacresq-release.apk" in workflow,
+    "unsigned release output is collected when signing is not configured":
+        "app-release-unsigned.apk" in workflow and "if [ ! -f \"$RELEASE_APK\" ]" in workflow,
     "README explains how to build real-backend debug mode":
         "./gradlew --no-daemon assembleDebug -PuseSupabase=true" in readme,
 }
