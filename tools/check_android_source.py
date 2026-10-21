@@ -45,13 +45,19 @@ map_contract = {
         "Text(\"Show incident pins\")",
         "There are no valid incident coordinates to center on yet.",
         "var hasAutoFramedIncidents by remember { mutableStateOf(false) }",
-        "if (!hasAutoFramedIncidents && deviceFix == null && validIncidentPoints.isNotEmpty())",
+        "if (!hasAutoFramedIncidents && deviceFix == null && initialMapPoints.isNotEmpty())",
         "mapView.post {",
         "mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)",
         "lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)",
         "if (!mapIsResumed)",
         "if (mapIsResumed)",
         "mapView.onDetach()",
+        "private fun ResponderLocation.isFreshMapLocation",
+        "Duration.between(recorded, now).seconds",
+        "freshResponderLocations.forEach",
+        "Field unit · Incident #",
+        "role == Role.DISPATCHER && freshResponderLocations.isNotEmpty()",
+        "Text(\"Show active units\")",
     ),
 }
 for relative_path, required_text in map_contract.items():
@@ -115,6 +121,17 @@ gps_map_location_contract = {
     "app/src/main/java/com/tacresq/app/ui/AppRoot.kt": (
         "locationProvider = locationProvider",
         "container.locationProvider",
+        "responderLocations = vmState.responderLocations",
+        "onMapRefresh = vm::refresh",
+    ),
+    "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt": (
+        "api_active_responder_locations",
+        "activeResponderLocations(EmptyRpcBody())",
+    ),
+    "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt": (
+        "val responderLocations: List<ResponderLocation> = emptyList()",
+        "repo.activeResponderLocations()",
+        "responderLocations = responderLocations.getOrNull() ?: current.responderLocations",
     ),
 }
 for relative_path, required_text in gps_map_location_contract.items():
@@ -133,6 +150,19 @@ map_source = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").rea
 if "recordResponderLocation" in map_source or "createIncident(" in map_source:
     raise SystemExit("GPS map local-location contract failed: map preview must not upload location or create an incident")
 print("GPS map local-location contract OK: one-time, permission-gated, device-only preview.")
+
+unit_location_contract = {
+    "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt": ("activeResponderLocations(): List<ResponderLocation>",),
+    "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt": ("Only dispatchers can view responder locations.", "emptyList()"),
+    "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt": ("rest/v1/rpc/api_active_responder_locations",),
+    "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": ("age in 0..120", "Dispatcher-only, consented foreground location."),
+}
+for relative_path, required_text in unit_location_contract.items():
+    source = (ROOT / relative_path).read_text(encoding="utf-8")
+    missing = [snippet for snippet in required_text if snippet not in source]
+    if missing:
+        raise SystemExit(f"Dispatcher unit-location contract failed for {relative_path}: missing " + ", ".join(missing))
+print("Dispatcher unit-location contract OK: role-gated fetch, fake backend never fabricates GPS, and map rejects reports older than 2 minutes.")
 
 sync_contract = {
     "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt": (
