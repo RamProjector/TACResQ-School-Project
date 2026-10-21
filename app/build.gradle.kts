@@ -30,6 +30,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {
@@ -48,8 +49,14 @@ android {
         }
     }
 
+    val useSupabaseInDebug = providers.gradleProperty("useSupabase").orNull == "true"
+
     buildTypes {
+        debug {
+            buildConfigField("boolean", "USE_FAKE_API", (!useSupabaseInDebug).toString())
+        }
         release {
+            buildConfigField("boolean", "USE_FAKE_API", "false")
             isMinifyEnabled = false
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("release")

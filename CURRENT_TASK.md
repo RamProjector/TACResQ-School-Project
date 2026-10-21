@@ -115,3 +115,14 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - Safety: no location collection or permission behavior changes; no database, Supabase, deployment, credentials, or real emergency records touched.
 - Validation: changes are committed on the remote branch; CI and PR review still required. No local Android device/emulator or real map tile test was available.
 - Next: open PR, check all jobs, fix failures, and merge only after checks pass as the user has authorized. Keep real-device GPS and tile loading marked unverified.
+
+
+## Agent handoff — debug demo accounts for role testing (2026-10-21)
+
+- **Objective:** make the four documented demo accounts usable for quick role-based testing without inserting them into the live Supabase Auth project or changing production/release backend behavior.
+- **Base:** `main` after PR #35, merge commit `d43de9155f74a2b1a97332877b4d23134e3d9c9c`.
+- **Branch:** `agent/debug-demo-accounts`.
+- **Changes in progress:** debug build defaults to the in-memory fake backend; release build always selects Supabase; `-PuseSupabase=true` opts a debug build into Supabase; debug sign-in shows requester/responder/driver/dispatcher autofill shortcuts; source-contract checks and QA/README docs explain the separation.
+- **Safety:** no Auth users were created, no SQL/schema/data or Supabase project settings changed, no credentials or real incident data used. Fake incidents/users are local in-memory demo data.
+- **Validation:** source-contract and Android build CI must run on the PR. No local Android build, emulator, or physical-device test was run via the GitHub connector.
+- **Next:** inspect the diff and PR CI. Fix any failures before reporting. The user has authorized merging when checks pass; after a green run, merge and verify the merge.

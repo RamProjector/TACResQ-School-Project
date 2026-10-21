@@ -49,6 +49,43 @@ for relative_path, required_text in map_contract.items():
         raise SystemExit(f"GPS map coordinate contract failed for {relative_path}: missing " + ", ".join(missing))
 print("GPS map coordinate contract OK: marker rendering and pin status share geographic validation.")
 
+demo_mode_contract = {
+    "app/build.gradle.kts": (
+        'buildConfig = true',
+        'buildConfigField("boolean", "USE_FAKE_API", (!useSupabaseInDebug).toString())',
+        'buildConfigField("boolean", "USE_FAKE_API", "false")',
+        'providers.gradleProperty("useSupabase").orNull == "true"',
+    ),
+    "app/src/main/java/com/tacresq/app/AppConfig.kt": (
+        "val USE_FAKE_API = BuildConfig.USE_FAKE_API",
+        "val USE_SUPABASE_API = !USE_FAKE_API",
+    ),
+    "app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt": (
+        "BuildConfig.USE_FAKE_API && !registering",
+        'email = "requester@demo.com"; password = "demo123"',
+        'email = "responder@demo.com"; password = "demo123"',
+        'email = "driver@demo.com"; password = "demo123"',
+        'email = "dispatcher@demo.com"; password = "demo123"',
+    ),
+    "app/src/main/java/com/tacresq/app/AppContainer.kt": (
+        "persistSessions = !AppConfig.USE_FAKE_API",
+    ),
+    "app/src/main/java/com/tacresq/app/data/local/SessionStore.kt": (
+        "private val persistSessions: Boolean = true",
+        "if (!persistSessions) {",
+        "inMemorySession.value = session",
+    ),
+}
+for relative_path, required_text in demo_mode_contract.items():
+    source = (ROOT / relative_path).read_text(encoding="utf-8")
+    missing = [snippet for snippet in required_text if snippet not in source]
+    if missing:
+        raise SystemExit(
+            f"Android demo-mode contract failed for {relative_path}: missing "
+            + ", ".join(missing)
+        )
+print("Android demo-mode contract OK: debug shortcuts use the fake API; release selects Supabase.")
+
 sync_contract = {
     "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt": (
         "SyncStatus(state.lastSyncedAtEpochMs, state.syncError)",
