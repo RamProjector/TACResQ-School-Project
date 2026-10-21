@@ -41,6 +41,8 @@ import androidx.lifecycle.viewModelScope
 import com.tacresq.app.BuildConfig
 import com.tacresq.app.R
 import com.tacresq.app.data.repo.TacRepository
+import com.tacresq.app.security.PasswordBreachChecker
+import com.tacresq.app.security.CompromisedPasswordException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -103,7 +105,12 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
             )
             return
         }
-        submit { repo.register(name.trim(), email.trim(), phone.trim(), password) }
+        submit {
+            if (!BuildConfig.USE_FAKE_API && PasswordBreachChecker.isCompromised(password)) {
+                throw CompromisedPasswordException()
+            }
+            repo.register(name.trim(), email.trim(), phone.trim(), password)
+        }
     }
 
     fun clearError() {
@@ -140,8 +147,15 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
             }
             val failure = result.exceptionOrNull()
             _state.value = AuthUiState(
-                error = failure?.message?.takeIf { it.isNotBlank() }
-                    ?: if (failure != null) "Something went wrong. Please try again." else null,
+                error = when {
+                    failure is CompromisedPasswordException -> null
+                    failure != null -> failure.message?.takeIf { it.isNotBlank() }
+                        ?: "Something went wrong. Please try again."
+                    else -> null
+                },
+                passwordError = if (failure is CompromisedPasswordException) {
+                    "This password appears in known data breaches. Choose a different password."
+                } else null,
             )
         }
     }
