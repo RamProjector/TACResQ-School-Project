@@ -3,7 +3,7 @@
 from pathlib import Path
 import re
 
-SQL = Path("supabase/migrations/20261021190000_restrict_anonymous_rpc_execution.sql").read_text()
+SQL = Path("supabase/migrations/20261021103206_restrict_anonymous_rpc_execution.sql").read_text()
 
 FUNCTIONS = {
     "api_all_incidents": r"\(\)",

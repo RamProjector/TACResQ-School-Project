@@ -3,8 +3,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sql = (ROOT / "supabase/migrations/20261021180000_restrict_trigger_search_paths.sql").read_text().lower()
-helper_sql = (ROOT / "supabase/migrations/20261021180100_restrict_actor_helper_search_path.sql").read_text().lower()
+sql = (ROOT / "supabase/migrations/20261021103144_restrict_trigger_search_paths.sql").read_text().lower()
+helper_sql = (ROOT / "supabase/migrations/20261021103158_restrict_actor_helper_search_path.sql").read_text().lower()
 
 for signature in (
     "alter function public.tacresq_guard_profile_update()",

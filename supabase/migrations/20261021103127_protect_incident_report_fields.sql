@@ -1,5 +1,5 @@
 -- Prevent assigned mobile units from rewriting the original emergency report.
--- This migration is intentionally review-only until CI and a disposable-database test pass.
+-- Preserve existing assignment and status-transition checks while protecting the original report.
 CREATE OR REPLACE FUNCTION public.tacresq_guard_incident_update()
 RETURNS trigger
 LANGUAGE plpgsql

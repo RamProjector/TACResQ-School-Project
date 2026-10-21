@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "supabase/migrations/20261021160000_protect_incident_report_fields.sql"
+MIGRATION = ROOT / "supabase/migrations/20261021103127_protect_incident_report_fields.sql"
 sql = MIGRATION.read_text().lower()
 
 protected_fields = (

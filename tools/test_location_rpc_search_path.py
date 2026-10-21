@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-migration = ROOT / "supabase/migrations/20261021170000_restrict_location_rpc_search_path.sql"
+migration = ROOT / "supabase/migrations/20261021103137_restrict_location_rpc_search_path.sql"
 sql = migration.read_text().lower()
 
 assert "alter function public.api_record_location_v2(" in sql
@@ -12,7 +12,7 @@ assert "public, pg_temp" not in sql
 assert "create or replace function" not in sql
 assert "drop function" not in sql
 
-boundary = (ROOT / "supabase/migrations/20261021200000_isolate_location_writer.sql").read_text().lower()
+boundary = (ROOT / "supabase/migrations/20261021103213_isolate_location_writer.sql").read_text().lower()
 assert "create or replace function private.tacresq_record_location_v2(" in boundary
 assert "language plpgsql security definer set search_path = pg_catalog" in boundary
 assert "create or replace function public.api_record_location_v2(" in boundary
