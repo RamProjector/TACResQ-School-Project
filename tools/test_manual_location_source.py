@@ -12,6 +12,9 @@ repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 migration = (ROOT / "supabase/migrations/20261021150000_manual_incident_location_source.sql").read_text()
 responder = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
+laravel_routes = (ROOT / "backend/src/routes/api.php").read_text()
+laravel_model = (ROOT / "backend/src/app/Models/Incident.php").read_text()
+laravel_migration = (ROOT / "backend/src/database/migrations/2026_10_21_000003_add_incident_location_source.php").read_text()
 
 checks = {
     "requester can open a real OSM map and select its center coordinate": all(
@@ -70,6 +73,13 @@ checks = {
             "Start without sharing",
         )
     ),
+    "Laravel adapter persists and returns location source without breaking older clients": all(
+        text in laravel_routes for text in (
+            "'location_source' => $incident->location_source",
+            "'location_source' => ['nullable', Rule::in(['gps', 'manual', 'none'])]",
+            "$data['location_source'] ??= $hasCoordinates ? 'gps' : 'none'",
+        )
+    ) and "'location_source'" in laravel_model and "location_source" in laravel_migration,
 }
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
