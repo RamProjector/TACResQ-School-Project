@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 store = (ROOT / "app/src/main/java/com/tacresq/app/data/local/SessionStore.kt").read_text()
 repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
+start_session = repository.split("private suspend fun startSession(response: AuthResponse)", 1)[1].split("private suspend fun endSession()", 1)[0]
 
 checks = {
     "session encryption uses Android Keystore": 'const val ANDROID_KEYSTORE = "AndroidKeyStore"' in store and 'KeyStore.getInstance(ANDROID_KEYSTORE)' in store,
@@ -16,7 +17,7 @@ checks = {
     "persisted session is stored as one encrypted value": 'stringPreferencesKey("encrypted_session_v1")' in store and 'prefs[encryptedSessionKey] = encrypted' in store,
     "legacy plaintext session keys are removed on save": 'prefs.remove(stringPreferencesKey("token"))' in store and 'prefs.remove(stringPreferencesKey("user_json"))' in store,
     "decryption failure does not fall back to plaintext": "runCatching { decrypt(encrypted) }.getOrNull()" in store and "prefs[tokenKey]" not in store,
-    "bearer token is not retained before encrypted persistence succeeds": repository.index("store.save(Session(response.token, response.user))") < repository.index("tokenHolder.value = response.token", repository.index("private suspend fun startSession")) ,
+    "bearer token is not retained before encrypted persistence succeeds": start_session.index("store.save(Session(response.token, response.user))") < start_session.index("tokenHolder.value = response.token") ,
 }
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
