@@ -1,5 +1,21 @@
 # Current task handoff
 
+## Latest continuation update — 2026-10-22
+
+- Verified current `main` at `cd7e056b93531d6222d86343bb9d707394755cb9`; the migration-history reconciliation PR is included, and the latest observed main CI run passed.
+- Created [PR #71](https://github.com/RamProjector/TACResQ-School-Project/pull/71) from current main to repair compact bottom navigation. It keeps all five destinations visible, emphasizes the centered map action, uses compact-only spacing/labels below 400 dp, and adds `tools/test_bottom_navigation_labels.py` to CI.
+- PR #71 CI is pending at handoff time; do not describe it as passing until observed. Physical-device visual QA remains blocked on access to a device.
+- Earlier PR #67 contains similar navigation work but is based on an old main commit and is marked non-mergeable; PR #71 is the refreshed replacement. Do not merge either PR without explicit authorization.
+- This continuation used GitHub remote operations only; no local working-tree state was inspected. No Supabase changes, live data changes, account creation, or deployments were made.
+
+### Immediate next actions
+
+1. Check PR #71 workflow checks and inspect any failures; fix the feature or test on its branch and keep the PR focused.
+2. Review the changed Kotlin against the current source and ensure the source-contract test passes.
+3. Keep physical-device verification clearly marked pending; test narrow screen widths and larger font scale before claiming visual fit.
+4. Reconcile remaining stale handoff/QA references only after confirming their referenced PRs and branch states. Continue preserving location consent, role authorization, no fabricated GPS, and no real emergency data.
+
+
 **Last updated:** 2026-10-21  
 **Repository:** `RamProjector/TACResQ-School-Project`  
 **Base branch:** `main` at `a5b2aea5c6f2b2e3041ef28153682c678ec8613c`  
