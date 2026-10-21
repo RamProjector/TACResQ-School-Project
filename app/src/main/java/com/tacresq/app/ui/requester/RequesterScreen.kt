@@ -264,6 +264,12 @@ class RequesterViewModel(
 
     private fun locationResponseMatches(fix: GeoFix?, notes: String?, incident: Incident): Boolean {
         if (incident.locationNotes?.trim().orEmpty() != notes?.trim().orEmpty()) return false
+        val expectedSource = when {
+            fix == null -> "none"
+            fix.manuallySelected -> "manual"
+            else -> "gps"
+        }
+        if (incident.locationSource != expectedSource) return false
         if (fix == null) {
             return incident.latitude == null && incident.longitude == null &&
                 incident.accuracyM == null && incident.locationRecordedAt.isNullOrBlank()
@@ -654,8 +660,8 @@ private fun ManualLocationPickerDialog(
         confirmButton = {
             androidx.compose.material3.Button(
                 onClick = {
-                    val point = mapView.mapCenter as? GeoPoint
-                    if (point != null && point.latitude.isFinite() && point.longitude.isFinite()) {
+                    val point = mapView.mapCenter
+                    if (point.latitude.isFinite() && point.longitude.isFinite()) {
                         onConfirm(point.latitude, point.longitude)
                     }
                 },
