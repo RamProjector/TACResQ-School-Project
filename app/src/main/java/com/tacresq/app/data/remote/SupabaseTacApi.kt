@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder
 import com.tacresq.app.AppConfig
 import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.Incident
+import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -46,6 +47,7 @@ class SupabaseTacApi private constructor(
     override suspend fun myIncidents(): List<Incident> = rpc.myIncidents(EmptyRpcBody())
     override suspend fun allIncidents(): List<Incident> = rpc.allIncidents(EmptyRpcBody())
     override suspend fun units(): List<User> = rpc.units(EmptyRpcBody())
+    override suspend fun activeResponderLocations(): List<ResponderLocation> = rpc.activeResponderLocations(EmptyRpcBody())
     override suspend fun createIncident(body: CreateIncidentRequest): Incident = rpc.createIncidentV2(
         CreateIncidentV2Rpc(
             body.type.wireValue,
@@ -118,6 +120,9 @@ private interface SupabaseRpcWire {
 
     @POST("rest/v1/rpc/api_units")
     suspend fun units(@Body body: EmptyRpcBody): List<User>
+
+    @POST("rest/v1/rpc/api_active_responder_locations")
+    suspend fun activeResponderLocations(@Body body: EmptyRpcBody): List<ResponderLocation>
 
     @POST("rest/v1/rpc/api_create_incident_v2")
     suspend fun createIncidentV2(@Body body: CreateIncidentV2Rpc): Incident
