@@ -185,17 +185,39 @@ fun GpsMapScreen(
     }
 
     DisposableEffect(mapView, lifecycleOwner) {
+        val lifecycle = lifecycleOwner.lifecycle
+        var mapIsResumed = false
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_RESUME -> {
+                    if (!mapIsResumed) {
+                        mapView.onResume()
+                        mapIsResumed = true
+                    }
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    if (mapIsResumed) {
+                        mapView.onPause()
+                        mapIsResumed = false
+                    }
+                }
                 else -> Unit
             }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
+        lifecycle.addObserver(observer)
+        // Compose can enter this screen after the host Activity has already resumed.
+        // Lifecycle observers catch up synchronously on registration, but keep this
+        // guard so a resumed map is never left paused if the event was already passed.
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !mapIsResumed) {
+            mapView.onResume()
+            mapIsResumed = true
+        }
         onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            mapView.onPause()
+            lifecycle.removeObserver(observer)
+            if (mapIsResumed) {
+                mapView.onPause()
+                mapIsResumed = false
+            }
             mapView.onDetach()
         }
     }
@@ -224,23 +246,6 @@ fun GpsMapScreen(
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
             }
             mapView.overlays.add(locationMarker)
-        }
-        if (!hasAutoFramedIncidents && deviceFix == null && validIncidentPoints.isNotEmpty()) {
-            // Wait until the AndroidView has dimensions before asking osmdroid to fit its viewport.
-            hasAutoFramedIncidents = true
-            mapView.post {
-                when (validIncidentPoints.size) {
-                    1 -> {
-                        mapView.controller.setZoom(15.0)
-                        mapView.controller.animateTo(validIncidentPoints.first())
-                        locationStatus = "Centered on the available incident pin. Tap Locate me to preview your device location."
-                    }
-                    else -> {
-                        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)
-                        locationStatus = "Showing all ${validIncidentPoints.size} available incident pins. Tap Locate me to preview your device location."
-                    }
-                }
-            }
         }
         mapView.invalidate()
     }
