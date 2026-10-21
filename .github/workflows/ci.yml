@@ -75,6 +75,9 @@ jobs:
       - name: Validate Android app and Gradle wrapper
         run: python3 tools/check_android_source.py
 
+      - name: Check demo and Supabase build-mode separation
+        run: python3 tools/test_android_build_modes.py
+
       - name: Accept Android SDK licenses and install API 37
         if: hashFiles('gradlew') != ''
         env:
