@@ -382,63 +382,114 @@ fun GpsMapScreen(
             update = { it.invalidate() },
         )
 
-        // Minimal top overlay: the map remains the primary content instead of being
-        // compressed between a header, status card, and a separate incident list.
-        Row(
+        // Compact floating title: keep the map visible beneath it.
+        androidx.compose.material3.Surface(
             modifier = Modifier
-                .align(androidx.compose.ui.Alignment.TopStart)
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .align(Alignment.TopStart)
+                .padding(start = 12.dp, top = 10.dp, end = 12.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            tonalElevation = 3.dp,
+            shadowElevation = 4.dp,
         ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+            Row(
+                modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 7.dp, bottom = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(
-                    "TACRESQ  /  GPS",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    when {
-                        deviceFix != null -> "Your location is shown"
-                        validIncidentPoints.isNotEmpty() -> "${validIncidentPoints.size} confirmed incident pin(s)"
-                        else -> "Waiting for confirmed locations"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("TACRESQ · MAP", style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(
+                        when {
+                            deviceFix != null -> "Location preview active"
+                            validIncidentPoints.isNotEmpty() -> "${validIncidentPoints.size} confirmed pin(s)"
+                            else -> "No confirmed pins"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                androidx.compose.material3.IconButton(onClick = onBack) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Close,
+                        contentDescription = "Close map",
+                    )
+                }
             }
-            OutlinedButton(onClick = onBack) { Text("Close map") }
         }
 
-        Card(
+        // Map actions float independently instead of consuming a full-width toolbar.
+        Column(
             modifier = Modifier
-                .align(androidx.compose.ui.Alignment.BottomCenter)
+                .align(Alignment.CenterEnd)
+                .padding(end = 12.dp)
+                .padding(bottom = 74.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.End,
+        ) {
+            androidx.compose.material3.FloatingActionButton(
+                onClick = onLocateClick,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+                    contentDescription = if (deviceFix == null) "Locate me" else "Refresh location",
+                )
+            }
+            androidx.compose.material3.FloatingActionButton(
+                onClick = ::showIncidentPins,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                    contentDescription = "Show incident pins",
+                )
+            }
+            if (role == Role.DISPATCHER) {
+                androidx.compose.material3.FloatingActionButton(
+                    onClick = ::showActiveUnits,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Groups,
+                        contentDescription = "Show active units",
+                    )
+                }
+            }
+        }
+
+        // A collapsed status capsule leaves the map as the main visual surface.
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
+            tonalElevation = 5.dp,
+            shadowElevation = 8.dp,
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(7.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
                             when {
-                                deviceFix != null -> "Location ready"
+                                deviceFix != null -> "Location preview ready"
                                 role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() ->
-                                    "${freshResponderLocations.size} fresh field-unit location(s)"
-                                validIncidentPoints.isNotEmpty() -> "${validIncidentPoints.size} confirmed incident pin(s)"
-                                else -> "No confirmed incident pins"
+                                    "${freshResponderLocations.size} fresh field unit(s)"
+                                validIncidentPoints.isNotEmpty() -> "${validIncidentPoints.size} confirmed incident(s)"
+                                else -> "Map ready"
                             },
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
@@ -447,53 +498,33 @@ fun GpsMapScreen(
                             locationStatus,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = if (detailsExpanded) 5 else 2,
+                            maxLines = if (detailsExpanded) 4 else 1,
                         )
                     }
-                    OutlinedButton(onClick = { detailsExpanded = !detailsExpanded }) {
-                        Text(if (detailsExpanded) "Less" else "Details")
+                    androidx.compose.material3.IconButton(onClick = { detailsExpanded = !detailsExpanded }) {
+                        androidx.compose.material3.Icon(
+                            imageVector = if (detailsExpanded)
+                                androidx.compose.material.icons.Icons.Default.ExpandMore
+                            else androidx.compose.material.icons.Icons.Default.ExpandLess,
+                            contentDescription = if (detailsExpanded) "Collapse map details" else "Expand map details",
+                        )
                     }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedButton(
-                        onClick = ::showIncidentPins,
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Show incident pins") }
-                    if (role == Role.DISPATCHER) {
-                        OutlinedButton(
-                            onClick = ::showActiveUnits,
-                            modifier = Modifier.weight(1f),
-                        ) { Text("Show active units") }
-                    }
-                    OutlinedButton(
-                        onClick = onLocateClick,
-                        modifier = Modifier.weight(1.2f),
-                    ) { Text(if (deviceFix == null) "Locate me" else "Refresh location") }
                 }
 
                 if (detailsExpanded) {
-                    Text(
-                        description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text(description, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         "Map tiles need internet. Your one-time location preview stays on this device; continuous tracking is not started.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (visibleIncidents.isEmpty()) {
-                        Text(
-                            "No active incidents are available. Pins appear only when the service returns valid coordinates.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                        Text("No active incidents are available. Pins appear only when the service returns valid coordinates.",
+                            style = MaterialTheme.typography.bodySmall)
                     } else {
                         LazyColumn(
-                            modifier = Modifier.height(150.dp),
+                            modifier = Modifier.height(132.dp),
                             contentPadding = PaddingValues(vertical = 2.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
