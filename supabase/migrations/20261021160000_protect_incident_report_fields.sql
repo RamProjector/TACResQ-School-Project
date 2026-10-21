@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION public.tacresq_guard_incident_update()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'pg_catalog', 'public', 'auth', 'pg_temp'
+SET search_path TO 'pg_catalog'
 AS $function$
 DECLARE
   actor_role text;
