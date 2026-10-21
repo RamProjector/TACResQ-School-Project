@@ -24,7 +24,7 @@ Google Play's policy preview says apps targeting Android 17 / API 37+ that need 
 
 The GPS Map offers a user-initiated **Locate me** action for any signed-in role. It requests approximate location permission if needed, obtains one fresh fix, centers the map, and shows a device-only marker with the available accuracy estimate. The fix is held only in screen memory and is never uploaded by this map action. The user must tap again to refresh; opening the map does not trigger location collection, and no continuous tracking is started. Denial, disabled location services, timeout, invalid fix, and unavailable results are shown without hiding confirmed incident pins.
 
-This map preview is separate from the requester's Location Button flow and the responder's explicitly consented foreground sharing workflow. The dispatcher map does not yet display live field-unit markers.
+This map preview is separate from the requester's Location Button flow and the responder's explicitly consented foreground sharing workflow. The dispatcher GPS Map requests the existing dispatcher-only `api_active_responder_locations` RPC while the map is open and refreshes it every 15 seconds. It renders only valid reports no older than two minutes, labels them as last-reported locations, and does not show old reports as current. Dispatchers can use **Show active units** to frame those reports. The fake/debug backend intentionally returns no unit GPS points, so it never invents locations. This is still foreground/consent-based reporting, not background or guaranteed real-time tracking. Physical-device and live-backend behavior remain unverified.
 
 ## Responder foreground sharing (separate from requester one-time GPS)
 
