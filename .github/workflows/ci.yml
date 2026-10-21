@@ -65,6 +65,9 @@ jobs:
         with:
           version: 10.18.0
 
+      - name: Check location RPC search-path contract
+        run: python3 tools/test_location_rpc_search_path.py
+
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
