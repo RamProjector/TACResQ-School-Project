@@ -33,11 +33,12 @@ jobs:
       - name: Test bounded Docker Compose retry helper
         run: python3 tools/test_docker_compose_retry.py
 
+      - name: Check Android map network permissions
+        run: python3 tools/test_map_network_permissions.py
+
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
-      - name: Check Android map network permissions
-        run: python3 tools/test_map_network_permissions.py
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
