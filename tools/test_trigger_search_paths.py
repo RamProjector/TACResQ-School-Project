@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sql = (ROOT / "supabase/migrations/20261021180000_restrict_trigger_search_paths.sql").read_text().lower()
+helper_sql = (ROOT / "supabase/migrations/20261021180100_restrict_actor_helper_search_path.sql").read_text().lower()
 
 for signature in (
     "alter function public.tacresq_guard_profile_update()",
@@ -13,4 +14,7 @@ for signature in (
     assert signature in sql, f"missing hardened trigger function: {signature}"
 assert sql.count("set search_path = pg_catalog;") == 3
 assert "pg_temp" not in sql
-print("SECURITY DEFINER trigger search-path contract passed.")
+assert "alter function private.tacresq_actor_role()" in helper_sql
+assert "set search_path = pg_catalog;" in helper_sql
+assert "pg_temp" not in helper_sql
+print("SECURITY DEFINER trigger and actor-helper search-path contract passed.")
