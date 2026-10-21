@@ -13,6 +13,9 @@ required = (
     "isError = state.passwordError != null",
     "supportingText = { state.emailError?.let { Text(it) } }",
     "supportingText = { state.passwordError?.let { Text(it) } }",
+    "fun clearFieldError(field: String)",
+    'vm.clearFieldError("email")',
+    'vm.clearFieldError("password")',
 )
 missing = [snippet for snippet in required if snippet not in source]
 if missing:
