@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.tacresq.app.BuildConfig
 import com.tacresq.app.R
 import com.tacresq.app.data.repo.TacRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -149,6 +150,48 @@ fun AuthScreen(vm: AuthViewModel) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                if (BuildConfig.USE_FAKE_API && !registering) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "DEMO ACCOUNTS",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            "Debug build only · demo data resets when the app process restarts.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            TextButton(
+                                onClick = { email = "requester@demo.com"; password = "demo123" },
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Requester") }
+                            TextButton(
+                                onClick = { email = "responder@demo.com"; password = "demo123" },
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Responder") }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            TextButton(
+                                onClick = { email = "driver@demo.com"; password = "demo123" },
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Driver") }
+                            TextButton(
+                                onClick = { email = "dispatcher@demo.com"; password = "demo123" },
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Dispatcher") }
+                        }
+                    }
+                }
 
                 if (registering) {
                     OutlinedTextField(
