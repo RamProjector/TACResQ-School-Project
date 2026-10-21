@@ -161,3 +161,13 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - **Safety:** no location collection, API/backend/schema, Supabase, Render, credentials, or live incident data changes.
 - **Validation:** source checks and CI must run on the focused PR. No local build, emulator, physical device, or live map-tile test has been performed through the GitHub connector. This is a plausible lifecycle reliability fix, not confirmation of the user's device-specific tile issue.
 - **Next:** open a focused PR, inspect all CI jobs, fix any failures, and merge only if all required checks pass. Physical-device tile loading remains manual QA.
+
+
+## Agent handoff — automatic GPS Map incident framing (2026-10-21)
+
+- **Base:** updated to include the GPS Map lifecycle fix merged in PR #39 (`0523c6d9d87082c6254b6cec50b8da831e42ad60`).
+- **Branch:** `agent/gps-map-initial-incident-framing`; PR #40.
+- **Objective:** remove the initial “empty map” surprise when valid incident coordinates are already loaded, while retaining **Show incident pins** for manual reframing.
+- **Implementation:** schedule initial framing with `MapView.post` after map layout. One point is centered/zoomed; multiple points are fitted. The automatic framing does not override a device-only location preview and does not request permission or upload location.
+- **Safety:** no backend/schema, Supabase/Render, credentials, or live emergency data changed.
+- **Validation:** CI on PR #40 passed source checks, prototype/visual checks, Android debug/release builds, and Laravel/dashboard integration before conflict resolution. Re-run CI after this resolution. Physical-device GPS, map tiles, and framing remain unverified.

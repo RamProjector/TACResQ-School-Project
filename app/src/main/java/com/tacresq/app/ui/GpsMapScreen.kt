@@ -78,6 +78,7 @@ fun GpsMapScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
+    var hasAutoFramedIncidents by remember { mutableStateOf(false) }
     var locationStatus by remember {
         mutableStateOf("Your location is hidden until you tap Locate me.")
     }
@@ -245,6 +246,23 @@ fun GpsMapScreen(
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
             }
             mapView.overlays.add(locationMarker)
+        }
+        if (!hasAutoFramedIncidents && deviceFix == null && validIncidentPoints.isNotEmpty()) {
+            // Wait until the AndroidView has dimensions before asking osmdroid to fit its viewport.
+            hasAutoFramedIncidents = true
+            mapView.post {
+                when (validIncidentPoints.size) {
+                    1 -> {
+                        mapView.controller.setZoom(15.0)
+                        mapView.controller.animateTo(validIncidentPoints.first())
+                        locationStatus = "Centered on the available incident pin. Tap Locate me to preview your device location."
+                    }
+                    else -> {
+                        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)
+                        locationStatus = "Showing all ${validIncidentPoints.size} available incident pins. Tap Locate me to preview your device location."
+                    }
+                }
+            }
         }
         mapView.invalidate()
     }
