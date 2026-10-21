@@ -39,6 +39,9 @@ jobs:
       - name: Check osmdroid tile cache configuration
         run: python3 tools/test_osmdroid_tile_cache.py
 
+      - name: Check GPS map empty-state messaging
+        run: python3 tools/test_gps_map_empty_state.py
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
