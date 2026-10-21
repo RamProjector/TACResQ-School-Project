@@ -138,3 +138,15 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - **Safety:** map location is only collected after an explicit tap, is held in screen memory, is not sent to the API, and is not continuously refreshed. Existing requester SOS confirmation and responder consented foreground-sharing flows remain separate. No Supabase, Render, schema, credentials, or live emergency data changed.
 - **Validation:** CI has not yet run for this branch; no local Android build, emulator, or physical-device test was available via the GitHub connector.
 - **Next:** inspect the exact source diff, open a focused PR, check all CI jobs, fix failures, then merge only if all relevant checks pass. Device GPS and tile loading remain manual QA requirements.
+
+
+## Agent handoff — GPS Map incident pin framing (2026-10-21)
+
+- **Previous completed task:** PR #37 merged as `cb17da8b6f84d39714b7ffd02fd3179b344ebe55`. All four CI jobs passed, including Android debug/release builds, source checks, prototype/visual checks, and Laravel/dashboard integration. Release-signature verification was skipped because signing credentials are not configured.
+- **Base:** `main` at `cb17da8b6f84d39714b7ffd02fd3179b344ebe55`.
+- **Branch:** `agent/gps-map-fit-incident-pins`.
+- **Objective:** make existing incident pins discoverable when their coordinates are outside the default Tacloban-centered viewport.
+- **Implementation:** add **Show incident pins**. With one valid pin it centers and zooms in; with multiple pins it fits a bounding box around all valid incident points; with no valid coordinates it reports that honestly. It clears the temporary device-only location marker when switching to incident-pin framing. Updated README's GPS Map description and added source-contract assertions.
+- **Safety:** no location is collected by this action; no API upload, backend/schema, Supabase, Render, credentials, or live incident data changed.
+- **Validation:** PR CI pending. No local Android build, emulator, physical-device GPS, or live map-tile test was run through the GitHub connector.
+- **Next:** inspect the diff, open PR, run CI, fix any failures, and merge only if all relevant checks pass. Continue to distinguish CI build success from actual device GPS/tile QA.
