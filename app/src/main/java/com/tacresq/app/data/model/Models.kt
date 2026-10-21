@@ -69,12 +69,12 @@ data class Incident(
     @SerializedName("accuracy_m") val accuracyM: Float? = null,
     @SerializedName("location_notes") val locationNotes: String? = null,
     @SerializedName("location_recorded_at") val locationRecordedAt: String? = null,
-    @SerializedName("location_source") val locationSource: String? = null,
     val status: IncidentStatus,
     @SerializedName("requester_name") val requesterName: String? = null,
     @SerializedName("requester_phone") val requesterPhone: String? = null,
     @SerializedName("assigned_to") val assignedTo: Long? = null,
     @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("location_source") val locationSource: String? = null,
 )
 
 data class Session(val token: String, val user: User)
