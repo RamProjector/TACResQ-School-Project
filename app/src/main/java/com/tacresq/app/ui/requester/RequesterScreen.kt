@@ -217,7 +217,7 @@ class RequesterViewModel(
             _state.update {
                 it.copy(
                     locationFix = null,
-                    locationError = "The saved GPS fix is older than two minutes and will not be sent. Capture a fresh fix or review the SOS without a pin.",
+                    locationError = "The selected location pin is older than two minutes and will not be sent. Capture a fresh GPS fix, choose the map pin again, or review without a pin.",
                 )
             }
         }
@@ -234,7 +234,7 @@ class RequesterViewModel(
             _state.update {
                 it.copy(
                     locationFix = null,
-                    locationError = "The GPS fix expired while you were reviewing. No request was sent; capture a new fix or review again without a pin.",
+                    locationError = "The location pin expired while you were reviewing. No request was sent; capture a fresh GPS fix, choose the map pin again, or review again without a pin.",
                 )
             }
             return
@@ -448,7 +448,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             }
                             when {
                                 freshFix != null -> LocationFixCard(freshFix, onClear = vm::clearLocationFix)
-                                state.locationFix != null -> LocationNoticeCard("GPS fix expired", "This fix will not be sent. Capture a new fix or continue without GPS.")
+                                state.locationFix != null -> LocationNoticeCard("Location pin expired", "This pin will not be sent. Capture a fresh GPS fix, choose a map pin again, or continue without a pin.")
                                 !state.capturingLocation -> LocationNoticeCard("No GPS pin", "Add a landmark or continue without GPS.")
                             }
                             state.locationError?.let { Banner(it, isError = true, onDismiss = vm::dismissMessages) }
