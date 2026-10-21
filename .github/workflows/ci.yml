@@ -33,8 +33,6 @@ jobs:
       - name: Test bounded Docker Compose retry helper
         run: python3 tools/test_docker_compose_retry.py
 
-      - name: Check Android map network permissions
-        run: python3 tools/test_map_network_permissions.py
 
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
@@ -55,6 +53,9 @@ jobs:
       - name: Install dashboard dependencies
         working-directory: backend/web
         run: pnpm install --frozen-lockfile
+
+      - name: Check Android map network permissions
+        run: python3 tools/test_map_network_permissions.py
 
       - name: Type-check and build dashboard for /dispatch/
         working-directory: backend/web
