@@ -27,6 +27,14 @@ assert actual == EXPECTED, (
     f"unexpected={sorted(actual - EXPECTED)}"
 )
 
+core = (MIGRATIONS / "20261015080806_tacresq_core_schema.sql").read_text()
+for required in (
+    "create or replace function public.rls_auto_enable()",
+    "create event trigger ensure_rls",
+    "set search_path = pg_catalog",
+):
+    assert required in core, f"Missing Supabase RLS baseline object: {required}"
+
 push = (MIGRATIONS / "20261015092225_location_and_push.sql").read_text()
 for required in (
     "create table if not exists public.fcm_tokens",
