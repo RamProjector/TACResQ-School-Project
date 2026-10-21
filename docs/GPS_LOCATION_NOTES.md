@@ -20,6 +20,12 @@ After the user grants access through the button, the app calls Google Play servi
 
 Google Play's policy preview says apps targeting Android 17 / API 37+ that need precise location only for one-time user-initiated actions must use the Android Location Button, with `onlyForLocationButton`. The policy page states an effective date of January 27, 2027. Check the live policy and library release before release because both the policy preview and the library may change.
 
+## GPS Map one-time location preview
+
+The GPS Map offers a user-initiated **Locate me** action for any signed-in role. It requests approximate location permission if needed, obtains one fresh fix, centers the map, and shows a device-only marker with the available accuracy estimate. The fix is held only in screen memory and is never uploaded by this map action. The user must tap again to refresh; opening the map does not trigger location collection, and no continuous tracking is started. Denial, disabled location services, timeout, invalid fix, and unavailable results are shown without hiding confirmed incident pins.
+
+This map preview is separate from the requester's Location Button flow and the responder's explicitly consented foreground sharing workflow. The dispatcher map does not yet display live field-unit markers.
+
 ## Responder foreground sharing (separate from requester one-time GPS)
 
 When an assigned responder chooses **Share location & start**, the app explains that approximate device location is shared with authorized dispatch for that incident. Android asks for `ACCESS_COARSE_LOCATION` at that action; the tracking request explicitly uses coarse granularity and balanced-power priority, with a nominal 12-second interval and 20-meter minimum movement. It does not use the fine permission reserved for the one-time Location Button flow. Dispatch receives fixes only through `api_record_location_v2`; server checks the assignment, `en_route` state, coordinate/timestamp range, and an 8-second minimum interval. A responder may start without sharing.
