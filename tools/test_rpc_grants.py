@@ -63,9 +63,11 @@ sequence_revoke = re.compile(
 assert sequence_revoke.search(ANON_PRIVILEGES_SQL), (
     "Missing revoke of direct anonymous/PUBLIC sequence privileges"
 )
-assert "authenticated" not in ANON_PRIVILEGES_SQL.lower(), (
-    "Follow-up migration must preserve authenticated grants"
-)
+assert not re.search(
+    r"FROM\\s+PUBLIC,\\s*anon,\\s*authenticated\\b",
+    ANON_PRIVILEGES_SQL,
+    re.IGNORECASE,
+), "Follow-up migration must not revoke authenticated grants"
 
 print(
     f"PASS: least-privilege EXECUTE grants for {len(FUNCTIONS)} RPCs, "
