@@ -91,6 +91,7 @@ data class CreateIncidentRequest(
     @SerializedName("accuracy_m") val accuracyM: Float?,
     @SerializedName("location_notes") val locationNotes: String? = null,
     @SerializedName("location_recorded_at") val locationRecordedAt: String? = null,
+    @SerializedName("location_source") val locationSource: String = "gps",
 )
 
 data class UpdateStatusRequest(val status: IncidentStatus)
