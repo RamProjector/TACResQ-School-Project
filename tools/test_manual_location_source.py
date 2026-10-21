@@ -69,6 +69,7 @@ checks = {
         "SOS sent. Dispatch confirmed the map pin you selected." in requester
         and "SOS sent. Dispatch confirmed the one-time GPS pin you submitted." in requester
         and "TACResQ is not tracking you continuously" not in requester
+        and "Only this pin is included with the SOS; ongoing location updates are not sent." in requester
     ),
     "server response source is verified before claiming location confirmation": (
         "if (incident.locationSource != expectedSource) return false" in requester
