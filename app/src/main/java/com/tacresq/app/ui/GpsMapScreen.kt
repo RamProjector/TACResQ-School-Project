@@ -125,6 +125,7 @@ fun GpsMapScreen(
         }
     }
     val freshResponderLocations = if (role == Role.DISPATCHER) responderLocations.filter { it.isFreshMapLocation() } else emptyList()
+    val hasConfirmedIncidentCoordinates = visibleIncidents.any { it.hasValidMapCoordinates() }
     val validResponderPoints = freshResponderLocations.map { GeoPoint(it.latitude, it.longitude) }
     val initialMapPoints = if (role == Role.DISPATCHER) validIncidentPoints + validResponderPoints else validIncidentPoints
 
@@ -460,12 +461,12 @@ fun GpsMapScreen(
                     OutlinedButton(
                         onClick = ::showIncidentPins,
                         modifier = Modifier.weight(1f),
-                    ) { Text("Incidents") }
+                    ) { Text("Show incident pins") }
                     if (role == Role.DISPATCHER) {
                         OutlinedButton(
                             onClick = ::showActiveUnits,
                             modifier = Modifier.weight(1f),
-                        ) { Text("Field units") }
+                        ) { Text("Show active units") }
                     }
                     OutlinedButton(
                         onClick = onLocateClick,
