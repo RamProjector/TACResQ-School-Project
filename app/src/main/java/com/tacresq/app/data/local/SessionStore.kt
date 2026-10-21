@@ -9,6 +9,7 @@ import com.google.gson.Gson
 import com.tacresq.app.data.model.Session
 import com.tacresq.app.data.model.User
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
@@ -19,28 +20,40 @@ private val Context.sessionDataStore by preferencesDataStore(name = "tacresq_ses
  * Keeps the login (token + user) across app restarts.
  * TODO before release: encrypt the token at rest (Android Keystore).
  */
-class SessionStore(private val context: Context) {
+class SessionStore(
+    private val context: Context,
+    private val persistSessions: Boolean = true,
+) {
     private val gson = Gson()
+    private val inMemorySession = MutableStateFlow<Session?>(null)
     private val tokenKey = stringPreferencesKey("token")
     private val userKey = stringPreferencesKey("user_json")
 
-    val session: Flow<Session?> = context.sessionDataStore.data
-        .catch { e ->
-            if (e is IOException) emit(emptyPreferences()) else throw e
-        }
-        .map { prefs ->
-            val token = prefs[tokenKey]
-            val userJson = prefs[userKey]
-            if (token == null || userJson == null) {
-                null
-            } else {
-                runCatching { gson.fromJson(userJson, User::class.java) }
-                    .getOrNull()
-                    ?.let { user -> Session(token, user) }
+    val session: Flow<Session?> = if (persistSessions) {
+        context.sessionDataStore.data
+            .catch { e ->
+                if (e is IOException) emit(emptyPreferences()) else throw e
             }
-        }
+            .map { prefs ->
+                val token = prefs[tokenKey]
+                val userJson = prefs[userKey]
+                if (token == null || userJson == null) {
+                    null
+                } else {
+                    runCatching { gson.fromJson(userJson, User::class.java) }
+                        .getOrNull()
+                        ?.let { user -> Session(token, user) }
+                }
+            }
+    } else {
+        inMemorySession
+    }
 
     suspend fun save(session: Session) {
+        if (!persistSessions) {
+            inMemorySession.value = session
+            return
+        }
         context.sessionDataStore.edit { prefs ->
             prefs[tokenKey] = session.token
             prefs[userKey] = gson.toJson(session.user)
@@ -48,6 +61,10 @@ class SessionStore(private val context: Context) {
     }
 
     suspend fun clear() {
+        if (!persistSessions) {
+            inMemorySession.value = null
+            return
+        }
         context.sessionDataStore.edit { prefs -> prefs.clear() }
     }
 }
