@@ -247,6 +247,23 @@ fun GpsMapScreen(
             }
             mapView.overlays.add(locationMarker)
         }
+        if (!hasAutoFramedIncidents && deviceFix == null && validIncidentPoints.isNotEmpty()) {
+            // Wait until the AndroidView has dimensions before asking osmdroid to fit its viewport.
+            hasAutoFramedIncidents = true
+            mapView.post {
+                when (validIncidentPoints.size) {
+                    1 -> {
+                        mapView.controller.setZoom(15.0)
+                        mapView.controller.animateTo(validIncidentPoints.first())
+                        locationStatus = "Centered on the available incident pin. Tap Locate me to preview your device location."
+                    }
+                    else -> {
+                        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)
+                        locationStatus = "Showing all ${validIncidentPoints.size} available incident pins. Tap Locate me to preview your device location."
+                    }
+                }
+            }
+        }
         mapView.invalidate()
     }
 
