@@ -128,7 +128,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
                 onLogout = onLogout,
             )
         }
-        item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
+        if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
         item {
             OutlinedButton(onClick = vm::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 Text("Refresh queue")
