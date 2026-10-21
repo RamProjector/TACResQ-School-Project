@@ -27,6 +27,9 @@ jobs:
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
+      - name: Check inline authentication validation
+        run: python3 tools/test_auth_inline_validation.py
+
       - name: Test bounded stress utility without Docker
         run: python3 tools/test_stress_test.py
 
