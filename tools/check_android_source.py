@@ -86,6 +86,37 @@ for relative_path, required_text in demo_mode_contract.items():
         )
 print("Android demo-mode contract OK: debug shortcuts use the fake API; release selects Supabase.")
 
+gps_map_location_contract = {
+    "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": (
+        "ActivityResultContracts.RequestPermission()",
+        "Manifest.permission.ACCESS_COARSE_LOCATION",
+        "locationProvider.currentFix()",
+        "mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))",
+        "Your location · this device only",
+        "not uploaded or continuously tracked",
+        "LocationCaptureResult.ServicesDisabled",
+        "LocationCaptureResult.TimedOut",
+        "LocationCaptureResult.InvalidFix",
+        "Text(if (deviceFix == null) \"Locate me\" else \"Refresh my location\")",
+    ),
+    "app/src/main/java/com/tacresq/app/ui/AppRoot.kt": (
+        "locationProvider = locationProvider",
+        "container.locationProvider",
+    ),
+}
+for relative_path, required_text in gps_map_location_contract.items():
+    source = (ROOT / relative_path).read_text(encoding="utf-8")
+    missing = [snippet for snippet in required_text if snippet not in source]
+    if missing:
+        raise SystemExit(
+            f"GPS map local-location contract failed for {relative_path}: missing "
+            + ", ".join(missing)
+        )
+map_source = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text(encoding="utf-8")
+if "recordResponderLocation" in map_source or "createIncident(" in map_source:
+    raise SystemExit("GPS map local-location contract failed: map preview must not upload location or create an incident")
+print("GPS map local-location contract OK: one-time, permission-gated, device-only preview.")
+
 sync_contract = {
     "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt": (
         "SyncStatus(state.lastSyncedAtEpochMs, state.syncError)",
