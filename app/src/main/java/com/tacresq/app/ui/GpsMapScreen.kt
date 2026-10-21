@@ -1,6 +1,7 @@
 package com.tacresq.app.ui
 
 import android.Manifest
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -22,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -53,6 +55,7 @@ import com.tacresq.app.ui.common.StatusPill
 import com.tacresq.app.ui.common.formatTime
 import com.tacresq.app.ui.common.pillColor
 import com.tacresq.app.location.LocationCaptureResult
+import com.tacresq.app.location.LocationSettingsCheck
 import com.tacresq.app.location.LocationProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -96,6 +99,7 @@ fun GpsMapScreen(
     var locationStatus by remember {
         mutableStateOf("Your location is hidden until you tap Locate me.")
     }
+    var retryLocationAfterSettings by remember { mutableStateOf(false) }
     val visibleIncidents = when (role) {
         Role.REQUESTER, Role.RESPONDER, Role.DRIVER -> incidents.filter { it.status.isActive }
         Role.DISPATCHER -> incidents.filter { it.status.isActive || it.status.name == "PENDING" }
@@ -178,35 +182,70 @@ fun GpsMapScreen(
         }
     }
 
+    val locationSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            retryLocationAfterSettings = true
+        } else {
+            locationStatus = "Location services remain off. Incident pins remain available; enable Location in Quick Settings or try again."
+        }
+    }
+
     fun locateOnce() {
         scope.launch {
             deviceFix = null
-            locationStatus = "Getting a fresh device location…"
-            when (val result = locationProvider.currentFix()) {
-                is LocationCaptureResult.Success -> {
-                    val fix = result.fix
-                    deviceFix = fix
-                    mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))
-                    val precision = if (fix.hasPrecisePermission) "Precise" else "Approximate"
-                    val accuracy = fix.accuracyM?.let { " · accuracy about ${it.roundToInt()} m" } ?: ""
-                    locationStatus = "One-time $precision location shown on this device only; not uploaded$accuracy."
+            locationStatus = "Checking device location settings…"
+            when (val settings = locationProvider.checkLocationSettings()) {
+                LocationSettingsCheck.Ready -> {
+                    locationStatus = "Getting a fresh device location…"
+                    when (val result = locationProvider.currentFix()) {
+                        is LocationCaptureResult.Success -> {
+                            val fix = result.fix
+                            deviceFix = fix
+                            mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))
+                            val precision = if (fix.hasPrecisePermission) "Precise" else "Approximate"
+                            val accuracy = fix.accuracyM?.let { " · accuracy about ${it.roundToInt()} m" } ?: ""
+                            locationStatus = "One-time $precision location shown on this device only; not uploaded$accuracy."
+                        }
+                        LocationCaptureResult.PermissionDenied -> {
+                            locationStatus = "Location permission denied. Incident pins remain available."
+                        }
+                        LocationCaptureResult.ServicesDisabled -> {
+                            locationStatus = "Device location is turned off. Enable it and try again."
+                        }
+                        LocationCaptureResult.TimedOut -> {
+                            locationStatus = "No fresh location fix arrived in time. Try again."
+                        }
+                        LocationCaptureResult.InvalidFix -> {
+                            locationStatus = "The device returned invalid or stale coordinates. Try again."
+                        }
+                        LocationCaptureResult.Unavailable -> {
+                            locationStatus = "Current location is unavailable. Check signal and try again."
+                        }
+                    }
                 }
-                LocationCaptureResult.PermissionDenied -> {
-                    locationStatus = "Location permission denied. Incident pins remain available."
+                is LocationSettingsCheck.NeedsResolution -> {
+                    locationStatus = "Android needs your approval to enable the device location settings required for a fresh fix."
+                    runCatching {
+                        locationSettingsLauncher.launch(
+                            IntentSenderRequest.Builder(settings.exception.resolution).build(),
+                        )
+                    }.onFailure {
+                        locationStatus = "Could not open the location settings prompt. Enable Location in Quick Settings and try again."
+                    }
                 }
-                LocationCaptureResult.ServicesDisabled -> {
-                    locationStatus = "Device location is turned off. Turn it on and try again."
-                }
-                LocationCaptureResult.TimedOut -> {
-                    locationStatus = "No fresh location fix arrived in time. Try again."
-                }
-                LocationCaptureResult.InvalidFix -> {
-                    locationStatus = "The device returned invalid or stale coordinates. Try again."
-                }
-                LocationCaptureResult.Unavailable -> {
-                    locationStatus = "Current location is unavailable. Check signal and try again."
+                LocationSettingsCheck.Unavailable -> {
+                    locationStatus = "Could not check device location settings. Enable Location in Quick Settings and try again."
                 }
             }
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(retryLocationAfterSettings) {
+        if (retryLocationAfterSettings) {
+            retryLocationAfterSettings = false
+            locateOnce()
         }
     }
 

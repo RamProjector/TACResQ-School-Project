@@ -16,6 +16,8 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.tacresq.app.data.model.GeoFix
@@ -34,6 +36,12 @@ sealed interface LocationCaptureResult {
     data object TimedOut : LocationCaptureResult
     data object InvalidFix : LocationCaptureResult
     data object Unavailable : LocationCaptureResult
+}
+
+sealed interface LocationSettingsCheck {
+    data object Ready : LocationSettingsCheck
+    data class NeedsResolution(val exception: ResolvableApiException) : LocationSettingsCheck
+    data object Unavailable : LocationSettingsCheck
 }
 
 /** One-time requester fixes and an explicitly collected foreground responder stream. */
@@ -64,6 +72,30 @@ class LocationProvider(context: Context) {
     fun isFresh(fix: GeoFix): Boolean {
         val ageNanos = SystemClock.elapsedRealtimeNanos() - fix.elapsedRealtimeNanos
         return ageNanos in 0L..MAX_SEND_FIX_AGE_NANOS
+    }
+
+    /**
+     * Check whether Android's device settings can satisfy a high-accuracy foreground request.
+     * If they cannot, return the system resolution so the visible screen can ask the user to
+     * enable the needed setting instead of failing with a generic location error.
+     */
+    suspend fun checkLocationSettings(): LocationSettingsCheck {
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, REQUEST_DURATION_MS)
+            .setDurationMillis(REQUEST_DURATION_MS)
+            .build()
+        val settings = LocationSettingsRequest.Builder()
+            .addLocationRequest(request)
+            .build()
+        return try {
+            LocationServices.getSettingsClient(appContext).checkLocationSettings(settings).await()
+            LocationSettingsCheck.Ready
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ResolvableApiException) {
+            LocationSettingsCheck.NeedsResolution(e)
+        } catch (_: Exception) {
+            LocationSettingsCheck.Unavailable
+        }
     }
 
     /** Obtain one current fix; deliberately does not fall back to Location.lastLocation. */
