@@ -242,8 +242,6 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text("No requests yet", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                        )
                     }
                 }
             } else {
