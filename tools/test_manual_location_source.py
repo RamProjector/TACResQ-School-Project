@@ -68,6 +68,10 @@ checks = {
             "grant execute on function public.api_create_incident_v3",
         )
     ),
+    "location provenance RPCs keep hardened pg_catalog search paths": (
+        "set search_path = public, pg_temp" not in migration
+        and migration.count("set search_path = pg_catalog") >= 6
+    ),
     "legacy GPS RPC default remains compatible while missing locations use none": (
         "alter column location_source set default 'gps'" in migration
         and "case when p_latitude is null then 'none' else 'gps' end" in migration
