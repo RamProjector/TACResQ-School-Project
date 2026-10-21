@@ -102,8 +102,11 @@ class LocationProvider(context: Context) {
     @SuppressLint("MissingPermission")
     suspend fun currentFix(): LocationCaptureResult {
         if (!hasPermission()) return LocationCaptureResult.PermissionDenied
-        if (!isLocationEnabled()) return LocationCaptureResult.ServicesDisabled
 
+        // LocationSettingsClient is checked by the screen before this request. Some OEMs
+        // briefly report LocationManager.isLocationEnabled=false even when Play Services
+        // confirms the requested settings are satisfiable, so don't use that stale signal
+        // to reject a fresh fused-location request.
         val request = CurrentLocationRequest.Builder()
             .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
             .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
