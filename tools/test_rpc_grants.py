@@ -27,11 +27,11 @@ assert "DROP FUNCTION" not in SQL.upper(), "Migration must not drop application 
 assert "DELETE FROM" not in SQL.upper(), "Migration must not alter user data"
 
 table_privileges_revoke = re.compile(
-    r"REVOKE\\s+TRUNCATE,\\s*REFERENCES,\\s*TRIGGER\\s+ON\\s+TABLE\\s+"
-    r"public\\.profiles,\\s*public\\.incidents,\\s*public\\.location_logs,\\s*"
-    r"public\\.incident_status_logs,\\s*public\\.fcm_tokens\\s+FROM\\s+"
-    r"PUBLIC,\\s*anon,\\s*authenticated\\s*;",
+    r"REVOKE\s+TRUNCATE,\s*REFERENCES,\s*TRIGGER\s+ON\s+TABLE\s+"
+    r"public\.profiles,\s*public\.incidents,\s*public\.location_logs,\s*"
+    r"public\.incident_status_logs,\s*public\.fcm_tokens\s+FROM\s+"
+    r"PUBLIC,\s*anon,\s*authenticated\s*;",
     re.IGNORECASE | re.DOTALL,
 )
 assert table_privileges_revoke.search(SQL), "Missing revoke for unnecessary client table privileges"
-print(f"PASS: least-privilege EXECUTE grant contract for {len(FUNCTIONS)} RPCs")
+print(f"PASS: least-privilege EXECUTE grant contract for {len(FUNCTIONS)} RPCs and restricted table grants")
