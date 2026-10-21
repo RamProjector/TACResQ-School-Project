@@ -81,6 +81,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.io.File
 import java.util.Locale
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -621,10 +622,16 @@ private fun ManualLocationPickerDialog(
 ) {
     val context = LocalContext.current
     val mapView = androidx.compose.runtime.remember {
-        Configuration.getInstance().userAgentValue = context.packageName
+        val osmdroidBase = File(context.cacheDir, "osmdroid").apply { mkdirs() }
+        val tileCache = File(osmdroidBase, "tiles").apply { mkdirs() }
+        val config = Configuration.getInstance()
+        config.setOsmdroidBasePath(osmdroidBase)
+        config.setOsmdroidTileCache(tileCache)
+        config.userAgentValue = "TACResQ/1.0.0 (" + context.packageName + "; Android)"
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            isTilesScaledToDpi = true
             controller.setZoom(17.0)
             controller.setCenter(GeoPoint(initialLatitude, initialLongitude))
         }
