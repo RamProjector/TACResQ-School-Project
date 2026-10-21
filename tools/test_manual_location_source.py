@@ -40,6 +40,15 @@ checks = {
             "config.userAgentValue =",
         )
     ),
+    "manual pin shows live center coordinates and warns against blank-map selection": all(
+        text in requester for text in (
+            "import org.osmdroid.events.MapListener",
+            "centerCoordinates.value = point.latitude to point.longitude",
+            '"Selected center: %.5f, %.5f"',
+            "Wait until roads and landmarks appear before confirming.",
+            "If the map stays blank, cancel and use a landmark instead.",
+        )
+    ),
     "incident creation carries source through the Supabase RPC": all(
         text in repository for text in ('fix.manuallySelected -> "manual"', 'fix == null -> "none"')
     ) and all(text in api for text in ('api_create_incident_v3', 'body.locationSource', 'p_location_source')),
