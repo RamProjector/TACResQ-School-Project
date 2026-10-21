@@ -10,6 +10,7 @@ requester = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScr
 models = (ROOT / "app/src/main/java/com/tacresq/app/data/model/Models.kt").read_text()
 repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
+fake_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").read_text()
 migration = (ROOT / "supabase/migrations/20261021150000_manual_incident_location_source.sql").read_text()
 responder = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 incident_card = (ROOT / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
@@ -41,6 +42,13 @@ checks = {
     "incident creation carries source through the Supabase RPC": all(
         text in repository for text in ('fix.manuallySelected -> "manual"', 'fix == null -> "none"')
     ) and all(text in api for text in ('api_create_incident_v3', 'body.locationSource', 'p_location_source')),
+    "test backend echoes the same source metadata for end-to-end UI testing": all(
+        text in fake_api for text in (
+            "locationRecordedAt = body.locationRecordedAt",
+            "locationSource = body.locationSource",
+            "accuracyM = body.accuracyM",
+        )
+    ),
     "migration stores and validates source provenance": all(
         text in migration for text in (
             "add column if not exists location_source text",
