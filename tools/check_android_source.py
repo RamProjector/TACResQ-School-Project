@@ -216,7 +216,7 @@ print("Password breach-check contract OK: live signup uses HIBP k-anonymity rang
 navigation_contract = {
     "app/src/main/java/com/tacresq/app/ui/RoleShell.kt": (
         'Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")',
-        'Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Safety", "Profile")',
+        'Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")',
         'Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")',
         "GpsMapNavigationItem(selected, onDestinationSelected, compact)",
     ),
