@@ -102,19 +102,41 @@ private fun TacruBottomNavigation(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                destinations.forEach { (destination, label) ->
-                    NavigationItem(
-                        destination = destination,
-                        label = label,
-                        selected = selected,
-                        onDestinationSelected = onDestinationSelected,
-                        showLabel = !compact || selected == destination,
-                        compact = compact,
-                    )
-                }
+                NavigationItem(
+                    destination = destinations[0].first,
+                    label = destinations[0].second,
+                    selected = selected,
+                    onDestinationSelected = onDestinationSelected,
+                    showLabel = !compact || selected == destinations[0].first,
+                    compact = compact,
+                )
+                NavigationItem(
+                    destination = destinations[1].first,
+                    label = destinations[1].second,
+                    selected = selected,
+                    onDestinationSelected = onDestinationSelected,
+                    showLabel = !compact || selected == destinations[1].first,
+                    compact = compact,
+                )
                 GpsMapNavigationItem(
                     selected = selected,
                     onDestinationSelected = onDestinationSelected,
+                    compact = compact,
+                )
+                NavigationItem(
+                    destination = destinations[2].first,
+                    label = destinations[2].second,
+                    selected = selected,
+                    onDestinationSelected = onDestinationSelected,
+                    showLabel = !compact || selected == destinations[2].first,
+                    compact = compact,
+                )
+                NavigationItem(
+                    destination = destinations[3].first,
+                    label = destinations[3].second,
+                    selected = selected,
+                    onDestinationSelected = onDestinationSelected,
+                    showLabel = !compact || selected == destinations[3].first,
                     compact = compact,
                 )
             }
