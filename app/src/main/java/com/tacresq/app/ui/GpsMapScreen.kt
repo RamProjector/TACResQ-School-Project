@@ -71,6 +71,7 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.math.roundToInt
 import java.util.Locale
+import java.io.File
 
 private const val TACLOBAN_LATITUDE = 11.2443
 private const val TACLOBAN_LONGITUDE = 125.0030
@@ -139,7 +140,15 @@ fun GpsMapScreen(
     }
 
     val mapView = remember(context) {
-        Configuration.getInstance().userAgentValue = context.packageName
+        // Keep osmdroid's disk cache in app-private storage. Legacy external-storage
+        // defaults can be unavailable on modern Android targets without storage access.
+        val osmdroidBase = File(context.cacheDir, "osmdroid").apply { mkdirs() }
+        val tileCache = File(osmdroidBase, "tiles").apply { mkdirs() }
+        val osmdroidConfig = Configuration.getInstance()
+        osmdroidConfig.setOsmdroidBasePath(osmdroidBase)
+        osmdroidConfig.setOsmdroidTileCache(tileCache)
+        // Identify this app to public tile servers rather than using a generic library UA.
+        osmdroidConfig.userAgentValue = "TACResQ/1.0.0 (" + context.packageName + "; Android)"
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
