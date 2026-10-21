@@ -324,6 +324,7 @@ fun GpsMapScreen(
             if (incident.hasValidMapCoordinates() && latitude != null && longitude != null) {
                 val marker = Marker(mapView).apply {
                     position = GeoPoint(latitude, longitude)
+                    icon = context.getDrawable(com.tacresq.app.R.drawable.ic_map_incident_pin)
                     setTitle("Incident #${incident.id} · ${incident.type.label}")
                     snippet = incident.locationNotes?.takeIf { it.isNotBlank() }
                         ?: "Status: ${incident.status.label}"
@@ -335,6 +336,7 @@ fun GpsMapScreen(
         freshResponderLocations.forEach { location ->
             val marker = Marker(mapView).apply {
                 position = GeoPoint(location.latitude, location.longitude)
+                icon = context.getDrawable(com.tacresq.app.R.drawable.ic_map_responder_pin)
                 setTitle("Field unit · Incident #${location.incidentId}")
                 val accuracy = location.accuracyM?.let { " · accuracy about ${it.roundToInt()} m" } ?: ""
                 snippet = "Last reported ${location.recordedAt}$accuracy. Dispatcher-only, consented foreground location."
@@ -345,6 +347,7 @@ fun GpsMapScreen(
         deviceFix?.let { fix ->
             val locationMarker = Marker(mapView).apply {
                 position = GeoPoint(fix.latitude, fix.longitude)
+                icon = context.getDrawable(com.tacresq.app.R.drawable.ic_map_my_location_pin)
                 setTitle("Your location · this device only")
                 snippet = "One-time location preview. Not uploaded or continuously tracked."
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
