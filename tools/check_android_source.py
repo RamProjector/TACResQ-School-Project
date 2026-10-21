@@ -67,6 +67,14 @@ demo_mode_contract = {
         'email = "driver@demo.com"; password = "demo123"',
         'email = "dispatcher@demo.com"; password = "demo123"',
     ),
+    "app/src/main/java/com/tacresq/app/AppContainer.kt": (
+        "persistSessions = !AppConfig.USE_FAKE_API",
+    ),
+    "app/src/main/java/com/tacresq/app/data/local/SessionStore.kt": (
+        "private val persistSessions: Boolean = true",
+        "if (!persistSessions) {",
+        "inMemorySession.value = session",
+    ),
 }
 for relative_path, required_text in demo_mode_contract.items():
     source = (ROOT / relative_path).read_text(encoding="utf-8")
