@@ -171,3 +171,14 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - **Implementation:** schedule initial framing with `MapView.post` after map layout. One point is centered/zoomed; multiple points are fitted. The automatic framing does not override a device-only location preview and does not request permission or upload location.
 - **Safety:** no backend/schema, Supabase/Render, credentials, or live emergency data changed.
 - **Validation:** CI on PR #40 passed source checks, prototype/visual checks, Android debug/release builds, and Laravel/dashboard integration before conflict resolution. Re-run CI after this resolution. Physical-device GPS, map tiles, and framing remain unverified.
+
+
+## Agent handoff — GPS Map framing merged and release-signing QA aligned (2026-10-21)
+
+- **Current main:** `70121f82c37f915ff133958dbefeaa50ab8c112c`; PR #40 is merged.
+- **GPS Map change:** automatically frames valid incident coordinates on first load after map layout; one point is centered and multiple points are fit into view. Manual **Show incident pins** remains available. The location preview remains explicit and device-only.
+- **Validation:** PR #40's final CI run passed source checks, prototype/navigation/visual checks, Android debug/release builds, and Laravel/dashboard integration. This does not establish physical-device GPS, OpenStreetMap tile loading, or on-device marker framing.
+- **Stale PR cleanup:** PR #28 was closed as superseded; current main already has the deep-link auth redirect and optional release-signing workflow. Current signing secret names and limitations are now documented in both README and the QA workflow guide.
+- **Current branch:** `agent/docs-release-signing-qa-handoff`; documentation-only alignment in `docs/QA_WORKFLOWS.md` plus this handoff.
+- **Safety:** no credentials/secrets, Supabase schema or live data, Render deployment, or real emergency records changed.
+- **Next concrete action:** run CI on the documentation PR, resolve any failures, then merge only if all required checks pass. The remaining GPS/map behavior requires manual testing on an Android device with internet and location services enabled.
