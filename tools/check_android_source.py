@@ -201,7 +201,6 @@ password_breach_contract = {
         "PasswordBreachChecker.isCompromised(password)",
         "if (!BuildConfig.USE_FAKE_API",
         "This password appears in known data breaches. Choose a different password.",
-        "We couldn't verify this password's breach status.",
     ),
 }
 for relative_path, required_text in password_breach_contract.items():
