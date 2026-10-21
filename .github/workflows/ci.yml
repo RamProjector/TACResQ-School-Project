@@ -88,6 +88,9 @@ jobs:
           VITE_BASE_PATH: /dispatch/
         run: pnpm build
 
+      - name: Check RPC and table privilege grants
+        run: python3 tools/test_rpc_grants.py
+
   android-builds:
     name: Android debug and release builds
     runs-on: ubuntu-latest
