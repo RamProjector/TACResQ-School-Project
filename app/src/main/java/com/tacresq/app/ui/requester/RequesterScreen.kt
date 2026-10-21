@@ -337,19 +337,15 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text("Step $requestStep of 3")
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        (1..3).forEach { step ->
-                            Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(
-                                containerColor = if (step == requestStep) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                            )) {
-                                Text(when (step) { 1 -> "Details"; 2 -> "Location"; else -> "Review" },
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (step == requestStep) FontWeight.Bold else FontWeight.Normal)
-                            }
-                        }
-                    }
+                    Text(
+                        "Step $requestStep of 3 · " + when (requestStep) {
+                            1 -> "Details"
+                            2 -> "Location"
+                            else -> "Review"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     when (requestStep) {
                         1 -> {
                             Text("What kind of help do you need?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -449,7 +445,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         Text(locationSummary(freshFix))
                         Text("The pin is a single capture, not live tracking.", style = MaterialTheme.typography.bodySmall)
                     } else {
-                        Text("No GPS pin will be attached. Dispatch may need to call you to confirm where you are.")
+                        Text("No GPS pin. Dispatch may call to confirm your location.")
                     }
                     locationNotes.trim().takeIf { it.isNotEmpty() }?.let {
                         Text("Location note to share: $it")
