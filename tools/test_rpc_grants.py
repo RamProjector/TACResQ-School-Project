@@ -23,6 +23,49 @@ for name, signature in FUNCTIONS.items():
     assert re.search(revoke, SQL, re.IGNORECASE), f"Missing PUBLIC/anon revoke for {name}"
     assert re.search(grant, SQL, re.IGNORECASE), f"Missing authenticated grant for {name}"
 
+
+# Check the full current client RPC surface, not just the first batch of RPCs
+# hardened in the 2026-10-21 migration. These functions are used by the current
+# Supabase mobile/dispatcher flows and must remain unavailable to anon/PUBLIC.
+MIGRATION_SQL = "\\n".join(
+    migration.read_text()
+    for migration in sorted(Path("supabase/migrations").glob("*.sql"))
+)
+
+ACTIVE_CLIENT_RPCS = {
+    "api_active_responder_locations",
+    "api_all_incidents",
+    "api_assign_incident",
+    "api_create_incident",
+    "api_create_incident_v2",
+    "api_me",
+    "api_my_incidents",
+    "api_record_location_v2",
+    "api_register_fcm_token",
+    "api_set_duty_status",
+    "api_units",
+    "api_unregister_fcm_token",
+    "api_update_incident_status",
+}
+
+for name in ACTIVE_CLIENT_RPCS:
+    revoke = re.compile(
+        rf"REVOKE\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+public\\.{name}\\s*"
+        rf"\\([^;]*?\\)\\s+FROM\\s+PUBLIC,\\s*anon\\s*;",
+        re.IGNORECASE | re.DOTALL,
+    )
+    grant = re.compile(
+        rf"GRANT\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+public\\.{name}\\s*"
+        rf"\\([^;]*?\\)\\s+TO\\s+authenticated\\s*;",
+        re.IGNORECASE | re.DOTALL,
+    )
+    assert revoke.search(MIGRATION_SQL), (
+        f"Missing explicit PUBLIC/anon EXECUTE revoke across migrations for {name}"
+    )
+    assert grant.search(MIGRATION_SQL), (
+        f"Missing explicit authenticated EXECUTE grant across migrations for {name}"
+    )
+
 assert "DROP FUNCTION" not in SQL.upper(), "Migration must not drop application RPCs"
 assert "DELETE FROM" not in SQL.upper(), "Migration must not alter user data"
 
