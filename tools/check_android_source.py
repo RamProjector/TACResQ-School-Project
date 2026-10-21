@@ -40,6 +40,10 @@ map_contract = {
         "lat in -90.0..90.0 && lng in -180.0..180.0",
         "visibleIncidents.any { it.hasValidMapCoordinates() }",
         "incident.hasValidMapCoordinates() && latitude != null && longitude != null",
+        "BoundingBox.fromGeoPoints(validIncidentPoints)",
+        "mapView.zoomToBoundingBox(",
+        "Text(\"Show incident pins\")",
+        "There are no valid incident coordinates to center on yet.",
     ),
 }
 for relative_path, required_text in map_contract.items():
