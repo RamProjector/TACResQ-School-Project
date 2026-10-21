@@ -97,9 +97,17 @@ The Supabase publishable key is client configuration, not a server secret. Datab
 
 For the Laravel adapter and API contract, see [`backend/README.md`](backend/README.md) and [`docs/API.md`](docs/API.md).
 
-## Fake backend workflow
+## Test accounts and backend modes
 
-The in-memory fake backend is available for offline UI demonstrations when `USE_FAKE_API` is intentionally set to `true`. Its data resets when the app process restarts.
+Debug APKs use the in-memory fake backend by default, with four role shortcuts on the sign-in screen. Its users and incidents are fictional and data resets when the app process restarts. Release builds always use Supabase; debug shortcuts are not included in release builds.
+
+To test a configured Supabase project from a debug build instead, build with:
+
+```bash
+./gradlew --no-daemon assembleDebug -PuseSupabase=true
+```
+
+This changes only that debug build. It does not create Supabase Auth users; provision real test identities separately through a trusted administrator. Never use real emergency records for QA.
 
 The documented fake accounts use password `demo123`:
 
