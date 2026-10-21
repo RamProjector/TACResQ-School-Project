@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -641,14 +642,14 @@ private fun ManualLocationPickerDialog(
                     style = MaterialTheme.typography.bodySmall,
                 )
                 androidx.compose.foundation.layout.Box(
-                    modifier = Modifier.fillMaxWidth().height(420.dp),
+                    modifier = Modifier.fillMaxWidth().height(320.dp),
                 ) {
                     AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = "Selected location at map center",
                         tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center).size(38.dp),
+                        modifier = Modifier.align(Alignment.Center).offset(y = (-18).dp).size(38.dp),
                     )
                 }
                 Text(
