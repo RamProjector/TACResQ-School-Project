@@ -1,5 +1,6 @@
 package com.tacresq.app.ui.auth
 
+import android.util.Patterns
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,37 +46,66 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class AuthUiState(val loading: Boolean = false, val error: String? = null)
+data class AuthUiState(
+    val loading: Boolean = false,
+    val error: String? = null,
+    val nameError: String? = null,
+    val emailError: String? = null,
+    val phoneError: String? = null,
+    val passwordError: String? = null,
+)
 
 class AuthViewModel(private val repo: TacRepository) : ViewModel() {
     private val _state = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
 
     fun login(email: String, password: String) {
-        if (email.isBlank() || password.isBlank()) {
-            _state.value = AuthUiState(error = "Enter your email and password.")
+        val emailError = when {
+            email.isBlank() -> "Enter your email address."
+            !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Enter a valid email address."
+            else -> null
+        }
+        val passwordError = if (password.isBlank()) "Enter your password." else null
+        if (emailError != null || passwordError != null) {
+            _state.value = AuthUiState(emailError = emailError, passwordError = passwordError)
             return
         }
         submit { repo.login(email, password) }
     }
 
     fun register(name: String, email: String, phone: String, password: String) {
-        val problem = when {
-            name.isBlank() -> "Enter your full name."
-            !email.contains("@") -> "Enter a valid email address."
-            phone.isBlank() -> "Enter your mobile number so responders can reach you."
-            password.length < 8 -> "Password must be at least 8 characters."
+        val nameError = if (name.isBlank()) "Enter your full name." else null
+        val emailError = when {
+            email.isBlank() -> "Enter your email address."
+            !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Enter a valid email address."
             else -> null
         }
-        if (problem != null) {
-            _state.value = AuthUiState(error = problem)
+        val phoneError = when {
+            phone.isBlank() -> "Enter your mobile number so responders can reach you."
+            phone.count { it.isDigit() } < 7 -> "Enter a valid mobile number."
+            else -> null
+        }
+        val passwordError = if (password.length < 8) "Use at least 8 characters." else null
+        if (nameError != null || emailError != null || phoneError != null || passwordError != null) {
+            _state.value = AuthUiState(
+                nameError = nameError,
+                emailError = emailError,
+                phoneError = phoneError,
+                passwordError = passwordError,
+            )
             return
         }
         submit { repo.register(name, email, phone, password) }
     }
 
     fun clearError() {
-        _state.value = AuthUiState()
+        _state.value = _state.value.copy(
+            error = null,
+            nameError = null,
+            emailError = null,
+            phoneError = null,
+            passwordError = null,
+        )
     }
 
     /** On success the session flips to LoggedIn and AppRoot swaps this screen out by itself. */
@@ -196,33 +226,41 @@ fun AuthScreen(vm: AuthViewModel) {
                 if (registering) {
                     OutlinedTextField(
                         value = name,
-                        onValueChange = { name = it },
+                        onValueChange = { name = it; vm.clearError() },
                         label = { Text("Full name") },
                         singleLine = true,
+                        isError = state.nameError != null,
+                        supportingText = { state.nameError?.let { Text(it) } },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     OutlinedTextField(
                         value = phone,
-                        onValueChange = { phone = it },
+                        onValueChange = { phone = it; vm.clearError() },
                         label = { Text("Mobile number") },
                         singleLine = true,
+                        isError = state.phoneError != null,
+                        supportingText = { state.phoneError?.let { Text(it) } },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = { email = it; vm.clearError() },
                     label = { Text("Email address") },
                     singleLine = true,
+                    isError = state.emailError != null,
+                    supportingText = { state.emailError?.let { Text(it) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = { password = it; vm.clearError() },
                     label = { Text("Password") },
                     singleLine = true,
+                    isError = state.passwordError != null,
+                    supportingText = { state.passwordError?.let { Text(it) } },
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
