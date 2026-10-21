@@ -69,6 +69,7 @@ data class Incident(
     @SerializedName("accuracy_m") val accuracyM: Float? = null,
     @SerializedName("location_notes") val locationNotes: String? = null,
     @SerializedName("location_recorded_at") val locationRecordedAt: String? = null,
+    @SerializedName("location_source") val locationSource: String? = null,
     val status: IncidentStatus,
     @SerializedName("requester_name") val requesterName: String? = null,
     @SerializedName("requester_phone") val requesterPhone: String? = null,
@@ -101,4 +102,5 @@ data class GeoFix(
     val capturedAtEpochMillis: Long,
     val elapsedRealtimeNanos: Long,
     val hasPrecisePermission: Boolean,
+    val manuallySelected: Boolean = false,
 )
