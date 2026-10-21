@@ -147,7 +147,13 @@ jobs:
 
       - name: Collect release APK
         if: hashFiles('gradlew') != ''
-        run: cp app/build/outputs/apk/release/app-release.apk artifacts/android/tacresq-release.apk
+        run: |
+          RELEASE_APK=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$RELEASE_APK" ]; then
+            RELEASE_APK=app/build/outputs/apk/release/app-release-unsigned.apk
+          fi
+          test -s "$RELEASE_APK"
+          cp "$RELEASE_APK" artifacts/android/tacresq-release.apk
 
       - name: Upload Android APKs
         if: hashFiles('gradlew') != ''
