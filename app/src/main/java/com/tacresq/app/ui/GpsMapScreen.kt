@@ -127,6 +127,8 @@ fun GpsMapScreen(
     val validResponderPoints = freshResponderLocations.map { GeoPoint(it.latitude, it.longitude) }
     val initialMapPoints = if (role == Role.DISPATCHER) validIncidentPoints + validResponderPoints else validIncidentPoints
     val defaultMapStatus = when {
+        deviceFix != null ->
+            "One-time location preview is active on this device only; it is not uploaded."
         validIncidentPoints.isNotEmpty() ->
             "Showing ${validIncidentPoints.size} confirmed incident pin(s). Tap Locate me to preview your location."
         role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() ->
@@ -135,6 +137,11 @@ fun GpsMapScreen(
             "Active incidents exist, but none has valid coordinates. They cannot appear as map pins."
         else ->
             "No active incidents with valid coordinates are available for this role yet. Pins appear when an incident has a valid location."
+    }
+
+    // Clear stale action text when the incident set changes; the default is derived from current map data.
+    androidx.compose.runtime.LaunchedEffect(visibleIncidents) {
+        locationStatus = null
     }
 
     androidx.compose.runtime.LaunchedEffect(role, user.id) {
