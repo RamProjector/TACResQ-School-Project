@@ -62,7 +62,7 @@ Build from the repository root:
 ./gradlew --no-daemon assembleRelease
 ```
 
-On Windows, use `gradlew.bat` instead of `./gradlew`. APK outputs are written to `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`. The wrapper pins Gradle 9.3.1 and validates the distribution checksum; `gradle/wrapper/gradle-wrapper.jar.sha256` records the upstream wrapper-JAR checksum.
+On Windows, use `gradlew.bat` instead of `./gradlew`. APK outputs are written to `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`. The GitHub Actions artifact `tacresq-android-apks` publishes three distinctly named files: `tacresq-demo-debug.apk` (in-memory demo backend), `tacresq-supabase-debug.apk` (configured real Supabase backend), and `tacresq-release.apk` (unsigned unless signing secrets are configured). Both debug APKs use the same Android application ID, so installing one replaces the other on a device. The wrapper pins Gradle 9.3.1 and validates the distribution checksum; `gradle/wrapper/gradle-wrapper.jar.sha256` records the upstream wrapper-JAR checksum.
 
 ### Optional release APK signing
 
@@ -107,7 +107,7 @@ To test a configured Supabase project from a debug build instead, build with:
 ./gradlew --no-daemon assembleDebug -PuseSupabase=true
 ```
 
-This changes only that debug build. It does not create Supabase Auth users; provision real test identities separately through a trusted administrator. Never use real emergency records for QA.
+This changes only that debug build. It does not create Supabase Auth users; provision real test identities separately through a trusted administrator. See [Real Supabase testing and QA account setup](docs/SUPABASE_TESTING.md) for the correct APK, safe role provisioning, and verification flow. Never use real emergency records for QA.
 
 The documented fake accounts use password `demo123`:
 
