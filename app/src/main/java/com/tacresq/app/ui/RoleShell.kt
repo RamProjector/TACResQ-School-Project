@@ -73,19 +73,6 @@ private fun TacruBottomNavigation(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
-    // Keep every destination visible on narrow phones. Shorten only the longest role label.
-    val labels = when (role) {
-        Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
-        Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Safety", "Profile")
-        Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")
-    }
-    val destinations = listOf(
-        AppDestination.PRIMARY to labels[0],
-        AppDestination.SECONDARY to labels[1],
-        AppDestination.ALERTS to labels[2],
-        AppDestination.PROFILE to labels[3],
-    )
-
     Surface(
         tonalElevation = 3.dp,
         shadowElevation = 8.dp,
@@ -93,6 +80,18 @@ private fun TacruBottomNavigation(
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val compact = maxWidth < 400.dp
+            // Preserve full labels on wider layouts and shorten only where width is constrained.
+            val labels = when (role) {
+                Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
+                Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")
+                Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")
+            }
+            val destinations = listOf(
+                AppDestination.PRIMARY to labels[0],
+                AppDestination.SECONDARY to labels[1],
+                AppDestination.ALERTS to labels[2],
+                AppDestination.PROFILE to labels[3],
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
