@@ -80,7 +80,7 @@ fun AppRoot(container: AppContainer) {
                         val vmState by vm.state.collectAsStateWithLifecycle()
                         RoleApp(user.role, vmState.incidents, user, logout) { destination ->
                             if (destination == AppDestination.PRIMARY) DispatcherScreen(vm, user, logout)
-                            else RoleSectionScreen(destination, user, logout, vmState.incidents)
+                            else RoleSectionScreen(destination, user, logout, vmState.incidents, vmState.units)
                         }
                     }
                 }
@@ -115,7 +115,7 @@ private fun RoleApp(
 }
 
 @Composable
-private fun RoleSectionScreen(destination: AppDestination, user: User, logout: () -> Unit, incidents: List<Incident>) {
+private fun RoleSectionScreen(destination: AppDestination, user: User, logout: () -> Unit, incidents: List<Incident>, units: List<User> = emptyList()) {
     val role = user.role
     val title = when (destination) {
         AppDestination.SECONDARY -> when (role) {
@@ -158,7 +158,7 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            if (role == Role.DISPATCHER) "Unit availability is not connected to this view yet." else if (incidents.isEmpty()) "No incident records were returned for this account yet. Create or receive a test incident from Home to verify this list." else "Showing ${incidents.size} incident record(s) from the latest successful refresh.",
+                            if (role == Role.DISPATCHER) "Showing ${units.size} registered field unit(s) returned by the latest refresh." else if (incidents.isEmpty()) "No incident records were returned for this account yet. Create or receive a test incident from Home to verify this list." else "Showing ${incidents.size} incident record(s) from the latest successful refresh.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -188,6 +188,42 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                         )
                     }
                     AppDestination.PRIMARY, AppDestination.MAP -> Unit
+                }
+            }
+        }
+
+        if (destination == AppDestination.SECONDARY && role == Role.DISPATCHER) {
+            if (units.isEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text("No field units returned", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "The service has not returned any responder or driver units for this account. Refresh the dispatcher console to retry; this screen does not invent unit records.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            } else {
+                units.forEach { unit ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(unit.name, style = MaterialTheme.typography.titleMedium)
+                            Text(unit.role.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "Duty status: ${unit.dutyStatus?.label ?: "Not applicable"}",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                            unit.phone?.let { Text("Phone: $it", style = MaterialTheme.typography.bodySmall) }
+                        }
+                    }
                 }
             }
         }
