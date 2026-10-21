@@ -31,7 +31,9 @@ Validate locally with:
 ./gradlew --no-daemon assembleRelease
 ```
 
-For a device/emulator validation pass, use a disposable demo account and check: sign-in for every role, SOS consent accepted/denied, stale/unavailable GPS, approximate permission revoked, responder foreground stop/resume, status transitions, reassignment, sign-out, and no location upload while not `en_route`.
+For a device/emulator validation pass, install the debug APK and use the four demo-account shortcuts on the sign-in screen. The default debug build uses an in-memory fake backend; demo accounts and incidents are fictional and reset when the app process restarts. Check sign-in for every role, SOS consent accepted/denied, stale/unavailable GPS, approximate permission revoked, responder foreground stop/resume, status transitions, reassignment, sign-out, and no location upload while not `en_route`.
+
+To validate against configured Supabase from a debug build, use `./gradlew --no-daemon assembleDebug -PuseSupabase=true`. This does not provision users; create disposable test identities through a trusted Supabase administrator. Release builds always select Supabase and never enable the fake backend.
 
 ## Web navigation and functionality
 
