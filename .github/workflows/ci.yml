@@ -75,6 +75,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: backend/web/pnpm-lock.yaml
 
+      - name: Check SECURITY DEFINER trigger search paths
+        run: python3 tools/test_trigger_search_paths.py
+
       - name: Install dashboard dependencies
         working-directory: backend/web
         run: pnpm install --frozen-lockfile
