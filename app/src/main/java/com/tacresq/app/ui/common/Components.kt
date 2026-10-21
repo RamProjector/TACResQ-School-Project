@@ -45,13 +45,16 @@ import java.util.Date
 import kotlin.math.ceil
 
 @Composable
-fun ScreenHeader(title: String, subtitle: String, onLogout: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(
                 painter = painterResource(id = R.drawable.tacresq_app_icon),
                 contentDescription = null,
-                modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)),
+                modifier = Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)),
             )
             Spacer(modifier = Modifier.width(9.dp))
             Text(
@@ -63,12 +66,20 @@ fun ScreenHeader(title: String, subtitle: String, onLogout: () -> Unit) {
             )
             TextButton(onClick = onLogout) { Text("Sign out") }
         }
-        Row(verticalAlignment = Alignment.Bottom) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            StatusPill("SECURE SESSION", MaterialTheme.colorScheme.secondary)
         }
     }
 }
