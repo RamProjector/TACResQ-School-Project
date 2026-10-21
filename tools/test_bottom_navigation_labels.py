@@ -9,7 +9,7 @@ for destination in ('PRIMARY("Home")', 'SECONDARY("Requests")', 'MAP("GPS Map")'
     assert destination in source, f"missing canonical destination: {destination}"
 
 assert 'Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")' in source
-assert 'Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Safety", "Profile")' in source
+assert 'Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")' in source
 assert 'Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")' in source
 assert "BoxWithConstraints(modifier = Modifier.fillMaxWidth())" in source
 assert "val compact = maxWidth < 400.dp" in source
