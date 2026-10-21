@@ -13,7 +13,7 @@ assert "if (selected != AppDestination.MAP)" in bottom_bar, (
 assert bottom_bar.index("if (selected != AppDestination.MAP)") < bottom_bar.index("TacruBottomNavigation"), (
     "navigation must be conditionally rendered, not merely restyled"
 )
-assert "modifier = Modifier.fillMaxSize()" in map_screen, (
+assert "BackHandler { onBack() }" in map_screen, (\n    "Android system Back must close the full-screen map and return to the prior screen"\n)\nassert "modifier = Modifier.fillMaxSize()" in map_screen, (
     "the map surface must continue filling its available viewport"
 )
 print("GPS map full-viewport navigation contract passed.")
