@@ -12,6 +12,7 @@ repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 migration = (ROOT / "supabase/migrations/20261021150000_manual_incident_location_source.sql").read_text()
 responder = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
+incident_card = (ROOT / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
 laravel_routes = (ROOT / "backend/src/routes/api.php").read_text()
 laravel_model = (ROOT / "backend/src/app/Models/Incident.php").read_text()
 laravel_migration = (ROOT / "backend/src/database/migrations/2026_10_21_000003_add_incident_location_source.php").read_text()
@@ -71,6 +72,13 @@ checks = {
     ),
     "server response source is verified before claiming location confirmation": (
         "if (incident.locationSource != expectedSource) return false" in requester
+    ),
+    "incident cards distinguish manual pins from GPS fixes": all(
+        text in incident_card for text in (
+            '"gps" -> "GPS pin"', '"manual" -> "Manual map pin"',
+            '"Location pin (source unverified)"', 'incident.locationSource == "gps"',
+            '"No location pin was shared"',
+        )
     ),
     "field units are not described as live before a location is confirmed": all(
         text in responder for text in (
