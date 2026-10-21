@@ -77,7 +77,7 @@ begin
     'status', i.status, 'requester_name', p.name, 'requester_phone', p.phone,
     'assigned_to', i.assigned_to, 'created_at', i.created_at
   );
-end $;
+end $$;
 
 
 create or replace function public.api_create_incident_v3(
