@@ -194,3 +194,18 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - **Safety:** no live Supabase migration was applied, no secrets changed, no real incidents or GPS records touched, and no deployment performed.
 - **Validation status:** changes are being prepared through GitHub's remote file/commit API; local Android build/device tests were not available. CI must validate the PR before merge. Verify dispatcher-only denial, freshness filtering, Android compilation, and all required CI jobs. The Laravel adapter route for active responder locations is not implemented; this screen's location feed requires the Supabase adapter.
 - **Next action:** inspect generated commit and PR diff; run CI, fix any failures, and leave the PR open for review unless the user authorizes merge after all required checks pass.
+
+
+## Agent handoff — separate test and real-backend APK Actions (2026-10-21)
+
+- **Objective:** give the user two clearly separated, manually triggered GitHub Actions to build a demo APK and a Supabase-connected debug APK.
+- **Base:** current `main` at `794051a2a3b2518c2b8d510a1e84303eb2c0ba51`.
+- **Branch:** `agent/separate-test-real-apk-actions`.
+- **Workflows added:**
+  - `.github/workflows/build-test-apk.yml` builds `assembleDebug` with the default in-memory fake backend and uploads `TACResQ-test-fake-backend.apk` as artifact `TACResQ-test-fake-backend`.
+  - `.github/workflows/build-real-backend-apk.yml` builds `assembleDebug -PuseSupabase=true` and uploads `TACResQ-real-backend-debug.apk` as artifact `TACResQ-real-backend-debug`.
+  - Both artifacts include a build-mode note, use the existing Android SDK/Gradle setup, and retain artifacts for 14 days.
+- **Important:** the real-backend workflow compiles against the Supabase configuration in `AppConfig.kt`; it does not seed or verify Auth users and does not prove that live backend operations work. Real test identities must be provisioned separately. Use synthetic QA data only.
+- **Safety:** workflow files are manual-dispatch only. No live Supabase schema/data, credentials, Render deployment, or real emergency records changed. No service-role key is used.
+- **Validation:** workflow YAML and Android builds have not yet been executed by GitHub Actions on this branch. No local checkout or device test was available through the connector. CI must be reviewed after the PR is opened.
+- **Next action:** open a focused PR, inspect all CI results, fix any issues, and leave the PR open for user review. After merge, both workflows should appear under the repository Actions tab; manual dispatch workflows generally need to be present on the default branch before they can be run from the UI.
