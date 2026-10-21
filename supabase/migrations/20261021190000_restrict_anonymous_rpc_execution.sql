@@ -28,3 +28,10 @@ GRANT EXECUTE ON FUNCTION public.api_unregister_fcm_token(text) TO authenticated
 
 REVOKE EXECUTE ON FUNCTION public.api_update_incident_status(bigint, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_update_incident_status(bigint, text) TO authenticated;
+
+-- Clients need only the table operations used by the RLS-protected API. They must not
+-- have schema-management-adjacent table privileges such as TRUNCATE, TRIGGER, or REFERENCES.
+REVOKE TRUNCATE, REFERENCES, TRIGGER
+  ON TABLE public.profiles, public.incidents, public.location_logs,
+           public.incident_status_logs, public.fcm_tokens
+  FROM PUBLIC, anon, authenticated;
