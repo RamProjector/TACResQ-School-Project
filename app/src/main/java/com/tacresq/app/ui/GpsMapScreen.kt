@@ -47,6 +47,12 @@ import java.util.Locale
 private const val TACLOBAN_LATITUDE = 11.2443
 private const val TACLOBAN_LONGITUDE = 125.0030
 
+private fun Incident.hasValidMapCoordinates(): Boolean {
+    val lat = latitude ?: return false
+    val lng = longitude ?: return false
+    return lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0
+}
+
 @Composable
 fun GpsMapScreen(
     role: Role,
@@ -102,10 +108,7 @@ fun GpsMapScreen(
         visibleIncidents.forEach { incident ->
             val latitude = incident.latitude
             val longitude = incident.longitude
-            if (latitude != null && longitude != null &&
-                latitude.isFinite() && longitude.isFinite() &&
-                latitude in -90.0..90.0 && longitude in -180.0..180.0
-            ) {
+            if (incident.hasValidMapCoordinates() && latitude != null && longitude != null) {
                 val marker = Marker(mapView).apply {
                     position = GeoPoint(latitude, longitude)
                     setTitle("Incident #${incident.id} · ${incident.type.label}")
@@ -151,7 +154,7 @@ fun GpsMapScreen(
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text("MAP STATUS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 Text(
-                    if (visibleIncidents.any { it.latitude != null && it.longitude != null })
+                    if (visibleIncidents.any { it.hasValidMapCoordinates() })
                         "Real map · confirmed incident pins only"
                     else "Real map · no confirmed incident pins yet",
                     fontWeight = FontWeight.SemiBold,
