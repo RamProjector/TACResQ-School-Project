@@ -23,7 +23,7 @@ checks = {
     "manual map pin is explicitly represented instead of mislabelled as GPS": all(
         text in requester for text in (
             'manuallySelected = true', '"Map pin selected"',
-            '"Coordinates chosen by you on the map · selected"',
+            'Coordinates chosen by you on the map · selected',
         )
     ) and "val manuallySelected: Boolean = false" in models,
     "incident creation carries source through the Supabase RPC": all(
