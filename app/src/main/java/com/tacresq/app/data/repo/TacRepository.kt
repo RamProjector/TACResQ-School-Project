@@ -7,6 +7,7 @@ import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.IncidentType
+import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.Session
 import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
@@ -80,6 +81,8 @@ class TacRepository(
     suspend fun allIncidents(): Result<List<Incident>> = call { api.allIncidents() }
 
     suspend fun units(): Result<List<User>> = call { api.units() }
+
+    suspend fun activeResponderLocations(): Result<List<ResponderLocation>> = call { api.activeResponderLocations() }
 
     suspend fun createIncident(
         type: IncidentType,
