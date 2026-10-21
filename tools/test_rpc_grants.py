@@ -27,7 +27,7 @@ for name, signature in FUNCTIONS.items():
 # Check the full current client RPC surface, not just the first batch of RPCs
 # hardened in the 2026-10-21 migration. These functions are used by the current
 # Supabase mobile/dispatcher flows and must remain unavailable to anon/PUBLIC.
-MIGRATION_SQL = "\\n".join(
+MIGRATION_SQL = "\n".join(
     migration.read_text()
     for migration in sorted(Path("supabase/migrations").glob("*.sql"))
 )
@@ -50,13 +50,13 @@ ACTIVE_CLIENT_RPCS = {
 
 for name in ACTIVE_CLIENT_RPCS:
     revoke = re.compile(
-        rf"REVOKE\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+public\\.{name}\\s*"
-        rf"\\([^;]*?\\)\\s+FROM\\s+PUBLIC,\\s*anon\\s*;",
+        rf"REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+public\.{name}\s*"
+        rf"\([^;]*?\)\s+FROM\s+PUBLIC,\s*anon\s*;",
         re.IGNORECASE | re.DOTALL,
     )
     grant = re.compile(
-        rf"GRANT\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+public\\.{name}\\s*"
-        rf"\\([^;]*?\\)\\s+TO\\s+authenticated\\s*;",
+        rf"GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.{name}\s*"
+        rf"\([^;]*?\)\s+TO\s+authenticated\s*;",
         re.IGNORECASE | re.DOTALL,
     )
     assert revoke.search(MIGRATION_SQL), (
