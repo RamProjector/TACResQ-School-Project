@@ -74,7 +74,7 @@ If fewer than four rows return, stop and resolve the missing Auth/profile record
 - Dispatcher: verify assignment/status updates and fresh field-unit location reports on the map.
 - Authentication: test invalid email, missing fields, wrong password, offline/network failure, and successful sign-out.
 
-Delete test incidents and test Auth users when QA is finished. Keep the Supabase project's leaked-password protection enabled when supported by your plan and project configuration.
+Delete test incidents and test Auth users when QA is finished. In the Supabase Dashboard, review **Authentication → Settings → Password Security** and enable leaked-password protection where available. This is an Auth project setting, not a SQL migration; CI cannot enable it for the live project.
 
 ## 4. What CI does not prove
 
