@@ -25,6 +25,11 @@ class AppContainer(context: Context) {
         else -> ApiClient.create { tokenHolder.value }
     }
 
-    val repository = TacRepository(api, SessionStore(appContext), tokenHolder, appScope)
+    val repository = TacRepository(
+        api,
+        SessionStore(appContext, persistSessions = !AppConfig.USE_FAKE_API),
+        tokenHolder,
+        appScope,
+    )
     val locationProvider = LocationProvider(appContext)
 }
