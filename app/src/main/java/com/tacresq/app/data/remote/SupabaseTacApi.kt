@@ -49,7 +49,7 @@ class SupabaseTacApi private constructor(
     override suspend fun units(): List<User> = rpc.units(EmptyRpcBody())
     override suspend fun activeResponderLocations(): List<ResponderLocation> = rpc.activeResponderLocations(EmptyRpcBody())
     override suspend fun createIncident(body: CreateIncidentRequest): Incident = rpc.createIncidentV3(
-        CreateIncidentV2Rpc(
+        CreateIncidentV3Rpc(
             body.type.wireValue,
             body.description,
             body.latitude,
