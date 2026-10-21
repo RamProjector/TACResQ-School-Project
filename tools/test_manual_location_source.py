@@ -98,6 +98,13 @@ checks = {
             "Start without sharing",
         )
     ),
+    "external routing is distinguished from the in-app incident map": all(
+        text in responder for text in (
+            'Text("Open navigation app")',
+            "Opens an installed maps app for route guidance.",
+            "Use TACResQ GPS Map for the incident and field-unit overview.",
+        )
+    ) and "Text(\"Navigate in Google Maps\")" not in responder,
     "Laravel adapter persists and returns location source without breaking older clients": all(
         text in laravel_routes for text in (
             "'location_source' => $incident->location_source",
