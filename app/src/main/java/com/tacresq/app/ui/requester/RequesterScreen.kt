@@ -56,7 +56,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.locationbutton.compose.LocationButton
 import androidx.core.locationbutton.compose.LocationButtonTextType
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.model.GeoFix
@@ -636,8 +639,24 @@ private fun ManualLocationPickerDialog(
             controller.setCenter(GeoPoint(initialLatitude, initialLongitude))
         }
     }
-    androidx.compose.runtime.DisposableEffect(mapView) {
-        onDispose { mapView.onDetach() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(mapView, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            mapView.onResume()
+        }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView.onPause()
+            mapView.onDetach()
+        }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
