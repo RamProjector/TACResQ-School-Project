@@ -11,6 +11,7 @@ models = (ROOT / "app/src/main/java/com/tacresq/app/data/model/Models.kt").read_
 repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 migration = (ROOT / "supabase/migrations/20261021150000_manual_incident_location_source.sql").read_text()
+responder = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 
 checks = {
     "requester can open a real OSM map and select its center coordinate": all(
@@ -53,6 +54,15 @@ checks = {
     ),
     "server response source is verified before claiming location confirmation": (
         "if (incident.locationSource != expectedSource) return false" in requester
+    ),
+    "field units are not described as live before a location is confirmed": all(
+        text in responder for text in (
+            "waiting for the first confirmed location update",
+            "the latest update failed",
+            "Responder location is not currently being shared.",
+            "Share location & start",
+            "Start without sharing",
+        )
     ),
 }
 failed = [name for name, passed in checks.items() if not passed]
