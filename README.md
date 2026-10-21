@@ -107,7 +107,7 @@ To test a configured Supabase project from a debug build instead, build with:
 ./gradlew --no-daemon assembleDebug -PuseSupabase=true
 ```
 
-This changes only that debug build. It does not create Supabase Auth users; provision real test identities separately through a trusted administrator. Never use real emergency records for QA.
+This changes only that debug build. It does not create Supabase Auth users; provision real test identities separately through a trusted administrator. See [Real Supabase testing and QA account setup](docs/SUPABASE_TESTING.md) for the correct APK, safe role provisioning, and verification flow. Never use real emergency records for QA.
 
 The documented fake accounts use password `demo123`:
 
