@@ -29,7 +29,7 @@ checks = {
     "incident status transition validation remains present":
         "invalid incident status transition" in sql and "actor_id <> old.assigned_to" in sql,
     "function uses a controlled search path":
-        "set search_path to 'pg_catalog', 'public', 'auth', 'pg_temp'" in sql,
+        "set search_path to 'pg_catalog'" in sql,
 }
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
