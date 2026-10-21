@@ -104,9 +104,14 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
             'A manually selected pin cannot claim GPS accuracy.'
         );
         abort_if(
-            ($data['latitude'] ?? null) === null && (($data['accuracy_m'] ?? null) !== null || ($data['location_recorded_at'] ?? null) !== null),
+            !$hasCoordinates && (($data['accuracy_m'] ?? null) !== null || ($data['location_recorded_at'] ?? null) !== null),
             422,
-            'Accuracy and capture time require a GPS coordinate pair.'
+            'Accuracy and capture time require a coordinate pair.'
+        );
+        abort_if(
+            $hasCoordinates && ($data['location_recorded_at'] ?? null) === null,
+            422,
+            'A location capture time is required with coordinates.'
         );
         $data['location_notes'] = isset($data['location_notes']) ? (trim($data['location_notes']) ?: null) : null;
         $incident = DB::transaction(function () use ($data, $request) {
