@@ -1,5 +1,11 @@
 package com.tacresq.app.ui.requester
 
+import android.app.Activity
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -55,6 +61,7 @@ import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationProvider
+import com.tacresq.app.location.LocationSettingsCheck
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
@@ -72,6 +79,7 @@ import java.time.Instant
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlinx.coroutines.launch
 
 data class RequesterUiState(
     val incidents: List<Incident> = emptyList(),
@@ -253,6 +261,40 @@ class RequesterViewModel(
 @Composable
 fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var retryCaptureAfterSettings by rememberSaveable { mutableStateOf(false) }
+    val locationSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            retryCaptureAfterSettings = true
+        } else {
+            vm.onLocationButtonError()
+        }
+    }
+    LaunchedEffect(retryCaptureAfterSettings) {
+        if (retryCaptureAfterSettings) {
+            retryCaptureAfterSettings = false
+            vm.captureLocation()
+        }
+    }
+    fun requestLocationAfterPermission() {
+        scope.launch {
+            when (val settings = vm.checkLocationSettings()) {
+                LocationSettingsCheck.Ready -> vm.captureLocation()
+                is LocationSettingsCheck.NeedsResolution -> runCatching {
+                    locationSettingsLauncher.launch(
+                        IntentSenderRequest.Builder(settings.exception.resolution).build(),
+                    )
+                }.onFailure { vm.onLocationButtonError() }
+                LocationSettingsCheck.Unavailable -> runCatching {
+                    val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    androidx.compose.ui.platform.LocalContext.current.startActivity(intent)
+                }.onFailure { vm.onLocationButtonError() }
+            }
+        }
+    }
     PollWhileStarted { vm.refresh() }
 
     var selectedType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
@@ -339,7 +381,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 LocationButton(modifier = Modifier.fillMaxWidth().height(56.dp), textType = LocationButtonTextType.SharePreciseLocation,
                                     backgroundColor = MaterialTheme.colorScheme.primary, strokeColor = MaterialTheme.colorScheme.primary,
                                     textColor = MaterialTheme.colorScheme.onPrimary, iconTint = MaterialTheme.colorScheme.onPrimary,
-                                    onPermissionResult = { granted -> if (granted) vm.captureLocation() else vm.onLocationDenied() },
+                                    onPermissionResult = { granted -> if (granted) requestLocationAfterPermission() else vm.onLocationDenied() },
                                     onError = { vm.onLocationButtonError() })
                             }
                             when {
