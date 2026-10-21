@@ -317,18 +317,18 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().safeDrawingPadding(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
             ScreenHeader(
-                title = "Hello, ${user.name.substringBefore(' ')}",
-                subtitle = user.role.label,
+                title = "Home",
+                subtitle = "",
                 onLogout = onLogout,
             )
         }
 
-        item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
+        if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -337,19 +337,15 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text("Step $requestStep of 3 · Your request is not sent until you confirm.")
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        (1..3).forEach { step ->
-                            Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(
-                                containerColor = if (step == requestStep) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                            )) {
-                                Text(when (step) { 1 -> "Details"; 2 -> "Location"; else -> "Review" },
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (step == requestStep) FontWeight.Bold else FontWeight.Normal)
-                            }
-                        }
-                    }
+                    Text(
+                        "Step $requestStep of 3 · " + when (requestStep) {
+                            1 -> "Details"
+                            2 -> "Location"
+                            else -> "Review"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     when (requestStep) {
                         1 -> {
                             Text("What kind of help do you need?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -372,7 +368,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         }
                         2 -> {
                             Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Location is requested only after you use the Android location button. A GPS pin is attached only after a fresh fix is returned and you confirm sending.",
+                            Text("Add a GPS pin or continue without one.",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (state.capturingLocation) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -389,12 +385,12 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             when {
                                 freshFix != null -> LocationFixCard(freshFix, onClear = vm::clearLocationFix)
                                 state.locationFix != null -> LocationNoticeCard("GPS fix expired", "This fix will not be sent. Capture a new fix or continue without GPS.")
-                                !state.capturingLocation -> LocationNoticeCard("No GPS pin selected", "If GPS is unavailable, continue without coordinates and add a landmark. TACResQ will not invent a location.")
+                                !state.capturingLocation -> LocationNoticeCard("No GPS pin", "Add a landmark or continue without GPS.")
                             }
                             state.locationError?.let { Banner(it, isError = true, onDismiss = vm::dismissMessages) }
                             OutlinedTextField(value = locationNotes, onValueChange = { if (it.length <= 500) locationNotes = it },
                                 label = { Text("Landmark or access detail (optional)") }, minLines = 2, maxLines = 3,
-                                supportingText = { Text("${locationNotes.length}/500 · shared with dispatch") }, modifier = Modifier.fillMaxWidth())
+                                modifier = Modifier.fillMaxWidth())
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { requestStep = 1 }, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
                                 Button(onClick = { vm.expireStaleLocation(); requestStep = 3 }, enabled = !state.capturingLocation,
@@ -449,7 +445,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         Text(locationSummary(freshFix))
                         Text("The pin is a single capture, not live tracking.", style = MaterialTheme.typography.bodySmall)
                     } else {
-                        Text("No GPS pin will be attached. Dispatch may need to call you to confirm where you are.")
+                        Text("No GPS pin. Dispatch may call to confirm your location.")
                     }
                     locationNotes.trim().takeIf { it.isNotEmpty() }?.let {
                         Text("Location note to share: $it")

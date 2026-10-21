@@ -148,62 +148,52 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         ScreenHeader(
             title = title,
-            subtitle = "${user.name} • ${role.label}",
+            subtitle = "",
             onLogout = logout,
         )
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                when (destination) {
-                    AppDestination.SECONDARY -> {
-                        Text("Records", style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            when (role) {
-                                Role.REQUESTER -> "Your submitted emergency requests and their latest statuses will appear here."
-                                Role.RESPONDER, Role.DRIVER -> "Incidents assigned to you and completed responses will appear here."
-                                Role.DISPATCHER -> "Registered responder and driver units will appear here."
-                            },
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            if (role == Role.DISPATCHER) "Showing ${units.size} registered field unit(s) returned by the latest refresh." else if (incidents.isEmpty()) "No incident records were returned for this account yet. Create or receive a test incident from Home to verify this list." else "Showing ${incidents.size} incident record(s) from the latest successful refresh.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+        if (destination != AppDestination.SECONDARY || role == Role.DISPATCHER) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    when (destination) {
+                        AppDestination.SECONDARY -> {
+                            if (role == Role.DISPATCHER) {
+                                Text(
+                                    "${units.size} field units",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        AppDestination.ALERTS -> {
+                            Text("Safety information", style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                "Share your location only when needed and verify incident details before responding.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "For a real emergency, contact local emergency services.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        AppDestination.PROFILE -> {
+                            Text("Account details", style = MaterialTheme.typography.titleLarge)
+                            Text(user.name, style = MaterialTheme.typography.titleMedium)
+                            Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Role: ${role.label}")
+                            user.phone?.let { Text("Mobile: $it") }
+                        }
+                        AppDestination.PRIMARY, AppDestination.MAP -> Unit
                     }
-                    AppDestination.ALERTS -> {
-                        Text("Safety information", style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            "Share your location only when needed and verify the incident details before responding.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            "No live alerts are being simulated on this screen. For a real emergency, contact the appropriate local emergency service directly.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    AppDestination.PROFILE -> {
-                        Text("Account details", style = MaterialTheme.typography.titleLarge)
-                        Text(user.name, style = MaterialTheme.typography.titleMedium)
-                        Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Role: ${role.label}")
-                        user.phone?.let { Text("Mobile: $it") }
-                        Text(
-                            "Use Sign out above to end this session on the device.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    AppDestination.PRIMARY, AppDestination.MAP -> Unit
                 }
             }
         }
@@ -217,7 +207,7 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                     ) {
                         Text("No field units returned", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "The service has not returned any responder or driver units for this account. Refresh the dispatcher console to retry; this screen does not invent unit records.",
+                            "No field units available.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -252,11 +242,6 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text("No requests yet", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "When the service returns incidents for this account, they will appear here with their current status. This screen does not create sample records.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
                     }
                 }
             } else {
