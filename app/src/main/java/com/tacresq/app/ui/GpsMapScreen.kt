@@ -353,8 +353,18 @@ fun GpsMapScreen(
                     position = GeoPoint(latitude, longitude)
                     icon = context.getDrawable(com.tacresq.app.R.drawable.ic_map_incident_pin)
                     setTitle("Incident #${incident.id} · ${incident.type.label}")
-                    snippet = incident.locationNotes?.takeIf { it.isNotBlank() }
-                        ?: "Status: ${incident.status.label}"
+                    val source = when (incident.locationSource) {
+                        "gps" -> "GPS location"
+                        "manual" -> "Manually selected map pin"
+                        "none" -> "No location source"
+                        else -> "Location source not reported"
+                    }
+                    val accuracy = if (incident.locationSource == "gps") {
+                        incident.accuracyM?.let { "GPS accuracy about ${it.roundToInt()} m" }
+                    } else null
+                    val note = incident.locationNotes?.takeIf { it.isNotBlank() }
+                    snippet = listOfNotNull(source, accuracy, "Status: ${incident.status.label}", note)
+                        .joinToString(" · ")
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
                 mapView.overlays.add(marker)
