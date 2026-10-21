@@ -105,6 +105,17 @@ fun GpsMapScreen(
         }
     }
 
+    val mapView = remember(context) {
+        Configuration.getInstance().userAgentValue = context.packageName
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            isTilesScaledToDpi = true
+            controller.setZoom(12.0)
+            controller.setCenter(GeoPoint(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
+        }
+    }
+
     fun showIncidentPins() {
         when (validIncidentPoints.size) {
             0 -> locationStatus = "There are no valid incident coordinates to center on yet."
@@ -119,17 +130,6 @@ fun GpsMapScreen(
                 mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)
                 locationStatus = "Showing all ${validIncidentPoints.size} confirmed incident pins. Tap Locate me to return to your device location."
             }
-        }
-    }
-
-    val mapView = remember(context) {
-        Configuration.getInstance().userAgentValue = context.packageName
-        MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
-            isTilesScaledToDpi = true
-            controller.setZoom(12.0)
-            controller.setCenter(GeoPoint(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
         }
     }
 
