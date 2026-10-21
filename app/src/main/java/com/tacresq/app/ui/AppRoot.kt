@@ -71,7 +71,7 @@ fun AppRoot(container: AppContainer) {
                     Role.RESPONDER, Role.DRIVER -> {
                         val vm: ResponderViewModel = viewModel(key = "unit-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, logout) { destination ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination ->
                             if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, logout)
                             else RoleSectionScreen(destination, user, logout, vmState.incidents)
                         }
@@ -79,7 +79,7 @@ fun AppRoot(container: AppContainer) {
                     Role.DISPATCHER -> {
                         val vm: DispatcherViewModel = viewModel(key = "dispatcher-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, logout) { destination ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination ->
                             if (destination == AppDestination.PRIMARY) DispatcherScreen(vm, user, logout)
                             else RoleSectionScreen(destination, user, logout, vmState.incidents, vmState.units)
                         }
