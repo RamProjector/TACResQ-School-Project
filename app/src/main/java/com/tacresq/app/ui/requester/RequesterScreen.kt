@@ -317,13 +317,13 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().safeDrawingPadding(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
             ScreenHeader(
                 title = "Hello, ${user.name.substringBefore(' ')}",
-                subtitle = user.role.label,
+                subtitle = "",
                 onLogout = onLogout,
             )
         }
@@ -337,7 +337,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text("Step $requestStep of 3 · Your request is not sent until you confirm.")
+                    Text("Step $requestStep of 3")
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         (1..3).forEach { step ->
                             Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(
@@ -372,7 +372,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         }
                         2 -> {
                             Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Location is requested only after you use the Android location button. A GPS pin is attached only after a fresh fix is returned and you confirm sending.",
+                            Text("Add a GPS pin or continue without one.",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (state.capturingLocation) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
