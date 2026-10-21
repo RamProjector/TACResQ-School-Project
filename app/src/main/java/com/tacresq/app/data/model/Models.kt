@@ -74,6 +74,7 @@ data class Incident(
     @SerializedName("requester_phone") val requesterPhone: String? = null,
     @SerializedName("assigned_to") val assignedTo: Long? = null,
     @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("location_source") val locationSource: String? = null,
 )
 
 data class Session(val token: String, val user: User)
@@ -101,4 +102,5 @@ data class GeoFix(
     val capturedAtEpochMillis: Long,
     val elapsedRealtimeNanos: Long,
     val hasPrecisePermission: Boolean,
+    val manuallySelected: Boolean = false,
 )

@@ -318,8 +318,13 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                         onClick = { openNavigation(context, latitude, longitude) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Navigate in Google Maps")
+                        Text("Open navigation app")
                     }
+                    Text(
+                        "Opens an installed maps app for route guidance. Use TACResQ GPS Map for the incident and field-unit overview.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 } else {
                     Text(
                         "No GPS pin was shared. Do not navigate to an assumed location; use the landmark note and contact the requester to confirm.",
@@ -350,12 +355,21 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
+                            val lastLocationSentAt = state.lastLocationSentAt
                             Text(
-                                if (sharing) "Approximate location sharing is active while this app is in the foreground."
-                                else "Responder location is not currently being shared.",
+                                when {
+                                    !sharing -> "Responder location is not currently being shared."
+                                    lastLocationSentAt == null && state.trackingError != null ->
+                                        "Location sharing was requested, but the first location update has not been confirmed."
+                                    lastLocationSentAt == null ->
+                                        "Location sharing is enabled; waiting for the first confirmed location update."
+                                    state.trackingError != null ->
+                                        "Location sharing is enabled, but the latest update failed."
+                                    else ->
+                                        "Approximate location sharing is active while this app is in the foreground."
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                             )
-                            val lastLocationSentAt = state.lastLocationSentAt
                             if (sharing && lastLocationSentAt != null) {
                                 val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
                                     .format(java.util.Date(lastLocationSentAt))

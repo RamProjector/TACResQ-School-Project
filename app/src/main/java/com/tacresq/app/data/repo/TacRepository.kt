@@ -99,6 +99,11 @@ class TacRepository(
                 accuracyM = fix?.accuracyM,
                 locationNotes = locationNotes?.trim()?.ifBlank { null },
                 locationRecordedAt = fix?.let { Instant.ofEpochMilli(it.capturedAtEpochMillis).toString() },
+                locationSource = when {
+                    fix == null -> "none"
+                    fix.manuallySelected -> "manual"
+                    else -> "gps"
+                },
             )
         )
     }

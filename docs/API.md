@@ -40,12 +40,12 @@ Incident
 
 ```json
 { "id": 12, "type": "medical", "description": "Chest pain", "latitude": 11.2433, "longitude": 125.0036,
-  "accuracy_m": 12.0, "location_notes": null, "location_recorded_at": "2026-10-14T07:04:53.000000Z",
+  "accuracy_m": 12.0, "location_notes": null, "location_recorded_at": "2026-10-14T07:04:53.000000Z", "location_source": "gps",
   "status": "assigned", "requester_name": "Rica Requester", "requester_phone": "0917 123 4567",
   "assigned_to": 2, "created_at": "2026-10-14T07:05:00.000000Z" }
 ```
 
-`latitude` and `longitude` are either both present or both `null`. When GPS is unavailable or permission is declined, TACResQ may send the SOS without a pin; optional `location_notes` can provide a landmark. The server never substitutes a guessed or stale coordinate. `location_recorded_at` is the device fix time, not a live-tracking timestamp; it is `null` when no GPS fix was attached.
+`latitude` and `longitude` are either both present or both `null`. When GPS is unavailable or permission is declined, TACResQ may send the SOS without a pin; optional `location_notes` can provide a landmark. The server never substitutes a guessed or stale coordinate. `location_recorded_at` records when the location was captured or manually confirmed, not a live-tracking timestamp; it is `null` when no pin was attached. `location_source` is `gps`, `manual`, or `none`. A manually selected map pin must not claim a GPS accuracy value.
 
 ## Endpoints used by the app today
 
@@ -81,8 +81,9 @@ Requester: incidents they created. Responder or driver: incidents assigned to th
 
 ### POST /incidents (requester)
 
-Request with GPS: `{ "type": "medical", "description": "optional", "latitude": 11.2433, "longitude": 125.0036, "accuracy_m": 12.0, "location_notes": null, "location_recorded_at": "2026-10-14T07:04:53.000000Z" }`
-Request without GPS: `{ "type": "medical", "description": "optional", "latitude": null, "longitude": null, "accuracy_m": null, "location_notes": "Blue gate beside the barangay hall", "location_recorded_at": null }`
+Request with GPS: `{ "type": "medical", "description": "optional", "latitude": 11.2433, "longitude": 125.0036, "accuracy_m": 12.0, "location_notes": null, "location_recorded_at": "2026-10-14T07:04:53.000000Z", "location_source": "gps" }`
+Request without GPS: `{ "type": "medical", "description": "optional", "latitude": null, "longitude": null, "accuracy_m": null, "location_notes": "Blue gate beside the barangay hall", "location_recorded_at": null, "location_source": "none" }`
+Manual map pin: send the selected latitude/longitude, `accuracy_m: null`, the pin-selection timestamp, and `location_source: "manual"`.
 Response 201: `{ Incident }` with `status: "pending"`.
 Coordinates must be a valid pair; capture time and accuracy require a coordinate pair. The app reads one current fix only after the requester taps Android's system location button; that fix is transmitted only if the requester later confirms the SOS. No background or continuous requester tracking is implemented.
 

@@ -3,13 +3,12 @@ package com.tacresq.app.ui.requester
 import android.app.Activity
 import android.content.Intent
 import android.provider.Settings
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,9 +31,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,9 +53,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.locationbutton.compose.LocationButton
 import androidx.core.locationbutton.compose.LocationButtonTextType
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.model.GeoFix
@@ -77,7 +84,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.io.File
 import java.util.Locale
+import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
 import kotlin.math.abs
 import kotlin.math.ceil
 
@@ -173,6 +188,28 @@ class RequesterViewModel(
         "The secure location prompt couldn't start. Retry the location button or send without GPS."
     )
 
+    fun setManualLocation(latitude: Double, longitude: Double) {
+        if (!latitude.isFinite() || latitude !in -90.0..90.0 || !longitude.isFinite() || longitude !in -180.0..180.0) {
+            showLocationError("The selected map pin is invalid. Move the pin and try again.")
+            return
+        }
+        _state.update {
+            it.copy(
+                locationFix = GeoFix(
+                    latitude = latitude,
+                    longitude = longitude,
+                    accuracyM = null,
+                    capturedAtEpochMillis = System.currentTimeMillis(),
+                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos(),
+                    hasPrecisePermission = false,
+                    manuallySelected = true,
+                ),
+                locationError = null,
+                error = null,
+            )
+        }
+    }
+
     fun clearLocationFix() {
         _state.update { it.copy(locationFix = null, locationError = null) }
     }
@@ -183,7 +220,7 @@ class RequesterViewModel(
             _state.update {
                 it.copy(
                     locationFix = null,
-                    locationError = "The saved GPS fix is older than two minutes and will not be sent. Capture a fresh fix or review the SOS without a pin.",
+                    locationError = "The selected location pin is older than two minutes and will not be sent. Capture a fresh GPS fix, choose the map pin again, or review without a pin.",
                 )
             }
         }
@@ -200,7 +237,7 @@ class RequesterViewModel(
             _state.update {
                 it.copy(
                     locationFix = null,
-                    locationError = "The GPS fix expired while you were reviewing. No request was sent; capture a new fix or review again without a pin.",
+                    locationError = "The location pin expired while you were reviewing. No request was sent; capture a fresh GPS fix, choose the map pin again, or review again without a pin.",
                 )
             }
             return
@@ -215,8 +252,9 @@ class RequesterViewModel(
                     val locationConfirmed = locationResponseMatches(fix, landmark, created)
                     val status = when {
                         !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
-                        fix != null -> "SOS sent. Dispatch confirmed a one-time GPS pin; TACResQ is not tracking you continuously."
-                        else -> "SOS sent without a GPS pin. Dispatch received your request and can call you; any landmark note is included."
+                        fix?.manuallySelected == true -> "SOS sent. Dispatch confirmed the map pin you selected."
+                        fix != null -> "SOS sent. Dispatch confirmed the one-time GPS pin you submitted."
+                        else -> "SOS sent without a GPS pin. Dispatch received your request; any landmark note is included."
                     }
                     _state.update {
                         it.copy(
@@ -235,6 +273,12 @@ class RequesterViewModel(
 
     private fun locationResponseMatches(fix: GeoFix?, notes: String?, incident: Incident): Boolean {
         if (incident.locationNotes?.trim().orEmpty() != notes?.trim().orEmpty()) return false
+        val expectedSource = when {
+            fix == null -> "none"
+            fix.manuallySelected -> "manual"
+            else -> "gps"
+        }
+        if (incident.locationSource != expectedSource) return false
         if (fix == null) {
             return incident.latitude == null && incident.longitude == null &&
                 incident.accuracyM == null && incident.locationRecordedAt.isNullOrBlank()
@@ -259,7 +303,6 @@ class RequesterViewModel(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -302,6 +345,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
     var confirmingSos by rememberSaveable { mutableStateOf(false) }
+    var showManualPinPicker by rememberSaveable { mutableStateOf(false) }
     var requestStep by rememberSaveable { mutableStateOf(1) }
     val freshFix = state.locationFix?.takeIf(vm::isFresh)
     val activeIncident = state.incidents.firstOrNull { it.status.isActive }
@@ -348,17 +392,32 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     when (requestStep) {
                         1 -> {
                             Text("What kind of help do you need?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            FlowRow(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 IncidentType.entries.forEach { type ->
-                                    FilterChip(
-                                        selected = type == selectedType,
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (type == selectedType)
+                                                MaterialTheme.colorScheme.secondaryContainer
+                                            else MaterialTheme.colorScheme.surface,
+                                        ),
                                         onClick = { selectedType = type },
-                                        label = { Text(type.label) },
-                                    )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            RadioButton(
+                                                selected = type == selectedType,
+                                                onClick = { selectedType = type },
+                                            )
+                                            Text(type.label, style = MaterialTheme.typography.bodyLarge)
+                                        }
+                                    }
                                 }
                             }
                             OutlinedTextField(value = description, onValueChange = { if (it.length <= 2000) description = it },
@@ -381,9 +440,18 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                     onPermissionResult = { granted -> if (granted) requestLocationAfterPermission() else vm.onLocationDenied() },
                                     onError = { vm.onLocationButtonError() })
                             }
+                            OutlinedButton(
+                                onClick = { showManualPinPicker = true },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                enabled = !state.capturingLocation && !state.sending,
+                            ) {
+                                Icon(Icons.Default.LocationOn, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (freshFix?.manuallySelected == true) "Adjust map pin" else "Choose location on map")
+                            }
                             when {
                                 freshFix != null -> LocationFixCard(freshFix, onClear = vm::clearLocationFix)
-                                state.locationFix != null -> LocationNoticeCard("GPS fix expired", "This fix will not be sent. Capture a new fix or continue without GPS.")
+                                state.locationFix != null -> LocationNoticeCard("Location pin expired", "This pin will not be sent. Capture a fresh GPS fix, choose a map pin again, or continue without a pin.")
                                 !state.capturingLocation -> LocationNoticeCard("No GPS pin", "Add a landmark or continue without GPS.")
                             }
                             state.locationError?.let { Banner(it, isError = true, onDismiss = vm::dismissMessages) }
@@ -429,6 +497,19 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         items(state.incidents, key = { it.id }) { incident -> IncidentCard(incident) }
     }
 
+    if (showManualPinPicker) {
+        val initial = freshFix
+        ManualLocationPickerDialog(
+            initialLatitude = initial?.latitude ?: 11.2443,
+            initialLongitude = initial?.longitude ?: 125.0030,
+            onDismiss = { showManualPinPicker = false },
+            onConfirm = { latitude, longitude ->
+                vm.setManualLocation(latitude, longitude)
+                showManualPinPicker = false
+            },
+        )
+    }
+
     if (confirmingSos) {
         AlertDialog(
             onDismissRequest = { confirmingSos = false },
@@ -442,7 +523,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     description.trim().takeIf { it.isNotEmpty() }?.let { Text("Report details: $it") }
                     if (freshFix != null) {
                         Text(locationSummary(freshFix))
-                        Text("The pin is a single capture, not live tracking.", style = MaterialTheme.typography.bodySmall)
+                        Text("Only this pin is included with the SOS; ongoing location updates are not sent.", style = MaterialTheme.typography.bodySmall)
                     } else {
                         Text("No GPS pin. Dispatch may call to confirm your location.")
                     }
@@ -481,15 +562,23 @@ private fun LocationFixCard(fix: GeoFix, onClear: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("One-time GPS fix ready", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text("Reported accuracy: $accuracy · captured $captured", style = MaterialTheme.typography.bodySmall)
             Text(
+                if (fix.manuallySelected) "Map pin selected" else "One-time GPS fix ready",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                if (fix.manuallySelected) "Coordinates chosen by you on the map · selected $captured"
+                else "Reported accuracy: $accuracy · captured $captured",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (!fix.manuallySelected) Text(
                 if (fix.hasPrecisePermission) "Precise location access was granted for this action."
                 else "Approximate location access is active; the pin may be broad.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (fix.accuracyM == null || fix.accuracyM > 100f) {
+            if (!fix.manuallySelected && (fix.accuracyM == null || fix.accuracyM > 100f)) {
                 Text(
                     "This fix is broad or has no reported accuracy. Add a landmark, or remove the location pin if you can't confirm it identifies you.",
                     style = MaterialTheme.typography.bodySmall,
@@ -519,6 +608,130 @@ private fun locationSummary(fix: GeoFix): String {
         ?: "accuracy not reported"
     val timestamp = runCatching { formatTime(Instant.ofEpochMilli(fix.capturedAtEpochMillis).toString()) }
         .getOrDefault("just now")
+    if (fix.manuallySelected) {
+        return "Your manually selected map pin (" +
+            String.format(Locale.US, "%.5f", fix.latitude) + ", " +
+            String.format(Locale.US, "%.5f", fix.longitude) +
+            "), selected $timestamp, will be sent to dispatch."
+    }
     val precision = if (fix.hasPrecisePermission) "GPS pin" else "approximate GPS pin"
     return "One $precision ($accuracy), captured $timestamp, will be sent to dispatch."
+}
+
+
+@Composable
+private fun ManualLocationPickerDialog(
+    initialLatitude: Double,
+    initialLongitude: Double,
+    onDismiss: () -> Unit,
+    onConfirm: (Double, Double) -> Unit,
+) {
+    val context = LocalContext.current
+    val centerCoordinates = androidx.compose.runtime.remember {
+        mutableStateOf(initialLatitude to initialLongitude)
+    }
+    val mapView = androidx.compose.runtime.remember {
+        val osmdroidBase = File(context.cacheDir, "osmdroid").apply { mkdirs() }
+        val tileCache = File(osmdroidBase, "tiles").apply { mkdirs() }
+        val config = Configuration.getInstance()
+        config.setOsmdroidBasePath(osmdroidBase)
+        config.setOsmdroidTileCache(tileCache)
+        config.userAgentValue = "TACResQ/1.0.0 (" + context.packageName + "; Android)"
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            isTilesScaledToDpi = true
+            controller.setZoom(17.0)
+            controller.setCenter(GeoPoint(initialLatitude, initialLongitude))
+            addMapListener(object : MapListener {
+                override fun onScroll(event: ScrollEvent?): Boolean {
+                    val point = mapCenter
+                    centerCoordinates.value = point.latitude to point.longitude
+                    return true
+                }
+                override fun onZoom(event: ZoomEvent?): Boolean {
+                    val point = mapCenter
+                    centerCoordinates.value = point.latitude to point.longitude
+                    return true
+                }
+            })
+        }
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(mapView, lifecycleOwner) {
+        var mapIsResumed = false
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    if (!mapIsResumed) {
+                        mapView.onResume()
+                        mapIsResumed = true
+                    }
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    if (mapIsResumed) {
+                        mapView.onPause()
+                        mapIsResumed = false
+                    }
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            if (mapIsResumed) mapView.onPause()
+            mapView.onDetach()
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pinpoint the emergency location") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Drag the map until the exact location is under the center pin. This can be different from your phone's GPS location.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.fillMaxWidth().height(320.dp),
+                ) {
+                    AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Selected location at map center",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.align(Alignment.Center).offset(y = (-18).dp).size(38.dp),
+                    )
+                }
+                Text(
+                    String.format(
+                        Locale.US,
+                        "Selected center: %.5f, %.5f",
+                        centerCoordinates.value.first,
+                        centerCoordinates.value.second,
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Text(
+                    "Wait until roads and landmarks appear before confirming. If the map stays blank, cancel and use a landmark instead.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.Button(
+                onClick = {
+                    val point = mapView.mapCenter
+                    if (point.latitude.isFinite() && point.longitude.isFinite()) {
+                        onConfirm(point.latitude, point.longitude)
+                    }
+                },
+            ) { Text("Use this location") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }

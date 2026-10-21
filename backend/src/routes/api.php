@@ -22,6 +22,7 @@ $incidentJson = static function (Incident $incident): array {
         'accuracy_m' => $incident->accuracy_m === null ? null : (float) $incident->accuracy_m,
         'location_notes' => $incident->location_notes,
         'location_recorded_at' => $incident->location_recorded_at?->toISOString(),
+        'location_source' => $incident->location_source,
         'status' => $incident->status, 'requester_name' => $incident->requester?->name,
         'requester_phone' => $incident->requester?->phone, 'assigned_to' => $incident->assigned_to,
         'created_at' => $incident->created_at?->toISOString(),
@@ -78,16 +79,39 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
             'accuracy_m' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'location_notes' => ['nullable', 'string', 'max:500'],
             'location_recorded_at' => ['nullable', 'date'],
+            'location_source' => ['nullable', Rule::in(['gps', 'manual', 'none'])],
         ]);
         abort_if(
             isset($data['latitude']) !== isset($data['longitude']),
             422,
             'Latitude and longitude must be supplied together.'
         );
+        $hasCoordinates = isset($data['latitude']) && isset($data['longitude']);
+        $data['location_source'] ??= $hasCoordinates ? 'gps' : 'none';
         abort_if(
-            ($data['latitude'] ?? null) === null && (($data['accuracy_m'] ?? null) !== null || ($data['location_recorded_at'] ?? null) !== null),
+            !$hasCoordinates && $data['location_source'] !== 'none',
             422,
-            'Accuracy and capture time require a GPS coordinate pair.'
+            'A missing location must use source none.'
+        );
+        abort_if(
+            $hasCoordinates && $data['location_source'] === 'none',
+            422,
+            'Coordinates require a GPS or manual location source.'
+        );
+        abort_if(
+            $data['location_source'] === 'manual' && ($data['accuracy_m'] ?? null) !== null,
+            422,
+            'A manually selected pin cannot claim GPS accuracy.'
+        );
+        abort_if(
+            !$hasCoordinates && (($data['accuracy_m'] ?? null) !== null || ($data['location_recorded_at'] ?? null) !== null),
+            422,
+            'Accuracy and capture time require a coordinate pair.'
+        );
+        abort_if(
+            $hasCoordinates && ($data['location_recorded_at'] ?? null) === null,
+            422,
+            'A location capture time is required with coordinates.'
         );
         $data['location_notes'] = isset($data['location_notes']) ? (trim($data['location_notes']) ?: null) : null;
         $incident = DB::transaction(function () use ($data, $request) {
