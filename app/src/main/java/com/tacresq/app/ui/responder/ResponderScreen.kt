@@ -264,13 +264,13 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().safeDrawingPadding(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
             ScreenHeader(
                 title = "Hello, ${user.name.substringBefore(' ')}",
-                subtitle = user.role.label,
+                subtitle = "",
                 onLogout = {
                     vm.stopTracking("Location sharing stopped because you signed out.")
                     onLogout()
