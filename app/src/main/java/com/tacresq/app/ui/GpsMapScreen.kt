@@ -471,7 +471,7 @@ fun GpsMapScreen(
                     OutlinedButton(
                         onClick = onLocateClick,
                         modifier = Modifier.weight(1.2f),
-                    ) { Text(if (deviceFix == null) "Locate me" else "Refresh GPS") }
+                    ) { Text(if (deviceFix == null) "Locate me" else "Refresh location") }
                 }
 
                 if (detailsExpanded) {
