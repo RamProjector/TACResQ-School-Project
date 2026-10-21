@@ -45,6 +45,9 @@ jobs:
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
+      - name: Check manual SOS pin provenance and requester UI
+        run: python3 tools/test_manual_location_source.py
+
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
 
