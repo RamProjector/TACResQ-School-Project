@@ -127,8 +127,10 @@ class TacRepository(
     // ---- internals ----
 
     private suspend fun startSession(response: AuthResponse) {
-        tokenHolder.value = response.token
+        // Persist first: if Keystore encryption/storage fails, don't leave a valid bearer
+        // token in memory while the UI correctly treats the user as signed out.
         store.save(Session(response.token, response.user))
+        tokenHolder.value = response.token
     }
 
     private suspend fun endSession() {
