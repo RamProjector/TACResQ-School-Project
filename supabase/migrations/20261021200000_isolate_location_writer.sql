@@ -36,7 +36,8 @@ begin
     join public.incidents i on i.assigned_to = p.id
    where p.auth_user_id = auth.uid()
      and p.role in ('responder', 'driver')
-     and i.id = p_incident_id;
+     and i.id = p_incident_id
+   for update of i;
 
   if actor_id is null or incident_status <> 'en_route' then
     raise exception 'Location tracking is only available to the assigned en-route unit' using errcode = '42501';
