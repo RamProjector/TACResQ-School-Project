@@ -150,3 +150,13 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - **Safety:** no location is collected by this action; no API upload, backend/schema, Supabase, Render, credentials, or live incident data changed.
 - **Validation:** PR CI pending. No local Android build, emulator, physical-device GPS, or live map-tile test was run through the GitHub connector.
 - **Next:** inspect the diff, open PR, run CI, fix any failures, and merge only if all relevant checks pass. Continue to distinguish CI build success from actual device GPS/tile QA.
+
+
+## Agent handoff — automatic GPS Map incident framing (2026-10-21)
+
+- **Base:** `main` at `97e6836c1b26aafeca39ad3cc7c07aae2dc03a6e` (PR #38 merged after all four CI jobs passed).
+- **Branch:** `agent/gps-map-initial-incident-framing`.
+- **Objective:** remove the initial “empty map” surprise when valid active incident coordinates are already loaded; frame them automatically on first availability while keeping the manual **Show incident pins** action.
+- **Implementation:** after map overlays are populated, schedule initial viewport framing with `MapView.post` so the map has layout dimensions. One point is centered/zoomed; multiple points are fitted. It does not request location permission or upload anything. If no incident coordinates are available, the map remains at its default Tacloban center; if a one-time device fix is shown, automatic framing does not override it.
+- **Validation:** source contract added; PR CI still required. No local device/emulator or real tile test through the connector.
+- **Safety:** no backend/schema, Supabase/Render, credentials, or real incident data touched.
