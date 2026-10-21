@@ -47,6 +47,8 @@ jobs:
 
       - name: Check manual SOS pin provenance and requester UI
         run: python3 tools/test_manual_location_source.py
+      - name: Check Supabase migration history alignment
+        run: python3 tools/test_migration_history_alignment.py
 
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
