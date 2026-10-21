@@ -30,7 +30,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -78,7 +77,7 @@ fun GpsMapScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
-    var locationStatus by rememberSaveable {
+    var locationStatus by remember {
         mutableStateOf("Your location is hidden until you tap Locate me.")
     }
     val visibleIncidents = when (role) {
