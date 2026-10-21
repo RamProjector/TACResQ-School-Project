@@ -40,7 +40,13 @@ checks = {
     ),
     "legacy GPS RPC default remains compatible while missing locations use none": (
         "alter column location_source set default 'gps'" in migration
+        and "case when p_latitude is null then 'none' else 'gps' end" in migration
         and "p_location_source <> 'none'" in migration
+    ),
+    "incident history and status responses preserve location source": (
+        migration.count("'location_source', i.location_source") >= 6
+        and "create or replace function public.api_my_incidents()" in migration
+        and "create or replace function public.api_all_incidents()" in migration
     ),
     "emergency types use an organized vertical radio selection": (
         "IncidentType.entries.forEach { type ->" in requester
