@@ -31,6 +31,7 @@ import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
+import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.ui.common.Banner
@@ -48,6 +49,7 @@ import kotlinx.coroutines.launch
 data class DispatcherUiState(
     val incidents: List<Incident> = emptyList(),
     val units: List<User> = emptyList(),
+    val responderLocations: List<ResponderLocation> = emptyList(),
     val loading: Boolean = true,
     val busy: Boolean = false,
     val notice: String? = null,
@@ -66,11 +68,13 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
         refreshJob = viewModelScope.launch {
             val incidents = repo.allIncidents()
             val units = repo.units()
-            val refreshError = incidents.exceptionOrNull() ?: units.exceptionOrNull()
+            val responderLocations = repo.activeResponderLocations()
+            val refreshError = incidents.exceptionOrNull() ?: units.exceptionOrNull() ?: responderLocations.exceptionOrNull()
             _state.update { current ->
                 current.copy(
                     incidents = incidents.getOrNull() ?: current.incidents,
                     units = units.getOrNull() ?: current.units,
+                    responderLocations = responderLocations.getOrNull() ?: current.responderLocations,
                     loading = false,
                     syncError = refreshError?.message,
                     lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else current.lastSyncedAtEpochMs,

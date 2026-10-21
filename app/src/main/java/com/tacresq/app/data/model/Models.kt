@@ -78,6 +78,15 @@ data class Incident(
 
 data class Session(val token: String, val user: User)
 
+data class ResponderLocation(
+    @SerializedName("incident_id") val incidentId: Long,
+    @SerializedName("user_id") val userId: Long,
+    val latitude: Double,
+    val longitude: Double,
+    @SerializedName("accuracy_m") val accuracyM: Float? = null,
+    @SerializedName("recorded_at") val recordedAt: String,
+)
+
 sealed interface SessionState {
     data object Loading : SessionState
     data object LoggedOut : SessionState

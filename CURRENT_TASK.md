@@ -182,3 +182,15 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - **Current branch:** `agent/docs-release-signing-qa-handoff`; documentation-only alignment in `docs/QA_WORKFLOWS.md` plus this handoff.
 - **Safety:** no credentials/secrets, Supabase schema or live data, Render deployment, or real emergency records changed.
 - **Next concrete action:** run CI on the documentation PR, resolve any failures, then merge only if all required checks pass. The remaining GPS/map behavior requires manual testing on an Android device with internet and location services enabled.
+
+
+## Agent handoff — dispatcher GPS Map unit markers (2026-10-21)
+
+- **Objective:** connect the existing dispatcher-only Supabase RPC `api_active_responder_locations` to the Android GPS Map so dispatchers can see fresh, consented foreground location reports from en-route units.
+- **Base:** `main` at `bd6843fbb1ba395bf31d4571af0864ecd6d13730` (PR #41 merged; no open PRs at task start).
+- **Branch:** `agent/dispatcher-live-unit-map-markers`.
+- **Implementation:** add the responder-location model and API/repository contract; fetch locations alongside dispatcher incident/unit refresh; refresh while the dispatcher map is open; draw markers only for valid reports no older than two minutes; auto-frame fresh unit points alongside incidents; add a **Show active units** control; keep the fake backend empty rather than fabricating GPS. The location RPC remains dispatcher-only and existing consent-gated foreground collection is unchanged.
+- **Files changed:** Android model/API/Supabase adapter/fake adapter/repository/dispatcher view model/GPS Map/AppRoot, source-contract checks, README, GPS location notes, and this handoff.
+- **Safety:** no live Supabase migration was applied, no secrets changed, no real incidents or GPS records touched, and no deployment performed.
+- **Validation status:** changes are being prepared through GitHub's remote file/commit API; local Android build/device tests were not available. CI must validate the PR before merge. Verify dispatcher-only denial, freshness filtering, Android compilation, and all required CI jobs. The Laravel adapter route for active responder locations is not implemented; this screen's location feed requires the Supabase adapter.
+- **Next action:** inspect generated commit and PR diff; run CI, fix any failures, and leave the PR open for review unless the user authorizes merge after all required checks pass.

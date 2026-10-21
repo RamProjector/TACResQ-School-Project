@@ -46,7 +46,7 @@ The [GPS map UI recommendation](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) explai
 | Centered role-aware GPS Map destination | Implemented |
 | Foreground responder location sharing | Implemented in source; approximate, consent-gated, and stops when the app leaves the foreground; not device-validated |
 | Background responder tracking | Not implemented |
-| In-app map tiles and live fleet markers | Not yet implemented |
+| In-app map tiles and live fleet markers | OpenStreetMap tiles and incident pins implemented; dispatcher map can show fresh (≤2 min) consented en-route unit reports from the existing Supabase RPC. Physical-device/network behavior remains unverified |
 | FCM push notifications | Not yet implemented |
 | Offline write synchronization | Not yet implemented |
 

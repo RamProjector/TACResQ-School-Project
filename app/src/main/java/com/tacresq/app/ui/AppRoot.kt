@@ -29,6 +29,7 @@ import com.tacresq.app.AppContainer
 import com.tacresq.app.location.LocationProvider
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.Role
+import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
 import com.tacresq.app.ui.auth.AuthScreen
@@ -79,7 +80,15 @@ fun AppRoot(container: AppContainer) {
                     Role.DISPATCHER -> {
                         val vm: DispatcherViewModel = viewModel(key = "dispatcher-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination ->
+                        RoleApp(
+                            role = user.role,
+                            incidents = vmState.incidents,
+                            user = user,
+                            locationProvider = container.locationProvider,
+                            logout = logout,
+                            responderLocations = vmState.responderLocations,
+                            onMapRefresh = vm::refresh,
+                        ) { destination ->
                             if (destination == AppDestination.PRIMARY) DispatcherScreen(vm, user, logout)
                             else RoleSectionScreen(destination, user, logout, vmState.incidents, vmState.units)
                         }
@@ -97,6 +106,8 @@ private fun RoleApp(
     user: User,
     locationProvider: LocationProvider,
     logout: () -> Unit,
+    responderLocations: List<ResponderLocation> = emptyList(),
+    onMapRefresh: () -> Unit = {},
     contentFor: @Composable (AppDestination) -> Unit,
 ) {
     var destination by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
@@ -111,6 +122,8 @@ private fun RoleApp(
                 user = user,
                 incidents = incidents,
                 locationProvider = locationProvider,
+                responderLocations = responderLocations,
+                onRefreshResponderLocations = onMapRefresh,
                 onBack = { destination = AppDestination.PRIMARY },
             )
         },

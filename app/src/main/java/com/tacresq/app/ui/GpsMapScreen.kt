@@ -47,13 +47,17 @@ import org.osmdroid.views.overlay.Marker
 import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.Role
+import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
 import com.tacresq.app.ui.common.StatusPill
 import com.tacresq.app.ui.common.formatTime
 import com.tacresq.app.ui.common.pillColor
 import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationProvider
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Duration
+import java.time.Instant
 import kotlin.math.roundToInt
 import java.util.Locale
 
@@ -66,12 +70,21 @@ private fun Incident.hasValidMapCoordinates(): Boolean {
     return lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0
 }
 
+private fun ResponderLocation.isFreshMapLocation(now: Instant = Instant.now()): Boolean {
+    if (!latitude.isFinite() || !longitude.isFinite() || latitude !in -90.0..90.0 || longitude !in -180.0..180.0) return false
+    val recorded = runCatching { Instant.parse(recordedAt) }.getOrNull() ?: return false
+    val age = runCatching { Duration.between(recorded, now).seconds }.getOrNull() ?: return false
+    return age in 0L..120L
+}
+
 @Composable
 fun GpsMapScreen(
     role: Role,
     user: User,
     incidents: List<Incident>,
     locationProvider: LocationProvider,
+    responderLocations: List<ResponderLocation> = emptyList(),
+    onRefreshResponderLocations: () -> Unit = {},
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -79,6 +92,7 @@ fun GpsMapScreen(
     val scope = rememberCoroutineScope()
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
     var hasAutoFramedIncidents by remember { mutableStateOf(false) }
+    var freshnessTick by remember { mutableStateOf(0) }
     var locationStatus by remember {
         mutableStateOf("Your location is hidden until you tap Locate me.")
     }
@@ -103,6 +117,19 @@ fun GpsMapScreen(
             GeoPoint(lat, lng)
         } else {
             null
+        }
+    }
+    val freshResponderLocations = if (role == Role.DISPATCHER) responderLocations.filter { it.isFreshMapLocation() } else emptyList()
+    val validResponderPoints = freshResponderLocations.map { GeoPoint(it.latitude, it.longitude) }
+    val initialMapPoints = if (role == Role.DISPATCHER) validIncidentPoints + validResponderPoints else validIncidentPoints
+
+    androidx.compose.runtime.LaunchedEffect(role, user.id) {
+        if (role == Role.DISPATCHER) {
+            while (true) {
+                onRefreshResponderLocations()
+                delay(15_000)
+                freshnessTick += 1
+            }
         }
     }
 
@@ -130,6 +157,23 @@ fun GpsMapScreen(
                 deviceFix = null
                 mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)
                 locationStatus = "Showing all ${validIncidentPoints.size} confirmed incident pins. Tap Locate me to return to your device location."
+            }
+        }
+    }
+
+    fun showActiveUnits() {
+        when (validResponderPoints.size) {
+            0 -> locationStatus = "No fresh field-unit location reports are available. Units must be en route and explicitly sharing foreground location."
+            1 -> {
+                deviceFix = null
+                mapView.controller.setZoom(15.0)
+                mapView.controller.animateTo(validResponderPoints.first())
+                locationStatus = "Centered on the latest reported field-unit location."
+            }
+            else -> {
+                deviceFix = null
+                mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validResponderPoints), true, 64)
+                locationStatus = "Showing all ${validResponderPoints.size} fresh field-unit location reports."
             }
         }
     }
@@ -222,7 +266,7 @@ fun GpsMapScreen(
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(mapView, visibleIncidents, deviceFix) {
+    androidx.compose.runtime.LaunchedEffect(mapView, visibleIncidents, freshResponderLocations, deviceFix, freshnessTick) {
         mapView.overlays.removeAll { it is Marker }
         visibleIncidents.forEach { incident ->
             val latitude = incident.latitude
@@ -238,6 +282,16 @@ fun GpsMapScreen(
                 mapView.overlays.add(marker)
             }
         }
+        freshResponderLocations.forEach { location ->
+            val marker = Marker(mapView).apply {
+                position = GeoPoint(location.latitude, location.longitude)
+                setTitle("Field unit · Incident #${location.incidentId}")
+                val accuracy = location.accuracyM?.let { " · accuracy about ${it.roundToInt()} m" } ?: ""
+                snippet = "Last reported ${location.recordedAt}$accuracy. Dispatcher-only, consented foreground location."
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            }
+            mapView.overlays.add(marker)
+        }
         deviceFix?.let { fix ->
             val locationMarker = Marker(mapView).apply {
                 position = GeoPoint(fix.latitude, fix.longitude)
@@ -247,19 +301,19 @@ fun GpsMapScreen(
             }
             mapView.overlays.add(locationMarker)
         }
-        if (!hasAutoFramedIncidents && deviceFix == null && validIncidentPoints.isNotEmpty()) {
-            // Wait until the AndroidView has dimensions before asking osmdroid to fit its viewport.
+        if (!hasAutoFramedIncidents && deviceFix == null && initialMapPoints.isNotEmpty()) {
+            // Include fresh dispatcher unit points so markers are discoverable even when far from incidents.
             hasAutoFramedIncidents = true
             mapView.post {
-                when (validIncidentPoints.size) {
+                when (initialMapPoints.size) {
                     1 -> {
                         mapView.controller.setZoom(15.0)
-                        mapView.controller.animateTo(validIncidentPoints.first())
-                        locationStatus = "Centered on the available incident pin. Tap Locate me to preview your device location."
+                        mapView.controller.animateTo(initialMapPoints.first())
+                        locationStatus = "Centered on the available incident or field-unit pin."
                     }
                     else -> {
-                        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)
-                        locationStatus = "Showing all ${validIncidentPoints.size} available incident pins. Tap Locate me to preview your device location."
+                        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(initialMapPoints), true, 64)
+                        locationStatus = "Showing available incident pins and fresh field-unit locations."
                     }
                 }
             }
@@ -302,9 +356,14 @@ fun GpsMapScreen(
                     when {
                         visibleIncidents.any { it.hasValidMapCoordinates() } && deviceFix != null ->
                             "Real map · incident pins and your device-only location"
+                        role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() && visibleIncidents.any { it.hasValidMapCoordinates() } ->
+                            "Real map · incident pins and ${freshResponderLocations.size} fresh field-unit location(s)"
+                        role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() ->
+                            "Real map · ${freshResponderLocations.size} fresh field-unit location(s)"
                         visibleIncidents.any { it.hasValidMapCoordinates() } ->
                             "Real map · confirmed incident pins only"
                         deviceFix != null -> "Real map · your one-time location only"
+                        role == Role.DISPATCHER && responderLocations.isNotEmpty() -> "Real map · field-unit reports are older than 2 minutes or invalid"
                         else -> "Real map · no confirmed incident pins yet"
                     },
                     fontWeight = FontWeight.SemiBold,
@@ -328,6 +387,11 @@ fun GpsMapScreen(
                         modifier = Modifier.weight(1f),
                     ) {
                         Text("Show incident pins")
+                    }
+                    if (role == Role.DISPATCHER) {
+                        OutlinedButton(onClick = ::showActiveUnits, modifier = Modifier.weight(1f)) {
+                            Text("Show active units")
+                        }
                     }
                     OutlinedButton(
                         onClick = onLocateClick,

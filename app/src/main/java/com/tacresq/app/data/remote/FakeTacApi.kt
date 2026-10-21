@@ -4,6 +4,7 @@ import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.Role
+import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.nextSteps
 import kotlinx.coroutines.CoroutineScope
@@ -135,6 +136,15 @@ class FakeTacApi(
         return synchronized(lock) {
             if (current().role != Role.DISPATCHER) throw httpError(403, "Only dispatchers can view field units.")
             accounts.map { it.user }.filter { it.role == Role.RESPONDER || it.role == Role.DRIVER }
+        }
+    }
+
+    override suspend fun activeResponderLocations(): List<ResponderLocation> {
+        delay(150)
+        return synchronized(lock) {
+            if (current().role != Role.DISPATCHER) throw httpError(403, "Only dispatchers can view responder locations.")
+            // The fake backend never fabricates GPS points.
+            emptyList()
         }
     }
 

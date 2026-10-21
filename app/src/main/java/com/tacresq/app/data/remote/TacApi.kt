@@ -5,6 +5,7 @@ import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.IncidentType
+import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -43,6 +44,10 @@ interface TacApi {
     /** Dispatcher: responders and drivers available for assignment. */
     @GET("units")
     suspend fun units(): List<User>
+
+    /** Dispatcher only: latest reported locations for active en-route units. */
+    @POST("me/active-responder-locations")
+    suspend fun activeResponderLocations(): List<ResponderLocation>
 
     @POST("incidents")
     suspend fun createIncident(@Body body: CreateIncidentRequest): Incident
