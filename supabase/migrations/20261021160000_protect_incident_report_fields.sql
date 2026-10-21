@@ -19,7 +19,8 @@ BEGIN
   -- Responders and drivers may progress an assigned incident, but must not alter
   -- the requester's report, original coordinates, or original report timestamps.
   IF actor_role IN ('responder', 'driver') AND (
-       NEW.requester_id IS DISTINCT FROM OLD.requester_id
+       NEW.id IS DISTINCT FROM OLD.id
+    OR NEW.requester_id IS DISTINCT FROM OLD.requester_id
     OR NEW.type IS DISTINCT FROM OLD.type
     OR NEW.description IS DISTINCT FROM OLD.description
     OR NEW.latitude IS DISTINCT FROM OLD.latitude
