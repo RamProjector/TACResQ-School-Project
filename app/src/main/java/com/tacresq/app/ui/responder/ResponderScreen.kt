@@ -350,12 +350,21 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
+                            val lastLocationSentAt = state.lastLocationSentAt
                             Text(
-                                if (sharing) "Approximate location sharing is active while this app is in the foreground."
-                                else "Responder location is not currently being shared.",
+                                when {
+                                    !sharing -> "Responder location is not currently being shared."
+                                    lastLocationSentAt == null && state.trackingError != null ->
+                                        "Location sharing was requested, but the first location update has not been confirmed."
+                                    lastLocationSentAt == null ->
+                                        "Location sharing is enabled; waiting for the first confirmed location update."
+                                    state.trackingError != null ->
+                                        "Location sharing is enabled, but the latest update failed."
+                                    else ->
+                                        "Approximate location sharing is active while this app is in the foreground."
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                             )
-                            val lastLocationSentAt = state.lastLocationSentAt
                             if (sharing && lastLocationSentAt != null) {
                                 val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
                                     .format(java.util.Date(lastLocationSentAt))
