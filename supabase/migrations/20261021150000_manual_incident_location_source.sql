@@ -311,5 +311,3 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
-
-commit;
