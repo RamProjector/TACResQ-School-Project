@@ -157,12 +157,13 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
             onLogout = logout,
         )
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                when (destination) {
+        if (destination != AppDestination.SECONDARY || role == Role.DISPATCHER) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    when (destination) {
                     AppDestination.SECONDARY -> {
                         if (role == Role.DISPATCHER) {
                             Text(
@@ -191,7 +192,8 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                         Text("Role: ${role.label}")
                         user.phone?.let { Text("Mobile: $it") }
                     }
-                    AppDestination.PRIMARY, AppDestination.MAP -> Unit
+                        AppDestination.PRIMARY, AppDestination.MAP -> Unit
+                    }
                 }
             }
         }
