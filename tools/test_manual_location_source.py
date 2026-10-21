@@ -71,6 +71,14 @@ checks = {
         and "TACResQ is not tracking you continuously" not in requester
         and "Only this pin is included with the SOS; ongoing location updates are not sent." in requester
     ),
+    "expired manual pins are not mislabeled as GPS fixes": all(
+        text in requester for text in (
+            "The selected location pin is older than two minutes",
+            "The location pin expired while you were reviewing.",
+            'LocationNoticeCard("Location pin expired"',
+            "choose the map pin again",
+        )
+    ),
     "server response source is verified before claiming location confirmation": (
         "if (incident.locationSource != expectedSource) return false" in requester
     ),
