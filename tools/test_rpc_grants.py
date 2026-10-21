@@ -83,7 +83,7 @@ assert table_privileges_revoke.search(SQL), "Missing revoke for unnecessary clie
 # SELECT/INSERT/UPDATE/DELETE and identity-sequence privileges for anon. This
 # follow-up must remove those grants without revoking authenticated privileges.
 ANON_PRIVILEGES_SQL = Path(
-    "supabase/migrations/20261021120000_revoke_anon_table_privileges.sql"
+    "supabase/migrations/20261021113046_revoke_anon_table_privileges.sql"
 ).read_text()
 
 direct_table_revoke = re.compile(

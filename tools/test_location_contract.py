@@ -7,7 +7,7 @@ Postgres with multiple authenticated roles.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-migration = (ROOT / "supabase/migrations/202610200002_responder_location_tracking.sql").read_text()
+migration = (ROOT / "supabase/migrations/20261020062532_responder_location_tracking.sql").read_text()
 dashboard = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
 location_provider = (ROOT / "app/src/main/java/com/tacresq/app/location/LocationProvider.kt").read_text()
 responder_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()

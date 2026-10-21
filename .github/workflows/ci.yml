@@ -47,6 +47,8 @@ jobs:
 
       - name: Check manual SOS pin provenance and requester UI
         run: python3 tools/test_manual_location_source.py
+      - name: Check Supabase migration history alignment
+        run: python3 tools/test_migration_history_alignment.py
 
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
@@ -332,3 +334,40 @@ jobs:
         run: |
           docker compose down --volumes --remove-orphans || true
           rm -f .env
+
+  supabase-migration-replay:
+    name: Replay Supabase migrations on clean PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: source-checks
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: tacresq_test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tacresq_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tacresq_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Replay every migration on a clean database
+        run: bash tools/test_supabase_migration_replay.sh
