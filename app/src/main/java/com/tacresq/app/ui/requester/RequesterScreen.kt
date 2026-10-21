@@ -46,6 +46,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -103,6 +104,8 @@ class RequesterViewModel(
     private var refreshJob: Job? = null
 
     fun isFresh(fix: GeoFix): Boolean = location.isFresh(fix)
+
+    suspend fun checkLocationSettings() = location.checkLocationSettings()
 
     fun refresh() {
         if (refreshJob?.isActive == true) return
@@ -261,6 +264,7 @@ class RequesterViewModel(
 @Composable
 fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var retryCaptureAfterSettings by rememberSaveable { mutableStateOf(false) }
     val locationSettingsLauncher = rememberLauncherForActivityResult(
@@ -288,9 +292,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     )
                 }.onFailure { vm.onLocationButtonError() }
                 LocationSettingsCheck.Unavailable -> runCatching {
-                    val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    androidx.compose.ui.platform.LocalContext.current.startActivity(intent)
+                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                 }.onFailure { vm.onLocationButtonError() }
             }
         }
