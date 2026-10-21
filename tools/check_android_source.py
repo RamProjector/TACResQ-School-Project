@@ -48,6 +48,10 @@ map_contract = {
         "if (!hasAutoFramedIncidents && deviceFix == null && validIncidentPoints.isNotEmpty())",
         "mapView.post {",
         "mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)",
+        "lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)",
+        "if (!mapIsResumed)",
+        "if (mapIsResumed)",
+        "mapView.onDetach()",
     ),
 }
 for relative_path, required_text in map_contract.items():
