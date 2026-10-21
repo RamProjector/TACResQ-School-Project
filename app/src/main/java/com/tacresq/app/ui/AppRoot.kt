@@ -140,10 +140,7 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
             Role.DISPATCHER -> "Field units"
         }
         AppDestination.ALERTS -> "Safety and alerts"
-        AppDestination.PROFILE -> when (role) {
-            Role.DISPATCHER -> "Activity log"
-            else -> "Profile"
-        }
+        AppDestination.PROFILE -> "Profile"
         AppDestination.PRIMARY, AppDestination.MAP -> "TACResQ"
     }
 
