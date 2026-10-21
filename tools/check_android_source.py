@@ -155,7 +155,7 @@ unit_location_contract = {
     "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt": ("activeResponderLocations(): List<ResponderLocation>",),
     "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt": ("Only dispatchers can view responder locations.", "emptyList()"),
     "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt": ("rest/v1/rpc/api_active_responder_locations",),
-    "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": ("age in 0..120", "Dispatcher-only, consented foreground location."),
+    "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": ("age in 0L..120L", "Dispatcher-only, consented foreground location."),
 }
 for relative_path, required_text in unit_location_contract.items():
     source = (ROOT / relative_path).read_text(encoding="utf-8")
