@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -100,6 +101,8 @@ fun GpsMapScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    // A dedicated map destination must return to the prior app screen on system Back too.
+    BackHandler { onBack() }
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
