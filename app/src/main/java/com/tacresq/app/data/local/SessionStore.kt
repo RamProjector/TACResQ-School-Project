@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import java.io.IOException
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -42,6 +43,18 @@ class SessionStore(
         context.sessionDataStore.data
             .catch { e ->
                 if (e is IOException) emit(emptyPreferences()) else throw e
+            }
+            .onEach { prefs ->
+                // Remove pre-encryption credentials as soon as this store is first read,
+                // not only after the user signs in successfully again.
+                if (prefs.contains(stringPreferencesKey("token")) ||
+                    prefs.contains(stringPreferencesKey("user_json"))
+                ) {
+                    context.sessionDataStore.edit { current ->
+                        current.remove(stringPreferencesKey("token"))
+                        current.remove(stringPreferencesKey("user_json"))
+                    }
+                }
             }
             .map { prefs ->
                 prefs[encryptedSessionKey]
