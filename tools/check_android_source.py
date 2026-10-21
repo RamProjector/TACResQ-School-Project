@@ -42,7 +42,7 @@ map_contract = {
         "incident.hasValidMapCoordinates() && latitude != null && longitude != null",
         "BoundingBox.fromGeoPoints(validIncidentPoints)",
         "mapView.zoomToBoundingBox(",
-        "Text(\"Show incident pins\")",
+        "contentDescription = \"Show incident pins\"",
         "There are no valid incident coordinates to center on yet.",
         "var hasAutoFramedIncidents by remember { mutableStateOf(false) }",
         "if (!hasAutoFramedIncidents && deviceFix == null && initialMapPoints.isNotEmpty())",
@@ -57,7 +57,7 @@ map_contract = {
         "freshResponderLocations.forEach",
         "Field unit · Incident #",
         "role == Role.DISPATCHER && freshResponderLocations.isNotEmpty()",
-        "Text(\"Show active units\")",
+        "contentDescription = \"Show active units\"",
     ),
 }
 for relative_path, required_text in map_contract.items():

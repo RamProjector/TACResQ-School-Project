@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -124,6 +132,7 @@ fun GpsMapScreen(
         }
     }
     val freshResponderLocations = if (role == Role.DISPATCHER) responderLocations.filter { it.isFreshMapLocation() } else emptyList()
+    val hasConfirmedIncidentCoordinates = visibleIncidents.any { it.hasValidMapCoordinates() }
     val validResponderPoints = freshResponderLocations.map { GeoPoint(it.latitude, it.longitude) }
     val initialMapPoints = if (role == Role.DISPATCHER) validIncidentPoints + validResponderPoints else validIncidentPoints
 
@@ -212,7 +221,12 @@ fun GpsMapScreen(
                             locationStatus = "Location permission denied. Incident pins remain available."
                         }
                         LocationCaptureResult.ServicesDisabled -> {
-                            locationStatus = "Device location is turned off. Enable it and try again."
+                            locationStatus = "Opening Android Location settings. Turn Location on, return here, and tap Locate me again."
+                            runCatching {
+                                context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                            }.onFailure {
+                                locationStatus = "Device Location is off. Turn it on in Quick Settings, return here, and tap Locate me again."
+                            }
                         }
                         LocationCaptureResult.TimedOut -> {
                             locationStatus = "No fresh location fix arrived in time. Try again."
@@ -236,7 +250,12 @@ fun GpsMapScreen(
                     }
                 }
                 LocationSettingsCheck.Unavailable -> {
-                    locationStatus = "Could not check device location settings. Enable Location in Quick Settings and try again."
+                    locationStatus = "Could not open the automatic location prompt. Opening Android Location settings instead."
+                    runCatching {
+                        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    }.onFailure {
+                        locationStatus = "Could not open Location settings. Enable Location in Quick Settings and try again."
+                    }
                 }
             }
         }
@@ -360,105 +379,166 @@ fun GpsMapScreen(
         mapView.invalidate()
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("TACRESQ · GPS MAP", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(onClick = onBack) { Text("Close") }
-        }
-        Text(
-            description,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    var detailsExpanded by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            factory = { mapView },
+            modifier = Modifier.fillMaxSize(),
+            update = { it.invalidate() },
         )
 
-        Box(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 12.dp, vertical = 8.dp)) {
-            AndroidView(
-                factory = { mapView },
-                modifier = Modifier.fillMaxSize(),
-                update = { view ->
-                    view.invalidate()
-                },
-            )
-        }
-
-        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("MAP STATUS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                Text(
-                    when {
-                        visibleIncidents.any { it.hasValidMapCoordinates() } && deviceFix != null ->
-                            "Real map · incident pins and your device-only location"
-                        role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() && visibleIncidents.any { it.hasValidMapCoordinates() } ->
-                            "Real map · incident pins and ${freshResponderLocations.size} fresh field-unit location(s)"
-                        role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() ->
-                            "Real map · ${freshResponderLocations.size} fresh field-unit location(s)"
-                        visibleIncidents.any { it.hasValidMapCoordinates() } ->
-                            "Real map · confirmed incident pins only"
-                        deviceFix != null -> "Real map · your one-time location only"
-                        role == Role.DISPATCHER && responderLocations.isNotEmpty() -> "Real map · field-unit reports are older than 2 minutes or invalid"
-                        else -> "Real map · no confirmed incident pins yet"
-                    },
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    "Map tiles require internet. Your one-time location preview stays on this device; no continuous tracking is started.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    locationStatus,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedButton(
-                        onClick = ::showIncidentPins,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("Show incident pins")
-                    }
-                    if (role == Role.DISPATCHER) {
-                        OutlinedButton(onClick = ::showActiveUnits, modifier = Modifier.weight(1f)) {
-                            Text("Show active units")
-                        }
-                    }
-                    OutlinedButton(
-                        onClick = onLocateClick,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(if (deviceFix == null) "Locate me" else "Refresh location")
-                    }
+        // Compact floating title: keep the map visible beneath it.
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 12.dp, top = 10.dp, end = 12.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            tonalElevation = 3.dp,
+            shadowElevation = 4.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 7.dp, bottom = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("TACRESQ · MAP", style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(
+                        when {
+                            deviceFix != null -> "Location preview active"
+                            validIncidentPoints.isNotEmpty() -> "${validIncidentPoints.size} confirmed pin(s)"
+                            else -> "No confirmed pins"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                androidx.compose.material3.IconButton(onClick = onBack) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Close,
+                        contentDescription = "Close map",
+                    )
                 }
             }
         }
 
-        LazyColumn(
-            modifier = Modifier.height(190.dp),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        // Map actions float independently instead of consuming a full-width toolbar.
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 12.dp)
+                .padding(bottom = 74.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.End,
         ) {
-            if (visibleIncidents.isEmpty()) {
-                item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text("No active incidents with coordinates", fontWeight = FontWeight.SemiBold)
-                            Text("An incident appears as a pin only after the service returns valid coordinates.", style = MaterialTheme.typography.bodySmall)
-                        }
+            androidx.compose.material3.FloatingActionButton(
+                onClick = onLocateClick,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+                    contentDescription = if (deviceFix == null) "Locate me" else "Refresh location",
+                )
+            }
+            androidx.compose.material3.FloatingActionButton(
+                onClick = ::showIncidentPins,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                    contentDescription = "Show incident pins",
+                )
+            }
+            if (role == Role.DISPATCHER) {
+                androidx.compose.material3.FloatingActionButton(
+                    onClick = ::showActiveUnits,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Groups,
+                        contentDescription = "Show active units",
+                    )
+                }
+            }
+        }
+
+        // A collapsed status capsule leaves the map as the main visual surface.
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
+            tonalElevation = 5.dp,
+            shadowElevation = 8.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            when {
+                                deviceFix != null -> "Location preview ready"
+                                role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() ->
+                                    "${freshResponderLocations.size} fresh field unit(s)"
+                                validIncidentPoints.isNotEmpty() -> "${validIncidentPoints.size} confirmed incident(s)"
+                                else -> "Map ready"
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            locationStatus,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = if (detailsExpanded) 4 else 1,
+                        )
+                    }
+                    androidx.compose.material3.IconButton(onClick = { detailsExpanded = !detailsExpanded }) {
+                        androidx.compose.material3.Icon(
+                            imageVector = if (detailsExpanded)
+                                androidx.compose.material.icons.Icons.Default.ExpandMore
+                            else androidx.compose.material.icons.Icons.Default.ExpandLess,
+                            contentDescription = if (detailsExpanded) "Collapse map details" else "Expand map details",
+                        )
                     }
                 }
-            } else {
-                items(visibleIncidents, key = { it.id }) { incident ->
-                    MapIncidentCard(incident = incident, context = context)
+
+                if (detailsExpanded) {
+                    Text(description, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Map tiles need internet. Your one-time location preview stays on this device; continuous tracking is not started.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (visibleIncidents.isEmpty()) {
+                        Text("No active incidents are available. Pins appear only when the service returns valid coordinates.",
+                            style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.height(132.dp),
+                            contentPadding = PaddingValues(vertical = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(visibleIncidents, key = { it.id }) { incident ->
+                                MapIncidentCard(incident = incident, context = context)
+                            }
+                        }
+                    }
                 }
             }
         }

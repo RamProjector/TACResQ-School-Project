@@ -1,7 +1,15 @@
 package com.tacresq.app.ui.requester
 
+import android.app.Activity
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,10 +42,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,6 +63,7 @@ import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationProvider
+import com.tacresq.app.location.LocationSettingsCheck
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
@@ -93,6 +104,8 @@ class RequesterViewModel(
     private var refreshJob: Job? = null
 
     fun isFresh(fix: GeoFix): Boolean = location.isFresh(fix)
+
+    suspend fun checkLocationSettings() = location.checkLocationSettings()
 
     fun refresh() {
         if (refreshJob?.isActive == true) return
@@ -247,9 +260,43 @@ class RequesterViewModel(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var retryCaptureAfterSettings by rememberSaveable { mutableStateOf(false) }
+    val locationSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            retryCaptureAfterSettings = true
+        } else {
+            vm.onLocationButtonError()
+        }
+    }
+    LaunchedEffect(retryCaptureAfterSettings) {
+        if (retryCaptureAfterSettings) {
+            retryCaptureAfterSettings = false
+            vm.captureLocation()
+        }
+    }
+    fun requestLocationAfterPermission() {
+        scope.launch {
+            when (val settings = vm.checkLocationSettings()) {
+                LocationSettingsCheck.Ready -> vm.captureLocation()
+                is LocationSettingsCheck.NeedsResolution -> runCatching {
+                    locationSettingsLauncher.launch(
+                        IntentSenderRequest.Builder(settings.exception.resolution).build(),
+                    )
+                }.onFailure { vm.onLocationButtonError() }
+                LocationSettingsCheck.Unavailable -> runCatching {
+                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                }.onFailure { vm.onLocationButtonError() }
+            }
+        }
+    }
     PollWhileStarted { vm.refresh() }
 
     var selectedType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
@@ -306,9 +353,17 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     when (requestStep) {
                         1 -> {
                             Text("What kind of help do you need?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(IncidentType.entries) { type ->
-                                    FilterChip(selected = type == selectedType, onClick = { selectedType = type }, label = { Text(type.label) })
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                IncidentType.entries.forEach { type ->
+                                    FilterChip(
+                                        selected = type == selectedType,
+                                        onClick = { selectedType = type },
+                                        label = { Text(type.label) },
+                                    )
                                 }
                             }
                             OutlinedTextField(value = description, onValueChange = { if (it.length <= 2000) description = it },
@@ -328,7 +383,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 LocationButton(modifier = Modifier.fillMaxWidth().height(56.dp), textType = LocationButtonTextType.SharePreciseLocation,
                                     backgroundColor = MaterialTheme.colorScheme.primary, strokeColor = MaterialTheme.colorScheme.primary,
                                     textColor = MaterialTheme.colorScheme.onPrimary, iconTint = MaterialTheme.colorScheme.onPrimary,
-                                    onPermissionResult = { granted -> if (granted) vm.captureLocation() else vm.onLocationDenied() },
+                                    onPermissionResult = { granted -> if (granted) requestLocationAfterPermission() else vm.onLocationDenied() },
                                     onError = { vm.onLocationButtonError() })
                             }
                             when {
