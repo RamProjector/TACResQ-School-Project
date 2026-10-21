@@ -24,7 +24,7 @@ Review the incident queue, inspect available field units, confirm assignments, a
 
 ### GPS Map
 
-Every authenticated role has a centered **GPS Map** destination in the mobile navigation shell. The map automatically frames valid incident pins when they first become available, and **Show incident pins** lets users reframe one pin or all available pins on demand. **Locate me** requests permission only after a tap, centers on one fresh device fix, and shows a device-only marker; that preview is not uploaded or continuously tracked. The map does not yet show live field-unit markers.
+Every authenticated role has a centered **GPS Map** destination in the mobile navigation shell. Selecting it hides the bottom navigation so the map fills the app viewport. The map automatically frames valid incident pins when they first become available, and **Show incident pins** lets users reframe one pin or all available pins on demand. **Locate me** requests permission only after a tap, centers on one fresh device fix, and shows a device-only marker; that preview is not uploaded or continuously tracked. The dispatcher view can also show fresh (at most two minutes old) foreground location reports from assigned en-route field units. Physical-device tile loading and GPS behavior remain unverified.
 
 ## Screens and wireframes
 

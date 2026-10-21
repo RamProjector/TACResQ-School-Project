@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,6 +72,7 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.math.roundToInt
 import java.util.Locale
+import java.io.File
 
 private const val TACLOBAN_LATITUDE = 11.2443
 private const val TACLOBAN_LONGITUDE = 125.0030
@@ -99,14 +101,14 @@ fun GpsMapScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    // A dedicated map destination must return to the prior app screen on system Back too.
+    BackHandler { onBack() }
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
     var hasAutoFramedIncidents by remember { mutableStateOf(false) }
     var freshnessTick by remember { mutableStateOf(0) }
-    var locationStatus by remember {
-        mutableStateOf("Your location is hidden until you tap Locate me.")
-    }
+    var locationStatus by remember { mutableStateOf<String?>(null) }
     var retryLocationAfterSettings by remember { mutableStateOf(false) }
     val visibleIncidents = when (role) {
         Role.REQUESTER, Role.RESPONDER, Role.DRIVER -> incidents.filter { it.status.isActive }
@@ -127,6 +129,23 @@ fun GpsMapScreen(
     val hasConfirmedIncidentCoordinates = visibleIncidents.any { it.hasValidMapCoordinates() }
     val validResponderPoints = freshResponderLocations.map { GeoPoint(it.latitude, it.longitude) }
     val initialMapPoints = if (role == Role.DISPATCHER) validIncidentPoints + validResponderPoints else validIncidentPoints
+    val defaultMapStatus = when {
+        deviceFix != null ->
+            "One-time location preview is active on this device only; it is not uploaded."
+        validIncidentPoints.isNotEmpty() ->
+            "Showing ${validIncidentPoints.size} confirmed incident pin(s). Tap Locate me to preview your location."
+        role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() ->
+            "No incident pins yet; showing fresh field-unit locations."
+        visibleIncidents.isNotEmpty() ->
+            "Active incidents exist, but none has valid coordinates. They cannot appear as map pins."
+        else ->
+            "No active incidents with valid coordinates are available for this role yet. Pins appear when an incident has a valid location."
+    }
+
+    // Clear stale action text when the incident set changes; the default is derived from current map data.
+    androidx.compose.runtime.LaunchedEffect(visibleIncidents) {
+        locationStatus = null
+    }
 
     androidx.compose.runtime.LaunchedEffect(role, user.id) {
         if (role == Role.DISPATCHER) {
@@ -139,7 +158,15 @@ fun GpsMapScreen(
     }
 
     val mapView = remember(context) {
-        Configuration.getInstance().userAgentValue = context.packageName
+        // Keep osmdroid's disk cache in app-private storage. Legacy external-storage
+        // defaults can be unavailable on modern Android targets without storage access.
+        val osmdroidBase = File(context.cacheDir, "osmdroid").apply { mkdirs() }
+        val tileCache = File(osmdroidBase, "tiles").apply { mkdirs() }
+        val osmdroidConfig = Configuration.getInstance()
+        osmdroidConfig.setOsmdroidBasePath(osmdroidBase)
+        osmdroidConfig.setOsmdroidTileCache(tileCache)
+        // Identify this app to public tile servers rather than using a generic library UA.
+        osmdroidConfig.userAgentValue = "TACResQ/1.0.0 (" + context.packageName + "; Android)"
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
@@ -496,7 +523,7 @@ fun GpsMapScreen(
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            locationStatus,
+                            locationStatus ?: defaultMapStatus,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = if (detailsExpanded) 4 else 1,

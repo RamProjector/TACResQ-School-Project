@@ -48,11 +48,15 @@ fun RoleShell(
 ) {
     Scaffold(
         bottomBar = {
-            TacruBottomNavigation(
-                role = role,
-                selected = selected,
-                onDestinationSelected = onDestinationSelected,
-            )
+            // The GPS map is a dedicated full-screen destination. Keeping the five-item
+            // navigation visible here shrinks the map viewport and defeats that behavior.
+            if (selected != AppDestination.MAP) {
+                TacruBottomNavigation(
+                    role = role,
+                    selected = selected,
+                    onDestinationSelected = onDestinationSelected,
+                )
+            }
         },
     ) { padding ->
         androidx.compose.foundation.layout.Box(modifier = Modifier.padding(padding)) {
