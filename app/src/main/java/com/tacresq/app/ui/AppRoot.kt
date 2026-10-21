@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tacresq.app.AppContainer
+import com.tacresq.app.location.LocationProvider
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.Role
 import com.tacresq.app.data.model.SessionState
@@ -62,7 +63,7 @@ fun AppRoot(container: AppContainer) {
                     Role.REQUESTER -> {
                         val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, logout) { destination ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination ->
                             if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout)
                             else RoleSectionScreen(destination, user, logout, vmState.incidents)
                         }
@@ -94,6 +95,7 @@ private fun RoleApp(
     role: Role,
     incidents: List<Incident>,
     user: User,
+    locationProvider: LocationProvider,
     logout: () -> Unit,
     contentFor: @Composable (AppDestination) -> Unit,
 ) {
@@ -108,6 +110,7 @@ private fun RoleApp(
                 role = role,
                 user = user,
                 incidents = incidents,
+                locationProvider = locationProvider,
                 onBack = { destination = AppDestination.PRIMARY },
             )
         },
