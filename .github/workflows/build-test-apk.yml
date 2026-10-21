@@ -1,0 +1,62 @@
+name: Build TACResQ Test APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-apk:
+    name: Build demo/test APK (fake backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Validate Android source and wrapper
+        run: python3 tools/check_android_source.py
+
+      - name: Install Android SDK
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "::error::Android sdkmanager was not found."
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" --install "platforms;android-37.0" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build test APK using in-memory fake backend
+        run: ./gradlew --no-daemon clean assembleDebug
+
+      - name: Label APK as test-only
+        run: |
+          mkdir -p artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/TACResQ-test-fake-backend.apk
+          cat > artifacts/BUILD-MODE.txt <<'EOF'
+          TACResQ TEST APK
+          Backend: in-memory FakeTacApi
+          Data: fictional demo data; may reset when the app process restarts
+          Use: UI and workflow testing only; not connected to Supabase
+          EOF
+
+      - name: Upload test APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: TACResQ-test-fake-backend
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
