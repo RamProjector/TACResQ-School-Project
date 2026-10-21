@@ -93,7 +93,7 @@ gps_map_location_contract = {
         "locationProvider.currentFix()",
         "mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))",
         "Your location · this device only",
-        "not uploaded or continuously tracked",
+        "Not uploaded or continuously tracked",
         "LocationCaptureResult.ServicesDisabled",
         "LocationCaptureResult.TimedOut",
         "LocationCaptureResult.InvalidFix",
