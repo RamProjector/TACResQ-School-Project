@@ -44,6 +44,10 @@ map_contract = {
         "mapView.zoomToBoundingBox(",
         "Text(\"Show incident pins\")",
         "There are no valid incident coordinates to center on yet.",
+        "var hasAutoFramedIncidents by remember { mutableStateOf(false) }",
+        "if (!hasAutoFramedIncidents && deviceFix == null && validIncidentPoints.isNotEmpty())",
+        "mapView.post {",
+        "mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)",
     ),
 }
 for relative_path, required_text in map_contract.items():
