@@ -118,13 +118,13 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().safeDrawingPadding(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
             ScreenHeader(
                 title = "Dispatcher console",
-                subtitle = "${user.name} • ${user.role.label}",
+                subtitle = "",
                 onLogout = onLogout,
             )
         }
@@ -201,7 +201,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
 @Composable
 private fun SummaryCard(total: Int, pending: Int, active: Int, available: Int) {
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Operational summary", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Incidents: $total")
@@ -218,7 +218,7 @@ private fun SummaryCard(total: Int, pending: Int, active: Int, available: Int) {
 @Composable
 private fun UnitCard(unit: User) {
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(unit.name, fontWeight = FontWeight.SemiBold)
             Text(unit.role.label)
             Text("Status: ${unit.dutyStatus?.label ?: "Not applicable"}")
