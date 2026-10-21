@@ -244,6 +244,7 @@ class RequesterViewModel(
                     val locationConfirmed = locationResponseMatches(fix, landmark, created)
                     val status = when {
                         !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
+                        fix?.manuallySelected == true -> "SOS sent. Dispatch confirmed the map pin you selected."
                         fix != null -> "SOS sent. Dispatch confirmed the one-time GPS pin you submitted."
                         else -> "SOS sent without a GPS pin. Dispatch received your request; any landmark note is included."
                     }
