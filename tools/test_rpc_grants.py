@@ -64,7 +64,7 @@ assert sequence_revoke.search(ANON_PRIVILEGES_SQL), (
     "Missing revoke of direct anonymous/PUBLIC sequence privileges"
 )
 assert not re.search(
-    r"FROM\\s+PUBLIC,\\s*anon,\\s*authenticated\\b",
+    r"FROM\s+PUBLIC,\s*anon,\s*authenticated\b",
     ANON_PRIVILEGES_SQL,
     re.IGNORECASE,
 ), "Follow-up migration must not revoke authenticated grants"
