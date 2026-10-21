@@ -33,8 +33,9 @@ checks = {
     ) and "val manuallySelected: Boolean = false" in models,
     "manual pin map follows Android lifecycle and uses app-private tile cache": all(
         text in requester for text in (
-            "LifecycleEventObserver", "Lifecycle.Event.ON_RESUME -> mapView.onResume()",
-            "Lifecycle.Event.ON_PAUSE -> mapView.onPause()", "mapView.onDetach()",
+            "LifecycleEventObserver", "Lifecycle.Event.ON_RESUME -> {",
+            "Lifecycle.Event.ON_PAUSE -> {", "if (!mapIsResumed)", "if (mapIsResumed) mapView.onPause()",
+            "mapView.onDetach()",
             "config.setOsmdroidBasePath(osmdroidBase)", "config.setOsmdroidTileCache(tileCache)",
             "config.userAgentValue =",
         )
