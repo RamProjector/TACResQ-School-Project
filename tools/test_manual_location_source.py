@@ -31,7 +31,7 @@ checks = {
     "migration stores and validates source provenance": all(
         text in migration for text in (
             "add column if not exists location_source text",
-            "location_source in ('gps', 'manual', 'none')",
+            "p_location_source not in ('gps', 'manual', 'none')",
             "p_location_source = 'manual' and p_accuracy_m is not null",
             "NEW.location_source IS DISTINCT FROM OLD.location_source",
             "grant execute on function public.api_create_incident_v3",
