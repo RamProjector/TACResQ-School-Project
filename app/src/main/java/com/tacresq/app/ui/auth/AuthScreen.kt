@@ -41,6 +41,7 @@ import androidx.lifecycle.viewModelScope
 import com.tacresq.app.BuildConfig
 import com.tacresq.app.R
 import com.tacresq.app.data.repo.TacRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,7 +71,7 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
             _state.value = AuthUiState(emailError = emailError, passwordError = passwordError)
             return
         }
-        submit { repo.login(email, password) }
+        submit { repo.login(email.trim(), password) }
     }
 
     fun register(name: String, email: String, phone: String, password: String) {
@@ -85,7 +86,11 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
             phone.count { it.isDigit() } < 7 -> "Enter a valid mobile number."
             else -> null
         }
-        val passwordError = if (password.length < 8) "Use at least 8 characters." else null
+        val passwordError = when {
+            password.isBlank() -> "Enter a password."
+            password.length < 8 -> "Use at least 8 characters."
+            else -> null
+        }
         if (nameError != null || emailError != null || phoneError != null || passwordError != null) {
             _state.value = AuthUiState(
                 nameError = nameError,
@@ -95,7 +100,7 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
             )
             return
         }
-        submit { repo.register(name, email, phone, password) }
+        submit { repo.register(name.trim(), email.trim(), phone.trim(), password) }
     }
 
     fun clearError() {
@@ -123,8 +128,18 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
         if (_state.value.loading) return
         viewModelScope.launch {
             _state.value = AuthUiState(loading = true)
-            val result = call()
-            _state.value = AuthUiState(error = result.exceptionOrNull()?.message)
+            val result = try {
+                call()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                Result.failure(failure)
+            }
+            val failure = result.exceptionOrNull()
+            _state.value = AuthUiState(
+                error = failure?.message?.takeIf { it.isNotBlank() }
+                    ?: if (failure != null) "Something went wrong. Please try again." else null,
+            )
         }
     }
 }
