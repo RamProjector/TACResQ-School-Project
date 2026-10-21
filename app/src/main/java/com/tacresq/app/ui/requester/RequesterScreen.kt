@@ -3,6 +3,7 @@ package com.tacresq.app.ui.requester
 import android.app.Activity
 import android.content.Intent
 import android.provider.Settings
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +33,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.locationbutton.compose.LocationButton
 import androidx.core.locationbutton.compose.LocationButtonTextType
 import androidx.lifecycle.ViewModel
@@ -76,6 +81,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.util.Locale
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
 import kotlin.math.abs
 import kotlin.math.ceil
 
@@ -170,6 +179,28 @@ class RequesterViewModel(
     fun onLocationButtonError() = showLocationError(
         "The secure location prompt couldn't start. Retry the location button or send without GPS."
     )
+
+    fun setManualLocation(latitude: Double, longitude: Double) {
+        if (!latitude.isFinite() || latitude !in -90.0..90.0 || !longitude.isFinite() || longitude !in -180.0..180.0) {
+            showLocationError("The selected map pin is invalid. Move the pin and try again.")
+            return
+        }
+        _state.update {
+            it.copy(
+                locationFix = GeoFix(
+                    latitude = latitude,
+                    longitude = longitude,
+                    accuracyM = null,
+                    capturedAtEpochMillis = System.currentTimeMillis(),
+                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos(),
+                    hasPrecisePermission = false,
+                    manuallySelected = true,
+                ),
+                locationError = null,
+                error = null,
+            )
+        }
+    }
 
     fun clearLocationFix() {
         _state.update { it.copy(locationFix = null, locationError = null) }
@@ -299,6 +330,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
     var confirmingSos by rememberSaveable { mutableStateOf(false) }
+    var showManualPinPicker by rememberSaveable { mutableStateOf(false) }
     var requestStep by rememberSaveable { mutableStateOf(1) }
     val freshFix = state.locationFix?.takeIf(vm::isFresh)
     val activeIncident = state.incidents.firstOrNull { it.status.isActive }
@@ -393,6 +425,15 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                     onPermissionResult = { granted -> if (granted) requestLocationAfterPermission() else vm.onLocationDenied() },
                                     onError = { vm.onLocationButtonError() })
                             }
+                            OutlinedButton(
+                                onClick = { showManualPinPicker = true },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                enabled = !state.capturingLocation && !state.sending,
+                            ) {
+                                Icon(Icons.Default.LocationOn, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (freshFix?.manuallySelected == true) "Adjust map pin" else "Choose location on map")
+                            }
                             when {
                                 freshFix != null -> LocationFixCard(freshFix, onClear = vm::clearLocationFix)
                                 state.locationFix != null -> LocationNoticeCard("GPS fix expired", "This fix will not be sent. Capture a new fix or continue without GPS.")
@@ -439,6 +480,19 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             item { Text("No requests yet.") }
         }
         items(state.incidents, key = { it.id }) { incident -> IncidentCard(incident) }
+    }
+
+    if (showManualPinPicker) {
+        val initial = freshFix
+        ManualLocationPickerDialog(
+            initialLatitude = initial?.latitude ?: 11.2443,
+            initialLongitude = initial?.longitude ?: 125.0030,
+            onDismiss = { showManualPinPicker = false },
+            onConfirm = { latitude, longitude ->
+                vm.setManualLocation(latitude, longitude)
+                showManualPinPicker = false
+            },
+        )
     }
 
     if (confirmingSos) {
@@ -493,15 +547,23 @@ private fun LocationFixCard(fix: GeoFix, onClear: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("One-time GPS fix ready", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text("Reported accuracy: $accuracy · captured $captured", style = MaterialTheme.typography.bodySmall)
             Text(
+                if (fix.manuallySelected) "Map pin selected" else "One-time GPS fix ready",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                if (fix.manuallySelected) "Coordinates chosen by you on the map · selected $captured"
+                else "Reported accuracy: $accuracy · captured $captured",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (!fix.manuallySelected) Text(
                 if (fix.hasPrecisePermission) "Precise location access was granted for this action."
                 else "Approximate location access is active; the pin may be broad.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (fix.accuracyM == null || fix.accuracyM > 100f) {
+            if (!fix.manuallySelected && (fix.accuracyM == null || fix.accuracyM > 100f)) {
                 Text(
                     "This fix is broad or has no reported accuracy. Add a landmark, or remove the location pin if you can't confirm it identifies you.",
                     style = MaterialTheme.typography.bodySmall,
@@ -531,6 +593,76 @@ private fun locationSummary(fix: GeoFix): String {
         ?: "accuracy not reported"
     val timestamp = runCatching { formatTime(Instant.ofEpochMilli(fix.capturedAtEpochMillis).toString()) }
         .getOrDefault("just now")
+    if (fix.manuallySelected) {
+        return "Your manually selected map pin (" +
+            String.format(Locale.US, "%.5f", fix.latitude) + ", " +
+            String.format(Locale.US, "%.5f", fix.longitude) +
+            "), selected $timestamp, will be sent to dispatch."
+    }
     val precision = if (fix.hasPrecisePermission) "GPS pin" else "approximate GPS pin"
     return "One $precision ($accuracy), captured $timestamp, will be sent to dispatch."
+}
+
+
+@Composable
+private fun ManualLocationPickerDialog(
+    initialLatitude: Double,
+    initialLongitude: Double,
+    onDismiss: () -> Unit,
+    onConfirm: (Double, Double) -> Unit,
+) {
+    val context = LocalContext.current
+    val mapView = androidx.compose.runtime.remember {
+        Configuration.getInstance().userAgentValue = context.packageName
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            controller.setZoom(17.0)
+            controller.setCenter(GeoPoint(initialLatitude, initialLongitude))
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(mapView) {
+        onDispose { mapView.onDetach() }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pinpoint the emergency location") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Drag the map until the exact location is under the center pin. This can be different from your phone's GPS location.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.fillMaxWidth().height(420.dp),
+                ) {
+                    AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Selected location at map center",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.align(Alignment.Center).size(38.dp),
+                    )
+                }
+                Text(
+                    "The pin is selected manually. Check the surrounding streets or landmarks before confirming.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.Button(
+                onClick = {
+                    val point = mapView.mapCenter as? GeoPoint
+                    if (point != null && point.latitude.isFinite() && point.longitude.isFinite()) {
+                        onConfirm(point.latitude, point.longitude)
+                    }
+                },
+            ) { Text("Use this location") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
