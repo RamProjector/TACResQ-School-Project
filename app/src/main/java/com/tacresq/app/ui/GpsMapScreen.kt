@@ -105,9 +105,7 @@ fun GpsMapScreen(
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
     var hasAutoFramedIncidents by remember { mutableStateOf(false) }
     var freshnessTick by remember { mutableStateOf(0) }
-    var locationStatus by remember {
-        mutableStateOf("Your location is hidden until you tap Locate me.")
-    }
+    var locationStatus by remember { mutableStateOf<String?>(null) }
     var retryLocationAfterSettings by remember { mutableStateOf(false) }
     val visibleIncidents = when (role) {
         Role.REQUESTER, Role.RESPONDER, Role.DRIVER -> incidents.filter { it.status.isActive }
@@ -128,6 +126,16 @@ fun GpsMapScreen(
     val hasConfirmedIncidentCoordinates = visibleIncidents.any { it.hasValidMapCoordinates() }
     val validResponderPoints = freshResponderLocations.map { GeoPoint(it.latitude, it.longitude) }
     val initialMapPoints = if (role == Role.DISPATCHER) validIncidentPoints + validResponderPoints else validIncidentPoints
+    val defaultMapStatus = when {
+        validIncidentPoints.isNotEmpty() ->
+            "Showing ${validIncidentPoints.size} confirmed incident pin(s). Tap Locate me to preview your location."
+        role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() ->
+            "No incident pins yet; showing fresh field-unit locations."
+        visibleIncidents.isNotEmpty() ->
+            "Active incidents exist, but none has valid coordinates. They cannot appear as map pins."
+        else ->
+            "No active incidents with valid coordinates are available for this role yet. Pins appear when an incident has a valid location."
+    }
 
     androidx.compose.runtime.LaunchedEffect(role, user.id) {
         if (role == Role.DISPATCHER) {
@@ -505,7 +513,7 @@ fun GpsMapScreen(
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            locationStatus,
+                            locationStatus ?: defaultMapStatus,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = if (detailsExpanded) 4 else 1,
