@@ -7,6 +7,7 @@ MIGRATION = ROOT / "supabase/migrations/20261021160000_protect_incident_report_f
 sql = MIGRATION.read_text().lower()
 
 protected_fields = (
+    "id",
     "requester_id",
     "type",
     "description",
