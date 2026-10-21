@@ -23,6 +23,7 @@ assert "grant execute on function private.tacresq_record_location_v2(" in bounda
 assert "revoke all on function public.api_record_location_v2(" in boundary
 assert "grant execute on function public.api_record_location_v2(" in boundary
 assert "auth.uid()" in boundary
+assert "for update of i;" in boundary, "location writer must lock the incident row while checking en-route status"
 assert "pg_advisory_xact_lock(actor_id)" in boundary
 assert "interval '8 seconds'" in boundary
 assert "interval '15 minutes'" in boundary
