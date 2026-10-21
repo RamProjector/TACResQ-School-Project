@@ -34,4 +34,42 @@ table_privileges_revoke = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 assert table_privileges_revoke.search(SQL), "Missing revoke for unnecessary client table privileges"
-print(f"PASS: least-privilege EXECUTE grant contract for {len(FUNCTIONS)} RPCs and restricted table grants")
+
+# The earlier migration revoked advanced table privileges but left direct
+# SELECT/INSERT/UPDATE/DELETE and identity-sequence privileges for anon. This
+# follow-up must remove those grants without revoking authenticated privileges.
+ANON_PRIVILEGES_SQL = Path(
+    "supabase/migrations/20261021120000_revoke_anon_table_privileges.sql"
+).read_text()
+
+direct_table_revoke = re.compile(
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+TABLE\s+"
+    r"public\.profiles,\s*public\.incidents,\s*public\.location_logs,\s*"
+    r"public\.incident_status_logs,\s*public\.fcm_tokens\s+FROM\s+"
+    r"PUBLIC,\s*anon\s*;",
+    re.IGNORECASE | re.DOTALL,
+)
+assert direct_table_revoke.search(ANON_PRIVILEGES_SQL), (
+    "Missing revoke of direct anonymous/PUBLIC table privileges"
+)
+
+sequence_revoke = re.compile(
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
+    r"public\.profiles_id_seq,\s*public\.incidents_id_seq,\s*"
+    r"public\.location_logs_id_seq,\s*public\.incident_status_logs_id_seq,\s*"
+    r"public\.fcm_tokens_id_seq\s+FROM\s+PUBLIC,\s*anon\s*;",
+    re.IGNORECASE | re.DOTALL,
+)
+assert sequence_revoke.search(ANON_PRIVILEGES_SQL), (
+    "Missing revoke of direct anonymous/PUBLIC sequence privileges"
+)
+assert not re.search(
+    r"FROM\s+PUBLIC,\s*anon,\s*authenticated\b",
+    ANON_PRIVILEGES_SQL,
+    re.IGNORECASE,
+), "Follow-up migration must not revoke authenticated grants"
+
+print(
+    f"PASS: least-privilege EXECUTE grants for {len(FUNCTIONS)} RPCs, "
+    "restricted advanced table grants, and full anon/PUBLIC table/sequence revokes"
+)

@@ -209,3 +209,17 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - **Safety:** workflow files are manual-dispatch only. No live Supabase schema/data, credentials, Render deployment, or real emergency records changed. No service-role key is used.
 - **Validation:** workflow YAML and Android builds have not yet been executed by GitHub Actions on this branch. No local checkout or device test was available through the connector. CI must be reviewed after the PR is opened.
 - **Next action:** open a focused PR, inspect all CI results, fix any issues, and leave the PR open for user review. After merge, both workflows should appear under the repository Actions tab; manual dispatch workflows generally need to be present on the default branch before they can be run from the UI.
+
+
+## Agent handoff — anonymous database privilege audit (2026-10-21)
+
+- **Objective:** continue TACResQ live QA and address a least-privilege gap found in the configured Supabase project.
+- **Base:** `main` at `1334691046fea52529789666b8b47ea1fb0019b2`.
+- **Branch / PR:** `agent/revoke-anon-table-privileges`, [PR #58](https://github.com/RamProjector/TACResQ-School-Project/pull/58).
+- **Live account/profile check:** a read-only aggregate confirmed exactly one profile each for `requester`, `dispatcher`, `responder`, and `driver`; responder and driver duty statuses are `off_duty`. The original requester profile remains present. Do not create a duplicate requester account.
+- **Live security finding:** RLS is enabled on `profiles`, `incidents`, `incident_status_logs`, `location_logs`, and `fcm_tokens`, with expected authenticated role-scoped policies. However, catalog inspection showed `anon` had direct SELECT/INSERT/UPDATE/DELETE privileges on all five tables and USAGE/SELECT/UPDATE privileges on all five identity sequences. RLS without anonymous policies is a second barrier, but these grants violate least privilege and permit unnecessary sequence operations.
+- **PR #58 changes:** added `20261021120000_revoke_anon_table_privileges.sql` to revoke all table and sequence privileges from `PUBLIC` and `anon` while preserving `authenticated` grants; extended `tools/test_rpc_grants.py` to lock in the contract.
+- **CI:** first contract run failed because the new assertion matched the word `authenticated` in a SQL comment; corrected the assertion to inspect the actual REVOKE clause. The subsequent dedicated RPC-grant contract run passed. Full TACResQ CI run `39592104411` was still in progress at handoff; inspect all jobs before merge.
+- **Not yet done:** PR #58 has not been merged; the new migration has not been applied to Supabase. After all CI checks pass, merge the PR (user authorized merge after checks), apply the new migration to project `kttguamhznoflzagfutr`, and verify `has_table_privilege` / `has_sequence_privilege` for `anon` are false while authenticated app operations remain usable.
+- **Other live security setting:** Supabase Security Advisor still warns that leaked-password protection is disabled. This must be enabled in Dashboard → Authentication → Settings → Password Security; no supported tool here can toggle that Auth setting directly.
+- **Other known gaps:** real sign-in and role-specific incident workflows have not been exercised on a phone; GPS/map tile behavior still requires physical-device QA. Do not claim production readiness.
