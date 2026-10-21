@@ -74,7 +74,7 @@ private fun TacruBottomNavigation(
     val labels = when (role) {
         Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
         Role.RESPONDER, Role.DRIVER -> listOf("Current call", "History", "Safety", "Profile")
-        Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Activity")
+        Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")
     }
     val destinations = listOf(
         AppDestination.PRIMARY to labels[0],
