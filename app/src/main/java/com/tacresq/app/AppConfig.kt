@@ -2,12 +2,12 @@ package com.tacresq.app
 
 object AppConfig {
     /**
-     * Backend selection. The Android app uses the deployed Laravel API.
-     * Set USE_FAKE_API true only for the offline demo; set USE_SUPABASE_API true
-     * only when intentionally connecting the app directly to Supabase.
+     * Backend selection is build-specific: debug uses the in-memory demo by default,
+     * while release always uses Supabase. Build debug with -PuseSupabase=true to test
+     * a configured Supabase project without changing release behavior.
      */
-    const val USE_FAKE_API = false
-    const val USE_SUPABASE_API = true
+    val USE_FAKE_API = BuildConfig.USE_FAKE_API
+    val USE_SUPABASE_API = !USE_FAKE_API
 
     /** Optional demo behavior. Keep off for the normal dispatcher-controlled workflow. */
     const val FAKE_AUTO_DISPATCH = false
