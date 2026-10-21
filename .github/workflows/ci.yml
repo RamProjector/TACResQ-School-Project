@@ -36,8 +36,6 @@ jobs:
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
-      - name: Check SECURITY DEFINER trigger search paths
-        run: python3 tools/test_trigger_search_paths.py
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -50,6 +48,9 @@ jobs:
           node-version: '22'
           cache: pnpm
           cache-dependency-path: backend/web/pnpm-lock.yaml
+
+      - name: Check SECURITY DEFINER trigger search paths
+        run: python3 tools/test_trigger_search_paths.py
 
       - name: Install dashboard dependencies
         working-directory: backend/web
