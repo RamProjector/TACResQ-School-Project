@@ -1,5 +1,6 @@
 package com.tacresq.app.ui
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -20,9 +21,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -36,12 +43,17 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.Role
 import com.tacresq.app.data.model.User
 import com.tacresq.app.ui.common.StatusPill
 import com.tacresq.app.ui.common.formatTime
 import com.tacresq.app.ui.common.pillColor
+import com.tacresq.app.location.LocationCaptureResult
+import com.tacresq.app.location.LocationProvider
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import java.util.Locale
 
 private const val TACLOBAN_LATITUDE = 11.2443
@@ -58,10 +70,16 @@ fun GpsMapScreen(
     role: Role,
     user: User,
     incidents: List<Incident>,
+    locationProvider: LocationProvider,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
+    var locationStatus by rememberSaveable {
+        mutableStateOf("Your location is hidden until you tap Locate me.")
+    }
     val visibleIncidents = when (role) {
         Role.REQUESTER, Role.RESPONDER, Role.DRIVER -> incidents.filter { it.status.isActive }
         Role.DISPATCHER -> incidents.filter { it.status.isActive || it.status.name == "PENDING" }
@@ -72,9 +90,9 @@ fun GpsMapScreen(
         Role.DISPATCHER -> "Operations map"
     }
     val description = when (role) {
-        Role.REQUESTER -> "Confirmed incident coordinates and response status. Your location is not continuously tracked."
-        Role.RESPONDER, Role.DRIVER -> "Assigned incident coordinates only. Live responder tracking appears only when the backend provides a fresh unit fix."
-        Role.DISPATCHER -> "Confirmed incident coordinates only. Unit markers appear only when the backend provides a fresh GPS timestamp."
+        Role.REQUESTER -> "Confirmed incident pins and your optional one-time location preview. The preview is not uploaded."
+        Role.RESPONDER, Role.DRIVER -> "Assigned incident pins and your optional one-time location preview. This map does not start live tracking."
+        Role.DISPATCHER -> "Confirmed incident pins and your optional one-time location preview. Live field-unit markers are not available here yet."
     }
     val mapView = remember(context) {
         Configuration.getInstance().userAgentValue = context.packageName
@@ -84,6 +102,56 @@ fun GpsMapScreen(
             isTilesScaledToDpi = true
             controller.setZoom(12.0)
             controller.setCenter(GeoPoint(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
+        }
+    }
+
+    fun locateOnce() {
+        scope.launch {
+            deviceFix = null
+            locationStatus = "Getting a fresh device location…"
+            when (val result = locationProvider.currentFix()) {
+                is LocationCaptureResult.Success -> {
+                    val fix = result.fix
+                    deviceFix = fix
+                    mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))
+                    val precision = if (fix.hasPrecisePermission) "Precise" else "Approximate"
+                    val accuracy = fix.accuracyM?.let { " · accuracy about ${it.roundToInt()} m" } ?: ""
+                    locationStatus = "One-time $precision location shown on this device only; not uploaded$accuracy."
+                }
+                LocationCaptureResult.PermissionDenied -> {
+                    locationStatus = "Location permission denied. Incident pins remain available."
+                }
+                LocationCaptureResult.ServicesDisabled -> {
+                    locationStatus = "Device location is turned off. Turn it on and try again."
+                }
+                LocationCaptureResult.TimedOut -> {
+                    locationStatus = "No fresh location fix arrived in time. Try again."
+                }
+                LocationCaptureResult.InvalidFix -> {
+                    locationStatus = "The device returned invalid or stale coordinates. Try again."
+                }
+                LocationCaptureResult.Unavailable -> {
+                    locationStatus = "Current location is unavailable. Check signal and try again."
+                }
+            }
+        }
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            locateOnce()
+        } else {
+            deviceFix = null
+            locationStatus = "Location permission denied. Incident pins remain available."
+        }
+    }
+    val onLocateClick: () -> Unit = {
+        if (locationProvider.hasPermission()) {
+            locateOnce()
+        } else {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
     }
 
@@ -103,7 +171,7 @@ fun GpsMapScreen(
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(mapView, visibleIncidents) {
+    androidx.compose.runtime.LaunchedEffect(mapView, visibleIncidents, deviceFix) {
         mapView.overlays.removeAll { it is Marker }
         visibleIncidents.forEach { incident ->
             val latitude = incident.latitude
@@ -118,6 +186,15 @@ fun GpsMapScreen(
                 }
                 mapView.overlays.add(marker)
             }
+        }
+        deviceFix?.let { fix ->
+            val locationMarker = Marker(mapView).apply {
+                position = GeoPoint(fix.latitude, fix.longitude)
+                setTitle("Your location · this device only")
+                snippet = "One-time location preview. Not uploaded or continuously tracked."
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            }
+            mapView.overlays.add(locationMarker)
         }
         mapView.invalidate()
     }
@@ -160,10 +237,18 @@ fun GpsMapScreen(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    "Map tiles require an internet connection. No guessed or live-tracked positions are displayed.",
+                    "Map tiles require internet. Your one-time location preview stays on this device; no continuous tracking is started.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Text(
+                    locationStatus,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(onClick = onLocateClick, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (deviceFix == null) "Locate me" else "Refresh my location")
+                }
             }
         }
 
