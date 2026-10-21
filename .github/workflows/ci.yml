@@ -27,6 +27,9 @@ jobs:
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
+      - name: Check inline authentication validation
+        run: python3 tools/test_auth_inline_validation.py
+
       - name: Test bounded stress utility without Docker
         run: python3 tools/test_stress_test.py
 
@@ -36,8 +39,6 @@ jobs:
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
-      - name: Check inline authentication validation
-        run: python3 tools/test_auth_inline_validation.py
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
