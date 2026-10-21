@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 gradle = (ROOT / "app/build.gradle.kts").read_text()
 workflow = (ROOT / ".github/workflows/ci.yml").read_text()
 readme = (ROOT / "README.md").read_text()
+qa_guide = ROOT / "docs/SUPABASE_TESTING.md"
 
 checks = {
     "debug demo mode is the default unless Supabase is requested":
@@ -25,6 +26,8 @@ checks = {
         "app-release-unsigned.apk" in workflow and "if [ ! -f \"$RELEASE_APK\" ]" in workflow,
     "README explains how to build real-backend debug mode":
         "./gradlew --no-daemon assembleDebug -PuseSupabase=true" in readme,
+    "README links the real Supabase QA guide":
+        "[Real Supabase testing and QA account setup](docs/SUPABASE_TESTING.md)" in readme and qa_guide.is_file(),
 }
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
