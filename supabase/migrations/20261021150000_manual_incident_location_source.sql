@@ -234,6 +234,9 @@ begin
 end $$;
 
 
+revoke all on function public.api_create_incident_v2(text, text, double precision, double precision, real, text, timestamptz) from public, anon;
+grant execute on function public.api_create_incident_v2(text, text, double precision, double precision, real, text, timestamptz) to authenticated;
+
 revoke all on function public.api_create_incident_v3(text, text, double precision, double precision, real, text, timestamptz, text) from public, anon;
 grant execute on function public.api_create_incident_v3(text, text, double precision, double precision, real, text, timestamptz, text) to authenticated;
 
