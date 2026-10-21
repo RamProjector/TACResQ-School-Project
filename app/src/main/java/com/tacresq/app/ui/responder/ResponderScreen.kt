@@ -318,8 +318,13 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                         onClick = { openNavigation(context, latitude, longitude) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Navigate in Google Maps")
+                        Text("Open navigation app")
                     }
+                    Text(
+                        "Opens an installed maps app for route guidance. Use TACResQ GPS Map for the incident and field-unit overview.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 } else {
                     Text(
                         "No GPS pin was shared. Do not navigate to an assumed location; use the landmark note and contact the requester to confirm.",
