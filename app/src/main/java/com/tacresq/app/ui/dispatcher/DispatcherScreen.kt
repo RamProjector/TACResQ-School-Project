@@ -123,7 +123,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
     ) {
         item {
             ScreenHeader(
-                title = "Dispatcher console",
+                title = "Queue",
                 subtitle = "",
                 onLogout = onLogout,
             )
