@@ -73,8 +73,8 @@ checks = {
         and migration.count("set search_path = pg_catalog") >= 6
     ),
     "migration uses the standard transaction handling convention": (
-        not migration.startswith("begin;")
-        and not migration.rstrip().endswith("commit;")
+        "\nbegin;\n\nalter table" not in migration
+        and "\ncommit;\n" not in migration
     ),
     "legacy GPS RPC default remains compatible while missing locations use none": (
         "alter column location_source set default 'gps'" in migration
