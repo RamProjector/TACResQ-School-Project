@@ -50,7 +50,7 @@ ACTIVE_CLIENT_RPCS = {
 
 for name in ACTIVE_CLIENT_RPCS:
     revoke = re.compile(
-        rf"REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+public\.{name}\s*"
+        rf"REVOKE\s+(?:EXECUTE|ALL(?:\s+PRIVILEGES)?)\s+ON\s+FUNCTION\s+public\.{name}\s*"
         rf"\([^;]*?\)\s+FROM\s+PUBLIC,\s*anon\s*;",
         re.IGNORECASE | re.DOTALL,
     )
