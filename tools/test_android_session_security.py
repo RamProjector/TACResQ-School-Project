@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 store = (ROOT / "app/src/main/java/com/tacresq/app/data/local/SessionStore.kt").read_text()
 
 checks = {
-    "session encryption uses Android Keystore": 'KeyStore.getInstance("AndroidKeyStore")' in store,
+    "session encryption uses Android Keystore": 'const val ANDROID_KEYSTORE = "AndroidKeyStore"' in store and 'KeyStore.getInstance(ANDROID_KEYSTORE)' in store,
     "session encryption uses AES-GCM": '"AES/GCM/NoPadding"' in store and "GCMParameterSpec" in store,
     "encryption generates a fresh IV": "cipher.iv + cipherText" in store and "setRandomizedEncryptionRequired(true)" in store,
     "persisted session is stored as one encrypted value": 'stringPreferencesKey("encrypted_session_v1")' in store and 'prefs[encryptedSessionKey] = encrypted' in store,
