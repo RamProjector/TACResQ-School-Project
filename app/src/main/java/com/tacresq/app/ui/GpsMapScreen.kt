@@ -519,6 +519,16 @@ fun GpsMapScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = ::showIncidentPins) {
+                            Text("Show incident pins")
+                        }
+                        if (role == Role.DISPATCHER) {
+                            OutlinedButton(onClick = ::showActiveUnits) {
+                                Text("Show active units")
+                            }
+                        }
+                    }
                     if (visibleIncidents.isEmpty()) {
                         Text("No active incidents are available. Pins appear only when the service returns valid coordinates.",
                             style = MaterialTheme.typography.bodySmall)
