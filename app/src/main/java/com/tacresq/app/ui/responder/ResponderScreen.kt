@@ -278,7 +278,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             )
         }
 
-        item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
+        if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
 
         item {
             DutyCard(
@@ -297,9 +297,9 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             item {
                 Text(
                     if (state.dutyStatus == DutyStatus.AVAILABLE) {
-                        "Waiting for dispatch. New assignments appear here."
+                        "Waiting for assignments."
                     } else {
-                        "Set yourself to Available to receive assignments."
+                        "Set status to Available to receive assignments."
                     }
                 )
             }
