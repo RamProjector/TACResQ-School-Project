@@ -1,0 +1,63 @@
+name: Build TACResQ Real Backend APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-real-backend-apk:
+    name: Build debug APK connected to configured Supabase project
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Validate Android source and wrapper
+        run: python3 tools/check_android_source.py
+
+      - name: Install Android SDK
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "::error::Android sdkmanager was not found."
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" --install "platforms;android-37.0" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build debug APK with Supabase backend enabled
+        run: ./gradlew --no-daemon clean assembleDebug -PuseSupabase=true
+
+      - name: Label APK as real-backend test build
+        run: |
+          mkdir -p artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/TACResQ-real-backend-debug.apk
+          cat > artifacts/BUILD-MODE.txt <<'EOF'
+          TACResQ REAL-BACKEND DEBUG APK
+          Backend: configured Supabase Auth and Postgres RPC
+          This build does not create test users or verify live backend operations.
+          Supabase test identities must already exist and have the correct roles.
+          Use synthetic QA incidents only. Do not use this school prototype for real emergencies.
+          EOF
+
+      - name: Upload real-backend debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: TACResQ-real-backend-debug
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
