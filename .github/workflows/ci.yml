@@ -45,6 +45,9 @@ jobs:
       - name: Check full-screen GPS map viewport
         run: python3 tools/test_gps_map_fullscreen.py
 
+      - name: Check map network-state permission
+        run: python3 tools/test_map_network_permissions.py
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
