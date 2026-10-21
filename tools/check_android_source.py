@@ -33,6 +33,22 @@ for path in kotlin_files:
 if bad_packages:
     raise SystemExit("Unexpected Kotlin package declaration in:\n" + "\n".join(bad_packages))
 
+map_contract = {
+    "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": (
+        "private fun Incident.hasValidMapCoordinates(): Boolean",
+        "lat.isFinite() && lng.isFinite()",
+        "lat in -90.0..90.0 && lng in -180.0..180.0",
+        "visibleIncidents.any { it.hasValidMapCoordinates() }",
+        "incident.hasValidMapCoordinates() && latitude != null && longitude != null",
+    ),
+}
+for relative_path, required_text in map_contract.items():
+    source = (ROOT / relative_path).read_text(encoding="utf-8")
+    missing = [snippet for snippet in required_text if snippet not in source]
+    if missing:
+        raise SystemExit(f"GPS map coordinate contract failed for {relative_path}: missing " + ", ".join(missing))
+print("GPS map coordinate contract OK: marker rendering and pin status share geographic validation.")
+
 sync_contract = {
     "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt": (
         "SyncStatus(state.lastSyncedAtEpochMs, state.syncError)",
