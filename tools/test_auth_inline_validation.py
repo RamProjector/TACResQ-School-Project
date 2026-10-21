@@ -9,6 +9,8 @@ required = (
     "Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()",
     "repo.login(email.trim(), password)",
     "repo.register(name.trim(), email.trim(), phone.trim(), password)",
+    "phoneDigits !in 7..15",
+    'phone.any { !it.isDigit() && it !in "+- ()" }',
     'password.isBlank() -> "Enter a password."',
     "catch (cancelled: CancellationException)",
     "catch (failure: Exception)",
