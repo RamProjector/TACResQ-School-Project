@@ -24,9 +24,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Check false location-disabled regression
-        run: python3 tools/test_location_disabled_regression.py
-
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
@@ -39,6 +36,20 @@ jobs:
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
+      - name: Check GPS location-disabled regression
+        run: python3 tools/test_location_disabled_regression.py
+
+      - name: Check osmdroid tile cache configuration
+        run: python3 tools/test_osmdroid_tile_cache.py
+
+      - name: Check GPS map empty-state messaging
+        run: python3 tools/test_gps_map_empty_state.py
+
+      - name: Check full-screen GPS map viewport
+        run: python3 tools/test_gps_map_fullscreen.py
+
+      - name: Check map network-state permission
+        run: python3 tools/test_map_network_permissions.py
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -78,6 +89,9 @@ jobs:
 
       - name: Validate Android app and Gradle wrapper
         run: python3 tools/check_android_source.py
+
+      - name: Check demo and Supabase build-mode separation
+        run: python3 tools/test_android_build_modes.py
 
       - name: Accept Android SDK licenses and install API 37
         if: hashFiles('gradlew') != ''
@@ -122,9 +136,18 @@ jobs:
           echo "ANDROID_RELEASE_SIGNING_CONFIGURED=true" >> "$GITHUB_ENV"
           echo "configured=true" >> "$GITHUB_OUTPUT"
 
-      - name: Build debug APK
+      - name: Build demo-mode debug APK
         if: hashFiles('gradlew') != ''
-        run: ./gradlew --no-daemon assembleDebug
+        run: |
+          ./gradlew --no-daemon assembleDebug
+          mkdir -p artifacts/android
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/android/tacresq-demo-debug.apk
+
+      - name: Build Supabase-mode debug APK
+        if: hashFiles('gradlew') != ''
+        run: |
+          ./gradlew --no-daemon assembleDebug -PuseSupabase=true
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/android/tacresq-supabase-debug.apk
 
       - name: Build release APK
         if: hashFiles('gradlew') != ''
@@ -137,12 +160,22 @@ jobs:
           test -s "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
 
+      - name: Collect release APK
+        if: hashFiles('gradlew') != ''
+        run: |
+          RELEASE_APK=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$RELEASE_APK" ]; then
+            RELEASE_APK=app/build/outputs/apk/release/app-release-unsigned.apk
+          fi
+          test -s "$RELEASE_APK"
+          cp "$RELEASE_APK" artifacts/android/tacresq-release.apk
+
       - name: Upload Android APKs
         if: hashFiles('gradlew') != ''
         uses: actions/upload-artifact@v7
         with:
           name: tacresq-android-apks
-          path: app/build/outputs/apk/**/*.apk
+          path: artifacts/android/*.apk
           if-no-files-found: error
           retention-days: 14
 
