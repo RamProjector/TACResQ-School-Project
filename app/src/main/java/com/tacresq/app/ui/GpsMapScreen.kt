@@ -92,6 +92,7 @@ fun GpsMapScreen(
     val scope = rememberCoroutineScope()
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
     var hasAutoFramedIncidents by remember { mutableStateOf(false) }
+    var freshnessTick by remember { mutableStateOf(0) }
     var locationStatus by remember {
         mutableStateOf("Your location is hidden until you tap Locate me.")
     }
@@ -127,6 +128,7 @@ fun GpsMapScreen(
             while (true) {
                 onRefreshResponderLocations()
                 delay(15_000)
+                freshnessTick += 1
             }
         }
     }
@@ -264,7 +266,7 @@ fun GpsMapScreen(
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(mapView, visibleIncidents, freshResponderLocations, deviceFix) {
+    androidx.compose.runtime.LaunchedEffect(mapView, visibleIncidents, freshResponderLocations, deviceFix, freshnessTick) {
         mapView.overlays.removeAll { it is Marker }
         visibleIncidents.forEach { incident ->
             val latitude = incident.latitude
