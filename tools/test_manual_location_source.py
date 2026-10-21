@@ -78,6 +78,9 @@ checks = {
             "'location_source' => $incident->location_source",
             "'location_source' => ['nullable', Rule::in(['gps', 'manual', 'none'])]",
             "$data['location_source'] ??= $hasCoordinates ? 'gps' : 'none'",
+            "$hasCoordinates && ($data['location_recorded_at'] ?? null) === null",
+            "A location capture time is required with coordinates.",
+            "A manually selected pin cannot claim GPS accuracy.",
         )
     ) and "'location_source'" in laravel_model and "location_source" in laravel_migration,
 }
