@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -231,9 +232,14 @@ fun GpsMapScreen(
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text("MAP STATUS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 Text(
-                    if (visibleIncidents.any { it.hasValidMapCoordinates() })
-                        "Real map · confirmed incident pins only"
-                    else "Real map · no confirmed incident pins yet",
+                    when {
+                        visibleIncidents.any { it.hasValidMapCoordinates() } && deviceFix != null ->
+                            "Real map · incident pins and your device-only location"
+                        visibleIncidents.any { it.hasValidMapCoordinates() } ->
+                            "Real map · confirmed incident pins only"
+                        deviceFix != null -> "Real map · your one-time location only"
+                        else -> "Real map · no confirmed incident pins yet"
+                    },
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
