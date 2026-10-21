@@ -104,3 +104,14 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - **Validation:** First PR CI run `39515767823` reported source checks and prototype/navigation/visual checks passed. Android Kotlin compilation caught the two issues noted above; both are fixed on the branch. Dashboard/backend integration was still running when inspected. A new CI run should be triggered by the fixes. No local checkout or physical-device/emulator run was available.
 - **Safety/scope:** No backend, Supabase schema/data, secrets, Render deployment, or real emergency records changed. Existing request/response logic was intentionally left untouched.
 - **Next actions:** Open a focused PR, inspect CI results, fix any compile/source-check failures, then leave the PR open for review. Do not merge unless the user separately asks.
+
+
+## Agent handoff — GPS map coordinate-state consistency (2026-10-21)
+
+- Objective: fix the Android map status panel claiming a confirmed pin whenever latitude and longitude were merely non-null, even when marker rendering correctly rejected invalid or out-of-range coordinates.
+- Branch: `agent/gps-map-coordinate-state`, created from `main`.
+- Changes: centralized geographic validation in `Incident.hasValidMapCoordinates()` and reused it for marker rendering and the map status; added source-contract assertions in `tools/check_android_source.py`.
+- Files: `app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt`, `tools/check_android_source.py`, and this handoff.
+- Safety: no location collection or permission behavior changes; no database, Supabase, deployment, credentials, or real emergency records touched.
+- Validation: changes are committed on the remote branch; CI and PR review still required. No local Android device/emulator or real map tile test was available.
+- Next: open PR, check all jobs, fix failures, and merge only after checks pass as the user has authorized. Keep real-device GPS and tile loading marked unverified.
