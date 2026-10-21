@@ -520,7 +520,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     description.trim().takeIf { it.isNotEmpty() }?.let { Text("Report details: $it") }
                     if (freshFix != null) {
                         Text(locationSummary(freshFix))
-                        Text("The pin is a single capture, not live tracking.", style = MaterialTheme.typography.bodySmall)
+                        Text("Only this pin is included with the SOS; ongoing location updates are not sent.", style = MaterialTheme.typography.bodySmall)
                     } else {
                         Text("No GPS pin. Dispatch may call to confirm your location.")
                     }
