@@ -108,6 +108,16 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
         )
     }
 
+    fun clearFieldError(field: String) {
+        _state.value = when (field) {
+            "name" -> _state.value.copy(error = null, nameError = null)
+            "email" -> _state.value.copy(error = null, emailError = null)
+            "phone" -> _state.value.copy(error = null, phoneError = null)
+            "password" -> _state.value.copy(error = null, passwordError = null)
+            else -> _state.value.copy(error = null)
+        }
+    }
+
     /** On success the session flips to LoggedIn and AppRoot swaps this screen out by itself. */
     private fun submit(call: suspend () -> Result<Unit>) {
         if (_state.value.loading) return
@@ -226,7 +236,7 @@ fun AuthScreen(vm: AuthViewModel) {
                 if (registering) {
                     OutlinedTextField(
                         value = name,
-                        onValueChange = { name = it; vm.clearError() },
+                        onValueChange = { name = it; vm.clearFieldError("name") },
                         label = { Text("Full name") },
                         singleLine = true,
                         isError = state.nameError != null,
@@ -235,7 +245,7 @@ fun AuthScreen(vm: AuthViewModel) {
                     )
                     OutlinedTextField(
                         value = phone,
-                        onValueChange = { phone = it; vm.clearError() },
+                        onValueChange = { phone = it; vm.clearFieldError("phone") },
                         label = { Text("Mobile number") },
                         singleLine = true,
                         isError = state.phoneError != null,
@@ -246,7 +256,7 @@ fun AuthScreen(vm: AuthViewModel) {
                 }
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it; vm.clearError() },
+                    onValueChange = { email = it; vm.clearFieldError("email") },
                     label = { Text("Email address") },
                     singleLine = true,
                     isError = state.emailError != null,
@@ -256,7 +266,7 @@ fun AuthScreen(vm: AuthViewModel) {
                 )
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it; vm.clearError() },
+                    onValueChange = { password = it; vm.clearFieldError("password") },
                     label = { Text("Password") },
                     singleLine = true,
                     isError = state.passwordError != null,
