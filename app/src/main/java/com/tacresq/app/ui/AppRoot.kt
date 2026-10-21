@@ -159,24 +159,18 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(18.dp),
+                modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 when (destination) {
                     AppDestination.SECONDARY -> {
-                        Text(
-                            when (role) {
-                                Role.REQUESTER -> "Your requests will appear here."
-                                Role.RESPONDER, Role.DRIVER -> "Your assigned and completed responses will appear here."
-                                Role.DISPATCHER -> "Registered field units."
-                            },
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            if (role == Role.DISPATCHER) "Showing ${units.size} registered field unit(s) returned by the latest refresh." else if (incidents.isEmpty()) "No requests yet." else "${incidents.size} requests",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        if (role == Role.DISPATCHER) {
+                            Text(
+                                "${units.size} field units",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     AppDestination.ALERTS -> {
                         Text("Safety information", style = MaterialTheme.typography.titleLarge)
@@ -196,11 +190,6 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                         Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Role: ${role.label}")
                         user.phone?.let { Text("Mobile: $it") }
-                        Text(
-                            "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                     }
                     AppDestination.PRIMARY, AppDestination.MAP -> Unit
                 }
@@ -252,9 +241,6 @@ private fun RoleSectionScreen(destination: AppDestination, user: User, logout: (
                     ) {
                         Text("No requests yet", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Your requests will appear here when available.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }
