@@ -30,14 +30,15 @@ jobs:
       - name: Test bounded stress utility without Docker
         run: python3 tools/test_stress_test.py
 
+      - name: Check encrypted Android session storage contract
+        run: python3 tools/test_android_session_security.py
+
       - name: Test bounded Docker Compose retry helper
         run: python3 tools/test_docker_compose_retry.py
 
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
-      - name: Check encrypted Android session storage contract
-        run: python3 tools/test_android_session_security.py
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
