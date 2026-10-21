@@ -2,6 +2,7 @@ package com.tacresq.app.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -88,19 +89,35 @@ private fun TacruBottomNavigation(
         shadowElevation = 8.dp,
         color = MaterialTheme.colorScheme.surface,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected)
-            NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected)
-            GpsMapNavigationItem(selected, onDestinationSelected)
-            NavigationItem(destinations[2].first, destinations[2].second, selected, onDestinationSelected)
-            NavigationItem(destinations[3].first, destinations[3].second, selected, onDestinationSelected)
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            // Compact mode reduces visual noise on narrow phones instead of squeezing
+            // five text labels into tiny navigation slots. Full labels return when there
+            // is enough horizontal room.
+            val compact = maxWidth < 400.dp
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = if (compact) 4.dp else 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                destinations.forEach { (destination, label) ->
+                    NavigationItem(
+                        destination = destination,
+                        label = label,
+                        selected = selected,
+                        onDestinationSelected = onDestinationSelected,
+                        showLabel = !compact || selected == destination,
+                        compact = compact,
+                    )
+                }
+                GpsMapNavigationItem(
+                    selected = selected,
+                    onDestinationSelected = onDestinationSelected,
+                    compact = compact,
+                )
+            }
         }
     }
 }
@@ -111,6 +128,8 @@ private fun RowScope.NavigationItem(
     label: String,
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
+    showLabel: Boolean,
+    compact: Boolean,
 ) {
     val active = destination == selected
     val icon = when (destination) {
@@ -120,14 +139,16 @@ private fun RowScope.NavigationItem(
         AppDestination.PROFILE -> Icons.Filled.Person
         AppDestination.MAP -> Icons.Filled.LocationOn
     }
+    val displayLabel = if (compact && label == "Current call") "Call" else label
+
     Column(
         modifier = Modifier
             .weight(1f)
             .clickable { onDestinationSelected(destination) }
             .semantics { contentDescription = label }
-            .padding(horizontal = 1.dp, vertical = 7.dp),
+            .padding(horizontal = 1.dp, vertical = if (compact) 5.dp else 7.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 0.dp else 3.dp),
     ) {
         Icon(
             imageVector = icon,
@@ -135,13 +156,15 @@ private fun RowScope.NavigationItem(
             modifier = Modifier.size(20.dp),
             tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(
-            text = label,
-            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-            maxLines = 1,
-        )
+        if (showLabel) {
+            Text(
+                text = displayLabel,
+                color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -149,6 +172,7 @@ private fun RowScope.NavigationItem(
 private fun RowScope.GpsMapNavigationItem(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
+    compact: Boolean,
 ) {
     val active = selected == AppDestination.MAP
     Column(
@@ -166,7 +190,7 @@ private fun RowScope.GpsMapNavigationItem(
             shadowElevation = 4.dp,
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                modifier = Modifier.padding(horizontal = if (compact) 6.dp else 11.dp, vertical = if (compact) 6.dp else 7.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
@@ -175,7 +199,12 @@ private fun RowScope.GpsMapNavigationItem(
                     contentDescription = null,
                     modifier = Modifier.size(21.dp),
                 )
-                Text("GPS Map", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(
+                    if (compact) "Map" else "GPS Map",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                )
             }
         }
     }
