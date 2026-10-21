@@ -80,7 +80,7 @@ begin
   return jsonb_build_object(
     'id', i.id, 'type', i.type, 'description', i.description,
     'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
-    'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at, 'location_source', i.location_source,
+    'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at, 'location_source', i.location_source, 'location_source', i.location_source,
     'status', i.status, 'requester_name', p.name, 'requester_phone', p.phone,
     'assigned_to', i.assigned_to, 'created_at', i.created_at
   );
@@ -93,7 +93,7 @@ returns jsonb language sql stable security invoker set search_path = public, pg_
     jsonb_agg(jsonb_build_object(
       'id', i.id, 'type', i.type, 'description', i.description,
       'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
-      'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at, 'location_source', i.location_source,
+      'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at, 'location_source', i.location_source, 'location_source', i.location_source,
       'status', i.status, 'requester_name', r.name, 'requester_phone', r.phone,
       'assigned_to', i.assigned_to, 'created_at', i.created_at
     ) order by i.created_at desc), '[]'::jsonb
@@ -114,7 +114,7 @@ begin
     select coalesce(jsonb_agg(jsonb_build_object(
       'id', i.id, 'type', i.type, 'description', i.description,
       'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
-      'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+      'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at, 'location_source', i.location_source,
       'status', i.status, 'requester_name', r.name, 'requester_phone', r.phone,
       'assigned_to', i.assigned_to, 'created_at', i.created_at
     ) order by i.created_at desc), '[]'::jsonb)
@@ -141,7 +141,7 @@ begin
   return jsonb_build_object(
     'id', i.id, 'type', i.type, 'description', i.description,
     'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
-    'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+    'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at, 'location_source', i.location_source,
     'status', i.status, 'requester_name', (select name from public.profiles where id = i.requester_id),
     'requester_phone', (select phone from public.profiles where id = i.requester_id),
     'assigned_to', i.assigned_to, 'created_at', i.created_at
@@ -166,7 +166,7 @@ begin
   return jsonb_build_object(
     'id', i.id, 'type', i.type, 'description', i.description,
     'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
-    'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+    'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at, 'location_source', i.location_source,
     'status', i.status, 'requester_name', (select name from public.profiles where id = i.requester_id),
     'requester_phone', (select phone from public.profiles where id = i.requester_id),
     'assigned_to', i.assigned_to, 'created_at', i.created_at
