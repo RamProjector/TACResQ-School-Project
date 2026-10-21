@@ -1,6 +1,6 @@
 # TACResQ UI research — comparative findings before choosing a final direction
 
-Status: **research phase; do not treat the current SVG concept board as the final design decision.** This document deliberately keeps multiple viable patterns open until we compare them against TACResQ's actual requirements, code, device sizes, and screenshots.
+Status: **secondary priority. Functionality is the primary priority; visual design remains provisional and can be refined after workflows stabilize. Do not treat the current SVG concept board as the final design decision.** This document deliberately keeps multiple viable patterns open until we compare them against TACResQ's actual requirements, code, device sizes, and screenshots.
 
 Research checked: 21 October 2026.
 
@@ -112,3 +112,24 @@ Observed in current `main`:
 - No usability test has been conducted with requesters, responders, or dispatchers.
 - The concept SVG and JSON tokens remain provisional; neither is wired into the app.
 - A real build/CI result is required before any navigation implementation is accepted.
+
+
+## Project priority: functionality first, design second
+
+Design research is retained to guide a coherent and testable baseline, not to block feature work or force premature visual decisions.
+
+### Primary priority — functionality
+- Revise, add, or remove functionality based on actual requirements, code behavior, security, and test results.
+- Trace each important user workflow end-to-end, including backend/database integration where applicable.
+- A visible UI element counts as functional only when its action is wired, its state changes correctly, and its result or error is observable.
+- Prefer explicit loading, empty, success, validation, failure, permission-denied, and retry states where relevant.
+- Do not represent placeholder data, simulated GPS, or unwired controls as production functionality.
+
+### Secondary priority — visual design
+- Maintain a clear, consistent, readable baseline that makes features easy to find and test.
+- Defer decorative polish and final visual direction until functionality stabilizes.
+- Design may adapt to functional discoveries, device constraints, and actual screenshots; the inspiration board and tokens are not binding specifications.
+- Do not accept a broken or confusing UI merely because functionality exists underneath: controls and outcomes must remain sufficiently visible and understandable to test.
+
+### Acceptance rule for a new or revised UI element
+For each element, answer: (1) is its purpose clear, (2) can the user find and operate it, (3) does it execute the intended behavior, (4) is the outcome or failure visible, and (5) is the behavior verified by a suitable test? If any answer is no, mark the element incomplete rather than calling it done.
