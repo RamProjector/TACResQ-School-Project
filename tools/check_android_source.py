@@ -213,6 +213,32 @@ for relative_path, required_text in password_breach_contract.items():
         )
 print("Password breach-check contract OK: live signup uses HIBP k-anonymity range checks, demo signup is unchanged, and network failures block signup.")
 
+navigation_contract = {
+    "app/src/main/java/com/tacresq/app/ui/RoleShell.kt": (
+        'Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")',
+        'Role.RESPONDER, Role.DRIVER -> listOf("Current call", "History", "Safety", "Profile")',
+        'Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")',
+        "GpsMapNavigationItem(selected, onDestinationSelected)",
+    ),
+    "app/src/main/java/com/tacresq/app/ui/AppRoot.kt": (
+        'AppDestination.PROFILE -> "Profile"',
+    ),
+    "docs/NAVIGATION_REVIEW.md": (
+        "Do not add a sixth tab",
+        "Notifications: top-app-bar bell/action",
+        "Dispatcher Profile previously displayed an Activity label",
+    ),
+}
+for relative_path, required_text in navigation_contract.items():
+    source = (ROOT / relative_path).read_text(encoding="utf-8")
+    missing = [snippet for snippet in required_text if snippet not in source]
+    if missing:
+        raise SystemExit(
+            f"Navigation information-architecture contract failed for {relative_path}: missing "
+            + ", ".join(missing)
+        )
+print("Navigation contract OK: five destinations remain, GPS Map stays central, and dispatcher Profile label matches its content.")
+
 if (ROOT / "gradlew").is_file():
     required_build_files = (
         "gradlew",
