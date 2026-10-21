@@ -87,6 +87,9 @@ import java.time.Instant
 import java.io.File
 import java.util.Locale
 import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -624,6 +627,9 @@ private fun ManualLocationPickerDialog(
     onConfirm: (Double, Double) -> Unit,
 ) {
     val context = LocalContext.current
+    val centerCoordinates = androidx.compose.runtime.remember {
+        mutableStateOf(initialLatitude to initialLongitude)
+    }
     val mapView = androidx.compose.runtime.remember {
         val osmdroidBase = File(context.cacheDir, "osmdroid").apply { mkdirs() }
         val tileCache = File(osmdroidBase, "tiles").apply { mkdirs() }
@@ -637,6 +643,18 @@ private fun ManualLocationPickerDialog(
             isTilesScaledToDpi = true
             controller.setZoom(17.0)
             controller.setCenter(GeoPoint(initialLatitude, initialLongitude))
+            addMapListener(object : MapListener {
+                override fun onScroll(event: ScrollEvent?): Boolean {
+                    val point = mapCenter
+                    centerCoordinates.value = point.latitude to point.longitude
+                    return true
+                }
+                override fun onZoom(event: ZoomEvent?): Boolean {
+                    val point = mapCenter
+                    centerCoordinates.value = point.latitude to point.longitude
+                    return true
+                }
+            })
         }
     }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -687,7 +705,16 @@ private fun ManualLocationPickerDialog(
                     )
                 }
                 Text(
-                    "The pin is selected manually. Check the surrounding streets or landmarks before confirming.",
+                    String.format(
+                        Locale.US,
+                        "Selected center: %.5f, %.5f",
+                        centerCoordinates.value.first,
+                        centerCoordinates.value.second,
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Text(
+                    "Wait until roads and landmarks appear before confirming. If the map stays blank, cancel and use a landmark instead.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
