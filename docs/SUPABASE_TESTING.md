@@ -25,7 +25,7 @@ For a local real-backend debug build:
 In the Supabase Dashboard for the intended QA project:
 
 1. Open **Authentication → Users** and create dedicated test users for requester, responder, driver, and dispatcher. Use mailboxes you control, unique strong passwords, and mark the test users confirmed if your test setup requires confirmation.
-2. Sign in once with each test account if your project requires the profile-creation trigger to run on sign-up. The trigger creates requester profiles only; it intentionally does not trust public metadata to grant privileged roles.
+2. Verify that the profile-creation trigger created a matching row in `public.profiles` for each Auth user. It runs when the Auth user is created; it creates requester profiles only and intentionally does not trust public metadata to grant privileged roles. If a profile is missing, troubleshoot the trigger instead of inserting directly into `auth.users`.
 3. Open **SQL Editor** and replace the example email addresses below with the exact emails of those test accounts. Run this only against your intended QA project.
 
 ```sql
