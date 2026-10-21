@@ -150,3 +150,14 @@ Set up TACResQ for autonomous, feature-by-feature development with validation an
 - **Safety:** no location is collected by this action; no API upload, backend/schema, Supabase, Render, credentials, or live incident data changed.
 - **Validation:** PR CI pending. No local Android build, emulator, physical-device GPS, or live map-tile test was run through the GitHub connector.
 - **Next:** inspect the diff, open PR, run CI, fix any failures, and merge only if all relevant checks pass. Continue to distinguish CI build success from actual device GPS/tile QA.
+
+
+## Agent handoff — GPS Map lifecycle resume safety (2026-10-21)
+
+- **Objective:** ensure the osmdroid MapView is resumed correctly when Compose enters the GPS Map after the host Activity is already resumed, and avoid duplicate pause/resume calls during lifecycle transitions.
+- **Base:** `main` at `97e6836c1b26aafeca39ad3cc7c07aae2dc03a6e` (merged PR #38).
+- **Branch:** `agent/gps-map-lifecycle-resume`.
+- **Implementation:** synchronize MapView resume/pause state with the current Lifecycle, guard duplicate transitions, and ensure disposal pauses only when needed before detaching. Added source-contract assertions for the lifecycle state check and guarded transitions.
+- **Safety:** no location collection, API/backend/schema, Supabase, Render, credentials, or live incident data changes.
+- **Validation:** source checks and CI must run on the focused PR. No local build, emulator, physical device, or live map-tile test has been performed through the GitHub connector. This is a plausible lifecycle reliability fix, not confirmation of the user's device-specific tile issue.
+- **Next:** open a focused PR, inspect all CI jobs, fix any failures, and merge only if all required checks pass. Physical-device tile loading remains manual QA.

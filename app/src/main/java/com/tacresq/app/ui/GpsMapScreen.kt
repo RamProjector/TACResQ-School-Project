@@ -184,17 +184,39 @@ fun GpsMapScreen(
     }
 
     DisposableEffect(mapView, lifecycleOwner) {
+        val lifecycle = lifecycleOwner.lifecycle
+        var mapIsResumed = false
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_RESUME -> {
+                    if (!mapIsResumed) {
+                        mapView.onResume()
+                        mapIsResumed = true
+                    }
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    if (mapIsResumed) {
+                        mapView.onPause()
+                        mapIsResumed = false
+                    }
+                }
                 else -> Unit
             }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
+        lifecycle.addObserver(observer)
+        // Compose can enter this screen after the host Activity has already resumed.
+        // Lifecycle observers catch up synchronously on registration, but keep this
+        // guard so a resumed map is never left paused if the event was already passed.
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !mapIsResumed) {
+            mapView.onResume()
+            mapIsResumed = true
+        }
         onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            mapView.onPause()
+            lifecycle.removeObserver(observer)
+            if (mapIsResumed) {
+                mapView.onPause()
+                mapIsResumed = false
+            }
             mapView.onDetach()
         }
     }
