@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline contract test for the location RPC's SECURITY DEFINER search path."""
+"""Offline contract test for the location RPC privilege boundary and search paths."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,4 +11,20 @@ assert ") set search_path = pg_catalog;" in sql
 assert "public, pg_temp" not in sql
 assert "create or replace function" not in sql
 assert "drop function" not in sql
-print("Location RPC search-path migration contract passed.")
+
+boundary = (ROOT / "supabase/migrations/20261021200000_isolate_location_writer.sql").read_text().lower()
+assert "create or replace function private.tacresq_record_location_v2(" in boundary
+assert "language plpgsql security definer set search_path = pg_catalog" in boundary
+assert "create or replace function public.api_record_location_v2(" in boundary
+assert "language sql security invoker set search_path = pg_catalog" in boundary
+assert "select private.tacresq_record_location_v2(" in boundary
+assert "revoke all on function private.tacresq_record_location_v2(" in boundary
+assert "grant execute on function private.tacresq_record_location_v2(" in boundary
+assert "revoke all on function public.api_record_location_v2(" in boundary
+assert "grant execute on function public.api_record_location_v2(" in boundary
+assert "auth.uid()" in boundary
+assert "pg_advisory_xact_lock(actor_id)" in boundary
+assert "interval '8 seconds'" in boundary
+assert "interval '15 minutes'" in boundary
+assert "p_latitude < -90" in boundary and "p_longitude > 180" in boundary
+print("Location RPC search-path and privilege-boundary contract passed.")
