@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -212,7 +213,12 @@ fun GpsMapScreen(
                             locationStatus = "Location permission denied. Incident pins remain available."
                         }
                         LocationCaptureResult.ServicesDisabled -> {
-                            locationStatus = "Device location is turned off. Enable it and try again."
+                            locationStatus = "Opening Android Location settings. Turn Location on, return here, and tap Locate me again."
+                            runCatching {
+                                context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                            }.onFailure {
+                                locationStatus = "Device Location is off. Turn it on in Quick Settings, return here, and tap Locate me again."
+                            }
                         }
                         LocationCaptureResult.TimedOut -> {
                             locationStatus = "No fresh location fix arrived in time. Try again."
@@ -236,7 +242,12 @@ fun GpsMapScreen(
                     }
                 }
                 LocationSettingsCheck.Unavailable -> {
-                    locationStatus = "Could not check device location settings. Enable Location in Quick Settings and try again."
+                    locationStatus = "Could not open the automatic location prompt. Opening Android Location settings instead."
+                    runCatching {
+                        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    }.onFailure {
+                        locationStatus = "Could not open Location settings. Enable Location in Quick Settings and try again."
+                    }
                 }
             }
         }
