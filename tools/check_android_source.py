@@ -188,6 +188,32 @@ for relative_path, required_text in sync_contract.items():
         raise SystemExit(f"Sync health contract failed for {relative_path}: missing " + ", ".join(missing))
 print("Incident sync-health contract OK: requester, responder, and dispatcher status is observable.")
 
+password_breach_contract = {
+    "app/src/main/java/com/tacresq/app/security/PasswordBreachChecker.kt": (
+        "https://api.pwnedpasswords.com/range/",
+        'header("Add-Padding", "true")',
+        "hash.substring(0, PREFIX_LENGTH)",
+        "hash.substring(PREFIX_LENGTH)",
+        "PasswordCheckUnavailableException()",
+        "callTimeout(9, TimeUnit.SECONDS)",
+    ),
+    "app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt": (
+        "PasswordBreachChecker.isCompromised(password)",
+        "if (!BuildConfig.USE_FAKE_API",
+        "This password appears in known data breaches. Choose a different password.",
+        "We couldn't verify this password's breach status.",
+    ),
+}
+for relative_path, required_text in password_breach_contract.items():
+    source = (ROOT / relative_path).read_text(encoding="utf-8")
+    missing = [snippet for snippet in required_text if snippet not in source]
+    if missing:
+        raise SystemExit(
+            f"Password breach-check contract failed for {relative_path}: missing "
+            + ", ".join(missing)
+        )
+print("Password breach-check contract OK: live signup uses HIBP k-anonymity range checks, demo signup is unchanged, and network failures block signup.")
+
 if (ROOT / "gradlew").is_file():
     required_build_files = (
         "gradlew",
