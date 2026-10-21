@@ -40,6 +40,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -94,6 +95,33 @@ fun GpsMapScreen(
         Role.RESPONDER, Role.DRIVER -> "Assigned incident pins and your optional one-time location preview. This map does not start live tracking."
         Role.DISPATCHER -> "Confirmed incident pins and your optional one-time location preview. Live field-unit markers are not available here yet."
     }
+    val validIncidentPoints = visibleIncidents.mapNotNull { incident ->
+        val lat = incident.latitude
+        val lng = incident.longitude
+        if (incident.hasValidMapCoordinates() && lat != null && lng != null) {
+            GeoPoint(lat, lng)
+        } else {
+            null
+        }
+    }
+
+    fun showIncidentPins() {
+        when (validIncidentPoints.size) {
+            0 -> locationStatus = "There are no valid incident coordinates to center on yet."
+            1 -> {
+                deviceFix = null
+                mapView.controller.setZoom(15.0)
+                mapView.controller.animateTo(validIncidentPoints.first())
+                locationStatus = "Centered on the one confirmed incident pin. Tap Locate me to return to your device location."
+            }
+            else -> {
+                deviceFix = null
+                mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)
+                locationStatus = "Showing all ${validIncidentPoints.size} confirmed incident pins. Tap Locate me to return to your device location."
+            }
+        }
+    }
+
     val mapView = remember(context) {
         Configuration.getInstance().userAgentValue = context.packageName
         MapView(context).apply {
@@ -251,8 +279,22 @@ fun GpsMapScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedButton(onClick = onLocateClick, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (deviceFix == null) "Locate me" else "Refresh my location")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = ::showIncidentPins,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Show incident pins")
+                    }
+                    OutlinedButton(
+                        onClick = onLocateClick,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(if (deviceFix == null) "Locate me" else "Refresh location")
+                    }
                 }
             }
         }
