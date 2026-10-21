@@ -36,6 +36,9 @@ jobs:
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
+      - name: Check GPS location-disabled regression
+        run: python3 tools/test_location_disabled_regression.py
+
       - name: Check osmdroid tile cache configuration
         run: python3 tools/test_osmdroid_tile_cache.py
 
