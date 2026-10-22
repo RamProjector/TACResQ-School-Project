@@ -136,7 +136,7 @@ private fun RowScope.NavigationItem(
             .clickable { onDestinationSelected(destination) }
             .semantics {
                 contentDescription = label
-                selected = active
+                this.selected = active
                 role = SemanticsRole.Tab
             }
             .heightIn(min = 48.dp)
@@ -174,7 +174,7 @@ private fun RowScope.GpsMapNavigationItem(
             .clickable { onDestinationSelected(AppDestination.MAP) }
             .semantics {
                 contentDescription = "Open full-screen GPS map"
-                selected = active
+                this.selected = active
                 role = SemanticsRole.Tab
             }
             .heightIn(min = 48.dp)
