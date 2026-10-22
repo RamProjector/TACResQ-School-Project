@@ -114,6 +114,28 @@ private fun formatLocationAge(ageSeconds: Long): String = when {
     else -> "${ageSeconds / 3600L}h ago"
 }
 
+/**
+ * Incident coordinates may be valid but old. Keep the pin visible, while making
+ * the recorded age explicit so users can confirm the destination before navigating.
+ */
+private fun Incident.locationAgeStatus(now: Instant = Instant.now()): Pair<String, Boolean> {
+    val rawTimestamp = locationRecordedAt
+        ?: return "Location time unavailable — confirm before navigating." to true
+    val recordedAt = runCatching { Instant.parse(rawTimestamp) }.getOrNull()
+        ?: return "Location timestamp invalid — confirm before navigating." to true
+    val ageSeconds = runCatching { Duration.between(recordedAt, now).seconds }.getOrNull()
+        ?: return "Location timestamp invalid — confirm before navigating." to true
+    if (ageSeconds < 0L) {
+        return "Location timestamp is in the future — confirm before navigating." to true
+    }
+    val recordedLabel = "Location recorded ${formatLocationAge(ageSeconds)}"
+    return if (ageSeconds > 600L) {
+        "$recordedLabel — confirm before navigating." to true
+    } else {
+        recordedLabel to false
+    }
+}
+
 @Composable
 fun GpsMapScreen(
     role: Role,
@@ -406,8 +428,9 @@ fun GpsMapScreen(
                         incident.accuracyM?.let { "GPS accuracy about ${it.roundToInt()} m" }
                     } else null
                     val note = incident.locationNotes?.takeIf { it.isNotBlank() }
-                    snippet = listOfNotNull(source, accuracy, "Status: ${incident.status.label}", note)
-                        .joinToString(" · ")
+                val locationAgeLabel = incident.locationAgeStatus(mapNow).first
+                snippet = listOfNotNull(source, accuracy, "Status: ${incident.status.label}", locationAgeLabel, note)
+                    .joinToString(" · ")
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
                 mapView.overlays.add(marker)
@@ -658,6 +681,13 @@ private fun MapIncidentCard(incident: Incident, context: Context) {
             if (lat != null && lng != null && lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0) {
                 Text(String.format(Locale.US, "%.5f, %.5f", lat, lng), style = MaterialTheme.typography.bodySmall)
                 incident.locationRecordedAt?.let { Text("GPS recorded ${formatTime(it)}", style = MaterialTheme.typography.bodySmall) }
+                val (locationAgeLabel, locationNeedsConfirmation) = incident.locationAgeStatus()
+                Text(
+                    text = locationAgeLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (locationNeedsConfirmation) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 OutlinedButton(onClick = { openExternalMaps(context, lat, lng) }, modifier = Modifier.fillMaxWidth()) {
                     Text("Open turn-by-turn maps")
                 }
