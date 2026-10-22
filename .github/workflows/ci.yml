@@ -233,6 +233,9 @@ jobs:
       - name: Compare visual screenshots
         run: python3 tools/visual_regression.py
 
+      - name: Capture and validate multiple viewport sizes
+        run: python3 tools/test_multi_viewport_visuals.py
+
       - name: Upload visual report and changed screenshots
         if: always()
         uses: actions/upload-artifact@v7
