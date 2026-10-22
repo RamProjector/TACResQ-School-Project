@@ -126,13 +126,26 @@ def main() -> int:
                 page.goto(url, wait_until="networkidle")
                 page.locator("#phone-screen").wait_for()
                 page.locator("#phone-screen .nav-bar button").first.wait_for()
+                # Remove the wireframe studio chrome so the app content itself
+                # receives the exact requested CSS viewport dimensions.
+                page.add_style_tag(content="""
+                  html, body { width: 100%; min-width: 0; margin: 0; }
+                  .studio-rail, .workspace-header, .device-caption,
+                  .device-camera, .device-footnote, .inspector { display: none !important; }
+                  .studio-shell, .workspace, .workspace-content, .device-column,
+                  .device-frame {
+                    display: block !important; width: 100% !important;
+                    max-width: none !important; min-width: 0 !important;
+                    margin: 0 !important; padding: 0 !important;
+                    border-radius: 0 !important; box-shadow: none !important;
+                  }
+                  .device-screen {
+                    width: 100vw !important; height: 100vh !important;
+                    min-height: 0 !important; max-height: none !important;
+                    border-radius: 0 !important;
+                  }
+                """)
                 assert_layout(page, width, viewport_name)
-
-                page.screenshot(
-                    path=str(output / f"{viewport_name}-studio.png"),
-                    full_page=True,
-                    animations="disabled",
-                )
                 for screen_name, destination in SCREENS:
                     if destination:
                         if page.locator(".map-fullscreen").count():
@@ -146,12 +159,12 @@ def main() -> int:
                                 arg=destination,
                             )
                     assert_layout(page, width, f"{viewport_name}/{screen_name}")
-                    phone = page.locator("#phone-screen")
-                    phone.screenshot(
+                    page.screenshot(
                         path=str(output / f"{viewport_name}-{screen_name}.png"),
+                        full_page=True,
                         animations="disabled",
                     )
-                print(f"PASS {viewport_name} ({width}x{height}): geometry and 3 screenshots")
+                print(f"PASS {viewport_name} ({width}x{height}): app viewport geometry and 3 screenshots")
                 page.close()
             browser.close()
     except Exception as exc:
