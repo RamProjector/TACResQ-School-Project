@@ -627,11 +627,10 @@ fun GpsMapScreen(
         // Map actions float independently instead of consuming a full-width toolbar.
         Column(
             modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 12.dp)
-                // The expanded details sheet overlays the lower map. Lift the floating
-                // actions above it so Locate me and pin controls remain reachable.
-                .padding(bottom = if (detailsExpanded) 330.dp else 74.dp),
+                // Keep controls in the upper-right map area instead of using a large
+                // bottom offset that can push them beyond the viewport on short screens.
+                .align(Alignment.TopEnd)
+                .padding(top = if (detailsExpanded) 112.dp else 84.dp, end = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalAlignment = Alignment.End,
         ) {
