@@ -52,11 +52,15 @@ map_contract = {
         "if (!mapIsResumed)",
         "if (mapIsResumed)",
         "mapView.onDetach()",
-        "private fun ResponderLocation.isFreshMapLocation",
+        "private fun ResponderLocation.mapAgeSeconds",
         "Duration.between(recorded, now).seconds",
-        "freshResponderLocations.forEach",
-        "Field unit · Incident #",
-        "role == Role.DISPATCHER && freshResponderLocations.isNotEmpty()",
+        "validResponderLocations.forEach",
+        "STALE field-unit location · Incident #",
+        "role == Role.DISPATCHER && validResponderLocations.isNotEmpty()",
+        "age < 30L -> MapLocationFreshness.FRESH",
+        "age <= 120L -> MapLocationFreshness.AGING",
+        "else -> MapLocationFreshness.STALE",
+        "Do not treat this marker as live",
         "contentDescription = \"Show active units\"",
     ),
 }
@@ -155,14 +159,14 @@ unit_location_contract = {
     "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt": ("activeResponderLocations(): List<ResponderLocation>",),
     "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt": ("Only dispatchers can view responder locations.", "emptyList()"),
     "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt": ("rest/v1/rpc/api_active_responder_locations",),
-    "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": ("age in 0L..120L", "Dispatcher-only, consented foreground location."),
+    "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": ("age <= 120L", "Dispatcher-only, consented foreground location.", "STALE — last known position"),
 }
 for relative_path, required_text in unit_location_contract.items():
     source = (ROOT / relative_path).read_text(encoding="utf-8")
     missing = [snippet for snippet in required_text if snippet not in source]
     if missing:
         raise SystemExit(f"Dispatcher unit-location contract failed for {relative_path}: missing " + ", ".join(missing))
-print("Dispatcher unit-location contract OK: role-gated fetch, fake backend never fabricates GPS, and map rejects reports older than 2 minutes.")
+print("Dispatcher unit-location contract OK: role-gated fetch, fake backend never fabricates GPS, and Android labels old reports as stale rather than live.")
 
 sync_contract = {
     "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt": (
