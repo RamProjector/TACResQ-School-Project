@@ -20,3 +20,9 @@ assert "modifier = Modifier.fillMaxSize()" in map_screen, (
     "the map surface must continue filling its available viewport"
 )
 print("GPS map full-viewport navigation contract passed.")
+
+# Floating controls must move clear of the expanded bottom details sheet.
+assert "if (detailsExpanded) 330.dp else 74.dp" in map_screen, (
+    "map action buttons must not remain behind the expanded details panel"
+)
+print("GPS map expanded-panel control clearance contract passed.")
