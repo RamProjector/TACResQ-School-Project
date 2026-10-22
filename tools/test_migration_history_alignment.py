@@ -20,7 +20,7 @@ EXPECTED = {
     "20261021103213_isolate_location_writer.sql",
     "20261021113046_revoke_anon_table_privileges.sql",
     "20261021155540_manual_incident_location_source.sql",
-    "20261022120000_fix_incident_status_audit_trigger.sql",
+    "20261022040223_fix_incident_status_audit_trigger.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED, (
@@ -50,7 +50,7 @@ for required in (
 ):
     assert required in push, f"Missing baseline push/location object: {required}"
 
-audit_fix = (MIGRATIONS / "20261022120000_fix_incident_status_audit_trigger.sql").read_text()
+audit_fix = (MIGRATIONS / "20261022040223_fix_incident_status_audit_trigger.sql").read_text()
 assert "AFTER INSERT OR UPDATE ON public.incidents" in audit_fix
 assert "BEFORE UPDATE ON public.incidents" in audit_fix
 assert "INSERT INTO public.incident_status_logs(incident_id, status, changed_by)" in audit_fix
