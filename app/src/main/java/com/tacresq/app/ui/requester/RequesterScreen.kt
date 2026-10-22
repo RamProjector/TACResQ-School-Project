@@ -502,6 +502,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         ManualLocationPickerDialog(
             initialLatitude = initial?.latitude ?: 11.2443,
             initialLongitude = initial?.longitude ?: 125.0030,
+            startsAtTaclobanDefault = initial == null,
             onDismiss = { showManualPinPicker = false },
             onConfirm = { latitude, longitude ->
                 vm.setManualLocation(latitude, longitude)
@@ -623,6 +624,7 @@ private fun locationSummary(fix: GeoFix): String {
 private fun ManualLocationPickerDialog(
     initialLatitude: Double,
     initialLongitude: Double,
+    startsAtTaclobanDefault: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (Double, Double) -> Unit,
 ) {
@@ -690,8 +692,13 @@ private fun ManualLocationPickerDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Drag the map until the exact location is under the center pin. This can be different from your phone's GPS location.",
+                    if (startsAtTaclobanDefault) {
+                        "No GPS pin is available. The map starts at Tacloban as a reference only—not your phone's location. Move the map to the actual emergency location before confirming."
+                    } else {
+                        "Drag the map until the exact location is under the center pin. This can be different from your phone's GPS location."
+                    },
                     style = MaterialTheme.typography.bodySmall,
+                    color = if (startsAtTaclobanDefault) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 androidx.compose.foundation.layout.Box(
                     modifier = Modifier.fillMaxWidth().height(320.dp),
