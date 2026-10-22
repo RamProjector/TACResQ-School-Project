@@ -645,6 +645,10 @@ private fun ManualLocationPickerDialog(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            setOnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_MOVE) userAdjustedMap = true
+                false
+            }
             isTilesScaledToDpi = true
             controller.setZoom(16.5)
             controller.setCenter(GeoPoint(initialLatitude, initialLongitude))
