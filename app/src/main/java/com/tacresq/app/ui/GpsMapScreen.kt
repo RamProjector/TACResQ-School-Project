@@ -6,6 +6,11 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -76,6 +81,13 @@ import java.io.File
 
 private const val TACLOBAN_LATITUDE = 11.2443
 private const val TACLOBAN_LONGITUDE = 125.0030
+
+private fun ConnectivityManager.hasValidatedInternet(): Boolean {
+    val network = activeNetwork ?: return false
+    val capabilities = getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+}
 
 private fun Incident.hasValidMapCoordinates(): Boolean {
     val lat = latitude ?: return false
@@ -156,6 +168,37 @@ fun GpsMapScreen(
     var freshnessTick by remember { mutableStateOf(0) }
     var locationStatus by remember { mutableStateOf<String?>(null) }
     var retryLocationAfterSettings by remember { mutableStateOf(false) }
+    var hasValidatedInternet by remember { mutableStateOf<Boolean?>(null) }
+    val connectivityManager = remember(context) {
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    }
+    DisposableEffect(connectivityManager) {
+        if (connectivityManager == null) {
+            hasValidatedInternet = false
+            onDispose {}
+        } else {
+            fun refreshConnectivity() {
+                val connected = runCatching { connectivityManager.hasValidatedInternet() }.getOrDefault(false)
+                if (Looper.myLooper() == Looper.getMainLooper()) {
+                    hasValidatedInternet = connected
+                } else {
+                    Handler(Looper.getMainLooper()).post { hasValidatedInternet = connected }
+                }
+            }
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) = refreshConnectivity()
+                override fun onLost(network: Network) = refreshConnectivity()
+                override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) =
+                    refreshConnectivity()
+            }
+            refreshConnectivity()
+            runCatching { connectivityManager.registerDefaultNetworkCallback(callback) }
+                .onFailure { hasValidatedInternet = false }
+            onDispose {
+                runCatching { connectivityManager.unregisterNetworkCallback(callback) }
+            }
+        }
+    }
     val visibleIncidents = when (role) {
         Role.REQUESTER, Role.RESPONDER, Role.DRIVER -> incidents.filter { it.status.isActive }
         Role.DISPATCHER -> incidents.filter { it.status.isActive || it.status.name == "PENDING" }
@@ -535,6 +578,32 @@ fun GpsMapScreen(
                     androidx.compose.material3.Icon(
                         imageVector = androidx.compose.material.icons.Icons.Default.Close,
                         contentDescription = "Close map",
+                    )
+                }
+            }
+        }
+
+        if (hasValidatedInternet == false) {
+            androidx.compose.material3.Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, top = 76.dp, end = 12.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                tonalElevation = 2.dp,
+                shadowElevation = 3.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Text("Internet connection not verified", style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "New map tiles need internet. Cached tiles may still appear; reconnect if the map stays blank.",
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }

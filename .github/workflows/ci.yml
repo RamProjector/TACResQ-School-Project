@@ -68,6 +68,9 @@ jobs:
       - name: Check map network-state permission
         run: python3 tools/test_map_network_permissions.py
 
+      - name: Check GPS map offline connection status
+        run: python3 tools/test_gps_map_network_status.py
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
