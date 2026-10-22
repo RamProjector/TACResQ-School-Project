@@ -250,12 +250,20 @@ fun GpsMapScreen(
         locationStatus = null
     }
 
+    // Keep incident-location ages accurate for every role while this map stays open.
+    // This ticker is intentionally separate from dispatcher-only network refreshes.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            delay(15_000)
+            freshnessTick += 1
+        }
+    }
+
     androidx.compose.runtime.LaunchedEffect(role, user.id) {
         if (role == Role.DISPATCHER) {
             while (true) {
                 onRefreshResponderLocations()
                 delay(15_000)
-                freshnessTick += 1
             }
         }
     }

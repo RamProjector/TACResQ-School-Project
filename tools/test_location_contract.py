@@ -33,7 +33,17 @@ checks = {
     "responder navigation blocks missing, non-finite, and out-of-range coordinates": all(text in responder_screen for text in ("latitude.isFinite() && longitude.isFinite()", "latitude in -90.0..90.0 && longitude in -180.0..180.0", "No valid GPS pin is available.", "Incident coordinates are invalid. Confirm the destination with dispatch before navigating.")),
     "Android dispatcher map distinguishes fresh, aging, and stale locations": all(text in map_screen for text in ("MapLocationFreshness.FRESH", "MapLocationFreshness.AGING", "MapLocationFreshness.STALE", "age <= 120L", "else -> MapLocationFreshness.STALE")),
     "Android map rejects future timestamps and warns stale pins are not live": all(text in map_screen for text in ("return age.takeIf { it >= 0L }", "STALE — last known position", "Do not treat this marker as live", "Stale markers are last-known positions, not live.")),
-    "Android map recalculates location freshness while open": all(text in map_screen for text in ("remember(freshnessTick) { Instant.now() }", "delay(15_000)", "freshnessTick += 1")),
+    "Android map refreshes incident-location ages for every role without polling responder locations for non-dispatchers": (
+        all(text in map_screen for text in (
+            "remember(freshnessTick) { Instant.now() }",
+            "LaunchedEffect(Unit)",
+            "delay(15_000)",
+            "freshnessTick += 1",
+            "LaunchedEffect(role, user.id)",
+            "onRefreshResponderLocations()",
+        ))
+        and "freshnessTick += 1" not in map_screen.split("LaunchedEffect(role, user.id)", 1)[1].split("val mapView = remember(context)", 1)[0]
+    ),
     "Android incident pins show recorded location age and warn on missing, invalid, future, or old timestamps": all(text in map_screen for text in ("private fun Incident.locationAgeStatus", "Location time unavailable — confirm before navigating.", "Location timestamp invalid — confirm before navigating.", "Location timestamp is in the future — confirm before navigating.", "ageSeconds > 600L", "confirm before navigating.", "Location recorded ${formatLocationAge(ageSeconds)}", "val locationAgeLabel = incident.locationAgeStatus(mapNow).first", "color = if (locationNeedsConfirmation) MaterialTheme.colorScheme.error")),
     "sign-out stops location sharing before clearing the session": 'Location sharing stopped because you signed out.' in responder_screen and "onLogout()" in responder_screen,
 }
