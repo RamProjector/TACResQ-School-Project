@@ -31,6 +31,10 @@ checks = {
             "startsAtTaclobanDefault: Boolean",
             "The map starts at Tacloban as a reference only—not your phone's location.",
             "Move the map to the actual emergency location before confirming.",
+            "setOnTouchListener { _, event ->",
+            "if (event.action == MotionEvent.ACTION_MOVE) userAdjustedMap = true",
+            "enabled = !startsAtTaclobanDefault || userAdjustedMap",
+            "Move the map to the real emergency location to enable confirmation.",
         )
     ),
     "manual map pin is explicitly represented instead of mislabelled as GPS": all(
