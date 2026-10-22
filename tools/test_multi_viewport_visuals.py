@@ -80,6 +80,8 @@ def assert_layout(page, width: int, label: str) -> None:
         )
         assert map_box["x"] >= screen["left"] - 1 and (
             map_box["x"] + map_box["width"] <= screen["right"] + 1
+        ) and map_box["y"] >= screen["top"] - 1 and (
+            map_box["y"] + map_box["height"] <= screen["bottom"] + 1
         ), f"{label}: full-screen map escapes the phone screen: {map_box}"
         return
     assert len(metrics["nav"]) == 5, (
