@@ -26,7 +26,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -38,9 +37,9 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -646,12 +645,8 @@ private fun ManualLocationPickerDialog(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
-            setOnTouchListener { _, event ->
-                if (event.action == MotionEvent.ACTION_MOVE) userAdjustedMap = true
-                false
-            }
             isTilesScaledToDpi = true
-            controller.setZoom(17.0)
+            controller.setZoom(16.5)
             controller.setCenter(GeoPoint(initialLatitude, initialLongitude))
             addMapListener(object : MapListener {
                 override fun onScroll(event: ScrollEvent?): Boolean {
@@ -694,67 +689,171 @@ private fun ManualLocationPickerDialog(
             mapView.onDetach()
         }
     }
-    AlertDialog(
+
+    // LifeLink-inspired: the map is the screen, with compact floating controls and a
+    // persistent bottom confirmation surface instead of a small AlertDialog preview.
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pinpoint the emergency location") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    if (startsAtTaclobanDefault) {
-                        "No GPS pin is available. The map starts at Tacloban as a reference only—not your phone's location. Move the map to the actual emergency location before confirming."
-                    } else {
-                        "Drag the map until the exact location is under the center pin. This can be different from your phone's GPS location."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (startsAtTaclobanDefault) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+                AndroidView(
+                    factory = { mapView },
+                    modifier = Modifier.fillMaxSize(),
                 )
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier.fillMaxWidth().height(320.dp),
+
+                // A fixed center pin makes the chosen coordinate explicit while the map moves beneath it.
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = "Selected emergency location at map center",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.align(Alignment.Center).offset(y = (-18).dp).size(42.dp),
+                )
+
+                Row(
+                    modifier = Modifier.align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, start = 12.dp, end = 12.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = "Selected location at map center",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center).offset(y = (-18).dp).size(38.dp),
-                    )
-                }
-                if (startsAtTaclobanDefault && !userAdjustedMap) {
-                    Text(
-                        "Move the map to the real emergency location to enable confirmation.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                Text(
-                    String.format(
-                        Locale.US,
-                        "Selected center: %.5f, %.5f",
-                        centerCoordinates.value.first,
-                        centerCoordinates.value.second,
-                    ),
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                Text(
-                    "Wait until roads and landmarks appear before confirming. If the map stays blank, cancel and use a landmark instead.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        confirmButton = {
-            androidx.compose.material3.Button(
-                enabled = !startsAtTaclobanDefault || userAdjustedMap,
-                onClick = {
-                    val point = mapView.mapCenter
-                    if (point.latitude.isFinite() && point.longitude.isFinite()) {
-                        onConfirm(point.latitude, point.longitude)
+                    androidx.compose.material3.FilledTonalIconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Close location picker",
+                        )
                     }
-                },
-            ) { Text("Use this location") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-    )
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    ) {
+                        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                            Text(
+                                "Choose emergency location",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                if (startsAtTaclobanDefault) "No GPS fix · move the map to the real location"
+                                else "Move the map until the pin marks the emergency",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (startsAtTaclobanDefault) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    androidx.compose.material3.FilledTonalIconButton(
+                        onClick = { mapView.controller.zoomIn() },
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        Text("+", style = MaterialTheme.typography.titleLarge)
+                    }
+                    androidx.compose.material3.FilledTonalIconButton(
+                        onClick = { mapView.controller.zoomOut() },
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        Text("−", style = MaterialTheme.typography.titleLarge)
+                    }
+                    androidx.compose.material3.FilledTonalIconButton(
+                        onClick = {
+                            mapView.controller.animateTo(GeoPoint(initialLatitude, initialLongitude))
+                            mapView.controller.setZoom(16.5)
+                            centerCoordinates.value = initialLatitude to initialLongitude
+                        },
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+                            contentDescription = "Return to starting location",
+                        )
+                    }
+                }
+
+                Card(
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            "Selected map center",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            String.format(
+                                Locale.US,
+                                "%.5f, %.5f",
+                                centerCoordinates.value.first,
+                                centerCoordinates.value.second,
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        if (startsAtTaclobanDefault && !userAdjustedMap) {
+                            Text(
+                                "This is only a Tacloban reference view, not your phone's location. Move the map before confirming.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        } else {
+                            Text(
+                                "This is a map-selected pin, not a GPS accuracy measurement. Wait for roads and landmarks to load.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (startsAtTaclobanDefault && !userAdjustedMap) {
+                            Text(
+                                "Move the map to the real emergency location to enable confirmation.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                            ) { Text("Cancel") }
+                            Button(
+                                enabled = !startsAtTaclobanDefault || userAdjustedMap,
+                                onClick = {
+                                    val point = mapView.mapCenter
+                                    if (point.latitude.isFinite() && point.longitude.isFinite()) {
+                                        onConfirm(point.latitude, point.longitude)
+                                    }
+                                },
+                                modifier = Modifier.weight(1.4f).heightIn(min = 52.dp),
+                            ) { Text("Use this location") }
+                        }
+                        Text(
+                            "Map data © OpenStreetMap contributors",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
