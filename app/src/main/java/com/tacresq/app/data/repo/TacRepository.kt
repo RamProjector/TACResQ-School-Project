@@ -161,12 +161,32 @@ class TacRepository(
 
     private data class ErrorBody(val message: String?, val errors: Map<String, List<String>>?)
 
-    /** Reads Laravel's error JSON: first validation error, else "message". */
+    /** Reads API validation messages without leaking raw PostgreSQL/PostgREST internals to the UI. */
     private fun errorMessage(e: HttpException): String {
         val raw = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
         val body = runCatching { raw?.let { Gson().fromJson(it, ErrorBody::class.java) } }.getOrNull()
-        return body?.errors?.values?.firstOrNull()?.firstOrNull()
+        val message = body?.errors?.values?.firstOrNull()?.firstOrNull()
             ?: body?.message
             ?: "Request failed (HTTP ${e.code()})"
+        val normalized = message.lowercase()
+        val internalDatabaseError = listOf(
+            "violates foreign key constraint",
+            "violates check constraint",
+            "violates unique constraint",
+            "insert or update on table",
+            "sql statement",
+            "postgres",
+            "postgrest",
+            "pgrst",
+            "permission denied for table",
+            "relation public.",
+            "function public.",
+        ).any(normalized::contains)
+
+        return if (internalDatabaseError) {
+            "The server couldn't complete this request. Please try again. If this is an emergency, contact local emergency services directly."
+        } else {
+            message
+        }
     }
 }
