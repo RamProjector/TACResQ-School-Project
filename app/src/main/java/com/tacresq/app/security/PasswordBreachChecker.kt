@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit
 object PasswordBreachChecker {
     private const val API_BASE = "https://api.pwnedpasswords.com/range/"
     private const val PREFIX_LENGTH = 5
+    private val RANGE_LINE = Regex("^([0-9A-F]{35}):([0-9]+)$", RegexOption.IGNORE_CASE)
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
@@ -44,11 +45,19 @@ object PasswordBreachChecker {
                     throw PasswordCheckUnavailableException()
                 }
                 val body = response.body?.string() ?: throw PasswordCheckUnavailableException()
-                body.lineSequence().any { line ->
-                    val candidate = line.substringBefore(':').trim()
-                    val count = line.substringAfter(':', "").trim().toLongOrNull() ?: 0L
-                    candidate.equals(suffix, ignoreCase = true) && count > 0L
+                val lines = body.lineSequence().map(String::trim).filter(String::isNotEmpty).toList()
+                if (lines.isEmpty()) throw PasswordCheckUnavailableException()
+
+                var compromised = false
+                for (line in lines) {
+                    val match = RANGE_LINE.matchEntire(line) ?: throw PasswordCheckUnavailableException()
+                    val candidate = match.groupValues[1]
+                    val count = match.groupValues[2].toLongOrNull() ?: throw PasswordCheckUnavailableException()
+                    if (candidate.equals(suffix, ignoreCase = true) && count > 0L) {
+                        compromised = true
+                    }
                 }
+                compromised
             }
         } catch (failure: PasswordCheckUnavailableException) {
             throw failure
