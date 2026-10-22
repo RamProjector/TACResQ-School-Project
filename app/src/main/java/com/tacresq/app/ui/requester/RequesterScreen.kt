@@ -731,9 +731,10 @@ private fun ManualLocationPickerDialog(
                         onClick = onDismiss,
                         modifier = Modifier.size(48.dp),
                     ) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Close location picker",
+                        Text(
+                            text = "×",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                     Card(
