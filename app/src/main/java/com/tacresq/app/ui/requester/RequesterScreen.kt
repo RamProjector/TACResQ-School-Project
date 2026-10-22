@@ -648,7 +648,7 @@ private fun ManualLocationPickerDialog(
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             setOnTouchListener { _, event ->
-                if (event.actionMasked == MotionEvent.ACTION_MOVE) userAdjustedMap = true
+                if (event.action == MotionEvent.ACTION_MOVE) userAdjustedMap = true
                 false
             }
             isTilesScaledToDpi = true
