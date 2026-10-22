@@ -347,7 +347,14 @@ fun GpsMapScreen(
                         is LocationCaptureResult.Success -> {
                             val fix = result.fix
                             deviceFix = fix
-                            mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))
+                            // Recenter after the native MapView has processed the latest layout.
+                            // Zoom in enough for the user to recognize their own position, and
+                            // do this on every Locate me action (not only the first map render).
+                            mapView.post {
+                                mapView.controller.setZoom(16.0)
+                                mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))
+                                mapView.invalidate()
+                            }
                             val precision = if (fix.hasPrecisePermission) "Precise" else "Approximate"
                             val accuracy = fix.accuracyM?.let { " · accuracy about ${it.roundToInt()} m" } ?: ""
                             locationStatus = "One-time $precision location shown on this device only; not uploaded$accuracy."
