@@ -20,7 +20,7 @@ EXPECTED = {
     "20261021103213_isolate_location_writer.sql",
     "20261021113046_revoke_anon_table_privileges.sql",
     "20261021155540_manual_incident_location_source.sql",
-    "20261022120000_fix_incident_status_audit_trigger.sql",
+    "20261022040223_fix_incident_status_audit_trigger.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED, (
