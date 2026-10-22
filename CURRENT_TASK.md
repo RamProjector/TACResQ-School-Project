@@ -2,14 +2,12 @@
 
 ## Active continuation — 2026-10-22
 
-- Verified main commit: `1012eefc46a75acf727936e3c170a7b1b771ddeb`; PR #74 added multi-viewport browser screenshots and post-merge CI passed all five jobs plus the RPC grant contract.
-- Separate feature PR [#75](https://github.com/RamProjector/TACResQ-School-Project/pull/75) improves dispatcher Android map freshness (Fresh <30 s, Aging 30–120 s, Stale >120 s). The source checks, browser checks, clean migration replay, Laravel integration, and Android debug/release builds passed on its code commit; the latest handoff-only follow-up CI run was still in progress when this note was written. PR #75 remains open and unmerged.
-- Current feature branch: `agent/guard-invalid-navigation-coordinates`, based directly on the verified main commit above; this is independent of PR #75.
-- Feature in progress: responder navigation safety. The current responder screen previously showed the external navigation button whenever latitude and longitude were non-null, even if the values were NaN/infinite or outside valid geographic ranges.
-- Updated `ResponderScreen.kt` to show the route action only for finite latitude/longitude in valid ranges (-90..90 and -180..180), explain that malformed/missing coordinates cannot be used for navigation, and repeat validation inside the launch function as defense in depth.
-- Added a source-contract check in `tools/test_location_contract.py` for the route guard and safe fallback message.
-- No database migrations, live data changes, account creation, credential changes, or deployment. No physical-device testing has been performed.
-- Opened [PR #76](https://github.com/RamProjector/TACResQ-School-Project/pull/76) for the responder navigation coordinate guard. The source-check job passed on commit `a3d7025db4b58da47e57318bda865b5cbfb8f991`; Android debug/release, browser checks, migration replay, and Laravel integration were still running at handoff. Leave the PR open for review, fix any CI failures, and do not merge or deploy without separate explicit authorization. Do not merge or deploy without separate explicit authorization.
+- Main includes PR #75, which improves dispatcher map freshness. Its PR CI passed, and the change was merged as `c2647488ab6cbc170f19ac666fbe01be45cf8126`. Post-merge TACResQ CI is still running; RPC grant contract passed.
+- This branch is refreshed from the current main handoff to avoid conflicting with the merged map freshness work.
+- PR #76 improves responder navigation safety: invalid, non-finite, or out-of-range coordinates cannot launch external maps; the screen explains that dispatch must confirm a valid destination.
+- The route guard source-contract test is retained alongside the latest main-branch location-freshness contracts.
+- PR #76's original head passed all five CI jobs and the RPC grant contract, but became non-mergeable after PR #75 changed shared handoff/test files. Those files are being reconciled with main; new CI must pass on the refreshed head before merge.
+- No live database changes, account creation, credential changes, or deployment. Physical-device QA remains outstanding.
 
 ## Historical handoff notes
 
