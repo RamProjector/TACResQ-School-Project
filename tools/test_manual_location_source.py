@@ -25,6 +25,18 @@ checks = {
             "val point = mapView.mapCenter", 'Text("Use this location")',
         )
     ),
+    "fallback map center is clearly identified when GPS is unavailable": all(
+        text in requester for text in (
+            "startsAtTaclobanDefault = initial == null",
+            "startsAtTaclobanDefault: Boolean",
+            "The map starts at Tacloban as a reference only—not your phone's location.",
+            "Move the map to the actual emergency location before confirming.",
+            "setOnTouchListener { _, event ->",
+            "if (event.action == MotionEvent.ACTION_MOVE) userAdjustedMap = true",
+            "enabled = !startsAtTaclobanDefault || userAdjustedMap",
+            "Move the map to the real emergency location to enable confirmation.",
+        )
+    ),
     "manual map pin is explicitly represented instead of mislabelled as GPS": all(
         text in requester for text in (
             'manuallySelected = true', '"Map pin selected"',
