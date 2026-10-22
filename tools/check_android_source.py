@@ -196,6 +196,9 @@ password_breach_contract = {
         "hash.substring(PREFIX_LENGTH)",
         "PasswordCheckUnavailableException()",
         "callTimeout(9, TimeUnit.SECONDS)",
+        "RANGE_LINE.matchEntire(line) ?: throw PasswordCheckUnavailableException()",
+        "if (lines.isEmpty()) throw PasswordCheckUnavailableException()",
+        "toLongOrNull() ?: throw PasswordCheckUnavailableException()",
     ),
     "app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt": (
         "PasswordBreachChecker.isCompromised(password)",
