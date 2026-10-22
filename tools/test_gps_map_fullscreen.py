@@ -21,8 +21,15 @@ assert "modifier = Modifier.fillMaxSize()" in map_screen, (
 )
 print("GPS map full-viewport navigation contract passed.")
 
-# Floating controls must move clear of the expanded bottom details sheet.
-assert "if (detailsExpanded) 330.dp else 74.dp" in map_screen, (
-    "map action buttons must not remain behind the expanded details panel"
+# Floating controls stay in the upper-right map area so a fixed bottom offset
+# cannot push them outside the viewport on short screens.
+assert ".align(Alignment.TopEnd)" in map_screen, (
+    "map action buttons must stay in the upper-right viewport"
 )
-print("GPS map expanded-panel control clearance contract passed.")
+assert ".padding(top = if (detailsExpanded) 112.dp else 84.dp, end = 12.dp)" in map_screen, (
+    "map action buttons must clear the top overlay and remain reachable when details expand"
+)
+assert "if (detailsExpanded) 330.dp else 74.dp" not in map_screen, (
+    "fixed bottom offset can push controls off-screen on short devices"
+)
+print("GPS map responsive control placement contract passed.")
