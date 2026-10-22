@@ -244,8 +244,10 @@ class RequesterViewModel(
             return
         }
         val fix = current.locationFix
+        // Claim the submission synchronously before launching the coroutine. This closes
+        // the small double-tap window where two taps could both observe sending == false.
+        _state.update { it.copy(sending = true, notice = null, error = null) }
         viewModelScope.launch {
-            _state.update { it.copy(sending = true, notice = null, error = null) }
             val report = description.trim().ifBlank { null }
             val landmark = locationNotes.trim().take(500).ifBlank { null }
             repo.createIncident(type, report, fix, landmark)
