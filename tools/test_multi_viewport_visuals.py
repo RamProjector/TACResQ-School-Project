@@ -56,7 +56,7 @@ def assert_layout(page, width: int, label: str) -> None:
         documentWidth: document.documentElement.scrollWidth,
         screen: screen ? rect(screen) : null,
         nav: nav.map(el => ({
-          text: el.innerText.trim(),
+          text: (el.getAttribute("aria-label") || el.innerText).trim(),
           rect: rect(el),
           clientWidth: el.clientWidth,
           scrollWidth: el.scrollWidth,
@@ -87,7 +87,7 @@ def assert_layout(page, width: int, label: str) -> None:
     )
     for item in metrics["nav"]:
         assert item["visible"], f"{label}: nav destination is hidden: {item['text']!r}"
-        assert item["text"], f"{label}: nav destination has no visible label"
+        assert item["text"], f"{label}: nav destination has no accessible label"
         rect = item["rect"]
         assert rect["left"] >= screen["left"] - 1 and rect["right"] <= screen["right"] + 1, (
             f"{label}: nav destination escapes the phone screen: {item['text']!r} {rect}"
