@@ -83,11 +83,35 @@ private fun Incident.hasValidMapCoordinates(): Boolean {
     return lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0
 }
 
-private fun ResponderLocation.isFreshMapLocation(now: Instant = Instant.now()): Boolean {
-    if (!latitude.isFinite() || !longitude.isFinite() || latitude !in -90.0..90.0 || longitude !in -180.0..180.0) return false
-    val recorded = runCatching { Instant.parse(recordedAt) }.getOrNull() ?: return false
-    val age = runCatching { Duration.between(recorded, now).seconds }.getOrNull() ?: return false
-    return age in 0L..120L
+private enum class MapLocationFreshness(val label: String) {
+    FRESH("Fresh"),
+    AGING("Aging"),
+    STALE("Stale"),
+}
+
+private fun ResponderLocation.mapAgeSeconds(now: Instant = Instant.now()): Long? {
+    if (!latitude.isFinite() || !longitude.isFinite() ||
+        latitude !in -90.0..90.0 || longitude !in -180.0..180.0
+    ) return null
+    val recorded = runCatching { Instant.parse(recordedAt) }.getOrNull() ?: return null
+    val age = runCatching { Duration.between(recorded, now).seconds }.getOrNull() ?: return null
+    // Future timestamps are invalid; never make them appear fresh.
+    return age.takeIf { it >= 0L }
+}
+
+private fun ResponderLocation.mapFreshness(now: Instant = Instant.now()): MapLocationFreshness? {
+    val age = mapAgeSeconds(now) ?: return null
+    return when {
+        age < 30L -> MapLocationFreshness.FRESH
+        age <= 120L -> MapLocationFreshness.AGING
+        else -> MapLocationFreshness.STALE
+    }
+}
+
+private fun formatLocationAge(ageSeconds: Long): String = when {
+    ageSeconds < 60L -> "${ageSeconds}s ago"
+    ageSeconds < 3600L -> "${ageSeconds / 60L}m ago"
+    else -> "${ageSeconds / 3600L}h ago"
 }
 
 @Composable
@@ -125,17 +149,31 @@ fun GpsMapScreen(
             null
         }
     }
-    val freshResponderLocations = if (role == Role.DISPATCHER) responderLocations.filter { it.isFreshMapLocation() } else emptyList()
+    val mapNow = remember(freshnessTick) { Instant.now() }
+    val validResponderLocations = if (role == Role.DISPATCHER) {
+        responderLocations.filter { it.mapAgeSeconds(mapNow) != null }
+    } else {
+        emptyList()
+    }
+    val freshResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.FRESH }
+    val agingResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.AGING }
+    val staleResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.STALE }
     val hasConfirmedIncidentCoordinates = visibleIncidents.any { it.hasValidMapCoordinates() }
-    val validResponderPoints = freshResponderLocations.map { GeoPoint(it.latitude, it.longitude) }
+    val validResponderPoints = validResponderLocations.map { GeoPoint(it.latitude, it.longitude) }
     val initialMapPoints = if (role == Role.DISPATCHER) validIncidentPoints + validResponderPoints else validIncidentPoints
+    val responderFreshnessSummary = if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
+        "Field units: $freshResponderCount fresh, $agingResponderCount aging, $staleResponderCount stale. Stale pins are last-known locations, not live."
+    } else null
     val defaultMapStatus = when {
         deviceFix != null ->
             "One-time location preview is active on this device only; it is not uploaded."
+        role == Role.DISPATCHER && validResponderLocations.isNotEmpty() ->
+            listOfNotNull(
+                validIncidentPoints.size.takeIf { it > 0 }?.let { "$it confirmed incident pin(s)." },
+                responderFreshnessSummary,
+            ).joinToString(" ")
         validIncidentPoints.isNotEmpty() ->
             "Showing ${validIncidentPoints.size} confirmed incident pin(s). Tap Locate me to preview your location."
-        role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() ->
-            "No incident pins yet; showing fresh field-unit locations."
         visibleIncidents.isNotEmpty() ->
             "Active incidents exist, but none has valid coordinates. They cannot appear as map pins."
         else ->
@@ -195,17 +233,22 @@ fun GpsMapScreen(
 
     fun showActiveUnits() {
         when (validResponderPoints.size) {
-            0 -> locationStatus = "No fresh field-unit location reports are available. Units must be en route and explicitly sharing foreground location."
+            0 -> locationStatus = "No valid field-unit location reports are available. Units must be en route and explicitly sharing foreground location."
             1 -> {
                 deviceFix = null
                 mapView.controller.setZoom(15.0)
                 mapView.controller.animateTo(validResponderPoints.first())
-                locationStatus = "Centered on the latest reported field-unit location."
+                val freshness = validResponderLocations.first().mapFreshness(mapNow)
+                locationStatus = if (freshness == MapLocationFreshness.STALE) {
+                    "Centered on a stale last-known field-unit location. It is not live; confirm with dispatch before relying on it."
+                } else {
+                    "Centered on the latest reported field-unit location (${freshness?.label?.lowercase() ?: "unknown freshness"})."
+                }
             }
             else -> {
                 deviceFix = null
                 mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validResponderPoints), true, 64)
-                locationStatus = "Showing all ${validResponderPoints.size} fresh field-unit location reports."
+                locationStatus = "Showing field-unit locations: $freshResponderCount fresh, $agingResponderCount aging, $staleResponderCount stale. Stale pins are not live."
             }
         }
     }
@@ -343,7 +386,7 @@ fun GpsMapScreen(
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(mapView, visibleIncidents, freshResponderLocations, deviceFix, freshnessTick) {
+    androidx.compose.runtime.LaunchedEffect(mapView, visibleIncidents, validResponderLocations, deviceFix, freshnessTick) {
         mapView.overlays.removeAll { it is Marker }
         visibleIncidents.forEach { incident ->
             val latitude = incident.latitude
@@ -370,13 +413,28 @@ fun GpsMapScreen(
                 mapView.overlays.add(marker)
             }
         }
-        freshResponderLocations.forEach { location ->
+        validResponderLocations.forEach { location ->
+            val ageSeconds = location.mapAgeSeconds(mapNow) ?: return@forEach
+            val freshness = location.mapFreshness(mapNow) ?: return@forEach
             val marker = Marker(mapView).apply {
                 position = GeoPoint(location.latitude, location.longitude)
                 icon = context.getDrawable(com.tacresq.app.R.drawable.ic_map_responder_pin)
-                setTitle("Field unit · Incident #${location.incidentId}")
-                val accuracy = location.accuracyM?.let { " · accuracy about ${it.roundToInt()} m" } ?: ""
-                snippet = "Last reported ${location.recordedAt}$accuracy. Dispatcher-only, consented foreground location."
+                    ?.mutate()
+                    ?.apply { if (freshness == MapLocationFreshness.STALE) alpha = 110 }
+                setTitle(
+                    if (freshness == MapLocationFreshness.STALE) {
+                        "STALE field-unit location · Incident #${location.incidentId}"
+                    } else {
+                        "${freshness.label} field-unit location · Incident #${location.incidentId}"
+                    },
+                )
+                val accuracy = location.accuracyM?.let { " · reported accuracy about ${it.roundToInt()} m" } ?: ""
+                val age = formatLocationAge(ageSeconds)
+                snippet = if (freshness == MapLocationFreshness.STALE) {
+                    "STALE — last known position, $age$accuracy. Do not treat this marker as live; confirm with dispatch."
+                } else {
+                    "${freshness.label} location · last reported $age$accuracy. Dispatcher-only, consented foreground location."
+                }
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
             }
             mapView.overlays.add(marker)
@@ -403,7 +461,7 @@ fun GpsMapScreen(
                     }
                     else -> {
                         mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(initialMapPoints), true, 64)
-                        locationStatus = "Showing available incident pins and fresh field-unit locations."
+                        locationStatus = "Showing confirmed incident pins and field-unit locations. Stale unit markers are labeled as last known, not live."
                     }
                 }
             }
@@ -441,6 +499,8 @@ fun GpsMapScreen(
                     Text(
                         when {
                             deviceFix != null -> "Location preview active"
+                            role == Role.DISPATCHER && validResponderLocations.isNotEmpty() ->
+                                "$freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale units"
                             validIncidentPoints.isNotEmpty() -> "${validIncidentPoints.size} confirmed pin(s)"
                             else -> "No confirmed pins"
                         },
@@ -524,8 +584,8 @@ fun GpsMapScreen(
                         Text(
                             when {
                                 deviceFix != null -> "Location preview ready"
-                                role == Role.DISPATCHER && freshResponderLocations.isNotEmpty() ->
-                                    "${freshResponderLocations.size} fresh field unit(s)"
+                                role == Role.DISPATCHER && validResponderLocations.isNotEmpty() ->
+                                    "$freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale field unit(s)"
                                 validIncidentPoints.isNotEmpty() -> "${validIncidentPoints.size} confirmed incident(s)"
                                 else -> "Map ready"
                             },
@@ -552,6 +612,13 @@ fun GpsMapScreen(
                 if (detailsExpanded) {
                     Text(description, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (role == Role.DISPATCHER) {
+                        Text(
+                            "Field-unit freshness: Fresh under 30 s · Aging 30–120 s · Stale over 120 s. Stale markers are last-known positions, not live.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Text(
                         "Map tiles need internet. Your one-time location preview stays on this device; continuous tracking is not started.",
                         style = MaterialTheme.typography.bodySmall,
