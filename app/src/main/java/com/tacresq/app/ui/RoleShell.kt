@@ -2,6 +2,8 @@ package com.tacresq.app.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -59,7 +61,7 @@ fun RoleShell(
             }
         },
     ) { padding ->
-        androidx.compose.foundation.layout.Box(modifier = Modifier.padding(padding)) {
+        Box(modifier = Modifier.padding(padding)) {
             if (selected == AppDestination.MAP) mapContent() else content()
         }
     }
@@ -71,36 +73,39 @@ private fun TacruBottomNavigation(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
-    val labels = when (role) {
-        Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
-        Role.RESPONDER, Role.DRIVER -> listOf("Current call", "History", "Safety", "Profile")
-        Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")
-    }
-    val destinations = listOf(
-        AppDestination.PRIMARY to labels[0],
-        AppDestination.SECONDARY to labels[1],
-        AppDestination.ALERTS to labels[2],
-        AppDestination.PROFILE to labels[3],
-    )
-
     Surface(
         tonalElevation = 3.dp,
         shadowElevation = 8.dp,
         color = MaterialTheme.colorScheme.surface,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected)
-            NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected)
-            GpsMapNavigationItem(selected, onDestinationSelected)
-            NavigationItem(destinations[2].first, destinations[2].second, selected, onDestinationSelected)
-            NavigationItem(destinations[3].first, destinations[3].second, selected, onDestinationSelected)
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 400.dp
+            // Preserve full labels on wider layouts and shorten only where width is constrained.
+            val labels = when (role) {
+                Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
+                Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")
+                Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")
+            }
+            val destinations = listOf(
+                AppDestination.PRIMARY to labels[0],
+                AppDestination.SECONDARY to labels[1],
+                AppDestination.ALERTS to labels[2],
+                AppDestination.PROFILE to labels[3],
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = if (compact) 2.dp else 8.dp, vertical = if (compact) 4.dp else 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
+                NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected, compact)
+                NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected, compact)
+                GpsMapNavigationItem(selected, onDestinationSelected, compact)
+                NavigationItem(destinations[2].first, destinations[2].second, selected, onDestinationSelected, compact)
+                NavigationItem(destinations[3].first, destinations[3].second, selected, onDestinationSelected, compact)
+            }
         }
     }
 }
@@ -111,6 +116,7 @@ private fun RowScope.NavigationItem(
     label: String,
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
+    compact: Boolean,
 ) {
     val active = destination == selected
     val icon = when (destination) {
@@ -125,9 +131,9 @@ private fun RowScope.NavigationItem(
             .weight(1f)
             .clickable { onDestinationSelected(destination) }
             .semantics { contentDescription = label }
-            .padding(horizontal = 1.dp, vertical = 7.dp),
+            .padding(horizontal = 0.dp, vertical = if (compact) 5.dp else 7.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 1.dp else 3.dp),
     ) {
         Icon(
             imageVector = icon,
@@ -141,6 +147,7 @@ private fun RowScope.NavigationItem(
             style = MaterialTheme.typography.labelSmall,
             fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1,
+            softWrap = false,
         )
     }
 }
@@ -149,6 +156,7 @@ private fun RowScope.NavigationItem(
 private fun RowScope.GpsMapNavigationItem(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
+    compact: Boolean,
 ) {
     val active = selected == AppDestination.MAP
     Column(
@@ -156,7 +164,7 @@ private fun RowScope.GpsMapNavigationItem(
             .weight(1f)
             .clickable { onDestinationSelected(AppDestination.MAP) }
             .semantics { contentDescription = "Open full-screen GPS map" }
-            .padding(horizontal = 2.dp, vertical = 1.dp),
+            .padding(horizontal = 0.dp, vertical = 1.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Surface(
@@ -166,7 +174,7 @@ private fun RowScope.GpsMapNavigationItem(
             shadowElevation = 4.dp,
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                modifier = Modifier.padding(horizontal = if (compact) 5.dp else 9.dp, vertical = if (compact) 5.dp else 7.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
@@ -175,7 +183,13 @@ private fun RowScope.GpsMapNavigationItem(
                     contentDescription = null,
                     modifier = Modifier.size(21.dp),
                 )
-                Text("GPS Map", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(
+                    if (compact) "Map" else "GPS Map",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                )
             }
         }
     }

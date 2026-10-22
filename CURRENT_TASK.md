@@ -1,5 +1,21 @@
 # Current task handoff
 
+## Latest continuation update — 2026-10-22
+
+- Verified current `main` at `cd7e056b93531d6222d86343bb9d707394755cb9`; the migration-history reconciliation PR is included, and the latest observed main CI run passed.
+- Created [PR #71](https://github.com/RamProjector/TACResQ-School-Project/pull/71) from current main to repair compact bottom navigation. It keeps all five destinations visible, emphasizes the centered map action, uses compact-only spacing/labels below 400 dp, and adds `tools/test_bottom_navigation_labels.py` to CI.
+- PR #71 initial CI exposed two issues: the Android source validator still expected the old responder label/map-item signature, and one earlier visual job hit a transient Playwright browser-download failure. The validator was aligned to the responsive label and function signature; a subsequent run on code commit `10cf17ea154df02807f480a1aaa686f6231cce20` passed all five CI jobs, including Android debug/release builds, source checks, visual/browser checks, clean migration replay, and Laravel/dashboard integration. Run: [39688410426](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39688410426).
+- The navigation labels now remain `Current call` on wider layouts and become `Call` only below 400 dp; the center action shows `GPS Map` on wider layouts and `Map` on compact layouts. Physical-device visual QA remains unverified.
+- Earlier PR #67 contains similar navigation work but is based on an old main commit and is marked non-mergeable; PR #71 is the refreshed replacement. Do not merge either PR without explicit authorization.
+- This continuation used GitHub remote operations only; no local working-tree state was inspected. No Supabase changes, live data changes, account creation, or deployments were made.
+
+### Immediate next actions
+
+1. Review [PR #71](https://github.com/RamProjector/TACResQ-School-Project/pull/71); all checks passed on the tested code commit, but the PR remains open and unmerged pending explicit authorization.
+2. Test navigation on a physical Android device at narrow widths and larger font scale before claiming device-level visual fit.
+3. Reconcile remaining stale handoff/QA references only after confirming their referenced PRs and branch states. Continue preserving location consent, role authorization, no fabricated GPS, and no real emergency data.
+
+
 **Last updated:** 2026-10-21  
 **Repository:** `RamProjector/TACResQ-School-Project`  
 **Base branch:** `main` at `a5b2aea5c6f2b2e3041ef28153682c678ec8613c`  
