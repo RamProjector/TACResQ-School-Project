@@ -73,6 +73,15 @@ def assert_layout(page, width: int, label: str) -> None:
     assert screen["left"] >= -1 and screen["right"] <= width + 1, (
         f"{label}: phone screen escapes viewport bounds: {screen}"
     )
+    if not metrics["nav"] and page.locator(".map-fullscreen").count():
+        map_box = page.locator(".map-fullscreen").bounding_box()
+        assert map_box and map_box["width"] > 0 and map_box["height"] > 0, (
+            f"{label}: full-screen map is not visible"
+        )
+        assert map_box["x"] >= screen["left"] - 1 and (
+            map_box["x"] + map_box["width"] <= screen["right"] + 1
+        ), f"{label}: full-screen map escapes the phone screen: {map_box}"
+        return
     assert len(metrics["nav"]) == 5, (
         f"{label}: expected five bottom navigation destinations, found {len(metrics['nav'])}"
     )
