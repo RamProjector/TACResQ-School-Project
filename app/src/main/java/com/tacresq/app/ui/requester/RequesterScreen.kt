@@ -750,8 +750,8 @@ private fun ManualLocationPickerDialog(
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                if (startsAtTaclobanDefault) "No GPS fix · move the map to the real location"
-                                else "Move the map until the pin marks the emergency",
+                                if (startsAtTaclobanDefault) "The map starts at Tacloban as a reference only—not your phone's location. Move the map to the actual emergency location before confirming."
+                                else "Drag the map until the exact location is under the center pin. This can be different from your phone's GPS location.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (startsAtTaclobanDefault) MaterialTheme.colorScheme.error
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -803,7 +803,11 @@ private fun ManualLocationPickerDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text(
-                            "Selected map center",
+                            "Selected center: %.5f, %.5f".format(
+                                Locale.US,
+                                centerCoordinates.value.first,
+                                centerCoordinates.value.second,
+                            ),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -824,7 +828,7 @@ private fun ManualLocationPickerDialog(
                             )
                         } else {
                             Text(
-                                "This is a map-selected pin, not a GPS accuracy measurement. Wait for roads and landmarks to load.",
+                                "This is a map-selected pin, not a GPS accuracy measurement. Wait until roads and landmarks appear before confirming. If the map stays blank, cancel and use a landmark instead.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
