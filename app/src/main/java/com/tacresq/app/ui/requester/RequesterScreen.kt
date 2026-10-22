@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.provider.Settings
 import android.os.SystemClock
+import android.view.MotionEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -632,6 +633,7 @@ private fun ManualLocationPickerDialog(
     val centerCoordinates = androidx.compose.runtime.remember {
         mutableStateOf(initialLatitude to initialLongitude)
     }
+    var userAdjustedMap by androidx.compose.runtime.remember { mutableStateOf(false) }
     val mapView = androidx.compose.runtime.remember {
         val osmdroidBase = File(context.cacheDir, "osmdroid").apply { mkdirs() }
         val tileCache = File(osmdroidBase, "tiles").apply { mkdirs() }
@@ -642,6 +644,10 @@ private fun ManualLocationPickerDialog(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_MOVE) userAdjustedMap = true
+                false
+            }
             isTilesScaledToDpi = true
             controller.setZoom(17.0)
             controller.setCenter(GeoPoint(initialLatitude, initialLongitude))
@@ -711,6 +717,13 @@ private fun ManualLocationPickerDialog(
                         modifier = Modifier.align(Alignment.Center).offset(y = (-18).dp).size(38.dp),
                     )
                 }
+                if (startsAtTaclobanDefault && !userAdjustedMap) {
+                    Text(
+                        "Move the map to the real emergency location to enable confirmation.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 Text(
                     String.format(
                         Locale.US,
@@ -729,6 +742,7 @@ private fun ManualLocationPickerDialog(
         },
         confirmButton = {
             androidx.compose.material3.Button(
+                enabled = !startsAtTaclobanDefault || userAdjustedMap,
                 onClick = {
                     val point = mapView.mapCenter
                     if (point.latitude.isFinite() && point.longitude.isFinite()) {
