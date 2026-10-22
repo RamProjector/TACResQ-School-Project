@@ -39,7 +39,7 @@ def serve() -> tuple[socketserver.TCPServer, str]:
     handler = lambda *args, **kwargs: QuietHandler(*args, directory=str(ROOT), **kwargs)
     server = socketserver.TCPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server, f"http://127.0.0.1:{server.server_port}{GALLERY}"
+    return server, f"http://127.0.0.1:{server.server_address[1]}{GALLERY}"
 
 
 def assert_layout(page, width: int, label: str) -> None:
