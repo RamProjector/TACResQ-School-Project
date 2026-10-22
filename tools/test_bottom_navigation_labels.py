@@ -17,7 +17,10 @@ assert source.count("NavigationItem(destinations[") == 4, "all four role destina
 assert "GpsMapNavigationItem(selected, onDestinationSelected, compact)" in source, "central map destination must remain"
 assert 'if (compact) "Map" else "GPS Map"' in source, "compact map label must remain understandable"
 assert 'showLabel' not in source, "do not hide inactive labels to make the bar fit"
-assert '.semantics { contentDescription = label }' in source, "destination labels must remain accessible"
+assert "contentDescription = label" in source, "destination labels must remain accessible"
+assert "selected = active" in source, "selected destination must be exposed to accessibility services"
+assert "role = SemanticsRole.Tab" in source, "destinations must expose a consistent semantic role"
+assert source.count(".heightIn(min = 48.dp)") == 2, "standard and central destinations must have usable touch targets"
 assert 'if (selected != AppDestination.MAP)' in source, "full-screen map must remain free of the bottom bar"
 
 print("Five-destination compact navigation contract passed.")
