@@ -629,7 +629,9 @@ fun GpsMapScreen(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .padding(end = 12.dp)
-                .padding(bottom = 74.dp),
+                // The expanded details sheet overlays the lower map. Lift the floating
+                // actions above it so Locate me and pin controls remain reachable.
+                .padding(bottom = if (detailsExpanded) 330.dp else 74.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalAlignment = Alignment.End,
         ) {
