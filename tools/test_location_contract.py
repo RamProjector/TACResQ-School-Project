@@ -11,6 +11,7 @@ migration = (ROOT / "supabase/migrations/20261020062532_responder_location_track
 dashboard = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
 location_provider = (ROOT / "app/src/main/java/com/tacresq/app/location/LocationProvider.kt").read_text()
 responder_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
+map_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text()
 write_rpc = migration.split("create or replace function public.api_record_location_v2(", 1)[1].split("\n$$;", 1)[0]
 read_rpc = migration.split("create or replace function public.api_active_responder_locations()", 1)[1].split("\n$$;", 1)[0]
 read_policy = migration.split("create policy location_logs_read_dispatcher_or_owner", 1)[1].split(";", 1)[0]
@@ -29,6 +30,9 @@ checks = {
     "responder consent permits start without sharing and requests permission in context": "Share location & start" in responder_screen and "Start without sharing" in responder_screen and "ACCESS_COARSE_LOCATION" in responder_screen,
     "Android stops sharing on foreground exit and reports send metadata": "Lifecycle.Event.ON_STOP" in responder_screen and "vm.stopTracking(" in responder_screen and "Last sent $time" in responder_screen and "repo.recordResponderLocation" in responder_screen,
     "resuming tracking clears prior session send metadata": "lastLocationSentAt = null" in responder_screen and "lastLocationAccuracyM = null" in responder_screen and "fun resumeTracking(incidentId: Long)" in responder_screen,
+    "Android dispatcher map distinguishes fresh, aging, and stale locations": all(text in map_screen for text in ("MapLocationFreshness.FRESH", "MapLocationFreshness.AGING", "MapLocationFreshness.STALE", "age <= 120L", "else -> MapLocationFreshness.STALE")),
+    "Android map rejects future timestamps and warns stale pins are not live": all(text in map_screen for text in ("return age.takeIf { it >= 0L }", "STALE — last known position", "Do not treat this marker as live", "Stale markers are last-known positions, not live.")),
+    "Android map recalculates location freshness while open": all(text in map_screen for text in ("remember(freshnessTick) { Instant.now() }", "delay(15_000)", "freshnessTick += 1")),
     "sign-out stops location sharing before clearing the session": 'Location sharing stopped because you signed out.' in responder_screen and "onLogout()" in responder_screen,
 }
 failed = [name for name, passed in checks.items() if not passed]
