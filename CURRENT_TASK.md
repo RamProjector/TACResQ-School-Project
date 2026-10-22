@@ -2,6 +2,8 @@
 
 ## Active continuation — 2026-10-22
 
+- Follow-up PR #77 (refreshed from current main) guards responder turn-by-turn navigation against missing, non-finite, or out-of-range coordinates. The prior PR #76 branch became dirty after PR #75 merged shared files; #77 is the clean-base replacement.
+
 - Repository main is at `1012eefc46a75acf727936e3c170a7b1b771ddeb` after PR #74 merged.
 - The post-merge CI run [39705207429](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39705207429) passed all five jobs: Android debug/release builds, source checks, prototype/visual checks (including the new multi-viewport check), clean Supabase migration replay, and Laravel/dashboard integration. The RPC-grant contract run [39705207265](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39705207265) also passed.
 - Current feature branch: `agent/android-map-location-freshness`, based on the verified main commit above.
