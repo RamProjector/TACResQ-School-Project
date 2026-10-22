@@ -29,7 +29,7 @@ checks = {
         text in requester for text in (
             "DialogProperties(usePlatformDefaultWidth = false)",
             "Choose emergency location",
-            "Selected map center",
+            "Selected center: %.5f, %.5f",
             "controller.zoomIn()",
             "controller.zoomOut()",
             "Return to starting location",
