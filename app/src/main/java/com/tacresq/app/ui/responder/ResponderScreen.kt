@@ -313,7 +313,11 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 
                 val latitude = incident.latitude
                 val longitude = incident.longitude
-                if (latitude != null && longitude != null) {
+                if (
+                    latitude != null && longitude != null &&
+                    latitude.isFinite() && longitude.isFinite() &&
+                    latitude in -90.0..90.0 && longitude in -180.0..180.0
+                ) {
                     OutlinedButton(
                         onClick = { openNavigation(context, latitude, longitude) },
                         modifier = Modifier.fillMaxWidth(),
@@ -327,7 +331,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                     )
                 } else {
                     Text(
-                        "No GPS pin was shared. Do not navigate to an assumed location; use the landmark note and contact the requester to confirm.",
+                        "No valid GPS pin is available. Coordinates are missing or invalid; do not navigate to an assumed location. Use the landmark note and confirm the destination with dispatch.",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -479,8 +483,17 @@ private fun DutyCard(
     }
 }
 
-/** Opens turn-by-turn navigation in Google Maps, or any maps app as a fallback. */
+/** Opens turn-by-turn navigation only for a valid coordinate pair. */
 private fun openNavigation(context: Context, lat: Double, lng: Double) {
+    // Defense in depth: do not launch an external maps app with malformed API data.
+    if (!lat.isFinite() || !lng.isFinite() || lat !in -90.0..90.0 || lng !in -180.0..180.0) {
+        Toast.makeText(
+            context,
+            "Incident coordinates are invalid. Confirm the destination with dispatch before navigating.",
+            Toast.LENGTH_LONG,
+        ).show()
+        return
+    }
     val navigate = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$lat,$lng&mode=d"))
         .setPackage("com.google.android.apps.maps")
     val fallback = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng"))
