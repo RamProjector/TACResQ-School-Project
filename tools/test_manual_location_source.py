@@ -147,6 +147,11 @@ checks = {
             "Use TACResQ GPS Map for the incident and field-unit overview.",
         )
     ) and "Text(\"Navigate in Google Maps\")" not in responder,
+    "SOS submission lock is set before launching asynchronous work": (
+        "Claim the submission synchronously before launching the coroutine." in requester
+        and requester.index("_state.update { it.copy(sending = true, notice = null, error = null) }")
+        < requester.index("viewModelScope.launch {", requester.index("fun sendSos("))
+    ),
     "Laravel adapter persists and returns location source without breaking older clients": all(
         text in laravel_routes for text in (
             "'location_source' => $incident->location_source",
