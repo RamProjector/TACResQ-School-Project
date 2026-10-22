@@ -428,9 +428,9 @@ fun GpsMapScreen(
                         incident.accuracyM?.let { "GPS accuracy about ${it.roundToInt()} m" }
                     } else null
                     val note = incident.locationNotes?.takeIf { it.isNotBlank() }
-                val locationAgeLabel = incident.locationAgeStatus(mapNow).first
-                snippet = listOfNotNull(source, accuracy, "Status: ${incident.status.label}", locationAgeLabel, note)
-                    .joinToString(" · ")
+                    val locationAgeLabel = incident.locationAgeStatus(mapNow).first
+                    snippet = listOfNotNull(source, accuracy, "Status: ${incident.status.label}", locationAgeLabel, note)
+                        .joinToString(" · ")
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
                 mapView.overlays.add(marker)
