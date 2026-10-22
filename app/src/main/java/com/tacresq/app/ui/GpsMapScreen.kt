@@ -734,7 +734,7 @@ fun GpsMapScreen(
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             items(visibleIncidents, key = { it.id }) { incident ->
-                                MapIncidentCard(incident = incident, context = context)
+                                MapIncidentCard(incident = incident, context = context, now = mapNow)
                             }
                         }
                     }
@@ -745,7 +745,7 @@ fun GpsMapScreen(
 }
 
 @Composable
-private fun MapIncidentCard(incident: Incident, context: Context) {
+private fun MapIncidentCard(incident: Incident, context: Context, now: Instant) {
     val lat = incident.latitude
     val lng = incident.longitude
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -758,7 +758,7 @@ private fun MapIncidentCard(incident: Incident, context: Context) {
             if (lat != null && lng != null && lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0) {
                 Text(String.format(Locale.US, "%.5f, %.5f", lat, lng), style = MaterialTheme.typography.bodySmall)
                 incident.locationRecordedAt?.let { Text("GPS recorded ${formatTime(it)}", style = MaterialTheme.typography.bodySmall) }
-                val (locationAgeLabel, locationNeedsConfirmation) = incident.locationAgeStatus()
+                val (locationAgeLabel, locationNeedsConfirmation) = incident.locationAgeStatus(now)
                 Text(
                     text = locationAgeLabel,
                     style = MaterialTheme.typography.bodySmall,
