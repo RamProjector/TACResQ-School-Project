@@ -1,21 +1,19 @@
 # Current task handoff
 
-## Latest continuation update — 2026-10-22
+## Active continuation — 2026-10-22
 
-- Verified current `main` at `cd7e056b93531d6222d86343bb9d707394755cb9`; the migration-history reconciliation PR is included, and the latest observed main CI run passed.
-- Created [PR #71](https://github.com/RamProjector/TACResQ-School-Project/pull/71) from current main to repair compact bottom navigation. It keeps all five destinations visible, emphasizes the centered map action, uses compact-only spacing/labels below 400 dp, and adds `tools/test_bottom_navigation_labels.py` to CI.
-- PR #71 initial CI exposed two issues: the Android source validator still expected the old responder label/map-item signature, and one earlier visual job hit a transient Playwright browser-download failure. The validator was aligned to the responsive label and function signature; a subsequent run on code commit `10cf17ea154df02807f480a1aaa686f6231cce20` passed all five CI jobs, including Android debug/release builds, source checks, visual/browser checks, clean migration replay, and Laravel/dashboard integration. Run: [39688410426](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39688410426).
-- The navigation labels now remain `Current call` on wider layouts and become `Call` only below 400 dp; the center action shows `GPS Map` on wider layouts and `Map` on compact layouts. Physical-device visual QA remains unverified.
-- Earlier PR #67 contains similar navigation work but is based on an old main commit and is marked non-mergeable; PR #71 is the refreshed replacement. Do not merge either PR without explicit authorization.
-- This continuation used GitHub remote operations only; no local working-tree state was inspected. No Supabase changes, live data changes, account creation, or deployments were made.
+- Verified main commit: `1012eefc46a75acf727936e3c170a7b1b771ddeb`; PR #74 added multi-viewport browser screenshots and post-merge CI passed all five jobs plus the RPC grant contract.
+- Separate feature PR [#75](https://github.com/RamProjector/TACResQ-School-Project/pull/75) improves dispatcher Android map freshness (Fresh <30 s, Aging 30–120 s, Stale >120 s). The source checks, browser checks, clean migration replay, Laravel integration, and Android debug/release builds passed on its code commit; the latest handoff-only follow-up CI run was still in progress when this note was written. PR #75 remains open and unmerged.
+- Current feature branch: `agent/guard-invalid-navigation-coordinates`, based directly on the verified main commit above; this is independent of PR #75.
+- Feature in progress: responder navigation safety. The current responder screen previously showed the external navigation button whenever latitude and longitude were non-null, even if the values were NaN/infinite or outside valid geographic ranges.
+- Updated `ResponderScreen.kt` to show the route action only for finite latitude/longitude in valid ranges (-90..90 and -180..180), explain that malformed/missing coordinates cannot be used for navigation, and repeat validation inside the launch function as defense in depth.
+- Added a source-contract check in `tools/test_location_contract.py` for the route guard and safe fallback message.
+- No database migrations, live data changes, account creation, credential changes, or deployment. No physical-device testing has been performed.
+- Next: open a focused PR, validate source checks and Android debug/release builds, correct any failures, and leave the PR open for review. Do not merge or deploy without separate explicit authorization.
 
-### Immediate next actions
+## Historical handoff notes
 
-1. Review [PR #71](https://github.com/RamProjector/TACResQ-School-Project/pull/71); all checks passed on the tested code commit, but the PR remains open and unmerged pending explicit authorization.
-2. Test navigation on a physical Android device at narrow widths and larger font scale before claiming device-level visual fit.
-3. Reconcile remaining stale handoff/QA references only after confirming their referenced PRs and branch states. Continue preserving location consent, role authorization, no fabricated GPS, and no real emergency data.
-
-
+The following earlier entries are retained as project history; current repository state and the active continuation above take precedence.
 **Last updated:** 2026-10-21  
 **Repository:** `RamProjector/TACResQ-School-Project`  
 **Base branch:** `main` at `a5b2aea5c6f2b2e3041ef28153682c678ec8613c`  
