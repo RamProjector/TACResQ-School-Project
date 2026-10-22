@@ -58,6 +58,51 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- Regression test for the failure seen in the Android recording:
+-- creating an incident must also create its first status log without an FK error.
+INSERT INTO auth.users (id, email, raw_user_meta_data)
+VALUES (
+  '00000000-0000-4000-8000-000000000123',
+  'sos-regression@example.test',
+  '{"name":"SOS Regression","role":"requester"}'::jsonb
+);
+
+DO $$
+DECLARE
+  requester_profile_id bigint;
+  created_incident_id bigint;
+  status_log_count integer;
+BEGIN
+  SELECT id INTO requester_profile_id
+    FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000123';
+
+  IF requester_profile_id IS NULL THEN
+    RAISE EXCEPTION 'Signup trigger did not create the regression requester profile';
+  END IF;
+
+  INSERT INTO public.incidents (
+    requester_id, type, description, latitude, longitude,
+    location_notes, location_recorded_at, location_source
+  ) VALUES (
+    requester_profile_id, 'medical', 'Automated SOS audit regression',
+    11.244, 125.003, 'Synthetic CI location', now(), 'manual'
+  )
+  RETURNING id INTO created_incident_id;
+
+  SELECT count(*) INTO status_log_count
+    FROM public.incident_status_logs
+   WHERE incident_id = created_incident_id
+     AND status = 'pending'
+     AND changed_by = requester_profile_id;
+
+  IF status_log_count <> 1 THEN
+    RAISE EXCEPTION 'Expected exactly one initial status log for incident %, found %',
+      created_incident_id, status_log_count;
+  END IF;
+END;
+$$;
 SQL
 
-echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed on a clean PostgreSQL database."
+echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and initial incident status logging passed."
