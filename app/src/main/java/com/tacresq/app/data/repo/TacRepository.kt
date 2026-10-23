@@ -119,6 +119,28 @@ class TacRepository(
         return result
     }
 
+    /** Retries the persisted SOS verbatim, including its original location and idempotency key. */
+    suspend fun retryPendingIncident(): Result<Incident> {
+        val pending = try {
+            store.getPendingIncidentSubmission()
+        } catch (e: SessionStore.PendingIncidentConflictException) {
+            return Result.failure(ApiException(e.message ?: "The saved SOS could not be restored safely."))
+        } catch (e: Exception) {
+            return Result.failure(ApiException("The saved SOS could not be restored safely. Please contact dispatch before creating another request."))
+        } ?: return Result.failure(ApiException("There is no saved SOS to retry."))
+        val request = runCatching {
+            Gson().fromJson(pending.payloadJson, CreateIncidentRequest::class.java)
+                .copy(clientRequestId = pending.requestId)
+        }.getOrElse {
+            return Result.failure(ApiException("The saved SOS payload is invalid. Do not create a replacement request; contact dispatch."))
+        }
+        val result = call { api.createIncident(request) }
+        if (result.isSuccess) store.clearPendingIncidentRequestId(pending.requestId)
+        return result
+    }
+
+    suspend fun hasPendingIncident(): Boolean = store.getPendingIncidentSubmission() != null
+
     suspend fun updateIncidentStatus(id: Long, status: IncidentStatus): Result<Incident> = call {
         api.updateIncidentStatus(id, UpdateStatusRequest(status))
     }
