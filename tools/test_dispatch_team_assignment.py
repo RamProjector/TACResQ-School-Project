@@ -9,6 +9,7 @@ api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").read_text()
 repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 sql = (ROOT / "supabase/migrations/20261023050000_dispatch_team_assignment.sql").read_text()
+hardening = (ROOT / "supabase/migrations/20261023082000_harden_dispatch_team_assignment.sql").read_text()
 
 for required in ("Select response team", "Checkbox(", "selectedUnitIds.size < maxTeamSelection", "Add responders", "Assign team"):
     assert required in screen, f"Dispatcher team-selection UI missing: {required}"
@@ -30,4 +31,8 @@ for required in (
     assert required in sql, f"Backend team assignment safety rule missing: {required}"
 
 print("PASS: dispatcher can select a bounded response team and submit one atomic assignment.")
+for required in ("SET SCHEMA private", "SECURITY INVOKER", "REVOKE ALL ON FUNCTION public.api_assign_incident_team"):
+    assert required in hardening, f"Public assignment RPC hardening missing: {required}"
+
 print("PASS: backend persists team membership, rechecks availability under locks, and returns team IDs.")
+print("PASS: exposed assignment RPCs are invoker wrappers; privileged implementation is private.")
