@@ -730,7 +730,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         )
     }
 
-    if (incidentToEdit != null) {
+    if (incidentToEdit != null && !confirmingEdit) {
         val editing = incidentToEdit!!
         AlertDialog(
             onDismissRequest = { if (!state.sending) { incidentToEdit = null; confirmingEdit = false } },
