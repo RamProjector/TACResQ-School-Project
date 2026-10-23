@@ -197,6 +197,44 @@ class FakeTacApi(
         }
     }
 
+    override suspend fun updateMyIncident(body: UpdateMyIncidentRequest): Incident {
+        delay(150)
+        return synchronized(lock) {
+            val me = current()
+            if (me.role != Role.REQUESTER) throw httpError(403, "Only requesters can edit their own requests.")
+            val index = incidents.indexOfFirst { it.id == body.id && requesterOf[it.id] == me.id }
+            if (index < 0) throw httpError(404, "Request not found.")
+            val incident = incidents[index]
+            if (incident.status != IncidentStatus.PENDING) {
+                throw httpError(422, "This request can only be edited before dispatch assignment. Contact dispatch for urgent corrections.")
+            }
+            val now = Instant.now()
+            if (incident.requesterEditCount > 0) {
+                val last = incident.requesterLastEditedAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+                if (last != null && now.isBefore(last.plusSeconds(60))) {
+                    val seconds = java.time.Duration.between(now, last.plusSeconds(60)).seconds.coerceAtLeast(1)
+                    throw httpError(422, "You can edit this request again in " + seconds + " seconds.")
+                }
+                if (!body.confirmReview) throw httpError(422, "Review the updated emergency details and confirm before saving another edit.")
+            }
+            val updated = incident.copy(
+                type = com.tacresq.app.data.model.IncidentType.entries.firstOrNull { it.name.equals(body.type, ignoreCase = true) }
+                    ?: throw httpError(422, "Choose a valid emergency type."),
+                description = body.description?.trim()?.takeIf { it.isNotEmpty() },
+                latitude = body.latitude,
+                longitude = body.longitude,
+                accuracyM = body.accuracyM,
+                locationNotes = body.locationNotes?.trim()?.takeIf { it.isNotEmpty() },
+                locationRecordedAt = body.locationRecordedAt,
+                locationSource = body.locationSource,
+                requesterEditCount = incident.requesterEditCount + 1,
+                requesterLastEditedAt = now.toString(),
+            )
+            incidents[index] = updated
+            updated
+        }
+    }
+
     override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident {
         delay(300)
         val updated = synchronized(lock) {
