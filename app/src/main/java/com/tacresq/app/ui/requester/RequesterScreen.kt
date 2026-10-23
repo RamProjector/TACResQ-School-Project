@@ -455,7 +455,8 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var selectedType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
-    var confirmingSos by rememberSaveable { mutableStateOf(false) }
+    var confirmingSos by remember { mutableStateOf(false) }
+    var showDiscardConfirmation by remember { mutableStateOf(false) }
     var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
     var incidentToEdit by remember { mutableStateOf<Incident?>(null) }
     var editType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
@@ -467,7 +468,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var editLocationRecordedAt by rememberSaveable { mutableStateOf<String?>(null) }
     var editLocationSource by rememberSaveable { mutableStateOf("none") }
     var showEditMapPicker by rememberSaveable { mutableStateOf(false) }
-    var confirmingEdit by rememberSaveable { mutableStateOf(false) }
+    var confirmingEdit by remember { mutableStateOf(false) }
     var editNowMillis by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
     var showManualPinPicker by rememberSaveable { mutableStateOf(false) }
     var showRequestForm by rememberSaveable { mutableStateOf(false) }
@@ -512,7 +513,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         item {
             ScreenHeader(
                 title = "Home",
-                subtitle = "",
+                subtitle = "Request help and track your current response.",
                 onLogout = onLogout,
             )
         }
@@ -608,7 +609,20 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                        TextButton(onClick = { showRequestForm = false; confirmingSos = false }) { Text("Close") }
+                        TextButton(
+                            onClick = {
+                                val hasDraft = description.isNotBlank() ||
+                                    locationNotes.isNotBlank() ||
+                                    requestStep != 1 ||
+                                    state.locationFix != null
+                                if (hasDraft) showDiscardConfirmation = true
+                                else {
+                                    showRequestForm = false
+                                    confirmingSos = false
+                                }
+                            },
+                            enabled = !state.sending && !state.capturingLocation,
+                        ) { Text("Close") }
                     }
                     Text(
                         "Step $requestStep of 3 · " + when (requestStep) {
@@ -719,9 +733,52 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         state.notice?.let { message -> item { Banner(message, isError = false, onDismiss = vm::dismissMessages) } }
         state.error?.let { message -> item { Banner(message, isError = true, onDismiss = vm::dismissMessages) } }
 
-        item { Text("My requests", style = MaterialTheme.typography.titleMedium) }
-        if (state.incidents.isEmpty() && !state.loading) {
-            item { Text("No requests yet.") }
+        item {
+            Text(
+                "My requests",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        if (state.loading && state.incidents.isEmpty()) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Loading your requests", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Checking the latest status from the service.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        } else if (state.incidents.isEmpty()) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text("No requests yet", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "When you submit a request, its status and details will appear here.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
         items(state.incidents, key = { it.id }) { incident -> IncidentCard(incident) }
     }
@@ -883,6 +940,31 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         )
     }
 
+    if (showDiscardConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDiscardConfirmation = false },
+            title = { Text("Discard this request draft?") },
+            text = {
+                Text("Your unsent details and selected location will be cleared. Nothing has been sent to dispatch yet.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDiscardConfirmation = false
+                    confirmingSos = false
+                    showManualPinPicker = false
+                    description = ""
+                    locationNotes = ""
+                    requestStep = 1
+                    vm.clearLocationFix()
+                    showRequestForm = false
+                }) { Text("Discard draft") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardConfirmation = false }) { Text("Keep editing") }
+            },
+        )
+    }
+
     if (confirmingSos) {
         AlertDialog(
             onDismissRequest = { confirmingSos = false },
@@ -907,10 +989,13 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    confirmingSos = false
-                    vm.sendSos(selectedType, description, locationNotes)
-                }) { Text("Send SOS") }
+                TextButton(
+                    enabled = !state.sending && !state.capturingLocation,
+                    onClick = {
+                        confirmingSos = false
+                        vm.sendSos(selectedType, description, locationNotes)
+                    },
+                ) { Text(if (state.sending) "Sending…" else "Send SOS") }
             },
             dismissButton = {
                 TextButton(onClick = { confirmingSos = false }) { Text("Go back") }
