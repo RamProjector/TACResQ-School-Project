@@ -89,6 +89,9 @@ data class Incident(
     @SerializedName("requester_last_edited_at") val requesterLastEditedAt: String? = null,
 )
 
+fun Incident.statusFor(userId: Long): IncidentStatus =
+    assignedUserStatuses.firstOrNull { it.userId == userId }?.status ?: status
+
 data class Session(val token: String, val user: User)
 
 data class ResponderLocation(
