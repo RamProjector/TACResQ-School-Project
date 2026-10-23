@@ -49,6 +49,8 @@ jobs:
 
       - name: Check dispatcher multi-responder assignment
         run: python3 tools/test_dispatch_team_assignment.py
+      - name: Check dispatcher queue wait-time prioritization
+        run: python3 tools/test_dispatcher_wait_time_queue.py
 
       - name: Check urgent location correction cooldown bypass
         run: python3 tools/test_requester_urgent_location_correction.py
