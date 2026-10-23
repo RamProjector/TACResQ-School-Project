@@ -184,4 +184,98 @@ $function$;
 REVOKE ALL ON FUNCTION public.api_update_my_assignment_status(bigint, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_update_my_assignment_status(bigint, text) TO authenticated;
 
+
+-- Return per-unit progress in the existing queue and "my incidents" payloads.
+CREATE OR REPLACE FUNCTION public.api_my_incidents()
+RETURNS jsonb
+LANGUAGE sql STABLE SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $function$
+  SELECT coalesce(jsonb_agg(
+    jsonb_build_object(
+      'id', i.id, 'type', i.type, 'description', i.description,
+      'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
+      'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+      'location_source', i.location_source, 'status', i.status,
+      'requester_name', r.name, 'requester_phone', r.phone,
+      'assigned_to', i.assigned_to,
+      'assigned_user_ids', coalesce((SELECT jsonb_agg(a.user_id ORDER BY a.assigned_at, a.user_id)
+        FROM public.incident_assignments a WHERE a.incident_id = i.id), '[]'::jsonb),
+      'assigned_user_statuses', coalesce((SELECT jsonb_agg(jsonb_build_object(
+        'user_id', a.user_id, 'status', a.responder_status, 'status_updated_at', a.status_updated_at
+      ) ORDER BY a.assigned_at, a.user_id)
+        FROM public.incident_assignments a WHERE a.incident_id = i.id), '[]'::jsonb),
+      'created_at', i.created_at,
+      'requester_edit_count', i.requester_edit_count,
+      'requester_last_edited_at', i.requester_last_edited_at
+    ) ORDER BY i.created_at DESC
+  ), '[]'::jsonb)
+  FROM public.incidents i
+  JOIN public.profiles r ON r.id = i.requester_id
+  WHERE i.requester_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid())
+     OR i.assigned_to IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid())
+     OR private.tacresq_is_incident_assignee(i.id);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.api_all_incidents()
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $function$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE auth_user_id = auth.uid() AND role = 'dispatcher') THEN
+    RAISE EXCEPTION 'Only dispatchers can view the queue' USING ERRCODE = '42501';
+  END IF;
+  RETURN (
+    SELECT coalesce(jsonb_agg(
+      jsonb_build_object(
+        'id', i.id, 'type', i.type, 'description', i.description,
+        'latitude', i.latitude, 'longitude', i.longitude, 'accuracy_m', i.accuracy_m,
+        'location_notes', i.location_notes, 'location_recorded_at', i.location_recorded_at,
+        'location_source', i.location_source, 'status', i.status,
+        'requester_name', r.name, 'requester_phone', r.phone,
+        'assigned_to', i.assigned_to,
+        'assigned_user_ids', coalesce((SELECT jsonb_agg(a.user_id ORDER BY a.assigned_at, a.user_id)
+          FROM public.incident_assignments a WHERE a.incident_id = i.id), '[]'::jsonb),
+        'assigned_user_statuses', coalesce((SELECT jsonb_agg(jsonb_build_object(
+          'user_id', a.user_id, 'status', a.responder_status, 'status_updated_at', a.status_updated_at
+        ) ORDER BY a.assigned_at, a.user_id)
+          FROM public.incident_assignments a WHERE a.incident_id = i.id), '[]'::jsonb),
+        'created_at', i.created_at,
+        'requester_edit_count', i.requester_edit_count,
+        'requester_last_edited_at', i.requester_last_edited_at
+      ) ORDER BY i.created_at DESC
+    ), '[]'::jsonb)
+    FROM public.incidents i JOIN public.profiles r ON r.id = i.requester_id
+  );
+END;
+$function$;
+
+-- Unit cards now report each member's own progress instead of copying the
+-- shared incident status to every assigned responder.
+CREATE OR REPLACE FUNCTION public.api_units()
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public, auth
+AS $function$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE auth_user_id = auth.uid() AND role = 'dispatcher') THEN
+    RAISE EXCEPTION 'Only dispatchers can view field units' USING ERRCODE = '42501';
+  END IF;
+  RETURN (
+    SELECT coalesce(jsonb_agg(jsonb_build_object(
+      'id', p.id, 'name', p.name, 'email', p.email, 'phone', p.phone, 'role', p.role,
+      'duty_status', coalesce((
+        SELECT a.responder_status
+        FROM public.incident_assignments a
+        JOIN public.incidents i ON i.id = a.incident_id
+        WHERE a.user_id = p.id AND i.status IN ('assigned','en_route','on_scene','transporting')
+        ORDER BY i.created_at DESC LIMIT 1
+      ), p.duty_status)
+    ) ORDER BY p.name), '[]'::jsonb)
+    FROM public.profiles p WHERE p.role IN ('responder','driver')
+  );
+END;
+$function$;
+
 COMMIT;
