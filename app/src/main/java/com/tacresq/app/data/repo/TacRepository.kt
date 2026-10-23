@@ -94,27 +94,28 @@ class TacRepository(
         val normalizedNotes = locationNotes?.trim()?.take(500)?.ifBlank { null }
         val capturedAt = fix?.let { Instant.ofEpochMilli(it.capturedAtEpochMillis).toString() }
         val source = when { fix == null -> "none"; fix.manuallySelected -> "manual"; else -> "gps" }
-        val fingerprint = Gson().toJson(
-            listOf(type.name, normalizedDescription, fix?.latitude, fix?.longitude,
-                fix?.accuracyM, normalizedNotes, capturedAt, source)
+        val candidate = CreateIncidentRequest(
+            type = type,
+            description = normalizedDescription,
+            latitude = fix?.latitude,
+            longitude = fix?.longitude,
+            accuracyM = fix?.accuracyM,
+            locationNotes = normalizedNotes,
+            locationRecordedAt = capturedAt,
+            locationSource = source,
+            clientRequestId = "",
         )
-        val requestId = store.pendingIncidentRequestId(fingerprint)
-        val result = call {
-            api.createIncident(
-                CreateIncidentRequest(
-                    type = type,
-                    description = normalizedDescription,
-                    latitude = fix?.latitude,
-                    longitude = fix?.longitude,
-                    accuracyM = fix?.accuracyM,
-                    locationNotes = normalizedNotes,
-                    locationRecordedAt = capturedAt,
-                    locationSource = source,
-                    clientRequestId = requestId,
-                )
-            )
+        val payloadJson = Gson().toJson(candidate)
+        val fingerprint = payloadJson
+        val pending = try {
+            store.getOrCreatePendingIncident(fingerprint, payloadJson)
+        } catch (e: SessionStore.PendingIncidentConflictException) {
+            return Result.failure(ApiException(e.message ?: "An earlier SOS submission is unresolved."))
         }
-        if (result.isSuccess) store.clearPendingIncidentRequestId(requestId)
+        val request = runCatching { Gson().fromJson(pending.payloadJson, CreateIncidentRequest::class.java).copy(clientRequestId = pending.requestId) }
+            .getOrElse { return Result.failure(ApiException("Could not restore the pending SOS submission. Please contact support before creating another request.")) }
+        val result = call { api.createIncident(request) }
+        if (result.isSuccess) store.clearPendingIncidentRequestId(pending.requestId)
         return result
     }
 
