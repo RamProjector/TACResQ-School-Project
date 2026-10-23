@@ -236,35 +236,8 @@ class FakeTacApi(
         }
     }
 
-    override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident {
-        delay(300)
-        val updated = synchronized(lock) {
-            val me = current()
-            val index = incidents.indexOfFirst { it.id == id }
-            if (index < 0) throw httpError(404, "Incident not found.")
-            val incident = incidents[index]
-            if (incident.assignedTo != me.id && me.id !in incident.assignedUserIds) {
-                throw httpError(403, "This incident is not assigned to you.")
-            }
-            if (body.status !in incident.status.nextSteps()) {
-                throw httpError(422, "Cannot change status from ${incident.status.label} to ${body.status.label}.")
-            }
-            val result = incident.copy(status = body.status)
-            incidents[index] = result
-            val duty = when (body.status) {
-                IncidentStatus.EN_ROUTE -> DutyStatus.EN_ROUTE
-                IncidentStatus.ON_SCENE -> DutyStatus.ON_SCENE
-                IncidentStatus.TRANSPORTING -> DutyStatus.TRANSPORTING
-                IncidentStatus.RESOLVED -> DutyStatus.AVAILABLE
-                else -> null
-            }
-            if (duty != null) incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }.forEach { setDuty(it, duty) }
-            result
-        }
-        if (updated.status == IncidentStatus.RESOLVED) dispatchLater(3_000)
-        return updated
-    }
-
+    override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident =
+        updateMyAssignmentStatus(id, body)
 
     override suspend fun updateMyAssignmentStatus(id: Long, body: UpdateStatusRequest): Incident {
         delay(300)
