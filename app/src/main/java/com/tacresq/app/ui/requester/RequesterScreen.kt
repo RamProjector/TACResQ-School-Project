@@ -291,6 +291,7 @@ class RequesterViewModel(
                     _state.update {
                         it.copy(
                             sending = false,
+                            pendingSosAvailable = false,
                             locationFix = null,
                             locationError = null,
                             notice = status,
