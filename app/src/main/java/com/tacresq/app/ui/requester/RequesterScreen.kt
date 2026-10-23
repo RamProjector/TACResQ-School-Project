@@ -143,7 +143,10 @@ class RequesterViewModel(
                     }
                     refresh()
                 }
-                .onFailure { e -> _state.update { it.copy(sending = false, pendingSosAvailable = true, error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.") } }
+                .onFailure { e ->
+                    _state.update { it.copy(sending = false, error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.") }
+                    refreshPendingSos()
+                }
         }
     }
 
@@ -263,6 +266,13 @@ class RequesterViewModel(
     fun sendSos(type: IncidentType, description: String, locationNotes: String) {
         if (_state.value.sending) return
         val current = _state.value
+        val existingActive = current.incidents.firstOrNull { it.status.isActive }
+        if (existingActive != null) {
+            _state.update {
+                it.copy(error = "You already have active request #${existingActive.id}. Cancel it while waiting for dispatch or contact dispatch if a unit may be responding.")
+            }
+            return
+        }
         if (current.locationFix != null && !location.isFresh(current.locationFix)) {
             _state.update {
                 it.copy(
@@ -300,7 +310,10 @@ class RequesterViewModel(
                         )
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(sending = false, pendingSosAvailable = true, error = e.message) } }
+                .onFailure { e ->
+                    _state.update { it.copy(sending = false, error = e.message) }
+                    refreshPendingSos()
+                }
         }
     }
 
@@ -329,6 +342,28 @@ class RequesterViewModel(
             runCatching { Instant.parse(it).toEpochMilli() }.getOrNull()
         } ?: return false
         return abs(returnedAt - fix.capturedAtEpochMillis) <= 2_000L
+    }
+
+    fun cancelPendingIncident(id: Long) {
+        if (_state.value.sending) return
+        _state.update { it.copy(sending = true, error = null, notice = null) }
+        viewModelScope.launch {
+            repo.cancelMyIncident(id)
+                .onSuccess { cancelled ->
+                    _state.update { current ->
+                        current.copy(
+                            sending = false,
+                            incidents = current.incidents.map { if (it.id == cancelled.id) cancelled else it },
+                            notice = "Request #${cancelled.id} was cancelled before dispatch assignment.",
+                        )
+                    }
+                    refresh()
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(sending = false, error = e.message ?: "The request could not be cancelled. Check its current status.") }
+                    refresh()
+                }
+        }
     }
 
     fun dismissMessages() {
@@ -379,16 +414,24 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
     var confirmingSos by rememberSaveable { mutableStateOf(false) }
+    var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
     var showManualPinPicker by rememberSaveable { mutableStateOf(false) }
+    var showRequestForm by rememberSaveable { mutableStateOf(false) }
     var requestStep by rememberSaveable { mutableStateOf(1) }
     val freshFix = state.locationFix?.takeIf(vm::isFresh)
-    val activeIncident = state.incidents.firstOrNull { it.status.isActive }
+    val activeIncidents = state.incidents.filter { it.status.isActive }
+    val activeIncident = activeIncidents.firstOrNull()
 
     LaunchedEffect(state.notice) {
-        if (state.notice != null) {
+        val message = state.notice
+        if (message?.startsWith("SOS sent") == true ||
+            message?.startsWith("SOS request was accepted") == true ||
+            message?.startsWith("The previously saved SOS was confirmed") == true
+        ) {
             description = ""
             locationNotes = ""
             requestStep = 1
+            showRequestForm = false
         }
     }
 
@@ -423,13 +466,66 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             }
         }
 
-        item {
+        if (activeIncident != null) item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Active emergency", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text("Request #${activeIncident.id} · ${activeIncident.status.label}", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING)
+                            "Dispatch has not assigned a unit yet. If you submitted this accidentally, you can cancel it here."
+                        else
+                            "A unit may already be responding. Contact dispatch directly to cancel or correct this emergency; this app will not silently withdraw it.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    if (activeIncidents.size > 1) {
+                        Text(
+                            "More than one active request was returned. Do not submit another. Contact dispatch to reconcile the active requests.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING) {
+                        OutlinedButton(
+                            onClick = { incidentToCancel = activeIncident.id },
+                            enabled = !state.sending,
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                        ) { Text("Cancel request") }
+                    }
+                }
+            }
+        } else if (!showRequestForm && !state.pendingSosAvailable) item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Need emergency help?", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text("Create one request, confirm the location, and review the details before sending.")
+                    Button(
+                        onClick = { showRequestForm = true },
+                        enabled = !state.sending && !state.loading,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    ) { Text("Request Help", fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+
+        if (showRequestForm && activeIncident == null && !state.pendingSosAvailable) item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                        TextButton(onClick = { showRequestForm = false; confirmingSos = false }) { Text("Close") }
+                    }
                     Text(
                         "Step $requestStep of 3 · " + when (requestStep) {
                             1 -> "Details"
@@ -521,8 +617,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             if (freshFix != null) LocationFixCard(freshFix, onClear = { vm.clearLocationFix(); requestStep = 2 })
                             else LocationNoticeCard("Sending without a GPS pin", "Dispatch may need to call you to confirm the exact location.")
                             locationNotes.trim().takeIf { it.isNotEmpty() }?.let { Text("Landmark/access detail: $it") }
-                            activeIncident?.let { Text("You already have active request #${it.id}. Only continue if this is a separate emergency.", color = MaterialTheme.colorScheme.error) }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { requestStep = 2 }, enabled = !state.sending, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
                                 Button(onClick = { confirmingSos = true }, enabled = !state.sending && !state.capturingLocation,
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
@@ -561,6 +656,26 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         )
     }
 
+    if (incidentToCancel != null) {
+        AlertDialog(
+            onDismissRequest = { incidentToCancel = null },
+            title = { Text("Cancel emergency request?") },
+            text = {
+                Text("This will cancel the request only if dispatch has not assigned a unit. If a unit has already been assigned, the server will reject cancellation so you can contact dispatch instead.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val id = incidentToCancel
+                    incidentToCancel = null
+                    if (id != null) vm.cancelPendingIncident(id)
+                }) { Text("Confirm cancellation") }
+            },
+            dismissButton = {
+                TextButton(onClick = { incidentToCancel = null }) { Text("Keep request") }
+            },
+        )
+    }
+
     if (confirmingSos) {
         AlertDialog(
             onDismissRequest = { confirmingSos = false },
@@ -580,12 +695,6 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     }
                     locationNotes.trim().takeIf { it.isNotEmpty() }?.let {
                         Text("Location note to share: $it")
-                    }
-                    activeIncident?.let {
-                        Text(
-                            "You already have active request #${it.id} (${it.status.label}). This will create a second request; continue only if it is a separate emergency.",
-                            color = MaterialTheme.colorScheme.error,
-                        )
                     }
                     Text("Only continue if help is needed now.", style = MaterialTheme.typography.bodySmall)
                 }
