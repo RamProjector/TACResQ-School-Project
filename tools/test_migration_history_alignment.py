@@ -26,6 +26,7 @@ EXPECTED = {
     "20261023034639_requester_edit_workflow.sql",
     "20261023040000_requester_urgent_location_correction.sql",
     "20261023050000_dispatch_team_assignment.sql",
+    "20261023082000_harden_dispatch_team_assignment.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED, (
@@ -71,6 +72,15 @@ for required in (
     assert required in team, f"Missing multi-unit dispatch contract: {required}"
 
 print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history.")
+hardening = (MIGRATIONS / "20261023082000_harden_dispatch_team_assignment.sql").read_text()
+for required in (
+    "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",
+    "SECURITY INVOKER",
+    "private.tacresq_assign_incident_team",
+):
+    assert required in hardening, f"Missing private dispatch RPC hardening: {required}"
+
 print("PASS: dispatcher team-assignment schema and RPC contract are present.")
+print("PASS: public assignment RPCs are invoker wrappers over a private authorization-checked implementation.")
 print("PASS: missing location_and_push migration recreates FCM storage, RLS, and RPCs.")
 print("PASS: incident status logging runs after insert to satisfy the incident foreign key.")
