@@ -37,6 +37,8 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+REVOKE ALL ON FUNCTION public.tacresq_seed_assignment_status() FROM PUBLIC, anon, authenticated;
+
 DROP TRIGGER IF EXISTS incident_assignment_seed_status ON public.incident_assignments;
 CREATE TRIGGER incident_assignment_seed_status
 BEFORE INSERT ON public.incident_assignments
