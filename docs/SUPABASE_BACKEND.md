@@ -6,7 +6,7 @@ The Android app uses Supabase Auth for accounts and Postgres RPC functions for a
 
 - `profiles`: one row per Supabase Auth user, TACResQ role, contact data, and field-unit duty status.
 - `incidents`: requester, incident type/description, optional paired GPS coordinates, measured accuracy, one-time capture timestamp, optional landmark notes, status, and a legacy `assigned_to` lead unit.
-- `incident_assignments`: all responders/drivers assigned to each incident, with assignment actor/time audit metadata. Team assignment is atomic and limited to 1–5 available field units; `assigned_to` remains the lead/legacy field for compatibility.
+- `incident_assignments`: all responders/drivers assigned to each incident, with assignment actor/time audit metadata. Team assignment is atomic and limited to five field units total; dispatch can add available units while an incident is `assigned` or `en_route`, but not after arrival. `assigned_to` remains the lead/legacy field for compatibility.
 - `incident_status_logs`: append-only-by-trigger status history for audit/reporting.
 - `location_logs`: storage for responder/driver GPS fixes. The Android source implements consent-gated foreground fixes for the assigned incident while en route; background tracking is not implemented and device behavior has not yet been validated.
 
