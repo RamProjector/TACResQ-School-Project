@@ -27,6 +27,7 @@ EXPECTED = {
     "20261023081635_20261023040000_requester_urgent_location_correction.sql",
     "20261023081706_dispatch_team_assignment.sql",
     "20261023082526_harden_dispatch_team_assignment.sql",
+    "20261023083000_pin_dispatch_team_search_path.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED, (
@@ -81,6 +82,10 @@ for required in (
     assert required in hardening, f"Missing private dispatch RPC hardening: {required}"
 
 print("PASS: dispatcher team-assignment schema and RPC contract are present.")
+search_path_fix = (MIGRATIONS / "20261023083000_pin_dispatch_team_search_path.sql").read_text()
+assert "SET search_path = pg_catalog" in search_path_fix
+
 print("PASS: public assignment RPCs are invoker wrappers over a private authorization-checked implementation.")
+print("PASS: private assignment RPC pins its search path to pg_catalog.")
 print("PASS: missing location_and_push migration recreates FCM storage, RLS, and RPCs.")
 print("PASS: incident status logging runs after insert to satisfy the incident foreign key.")
