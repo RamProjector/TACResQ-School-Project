@@ -53,9 +53,15 @@ android {
 
     buildTypes {
         debug {
+            // Keep demo and Supabase QA installs side-by-side; demo links must not
+            // intercept real Supabase confirmation callbacks.
+            applicationIdSuffix = if (useSupabaseInDebug) ".supabase" else ".demo"
+            manifestPlaceholders["authRedirectScheme"] =
+                if (useSupabaseInDebug) "tacresq" else "tacresq-demo"
             buildConfigField("boolean", "USE_FAKE_API", (!useSupabaseInDebug).toString())
         }
         release {
+            manifestPlaceholders["authRedirectScheme"] = "tacresq"
             buildConfigField("boolean", "USE_FAKE_API", "false")
             isMinifyEnabled = false
             if (releaseSigningConfigured) {
