@@ -184,9 +184,10 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
             IncidentCard(incident) {
                 val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
                 val teamNames = state.units.filter { it.id in teamIds }.joinToString(", ") { it.name }
+                val remainingTeamSlots = (5 - teamIds.distinct().size).coerceAtLeast(0)
                 Text("Assigned team: ${teamNames.ifBlank { "Not assigned" }}")
                 if (incident.status == IncidentStatus.ASSIGNED || incident.status == IncidentStatus.EN_ROUTE) {
-                    if (maxTeamSelection == 0) {
+                    if (remainingTeamSlots == 0) {
                         Text("Response team is full (5 units).")
                     } else if (availableUnits.isNotEmpty()) {
                         OutlinedButton(
