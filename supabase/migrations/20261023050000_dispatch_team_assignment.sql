@@ -132,6 +132,38 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public.tacresq_guard_incident_update() FROM PUBLIC, anon, authenticated;
 
+
+CREATE OR REPLACE FUNCTION public.tacresq_guard_profile_update()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $function$
+BEGIN
+  IF auth.uid() IS NOT NULL AND pg_trigger_depth() = 1 THEN
+    IF NEW.auth_user_id IS DISTINCT FROM OLD.auth_user_id
+       OR NEW.role IS DISTINCT FROM OLD.role
+       OR NEW.name IS DISTINCT FROM OLD.name
+       OR NEW.email IS DISTINCT FROM OLD.email
+       OR NEW.phone IS DISTINCT FROM OLD.phone THEN
+      RAISE EXCEPTION 'Profile identity and role fields cannot be changed by the mobile client' USING ERRCODE = '42501';
+    END IF;
+    IF NEW.duty_status NOT IN ('available','off_duty') THEN
+      RAISE EXCEPTION 'Invalid user-set duty status' USING ERRCODE = '22023';
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM public.incidents i
+      WHERE i.assigned_to = OLD.id AND i.status IN ('assigned','en_route','on_scene','transporting')
+    ) OR EXISTS (
+      SELECT 1 FROM public.incident_assignments a
+      JOIN public.incidents i ON i.id = a.incident_id
+      WHERE a.user_id = OLD.id AND i.status IN ('assigned','en_route','on_scene','transporting')
+    ) THEN
+      RAISE EXCEPTION 'Finish your active incident first' USING ERRCODE = '22023';
+    END IF;
+  END IF;
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.tacresq_guard_profile_update() FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.api_assign_incident_team(p_id bigint, p_user_ids bigint[])
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, auth AS $function$
