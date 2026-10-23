@@ -41,8 +41,7 @@ class SessionStore(
     private val gson = Gson()
     private val inMemorySession = MutableStateFlow<Session?>(null)
     private val encryptedSessionKey = stringPreferencesKey("encrypted_session_v1")
-    private val pendingIncidentRequestIdKey = stringPreferencesKey("pending_incident_request_id")
-    private val pendingIncidentFingerprintKey = stringPreferencesKey("pending_incident_fingerprint")
+    private val pendingIncidentEnvelopeKey = stringPreferencesKey("pending_incident_envelope_v1")
     private val pendingIncidentMutex = Mutex()
 
     val session: Flow<Session?> = if (persistSessions) {
@@ -85,28 +84,39 @@ class SessionStore(
         }
     }
 
-    /** Reuse a key only for the exact same SOS payload after an ambiguous network failure. */
-    suspend fun pendingIncidentRequestId(fingerprint: String): String = pendingIncidentMutex.withLock {
-        var requestId = ""
+    data class PendingIncidentSubmission(val requestId: String, val fingerprint: String, val payloadJson: String)
+
+    class PendingIncidentConflictException : IllegalStateException(
+        "An earlier SOS submission is still unresolved. Retry it with the original details before creating another SOS."
+    )
+
+    /** Persist the exact payload and key together; never overwrite an ambiguous submission. */
+    suspend fun getOrCreatePendingIncident(fingerprint: String, payloadJson: String): PendingIncidentSubmission = pendingIncidentMutex.withLock {
+        var submission: PendingIncidentSubmission? = null
         context.sessionDataStore.edit { prefs ->
-            val savedFingerprint = prefs[pendingIncidentFingerprintKey]
-            val savedId = prefs[pendingIncidentRequestIdKey]
-            if (savedId.isNullOrBlank() || savedFingerprint != fingerprint) {
-                requestId = UUID.randomUUID().toString()
-                prefs[pendingIncidentRequestIdKey] = requestId
-                prefs[pendingIncidentFingerprintKey] = fingerprint
-            } else requestId = savedId
+            val saved = prefs[pendingIncidentEnvelopeKey]?.let { runCatching { gson.fromJson(it, PendingIncidentSubmission::class.java) }.getOrNull() }
+            if (saved != null) {
+                if (saved.fingerprint != fingerprint) throw PendingIncidentConflictException()
+                submission = saved
+            } else {
+                val legacyId = prefs[stringPreferencesKey("pending_incident_request_id")]
+                val legacyFingerprint = prefs[stringPreferencesKey("pending_incident_fingerprint")]
+                if (!legacyId.isNullOrBlank() && legacyFingerprint != fingerprint) throw PendingIncidentConflictException()
+                val created = PendingIncidentSubmission(legacyId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString(), fingerprint, payloadJson)
+                prefs[pendingIncidentEnvelopeKey] = gson.toJson(created)
+                prefs.remove(stringPreferencesKey("pending_incident_request_id"))
+                prefs.remove(stringPreferencesKey("pending_incident_fingerprint"))
+                submission = created
+            }
         }
-        requestId
+        checkNotNull(submission)
     }
 
     suspend fun clearPendingIncidentRequestId(requestId: String) {
         pendingIncidentMutex.withLock {
             context.sessionDataStore.edit { prefs ->
-                if (prefs[pendingIncidentRequestIdKey] == requestId) {
-                    prefs.remove(pendingIncidentRequestIdKey)
-                    prefs.remove(pendingIncidentFingerprintKey)
-                }
+                val saved = prefs[pendingIncidentEnvelopeKey]?.let { runCatching { gson.fromJson(it, PendingIncidentSubmission::class.java) }.getOrNull() }
+                if (saved?.requestId == requestId) prefs.remove(pendingIncidentEnvelopeKey)
             }
         }
     }
@@ -116,7 +126,12 @@ class SessionStore(
             inMemorySession.value = null
             return
         }
-        context.sessionDataStore.edit { prefs -> prefs.clear() }
+        context.sessionDataStore.edit { prefs ->
+            // Preserve unresolved SOS submissions across logout so a retry cannot get a new key.
+            prefs.remove(encryptedSessionKey)
+            prefs.remove(stringPreferencesKey("token"))
+            prefs.remove(stringPreferencesKey("user_json"))
+        }
     }
 
     private fun encrypt(plainText: String): String {
