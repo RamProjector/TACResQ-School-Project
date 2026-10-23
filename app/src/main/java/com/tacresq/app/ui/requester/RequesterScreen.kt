@@ -484,6 +484,12 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     val editLastAtMillis = incidentToEdit?.requesterLastEditedAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
     val editCooldownSeconds = if ((incidentToEdit?.requesterEditCount ?: 0) <= 0 || editLastAtMillis == null) 0L
         else (((editLastAtMillis + 60_000L - editNowMillis).coerceAtLeast(0L) + 999L) / 1000L)
+    val urgentLocationCorrection = incidentToEdit?.let { editing ->
+        (editLatitude != editing.latitude || editLongitude != editing.longitude) &&
+            editType == editing.type &&
+            editDescription.trim() == editing.description.orEmpty().trim() &&
+            editLocationNotes.trim() == editing.locationNotes.orEmpty().trim()
+    } ?: false
 
     LaunchedEffect(state.notice) {
         val message = state.notice
@@ -744,7 +750,12 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("Edits are available only before dispatch assigns a unit. Your first correction is immediate. After that, another edit is locked for 60 seconds and requires a review confirmation.")
+                    Text(
+                        if (editCooldownSeconds > 0 && urgentLocationCorrection)
+                            "This is a location-only correction. Review the pin and confirm to save it now; other changes remain locked until the timer ends."
+                        else
+                            "Edits are available only before dispatch assigns a unit. Your first correction is immediate. After that, another edit is locked for 60 seconds and requires a review confirmation."
+                    )
                     IncidentType.entries.forEach { type ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(selected = editType == type, onClick = { editType = type })
@@ -774,14 +785,16 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                     OutlinedButton(onClick = { showEditMapPicker = true }, modifier = Modifier.fillMaxWidth()) { Text("Correct map pin") }
-                    if (editing.requesterEditCount > 0 && editCooldownSeconds > 0) {
+                    if (editing.requesterEditCount > 0 && editCooldownSeconds > 0 && !urgentLocationCorrection) {
                         Text("You can make another edit in " + editCooldownSeconds + "s.", color = MaterialTheme.colorScheme.error)
+                    } else if (editing.requesterEditCount > 0 && editCooldownSeconds > 0 && urgentLocationCorrection) {
+                        Text("Location correction can be reviewed now. Other changes remain locked for " + editCooldownSeconds + "s.")
                     }
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = !state.sending && editCooldownSeconds == 0L,
+                    enabled = !state.sending && (editCooldownSeconds == 0L || urgentLocationCorrection),
                     onClick = {
                         if (editing.requesterEditCount == 0) {
                             incidentToEdit = null
@@ -830,10 +843,13 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     Text("Location note: " + editLocationNotes.trim().ifBlank { "None provided" })
                     Text(if (editLatitude != null && editLongitude != null) "Pin: %.5f, %.5f".format(Locale.US, editLatitude, editLongitude) else "No GPS/map pin")
                     Text("This correction will be recorded for dispatch. Confirm only if these details are accurate.")
+                    if (editCooldownSeconds > 0 && urgentLocationCorrection) {
+                        Text("You are correcting only the emergency pin, so this safety-critical change can bypass the timer.")
+                    }
                 }
             },
             confirmButton = {
-                TextButton(enabled = !state.sending && editCooldownSeconds == 0L, onClick = {
+                TextButton(enabled = !state.sending && (editCooldownSeconds == 0L || urgentLocationCorrection), onClick = {
                     incidentToEdit = null
                     confirmingEdit = false
                     vm.updateMyIncident(
