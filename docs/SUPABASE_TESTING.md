@@ -10,7 +10,7 @@ The GitHub Actions artifact named `tacresq-android-apks` contains:
 - `tacresq-supabase-debug.apk` — uses the configured Supabase project and real Auth/RPC calls.
 - `tacresq-release.apk` — real Supabase mode; unsigned unless release-signing secrets are configured.
 
-The two debug APKs share the same Android application ID. Installing one replaces the other.
+The demo and Supabase debug APKs use different Android application IDs (`com.tacresq.app.demo` and `com.tacresq.app.supabase`). They can be installed side-by-side. Build the demo with `./gradlew --no-daemon assembleDebug` and the Supabase-backed version with `./gradlew --no-daemon assembleDebug -PuseSupabase=true`.
 
 For a local real-backend debug build:
 
@@ -74,8 +74,4 @@ If fewer than four rows return, stop and resolve the missing Auth/profile record
 - Dispatcher: verify assignment/status updates and fresh field-unit location reports on the map.
 - Authentication: test invalid email, missing fields, wrong password, offline/network failure, and successful sign-out.
 
-Delete test incidents and test Auth users when QA is finished. In the Supabase Dashboard, review **Authentication → Settings → Password Security** and enable leaked-password protection where available. This is an Auth project setting, not a SQL migration; CI cannot enable it for the live project.
-
-## 4. What CI does not prove
-
-CI compiles the APKs and runs source-contract, prototype, and backend integration tests. It does **not** prove that a real phone can obtain GPS, load OpenStreetMap tiles on its network, receive a current location fix, or successfully authenticate against the live project's current Auth settings. Perform those checks on a physical device before relying on the app.
+Delete test incidents and test Auth users when QA is finished. In the Supabase Dashboard, review **Authentication → Users** and the relevant QA database tables to confirm cleanup.

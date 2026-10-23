@@ -62,7 +62,7 @@ Build from the repository root:
 ./gradlew --no-daemon assembleRelease
 ```
 
-On Windows, use `gradlew.bat` instead of `./gradlew`. APK outputs are written to `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`. The GitHub Actions artifact `tacresq-android-apks` publishes three distinctly named files: `tacresq-demo-debug.apk` (in-memory demo backend), `tacresq-supabase-debug.apk` (configured real Supabase backend), and `tacresq-release.apk` (unsigned unless signing secrets are configured). Both debug APKs use the same Android application ID, so installing one replaces the other on a device. The wrapper pins Gradle 9.3.1 and validates the distribution checksum; `gradle/wrapper/gradle-wrapper.jar.sha256` records the upstream wrapper-JAR checksum.
+On Windows, use `gradlew.bat` instead of `./gradlew`. APK outputs are written to `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`. The GitHub Actions artifact `tacresq-android-apks` publishes three distinctly named files: `tacresq-demo-debug.apk` (in-memory demo backend), `tacresq-supabase-debug.apk` (configured real Supabase backend), and `tacresq-release.apk` (unsigned unless signing secrets are configured). The demo and Supabase debug APKs use distinct Android application IDs (`com.tacresq.app.demo` and `com.tacresq.app.supabase`) and can be installed side-by-side. The wrapper pins Gradle 9.3.1 and validates the distribution checksum; `gradle/wrapper/gradle-wrapper.jar.sha256` records the upstream wrapper-JAR checksum.
 
 ### Optional release APK signing
 
