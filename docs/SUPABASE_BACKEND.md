@@ -5,7 +5,8 @@ The Android app uses Supabase Auth for accounts and Postgres RPC functions for a
 ## Data model
 
 - `profiles`: one row per Supabase Auth user, TACResQ role, contact data, and field-unit duty status.
-- `incidents`: requester, incident type/description, optional paired GPS coordinates, measured accuracy, one-time capture timestamp, optional landmark notes, status, and assigned field unit.
+- `incidents`: requester, incident type/description, optional paired GPS coordinates, measured accuracy, one-time capture timestamp, optional landmark notes, status, and a legacy `assigned_to` lead unit.
+- `incident_assignments`: all responders/drivers assigned to each incident, with assignment actor/time audit metadata. Team assignment is atomic and limited to five field units total; dispatch can add available units while an incident is `assigned` or `en_route`, but not after arrival. `assigned_to` remains the lead/legacy field for compatibility.
 - `incident_status_logs`: append-only-by-trigger status history for audit/reporting.
 - `location_logs`: storage for responder/driver GPS fixes. The Android source implements consent-gated foreground fixes for the assigned incident while en route; background tracking is not implemented and device behavior has not yet been validated.
 
@@ -25,7 +26,8 @@ All RPC calls require a signed-in Supabase user and use `POST /rest/v1/rpc/<func
 | `api_create_incident_v3(p_type,p_description,p_latitude,p_longitude,p_accuracy_m,p_location_notes,p_location_recorded_at,p_location_source)` | Requester-only SOS submission; source is `gps`, `manual`, or `none`, and a manual pin cannot claim GPS accuracy. |
 | `api_create_incident_v2(...)` | Preserved for older clients; infers `gps` versus `none` from the coordinate pair. |
 | `api_create_incident(p_type,p_description,p_latitude,p_longitude,p_accuracy_m)` | Preserved for older clients. |
-| `api_assign_incident(p_id,p_user_id)` | Dispatcher assigns a pending request to an available field unit. |
+| `api_assign_incident_team(p_id,p_user_ids)` | Dispatcher atomically assigns a pending request to 1–5 available field units; server locks and revalidates every selected unit. |
+| `api_assign_incident(p_id,p_user_id)` | Backward-compatible single-unit wrapper over team assignment. |
 | `api_update_incident_status(p_id,p_status)` | Assigned unit advances a valid incident status. |
 | `api_record_location_v2(p_incident_id,p_latitude,p_longitude,p_accuracy_m,p_recorded_at)` | Reserved incident-bound field-unit location write endpoint; accepts only the assigned unit while the incident is `en_route`. |
 
@@ -48,4 +50,4 @@ A database trigger writes status history and updates unit duty status when an in
 
 ## Current limitations
 
-The app supports requester SOS submission, manual dispatcher assignment, duty-status controls, incident status progression, polling, and a user-initiated one-time requester GPS capture. A requester fix is sent only with the SOS and remains subject to the incident access rules. If GPS is unavailable, the SOS can be submitted without coordinates and with an optional landmark; responders see that no pin was shared. The requester flow does **not** collect continuous or background location. The Android responder source calls the incident-bound, en-route-only location RPC after explicit consent and a successful transition to en route. This foreground tracking has not yet been device-validated; no background tracking, offline replay, or guaranteed delivery is implemented. This is a school prototype, not an emergency-services production deployment.
+The app supports requester SOS submission, atomic multi-responder dispatcher assignment, duty-status controls, shared incident status progression for assigned team members, polling, and a user-initiated one-time requester GPS capture. A requester fix is sent only with the SOS and remains subject to the incident access rules. If GPS is unavailable, the SOS can be submitted without coordinates and with an optional landmark; responders see that no pin was shared. The requester flow does **not** collect continuous or background location. The Android responder source calls the incident-bound, en-route-only location RPC after explicit consent and a successful transition to en route. This foreground tracking has not yet been device-validated; no background tracking, offline replay, or guaranteed delivery is implemented. This is a school prototype, not an emergency-services production deployment.

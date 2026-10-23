@@ -67,6 +67,8 @@ class SupabaseTacApi private constructor(
         rpc.updateIncidentStatus(UpdateIncidentRpc(id, body.status.wireValue))
     override suspend fun assignIncident(id: Long, body: AssignIncidentRequest): Incident =
         rpc.assignIncident(AssignIncidentRpc(id, body.userId))
+    override suspend fun assignIncidentTeam(id: Long, body: AssignIncidentTeamRequest): Incident =
+        rpc.assignIncidentTeam(AssignIncidentTeamRpc(id, body.userIds))
     override suspend fun recordLocation(body: ResponderLocationRequest): Long =
         rpc.recordLocation(RecordLocationRpc(body.incidentId, body.latitude, body.longitude, body.accuracyM, body.recordedAt))
 
@@ -143,6 +145,9 @@ private interface SupabaseRpcWire {
     @POST("rest/v1/rpc/api_assign_incident")
     suspend fun assignIncident(@Body body: AssignIncidentRpc): Incident
 
+    @POST("rest/v1/rpc/api_assign_incident_team")
+    suspend fun assignIncidentTeam(@Body body: AssignIncidentTeamRpc): Incident
+
     @POST("rest/v1/rpc/api_record_location_v2")
     suspend fun recordLocation(@Body body: RecordLocationRpc): Long
 }
@@ -165,6 +170,7 @@ private data class CreateIncidentV4Rpc(
 private data class CancelIncidentRpc(@SerializedName("p_id") val id: Long)
 private data class UpdateIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_status") val status: String)
 private data class AssignIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_id") val userId: Long)
+private data class AssignIncidentTeamRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_ids") val userIds: List<Long>)
 private data class RecordLocationRpc(
     @SerializedName("p_incident_id") val incidentId: Long,
     @SerializedName("p_latitude") val latitude: Double,
@@ -176,6 +182,7 @@ private data class RecordLocationRpc(
 private val DutyStatus.wireValue: String get() = when (this) {
     DutyStatus.OFF_DUTY -> "off_duty"
     DutyStatus.AVAILABLE -> "available"
+    DutyStatus.ASSIGNED -> "assigned"
     DutyStatus.EN_ROUTE -> "en_route"
     DutyStatus.ON_SCENE -> "on_scene"
     DutyStatus.TRANSPORTING -> "transporting"

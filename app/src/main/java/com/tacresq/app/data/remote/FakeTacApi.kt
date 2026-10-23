@@ -115,7 +115,7 @@ class FakeTacApi(
                 .filter {
                     when (me.role) {
                         Role.REQUESTER -> requesterOf[it.id] == me.id
-                        Role.RESPONDER, Role.DRIVER -> it.assignedTo == me.id
+                        Role.RESPONDER, Role.DRIVER -> it.assignedTo == me.id || me.id in it.assignedUserIds
                         Role.DISPATCHER -> true
                     }
                 }
@@ -242,7 +242,7 @@ class FakeTacApi(
             val index = incidents.indexOfFirst { it.id == id }
             if (index < 0) throw httpError(404, "Incident not found.")
             val incident = incidents[index]
-            if (incident.assignedTo != me.id) {
+            if (incident.assignedTo != me.id && me.id !in incident.assignedUserIds) {
                 throw httpError(403, "This incident is not assigned to you.")
             }
             if (body.status !in incident.status.nextSteps()) {
@@ -257,7 +257,7 @@ class FakeTacApi(
                 IncidentStatus.RESOLVED -> DutyStatus.AVAILABLE
                 else -> null
             }
-            if (duty != null) setDuty(me.id, duty)
+            if (duty != null) incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }.forEach { setDuty(it, duty) }
             result
         }
         if (updated.status == IncidentStatus.RESOLVED) dispatchLater(3_000)
@@ -288,13 +288,46 @@ class FakeTacApi(
         }
     }
 
+    override suspend fun assignIncidentTeam(id: Long, body: AssignIncidentTeamRequest): Incident {
+        delay(300)
+        return synchronized(lock) {
+            if (current().role != Role.DISPATCHER) throw httpError(403, "Only dispatchers can assign incidents.")
+            if (body.userIds.isEmpty() || body.userIds.size > 5 || body.userIds.distinct().size != body.userIds.size) {
+                throw httpError(422, "Select between 1 and 5 different field units.")
+            }
+            val index = incidents.indexOfFirst { it.id == id }
+            if (index < 0) throw httpError(404, "Incident not found.")
+            val incident = incidents[index]
+            if (incident.status !in listOf(IncidentStatus.PENDING, IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE)) {
+                throw httpError(422, "A response team can only be assigned or expanded before the incident reaches the scene.")
+            }
+            val currentTeam = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+            if (currentTeam.size + body.userIds.size > 5) throw httpError(422, "A response team may contain at most 5 field units.")
+            val units = body.userIds.map { id ->
+                accounts.firstOrNull { it.user.id == id }?.user ?: throw httpError(404, "A selected unit was not found.")
+            }
+            if (units.any { (it.role != Role.RESPONDER && it.role != Role.DRIVER) || it.dutyStatus != DutyStatus.AVAILABLE || hasActiveIncident(it.id) }) {
+                throw httpError(422, "One or more selected units are no longer available. Refresh and choose again.")
+            }
+            units.forEach { setDuty(it.id, DutyStatus.ASSIGNED) }
+            val newTeam = (currentTeam + body.userIds).distinct()
+            incident.copy(
+                status = if (incident.status == IncidentStatus.PENDING) IncidentStatus.ASSIGNED else incident.status,
+                assignedTo = incident.assignedTo ?: units.first().id,
+                assignedUserIds = newTeam,
+            ).also {
+                incidents[index] = it
+            }
+        }
+    }
+
     override suspend fun recordLocation(body: ResponderLocationRequest): Long {
         delay(100)
         return synchronized(lock) {
             val me = current()
             val incident = incidents.firstOrNull { it.id == body.incidentId }
                 ?: throw httpError(404, "Incident not found.")
-            if (me.role != Role.RESPONDER && me.role != Role.DRIVER || incident.assignedTo != me.id) {
+            if (me.role != Role.RESPONDER && me.role != Role.DRIVER || incident.assignedTo != me.id && me.id !in incident.assignedUserIds) {
                 throw httpError(403, "This incident is not assigned to you.")
             }
             if (incident.status != IncidentStatus.EN_ROUTE) {
@@ -326,7 +359,7 @@ class FakeTacApi(
     }
 
     private fun hasActiveIncident(userId: Long): Boolean =
-        incidents.any { it.assignedTo == userId && it.status.isActive }
+        incidents.any { (it.assignedTo == userId || userId in it.assignedUserIds) && it.status.isActive }
 
     /** Pretends to be the dispatcher: gives the oldest pending incident to a free, available unit. */
     private fun dispatchLater(delayMs: Long) {

@@ -47,6 +47,9 @@ jobs:
       - name: Check requester active-incident and cancellation contract
         run: python3 tools/test_requester_active_incident.py
 
+      - name: Check dispatcher multi-responder assignment
+        run: python3 tools/test_dispatch_team_assignment.py
+
       - name: Check urgent location correction cooldown bypass
         run: python3 tools/test_requester_urgent_location_correction.py
 

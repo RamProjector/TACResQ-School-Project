@@ -72,6 +72,10 @@ interface TacApi {
         @Body body: AssignIncidentRequest,
     ): Incident
 
+    /** Dispatcher: atomically assign a response team (1–5 available units). */
+    @POST("incidents/{id}/assign-team")
+    suspend fun assignIncidentTeam(@Path("id") id: Long, @Body body: AssignIncidentTeamRequest): Incident
+
     /** Reserved for foreground responder tracking while the assigned incident is en route. */
     @POST("me/locations")
     suspend fun recordLocation(@Body body: ResponderLocationRequest): Long
@@ -118,6 +122,8 @@ data class UpdateMyIncidentRequest(
 )
 
 data class AssignIncidentRequest(@SerializedName("user_id") val userId: Long)
+
+data class AssignIncidentTeamRequest(@SerializedName("user_ids") val userIds: List<Long>)
 
 data class ResponderLocationRequest(
     @SerializedName("incident_id") val incidentId: Long,

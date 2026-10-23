@@ -6,11 +6,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -83,16 +86,17 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
         }
     }
 
-    fun assign(incident: Incident, unit: User) {
-        if (_state.value.busy) return
+    fun assign(incident: Incident, userIds: List<Long>) {
+        if (_state.value.busy || userIds.isEmpty() || userIds.size > 5) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, notice = null) }
-            repo.assignIncident(incident.id, unit.id)
+            repo.assignIncident(incident.id, userIds)
                 .onSuccess { updated ->
+                    val names = _state.value.units.filter { it.id in userIds }.joinToString(", ") { it.name }
                     _state.update { state ->
                         state.copy(
                             busy = false,
-                            notice = "Incident #${updated.id} assigned to ${unit.name}.",
+                            notice = "Incident #${updated.id} assigned to ${names.ifBlank { "the selected response team" }}.",
                             incidents = state.incidents.map { if (it.id == updated.id) updated else it },
                         )
                     }
@@ -110,11 +114,17 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
-    var assignmentCandidate by remember { mutableStateOf<Pair<Incident, User>?>(null) }
+    var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
+    var selectedUnitIds by remember { mutableStateOf(setOf<Long>()) }
 
     val pending = state.incidents.filter { it.status == IncidentStatus.PENDING }
     val active = state.incidents.count { it.status.isActive }
     val availableUnits = state.units.filter { it.dutyStatus == DutyStatus.AVAILABLE }
+    val existingTeamCount = assignmentCandidate?.let { candidate ->
+        if (candidate.status == IncidentStatus.PENDING) 0
+        else candidate.assignedUserIds.ifEmpty { listOfNotNull(candidate.assignedTo) }.distinct().size
+    } ?: 0
+    val maxTeamSelection = (5 - existingTeamCount).coerceAtLeast(0)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().safeDrawingPadding(),
@@ -151,18 +161,19 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
         }
         items(pending, key = { it.id }) { incident ->
             IncidentCard(incident) {
-                Text("Assign an available unit:", fontWeight = FontWeight.SemiBold)
+                Text("Build a response team from available field units.", fontWeight = FontWeight.SemiBold)
                 if (availableUnits.isEmpty()) {
                     Text("No responder or driver is currently marked Available.")
                 } else {
-                    availableUnits.forEach { unit ->
-                        Button(
-                            onClick = { assignmentCandidate = incident to unit },
-                            enabled = !state.busy,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Assign ${unit.name} (${unit.role.label})")
-                        }
+                    OutlinedButton(
+                        onClick = {
+                            selectedUnitIds = emptySet()
+                            assignmentCandidate = incident
+                        },
+                        enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Select response team")
                     }
                 }
             }
@@ -171,8 +182,24 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
         item { Text("All incidents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         items(state.incidents.filter { it.status != IncidentStatus.PENDING }, key = { it.id }) { incident ->
             IncidentCard(incident) {
-                val assignedName = state.units.firstOrNull { it.id == incident.assignedTo }?.name
-                Text("Assigned unit: ${assignedName ?: "Not assigned"}")
+                val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+                val teamNames = state.units.filter { it.id in teamIds }.joinToString(", ") { it.name }
+                val remainingTeamSlots = (5 - teamIds.distinct().size).coerceAtLeast(0)
+                Text("Assigned team: ${teamNames.ifBlank { "Not assigned" }}")
+                if (incident.status == IncidentStatus.ASSIGNED || incident.status == IncidentStatus.EN_ROUTE) {
+                    if (remainingTeamSlots == 0) {
+                        Text("Response team is full (5 units).")
+                    } else if (availableUnits.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = {
+                                selectedUnitIds = emptySet()
+                                assignmentCandidate = incident
+                            },
+                            enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Add responders") }
+                    }
+                }
             }
         }
 
@@ -180,19 +207,54 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
         items(state.units, key = { it.id }) { unit -> UnitCard(unit) }
     }
 
-    assignmentCandidate?.let { (incident, unit) ->
+    assignmentCandidate?.let { incident ->
         AlertDialog(
-            onDismissRequest = { assignmentCandidate = null },
-            title = { Text("Confirm assignment") },
-            text = { Text("Assign incident #${incident.id} to ${unit.name}? This will move the incident to Unit assigned.") },
+            onDismissRequest = { assignmentCandidate = null; selectedUnitIds = emptySet() },
+            title = { Text("Build response team") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        if (incident.status == IncidentStatus.PENDING)
+                            "Choose 1–5 available responders or drivers for incident #${incident.id}. Assignments are submitted together."
+                        else
+                            "Choose up to ${maxTeamSelection} additional available responders or drivers. New members can be added only before the incident reaches the scene."
+                    )
+                    availableUnits.forEach { unit ->
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Checkbox(
+                                checked = unit.id in selectedUnitIds,
+                                enabled = !state.busy || unit.id in selectedUnitIds,
+                                onCheckedChange = { checked ->
+                                    selectedUnitIds = if (checked) {
+                                        if (selectedUnitIds.size < maxTeamSelection) selectedUnitIds + unit.id else selectedUnitIds
+                                    } else selectedUnitIds - unit.id
+                                },
+                            )
+                            Column(modifier = Modifier.weight(1f).padding(top = 10.dp)) {
+                                Text(unit.name, fontWeight = FontWeight.SemiBold)
+                                Text("${unit.role.label} · ${unit.dutyStatus?.label ?: "Status unavailable"}", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                    Text("${selectedUnitIds.size} of ${maxTeamSelection} available slots selected", style = MaterialTheme.typography.bodySmall)
+                }
+            },
             confirmButton = {
-                TextButton(onClick = {
-                    assignmentCandidate = null
-                    vm.assign(incident, unit)
-                }) { Text("Assign unit") }
+                TextButton(
+                    enabled = !state.busy && selectedUnitIds.isNotEmpty() && selectedUnitIds.size <= maxTeamSelection,
+                    onClick = {
+                        val ids = selectedUnitIds.toList()
+                        assignmentCandidate = null
+                        selectedUnitIds = emptySet()
+                        vm.assign(incident, ids)
+                    },
+                ) { Text(if (state.busy) "Assigning…" else "Assign team") }
             },
             dismissButton = {
-                TextButton(onClick = { assignmentCandidate = null }) { Text("Cancel") }
+                TextButton(onClick = { assignmentCandidate = null; selectedUnitIds = emptySet() }, enabled = !state.busy) { Text("Cancel") }
             },
         )
     }

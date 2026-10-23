@@ -16,6 +16,8 @@ enum class Role(val label: String) {
 enum class DutyStatus(val label: String) {
     @SerializedName("off_duty") OFF_DUTY("Off duty"),
     @SerializedName("available") AVAILABLE("Available"),
+    // Computed for active response-team members; not a user-set DB value.
+    @SerializedName("assigned") ASSIGNED("Assigned"),
     @SerializedName("en_route") EN_ROUTE("En route"),
     @SerializedName("on_scene") ON_SCENE("On scene"),
     @SerializedName("transporting") TRANSPORTING("Transporting"),
@@ -73,6 +75,7 @@ data class Incident(
     @SerializedName("requester_name") val requesterName: String? = null,
     @SerializedName("requester_phone") val requesterPhone: String? = null,
     @SerializedName("assigned_to") val assignedTo: Long? = null,
+    @SerializedName("assigned_user_ids") val assignedUserIds: List<Long> = emptyList(),
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("location_source") val locationSource: String? = null,
     @SerializedName("requester_edit_count") val requesterEditCount: Int = 0,

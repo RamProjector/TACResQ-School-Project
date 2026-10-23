@@ -12,7 +12,7 @@ import com.tacresq.app.data.model.Session
 import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.remote.AuthResponse
-import com.tacresq.app.data.remote.AssignIncidentRequest
+import com.tacresq.app.data.remote.AssignIncidentTeamRequest
 import com.tacresq.app.data.remote.CreateIncidentRequest
 import com.tacresq.app.data.remote.DutyStatusRequest
 import com.tacresq.app.data.remote.LoginRequest
@@ -186,8 +186,11 @@ class TacRepository(
         )
     }
 
-    suspend fun assignIncident(incidentId: Long, userId: Long): Result<Incident> = call {
-        api.assignIncident(incidentId, AssignIncidentRequest(userId))
+    suspend fun assignIncident(incidentId: Long, userIds: List<Long>): Result<Incident> = call {
+        require(userIds.isNotEmpty() && userIds.size <= 5 && userIds.distinct().size == userIds.size) {
+            "Select between 1 and 5 different field units."
+        }
+        api.assignIncidentTeam(incidentId, AssignIncidentTeamRequest(userIds))
     }
 
     /** Reserved for the explicit foreground tracking lifecycle; callers must gate this on en_route. */
