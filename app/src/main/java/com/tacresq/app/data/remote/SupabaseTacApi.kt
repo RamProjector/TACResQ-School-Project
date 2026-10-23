@@ -48,8 +48,8 @@ class SupabaseTacApi private constructor(
     override suspend fun allIncidents(): List<Incident> = rpc.allIncidents(EmptyRpcBody())
     override suspend fun units(): List<User> = rpc.units(EmptyRpcBody())
     override suspend fun activeResponderLocations(): List<ResponderLocation> = rpc.activeResponderLocations(EmptyRpcBody())
-    override suspend fun createIncident(body: CreateIncidentRequest): Incident = rpc.createIncidentV3(
-        CreateIncidentV3Rpc(
+    override suspend fun createIncident(body: CreateIncidentRequest): Incident = rpc.createIncidentV4(
+        CreateIncidentV4Rpc(
             body.type.wireValue,
             body.description,
             body.latitude,
@@ -58,6 +58,7 @@ class SupabaseTacApi private constructor(
             body.locationNotes,
             body.locationRecordedAt,
             body.locationSource,
+            body.clientRequestId,
         )
     )
     override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident =
@@ -125,8 +126,8 @@ private interface SupabaseRpcWire {
     @POST("rest/v1/rpc/api_active_responder_locations")
     suspend fun activeResponderLocations(@Body body: EmptyRpcBody): List<ResponderLocation>
 
-    @POST("rest/v1/rpc/api_create_incident_v3")
-    suspend fun createIncidentV3(@Body body: CreateIncidentV3Rpc): Incident
+    @POST("rest/v1/rpc/api_create_incident_v4")
+    suspend fun createIncidentV4(@Body body: CreateIncidentV4Rpc): Incident
 
     @POST("rest/v1/rpc/api_update_incident_status")
     suspend fun updateIncidentStatus(@Body body: UpdateIncidentRpc): Incident
@@ -142,7 +143,7 @@ private data class SupabaseSession(@SerializedName("access_token") val accessTok
 private data class SignupBody(val email: String, val password: String, val data: Map<String, String>)
 private class EmptyRpcBody
 private data class DutyStatusRpc(@SerializedName("p_duty_status") val status: String)
-private data class CreateIncidentV3Rpc(
+private data class CreateIncidentV4Rpc(
     @SerializedName("p_type") val type: String,
     @SerializedName("p_description") val description: String?,
     @SerializedName("p_latitude") val latitude: Double?,
@@ -151,6 +152,7 @@ private data class CreateIncidentV3Rpc(
     @SerializedName("p_location_notes") val locationNotes: String?,
     @SerializedName("p_location_recorded_at") val locationRecordedAt: String?,
     @SerializedName("p_location_source") val locationSource: String,
+    @SerializedName("p_client_request_id") val clientRequestId: String,
 )
 private data class UpdateIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_status") val status: String)
 private data class AssignIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_id") val userId: Long)
