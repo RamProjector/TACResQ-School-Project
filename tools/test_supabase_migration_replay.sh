@@ -165,8 +165,10 @@ BEGIN
   UPDATE public.profiles SET role = 'responder', duty_status = 'available' WHERE id = responder_one_id;
   UPDATE public.profiles SET role = 'driver', duty_status = 'available' WHERE id = responder_two_id;
 
-  INSERT INTO public.incidents (requester_id, type, description, latitude, longitude, location_source)
-  VALUES (requester_id, 'medical', 'Synthetic per-responder status test', 11.244, 125.003, 'manual')
+  INSERT INTO public.incidents (
+    requester_id, type, description, latitude, longitude, location_recorded_at, location_source
+  )
+  VALUES (requester_id, 'medical', 'Synthetic per-responder status test', 11.244, 125.003, now(), 'manual')
   RETURNING id INTO incident_id;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
