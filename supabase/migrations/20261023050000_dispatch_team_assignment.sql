@@ -174,6 +174,7 @@ DECLARE
   primary_user_id bigint;
   selected_count integer;
   assigned_ids jsonb;
+  current_team_count integer := 0;
 BEGIN
   SELECT * INTO actor FROM public.profiles WHERE auth_user_id = auth.uid();
   IF actor.id IS NULL OR actor.role <> 'dispatcher' THEN
@@ -186,8 +187,18 @@ BEGIN
   END IF;
 
   SELECT * INTO incident_row FROM public.incidents WHERE id = p_id FOR UPDATE;
-  IF incident_row.id IS NULL OR incident_row.status <> 'pending' OR incident_row.assigned_to IS NOT NULL THEN
-    RAISE EXCEPTION 'Only pending incidents can receive a response team' USING ERRCODE = '22023';
+  IF incident_row.id IS NULL THEN
+    RAISE EXCEPTION 'Incident not found' USING ERRCODE = 'P0002';
+  END IF;
+  IF incident_row.status NOT IN ('pending','assigned','en_route')
+     OR (incident_row.status = 'pending' AND incident_row.assigned_to IS NOT NULL)
+     OR (incident_row.status <> 'pending' AND incident_row.assigned_to IS NULL) THEN
+    RAISE EXCEPTION 'A response team can only be assigned or expanded before the incident reaches the scene' USING ERRCODE = '22023';
+  END IF;
+  SELECT count(*) INTO current_team_count
+    FROM public.incident_assignments WHERE incident_id = incident_row.id;
+  IF current_team_count + cardinality(p_user_ids) > 5 THEN
+    RAISE EXCEPTION 'A response team may contain at most 5 field units' USING ERRCODE = '22023';
   END IF;
 
   -- Stable lock order prevents competing dispatchers from deadlocking on overlapping teams.
@@ -210,9 +221,11 @@ BEGIN
     RAISE EXCEPTION 'One or more selected units are no longer available. Refresh the queue and choose again.' USING ERRCODE = '22023';
   END IF;
 
-  primary_user_id := p_user_ids[1];
-  UPDATE public.incidents SET status = 'assigned', assigned_to = primary_user_id
-  WHERE id = incident_row.id RETURNING * INTO incident_row;
+  IF incident_row.status = 'pending' THEN
+    primary_user_id := p_user_ids[1];
+    UPDATE public.incidents SET status = 'assigned', assigned_to = primary_user_id
+    WHERE id = incident_row.id RETURNING * INTO incident_row;
+  END IF;
 
   INSERT INTO public.incident_assignments (incident_id, user_id, assigned_by)
   SELECT incident_row.id, chosen.user_id, actor.id
