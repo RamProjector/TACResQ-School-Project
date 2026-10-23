@@ -25,6 +25,19 @@ checks = {
             "val point = mapView.mapCenter", 'Text("Use this location")',
         )
     ),
+    "requester manual location picker is a full-screen map with reachable map controls": all(
+        text in requester for text in (
+            "DialogProperties(usePlatformDefaultWidth = false)",
+            "Choose emergency location",
+            "Selected center: %.5f, %.5f",
+            "controller.zoomIn()",
+            "controller.zoomOut()",
+            "Return to starting location",
+            "Map data",
+            "modifier = Modifier.fillMaxSize()",
+            "enabled = !startsAtTaclobanDefault || userAdjustedMap",
+        )
+    ) and "height(320.dp)" not in requester,
     "fallback map center is clearly identified when GPS is unavailable": all(
         text in requester for text in (
             "startsAtTaclobanDefault = initial == null",
