@@ -26,7 +26,7 @@ EXPECTED = {
     "20261023034639_requester_edit_workflow.sql",
     "20261023081635_20261023040000_requester_urgent_location_correction.sql",
     "20261023081706_dispatch_team_assignment.sql",
-    "20261023082000_harden_dispatch_team_assignment.sql",
+    "20261023082526_harden_dispatch_team_assignment.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED, (
@@ -72,7 +72,7 @@ for required in (
     assert required in team, f"Missing multi-unit dispatch contract: {required}"
 
 print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history.")
-hardening = (MIGRATIONS / "20261023082000_harden_dispatch_team_assignment.sql").read_text()
+hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
     "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",
     "SECURITY INVOKER",
