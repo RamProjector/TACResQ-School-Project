@@ -192,6 +192,19 @@ $function$;
 REVOKE ALL ON FUNCTION public.api_update_my_assignment_status(bigint, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_update_my_assignment_status(bigint, text) TO authenticated;
 
+-- Preserve the legacy mobile RPC name, but route it through the same per-unit
+-- authorization and transition checks. Otherwise old clients could still mutate
+-- the shared incident status without updating their own assignment status.
+CREATE OR REPLACE FUNCTION public.api_update_incident_status(p_id bigint, p_status text)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = pg_catalog
+AS $function$
+  SELECT private.tacresq_update_my_assignment_status(p_id, p_status);
+$function$;
+REVOKE ALL ON FUNCTION public.api_update_incident_status(bigint, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.api_update_incident_status(bigint, text) TO authenticated;
 
 -- Return per-unit progress in the existing queue and "my incidents" payloads.
 CREATE OR REPLACE FUNCTION public.api_my_incidents()
