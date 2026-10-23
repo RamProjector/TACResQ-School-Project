@@ -1,17 +1,18 @@
 # Current task handoff
 
-## Active continuation — 2026-10-22
+## Active continuation — 2026-10-23
 
-- Follow-up PR #77 (refreshed from current main) guards responder turn-by-turn navigation against missing, non-finite, or out-of-range coordinates. The prior PR #76 branch became dirty after PR #75 merged shared files; #77 is the clean-base replacement.
-
-- Repository main is at `1012eefc46a75acf727936e3c170a7b1b771ddeb` after PR #74 merged.
-- The post-merge CI run [39705207429](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39705207429) passed all five jobs: Android debug/release builds, source checks, prototype/visual checks (including the new multi-viewport check), clean Supabase migration replay, and Laravel/dashboard integration. The RPC-grant contract run [39705207265](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39705207265) also passed.
-- Current feature branch: `agent/android-map-location-freshness`, based on the verified main commit above.
-- Feature in progress: improve dispatcher Android GPS map freshness reporting. Existing map hid all responder location reports older than 120 seconds, which made stale tracking indistinguishable from no location.
-- Implementation retains valid dispatcher-visible location records while their incident is actively `en_route`; classifies them as Fresh (<30 s), Aging (30–120 s), or Stale (>120 s); dims stale markers; labels stale markers as last-known/not live; reports counts in the map status; and rejects invalid coordinates or future timestamps. PR: [#75](https://github.com/RamProjector/TACResQ-School-Project/pull/75), still open for review.
-- Updated `tools/test_location_contract.py`, `tools/check_android_source.py`, and `tools/test_gps_map_empty_state.py` to assert the new freshness states rather than the old fresh-only behavior. The first PR CI attempt failed because two existing tests still expected the old behavior; those contracts were updated. The subsequent source-check job passed on commit `0c81fe7b6860c04273637e93108fb931fad6c147`; full CI was still running at handoff.
-- No database migration, live data mutation, credential change, account creation, or deployment was performed. The feature branch is not yet merged; Android physical-device behavior is not yet verified.
-- Next: finish full CI on the latest PR head, fix any remaining failures, and leave PR #75 open for review. Do not merge or deploy without separate explicit authorization. Preserve dispatcher-only access, incident-bound locations, foreground-only consent, and the educational-prototype boundary.
+- **Priority:** TACResQ Android app and real-backend verification. Keep changes scoped, reviewable, and evidence-backed. Preserve the existing five-button navigation and GPS/map as a primary feature; do not redesign or replace it without an explicit request.
+- **Current main:** `d86bb8cbcc73d5a19a26eaf05ea5809120318e43` (PR #104 merged).
+- **Recent merged work:**
+  - [PR #102](https://github.com/RamProjector/TACResQ-School-Project/pull/102): independent per-responder status, server-side transition authorization, conservative incident-level status, and per-unit GPS eligibility.
+  - [PR #103](https://github.com/RamProjector/TACResQ-School-Project/pull/103): oldest-first dispatcher queue and honest wait-age labels.
+  - [PR #104](https://github.com/RamProjector/TACResQ-School-Project/pull/104): align the responder-status migration filename with live Supabase ledger version `20261023103737`; filename/test references only, no SQL behavior change.
+- **Verification:** PR #104's pre-merge [CI run #514](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39940562411) passed source contracts, Android demo/Supabase debug and release builds, prototype navigation/function and visual checks across viewports, clean PostgreSQL migration replay, and Laravel/dashboard integration. The separate [RPC-grant contract run #261](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39940562380) passed. This is CI evidence, not physical-device or live end-to-end proof.
+- **APK artifact:** [Download from CI run #514](https://github.com/RamProjector/TACResQ-School-Project/actions/runs/39940562411), artifact `tacresq-android-apks`. It contains `tacresq-demo-debug.apk`, `tacresq-supabase-debug.apk`, and `tacresq-release.apk`. Use the Supabase debug APK for real Auth/RPC testing. Release APK may be unsigned. The two debug APKs share an application ID, so installing one replaces the other.
+- **Migration boundary:** PR #104's description states that the migration version and RPC grants were checked against live Supabase; this continuation did not independently repeat those live checks. Do not reapply the migration merely because its filename changed. Never claim a new live migration, data mutation, account seeding, or deployment unless independently performed and verified.
+- **Still blocked on physical-device QA:** [Issue #24](https://github.com/RamProjector/TACResQ-School-Project/issues/24) tracks requester SOS confirmation/idempotent retry, permission denied/revoked/location services off, GPS fix and manual pin fallback, responder consent and foreground-only location, assignment-specific stop/resume, stale location state, dispatcher-only visibility, sign-out, and sanitized evidence. Use synthetic accounts/incidents and test locations only; TACResQ is an educational prototype, not an operational emergency service.
+- **Next steps:** install the Supabase-backed APK on a test phone; record app commit and Android version; run the issue #24 checklist; capture exact errors and sanitized screenshots. Then fix observed defects in focused branches, rerun CI, and merge only when the current PR head and required checks are verified. No physical device was available to this workflow, so these tests remain pending.
 
 ## Historical handoff notes
 
