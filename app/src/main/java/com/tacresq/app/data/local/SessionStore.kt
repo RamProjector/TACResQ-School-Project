@@ -115,7 +115,7 @@ class SessionStore(
     suspend fun clearPendingIncidentRequestId(requestId: String) {
         pendingIncidentMutex.withLock {
             context.sessionDataStore.edit { prefs ->
-                val saved = prefs[pendingIncidentEnvelopeKey]?.let { runCatching { gson.fromJson(it, PendingIncidentSubmission::class.java) }.getOrNull() }
+                val saved = prefs[pendingIncidentEnvelopeKey]?.let { encoded -> runCatching { gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java) }.getOrNull() }
                 if (saved?.requestId == requestId) prefs.remove(pendingIncidentEnvelopeKey)
             }
         }
