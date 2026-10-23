@@ -1,7 +1,6 @@
 package com.tacresq.app.data.remote
 
 import com.tacresq.app.data.model.DutyStatus
-import com.tacresq.app.data.remote.AssignIncidentTeamRequest
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.Role
@@ -299,7 +298,11 @@ class FakeTacApi(
             val index = incidents.indexOfFirst { it.id == body.incidentId }
             if (index < 0) throw httpError(404, "Incident not found.")
             val incident = incidents[index]
-            if (incident.status != IncidentStatus.PENDING) throw httpError(422, "Only pending incidents can be assigned.")
+            if (incident.status !in listOf(IncidentStatus.PENDING, IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE)) {
+                throw httpError(422, "A response team can only be assigned or expanded before the incident reaches the scene.")
+            }
+            val currentTeam = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+            if (currentTeam.size + body.userIds.size > 5) throw httpError(422, "A response team may contain at most 5 field units.")
             val units = body.userIds.map { id ->
                 accounts.firstOrNull { it.user.id == id }?.user ?: throw httpError(404, "A selected unit was not found.")
             }
@@ -307,7 +310,12 @@ class FakeTacApi(
                 throw httpError(422, "One or more selected units are no longer available. Refresh and choose again.")
             }
             units.forEach { setDuty(it.id, DutyStatus.ASSIGNED) }
-            incident.copy(status = IncidentStatus.ASSIGNED, assignedTo = units.first().id, assignedUserIds = body.userIds).also {
+            val newTeam = (currentTeam + body.userIds).distinct()
+            incident.copy(
+                status = if (incident.status == IncidentStatus.PENDING) IncidentStatus.ASSIGNED else incident.status,
+                assignedTo = incident.assignedTo ?: units.first().id,
+                assignedUserIds = newTeam,
+            ).also {
                 incidents[index] = it
             }
         }
