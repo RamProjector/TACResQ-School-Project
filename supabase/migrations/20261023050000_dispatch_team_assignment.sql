@@ -45,6 +45,7 @@ USING (
     WHERE i.id = incident_assignments.incident_id AND requester.auth_user_id = auth.uid()
   )
 );
+GRANT SELECT ON public.incident_assignments TO authenticated;
 
 DROP POLICY IF EXISTS incidents_read_participant_or_dispatcher ON public.incidents;
 CREATE POLICY incidents_read_participant_or_dispatcher ON public.incidents FOR SELECT TO authenticated
