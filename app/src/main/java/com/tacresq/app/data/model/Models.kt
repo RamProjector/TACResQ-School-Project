@@ -21,6 +21,7 @@ enum class DutyStatus(val label: String) {
     @SerializedName("en_route") EN_ROUTE("En route"),
     @SerializedName("on_scene") ON_SCENE("On scene"),
     @SerializedName("transporting") TRANSPORTING("Transporting"),
+    @SerializedName("resolved") RESOLVED("Resolved"),
 }
 
 enum class IncidentType(val label: String) {
