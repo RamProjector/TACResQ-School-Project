@@ -54,15 +54,13 @@ fun RoleShell(
 ) {
     Scaffold(
         bottomBar = {
-            // The GPS map is a dedicated full-screen destination. Keeping the five-item
-            // navigation visible here shrinks the map viewport and defeats that behavior.
-            if (selected != AppDestination.MAP) {
-                TacruBottomNavigation(
-                    role = role,
-                    selected = selected,
-                    onDestinationSelected = onDestinationSelected,
-                )
-            }
+            // Keep the five primary destinations available on every screen, including the map.
+            // The map should remain the main visual surface without making navigation disappear.
+            TacruBottomNavigation(
+                role = role,
+                selected = selected,
+                onDestinationSelected = onDestinationSelected,
+            )
         },
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
