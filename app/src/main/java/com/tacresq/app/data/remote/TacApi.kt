@@ -65,6 +65,13 @@ interface TacApi {
         @Body body: UpdateStatusRequest,
     ): Incident
 
+    /** Assigned responder/driver: advance only their own response-team status. */
+    @POST("incidents/{id}/assignment-status")
+    suspend fun updateMyAssignmentStatus(
+        @Path("id") id: Long,
+        @Body body: UpdateStatusRequest,
+    ): Incident
+
     /** Dispatcher: assign an available responder or driver to an incident. */
     @POST("incidents/{id}/assign")
     suspend fun assignIncident(

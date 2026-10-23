@@ -151,7 +151,7 @@ class TacRepository(
     suspend fun hasPendingIncident(): Boolean = store.getPendingIncidentSubmission() != null
 
     suspend fun updateIncidentStatus(id: Long, status: IncidentStatus): Result<Incident> = call {
-        api.updateIncidentStatus(id, UpdateStatusRequest(status))
+        api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))
     }
 
     suspend fun cancelMyIncident(id: Long): Result<Incident> = call {

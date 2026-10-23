@@ -21,6 +21,7 @@ enum class DutyStatus(val label: String) {
     @SerializedName("en_route") EN_ROUTE("En route"),
     @SerializedName("on_scene") ON_SCENE("On scene"),
     @SerializedName("transporting") TRANSPORTING("Transporting"),
+    @SerializedName("resolved") RESOLVED("Resolved"),
 }
 
 enum class IncidentType(val label: String) {
@@ -62,6 +63,12 @@ data class User(
     @SerializedName("duty_status") val dutyStatus: DutyStatus? = null,
 )
 
+data class ResponderAssignmentStatus(
+    @SerializedName("user_id") val userId: Long,
+    val status: IncidentStatus,
+    @SerializedName("status_updated_at") val statusUpdatedAt: String? = null,
+)
+
 data class Incident(
     val id: Long,
     val type: IncidentType,
@@ -76,11 +83,15 @@ data class Incident(
     @SerializedName("requester_phone") val requesterPhone: String? = null,
     @SerializedName("assigned_to") val assignedTo: Long? = null,
     @SerializedName("assigned_user_ids") val assignedUserIds: List<Long> = emptyList(),
+    @SerializedName("assigned_user_statuses") val assignedUserStatuses: List<ResponderAssignmentStatus> = emptyList(),
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("location_source") val locationSource: String? = null,
     @SerializedName("requester_edit_count") val requesterEditCount: Int = 0,
     @SerializedName("requester_last_edited_at") val requesterLastEditedAt: String? = null,
 )
+
+fun Incident.statusFor(userId: Long): IncidentStatus =
+    assignedUserStatuses.firstOrNull { it.userId == userId }?.status ?: status
 
 data class Session(val token: String, val user: User)
 

@@ -50,6 +50,7 @@ ACTIVE_CLIENT_RPCS = {
     "api_units",
     "api_unregister_fcm_token",
     "api_update_incident_status",
+    "api_update_my_assignment_status",
 }
 
 for name in ACTIVE_CLIENT_RPCS:

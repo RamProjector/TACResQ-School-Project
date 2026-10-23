@@ -65,6 +65,8 @@ class SupabaseTacApi private constructor(
     override suspend fun updateMyIncident(body: UpdateMyIncidentRequest): Incident = rpc.updateMyIncident(body)
     override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident =
         rpc.updateIncidentStatus(UpdateIncidentRpc(id, body.status.wireValue))
+    override suspend fun updateMyAssignmentStatus(id: Long, body: UpdateStatusRequest): Incident =
+        rpc.updateMyAssignmentStatus(UpdateMyAssignmentStatusRpc(id, body.status.wireValue))
     override suspend fun assignIncident(id: Long, body: AssignIncidentRequest): Incident =
         rpc.assignIncident(AssignIncidentRpc(id, body.userId))
     override suspend fun assignIncidentTeam(id: Long, body: AssignIncidentTeamRequest): Incident =
@@ -142,6 +144,9 @@ private interface SupabaseRpcWire {
     @POST("rest/v1/rpc/api_update_incident_status")
     suspend fun updateIncidentStatus(@Body body: UpdateIncidentRpc): Incident
 
+    @POST("rest/v1/rpc/api_update_my_assignment_status")
+    suspend fun updateMyAssignmentStatus(@Body body: UpdateMyAssignmentStatusRpc): Incident
+
     @POST("rest/v1/rpc/api_assign_incident")
     suspend fun assignIncident(@Body body: AssignIncidentRpc): Incident
 
@@ -169,6 +174,10 @@ private data class CreateIncidentV4Rpc(
 )
 private data class CancelIncidentRpc(@SerializedName("p_id") val id: Long)
 private data class UpdateIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_status") val status: String)
+private data class UpdateMyAssignmentStatusRpc(
+    @SerializedName("p_incident_id") val incidentId: Long,
+    @SerializedName("p_status") val status: String,
+)
 private data class AssignIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_id") val userId: Long)
 private data class AssignIncidentTeamRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_ids") val userIds: List<Long>)
 private data class RecordLocationRpc(
@@ -186,6 +195,7 @@ private val DutyStatus.wireValue: String get() = when (this) {
     DutyStatus.EN_ROUTE -> "en_route"
     DutyStatus.ON_SCENE -> "on_scene"
     DutyStatus.TRANSPORTING -> "transporting"
+    DutyStatus.RESOLVED -> "resolved"
 }
 private val com.tacresq.app.data.model.IncidentType.wireValue: String get() = name.lowercase()
 private val com.tacresq.app.data.model.IncidentStatus.wireValue: String get() = name.lowercase()

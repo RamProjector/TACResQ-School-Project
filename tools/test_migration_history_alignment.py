@@ -29,10 +29,11 @@ EXPECTED = {
     "20261023082526_harden_dispatch_team_assignment.sql",
     "20261023082939_pin_dispatch_team_search_path.sql",
 }
+PENDING = {"20261023084000_per_responder_assignment_status.sql"}
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
-assert actual == EXPECTED, (
-    f"Supabase migration history drift. Missing={sorted(EXPECTED - actual)}; "
-    f"unexpected={sorted(actual - EXPECTED)}"
+assert actual == EXPECTED | PENDING, (
+    f"Supabase migration history drift. Missing={sorted((EXPECTED | PENDING) - actual)}; "
+    f"unexpected={sorted(actual - (EXPECTED | PENDING))}"
 )
 
 core = (MIGRATIONS / "20261015080806_tacresq_core_schema.sql").read_text()
@@ -72,7 +73,7 @@ for required in (
 ):
     assert required in team, f"Missing multi-unit dispatch contract: {required}"
 
-print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history.")
+print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history; {len(PENDING)} proposed migration(s) are explicitly pending live application.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
     "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",

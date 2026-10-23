@@ -5,6 +5,7 @@ import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.Role
 import com.tacresq.app.data.model.ResponderLocation
+import com.tacresq.app.data.model.ResponderAssignmentStatus
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.nextSteps
 import kotlinx.coroutines.CoroutineScope
@@ -235,29 +236,56 @@ class FakeTacApi(
         }
     }
 
-    override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident {
+    override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident =
+        updateMyAssignmentStatus(id, body)
+
+    override suspend fun updateMyAssignmentStatus(id: Long, body: UpdateStatusRequest): Incident {
         delay(300)
         val updated = synchronized(lock) {
             val me = current()
+            if (me.role != Role.RESPONDER && me.role != Role.DRIVER) {
+                throw httpError(403, "Only assigned field units can update their response status.")
+            }
             val index = incidents.indexOfFirst { it.id == id }
             if (index < 0) throw httpError(404, "Incident not found.")
             val incident = incidents[index]
-            if (incident.assignedTo != me.id && me.id !in incident.assignedUserIds) {
-                throw httpError(403, "This incident is not assigned to you.")
+            val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+            if (me.id !in teamIds) throw httpError(403, "This incident is not assigned to your unit.")
+            if (incident.status == IncidentStatus.RESOLVED || incident.status == IncidentStatus.CANCELLED) {
+                throw httpError(422, "A closed incident cannot accept further unit status updates.")
             }
-            if (body.status !in incident.status.nextSteps()) {
-                throw httpError(422, "Cannot change status from ${incident.status.label} to ${body.status.label}.")
+            val existingStatuses = incident.assignedUserStatuses.ifEmpty {
+                teamIds.map { unitId -> ResponderAssignmentStatus(unitId, incident.status) }
             }
-            val result = incident.copy(status = body.status)
+            val own = existingStatuses.firstOrNull { it.userId == me.id }
+                ?: throw httpError(403, "Your unit assignment could not be verified.")
+            if (body.status !in own.status.nextSteps()) {
+                throw httpError(422, "Cannot change your unit status from ${own.status.label} to ${body.status.label}.")
+            }
+            val timestamp = Instant.now().toString()
+            val nextStatuses = existingStatuses.map {
+                if (it.userId == me.id) it.copy(status = body.status, statusUpdatedAt = timestamp) else it
+            }
+            val statuses = nextStatuses.map { it.status }
+            val aggregate = when {
+                statuses.all { it == IncidentStatus.RESOLVED } -> IncidentStatus.RESOLVED
+                statuses.all { it in listOf(IncidentStatus.ON_SCENE, IncidentStatus.TRANSPORTING, IncidentStatus.RESOLVED) } &&
+                    statuses.any { it == IncidentStatus.TRANSPORTING } -> IncidentStatus.TRANSPORTING
+                statuses.all { it in listOf(IncidentStatus.ON_SCENE, IncidentStatus.TRANSPORTING, IncidentStatus.RESOLVED) } -> IncidentStatus.ON_SCENE
+                statuses.any { it in listOf(IncidentStatus.EN_ROUTE, IncidentStatus.ON_SCENE, IncidentStatus.TRANSPORTING, IncidentStatus.RESOLVED) } -> IncidentStatus.EN_ROUTE
+                else -> IncidentStatus.ASSIGNED
+            }
+            val result = incident.copy(status = aggregate, assignedUserStatuses = nextStatuses)
             incidents[index] = result
             val duty = when (body.status) {
+                IncidentStatus.ASSIGNED -> DutyStatus.ASSIGNED
                 IncidentStatus.EN_ROUTE -> DutyStatus.EN_ROUTE
                 IncidentStatus.ON_SCENE -> DutyStatus.ON_SCENE
                 IncidentStatus.TRANSPORTING -> DutyStatus.TRANSPORTING
-                IncidentStatus.RESOLVED -> DutyStatus.AVAILABLE
+                IncidentStatus.RESOLVED -> DutyStatus.RESOLVED
                 else -> null
             }
-            if (duty != null) incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }.forEach { setDuty(it, duty) }
+            if (duty != null) setDuty(me.id, duty)
             result
         }
         if (updated.status == IncidentStatus.RESOLVED) dispatchLater(3_000)
@@ -282,7 +310,12 @@ class FakeTacApi(
             if (incident.status != IncidentStatus.PENDING) {
                 throw httpError(422, "Only pending incidents can be assigned.")
             }
-            incident.copy(status = IncidentStatus.ASSIGNED, assignedTo = unit.id).also {
+            incident.copy(
+                status = IncidentStatus.ASSIGNED,
+                assignedTo = unit.id,
+                assignedUserIds = listOf(unit.id),
+                assignedUserStatuses = listOf(ResponderAssignmentStatus(unit.id, IncidentStatus.ASSIGNED, Instant.now().toString())),
+            ).also {
                 incidents[index] = it
             }
         }
@@ -311,10 +344,17 @@ class FakeTacApi(
             }
             units.forEach { setDuty(it.id, DutyStatus.ASSIGNED) }
             val newTeam = (currentTeam + body.userIds).distinct()
+            val oldStatuses = incident.assignedUserStatuses.ifEmpty {
+                currentTeam.map { unitId -> ResponderAssignmentStatus(unitId, incident.status, incident.createdAt) }
+            }
+            val newStatuses = oldStatuses + units.map { unit ->
+                ResponderAssignmentStatus(unit.id, IncidentStatus.ASSIGNED, Instant.now().toString())
+            }
             incident.copy(
                 status = if (incident.status == IncidentStatus.PENDING) IncidentStatus.ASSIGNED else incident.status,
                 assignedTo = incident.assignedTo ?: units.first().id,
                 assignedUserIds = newTeam,
+                assignedUserStatuses = newStatuses.distinctBy { it.userId },
             ).also {
                 incidents[index] = it
             }
