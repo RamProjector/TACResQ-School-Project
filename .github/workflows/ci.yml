@@ -44,6 +44,9 @@ jobs:
       - name: Check durable SOS idempotency contract
         run: python3 tools/test_durable_sos_idempotency.py
 
+      - name: Check requester active-incident and cancellation contract
+        run: python3 tools/test_requester_active_incident.py
+
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 

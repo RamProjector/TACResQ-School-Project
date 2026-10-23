@@ -52,6 +52,10 @@ interface TacApi {
     @POST("incidents")
     suspend fun createIncident(@Body body: CreateIncidentRequest): Incident
 
+    /** Requester: cancel only while the incident is still pending dispatch assignment. */
+    @POST("incidents/{id}/cancel")
+    suspend fun cancelMyIncident(@Path("id") id: Long): Incident
+
     @PATCH("incidents/{id}/status")
     suspend fun updateIncidentStatus(
         @Path("id") id: Long,

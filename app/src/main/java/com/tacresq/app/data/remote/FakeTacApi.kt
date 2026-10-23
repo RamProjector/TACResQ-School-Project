@@ -155,6 +155,9 @@ class FakeTacApi(
             if (me.role != Role.REQUESTER) {
                 throw httpError(403, "Only requesters can send emergency requests.")
             }
+            incidents.firstOrNull { requesterOf[it.id] == me.id && it.status.isActive }?.let { active ->
+                throw httpError(422, "You already have active request #${active.id}. Cancel it while pending or contact dispatch if a unit is responding.")
+            }
             val incident = Incident(
                 id = nextIncidentId++,
                 type = body.type,
@@ -177,6 +180,21 @@ class FakeTacApi(
         }
         dispatchLater(5_000)
         return created
+    }
+
+    override suspend fun cancelMyIncident(id: Long): Incident {
+        delay(150)
+        return synchronized(lock) {
+            val me = current()
+            if (me.role != Role.REQUESTER) throw httpError(403, "Only requesters can cancel their own requests.")
+            val index = incidents.indexOfFirst { it.id == id && requesterOf[it.id] == me.id }
+            if (index < 0) throw httpError(404, "Request not found.")
+            val incident = incidents[index]
+            if (incident.status != IncidentStatus.PENDING) {
+                throw httpError(422, "A unit may already be responding. Contact dispatch to cancel this request.")
+            }
+            incident.copy(status = IncidentStatus.CANCELLED).also { incidents[index] = it }
+        }
     }
 
     override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident {

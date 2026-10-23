@@ -115,7 +115,12 @@ class TacRepository(
         val request = runCatching { Gson().fromJson(pending.payloadJson, CreateIncidentRequest::class.java).copy(clientRequestId = pending.requestId) }
             .getOrElse { return Result.failure(ApiException("Could not restore the pending SOS submission. Please contact support before creating another request.")) }
         val result = call { api.createIncident(request) }
-        if (result.isSuccess) store.clearPendingIncidentRequestId(pending.requestId)
+        val error = result.exceptionOrNull() as? ApiException
+        if (result.isSuccess || error?.httpCode?.let { it in 400..499 && it != 408 && it != 429 } == true) {
+            // A definitive 4xx response means the server rejected the request; only
+            // ambiguous network/server failures should keep the exact SOS envelope.
+            store.clearPendingIncidentRequestId(pending.requestId)
+        }
         return result
     }
 
@@ -135,7 +140,10 @@ class TacRepository(
             return Result.failure(ApiException("The saved SOS payload is invalid. Do not create a replacement request; contact dispatch."))
         }
         val result = call { api.createIncident(request) }
-        if (result.isSuccess) store.clearPendingIncidentRequestId(pending.requestId)
+        val error = result.exceptionOrNull() as? ApiException
+        if (result.isSuccess || error?.httpCode?.let { it in 400..499 && it != 408 && it != 429 } == true) {
+            store.clearPendingIncidentRequestId(pending.requestId)
+        }
         return result
     }
 
@@ -143,6 +151,10 @@ class TacRepository(
 
     suspend fun updateIncidentStatus(id: Long, status: IncidentStatus): Result<Incident> = call {
         api.updateIncidentStatus(id, UpdateStatusRequest(status))
+    }
+
+    suspend fun cancelMyIncident(id: Long): Result<Incident> = call {
+        api.cancelMyIncident(id)
     }
 
     suspend fun assignIncident(incidentId: Long, userId: Long): Result<Incident> = call {
