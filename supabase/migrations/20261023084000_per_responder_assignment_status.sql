@@ -301,4 +301,23 @@ BEGIN
 END;
 $function$;
 
+-- Keep the signed-in responder's own duty indicator aligned with their assignment.
+CREATE OR REPLACE FUNCTION public.api_me()
+RETURNS jsonb
+LANGUAGE sql STABLE SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $function$
+  SELECT jsonb_build_object(
+    'id', p.id, 'name', p.name, 'email', p.email, 'phone', p.phone, 'role', p.role,
+    'duty_status', coalesce((
+      SELECT a.responder_status
+      FROM public.incident_assignments a
+      JOIN public.incidents i ON i.id = a.incident_id
+      WHERE a.user_id = p.id AND i.status IN ('assigned','en_route','on_scene','transporting')
+      ORDER BY i.created_at DESC LIMIT 1
+    ), p.duty_status)
+  )
+  FROM public.profiles p WHERE p.auth_user_id = auth.uid();
+$function$;
+
 COMMIT;
