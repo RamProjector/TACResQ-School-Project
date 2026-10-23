@@ -41,6 +41,8 @@ jobs:
 
       - name: Check incident report authorization contract
         run: python3 tools/test_incident_authorization.py
+      - name: Check durable SOS idempotency contract
+        run: python3 tools/test_durable_sos_idempotency.py
 
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
