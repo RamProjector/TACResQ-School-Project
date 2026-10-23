@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sql = (ROOT / "supabase/migrations/20261023084000_per_responder_assignment_status.sql").read_text()
+sql = (ROOT / "supabase/migrations/20261023103737_per_responder_assignment_status.sql").read_text()
 models = (ROOT / "app/src/main/java/com/tacresq/app/data/model/Models.kt").read_text()
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
