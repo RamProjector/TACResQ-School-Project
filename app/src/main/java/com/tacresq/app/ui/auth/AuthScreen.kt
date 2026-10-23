@@ -164,7 +164,11 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
 }
 
 @Composable
-fun AuthScreen(vm: AuthViewModel) {
+fun AuthScreen(
+    vm: AuthViewModel,
+    infoMessage: String? = null,
+    onInfoMessageDismissed: () -> Unit = {},
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     var registering by rememberSaveable { mutableStateOf(false) }
     var name by rememberSaveable { mutableStateOf("") }
@@ -224,6 +228,25 @@ fun AuthScreen(vm: AuthViewModel) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                infoMessage?.let { message ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            TextButton(
+                                onClick = onInfoMessageDismissed,
+                                modifier = Modifier.align(Alignment.End),
+                            ) { Text("Dismiss") }
+                        }
+                    }
+                }
 
                 if (BuildConfig.USE_FAKE_API && !registering) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
