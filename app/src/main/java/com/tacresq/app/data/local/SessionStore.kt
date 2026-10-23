@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
 import com.tacresq.app.data.model.Session
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -115,6 +116,15 @@ class SessionStore(
             }
         }
         checkNotNull(submission)
+    }
+
+    /** Returns the saved submission so the UI can retry it without rebuilding from current GPS/form state. */
+    suspend fun getPendingIncidentSubmission(): PendingIncidentSubmission? = pendingIncidentMutex.withLock {
+        val prefs = context.sessionDataStore.data.first()
+        val encoded = prefs[pendingIncidentEnvelopeKey] ?: return@withLock null
+        runCatching { gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java) }
+            .getOrElse { throw PendingIncidentConflictException() }
+            ?: throw PendingIncidentConflictException()
     }
 
     suspend fun clearPendingIncidentRequestId(requestId: String) {
