@@ -28,7 +28,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="tacresq" android:host="auth" android:path="/callback" />
+                <data android:scheme="${authRedirectScheme}" android:host="auth" android:path="/callback" />
             </intent-filter>
         </activity>
     </application>
