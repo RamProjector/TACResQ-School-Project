@@ -43,7 +43,11 @@ import com.tacresq.app.ui.responder.ResponderViewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun AppRoot(container: AppContainer) {
+fun AppRoot(
+    container: AppContainer,
+    authReturnMessage: String? = null,
+    onAuthReturnMessageDismissed: () -> Unit = {},
+) {
     val factory = remember(container) { VmFactory(container) }
     val sessionState by container.repository.sessionState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -56,7 +60,11 @@ fun AppRoot(container: AppContainer) {
                 contentAlignment = Alignment.Center,
             ) { CircularProgressIndicator() }
 
-            SessionState.LoggedOut -> AuthScreen(vm = viewModel(factory = factory))
+            SessionState.LoggedOut -> AuthScreen(
+                vm = viewModel(factory = factory),
+                infoMessage = authReturnMessage,
+                onInfoMessageDismissed = onAuthReturnMessageDismissed,
+            )
 
             is SessionState.LoggedIn -> {
                 val user = state.session.user
