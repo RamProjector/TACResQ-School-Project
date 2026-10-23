@@ -21,8 +21,8 @@ EXPECTED = {
     "20261021113046_revoke_anon_table_privileges.sql",
     "20261021155540_manual_incident_location_source.sql",
     "20261022040223_fix_incident_status_audit_trigger.sql",
-    "20261023080000_durable_sos_idempotency.sql",
-    "20261023100000_requester_single_active_and_cancel.sql",
+    "20261023031801_durable_sos_idempotency.sql",
+    "20261023031810_requester_single_active_and_cancel.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED, (
