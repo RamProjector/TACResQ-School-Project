@@ -361,7 +361,10 @@ USING (
     AND EXISTS (
       SELECT 1 FROM public.incidents i
       WHERE i.id = location_logs.incident_id AND i.status = 'en_route'
-        AND (i.assigned_to = location_logs.user_id OR private.tacresq_is_incident_assignee(i.id))
+        AND (i.assigned_to = location_logs.user_id OR EXISTS (
+          SELECT 1 FROM public.incident_assignments a
+          WHERE a.incident_id = i.id AND a.user_id = location_logs.user_id
+        ))
     )
   )
 );
