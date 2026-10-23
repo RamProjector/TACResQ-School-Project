@@ -157,10 +157,24 @@ BEGIN
 
   RETURN jsonb_build_object(
     'id', incident_row.id,
+    'type', incident_row.type,
+    'description', incident_row.description,
+    'latitude', incident_row.latitude,
+    'longitude', incident_row.longitude,
+    'accuracy_m', incident_row.accuracy_m,
+    'location_notes', incident_row.location_notes,
+    'location_recorded_at', incident_row.location_recorded_at,
+    'location_source', incident_row.location_source,
     'status', incident_row.status,
+    'requester_name', (SELECT p.name FROM public.profiles p WHERE p.id = incident_row.requester_id),
+    'requester_phone', (SELECT p.phone FROM public.profiles p WHERE p.id = incident_row.requester_id),
+    'assigned_to', incident_row.assigned_to,
     'assigned_user_ids', (SELECT coalesce(jsonb_agg(a.user_id ORDER BY a.assigned_at, a.user_id), '[]'::jsonb)
                           FROM public.incident_assignments a WHERE a.incident_id = p_incident_id),
-    'assigned_user_statuses', team_statuses
+    'assigned_user_statuses', team_statuses,
+    'created_at', incident_row.created_at,
+    'requester_edit_count', incident_row.requester_edit_count,
+    'requester_last_edited_at', incident_row.requester_last_edited_at
   );
 END;
 $function$;
