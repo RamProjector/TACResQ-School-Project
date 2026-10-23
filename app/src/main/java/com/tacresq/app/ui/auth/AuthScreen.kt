@@ -136,8 +136,10 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
     /** On success the session flips to LoggedIn and AppRoot swaps this screen out by itself. */
     private fun submit(call: suspend () -> Result<Unit>) {
         if (_state.value.loading) return
+        // Claim the operation synchronously so rapid repeated taps cannot launch
+        // duplicate login/signup requests before the coroutine starts running.
+        _state.value = AuthUiState(loading = true)
         viewModelScope.launch {
-            _state.value = AuthUiState(loading = true)
             val result = try {
                 call()
             } catch (cancelled: CancellationException) {
