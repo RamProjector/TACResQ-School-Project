@@ -67,7 +67,7 @@ END;
 $$;
 
 
-DO $
+DO $dispatch_test$
 DECLARE
   public_rpc_definer boolean;
   private_rpc_definer boolean;
@@ -83,7 +83,7 @@ BEGIN
     RAISE EXCEPTION 'Private team-assignment implementation must retain SECURITY DEFINER';
   END IF;
 END;
-$;
+$dispatch_test$;
 
 -- Regression test for the failure seen in the Android recording:
 -- creating an incident must also create its first status log without an FK error.
