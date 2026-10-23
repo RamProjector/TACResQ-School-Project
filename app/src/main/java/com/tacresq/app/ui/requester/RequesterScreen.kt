@@ -456,6 +456,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
     var confirmingSos by remember { mutableStateOf(false) }
+    var showDiscardConfirmation by remember { mutableStateOf(false) }
     var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
     var incidentToEdit by remember { mutableStateOf<Incident?>(null) }
     var editType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
@@ -608,7 +609,20 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                        TextButton(onClick = { showRequestForm = false; confirmingSos = false }) { Text("Close") }
+                        TextButton(
+                            onClick = {
+                                val hasDraft = description.isNotBlank() ||
+                                    locationNotes.isNotBlank() ||
+                                    requestStep != 1 ||
+                                    state.locationFix != null
+                                if (hasDraft) showDiscardConfirmation = true
+                                else {
+                                    showRequestForm = false
+                                    confirmingSos = false
+                                }
+                            },
+                            enabled = !state.sending && !state.capturingLocation,
+                        ) { Text("Close") }
                     }
                     Text(
                         "Step $requestStep of 3 · " + when (requestStep) {
@@ -922,6 +936,31 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             },
             dismissButton = {
                 TextButton(onClick = { incidentToCancel = null }) { Text("Keep request") }
+            },
+        )
+    }
+
+    if (showDiscardConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDiscardConfirmation = false },
+            title = { Text("Discard this request draft?") },
+            text = {
+                Text("Your unsent details and selected location will be cleared. Nothing has been sent to dispatch yet.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDiscardConfirmation = false
+                    confirmingSos = false
+                    showManualPinPicker = false
+                    description = ""
+                    locationNotes = ""
+                    requestStep = 1
+                    vm.clearLocationFix()
+                    showRequestForm = false
+                }) { Text("Discard draft") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardConfirmation = false }) { Text("Keep editing") }
             },
         )
     }
