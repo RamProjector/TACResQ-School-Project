@@ -89,23 +89,33 @@ class TacRepository(
         description: String?,
         fix: GeoFix?,
         locationNotes: String?,
-    ): Result<Incident> = call {
-        api.createIncident(
-            CreateIncidentRequest(
-                type = type,
-                description = description,
-                latitude = fix?.latitude,
-                longitude = fix?.longitude,
-                accuracyM = fix?.accuracyM,
-                locationNotes = locationNotes?.trim()?.ifBlank { null },
-                locationRecordedAt = fix?.let { Instant.ofEpochMilli(it.capturedAtEpochMillis).toString() },
-                locationSource = when {
-                    fix == null -> "none"
-                    fix.manuallySelected -> "manual"
-                    else -> "gps"
-                },
-            )
+    ): Result<Incident> {
+        val normalizedDescription = description?.trim()?.ifBlank { null }
+        val normalizedNotes = locationNotes?.trim()?.take(500)?.ifBlank { null }
+        val capturedAt = fix?.let { Instant.ofEpochMilli(it.capturedAtEpochMillis).toString() }
+        val source = when { fix == null -> "none"; fix.manuallySelected -> "manual"; else -> "gps" }
+        val fingerprint = Gson().toJson(
+            listOf(type.name, normalizedDescription, fix?.latitude, fix?.longitude,
+                fix?.accuracyM, normalizedNotes, capturedAt, source)
         )
+        val requestId = store.pendingIncidentRequestId(fingerprint)
+        val result = call {
+            api.createIncident(
+                CreateIncidentRequest(
+                    type = type,
+                    description = normalizedDescription,
+                    latitude = fix?.latitude,
+                    longitude = fix?.longitude,
+                    accuracyM = fix?.accuracyM,
+                    locationNotes = normalizedNotes,
+                    locationRecordedAt = capturedAt,
+                    locationSource = source,
+                    clientRequestId = requestId,
+                )
+            )
+        }
+        if (result.isSuccess) store.clearPendingIncidentRequestId(requestId)
+        return result
     }
 
     suspend fun updateIncidentStatus(id: Long, status: IncidentStatus): Result<Incident> = call {
