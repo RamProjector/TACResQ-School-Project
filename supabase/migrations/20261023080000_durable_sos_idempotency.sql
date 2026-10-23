@@ -1,3 +1,5 @@
+begin;
+
 -- Durable, requester-scoped idempotency for SOS submissions.
 -- A repeated request key + identical payload returns the original incident response.
 create table if not exists public.incident_submission_keys (
@@ -95,3 +97,5 @@ $function$;
 
 revoke all on function public.api_create_incident_v4(text, text, double precision, double precision, real, text, timestamptz, text, uuid) from public, anon;
 grant execute on function public.api_create_incident_v4(text, text, double precision, double precision, real, text, timestamptz, text, uuid) to authenticated;
+
+commit;
