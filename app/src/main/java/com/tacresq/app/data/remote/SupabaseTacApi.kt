@@ -67,8 +67,8 @@ class SupabaseTacApi private constructor(
         rpc.updateIncidentStatus(UpdateIncidentRpc(id, body.status.wireValue))
     override suspend fun assignIncident(id: Long, body: AssignIncidentRequest): Incident =
         rpc.assignIncident(AssignIncidentRpc(id, body.userId))
-    override suspend fun assignIncidentTeam(body: AssignIncidentTeamRequest): Incident =
-        rpc.assignIncidentTeam(AssignIncidentTeamRpc(body.incidentId, body.userIds))
+    override suspend fun assignIncidentTeam(id: Long, body: AssignIncidentTeamRequest): Incident =
+        rpc.assignIncidentTeam(AssignIncidentTeamRpc(id, body.userIds))
     override suspend fun recordLocation(body: ResponderLocationRequest): Long =
         rpc.recordLocation(RecordLocationRpc(body.incidentId, body.latitude, body.longitude, body.accuracyM, body.recordedAt))
 
