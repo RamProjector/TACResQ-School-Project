@@ -24,8 +24,10 @@ EXPECTED = {
     "20261023031801_durable_sos_idempotency.sql",
     "20261023031810_requester_single_active_and_cancel.sql",
     "20261023034639_requester_edit_workflow.sql",
-    "20261023040000_requester_urgent_location_correction.sql",
-    "20261023050000_dispatch_team_assignment.sql",
+    "20261023081635_20261023040000_requester_urgent_location_correction.sql",
+    "20261023081706_dispatch_team_assignment.sql",
+    "20261023082526_harden_dispatch_team_assignment.sql",
+    "20261023082939_pin_dispatch_team_search_path.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED, (
@@ -60,7 +62,7 @@ assert "AFTER INSERT OR UPDATE ON public.incidents" in audit_fix
 assert "BEFORE UPDATE ON public.incidents" in audit_fix
 assert "INSERT INTO public.incident_status_logs(incident_id, status, changed_by)" in audit_fix
 
-team = (MIGRATIONS / "20261023050000_dispatch_team_assignment.sql").read_text()
+team = (MIGRATIONS / "20261023081706_dispatch_team_assignment.sql").read_text()
 for required in (
     "CREATE TABLE IF NOT EXISTS public.incident_assignments",
     "public.api_assign_incident_team(p_id bigint, p_user_ids bigint[])",
@@ -71,6 +73,19 @@ for required in (
     assert required in team, f"Missing multi-unit dispatch contract: {required}"
 
 print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history.")
+hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
+for required in (
+    "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",
+    "SECURITY INVOKER",
+    "private.tacresq_assign_incident_team",
+):
+    assert required in hardening, f"Missing private dispatch RPC hardening: {required}"
+
 print("PASS: dispatcher team-assignment schema and RPC contract are present.")
+search_path_fix = (MIGRATIONS / "20261023082939_pin_dispatch_team_search_path.sql").read_text()
+assert "SET search_path = pg_catalog" in search_path_fix
+
+print("PASS: public assignment RPCs are invoker wrappers over a private authorization-checked implementation.")
+print("PASS: private assignment RPC pins its search path to pg_catalog.")
 print("PASS: missing location_and_push migration recreates FCM storage, RLS, and RPCs.")
 print("PASS: incident status logging runs after insert to satisfy the incident foreign key.")

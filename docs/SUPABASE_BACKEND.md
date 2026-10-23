@@ -26,7 +26,7 @@ All RPC calls require a signed-in Supabase user and use `POST /rest/v1/rpc/<func
 | `api_create_incident_v3(p_type,p_description,p_latitude,p_longitude,p_accuracy_m,p_location_notes,p_location_recorded_at,p_location_source)` | Requester-only SOS submission; source is `gps`, `manual`, or `none`, and a manual pin cannot claim GPS accuracy. |
 | `api_create_incident_v2(...)` | Preserved for older clients; infers `gps` versus `none` from the coordinate pair. |
 | `api_create_incident(p_type,p_description,p_latitude,p_longitude,p_accuracy_m)` | Preserved for older clients. |
-| `api_assign_incident_team(p_id,p_user_ids)` | Dispatcher atomically assigns a pending request to 1–5 available field units; server locks and revalidates every selected unit. |
+| `api_assign_incident_team(p_id,p_user_ids)` | Dispatcher atomically assigns or expands a team up to five available field units; server locks and revalidates every selected unit. The exposed RPC is SECURITY INVOKER and delegates to a role-checked implementation in the non-exposed private schema. |
 | `api_assign_incident(p_id,p_user_id)` | Backward-compatible single-unit wrapper over team assignment. |
 | `api_update_incident_status(p_id,p_status)` | Assigned unit advances a valid incident status. |
 | `api_record_location_v2(p_incident_id,p_latitude,p_longitude,p_accuracy_m,p_recorded_at)` | Reserved incident-bound field-unit location write endpoint; accepts only the assigned unit while the incident is `en_route`. |

@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = (ROOT / "supabase/migrations/20261023040000_requester_urgent_location_correction.sql").read_text().lower()
+MIGRATION = (ROOT / "supabase/migrations/20261023081635_20261023040000_requester_urgent_location_correction.sql").read_text().lower()
 SCREEN = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 ALIGNMENT = (ROOT / "tools/test_migration_history_alignment.py").read_text()
 
@@ -14,7 +14,7 @@ checks = {
     "bypass is auditable": "urgent_location_correction boolean not null default false" in MIGRATION and "urgent_location_correction" in MIGRATION,
     "UI allows only location-only correction during cooldown": "urgentLocationCorrection" in SCREEN and "editCooldownSeconds == 0L || urgentLocationCorrection" in SCREEN,
     "review explains the emergency location bypass": "safety-critical change can bypass the timer" in SCREEN,
-    "migration is tracked in repository history": "20261023040000_requester_urgent_location_correction.sql" in ALIGNMENT,
+    "migration is tracked in repository history": "20261023081635_20261023040000_requester_urgent_location_correction.sql" in ALIGNMENT,
 }
 failed = [name for name, ok in checks.items() if not ok]
 for name, ok in checks.items():
