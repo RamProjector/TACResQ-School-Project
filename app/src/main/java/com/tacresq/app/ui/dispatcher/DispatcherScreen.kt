@@ -120,6 +120,11 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
     val pending = state.incidents.filter { it.status == IncidentStatus.PENDING }
     val active = state.incidents.count { it.status.isActive }
     val availableUnits = state.units.filter { it.dutyStatus == DutyStatus.AVAILABLE }
+    val existingTeamCount = assignmentCandidate?.let { candidate ->
+        if (candidate.status == IncidentStatus.PENDING) 0
+        else candidate.assignedUserIds.ifEmpty { listOfNotNull(candidate.assignedTo) }.distinct().size
+    } ?: 0
+    val maxTeamSelection = (5 - existingTeamCount).coerceAtLeast(0)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().safeDrawingPadding(),
@@ -180,6 +185,20 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
                 val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
                 val teamNames = state.units.filter { it.id in teamIds }.joinToString(", ") { it.name }
                 Text("Assigned team: ${teamNames.ifBlank { "Not assigned" }}")
+                if (incident.status == IncidentStatus.ASSIGNED || incident.status == IncidentStatus.EN_ROUTE) {
+                    if (maxTeamSelection == 0) {
+                        Text("Response team is full (5 units).")
+                    } else if (availableUnits.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = {
+                                selectedUnitIds = emptySet()
+                                assignmentCandidate = incident
+                            },
+                            enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Add responders") }
+                    }
+                }
             }
         }
 
@@ -196,7 +215,12 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
                     modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Choose 1–5 available responders or drivers for incident #${incident.id}. Assignments are submitted together.")
+                    Text(
+                        if (incident.status == IncidentStatus.PENDING)
+                            "Choose 1–5 available responders or drivers for incident #${incident.id}. Assignments are submitted together."
+                        else
+                            "Choose up to ${maxTeamSelection} additional available responders or drivers. New members can be added only before the incident reaches the scene."
+                    )
                     availableUnits.forEach { unit ->
                         Row(modifier = Modifier.fillMaxWidth()) {
                             Checkbox(
@@ -204,7 +228,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
                                 enabled = !state.busy || unit.id in selectedUnitIds,
                                 onCheckedChange = { checked ->
                                     selectedUnitIds = if (checked) {
-                                        if (selectedUnitIds.size < 5) selectedUnitIds + unit.id else selectedUnitIds
+                                        if (selectedUnitIds.size < maxTeamSelection) selectedUnitIds + unit.id else selectedUnitIds
                                     } else selectedUnitIds - unit.id
                                 },
                             )
@@ -214,12 +238,12 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
                             }
                         }
                     }
-                    Text("${selectedUnitIds.size} of 5 selected", style = MaterialTheme.typography.bodySmall)
+                    Text("${selectedUnitIds.size} of ${maxTeamSelection} available slots selected", style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = !state.busy && selectedUnitIds.isNotEmpty() && selectedUnitIds.size <= 5,
+                    enabled = !state.busy && selectedUnitIds.isNotEmpty() && selectedUnitIds.size <= maxTeamSelection,
                     onClick = {
                         val ids = selectedUnitIds.toList()
                         assignmentCandidate = null
