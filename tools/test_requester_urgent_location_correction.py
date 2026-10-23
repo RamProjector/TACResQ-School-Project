@@ -10,7 +10,7 @@ ALIGNMENT = (ROOT / "tools/test_migration_history_alignment.py").read_text()
 checks = {
     "bypass requires a changed coordinate": "incident_row.latitude is distinct from p_latitude" in MIGRATION and "incident_row.longitude is distinct from p_longitude" in MIGRATION,
     "bypass forbids unrelated type/detail/note edits": "incident_row.type is not distinct from p_type" in MIGRATION and "incident_row.description is not distinct from nullif(trim(p_description), '')" in MIGRATION and "incident_row.location_notes is not distinct from nullif(trim(p_location_notes), '')" in MIGRATION,
-    "bypass still requires review confirmation": "location_only_correction AND coalesce(p_confirm_review, false)" in MIGRATION,
+    "bypass still requires review confirmation": "location_only_correction and coalesce(p_confirm_review, false)" in MIGRATION,
     "bypass is auditable": "urgent_location_correction boolean not null default false" in MIGRATION and "urgent_location_correction" in MIGRATION,
     "UI allows only location-only correction during cooldown": "urgentLocationCorrection" in SCREEN and "editCooldownSeconds == 0L || urgentLocationCorrection" in SCREEN,
     "review explains the emergency location bypass": "safety-critical change can bypass the timer" in SCREEN,
