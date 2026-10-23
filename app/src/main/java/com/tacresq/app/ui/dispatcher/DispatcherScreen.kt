@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -173,8 +174,31 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
         state.error?.let { item { Banner(it, isError = true, onDismiss = vm::dismissMessages) } }
 
         item { Text("Pending incidents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        if (pending.isEmpty() && !state.loading) {
-            item { Text("No pending incidents.") }
+        if (state.loading && state.incidents.isEmpty()) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator()
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Loading incident queue", fontWeight = FontWeight.SemiBold)
+                            Text("Fetching incidents and field-unit availability.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        } else if (pending.isEmpty()) {
+            item {
+                Text(
+                    if (state.syncError != null && state.incidents.isEmpty())
+                        "The queue could not be loaded. Check your connection and refresh to try again."
+                    else "No pending incidents.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         items(pending, key = { it.id }) { incident ->
             IncidentCard(incident) {
@@ -238,6 +262,18 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
         }
 
         item { Text("Field units", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        if (state.loading && state.units.isEmpty()) {
+            item { Text("Loading field-unit availability…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        } else if (state.units.isEmpty()) {
+            item {
+                Text(
+                    if (state.syncError != null) "Field-unit availability is unavailable. Refresh after checking your connection."
+                    else "No field units are available to display.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         items(state.units, key = { it.id }) { unit -> UnitCard(unit) }
     }
 
