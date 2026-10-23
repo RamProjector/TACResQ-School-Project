@@ -9,7 +9,7 @@ api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").read_text()
 repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 sql = (ROOT / "supabase/migrations/20261023081706_dispatch_team_assignment.sql").read_text()
-hardening = (ROOT / "supabase/migrations/20261023082000_harden_dispatch_team_assignment.sql").read_text()
+hardening = (ROOT / "supabase/migrations/20261023082526_harden_dispatch_team_assignment.sql").read_text()
 
 for required in ("Select response team", "Checkbox(", "selectedUnitIds.size < maxTeamSelection", "Add responders", "Assign team"):
     assert required in screen, f"Dispatcher team-selection UI missing: {required}"
