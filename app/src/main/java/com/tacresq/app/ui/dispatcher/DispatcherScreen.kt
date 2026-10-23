@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,11 +44,14 @@ import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SyncStatus
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Duration
+import java.time.Instant
 
 data class DispatcherUiState(
     val incidents: List<Incident> = emptyList(),
@@ -116,8 +120,21 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
     PollWhileStarted { vm.refresh() }
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
     var selectedUnitIds by remember { mutableStateOf(setOf<Long>()) }
+    var queueClock by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000)
+            queueClock = Instant.now()
+        }
+    }
 
-    val pending = state.incidents.filter { it.status == IncidentStatus.PENDING }
+    // Oldest known submissions stay at the top. Missing/invalid timestamps are surfaced
+    // first with an explicit warning rather than silently treating them as recent.
+    val pending = state.incidents
+        .filter { it.status == IncidentStatus.PENDING }
+        .sortedWith(compareBy<Incident> { incident ->
+            incident.createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: Instant.MIN
+        }.thenBy { it.id })
     val active = state.incidents.count { it.status.isActive }
     val availableUnits = state.units.filter { it.dutyStatus == DutyStatus.AVAILABLE }
     val existingTeamCount = assignmentCandidate?.let { candidate ->
@@ -161,6 +178,16 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
         }
         items(pending, key = { it.id }) { incident ->
             IncidentCard(incident) {
+                val waitSeconds = waitingAgeSeconds(incident.createdAt, queueClock)
+                Text(
+                    waitingAgeLabel(incident.createdAt, queueClock),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (waitSeconds != null && waitSeconds >= 15 * 60)
+                        MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (waitSeconds != null && waitSeconds >= 15 * 60)
+                        FontWeight.SemiBold else FontWeight.Normal,
+                )
                 Text("Build a response team from available field units.", fontWeight = FontWeight.SemiBold)
                 if (availableUnits.isEmpty()) {
                     Text("No responder or driver is currently marked Available.")
@@ -286,5 +313,25 @@ private fun UnitCard(unit: User) {
             Text("Status: ${unit.dutyStatus?.label ?: "Not applicable"}")
             unit.phone?.let { Text("Phone: $it") }
         }
+    }
+}
+
+
+private fun waitingAgeSeconds(createdAt: String?, now: Instant): Long? {
+    val submittedAt = createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: return null
+    val age = Duration.between(submittedAt, now).seconds
+    return age.takeIf { it >= 0L }
+}
+
+private fun waitingAgeLabel(createdAt: String?, now: Instant): String {
+    val submittedAt = createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() }
+        ?: return "Waiting time unavailable — verify submission time."
+    val seconds = Duration.between(submittedAt, now).seconds
+    if (seconds < 0L) return "Submission time is in the future — verify timestamp."
+    return when {
+        seconds < 60L -> "Waiting ${seconds}s"
+        seconds < 3_600L -> "Waiting ${seconds / 60L}m"
+        seconds < 86_400L -> "Waiting ${seconds / 3_600L}h ${seconds % 3_600L / 60L}m"
+        else -> "Waiting ${seconds / 86_400L}d ${seconds % 86_400L / 3_600L}h"
     }
 }
