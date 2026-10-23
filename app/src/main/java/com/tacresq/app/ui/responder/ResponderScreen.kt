@@ -97,10 +97,15 @@ class ResponderViewModel(
             val me = repo.me()
             val mine = repo.myIncidents()
             val refreshError = me.exceptionOrNull() ?: mine.exceptionOrNull()
+            val currentUserId = me.getOrNull()?.id
             _state.update { s ->
                 val serverIncidents = mine.getOrNull()
+                // The aggregate can stay en-route while another unit is still travelling.
+                // Stop this device's GPS stream when this responder's own assignment advances.
                 val trackingEnded = s.trackingIncidentId != null && serverIncidents != null &&
-                    serverIncidents.none { it.id == s.trackingIncidentId && it.status == IncidentStatus.EN_ROUTE }
+                    (currentUserId == null || serverIncidents.none {
+                        it.id == s.trackingIncidentId && it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE
+                    })
                 s.copy(
                     loading = false,
                     dutyStatus = me.getOrNull()?.dutyStatus ?: s.dutyStatus,
