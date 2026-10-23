@@ -195,6 +195,7 @@ private val DutyStatus.wireValue: String get() = when (this) {
     DutyStatus.EN_ROUTE -> "en_route"
     DutyStatus.ON_SCENE -> "on_scene"
     DutyStatus.TRANSPORTING -> "transporting"
+    DutyStatus.RESOLVED -> "resolved"
 }
 private val com.tacresq.app.data.model.IncidentType.wireValue: String get() = name.lowercase()
 private val com.tacresq.app.data.model.IncidentStatus.wireValue: String get() = name.lowercase()
