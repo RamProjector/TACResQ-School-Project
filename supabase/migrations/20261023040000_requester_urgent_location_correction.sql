@@ -25,7 +25,7 @@ DECLARE
   incident_row public.incidents;
   before_values jsonb;
   after_values jsonb;
-  cooldown_seconds integer;
+  cooldown_seconds integer := 0;
   location_only_correction boolean := false;
 BEGIN
   IF auth.uid() IS NULL THEN
@@ -148,7 +148,7 @@ BEGIN
     urgent_location_correction
   ) VALUES (
     incident_row.id, profile_row.id, incident_row.requester_edit_count, before_values, after_values,
-    location_only_correction AND coalesce(p_confirm_review, false)
+    location_only_correction AND coalesce(p_confirm_review, false) AND cooldown_seconds > 0
   );
 
   RETURN jsonb_build_object(
