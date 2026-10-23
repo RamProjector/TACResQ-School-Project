@@ -42,7 +42,7 @@ Incident
 { "id": 12, "type": "medical", "description": "Chest pain", "latitude": 11.2433, "longitude": 125.0036,
   "accuracy_m": 12.0, "location_notes": null, "location_recorded_at": "2026-10-14T07:04:53.000000Z", "location_source": "gps",
   "status": "assigned", "requester_name": "Rica Requester", "requester_phone": "0917 123 4567",
-  "assigned_to": 2, "created_at": "2026-10-14T07:05:00.000000Z" }
+  "assigned_to": 2, "assigned_user_ids": [2, 3], "created_at": "2026-10-14T07:05:00.000000Z" }
 ```
 
 `latitude` and `longitude` are either both present or both `null`. When GPS is unavailable or permission is declined, TACResQ may send the SOS without a pin; optional `location_notes` can provide a landmark. The server never substitutes a guessed or stale coordinate. `location_recorded_at` records when the location was captured or manually confirmed, not a live-tracking timestamp; it is `null` when no pin was attached. `location_source` is `gps`, `manual`, or `none`. A manually selected map pin must not claim a GPS accuracy value.
@@ -110,9 +110,10 @@ Only the user in `assigned_to` may change an incident's status (403 otherwise).
 |---|---|
 | `GET /incidents` | Dispatcher: full incident queue |
 | `GET /units` | Dispatcher: responders and drivers with duty status |
-| `POST /incidents/{id}/assign` | Dispatcher: `{ "user_id": 2 }`, assigns an available unit |
+| `POST /incidents/{id}/assign` | Dispatcher: `{ "user_id": 2 }`, backward-compatible single-unit assignment |
+| `POST /incidents/{id}/assign-team` | Dispatcher: `{ "user_ids": [2, 3] }`, atomically assigns 1–5 available field units |
 
-`POST /incidents/{id}/assign` should reject assignments when the incident is not `pending`, the selected user is not a responder/driver, or the unit is not `available`.
+Assignment must reject a non-pending incident, duplicate or invalid IDs, more than five selected units, non-responder/driver accounts, or units that are no longer available. The Supabase implementation performs the selection check and assignment in one transaction; `assigned_to` is the first selected lead for compatibility and `assigned_user_ids` lists the whole team.
 
 ## Planned endpoints (not used by the current prototype)
 
