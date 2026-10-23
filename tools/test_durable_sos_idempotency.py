@@ -19,9 +19,9 @@ checks = {
     "request key is persisted across process restarts": "pending_incident_envelope_v1" in STORE and "getOrCreatePendingIncident(fingerprint: String, payloadJson: String)" in STORE,
     "key is cleared only when it matches the completed request": "clearPendingIncidentRequestId(requestId: String)" in STORE and "saved?.requestId == requestId" in STORE,
     "repository fingerprints the full request and reuses persisted key": "getOrCreatePendingIncident(fingerprint, payloadJson)" in REPO and "pending.payloadJson" in REPO and "clientRequestId = pending.requestId" in REPO,
-    "pending payload is restored rather than rebuilt from a fresh GPS fix": "gson.fromjson(pending.payloadjson, createincidentrequest::class.java)" in REPO.lower(),
+    "pending payload is restored rather than rebuilt from a fresh GPS fix": "gson().fromjson(pending.payloadjson, createincidentrequest::class.java)" in REPO.lower(),
     "different submission cannot overwrite an ambiguous pending SOS": "PendingIncidentConflictException" in STORE and "saved.fingerprint != fingerprint" in STORE,
-    "logout preserves unresolved SOS envelope": "preserve unresolved SOS submissions across logout" in STORE and "prefs.remove(encryptedSessionKey)" in STORE,
+    "logout preserves unresolved SOS envelope": "preserve unresolved SOS submissions across logout" in STORE.lower() and "prefs.remove(encryptedSessionKey)" in STORE,
     "pending location payload is encrypted at rest": "encrypt(gson.toJson(created))" in STORE and "gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java)" in STORE,
     "Android calls versioned idempotent RPC": "api_create_incident_v4" in API and "body.clientRequestId" in API,
 }
