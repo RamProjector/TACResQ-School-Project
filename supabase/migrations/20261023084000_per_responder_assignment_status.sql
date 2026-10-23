@@ -35,10 +35,9 @@ BEGIN
   FROM public.incidents i
   WHERE i.id = NEW.incident_id;
 
-  NEW.responder_status := CASE incident_status
-    WHEN 'en_route' THEN 'en_route'
-    ELSE 'assigned'
-  END;
+  -- New units start assigned even when joining an already en-route team.
+  -- They must explicitly acknowledge that they are en route themselves.
+  NEW.responder_status := 'assigned';
   NEW.status_updated_at := now();
   RETURN NEW;
 END;
