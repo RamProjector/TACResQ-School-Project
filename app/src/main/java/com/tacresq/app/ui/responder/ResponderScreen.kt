@@ -312,6 +312,10 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 
         items(active, key = { it.id }) { incident ->
             IncidentCard(incident) {
+                Text(
+                    "Your unit: ${incident.statusFor(user.id).label}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 val contact = listOfNotNull(incident.requesterName, incident.requesterPhone)
                     .joinToString(", ")
                 if (contact.isNotBlank()) Text("Requester: $contact")
