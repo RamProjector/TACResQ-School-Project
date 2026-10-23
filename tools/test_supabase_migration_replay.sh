@@ -23,7 +23,9 @@ CREATE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
 STABLE
-AS $$ SELECT NULL::uuid $$;
+AS $
+  SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+$;
 SQL
 
 for migration in supabase/migrations/*.sql; do
@@ -134,5 +136,94 @@ BEGIN
 END;
 $$;
 SQL
+
+
+-- End-to-end SQL regression: team members advance independently, the aggregate
+-- stays en_route until all units arrive, and GPS is rejected for an arrived unit.
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('00000000-0000-4000-8000-000000000124', 'dispatch-regression@example.test', '{"name":"Dispatch Regression"}'),
+  ('00000000-0000-4000-8000-000000000125', 'responder-one@example.test', '{"name":"Responder One"}'),
+  ('00000000-0000-4000-8000-000000000126', 'responder-two@example.test', '{"name":"Responder Two"}');
+
+DO $per_responder_test$
+DECLARE
+  requester_id bigint;
+  dispatcher_id bigint;
+  responder_one_id bigint;
+  responder_two_id bigint;
+  incident_id bigint;
+  response jsonb;
+  other_status text;
+  aggregate_status text;
+BEGIN
+  SELECT id INTO requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000123';
+  SELECT id INTO dispatcher_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000124';
+  SELECT id INTO responder_one_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000125';
+  SELECT id INTO responder_two_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000126';
+
+  UPDATE public.profiles SET role = 'dispatcher', duty_status = NULL WHERE id = dispatcher_id;
+  UPDATE public.profiles SET role = 'responder', duty_status = 'available' WHERE id = responder_one_id;
+  UPDATE public.profiles SET role = 'driver', duty_status = 'available' WHERE id = responder_two_id;
+
+  INSERT INTO public.incidents (requester_id, type, description, latitude, longitude, location_source)
+  VALUES (requester_id, 'medical', 'Synthetic per-responder status test', 11.244, 125.003, 'manual')
+  RETURNING id INTO incident_id;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
+  PERFORM public.api_assign_incident_team(incident_id, ARRAY[responder_one_id, responder_two_id]);
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
+  response := public.api_update_my_assignment_status(incident_id, 'en_route');
+  IF response->>'status' <> 'en_route' THEN
+    RAISE EXCEPTION 'Expected incident aggregate to become en_route after first unit departs';
+  END IF;
+
+  response := public.api_update_my_assignment_status(incident_id, 'on_scene');
+  IF response->>'status' <> 'en_route' THEN
+    RAISE EXCEPTION 'Incident must remain en_route while another assigned unit has not arrived';
+  END IF;
+  SELECT item->>'status' INTO other_status
+  FROM jsonb_array_elements(response->'assigned_user_statuses') item
+  WHERE (item->>'user_id')::bigint = responder_two_id;
+  IF other_status <> 'assigned' THEN
+    RAISE EXCEPTION 'One responder arrival must not overwrite another unit status; found %', other_status;
+  END IF;
+
+  BEGIN
+    PERFORM public.api_record_location_v2(incident_id, 11.244, 125.003, 10, now());
+    RAISE EXCEPTION 'Expected GPS update to be rejected after this unit arrived';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
+  PERFORM public.api_update_incident_status(incident_id, 'en_route');
+  response := public.api_update_my_assignment_status(incident_id, 'on_scene');
+  IF response->>'status' <> 'on_scene' THEN
+    RAISE EXCEPTION 'Incident should move to on_scene once every assigned unit has arrived';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
+  response := public.api_update_my_assignment_status(incident_id, 'transporting');
+  IF response->>'status' <> 'transporting' THEN
+    RAISE EXCEPTION 'Incident should reflect transporting once all units arrived and one transports';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
+  PERFORM public.api_update_my_assignment_status(incident_id, 'transporting');
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
+  PERFORM public.api_update_my_assignment_status(incident_id, 'resolved');
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
+  response := public.api_update_my_assignment_status(incident_id, 'resolved');
+  IF response->>'status' <> 'resolved' THEN
+    RAISE EXCEPTION 'Incident should resolve only after every assigned unit resolves';
+  END IF;
+
+  SELECT status INTO aggregate_status FROM public.incidents WHERE id = incident_id;
+  IF aggregate_status <> 'resolved' THEN
+    RAISE EXCEPTION 'Expected final incident status resolved, found %', aggregate_status;
+  END IF;
+END;
+$per_responder_test$;
 
 echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and initial incident status logging passed."
