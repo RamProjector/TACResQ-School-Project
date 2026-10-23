@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -79,6 +80,7 @@ import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SyncStatus
 import com.tacresq.app.ui.common.formatTime
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -344,6 +346,46 @@ class RequesterViewModel(
         return abs(returnedAt - fix.capturedAtEpochMillis) <= 2_000L
     }
 
+    fun updateMyIncident(
+        incident: Incident,
+        type: IncidentType,
+        description: String,
+        locationNotes: String,
+        latitude: Double?,
+        longitude: Double?,
+        accuracyM: Float?,
+        locationRecordedAt: String?,
+        locationSource: String,
+        confirmReview: Boolean,
+    ) {
+        if (_state.value.sending) return
+        _state.update { it.copy(sending = true, error = null, notice = null) }
+        viewModelScope.launch {
+            repo.updateMyIncident(
+                incident, type, description, locationNotes, latitude, longitude,
+                accuracyM, locationRecordedAt, locationSource, confirmReview,
+            ).onSuccess { updated ->
+                val matches = updated.type == type &&
+                    updated.description.orEmpty() == description.trim() &&
+                    updated.locationNotes.orEmpty() == locationNotes.trim() &&
+                    updated.latitude == latitude && updated.longitude == longitude &&
+                    updated.locationSource == locationSource
+                _state.update { current ->
+                    current.copy(
+                        sending = false,
+                        incidents = current.incidents.map { if (it.id == updated.id) updated else it },
+                        notice = if (matches) "Request #" + updated.id + " updated. Dispatch can see the corrected details." else null,
+                        error = if (matches) null else "The server accepted the edit, but the returned details did not match what you reviewed. Contact dispatch to verify the request before making more changes.",
+                    )
+                }
+                refresh()
+            }.onFailure { e ->
+                _state.update { it.copy(sending = false, error = e.message ?: "The request could not be edited. Check its current status.") }
+                refresh()
+            }
+        }
+    }
+
     fun cancelPendingIncident(id: Long) {
         if (_state.value.sending) return
         _state.update { it.copy(sending = true, error = null, notice = null) }
@@ -415,12 +457,33 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var locationNotes by rememberSaveable { mutableStateOf("") }
     var confirmingSos by rememberSaveable { mutableStateOf(false) }
     var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
+    var incidentToEdit by remember { mutableStateOf<Incident?>(null) }
+    var editType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
+    var editDescription by rememberSaveable { mutableStateOf("") }
+    var editLocationNotes by rememberSaveable { mutableStateOf("") }
+    var editLatitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var editLongitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var editAccuracyM by rememberSaveable { mutableStateOf<Float?>(null) }
+    var editLocationRecordedAt by rememberSaveable { mutableStateOf<String?>(null) }
+    var editLocationSource by rememberSaveable { mutableStateOf("none") }
+    var showEditMapPicker by rememberSaveable { mutableStateOf(false) }
+    var confirmingEdit by rememberSaveable { mutableStateOf(false) }
+    var editNowMillis by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
     var showManualPinPicker by rememberSaveable { mutableStateOf(false) }
     var showRequestForm by rememberSaveable { mutableStateOf(false) }
     var requestStep by rememberSaveable { mutableStateOf(1) }
     val freshFix = state.locationFix?.takeIf(vm::isFresh)
     val activeIncidents = state.incidents.filter { it.status.isActive }
     val activeIncident = activeIncidents.firstOrNull()
+    LaunchedEffect(incidentToEdit?.id, incidentToEdit?.requesterLastEditedAt) {
+        while (incidentToEdit != null) {
+            editNowMillis = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
+    val editLastAtMillis = incidentToEdit?.requesterLastEditedAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+    val editCooldownSeconds = if ((incidentToEdit?.requesterEditCount ?: 0) <= 0 || editLastAtMillis == null) 0L
+        else (((editLastAtMillis + 60_000L - editNowMillis).coerceAtLeast(0L) + 999L) / 1000L)
 
     LaunchedEffect(state.notice) {
         val message = state.notice
@@ -490,12 +553,27 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     }
                     if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING) {
                         OutlinedButton(
+                            onClick = {
+                                incidentToEdit = activeIncident
+                                editType = activeIncident.type
+                                editDescription = activeIncident.description.orEmpty()
+                                editLocationNotes = activeIncident.locationNotes.orEmpty()
+                                editLatitude = activeIncident.latitude
+                                editLongitude = activeIncident.longitude
+                                editAccuracyM = activeIncident.accuracyM
+                                editLocationRecordedAt = activeIncident.locationRecordedAt
+                                editLocationSource = activeIncident.locationSource ?: if (activeIncident.latitude == null) "none" else "gps"
+                                confirmingEdit = false
+                            },
+                            enabled = !state.sending,
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                        ) { Text("Edit request") }
+                        OutlinedButton(
                             onClick = { incidentToCancel = activeIncident.id },
                             enabled = !state.sending,
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                         ) { Text("Cancel request") }
-                    }
-                }
+                    }                }
             }
         } else if (!showRequestForm && !state.pendingSosAvailable) item {
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -653,6 +731,119 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                 vm.setManualLocation(latitude, longitude)
                 showManualPinPicker = false
             },
+        )
+    }
+
+    if (incidentToEdit != null && !confirmingEdit) {
+        val editing = incidentToEdit!!
+        AlertDialog(
+            onDismissRequest = { if (!state.sending) { incidentToEdit = null; confirmingEdit = false } },
+            title = { Text("Edit request #" + editing.id) },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("Edits are available only before dispatch assigns a unit. Your first correction is immediate. After that, another edit is locked for 60 seconds and requires a review confirmation.")
+                    IncidentType.entries.forEach { type ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = editType == type, onClick = { editType = type })
+                            Text(type.label)
+                        }
+                    }
+                    OutlinedTextField(
+                        value = editDescription,
+                        onValueChange = { if (it.length <= 2000) editDescription = it },
+                        label = { Text("What is happening?") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4,
+                    )
+                    OutlinedTextField(
+                        value = editLocationNotes,
+                        onValueChange = { if (it.length <= 500) editLocationNotes = it },
+                        label = { Text("Location landmark or access note") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 1,
+                        maxLines = 3,
+                    )
+                    Text(
+                        if (editLatitude != null && editLongitude != null)
+                            "Current pin: %.5f, %.5f".format(Locale.US, editLatitude, editLongitude)
+                        else "No map pin is attached. Add a map pin if the location needs correction.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedButton(onClick = { showEditMapPicker = true }, modifier = Modifier.fillMaxWidth()) { Text("Correct map pin") }
+                    if (editing.requesterEditCount > 0 && editCooldownSeconds > 0) {
+                        Text("You can make another edit in " + editCooldownSeconds + "s.", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !state.sending && editCooldownSeconds == 0L,
+                    onClick = {
+                        if (editing.requesterEditCount == 0) {
+                            incidentToEdit = null
+                            vm.updateMyIncident(
+                                editing, editType, editDescription, editLocationNotes,
+                                editLatitude, editLongitude, editAccuracyM, editLocationRecordedAt,
+                                editLocationSource, false,
+                            )
+                        } else {
+                            confirmingEdit = true
+                        }
+                    },
+                ) { Text(if (editing.requesterEditCount == 0) "Save correction" else "Review changes") }
+            },
+            dismissButton = { TextButton(onClick = { incidentToEdit = null; confirmingEdit = false }) { Text("Keep current request") } },
+        )
+    }
+
+    if (showEditMapPicker) {
+        ManualLocationPickerDialog(
+            initialLatitude = editLatitude ?: 11.2443,
+            initialLongitude = editLongitude ?: 125.0030,
+            startsAtTaclobanDefault = editLatitude == null || editLongitude == null,
+            onDismiss = { showEditMapPicker = false },
+            onConfirm = { latitude, longitude ->
+                editLatitude = latitude
+                editLongitude = longitude
+                editAccuracyM = null
+                editLocationRecordedAt = Instant.now().toString()
+                editLocationSource = "manual"
+                showEditMapPicker = false
+            },
+        )
+    }
+
+    if (confirmingEdit && incidentToEdit != null) {
+        val editing = incidentToEdit!!
+        AlertDialog(
+            onDismissRequest = { confirmingEdit = false },
+            title = { Text("Review your correction") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Request #" + editing.id + " will be updated with these details:")
+                    Text("Emergency: " + editType.label)
+                    Text("Details: " + editDescription.trim().ifBlank { "None provided" })
+                    Text("Location note: " + editLocationNotes.trim().ifBlank { "None provided" })
+                    Text(if (editLatitude != null && editLongitude != null) "Pin: %.5f, %.5f".format(Locale.US, editLatitude, editLongitude) else "No GPS/map pin")
+                    Text("This correction will be recorded for dispatch. Confirm only if these details are accurate.")
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !state.sending && editCooldownSeconds == 0L, onClick = {
+                    incidentToEdit = null
+                    confirmingEdit = false
+                    vm.updateMyIncident(
+                        editing, editType, editDescription, editLocationNotes,
+                        editLatitude, editLongitude, editAccuracyM, editLocationRecordedAt,
+                        editLocationSource, true,
+                    )
+                }) { Text("Confirm and save") }
+            },
+            dismissButton = { TextButton(onClick = { confirmingEdit = false }) { Text("Go back") } },
         )
     }
 

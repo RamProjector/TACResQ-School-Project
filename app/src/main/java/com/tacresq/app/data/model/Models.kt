@@ -75,6 +75,8 @@ data class Incident(
     @SerializedName("assigned_to") val assignedTo: Long? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("location_source") val locationSource: String? = null,
+    @SerializedName("requester_edit_count") val requesterEditCount: Int = 0,
+    @SerializedName("requester_last_edited_at") val requesterLastEditedAt: String? = null,
 )
 
 data class Session(val token: String, val user: User)

@@ -56,6 +56,9 @@ interface TacApi {
     @POST("incidents/{id}/cancel")
     suspend fun cancelMyIncident(@Path("id") id: Long): Incident
 
+    @POST("rest/v1/rpc/api_update_my_incident")
+    suspend fun updateMyIncident(@Body body: UpdateMyIncidentRequest): Incident
+
     @PATCH("incidents/{id}/status")
     suspend fun updateIncidentStatus(
         @Path("id") id: Long,
@@ -100,6 +103,19 @@ data class CreateIncidentRequest(
 )
 
 data class UpdateStatusRequest(val status: IncidentStatus)
+
+data class UpdateMyIncidentRequest(
+    @SerializedName("p_id") val id: Long,
+    @SerializedName("p_type") val type: String,
+    @SerializedName("p_description") val description: String?,
+    @SerializedName("p_latitude") val latitude: Double?,
+    @SerializedName("p_longitude") val longitude: Double?,
+    @SerializedName("p_accuracy_m") val accuracyM: Float?,
+    @SerializedName("p_location_notes") val locationNotes: String?,
+    @SerializedName("p_location_recorded_at") val locationRecordedAt: String?,
+    @SerializedName("p_location_source") val locationSource: String,
+    @SerializedName("p_confirm_review") val confirmReview: Boolean,
+)
 
 data class AssignIncidentRequest(@SerializedName("user_id") val userId: Long)
 

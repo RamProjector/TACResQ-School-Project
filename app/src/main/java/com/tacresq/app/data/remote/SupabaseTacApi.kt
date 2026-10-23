@@ -62,6 +62,7 @@ class SupabaseTacApi private constructor(
         )
     )
     override suspend fun cancelMyIncident(id: Long): Incident = rpc.cancelMyIncident(CancelIncidentRpc(id))
+    override suspend fun updateMyIncident(body: UpdateMyIncidentRequest): Incident = rpc.updateMyIncident(body)
     override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident =
         rpc.updateIncidentStatus(UpdateIncidentRpc(id, body.status.wireValue))
     override suspend fun assignIncident(id: Long, body: AssignIncidentRequest): Incident =
@@ -132,6 +133,9 @@ private interface SupabaseRpcWire {
 
     @POST("rest/v1/rpc/api_cancel_my_incident")
     suspend fun cancelMyIncident(@Body body: CancelIncidentRpc): Incident
+
+    @POST("rest/v1/rpc/api_update_my_incident")
+    suspend fun updateMyIncident(@Body body: UpdateMyIncidentRequest): Incident
 
     @POST("rest/v1/rpc/api_update_incident_status")
     suspend fun updateIncidentStatus(@Body body: UpdateIncidentRpc): Incident

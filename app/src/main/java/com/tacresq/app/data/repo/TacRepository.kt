@@ -20,6 +20,7 @@ import com.tacresq.app.data.remote.RegisterRequest
 import com.tacresq.app.data.remote.ResponderLocationRequest
 import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.remote.UpdateStatusRequest
+import com.tacresq.app.data.remote.UpdateMyIncidentRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -155,6 +156,34 @@ class TacRepository(
 
     suspend fun cancelMyIncident(id: Long): Result<Incident> = call {
         api.cancelMyIncident(id)
+    }
+
+    suspend fun updateMyIncident(
+        incident: Incident,
+        type: IncidentType,
+        description: String?,
+        locationNotes: String?,
+        latitude: Double?,
+        longitude: Double?,
+        accuracyM: Float?,
+        locationRecordedAt: String?,
+        locationSource: String,
+        confirmReview: Boolean,
+    ): Result<Incident> = call {
+        api.updateMyIncident(
+            UpdateMyIncidentRequest(
+                id = incident.id,
+                type = type.name.lowercase(),
+                description = description?.trim()?.take(2000)?.ifBlank { null },
+                latitude = latitude,
+                longitude = longitude,
+                accuracyM = accuracyM,
+                locationNotes = locationNotes?.trim()?.take(500)?.ifBlank { null },
+                locationRecordedAt = locationRecordedAt,
+                locationSource = locationSource,
+                confirmReview = confirmReview,
+            )
+        )
     }
 
     suspend fun assignIncident(incidentId: Long, userId: Long): Result<Incident> = call {
