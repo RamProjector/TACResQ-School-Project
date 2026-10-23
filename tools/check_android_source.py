@@ -108,25 +108,19 @@ for relative_path, required_text in demo_mode_contract.items():
         )
 print("Android demo-mode contract OK: debug shortcuts use the fake API; release selects Supabase.")
 
-auth_submission_contract = {
-    "app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt": (
-        "if (_state.value.loading) return\\n"
-        "        // Claim the operation synchronously so rapid repeated taps cannot launch\\n"
-        "        // duplicate login/signup requests before the coroutine starts running.\\n"
-        "        _state.value = AuthUiState(loading = true)\\n"
-        "        viewModelScope.launch {",
-    ),
-}
-for relative_path, required_text in auth_submission_contract.items():
-    source = (ROOT / relative_path).read_text(encoding="utf-8")
-    missing = [snippet for snippet in required_text if snippet not in source]
-    if missing:
-        raise SystemExit(
-            f"Authentication duplicate-submit contract failed for {relative_path}: missing "
-            + ", ".join(missing)
-        )
+auth_submit_source = (
+    ROOT / "app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt"
+).read_text(encoding="utf-8")
+auth_submit_body = auth_submit_source.split("private fun submit", 1)[1].split("\n    }\n}", 1)[0]
+loading_guard = auth_submit_body.find("if (_state.value.loading) return")
+loading_claim = auth_submit_body.find("_state.value = AuthUiState(loading = true)")
+coroutine_start = auth_submit_body.find("viewModelScope.launch {")
+if not (0 <= loading_guard < loading_claim < coroutine_start):
+    raise SystemExit(
+        "Authentication duplicate-submit contract failed: the loading guard and "
+        "synchronous loading claim must occur before launching the coroutine."
+    )
 print("Authentication submit contract OK: login/signup claim the loading state before coroutine scheduling.")
-
 
 gps_map_location_contract = {
     "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": (
