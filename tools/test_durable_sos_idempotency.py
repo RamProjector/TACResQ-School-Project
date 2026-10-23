@@ -24,6 +24,9 @@ checks = {
     "logout preserves unresolved SOS envelope": "prefs.remove(encryptedSessionKey)" in STORE and "pendingIncidentEnvelopeKey" in STORE,
     "pending location payload is encrypted at rest": "encrypt(gson.toJson(created))" in STORE and "gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java)" in STORE,
     "corrupt pending envelope fails closed instead of generating a new key": "hasSavedEnvelope && saved == null" in STORE and "getOrElse { throw PendingIncidentConflictException() }" in STORE,
+    "saved SOS can be retrieved without rebuilding from current UI state": "getPendingIncidentSubmission()" in (ROOT / "app/src/main/java/com/tacresq/app/data/local/SessionStore.kt").read_text(),
+    "explicit retry reuses the saved payload and request id": "retryPendingIncident()" in REPO and "Gson().fromJson(pending.payloadJson, CreateIncidentRequest::class.java)" in REPO and "copy(clientRequestId = pending.requestId)" in REPO,
+    "requester UI offers retry for an unresolved saved SOS": "Retry saved SOS" in (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text() and "pendingSosAvailable" in (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text(),
     "Android calls versioned idempotent RPC": "api_create_incident_v4" in API and "body.clientRequestId" in API,
 }
 failed = [name for name, ok in checks.items() if not ok]
