@@ -22,6 +22,7 @@ checks = {
     "pending payload is restored rather than rebuilt from a fresh GPS fix": "gson.fromjson(pending.payloadjson, createincidentrequest::class.java)" in REPO.lower(),
     "different submission cannot overwrite an ambiguous pending SOS": "PendingIncidentConflictException" in STORE and "saved.fingerprint != fingerprint" in STORE,
     "logout preserves unresolved SOS envelope": "preserve unresolved SOS submissions across logout" in STORE and "prefs.remove(encryptedSessionKey)" in STORE,
+    "pending location payload is encrypted at rest": "encrypt(gson.toJson(created))" in STORE and "gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java)" in STORE,
     "Android calls versioned idempotent RPC": "api_create_incident_v4" in API and "body.clientRequestId" in API,
 }
 failed = [name for name, ok in checks.items() if not ok]
