@@ -94,7 +94,7 @@ class SessionStore(
     suspend fun getOrCreatePendingIncident(fingerprint: String, payloadJson: String): PendingIncidentSubmission = pendingIncidentMutex.withLock {
         var submission: PendingIncidentSubmission? = null
         context.sessionDataStore.edit { prefs ->
-            val saved = prefs[pendingIncidentEnvelopeKey]?.let { runCatching { gson.fromJson(it, PendingIncidentSubmission::class.java) }.getOrNull() }
+            val saved = prefs[pendingIncidentEnvelopeKey]?.let { encoded -> runCatching { gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java) }.getOrNull() }
             if (saved != null) {
                 if (saved.fingerprint != fingerprint) throw PendingIncidentConflictException()
                 submission = saved
@@ -103,7 +103,7 @@ class SessionStore(
                 val legacyFingerprint = prefs[stringPreferencesKey("pending_incident_fingerprint")]
                 if (!legacyId.isNullOrBlank() && legacyFingerprint != fingerprint) throw PendingIncidentConflictException()
                 val created = PendingIncidentSubmission(legacyId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString(), fingerprint, payloadJson)
-                prefs[pendingIncidentEnvelopeKey] = gson.toJson(created)
+                prefs[pendingIncidentEnvelopeKey] = encrypt(gson.toJson(created))
                 prefs.remove(stringPreferencesKey("pending_incident_request_id"))
                 prefs.remove(stringPreferencesKey("pending_incident_fingerprint"))
                 submission = created
