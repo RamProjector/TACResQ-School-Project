@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -305,13 +306,44 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 
         if (active.isEmpty()) {
             item {
-                Text(
-                    if (state.dutyStatus == DutyStatus.AVAILABLE) {
-                        "Waiting for assignments."
-                    } else {
-                        "Set status to Available to receive assignments."
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (state.loading) {
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.padding(end = 12.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text("Checking assignments", style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        "Loading your current calls and duty status.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                if (state.dutyStatus == DutyStatus.AVAILABLE) "No active assignments"
+                                else "You are off duty",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                if (state.dutyStatus == DutyStatus.AVAILABLE) {
+                                    "You are available. New assignments will appear here when dispatch assigns one."
+                                } else {
+                                    "Set your duty status to Available when you are ready to receive assignments."
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
-                )
+                }
             }
         }
 
