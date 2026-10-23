@@ -111,7 +111,7 @@ Only the user in `assigned_to` may change an incident's status (403 otherwise).
 | `GET /incidents` | Dispatcher: full incident queue |
 | `GET /units` | Dispatcher: responders and drivers with duty status |
 | `POST /incidents/{id}/assign` | Dispatcher: `{ "user_id": 2 }`, backward-compatible single-unit assignment |
-| `POST /incidents/{id}/assign-team` | Dispatcher: `{ "user_ids": [2, 3] }`, atomically assigns 1–5 available field units |
+| `POST /incidents/{id}/assign-team` | Dispatcher: `{ "user_ids": [2, 3] }`, atomically assigns or adds available field units (five total maximum; additions stop at on-scene) |
 
 Assignment must reject a non-pending incident, duplicate or invalid IDs, more than five selected units, non-responder/driver accounts, or units that are no longer available. The Supabase implementation performs the selection check and assignment in one transaction; `assigned_to` is the first selected lead for compatibility and `assigned_user_ids` lists the whole team.
 
