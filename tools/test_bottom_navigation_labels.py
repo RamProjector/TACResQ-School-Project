@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard compact bottom navigation against hidden or mislabeled actions."""
+"""Guard compact bottom navigation against hidden or mislabeled actions, including on GPS map."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +21,6 @@ assert "contentDescription = label" in source, "destination labels must remain a
 assert "selected = active" in source, "selected destination must be exposed to accessibility services"
 assert "role = SemanticsRole.Tab" in source, "destinations must expose a consistent semantic role"
 assert source.count(".heightIn(min = 48.dp)") == 2, "standard and central destinations must have usable touch targets"
-assert 'if (selected != AppDestination.MAP)' in source, "full-screen map must remain free of the bottom bar"
+assert 'if (selected != AppDestination.MAP)' not in source, "five-destination navigation must remain visible on the GPS map"
 
 print("Five-destination compact navigation contract passed.")
