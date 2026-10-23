@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "supabase/migrations/20261023080000_durable_sos_idempotency.sql"
+MIGRATION = ROOT / "supabase/migrations/20261023031801_durable_sos_idempotency.sql"
 SQL = MIGRATION.read_text().lower()
 STORE = (ROOT / "app/src/main/java/com/tacresq/app/data/local/SessionStore.kt").read_text()
 REPO = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()

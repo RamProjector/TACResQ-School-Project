@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = (ROOT / "supabase/migrations/20261023100000_requester_single_active_and_cancel.sql").read_text().lower()
+MIGRATION = (ROOT / "supabase/migrations/20261023031810_requester_single_active_and_cancel.sql").read_text().lower()
 SCREEN = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 REPO = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 API = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
