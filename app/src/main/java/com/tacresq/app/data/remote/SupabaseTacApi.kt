@@ -61,6 +61,7 @@ class SupabaseTacApi private constructor(
             body.clientRequestId,
         )
     )
+    override suspend fun cancelMyIncident(id: Long): Incident = rpc.cancelMyIncident(CancelIncidentRpc(id))
     override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident =
         rpc.updateIncidentStatus(UpdateIncidentRpc(id, body.status.wireValue))
     override suspend fun assignIncident(id: Long, body: AssignIncidentRequest): Incident =
@@ -129,6 +130,9 @@ private interface SupabaseRpcWire {
     @POST("rest/v1/rpc/api_create_incident_v4")
     suspend fun createIncidentV4(@Body body: CreateIncidentV4Rpc): Incident
 
+    @POST("rest/v1/rpc/api_cancel_my_incident")
+    suspend fun cancelMyIncident(@Body body: CancelIncidentRpc): Incident
+
     @POST("rest/v1/rpc/api_update_incident_status")
     suspend fun updateIncidentStatus(@Body body: UpdateIncidentRpc): Incident
 
@@ -154,6 +158,7 @@ private data class CreateIncidentV4Rpc(
     @SerializedName("p_location_source") val locationSource: String,
     @SerializedName("p_client_request_id") val clientRequestId: String,
 )
+private data class CancelIncidentRpc(@SerializedName("p_id") val id: Long)
 private data class UpdateIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_status") val status: String)
 private data class AssignIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_id") val userId: Long)
 private data class RecordLocationRpc(
