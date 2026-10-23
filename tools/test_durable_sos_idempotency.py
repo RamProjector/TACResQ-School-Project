@@ -21,7 +21,7 @@ checks = {
     "repository fingerprints the full request and reuses persisted key": "getOrCreatePendingIncident(fingerprint, payloadJson)" in REPO and "pending.payloadJson" in REPO and "clientRequestId = pending.requestId" in REPO,
     "pending payload is restored rather than rebuilt from a fresh GPS fix": "gson().fromjson(pending.payloadjson, createincidentrequest::class.java)" in REPO.lower(),
     "different submission cannot overwrite an ambiguous pending SOS": "PendingIncidentConflictException" in STORE and "saved.fingerprint != fingerprint" in STORE,
-    "logout preserves unresolved SOS envelope": "preserve unresolved SOS submissions across logout" in STORE.lower() and "encryptedSessionKey" in STORE and "prefs.remove(" in STORE,
+    "logout preserves unresolved SOS envelope": "prefs.remove(encryptedSessionKey)" in STORE and "pendingIncidentEnvelopeKey" in STORE,
     "pending location payload is encrypted at rest": "encrypt(gson.toJson(created))" in STORE and "gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java)" in STORE,
     "corrupt pending envelope fails closed instead of generating a new key": "hasSavedEnvelope && saved == null" in STORE and "getOrElse { throw PendingIncidentConflictException() }" in STORE,
     "Android calls versioned idempotent RPC": "api_create_incident_v4" in API and "body.clientRequestId" in API,
