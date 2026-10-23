@@ -455,7 +455,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var selectedType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
-    var confirmingSos by rememberSaveable { mutableStateOf(false) }
+    var confirmingSos by remember { mutableStateOf(false) }
     var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
     var incidentToEdit by remember { mutableStateOf<Incident?>(null) }
     var editType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
@@ -467,7 +467,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var editLocationRecordedAt by rememberSaveable { mutableStateOf<String?>(null) }
     var editLocationSource by rememberSaveable { mutableStateOf("none") }
     var showEditMapPicker by rememberSaveable { mutableStateOf(false) }
-    var confirmingEdit by rememberSaveable { mutableStateOf(false) }
+    var confirmingEdit by remember { mutableStateOf(false) }
     var editNowMillis by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
     var showManualPinPicker by rememberSaveable { mutableStateOf(false) }
     var showRequestForm by rememberSaveable { mutableStateOf(false) }
@@ -950,10 +950,13 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    confirmingSos = false
-                    vm.sendSos(selectedType, description, locationNotes)
-                }) { Text("Send SOS") }
+                TextButton(
+                    enabled = !state.sending && !state.capturingLocation,
+                    onClick = {
+                        confirmingSos = false
+                        vm.sendSos(selectedType, description, locationNotes)
+                    },
+                ) { Text(if (state.sending) "Sending…" else "Send SOS") }
             },
             dismissButton = {
                 TextButton(onClick = { confirmingSos = false }) { Text("Go back") }
