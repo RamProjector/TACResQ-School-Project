@@ -29,12 +29,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = pg_catalog
 AS $function$
-DECLARE incident_status text;
 BEGIN
-  SELECT i.status INTO incident_status
-  FROM public.incidents i
-  WHERE i.id = NEW.incident_id;
-
   -- New units start assigned even when joining an already en-route team.
   -- They must explicitly acknowledge that they are en route themselves.
   NEW.responder_status := 'assigned';
