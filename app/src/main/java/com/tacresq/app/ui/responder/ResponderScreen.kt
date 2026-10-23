@@ -50,6 +50,7 @@ import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.nextSteps
+import com.tacresq.app.data.model.statusFor
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationProvider
@@ -143,10 +144,14 @@ class ResponderViewModel(
                 )
             }
             val current = repo.myIncidents()
+            val me = repo.me()
             val incident = current.getOrNull()?.firstOrNull { it.id == incidentId }
+            val ownStatus = incident?.assignedUserStatuses
+                ?.firstOrNull { it.userId == me.getOrNull()?.id }?.status ?: incident?.status
             val failure = when {
                 current.isFailure -> current.exceptionOrNull()?.message ?: "Could not verify the active assignment."
-                incident?.status != IncidentStatus.EN_ROUTE -> "Location sharing is allowed only for your active en-route incident. Refresh the assignment and try again."
+                me.isFailure -> me.exceptionOrNull()?.message ?: "Could not verify your responder identity."
+                ownStatus != IncidentStatus.EN_ROUTE -> "Location sharing is allowed only for your own en-route unit status. Refresh the assignment and try again."
                 !location.hasApproximatePermission() -> "Approximate location permission is not available. Location sharing remains off."
                 else -> null
             }
@@ -223,7 +228,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         val incident = permissionActionIncident
         permissionActionIncident = null
         if (incident != null) {
-            if (incident.status == IncidentStatus.ASSIGNED) vm.startResponse(incident, granted)
+            if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, granted)
             else if (granted) vm.resumeTracking(incident.id)
             else vm.stopTracking("Approximate location permission was denied; location sharing remains off.")
         }
@@ -251,7 +256,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 
     fun beginOrResumeWithPermission(incident: Incident) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            if (incident.status == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = true)
+            if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = true)
             else vm.resumeTracking(incident.id)
         } else {
             permissionActionIncident = incident
@@ -337,7 +342,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                     )
                 }
 
-                incident.status.nextSteps().forEach { next ->
+                incident.statusFor(user.id).nextSteps().forEach { next ->
                     Button(
                         onClick = {
                             if (next == IncidentStatus.EN_ROUTE) {
@@ -352,7 +357,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                         Text(next.actionLabel())
                     }
                 }
-                if (incident.status == IncidentStatus.EN_ROUTE) {
+                if (incident.statusFor(user.id) == IncidentStatus.EN_ROUTE) {
                     val sharing = state.trackingIncidentId == incident.id
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(
@@ -407,7 +412,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
     }
 
     responseToStart?.let { incident ->
-        val startingResponse = incident.status == IncidentStatus.ASSIGNED
+        val startingResponse = incident.statusFor(user.id) == IncidentStatus.ASSIGNED
         AlertDialog(
             onDismissRequest = { if (!state.busy) responseToStart = null },
             title = { Text(if (startingResponse) "Start response?" else "Resume location sharing?") },
