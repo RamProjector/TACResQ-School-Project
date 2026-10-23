@@ -10,7 +10,7 @@ fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").re
 repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 sql = (ROOT / "supabase/migrations/20261023050000_dispatch_team_assignment.sql").read_text()
 
-for required in ("Select response team", "Checkbox(", "selectedUnitIds.size < 5", "Assign team"):
+for required in ("Select response team", "Checkbox(", "selectedUnitIds.size < maxTeamSelection", "Add responders", "Assign team"):
     assert required in screen, f"Dispatcher team-selection UI missing: {required}"
 for required in ('@SerializedName("assigned_user_ids")', "val assignedUserIds: List<Long>"):
     assert required in models, f"Incident team model missing: {required}"
