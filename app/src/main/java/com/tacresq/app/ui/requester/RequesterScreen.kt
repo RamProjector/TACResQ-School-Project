@@ -386,7 +386,8 @@ class RequesterViewModel(
         }
     }
 
-    fun cancelPendingIncident(id: Long) {        if (_state.value.sending) return
+    fun cancelPendingIncident(id: Long) {
+        if (_state.value.sending) return
         _state.update { it.copy(sending = true, error = null, notice = null) }
         viewModelScope.launch {
             repo.cancelMyIncident(id)
@@ -484,7 +485,8 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     val editCooldownSeconds = if ((incidentToEdit?.requesterEditCount ?: 0) <= 0 || editLastAtMillis == null) 0L
         else (((editLastAtMillis + 60_000L - editNowMillis).coerceAtLeast(0L) + 999L) / 1000L)
 
-    LaunchedEffect(state.notice) {        val message = state.notice
+    LaunchedEffect(state.notice) {
+        val message = state.notice
         if (message?.startsWith("SOS sent") == true ||
             message?.startsWith("SOS request was accepted") == true ||
             message?.startsWith("The previously saved SOS was confirmed") == true
