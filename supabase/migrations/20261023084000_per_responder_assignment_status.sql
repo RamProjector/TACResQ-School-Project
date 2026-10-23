@@ -27,7 +27,6 @@ WHERE i.id = a.incident_id;
 CREATE OR REPLACE FUNCTION public.tacresq_seed_assignment_status()
 RETURNS trigger
 LANGUAGE plpgsql
-SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
 DECLARE incident_status text;
@@ -44,8 +43,6 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.tacresq_seed_assignment_status() FROM PUBLIC, anon, authenticated;
-
 DROP TRIGGER IF EXISTS incident_assignment_seed_status ON public.incident_assignments;
 CREATE TRIGGER incident_assignment_seed_status
 BEFORE INSERT ON public.incident_assignments
@@ -96,6 +93,10 @@ BEGIN
   WHERE a.incident_id = p_incident_id AND a.user_id = actor_id
   FOR UPDATE;
 
+  IF incident_row.status IN ('resolved','cancelled') THEN
+    RAISE EXCEPTION 'A closed incident cannot accept further unit status updates' USING ERRCODE = '22023';
+  END IF;
+
   IF assignment_row.user_id IS NULL THEN
     RAISE EXCEPTION 'This incident is not assigned to your unit'
       USING ERRCODE = '42501';
@@ -123,7 +124,7 @@ BEGIN
     WHEN bool_and(a.responder_status IN ('on_scene','transporting','resolved'))
          AND bool_or(a.responder_status = 'transporting') THEN 'transporting'
     WHEN bool_and(a.responder_status IN ('on_scene','transporting','resolved')) THEN 'on_scene'
-    WHEN bool_or(a.responder_status = 'en_route') THEN 'en_route'
+    WHEN bool_or(a.responder_status IN ('en_route','on_scene','transporting','resolved')) THEN 'en_route'
     ELSE 'assigned'
   END
   INTO aggregate_status
@@ -131,6 +132,14 @@ BEGIN
   WHERE a.incident_id = p_incident_id;
 
   IF aggregate_status IS DISTINCT FROM incident_row.status THEN
+    -- The incident transition guard requires legal intermediate transitions.
+    -- If every unit has arrived and one is already transporting, advance through
+    -- on_scene before transporting rather than skipping a state.
+    IF incident_row.status = 'en_route' AND aggregate_status = 'transporting' THEN
+      UPDATE public.incidents SET status = 'on_scene'
+      WHERE id = p_incident_id
+      RETURNING * INTO incident_row;
+    END IF;
     UPDATE public.incidents
     SET status = aggregate_status
     WHERE id = p_incident_id
