@@ -24,8 +24,8 @@ EXPECTED = {
     "20261023031801_durable_sos_idempotency.sql",
     "20261023031810_requester_single_active_and_cancel.sql",
     "20261023034639_requester_edit_workflow.sql",
-    "20261023040000_requester_urgent_location_correction.sql",
-    "20261023050000_dispatch_team_assignment.sql",
+    "20261023081635_20261023040000_requester_urgent_location_correction.sql",
+    "20261023081706_dispatch_team_assignment.sql",
     "20261023082000_harden_dispatch_team_assignment.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
@@ -61,7 +61,7 @@ assert "AFTER INSERT OR UPDATE ON public.incidents" in audit_fix
 assert "BEFORE UPDATE ON public.incidents" in audit_fix
 assert "INSERT INTO public.incident_status_logs(incident_id, status, changed_by)" in audit_fix
 
-team = (MIGRATIONS / "20261023050000_dispatch_team_assignment.sql").read_text()
+team = (MIGRATIONS / "20261023081706_dispatch_team_assignment.sql").read_text()
 for required in (
     "CREATE TABLE IF NOT EXISTS public.incident_assignments",
     "public.api_assign_incident_team(p_id bigint, p_user_ids bigint[])",
