@@ -14,6 +14,13 @@ checks = {
         and 'buildConfigField("boolean", "USE_FAKE_API", (!useSupabaseInDebug).toString())' in gradle,
     "release always disables the fake backend":
         'buildConfigField("boolean", "USE_FAKE_API", "false")' in gradle,
+    "demo and Supabase debug APKs can be installed side by side":
+        'applicationIdSuffix = if (useSupabaseInDebug) ".supabase" else ".demo"' in gradle,
+    "demo build uses a distinct callback scheme":
+        'if (useSupabaseInDebug) "tacresq" else "tacresq-demo"' in gradle
+        and 'android:scheme="${authRedirectScheme}"' in (ROOT / "app/src/main/AndroidManifest.xml").read_text(),
+    "Supabase debug and release retain the configured callback scheme":
+        'manifestPlaceholders["authRedirectScheme"] = "tacresq"' in gradle,
     "CI builds demo debug APK":
         "Build demo-mode debug APK" in workflow and "./gradlew --no-daemon assembleDebug" in workflow,
     "CI separately builds Supabase debug APK":
