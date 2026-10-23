@@ -48,25 +48,37 @@ import kotlin.math.ceil
 fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Image(
                 painter = painterResource(id = R.drawable.tacresq_app_icon),
-                contentDescription = null,
-                modifier = Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)),
+                contentDescription = "TACResQ",
+                modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)),
             )
-            Spacer(modifier = Modifier.width(9.dp))
-            Text(
-                "TACResQ",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(
                 modifier = Modifier.weight(1f),
-            )
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    "TACResQ",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Emergency assistance, coordinated.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             TextButton(onClick = onLogout) { Text("Sign out") }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
