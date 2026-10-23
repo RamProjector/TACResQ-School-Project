@@ -512,7 +512,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         item {
             ScreenHeader(
                 title = "Home",
-                subtitle = "",
+                subtitle = "Request help and track your current response.",
                 onLogout = onLogout,
             )
         }
@@ -719,9 +719,52 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         state.notice?.let { message -> item { Banner(message, isError = false, onDismiss = vm::dismissMessages) } }
         state.error?.let { message -> item { Banner(message, isError = true, onDismiss = vm::dismissMessages) } }
 
-        item { Text("My requests", style = MaterialTheme.typography.titleMedium) }
-        if (state.incidents.isEmpty() && !state.loading) {
-            item { Text("No requests yet.") }
+        item {
+            Text(
+                "My requests",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        if (state.loading && state.incidents.isEmpty()) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Loading your requests", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Checking the latest status from the service.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        } else if (state.incidents.isEmpty()) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text("No requests yet", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "When you submit a request, its status and details will appear here.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
         items(state.incidents, key = { it.id }) { incident -> IncidentCard(incident) }
     }
