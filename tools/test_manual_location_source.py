@@ -76,7 +76,7 @@ checks = {
     ),
     "incident creation carries source through the Supabase RPC": all(
         text in repository for text in ('fix.manuallySelected -> "manual"', 'fix == null -> "none"')
-    ) and all(text in api for text in ('api_create_incident_v3', 'body.locationSource', 'p_location_source')),
+    ) and all(text in api for text in ('api_create_incident_v4', 'body.locationSource', 'body.clientRequestId', 'p_location_source')),
     "test backend echoes the same source metadata for end-to-end UI testing": all(
         text in fake_api for text in (
             "locationRecordedAt = body.locationRecordedAt",

@@ -102,6 +102,7 @@ data class RequesterUiState(
     val incidents: List<Incident> = emptyList(),
     val loading: Boolean = true,
     val sending: Boolean = false,
+    val pendingSosAvailable: Boolean = false,
     val capturingLocation: Boolean = false,
     val locationFix: GeoFix? = null,
     val locationError: String? = null,
@@ -118,6 +119,33 @@ class RequesterViewModel(
     private val _state = MutableStateFlow(RequesterUiState())
     val state: StateFlow<RequesterUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
+
+    fun refreshPendingSos() {
+        viewModelScope.launch {
+            val pending = runCatching { repo.hasPendingIncident() }.getOrDefault(true)
+            _state.update { it.copy(pendingSosAvailable = pending) }
+        }
+    }
+
+    fun retryPendingSos() {
+        if (_state.value.sending) return
+        _state.update { it.copy(sending = true, error = null, notice = null) }
+        viewModelScope.launch {
+            repo.retryPendingIncident()
+                .onSuccess { created ->
+                    _state.update {
+                        it.copy(
+                            sending = false,
+                            pendingSosAvailable = false,
+                            notice = "The previously saved SOS was confirmed by the server. Review the request below and contact dispatch directly if the emergency is still active.",
+                            incidents = listOf(created) + it.incidents.filterNot { existing -> existing.id == created.id },
+                        )
+                    }
+                    refresh()
+                }
+                .onFailure { e -> _state.update { it.copy(sending = false, pendingSosAvailable = true, error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.") } }
+        }
+    }
 
     fun isFresh(fix: GeoFix): Boolean = location.isFresh(fix)
 
@@ -263,6 +291,7 @@ class RequesterViewModel(
                     _state.update {
                         it.copy(
                             sending = false,
+                            pendingSosAvailable = false,
                             locationFix = null,
                             locationError = null,
                             notice = status,
@@ -271,7 +300,7 @@ class RequesterViewModel(
                         )
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(sending = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(sending = false, pendingSosAvailable = true, error = e.message) } }
         }
     }
 
@@ -344,6 +373,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         }
     }
     PollWhileStarted { vm.refresh() }
+    LaunchedEffect(Unit) { vm.refreshPendingSos() }
 
     var selectedType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
     var description by rememberSaveable { mutableStateOf("") }
@@ -376,6 +406,22 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         }
 
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
+
+        if (state.pendingSosAvailable) item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("An earlier SOS needs confirmation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("TACResQ saved the original request. Retry it exactly as submitted; do not create a replacement SOS while its outcome is unknown.")
+                    Button(onClick = vm::retryPendingSos, enabled = !state.sending, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                        if (state.sending) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else Text("Retry saved SOS")
+                    }
+                }
+            }
+        }
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
