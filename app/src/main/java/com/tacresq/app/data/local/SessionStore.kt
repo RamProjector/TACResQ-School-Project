@@ -44,6 +44,8 @@ class SessionStore(
     private val encryptedSessionKey = stringPreferencesKey("encrypted_session_v1")
     private val pendingIncidentEnvelopeKey = stringPreferencesKey("pending_incident_envelope_v1")
     private val pendingIncidentMutex = Mutex()
+    // Fake/test API mode must never write pending SOS state into the real app's DataStore.
+    private var inMemoryPendingIncident: PendingIncidentSubmission? = null
 
     val session: Flow<Session?> = if (persistSessions) {
         context.sessionDataStore.data
@@ -93,6 +95,15 @@ class SessionStore(
 
     /** Persist the exact payload and key together; never overwrite an ambiguous submission. */
     suspend fun getOrCreatePendingIncident(fingerprint: String, payloadJson: String): PendingIncidentSubmission = pendingIncidentMutex.withLock {
+        if (!persistSessions) {
+            val saved = inMemoryPendingIncident
+            if (saved != null) {
+                if (saved.fingerprint != fingerprint) throw PendingIncidentConflictException()
+                return@withLock saved
+            }
+            return@withLock PendingIncidentSubmission(UUID.randomUUID().toString(), fingerprint, payloadJson)
+                .also { inMemoryPendingIncident = it }
+        }
         var submission: PendingIncidentSubmission? = null
         context.sessionDataStore.edit { prefs ->
             val hasSavedEnvelope = prefs.contains(pendingIncidentEnvelopeKey)
@@ -120,6 +131,7 @@ class SessionStore(
 
     /** Returns the saved submission so the UI can retry it without rebuilding from current GPS/form state. */
     suspend fun getPendingIncidentSubmission(): PendingIncidentSubmission? = pendingIncidentMutex.withLock {
+        if (!persistSessions) return@withLock inMemoryPendingIncident
         val prefs = context.sessionDataStore.data.first()
         val encoded = prefs[pendingIncidentEnvelopeKey] ?: return@withLock null
         runCatching { gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java) }
@@ -129,6 +141,10 @@ class SessionStore(
 
     suspend fun clearPendingIncidentRequestId(requestId: String) {
         pendingIncidentMutex.withLock {
+            if (!persistSessions) {
+                if (inMemoryPendingIncident?.requestId == requestId) inMemoryPendingIncident = null
+                return@withLock
+            }
             context.sessionDataStore.edit { prefs ->
                 val saved = prefs[pendingIncidentEnvelopeKey]?.let { encoded -> runCatching { gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java) }.getOrNull() }
                 if (saved?.requestId == requestId) prefs.remove(pendingIncidentEnvelopeKey)
@@ -139,6 +155,7 @@ class SessionStore(
     suspend fun clear() {
         if (!persistSessions) {
             inMemorySession.value = null
+            pendingIncidentMutex.withLock { inMemoryPendingIncident = null }
             return
         }
         context.sessionDataStore.edit { prefs ->

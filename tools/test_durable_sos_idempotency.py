@@ -16,6 +16,8 @@ checks = {
     "successful response is saved and returned for retries": "set response_payload = saved_response" in SQL and "return saved_response" in SQL,
     "RPC requires authenticated requester": "auth.uid() is null" in SQL and "profile_row.role <> 'requester'" in SQL,
     "idempotency table is not directly exposed to clients": "revoke all on public.incident_submission_keys from public, anon, authenticated" in SQL,
+    "fake mode does not persist pending SOS envelopes to real DataStore": "if (!persistSessions)" in STORE and "inMemoryPendingIncident" in STORE and "return@withLock inMemoryPendingIncident" in STORE,
+    "fake-mode logout clears in-memory pending SOS state": "pendingIncidentMutex.withLock { inMemoryPendingIncident = null }" in STORE,
     "request key is persisted across process restarts": "pending_incident_envelope_v1" in STORE and "getOrCreatePendingIncident(fingerprint: String, payloadJson: String)" in STORE,
     "key is cleared only when it matches the completed request": "clearPendingIncidentRequestId(requestId: String)" in STORE and "saved?.requestId == requestId" in STORE,
     "repository fingerprints the full request and reuses persisted key": "getOrCreatePendingIncident(fingerprint, payloadJson)" in REPO and "pending.payloadJson" in REPO and "clientRequestId = pending.requestId" in REPO,
