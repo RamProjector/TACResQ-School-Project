@@ -288,14 +288,14 @@ class FakeTacApi(
         }
     }
 
-    override suspend fun assignIncidentTeam(body: AssignIncidentTeamRequest): Incident {
+    override suspend fun assignIncidentTeam(id: Long, body: AssignIncidentTeamRequest): Incident {
         delay(300)
         return synchronized(lock) {
             if (current().role != Role.DISPATCHER) throw httpError(403, "Only dispatchers can assign incidents.")
             if (body.userIds.isEmpty() || body.userIds.size > 5 || body.userIds.distinct().size != body.userIds.size) {
                 throw httpError(422, "Select between 1 and 5 different field units.")
             }
-            val index = incidents.indexOfFirst { it.id == body.incidentId }
+            val index = incidents.indexOfFirst { it.id == id }
             if (index < 0) throw httpError(404, "Incident not found.")
             val incident = incidents[index]
             if (incident.status !in listOf(IncidentStatus.PENDING, IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE)) {
