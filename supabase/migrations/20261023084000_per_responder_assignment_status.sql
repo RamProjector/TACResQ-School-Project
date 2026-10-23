@@ -320,4 +320,113 @@ AS $function$
   FROM public.profiles p WHERE p.auth_user_id = auth.uid();
 $function$;
 
+
+-- Stop accepting or displaying GPS for a unit once that unit is no longer en route,
+-- even if another member keeps the overall incident in the en-route phase.
+DROP POLICY IF EXISTS location_logs_read_dispatcher_or_owner ON public.location_logs;
+CREATE POLICY location_logs_read_dispatcher_or_owner ON public.location_logs
+FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.incidents i
+    JOIN public.incident_assignments a ON a.incident_id = i.id
+    WHERE i.id = location_logs.incident_id
+      AND i.status = 'en_route'
+      AND a.user_id = location_logs.user_id
+      AND a.responder_status = 'en_route'
+      AND (
+        a.user_id IN (SELECT p.id FROM public.profiles p WHERE p.auth_user_id = auth.uid() AND p.role IN ('responder','driver'))
+        OR private.tacresq_actor_role() = 'dispatcher'
+      )
+  )
+);
+
+DROP POLICY IF EXISTS location_logs_insert_owner ON public.location_logs;
+CREATE POLICY location_logs_insert_owner ON public.location_logs
+FOR INSERT TO authenticated
+WITH CHECK (
+  user_id IN (SELECT p.id FROM public.profiles p WHERE p.auth_user_id = auth.uid() AND p.role IN ('responder','driver'))
+  AND incident_id IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM public.incidents i
+    JOIN public.incident_assignments a ON a.incident_id = i.id
+    WHERE i.id = location_logs.incident_id
+      AND i.status = 'en_route'
+      AND a.user_id = location_logs.user_id
+      AND a.responder_status = 'en_route'
+  )
+);
+
+CREATE OR REPLACE FUNCTION public.api_record_location_v2(
+  p_incident_id bigint, p_latitude double precision, p_longitude double precision,
+  p_accuracy_m real, p_recorded_at timestamptz
+) RETURNS bigint
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $function$
+DECLARE actor_id bigint; incident_status text; assignment_status text; result_id bigint;
+  recorded_at_value timestamptz := coalesce(p_recorded_at, now());
+BEGIN
+  IF p_latitude IS NULL OR p_longitude IS NULL OR p_latitude < -90 OR p_latitude > 90
+     OR p_longitude < -180 OR p_longitude > 180 THEN
+    RAISE EXCEPTION 'Location coordinates are invalid' USING ERRCODE = '22023';
+  END IF;
+  IF p_accuracy_m IS NOT NULL AND (p_accuracy_m < 0 OR p_accuracy_m > 100000) THEN
+    RAISE EXCEPTION 'Location accuracy is outside the supported range' USING ERRCODE = '22023';
+  END IF;
+  IF recorded_at_value > now() + interval '5 minutes' THEN
+    RAISE EXCEPTION 'Location timestamp is in the future' USING ERRCODE = '22023';
+  END IF;
+  IF recorded_at_value < now() - interval '15 minutes' THEN
+    RAISE EXCEPTION 'Location timestamp is too old' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT p.id, i.status, a.responder_status
+  INTO actor_id, incident_status, assignment_status
+  FROM public.profiles p
+  JOIN public.incidents i ON i.id = p_incident_id
+  JOIN public.incident_assignments a ON a.incident_id = i.id AND a.user_id = p.id
+  WHERE p.auth_user_id = auth.uid() AND p.role IN ('responder','driver');
+
+  IF actor_id IS NULL OR incident_status <> 'en_route' OR assignment_status <> 'en_route' THEN
+    RAISE EXCEPTION 'Location sharing is only available to your assigned unit while you are en route'
+      USING ERRCODE = '42501';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(actor_id);
+  IF EXISTS (SELECT 1 FROM public.location_logs l
+    WHERE l.user_id = actor_id AND l.incident_id = p_incident_id
+      AND l.created_at > now() - interval '8 seconds') THEN
+    RAISE EXCEPTION 'Location updates are arriving too quickly' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO public.location_logs(user_id, incident_id, latitude, longitude, accuracy_m, recorded_at)
+  VALUES (actor_id, p_incident_id, p_latitude, p_longitude, p_accuracy_m, recorded_at_value)
+  RETURNING id INTO result_id;
+  RETURN result_id;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.api_record_location_v2(bigint,double precision,double precision,real,timestamptz) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.api_record_location_v2(bigint,double precision,double precision,real,timestamptz) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.api_active_responder_locations()
+RETURNS TABLE (incident_id bigint, user_id bigint, latitude double precision, longitude double precision, accuracy_m real, recorded_at timestamptz)
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = pg_catalog, public, pg_temp AS $function$
+BEGIN
+  IF private.tacresq_actor_role() IS DISTINCT FROM 'dispatcher' THEN
+    RAISE EXCEPTION 'Only dispatchers can view responder locations' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+    SELECT DISTINCT ON (i.id, l.user_id)
+      i.id, l.user_id, l.latitude, l.longitude, l.accuracy_m, l.recorded_at
+    FROM public.incidents i
+    JOIN public.incident_assignments a ON a.incident_id = i.id
+    JOIN public.location_logs l ON l.incident_id = i.id AND l.user_id = a.user_id
+    WHERE i.status = 'en_route' AND a.responder_status = 'en_route'
+      AND l.latitude BETWEEN -90 AND 90 AND l.longitude BETWEEN -180 AND 180
+      AND (l.accuracy_m IS NULL OR l.accuracy_m >= 0)
+      AND l.recorded_at <= now() + interval '5 minutes'
+    ORDER BY i.id, l.user_id, l.recorded_at DESC, l.created_at DESC;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.api_active_responder_locations() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.api_active_responder_locations() TO authenticated;
+
 COMMIT;
