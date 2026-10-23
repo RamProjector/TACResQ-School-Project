@@ -23,9 +23,9 @@ CREATE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
 STABLE
-AS $
+AS $auth_uid$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
-$;
+$auth_uid$;
 SQL
 
 for migration in supabase/migrations/*.sql; do
