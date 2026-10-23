@@ -134,7 +134,7 @@ BEGIN
       created_incident_id, status_log_count;
   END IF;
 END;
-$;
+$$;
 
 
 -- End-to-end SQL regression: team members advance independently, the aggregate
