@@ -190,7 +190,7 @@ class TacRepository(
         require(userIds.isNotEmpty() && userIds.size <= 5 && userIds.distinct().size == userIds.size) {
             "Select between 1 and 5 different field units."
         }
-        api.assignIncidentTeam(AssignIncidentTeamRequest(incidentId, userIds))
+        api.assignIncidentTeam(incidentId, AssignIncidentTeamRequest(userIds))
     }
 
     /** Reserved for the explicit foreground tracking lifecycle; callers must gate this on en_route. */
