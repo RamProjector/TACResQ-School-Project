@@ -94,7 +94,12 @@ class SessionStore(
     suspend fun getOrCreatePendingIncident(fingerprint: String, payloadJson: String): PendingIncidentSubmission = pendingIncidentMutex.withLock {
         var submission: PendingIncidentSubmission? = null
         context.sessionDataStore.edit { prefs ->
-            val saved = prefs[pendingIncidentEnvelopeKey]?.let { encoded -> runCatching { gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java) }.getOrNull() }
+            val hasSavedEnvelope = prefs.contains(pendingIncidentEnvelopeKey)
+            val saved = prefs[pendingIncidentEnvelopeKey]?.let { encoded ->
+                runCatching { gson.fromJson(decrypt(encoded), PendingIncidentSubmission::class.java) }
+                    .getOrElse { throw PendingIncidentConflictException() }
+            }
+            if (hasSavedEnvelope && saved == null) throw PendingIncidentConflictException()
             if (saved != null) {
                 if (saved.fingerprint != fingerprint) throw PendingIncidentConflictException()
                 submission = saved
