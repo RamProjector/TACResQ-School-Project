@@ -66,6 +66,25 @@ BEGIN
 END;
 $$;
 
+
+DO $
+DECLARE
+  public_rpc_definer boolean;
+  private_rpc_definer boolean;
+BEGIN
+  SELECT prosecdef INTO public_rpc_definer
+    FROM pg_proc WHERE oid = to_regprocedure('public.api_assign_incident_team(bigint,bigint[])');
+  SELECT prosecdef INTO private_rpc_definer
+    FROM pg_proc WHERE oid = to_regprocedure('private.tacresq_assign_incident_team(bigint,bigint[])');
+  IF public_rpc_definer IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'Public team-assignment RPC must be SECURITY INVOKER';
+  END IF;
+  IF private_rpc_definer IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Private team-assignment implementation must retain SECURITY DEFINER';
+  END IF;
+END;
+$;
+
 -- Regression test for the failure seen in the Android recording:
 -- creating an incident must also create its first status log without an FK error.
 INSERT INTO auth.users (id, email, raw_user_meta_data)
