@@ -52,17 +52,17 @@ USING (
   requester_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid())
   OR assigned_to IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid())
   OR private.tacresq_is_incident_assignee(id)
-  OR public.tacresq_actor_role() = 'dispatcher'
+  OR private.tacresq_actor_role() = 'dispatcher'
 );
 DROP POLICY IF EXISTS incidents_update_dispatcher_or_assigned_unit ON public.incidents;
 CREATE POLICY incidents_update_dispatcher_or_assigned_unit ON public.incidents FOR UPDATE TO authenticated
 USING (
-  public.tacresq_actor_role() = 'dispatcher'
+  private.tacresq_actor_role() = 'dispatcher'
   OR assigned_to IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid())
   OR private.tacresq_is_incident_assignee(id)
 )
 WITH CHECK (
-  public.tacresq_actor_role() = 'dispatcher'
+  private.tacresq_actor_role() = 'dispatcher'
   OR assigned_to IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid())
   OR private.tacresq_is_incident_assignee(id)
 );
@@ -311,6 +311,48 @@ BEGIN
 END;
 $$;
 
+
+CREATE OR REPLACE FUNCTION public.api_update_incident_status(p_id bigint, p_status text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = pg_catalog, public AS $function$
+DECLARE
+  actor public.profiles;
+  incident_row public.incidents;
+  allowed boolean;
+BEGIN
+  SELECT * INTO actor FROM public.profiles WHERE auth_user_id = auth.uid();
+  SELECT * INTO incident_row FROM public.incidents WHERE id = p_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Incident not found' USING ERRCODE = 'P0002'; END IF;
+  IF actor.role NOT IN ('responder','driver') OR (
+       incident_row.assigned_to IS DISTINCT FROM actor.id
+       AND NOT EXISTS (SELECT 1 FROM public.incident_assignments a WHERE a.incident_id = p_id AND a.user_id = actor.id)
+  ) THEN
+    RAISE EXCEPTION 'Incident is not assigned to this field unit' USING ERRCODE = '42501';
+  END IF;
+  allowed := (incident_row.status = 'assigned' AND p_status = 'en_route')
+    OR (incident_row.status = 'en_route' AND p_status = 'on_scene')
+    OR (incident_row.status = 'on_scene' AND p_status IN ('transporting','resolved'))
+    OR (incident_row.status = 'transporting' AND p_status = 'resolved');
+  IF NOT allowed THEN RAISE EXCEPTION 'Invalid incident status transition' USING ERRCODE = '22023'; END IF;
+  UPDATE public.incidents SET status = p_status WHERE id = incident_row.id RETURNING * INTO incident_row;
+  RETURN jsonb_build_object(
+    'id', incident_row.id, 'type', incident_row.type, 'description', incident_row.description,
+    'latitude', incident_row.latitude, 'longitude', incident_row.longitude, 'accuracy_m', incident_row.accuracy_m,
+    'location_notes', incident_row.location_notes, 'location_recorded_at', incident_row.location_recorded_at,
+    'location_source', incident_row.location_source, 'status', incident_row.status,
+    'requester_name', (SELECT name FROM public.profiles WHERE id = incident_row.requester_id),
+    'requester_phone', (SELECT phone FROM public.profiles WHERE id = incident_row.requester_id),
+    'assigned_to', incident_row.assigned_to,
+    'assigned_user_ids', coalesce((SELECT jsonb_agg(a.user_id ORDER BY a.assigned_at, a.user_id)
+      FROM public.incident_assignments a WHERE a.incident_id = incident_row.id), '[]'::jsonb),
+    'created_at', incident_row.created_at,
+    'requester_edit_count', incident_row.requester_edit_count,
+    'requester_last_edited_at', incident_row.requester_last_edited_at
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.api_update_incident_status(bigint,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.api_update_incident_status(bigint,text) TO authenticated;
 REVOKE ALL ON FUNCTION public.api_assign_incident_team(bigint,bigint[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_assign_incident_team(bigint,bigint[]) TO authenticated;
 REVOKE ALL ON FUNCTION public.api_assign_incident(bigint,bigint) FROM PUBLIC, anon;
