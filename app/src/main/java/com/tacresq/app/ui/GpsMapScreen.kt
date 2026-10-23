@@ -14,6 +14,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -747,6 +748,24 @@ fun GpsMapScreen(
                         }
                     }
                 }
+                Text(
+                    text = "© OpenStreetMap contributors",
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .clickable {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(
+                                        Intent.ACTION_VIEW,
+                                        Uri.parse("https://www.openstreetmap.org/copyright"),
+                                    )
+                                )
+                            }
+                        }
+                        .padding(top = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
         }
     }
