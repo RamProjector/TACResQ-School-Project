@@ -56,6 +56,13 @@ BEGIN
      OR to_regprocedure('public.api_unregister_fcm_token(text)') IS NULL THEN
     RAISE EXCEPTION 'FCM token RPCs missing after replay';
   END IF;
+
+  IF to_regclass('public.incident_assignments') IS NULL THEN
+    RAISE EXCEPTION 'incident_assignments table missing after replay';
+  END IF;
+  IF to_regprocedure('public.api_assign_incident_team(bigint,bigint[])') IS NULL THEN
+    RAISE EXCEPTION 'team assignment RPC missing after replay';
+  END IF;
 END;
 $$;
 
