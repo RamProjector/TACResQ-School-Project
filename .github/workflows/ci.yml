@@ -188,6 +188,10 @@ jobs:
           mkdir -p artifacts/android
           cp app/build/outputs/apk/debug/app-debug.apk artifacts/android/tacresq-demo-debug.apk
 
+      - name: Run Android JVM unit tests
+        if: hashFiles('gradlew') != ''
+        run: ./gradlew --no-daemon testDebugUnitTest
+
       - name: Build Supabase-mode debug APK
         if: hashFiles('gradlew') != ''
         run: |
