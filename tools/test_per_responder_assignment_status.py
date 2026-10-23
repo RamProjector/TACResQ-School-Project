@@ -20,6 +20,8 @@ for required in (
     "bool_and(a.responder_status = 'resolved')",
     "bool_and(a.responder_status IN ('on_scene','transporting','resolved'))",
     "assigned_user_statuses",
+    "assignment_status <> 'en_route'",
+    "a.responder_status = 'en_route'",
     "SECURITY INVOKER",
     "REVOKE ALL ON FUNCTION public.api_update_my_assignment_status(bigint, text) FROM PUBLIC, anon",
     "GRANT EXECUTE ON FUNCTION public.api_update_my_assignment_status(bigint, text) TO authenticated",
