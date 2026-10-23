@@ -108,6 +108,26 @@ for relative_path, required_text in demo_mode_contract.items():
         )
 print("Android demo-mode contract OK: debug shortcuts use the fake API; release selects Supabase.")
 
+auth_submission_contract = {
+    "app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt": (
+        "if (_state.value.loading) return\\n"
+        "        // Claim the operation synchronously so rapid repeated taps cannot launch\\n"
+        "        // duplicate login/signup requests before the coroutine starts running.\\n"
+        "        _state.value = AuthUiState(loading = true)\\n"
+        "        viewModelScope.launch {",
+    ),
+}
+for relative_path, required_text in auth_submission_contract.items():
+    source = (ROOT / relative_path).read_text(encoding="utf-8")
+    missing = [snippet for snippet in required_text if snippet not in source]
+    if missing:
+        raise SystemExit(
+            f"Authentication duplicate-submit contract failed for {relative_path}: missing "
+            + ", ".join(missing)
+        )
+print("Authentication submit contract OK: login/signup claim the loading state before coroutine scheduling.")
+
+
 gps_map_location_contract = {
     "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": (
         "ActivityResultContracts.RequestPermission()",
