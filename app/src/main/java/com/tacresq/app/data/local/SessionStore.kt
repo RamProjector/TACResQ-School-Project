@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import java.io.IOException
 import java.security.KeyStore
+import java.util.UUID
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -38,6 +41,9 @@ class SessionStore(
     private val gson = Gson()
     private val inMemorySession = MutableStateFlow<Session?>(null)
     private val encryptedSessionKey = stringPreferencesKey("encrypted_session_v1")
+    private val pendingIncidentRequestIdKey = stringPreferencesKey("pending_incident_request_id")
+    private val pendingIncidentFingerprintKey = stringPreferencesKey("pending_incident_fingerprint")
+    private val pendingIncidentMutex = Mutex()
 
     val session: Flow<Session?> = if (persistSessions) {
         context.sessionDataStore.data
@@ -76,6 +82,32 @@ class SessionStore(
             prefs.remove(stringPreferencesKey("token"))
             prefs.remove(stringPreferencesKey("user_json"))
             prefs[encryptedSessionKey] = encrypted
+        }
+    }
+
+    /** Reuse a key only for the exact same SOS payload after an ambiguous network failure. */
+    suspend fun pendingIncidentRequestId(fingerprint: String): String = pendingIncidentMutex.withLock {
+        var requestId = ""
+        context.sessionDataStore.edit { prefs ->
+            val savedFingerprint = prefs[pendingIncidentFingerprintKey]
+            val savedId = prefs[pendingIncidentRequestIdKey]
+            if (savedId.isNullOrBlank() || savedFingerprint != fingerprint) {
+                requestId = UUID.randomUUID().toString()
+                prefs[pendingIncidentRequestIdKey] = requestId
+                prefs[pendingIncidentFingerprintKey] = fingerprint
+            } else requestId = savedId
+        }
+        requestId
+    }
+
+    suspend fun clearPendingIncidentRequestId(requestId: String) {
+        pendingIncidentMutex.withLock {
+            context.sessionDataStore.edit { prefs ->
+                if (prefs[pendingIncidentRequestIdKey] == requestId) {
+                    prefs.remove(pendingIncidentRequestIdKey)
+                    prefs.remove(pendingIncidentFingerprintKey)
+                }
+            }
         }
     }
 
