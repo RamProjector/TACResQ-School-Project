@@ -468,7 +468,8 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var showEditMapPicker by rememberSaveable { mutableStateOf(false) }
     var confirmingEdit by rememberSaveable { mutableStateOf(false) }
     var editNowMillis by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
-    var showManualPinPicker by rememberSaveable { mutableStateOf(false) }    var showRequestForm by rememberSaveable { mutableStateOf(false) }
+    var showManualPinPicker by rememberSaveable { mutableStateOf(false) }
+    var showRequestForm by rememberSaveable { mutableStateOf(false) }
     var requestStep by rememberSaveable { mutableStateOf(1) }
     val freshFix = state.locationFix?.takeIf(vm::isFresh)
     val activeIncidents = state.incidents.filter { it.status.isActive }
@@ -844,7 +845,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         )
     }
 
-    if (incidentToCancel != null) {            onDismissRequest = { incidentToCancel = null },
+    if (incidentToCancel != null) {
+        AlertDialog(
+            onDismissRequest = { incidentToCancel = null },
             title = { Text("Cancel emergency request?") },
             text = {
                 Text("This will cancel the request only if dispatch has not assigned a unit. If a unit has already been assigned, the server will reject cancellation so you can contact dispatch instead.")
