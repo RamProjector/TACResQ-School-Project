@@ -134,8 +134,7 @@ BEGIN
       created_incident_id, status_log_count;
   END IF;
 END;
-$$;
-SQL
+$;
 
 
 -- End-to-end SQL regression: team members advance independently, the aggregate
@@ -227,5 +226,6 @@ BEGIN
   END IF;
 END;
 $per_responder_test$;
+SQL
 
-echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and initial incident status logging passed."
+echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and incident audit plus per-responder status regressions passed."
