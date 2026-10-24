@@ -227,7 +227,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
 
 // Transitional Render -> Supabase bridge. Apply a coarse per-IP ceiling before
 // validating Supabase tokens so unauthenticated traffic cannot hammer Auth.
-// The database cache store tables are created by migration 2026_10_24_000006.
+// The Render container sets CACHE_STORE=file so throttling stays independent of SQL cache tables.
 // Use a higher IP ceiling to avoid locking out users behind carrier NAT. A lower
 // per-authenticated-user limit is enforced after the Supabase token is validated.
 Route::middleware('throttle:600,1')->group(function () {
