@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -10,6 +11,9 @@ class SupabaseBridgeTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Each test gets a clean rate-limit bucket; the default test client IP is shared.
+        Cache::flush();
 
         config([
             'tacru.supabase_url' => 'https://tacresq-bridge.example.test',
