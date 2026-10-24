@@ -25,16 +25,16 @@ checks = {
         'manifestPlaceholders["authRedirectScheme"] = "tacresq"' in gradle,
     "CI builds demo debug APK":
         "Build demo-mode debug APK" in workflow and "./gradlew --no-daemon assembleDebug" in workflow,
-    "CI separately builds Supabase debug APK":
-        "Build Supabase-mode debug APK" in workflow and "./gradlew --no-daemon assembleDebug -PuseSupabase=true" in workflow,
+    "CI separately builds Render-bridged Supabase debug APK":
+        "Build Supabase-mode debug APK" in workflow and "./gradlew --no-daemon assembleDebug -PuseSupabase=true -PuseRenderBridge=true" in workflow,
     "CI publishes distinct artifact names":
         "tacresq-demo-debug.apk" in workflow and "tacresq-supabase-debug.apk" in workflow,
     "release artifact remains clearly labeled":
         "tacresq-release.apk" in workflow,
     "unsigned release output is collected when signing is not configured":
         "app-release-unsigned.apk" in workflow and "if [ ! -f \"$RELEASE_APK\" ]" in workflow,
-    "README explains how to build real-backend debug mode":
-        "./gradlew --no-daemon assembleDebug -PuseSupabase=true" in readme,
+    "README explains how to build Render-bridged real-backend debug mode":
+        "./gradlew --no-daemon assembleDebug -PuseSupabase=true -PuseRenderBridge=true" in readme,
     "README links the real Supabase QA guide":
         "[Real Supabase testing and QA account setup](docs/SUPABASE_TESTING.md)" in readme and qa_guide.is_file(),
 }
