@@ -174,7 +174,7 @@ Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge
 
     try {
         $user = $bridge->getUser($token);
-    } catch (\\RuntimeException) {
+    } catch (\RuntimeException) {
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
     abort_if (!$user, 401, 'The Supabase session is invalid or expired.');
@@ -200,7 +200,7 @@ Route::post('/bridge/rpc/{function}', function (
         if (!$bridge->getUser($token)) {
             return response()->json(['message' => 'The Supabase session is invalid or expired.'], 401);
         }
-    } catch (\\RuntimeException) {
+    } catch (\RuntimeException) {
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
 
