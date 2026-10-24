@@ -1,7 +1,9 @@
 import importlib.util
+import sys
 import unittest
 SPEC=importlib.util.spec_from_file_location("reviewer","tools/tacresq_code_reviewer.py")
 reviewer=importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name]=reviewer
 SPEC.loader.exec_module(reviewer)
 class AddedLineParserTests(unittest.TestCase):
  def test_tracks_added_line_numbers_and_ignores_removed_lines(self):
