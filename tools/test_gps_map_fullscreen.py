@@ -40,13 +40,17 @@ assert "if (detailsExpanded) 330.dp else 74.dp" not in map_screen, (
 )
 print("GPS map responsive control placement contract passed.")
 
-# Visible text labels make map actions discoverable without relying on icon inference.
-for label in ('"Locate me"', '"Incidents"', '"Field units"'):
-    assert label in map_screen, f"map action must show a visible {label} label"
-assert "Modifier.widthIn(min = 132.dp).heightIn(min = 48.dp)" in map_screen, (
-    "map action buttons must preserve a generous minimum touch target"
+# Keep spatial actions compact so they do not form a tall stack over the map.
+assert 'Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)' in map_screen
+assert 'Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)' in map_screen
+assert 'contentDescription = if (deviceFix == null) "Locate me" else "Refresh location"' in map_screen, (
+    "the compact recenter control must remain accessible to screen readers"
 )
-print("GPS map action-label and touch-target contract passed.")
+assert "Modifier.widthIn(min = 100.dp).heightIn(min = 48.dp)" in map_screen
+assert "Modifier.widthIn(min = 112.dp).heightIn(min = 48.dp)" in map_screen
+assert "Modifier.size(48.dp)" in map_screen, "recenter target must remain at least 48dp"
+assert "horizontalArrangement = Arrangement.spacedBy(8.dp)" in map_screen
+print("GPS map compact action-row and touch-target contract passed.")
 
 # The chevron must describe the action available in the current state.
 assert """imageVector = if (detailsExpanded)
