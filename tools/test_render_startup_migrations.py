@@ -7,7 +7,7 @@ dockerfile = (ROOT / "backend/Dockerfile").read_text()
 
 checks = {
     "Docker image starts Laravel directly on Render's exposed port":
-        'php artisan config:clear; exec php artisan serve --host=0.0.0.0 --port=\"${PORT:-10000}\"' in dockerfile
+        r'php artisan config:clear; exec php artisan serve --host=0.0.0.0 --port=\"${PORT:-10000}\"' in dockerfile
         and "EXPOSE 10000" in dockerfile,
     "Docker image does not install a migration runner or entrypoint":
         "migrate-with-lock.php" not in dockerfile and "tacresq-entrypoint" not in dockerfile,
