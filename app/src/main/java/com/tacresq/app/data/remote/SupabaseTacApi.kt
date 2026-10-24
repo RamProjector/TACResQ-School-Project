@@ -50,8 +50,8 @@ class SupabaseTacApi private constructor(
     override suspend fun units(): List<User> =
         bridgeRpc?.units(EmptyRpcBody()) ?: rpc.units(EmptyRpcBody())
     override suspend fun activeResponderLocations(): List<ResponderLocation> = rpc.activeResponderLocations(EmptyRpcBody())
-    override suspend fun createIncident(body: CreateIncidentRequest): Incident = (bridgeRpc ?: rpc).createIncidentV4(
-        CreateIncidentV4Rpc(
+    override suspend fun createIncident(body: CreateIncidentRequest): Incident {
+        val request = CreateIncidentV4Rpc(
             body.type.wireValue,
             body.description,
             body.latitude,
@@ -62,11 +62,14 @@ class SupabaseTacApi private constructor(
             body.locationSource,
             body.clientRequestId,
         )
-    )
-    override suspend fun cancelMyIncident(id: Long): Incident =
-        (bridgeRpc ?: rpc).cancelMyIncident(CancelIncidentRpc(id))
+        return if (bridgeRpc != null) bridgeRpc.createIncidentV4(request) else rpc.createIncidentV4(request)
+    }
+    override suspend fun cancelMyIncident(id: Long): Incident {
+        val request = CancelIncidentRpc(id)
+        return if (bridgeRpc != null) bridgeRpc.cancelMyIncident(request) else rpc.cancelMyIncident(request)
+    }
     override suspend fun updateMyIncident(body: UpdateMyIncidentRequest): Incident =
-        (bridgeRpc ?: rpc).updateMyIncident(body)
+        if (bridgeRpc != null) bridgeRpc.updateMyIncident(body) else rpc.updateMyIncident(body)
     override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident =
         rpc.updateIncidentStatus(UpdateIncidentRpc(id, body.status.wireValue))
     override suspend fun updateMyAssignmentStatus(id: Long, body: UpdateStatusRequest): Incident =
