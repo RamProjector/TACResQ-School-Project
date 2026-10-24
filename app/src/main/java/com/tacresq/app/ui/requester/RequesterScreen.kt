@@ -671,6 +671,19 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        repeat(3) { stepIndex ->
+                            Surface(
+                                modifier = Modifier.weight(1f).height(4.dp),
+                                shape = RoundedCornerShape(50),
+                                color = if (stepIndex < requestStep) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant,
+                            ) {}
+                        }
+                    }
                     when (requestStep) {
                         1 -> {
                             Text("What kind of help do you need?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
