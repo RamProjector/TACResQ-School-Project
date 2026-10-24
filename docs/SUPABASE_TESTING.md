@@ -10,7 +10,7 @@ The GitHub Actions artifact named `tacresq-android-apks` contains:
 - `tacresq-supabase-debug.apk` — uses real Supabase Auth and routes all application data RPCs through the authenticated Render bridge to Supabase.
 - `tacresq-release.apk` — real Supabase mode; unsigned unless release-signing secrets are configured.
 
-The demo and Supabase debug APKs use different Android application IDs (`com.tacresq.app.demo` and `com.tacresq.app.supabase`). They can be installed side-by-side. Build the demo with `./gradlew --no-daemon assembleDebug` and the Supabase-backed version with `./gradlew --no-daemon assembleDebug -PuseSupabase=true -PuseRenderBridge=true`.
+The demo and Supabase debug APKs use different Android application IDs (`com.tacresq.app.demo` and `com.tacresq.app.supabase`). They can be installed side-by-side. Build the demo with `./gradlew --no-daemon assembleDebug` and the Supabase-backed version with `./gradlew --no-daemon assembleDebug -PuseSupabase=true -PuseRenderBridge=true -PuseRenderBridge=true`.
 
 For a local real-backend debug build:
 
