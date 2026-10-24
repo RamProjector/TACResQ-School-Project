@@ -32,4 +32,4 @@ ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr SESSION_DRIVER=file CA
     SUPABASE_URL=https://kttguamhznoflzagfutr.supabase.co \
     SUPABASE_PUBLISHABLE_KEY=sb_publishable_1-_oEKiNRWO0tvEOr5Gr3g_USY07s2g
 EXPOSE 10000
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
+CMD ["sh", "-ec", "php artisan config:clear; exec php artisan serve --host=0.0.0.0 --port=\"${PORT:-10000}\""]
