@@ -23,15 +23,13 @@ RUN composer require laravel/sanctum:^4.0 --no-interaction
 RUN rm -f database/migrations/*.php
 COPY src/ ./
 COPY --from=dashboard-build /dashboard/dist/ ./public/dispatch/
-COPY docker/entrypoint.sh /usr/local/bin/tacresq-entrypoint
-RUN chmod +x /usr/local/bin/tacresq-entrypoint \
-    && php artisan optimize:clear
+RUN php artisan optimize:clear
 
-# The bridge is stateless with respect to application records: Supabase owns auth/data.
-# Use local file cache so Laravel's rate limiter does not require a separate SQL database.
+# Supabase owns application auth/data. The bridge must not need a Render SQL database.
+# File cache lets the rate limiter work without a database-backed cache store.
 # These are browser-safe Supabase client settings, not service-role credentials.
 ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr SESSION_DRIVER=file CACHE_STORE=file \
     SUPABASE_URL=https://kttguamhznoflzagfutr.supabase.co \
     SUPABASE_PUBLISHABLE_KEY=sb_publishable_1-_oEKiNRWO0tvEOr5Gr3g_USY07s2g
 EXPOSE 10000
-CMD ["/usr/local/bin/tacresq-entrypoint"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
