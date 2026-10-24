@@ -73,7 +73,9 @@ final class SupabaseBridge
                     'Authorization' => 'Bearer '.$accessToken,
                 ])
                 ->timeout(8)
-                ->post($baseUrl.'/rest/v1/rpc/'.$function, $arguments);
+                // PostgREST RPC parameters must be a JSON object; PHP's empty
+                // array would serialize as [], which is not the no-argument shape.
+                ->post($baseUrl.'/rest/v1/rpc/'.$function, $arguments === [] ? new \\stdClass() : $arguments);
 
             return ['status' => $response->status(), 'body' => $response->json()];
         } catch (Throwable) {
