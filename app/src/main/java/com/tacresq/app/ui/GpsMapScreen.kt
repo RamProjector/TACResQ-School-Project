@@ -625,13 +625,18 @@ fun GpsMapScreen(
             }
         }
 
-        // Map actions float independently instead of consuming a full-width toolbar.
+        // Keep the action stack clear of both the title and the optional offline banner.
+        // The banner occupies the same upper map region; without this offset it can cover
+        // the locate button on narrow/short devices when connectivity is unavailable.
+        val mapActionsTopPadding = when {
+            hasValidatedInternet == false -> if (detailsExpanded) 184.dp else 156.dp
+            detailsExpanded -> 112.dp
+            else -> 84.dp
+        }
         Column(
             modifier = Modifier
-                // Keep controls in the upper-right map area instead of using a large
-                // bottom offset that can push them beyond the viewport on short screens.
                 .align(Alignment.TopEnd)
-                .padding(top = if (detailsExpanded) 112.dp else 84.dp, end = 12.dp),
+                .padding(top = mapActionsTopPadding, end = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalAlignment = Alignment.End,
         ) {
