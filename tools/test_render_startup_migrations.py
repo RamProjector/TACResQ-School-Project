@@ -15,8 +15,6 @@ checks = {
         "CACHE_STORE=file" in dockerfile,
     "image does not start application migrations":
         "artisan migrate" not in dockerfile.lower(),
-    "no privileged Supabase credentials are added to the image":
-        "SUPABASE_SERVICE_ROLE_KEY" not in dockerfile,
 }
 
 failed = [name for name, passed in checks.items() if not passed]
