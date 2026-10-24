@@ -78,7 +78,7 @@ for name in ACTIVE_CLIENT_RPCS:
 # new bridge route from being exposed just by adding its name to the PHP allowlist.
 BRIDGE_CONFIG = Path("backend/src/config/tacru.php").read_text()
 bridge_block = re.search(
-    r"'bridge_rpc_allowlist'\\s*=>\\s*\\[(.*?)\\]",
+    r"'bridge_rpc_allowlist'\s*=>\s*\[(.*?)\]",
     BRIDGE_CONFIG,
     re.IGNORECASE | re.DOTALL,
 )
