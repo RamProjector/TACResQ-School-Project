@@ -50,6 +50,10 @@ android {
     }
 
     val useSupabaseInDebug = providers.gradleProperty("useSupabase").orNull == "true"
+    val useRenderBridgeInDebug = providers.gradleProperty("useRenderBridge").orNull == "true"
+    if (useRenderBridgeInDebug && !useSupabaseInDebug) {
+        error("The Render bridge canary requires -PuseSupabase=true; demo mode must never call live services.")
+    }
 
     buildTypes {
         debug {
@@ -59,10 +63,13 @@ android {
             manifestPlaceholders["authRedirectScheme"] =
                 if (useSupabaseInDebug) "tacresq" else "tacresq-demo"
             buildConfigField("boolean", "USE_FAKE_API", (!useSupabaseInDebug).toString())
+            buildConfigField("boolean", "USE_RENDER_BRIDGE", useRenderBridgeInDebug.toString())
         }
         release {
             manifestPlaceholders["authRedirectScheme"] = "tacresq"
             buildConfigField("boolean", "USE_FAKE_API", "false")
+            // Keep production on the existing direct-Supabase route until canary QA is signed off.
+            buildConfigField("boolean", "USE_RENDER_BRIDGE", "false")
             isMinifyEnabled = false
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("release")
