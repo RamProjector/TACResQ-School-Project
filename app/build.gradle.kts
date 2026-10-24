@@ -68,8 +68,9 @@ android {
         release {
             manifestPlaceholders["authRedirectScheme"] = "tacresq"
             buildConfigField("boolean", "USE_FAKE_API", "false")
-            // Keep production on the existing direct-Supabase route until canary QA is signed off.
-            buildConfigField("boolean", "USE_RENDER_BRIDGE", "false")
+            // Route every application data RPC through the authenticated Render bridge.
+            // Supabase Auth remains direct so the app can obtain user access tokens.
+            buildConfigField("boolean", "USE_RENDER_BRIDGE", "true")
             isMinifyEnabled = false
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("release")
