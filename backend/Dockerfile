@@ -24,6 +24,7 @@ RUN rm -f database/migrations/*.php
 COPY src/ ./
 COPY --from=dashboard-build /dashboard/dist/ ./public/dispatch/
 COPY docker/entrypoint.sh /usr/local/bin/tacresq-entrypoint
+COPY docker/migrate-with-lock.php /usr/local/bin/tacresq-migrate-with-lock.php
 RUN chmod +x /usr/local/bin/tacresq-entrypoint \
     && php artisan optimize:clear
 
