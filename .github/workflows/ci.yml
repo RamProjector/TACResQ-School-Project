@@ -357,6 +357,11 @@ jobs:
           print('Runtime configuration is correct and non-cacheable.')
           PY
 
+      - name: Capture Laravel logs on integration failure
+        if: failure()
+        working-directory: backend
+        run: docker compose logs --no-color api db || true
+
       - name: Stop test services
         if: always()
         working-directory: backend
