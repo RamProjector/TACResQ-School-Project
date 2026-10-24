@@ -5,6 +5,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\Rule;
 
@@ -227,8 +228,9 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
 // Transitional Render -> Supabase bridge. Apply a coarse per-IP ceiling before
 // validating Supabase tokens so unauthenticated traffic cannot hammer Auth.
 // The database cache store tables are created by migration 2026_10_24_000006.
-// Keep the limit conservative; user-token-aware limiting can follow after QA.
-Route::middleware('throttle:120,1')->group(function () {
+// Use a higher IP ceiling to avoid locking out users behind carrier NAT. A lower
+// per-authenticated-user limit is enforced after the Supabase token is validated.
+Route::middleware('throttle:600,1')->group(function () {
 
 // Transitional Render -> Supabase bridge. This is additive; existing clients are
 // not switched to it until endpoint parity and end-to-end tests are complete.
@@ -242,6 +244,13 @@ Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
     abort_if (!$user, 401, 'The Supabase session is invalid or expired.');
+
+    $userRateKey = 'bridge-user:'.$user['id'];
+    if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
+        return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
+    }
+    RateLimiter::hit($userRateKey, 60);
 
     return response()->json([
         'id' => $user['id'],
@@ -267,6 +276,13 @@ Route::post('/bridge/rpc/{function}', function (
     } catch (\RuntimeException) {
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
+
+    $userRateKey = 'bridge-user:'.$user['id'];
+    if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
+        return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
+    }
+    RateLimiter::hit($userRateKey, 60);
 
     $result = $bridge->callRpc($token, $function, $request->json()->all());
     if ($result['status'] >= 500) {
