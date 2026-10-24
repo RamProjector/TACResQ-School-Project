@@ -104,7 +104,7 @@ Debug APKs use the in-memory fake backend by default, with four role shortcuts o
 To test a configured Supabase project from a debug build instead, build with:
 
 ```bash
-./gradlew --no-daemon assembleDebug -PuseSupabase=true -PuseRenderBridge=true
+./gradlew --no-daemon assembleDebug -PuseSupabase=true -PuseRenderBridge=true -PuseRenderBridge=true
 ```
 
 This changes only that debug build. It does not create Supabase Auth users; provision real test identities separately through a trusted administrator. See [Real Supabase testing and QA account setup](docs/SUPABASE_TESTING.md) and [opt-in Render bridge canary](docs/RENDER_BRIDGE_CANARY.md) for the correct APK, safe role provisioning, and verification flow. Never use real emergency records for QA.
