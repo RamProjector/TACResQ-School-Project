@@ -15,8 +15,8 @@ object AppConfig {
     const val FAKE_AUTO_DISPATCH = false
 
     /**
-     * Laravel API root. Retained for the optional Laravel adapter; the app currently
-     * uses Supabase directly, so no Render database is required.
+     * Render API root for the opt-in Supabase RPC bridge and legacy Laravel adapter.
+     * The bridge forwards caller-authenticated RPCs; it does not use a Render database.
      */
     const val BASE_URL = "https://tacresq-school-project.onrender.com/api/"
 
