@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
@@ -164,6 +166,8 @@ fun GpsMapScreen(
     BackHandler { onBack() }
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    // Keep the latest callback without restarting the polling coroutine on recomposition.
+    val refreshResponderLocations by rememberUpdatedState(onRefreshResponderLocations)
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
     var hasAutoFramedIncidents by remember { mutableStateOf(false) }
     var freshnessTick by remember { mutableStateOf(0) }
@@ -251,20 +255,27 @@ fun GpsMapScreen(
         locationStatus = null
     }
 
-    // Keep incident-location ages accurate for every role while this map stays open.
-    // This ticker is intentionally separate from dispatcher-only network refreshes.
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        while (true) {
-            delay(15_000)
-            freshnessTick += 1
+    // Pause periodic work whenever the app/screen is not STARTED. This avoids
+    // background recomposition/network polling and refreshes freshness on return.
+    androidx.compose.runtime.LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(15_000)
+                freshnessTick += 1
+            }
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(role, user.id) {
+    // Dispatcher location polling is foreground-only and performs an immediate
+    // refresh on every return to STARTED; cancellation on STOPPED ends the loop.
+    androidx.compose.runtime.LaunchedEffect(lifecycleOwner, role, user.id) {
         if (role == Role.DISPATCHER) {
-            while (true) {
-                onRefreshResponderLocations()
-                delay(15_000)
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                refreshResponderLocations()
+                while (true) {
+                    delay(15_000)
+                    refreshResponderLocations()
+                }
             }
         }
     }

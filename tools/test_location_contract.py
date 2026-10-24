@@ -36,13 +36,14 @@ checks = {
     "Android map refreshes incident-location ages for every role without polling responder locations for non-dispatchers": (
         all(text in map_screen for text in (
             "remember(freshnessTick) { Instant.now() }",
-            "LaunchedEffect(Unit)",
+            "lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED)",
+            "LaunchedEffect(lifecycleOwner)",
             "delay(15_000)",
             "freshnessTick += 1",
-            "LaunchedEffect(role, user.id)",
-            "onRefreshResponderLocations()",
+            "LaunchedEffect(lifecycleOwner, role, user.id)",
+            "refreshResponderLocations()",
         ))
-        and "freshnessTick += 1" not in map_screen.split("LaunchedEffect(role, user.id)", 1)[1].split("val mapView = remember(context)", 1)[0]
+        and "freshnessTick += 1" not in map_screen.split("LaunchedEffect(lifecycleOwner, role, user.id)", 1)[1].split("val mapView = remember(context)", 1)[0]
     ),
     "Android incident pins show recorded location age and warn on missing, invalid, future, or old timestamps": all(text in map_screen for text in ("private fun Incident.locationAgeStatus", "Location time unavailable — confirm before navigating.", "Location timestamp invalid — confirm before navigating.", "Location timestamp is in the future — confirm before navigating.", "ageSeconds > 600L", "confirm before navigating.", "Location recorded ${formatLocationAge(ageSeconds)}", "val locationAgeLabel = incident.locationAgeStatus(mapNow).first", "color = if (locationNeedsConfirmation) MaterialTheme.colorScheme.error")),
     "expanded incident cards share the ticking map clock so stale-location warnings keep updating": all(text in map_screen for text in ("MapIncidentCard(incident = incident, context = context, now = mapNow)", "private fun MapIncidentCard(incident: Incident, context: Context, now: Instant)", "incident.locationAgeStatus(now)")),
