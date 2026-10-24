@@ -1,41 +1,33 @@
 #!/usr/bin/env python3
-"""Contract checks for safe, serialized Laravel migrations at Render startup."""
+"""Contract checks that the Render Supabase bridge starts without a SQL database."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 dockerfile = (ROOT / "backend/Dockerfile").read_text()
-entrypoint = (ROOT / "backend/docker/entrypoint.sh").read_text()
-runner = (ROOT / "backend/docker/migrate-with-lock.php").read_text()
-cache_migration = ROOT / "backend/src/database/migrations/2026_10_24_000006_create_cache_tables.php"
+router = (ROOT / "backend/router.php").read_text()
 
 checks = {
-    "Docker image packages the migration runner":
-        "COPY docker/migrate-with-lock.php /usr/local/bin/tacresq-migrate-with-lock.php" in dockerfile,
-    "entrypoint runs migrations before serving requests":
-        entrypoint.index("php /usr/local/bin/tacresq-migrate-with-lock.php")
-        < entrypoint.index('exec php artisan serve'),
-    "entrypoint fails closed if migrations fail":
-        "set -eu" in entrypoint and "php /usr/local/bin/tacresq-migrate-with-lock.php" in entrypoint,
-    "migration runner boots Laravel and runs forced migrations":
-        "Illuminate\\Contracts\\Console\\Kernel::class" in runner
-        and "Illuminate\\Support\\Facades\\Artisan::call('migrate', ['--force' => true])" in runner,
-    "PostgreSQL advisory lock serializes concurrent Render instances":
-        "pg_advisory_lock" in runner and "pg_advisory_unlock" in runner
-        and runner.index("pg_advisory_lock") < runner.index("Artisan::call")
-        and runner.index("Artisan::call") < runner.index("pg_advisory_unlock"),
-    "runner propagates migration failure as a non-zero exit":
-        "exit($exitCode);" in runner and "$exitCode = 1;" in runner,
-    "database cache tables required by bridge throttling exist as a migration":
-        cache_migration.is_file()
-        and "Schema::create('cache'" in cache_migration.read_text()
-        and "Schema::create('cache_locks'" in cache_migration.read_text(),
-    "runner does not introduce privileged Supabase credentials":
-        "service_role" not in runner.lower() and "SUPABASE_SERVICE_ROLE_KEY" not in dockerfile,
+    "Docker image runs the PHP server directly on Render's exposed port":
+        'exec php -S 0.0.0.0:${PORT:-10000} -t public router.php' in dockerfile
+        and "EXPOSE 10000" in dockerfile
+        and "php artisan serve" not in dockerfile,
+    "Docker image includes the environment-preserving router":
+        "COPY router.php ./router.php" in dockerfile
+        and "require __DIR__ . '/public/index.php';" in router,
+    "router serves only existing public assets directly":
+        "realpath($publicDirectory . DIRECTORY_SEPARATOR . ltrim($requestPath, '/'))" in router
+        and "str_starts_with($candidate, $publicDirectory . DIRECTORY_SEPARATOR)" in router
+        and "return false;" in router,
+    "runtime cache does not require a SQL database":
+        "CACHE_STORE=file" in dockerfile,
+    "Docker image does not install a migration runner or entrypoint":
+        "migrate-with-lock.php" not in dockerfile and "tacresq-entrypoint" not in dockerfile,
+    "image does not start application migrations":
+        "artisan migrate" not in dockerfile.lower(),
 }
-
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
     print(f"{'PASS' if passed else 'FAIL'} {name}")
 if failed:
-    raise SystemExit(f"{len(failed)} Render startup migration contract check(s) failed")
-print(f"Render startup migration contract OK: {len(checks)} checks.")
+    raise SystemExit(f"{len(failed)} Render bridge startup contract check(s) failed")
+print(f"Render bridge startup contract OK: {len(checks)} checks.")

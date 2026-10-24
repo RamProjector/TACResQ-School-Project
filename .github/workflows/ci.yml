@@ -368,7 +368,7 @@ jobs:
               'supabaseUrl': 'https://tacresq-ci.example.test',
               'supabasePublishableKey': 'sb_publishable_ci_placeholder',
           }
-          assert config == expected, 'Runtime config does not match CI environment'
+          assert config == expected, f'Runtime config mismatch: expected={expected!r}, actual={config!r}'
           assert 'cache-control: no-store, private' in headers, 'Cache-Control must disable storage'
           print('Runtime configuration is correct and non-cacheable.')
           PY
