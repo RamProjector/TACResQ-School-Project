@@ -10,8 +10,8 @@ $runtimeConfig = static function () {
     // This endpoint is intentionally runtime-configured for the static dashboard.
     // Read process environment values directly so a config cache baked into an
     // image cannot pin the dashboard to build-time Supabase settings.
-    $supabaseUrl = env('SUPABASE_URL') ?: config('tacru.supabase_url');
-    $publishableKey = env('SUPABASE_PUBLISHABLE_KEY') ?: config('tacru.supabase_publishable_key');
+    $supabaseUrl = getenv('SUPABASE_URL') ?: ($_SERVER['SUPABASE_URL'] ?? $_ENV['SUPABASE_URL'] ?? config('tacru.supabase_url'));
+    $publishableKey = getenv('SUPABASE_PUBLISHABLE_KEY') ?: ($_SERVER['SUPABASE_PUBLISHABLE_KEY'] ?? $_ENV['SUPABASE_PUBLISHABLE_KEY'] ?? config('tacru.supabase_publishable_key'));
 
     return response()->json([
         'supabaseUrl' => $supabaseUrl,
