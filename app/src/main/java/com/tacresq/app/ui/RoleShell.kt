@@ -5,11 +5,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,7 +19,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,10 +50,9 @@ fun RoleShell(
     content: @Composable () -> Unit,
     mapContent: @Composable () -> Unit,
 ) {
-    Scaffold(
+    androidx.compose.material3.Scaffold(
         bottomBar = {
-            // Keep the five primary destinations available on every screen, including the map.
-            // The map should remain the main visual surface without making navigation disappear.
+            // Keep all five top-level destinations available, including while viewing the map.
             TacruBottomNavigation(
                 role = role,
                 selected = selected,
@@ -75,39 +72,32 @@ private fun TacruBottomNavigation(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
-    Surface(
-        tonalElevation = 3.dp,
-        shadowElevation = 8.dp,
-        color = MaterialTheme.colorScheme.surface,
-    ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val compact = maxWidth < 400.dp
-            // Preserve full labels on wider layouts and shorten only where width is constrained.
-            val labels = when (role) {
-                Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
-                Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")
-                Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")
-            }
-            val destinations = listOf(
-                AppDestination.PRIMARY to labels[0],
-                AppDestination.SECONDARY to labels[1],
-                AppDestination.ALERTS to labels[2],
-                AppDestination.PROFILE to labels[3],
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = if (compact) 2.dp else 8.dp, vertical = if (compact) 4.dp else 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
-            ) {
-                NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected, compact)
-                NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected, compact)
-                GpsMapNavigationItem(selected, onDestinationSelected, compact)
-                NavigationItem(destinations[2].first, destinations[2].second, selected, onDestinationSelected, compact)
-                NavigationItem(destinations[3].first, destinations[3].second, selected, onDestinationSelected, compact)
-            }
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val compact = maxWidth < 400.dp
+        // Shorten only labels that would crowd a narrow phone; never hide inactive labels.
+        val labels = when (role) {
+            Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
+            Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")
+            Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")
+        }
+        val destinations = listOf(
+            AppDestination.PRIMARY to labels[0],
+            AppDestination.SECONDARY to labels[1],
+            AppDestination.ALERTS to labels[2],
+            AppDestination.PROFILE to labels[3],
+        )
+
+        NavigationBar(
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            tonalElevation = 2.dp,
+        ) {
+            NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected)
+            NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected)
+            GpsMapNavigationItem(selected, onDestinationSelected, compact)
+            NavigationItem(destinations[2].first, destinations[2].second, selected, onDestinationSelected)
+            NavigationItem(destinations[3].first, destinations[3].second, selected, onDestinationSelected)
         }
     }
 }
@@ -118,9 +108,7 @@ private fun RowScope.NavigationItem(
     label: String,
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
-    compact: Boolean,
 ) {
-    val active = destination == selected
     val icon = when (destination) {
         AppDestination.PRIMARY -> Icons.Filled.Home
         AppDestination.SECONDARY -> Icons.Filled.List
@@ -128,35 +116,13 @@ private fun RowScope.NavigationItem(
         AppDestination.PROFILE -> Icons.Filled.Person
         AppDestination.MAP -> Icons.Filled.LocationOn
     }
-    Column(
-        modifier = Modifier
-            .weight(1f)
-            .clickable { onDestinationSelected(destination) }
-            .semantics {
-                contentDescription = label
-                this.selected = active
-                role = SemanticsRole.Tab
-            }
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 0.dp, vertical = if (compact) 5.dp else 7.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(if (compact) 1.dp else 3.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = label,
-            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-            maxLines = 1,
-            softWrap = false,
-        )
-    }
+    NavigationDestinationItem(
+        destination = destination,
+        label = label,
+        icon = icon,
+        active = selected == destination,
+        onClick = { onDestinationSelected(destination) },
+    )
 }
 
 @Composable
@@ -165,44 +131,56 @@ private fun RowScope.GpsMapNavigationItem(
     onDestinationSelected: (AppDestination) -> Unit,
     compact: Boolean,
 ) {
-    val active = selected == AppDestination.MAP
+    NavigationDestinationItem(
+        destination = AppDestination.MAP,
+        label = if (compact) "Map" else "GPS Map",
+        icon = Icons.Filled.LocationOn,
+        active = selected == AppDestination.MAP,
+        onClick = { onDestinationSelected(AppDestination.MAP) },
+    )
+}
+
+@Composable
+private fun RowScope.NavigationDestinationItem(
+    destination: AppDestination,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .weight(1f)
-            .clickable { onDestinationSelected(AppDestination.MAP) }
+            .clickable(onClick = onClick)
             .semantics {
-                contentDescription = "Open full-screen GPS map"
-                this.selected = active
+                contentDescription = label
+                selected = active
                 role = SemanticsRole.Tab
             }
             .heightIn(min = 48.dp)
-            .padding(horizontal = 0.dp, vertical = 1.dp),
+            .padding(horizontal = 0.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Surface(
-            color = if (active) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-            contentColor = if (active) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onPrimary,
+            color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+            contentColor = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
             shape = RoundedCornerShape(16.dp),
-            shadowElevation = 4.dp,
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = if (compact) 5.dp else 9.dp, vertical = if (compact) 5.dp else 7.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(1.dp),
+            Box(
+                modifier = Modifier.size(width = 48.dp, height = 30.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Filled.LocationOn,
-                    contentDescription = null,
-                    modifier = Modifier.size(21.dp),
-                )
-                Text(
-                    if (compact) "Map" else "GPS Map",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    softWrap = false,
-                )
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
             }
         }
+        Text(
+            text = label,
+            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
