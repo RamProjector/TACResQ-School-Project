@@ -2,13 +2,13 @@ package com.tacresq.app
 
 object AppConfig {
     /**
-     * Backend selection is build-specific: debug uses the in-memory demo by default,
-     * while release always uses Supabase. Build debug with -PuseSupabase=true to test
-     * a configured Supabase project without changing release behavior.
+     * Backend selection is build-specific: debug uses the in-memory demo by default.
+     * Release uses Supabase Auth and routes all application data RPCs through Render.
+     * Build debug with -PuseSupabase=true -PuseRenderBridge=true for real-backend QA.
      */
     val USE_FAKE_API = BuildConfig.USE_FAKE_API
     val USE_SUPABASE_API = !USE_FAKE_API
-    /** Opt-in QA canary for only the RPCs explicitly allowlisted by Render. */
+    /** Required for release data access; opt-in for real-backend debug QA. */
     val USE_RENDER_BRIDGE = BuildConfig.USE_RENDER_BRIDGE
 
     /** Optional demo behavior. Keep off for the normal dispatcher-controlled workflow. */
