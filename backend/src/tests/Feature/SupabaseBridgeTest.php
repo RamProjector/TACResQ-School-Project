@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -10,6 +11,9 @@ class SupabaseBridgeTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Each test gets a clean rate-limit bucket; the default test client IP is shared.
+        Cache::flush();
 
         config([
             'tacru.supabase_url' => 'https://tacresq-bridge.example.test',
@@ -23,6 +27,41 @@ class SupabaseBridgeTest extends TestCase
 
         $this->getJson('/api/bridge/me')->assertUnauthorized();
         Http::assertNothingSent();
+    }
+
+    public function test_bridge_routes_apply_a_coarse_ip_rate_limit(): void
+    {
+        Http::preventStrayRequests();
+
+        $lastResponse = null;
+        for ($attempt = 0; $attempt < 601; $attempt++) {
+            $lastResponse = $this->getJson('/api/bridge/me');
+        }
+
+        $this->assertNotNull($lastResponse);
+        $lastResponse->assertTooManyRequests();
+        Http::assertNothingSent();
+    }
+
+    public function test_bridge_limits_authenticated_users_independently_of_shared_ip(): void
+    {
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response([
+                'id' => 'auth-user-rate-limit',
+                'email' => 'requester@example.test',
+            ], 200),
+        ]);
+
+        $lastResponse = null;
+        for ($attempt = 0; $attempt < 121; $attempt++) {
+            $lastResponse = $this->withToken('valid-supabase-access-token')->getJson('/api/bridge/me');
+        }
+
+        $this->assertNotNull($lastResponse);
+        $lastResponse->assertTooManyRequests();
+        $retryAfter = (int) $lastResponse->headers->get('Retry-After', '0');
+        $this->assertGreaterThan(0, $retryAfter);
+        $this->assertLessThanOrEqual(60, $retryAfter);
     }
 
     public function test_invalid_supabase_token_is_rejected_without_rpc_execution(): void
