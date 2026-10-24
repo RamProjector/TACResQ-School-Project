@@ -72,6 +72,27 @@ for name in ACTIVE_CLIENT_RPCS:
         f"Missing explicit authenticated EXECUTE grant across migrations for {name}"
     )
 
+# The Render bridge is an additional network boundary: every RPC it exposes must
+# belong to the reviewed client RPC inventory above, whose explicit anon/PUBLIC
+# revokes and authenticated grants are checked by the loop above. This prevents a
+# new bridge route from being exposed just by adding its name to the PHP allowlist.
+BRIDGE_CONFIG = Path("backend/src/config/tacru.php").read_text()
+bridge_block = re.search(
+    r"'bridge_rpc_allowlist'\\s*=>\\s*\\[(.*?)\\]",
+    BRIDGE_CONFIG,
+    re.IGNORECASE | re.DOTALL,
+)
+assert bridge_block, "Missing explicit Render bridge RPC allowlist"
+bridge_rpc_list = re.findall(r"'(api_[a-z0-9_]+)'", bridge_block.group(1), re.IGNORECASE)
+bridge_rpcs = set(bridge_rpc_list)
+assert bridge_rpcs, "Render bridge allowlist must not be empty"
+assert len(bridge_rpc_list) == len(bridge_rpcs), "Duplicate RPC in Render bridge allowlist"
+unknown_bridge_rpcs = bridge_rpcs - ACTIVE_CLIENT_RPCS
+assert not unknown_bridge_rpcs, (
+    "Render bridge exposes RPCs outside the reviewed/grant-checked inventory: "
+    + ", ".join(sorted(unknown_bridge_rpcs))
+)
+
 assert "DROP FUNCTION" not in SQL.upper(), "Migration must not drop application RPCs"
 assert "DELETE FROM" not in SQL.upper(), "Migration must not alter user data"
 
