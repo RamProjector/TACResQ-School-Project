@@ -1,3 +1,10 @@
+## Active continuation — 2026-10-24: Code-review comment permission fallback
+
+- **Finding:** After merging the automated reviewer, its first real PR run returned GitHub API 403 `Resource not accessible by integration` when posting the summary comment. This made the reviewer check fail even though the scan itself ran.
+- **Change:** Request `pull-requests: write` as well as `issues: write`. The reviewer now prints and writes the full report to `GITHUB_STEP_SUMMARY` before attempting the comment. If GitHub blocks comment creation/update, it emits a warning and preserves the report in the Actions summary; the job still fails for actual critical findings.
+- **Branch:** `agent/tacresq-code-review-comment-permissions`. PR and check status pending.
+- **Validation:** Need verify the next pull-request run can post a comment, or at minimum preserve the report and pass absent critical findings. Do not claim comment posting works until a successful run proves it.
+
 ## Active continuation — 2026-10-24: Frontend reviewer
 
 - **Objective:** Add a separate TACResQ frontend/UI reviewer alongside the automated code/security reviewer. Scope includes general HCI/accessibility/responsive/lifecycle/error-state heuristics and project-specific GPS/map, requester, responder, dispatcher, navigation, and real-backend checks.
