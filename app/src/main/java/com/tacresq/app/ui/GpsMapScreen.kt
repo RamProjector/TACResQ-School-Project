@@ -647,50 +647,50 @@ fun GpsMapScreen(
             detailsExpanded -> 112.dp
             else -> 84.dp
         }
-        Column(
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = mapActionsTopPadding, end = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            horizontalAlignment = Alignment.End,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             androidx.compose.material3.FilledTonalButton(
-                onClick = onLocateClick,
-                modifier = Modifier.widthIn(min = 132.dp).heightIn(min = 48.dp),
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                androidx.compose.foundation.layout.Spacer(Modifier.size(width = 8.dp, height = 1.dp))
-                Text(if (deviceFix == null) "Locate me" else "Refresh location", style = MaterialTheme.typography.labelLarge)
-            }
-            androidx.compose.material3.FilledTonalButton(
                 onClick = ::showIncidentPins,
-                modifier = Modifier.widthIn(min = 132.dp).heightIn(min = 48.dp),
+                modifier = Modifier.widthIn(min = 100.dp).heightIn(min = 48.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
             ) {
                 androidx.compose.material3.Icon(
                     imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
-                androidx.compose.foundation.layout.Spacer(Modifier.size(width = 8.dp, height = 1.dp))
-                Text("Incidents", style = MaterialTheme.typography.labelLarge)
+                androidx.compose.foundation.layout.Spacer(Modifier.size(width = 6.dp, height = 1.dp))
+                Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
             }
             if (role == Role.DISPATCHER) {
                 androidx.compose.material3.FilledTonalButton(
                     onClick = ::showActiveUnits,
-                    modifier = Modifier.widthIn(min = 132.dp).heightIn(min = 48.dp),
+                    modifier = Modifier.widthIn(min = 112.dp).heightIn(min = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
                 ) {
                     androidx.compose.material3.Icon(
                         imageVector = androidx.compose.material.icons.Icons.Default.Groups,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
-                    androidx.compose.foundation.layout.Spacer(Modifier.size(width = 8.dp, height = 1.dp))
-                    Text("Field units", style = MaterialTheme.typography.labelLarge)
+                    androidx.compose.foundation.layout.Spacer(Modifier.size(width = 6.dp, height = 1.dp))
+                    Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
                 }
+            }
+            androidx.compose.material3.FilledTonalIconButton(
+                onClick = onLocateClick,
+                modifier = Modifier.size(48.dp),
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+                    contentDescription = if (deviceFix == null) "Locate me" else "Refresh location",
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
 
