@@ -5,10 +5,10 @@ declare(strict_types=1);
 require '/app/vendor/autoload.php';
 
 $app = require '/app/bootstrap/app.php';
-$kernel = $app->make(Illuminate\\Contracts\\Console\\Kernel::class);
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
-$connection = Illuminate\\Support\\Facades\\DB::connection();
+$connection = Illuminate\Support\Facades\DB::connection();
 $lockId = 741852963014159265;
 $locked = false;
 $exitCode = 1;
@@ -22,8 +22,8 @@ try {
         $locked = true;
     }
 
-    $exitCode = Illuminate\\Support\\Facades\\Artisan::call('migrate', ['--force' => true]);
-    fwrite(STDOUT, Illuminate\\Support\\Facades\\Artisan::output());
+    $exitCode = Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+    fwrite(STDOUT, Illuminate\Support\Facades\Artisan::output());
 } catch (Throwable $exception) {
     fwrite(STDERR, 'TACResQ startup migration failed: '.$exception->getMessage().PHP_EOL);
     $exitCode = 1;
