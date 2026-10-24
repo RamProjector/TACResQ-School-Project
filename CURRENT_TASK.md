@@ -1,3 +1,9 @@
+## Active continuation — 2026-10-24: Repair bridge rate-limit cache dependency
+
+- **Finding:** PR #131's new `throttle:120,1` middleware failed integration CI because Laravel's configured database cache store had no `cache` table. This is not just a test-only problem: the public Render bridge could error when rate limiting tries to access that missing table.
+- **Fix proposed:** Add the standard Laravel `cache` and `cache_locks` tables in a new migration so database-backed rate limiting has the required persistence. Re-run the full Laravel feature suite and clean migration replay before merge. No live Render/Supabase database has been modified.
+- **Branch:** `agent/fix-bridge-rate-limit-cache-table`; review PR pending.
+
 ## Active continuation — 2026-10-24: GPS map lifecycle polling
 
 - **Finding:** `GpsMapScreen.kt` used unbounded `LaunchedEffect` loops for its 15-second freshness ticker and dispatcher responder-location polling. Those loops could continue while the app is backgrounded, unnecessarily waking work and making lifecycle behavior harder to reason about.
