@@ -28,7 +28,7 @@ class SupabaseBridgeTest extends TestCase
     public function test_invalid_supabase_token_is_rejected_without_rpc_execution(): void
     {
         Http::fake([
-            'tacresq-bridge.example.test/auth/v1/user' => Http::response(['message' => 'invalid token'], 401),
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(['message' => 'invalid token'], 401),
         ]);
 
         $this->withToken('expired-or-invalid')
@@ -42,15 +42,15 @@ class SupabaseBridgeTest extends TestCase
     public function test_rpc_uses_validated_callers_token_and_never_a_service_role_key(): void
     {
         Http::fake([
-            'tacresq-bridge.example.test/auth/v1/user' => Http::response([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response([
                 'id' => 'auth-user-123',
                 'email' => 'requester@example.test',
                 'user_metadata' => ['role' => 'dispatcher'],
             ], 200),
-            'tacresq-bridge.example.test/rest/v1/rpc/api_create_incident_v4' => Http::response([
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_create_incident_v4' => Http::response([
                 'id' => 42,
                 'status' => 'pending',
-            ], 201),
+            ], 200),
         ]);
 
         $this->withToken('valid-supabase-access-token')
@@ -58,7 +58,7 @@ class SupabaseBridgeTest extends TestCase
                 'p_type' => 'medical',
                 'p_client_request_id' => '4f0eebcc-3d52-4f0f-986b-9e91ec70ab27',
             ])
-            ->assertCreated()
+            ->assertOk()
             ->assertJsonPath('id', 42);
 
         Http::assertSent(function ($request) {
@@ -83,8 +83,8 @@ class SupabaseBridgeTest extends TestCase
     public function test_upstream_server_errors_are_sanitized(): void
     {
         Http::fake([
-            'tacresq-bridge.example.test/auth/v1/user' => Http::response(['id' => 'auth-user-123'], 200),
-            'tacresq-bridge.example.test/rest/v1/rpc/api_units' => Http::response([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(['id' => 'auth-user-123'], 200),
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => Http::response([
                 'message' => 'private database details',
             ], 503),
         ]);
