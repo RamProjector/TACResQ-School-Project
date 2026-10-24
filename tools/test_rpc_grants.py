@@ -36,6 +36,7 @@ ACTIVE_CLIENT_RPCS = {
     "api_active_responder_locations",
     "api_all_incidents",
     "api_assign_incident",
+    "api_assign_incident_team",
     "api_create_incident",
     "api_create_incident_v2",
     "api_create_incident_v3",
