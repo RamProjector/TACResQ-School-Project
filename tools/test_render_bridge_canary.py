@@ -81,8 +81,7 @@ checks = {
         and 'tokenProvider()?.takeIf { it.isNotBlank() }' in api,
     "bridge requests forward caller bearer token and do not embed service role":
         "withStoredSessionAuthorization(request.build(), tokenProvider)" in api
-        and "service_role" not in api.lower()
-        and "SUPABASE_SERVICE_ROLE_KEY" not in api,
+        and "service_role" not in api.lower(),
     "bridge errors are surfaced without catch-and-retry fallback":
         "catch (Exception)" not in api and "catch (Throwable)" not in api,
 }
