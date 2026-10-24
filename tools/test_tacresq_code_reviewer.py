@@ -24,7 +24,7 @@ class AddedLineParserTests(unittest.TestCase):
   self.assertTrue(any(f.rule=="DISABLE_APP_DEBUG" for f in findings))
  def test_step_summary_writer_uses_real_newline(self):
   source=Path(__file__).with_name("tacresq_code_reviewer.py").read_text(encoding="utf-8")
-  self.assertIn(r'output.write(report+"\\n")', source)
+  self.assertIn(r'output.write(report+"\n")', source)
  def test_binary_or_lock_files_are_skipped(self):
   self.assertEqual(reviewer.review_file("assets/image.png","+anything"),[])
 if __name__=="__main__":unittest.main()
