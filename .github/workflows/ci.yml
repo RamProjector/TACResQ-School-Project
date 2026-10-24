@@ -202,7 +202,7 @@ jobs:
       - name: Build Supabase-mode debug APK
         if: hashFiles('gradlew') != ''
         run: |
-          ./gradlew --no-daemon assembleDebug -PuseSupabase=true
+          ./gradlew --no-daemon assembleDebug -PuseSupabase=true -PuseRenderBridge=true
           cp app/build/outputs/apk/debug/app-debug.apk artifacts/android/tacresq-supabase-debug.apk
 
       - name: Build release APK
