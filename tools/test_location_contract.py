@@ -8,22 +8,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261020062532_responder_location_tracking.sql").read_text()
+current_location_migration = (ROOT / "supabase/migrations/20261023103737_per_responder_assignment_status.sql").read_text().lower()
 dashboard = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
 location_provider = (ROOT / "app/src/main/java/com/tacresq/app/location/LocationProvider.kt").read_text()
 responder_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 map_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text()
-write_rpc = migration.split("create or replace function public.api_record_location_v2(", 1)[1].split("\n$$;", 1)[0]
-read_rpc = migration.split("create or replace function public.api_active_responder_locations()", 1)[1].split("\n$$;", 1)[0]
-read_policy = migration.split("create policy location_logs_read_dispatcher_or_owner", 1)[1].split(";", 1)[0]
+write_rpc = current_location_migration.split("create or replace function public.api_record_location_v2(", 1)[1].split("\n$function$;", 1)[0]
+read_rpc = current_location_migration.split("create or replace function public.api_active_responder_locations()", 1)[1].split("\n$function$;", 1)[0]
+read_policy = current_location_migration.split("create policy location_logs_read_dispatcher_or_owner", 1)[1].split(";", 1)[0]
 
 checks = {
     "write RPC is privileged only after explicit validation": "security definer" in write_rpc and "auth.uid()" in write_rpc and "incident_status <> 'en_route'" in write_rpc,
     "write RPC validates coordinate and timestamp ranges": "p_latitude < -90" in write_rpc and "p_longitude > 180" in write_rpc and "interval '5 minutes'" in write_rpc and "interval '15 minutes'" in write_rpc,
     "server serializes and throttles writes; direct inserts are revoked": "pg_advisory_xact_lock(actor_id)" in write_rpc and "interval '8 seconds'" in write_rpc and "revoke insert on public.location_logs from authenticated" in migration,
-    "dispatcher read RPC rejects non-dispatchers": "tacresq_actor_role()) is distinct from 'dispatcher'" in read_rpc,
-    "dispatcher RPC returns only active assigned responder rows": "i.status = 'en_route'" in read_rpc and "l.user_id = i.assigned_to" in read_rpc,
-    "dispatcher RPC filters malformed coordinates and future timestamps": "l.latitude between -90 and 90" in read_rpc and "l.longitude between -180 and 180" in read_rpc and "l.recorded_at <= now()" in read_rpc,
-    "RLS removes completed and unbound rows from direct reads": "i.status = 'en_route'" in read_policy and "incident_id is null" not in read_policy,
+    "dispatcher read RPC rejects non-dispatchers": "tacresq_actor_role() is distinct from 'dispatcher'" in read_rpc,
+    "dispatcher RPC returns active members of multi-unit assignments": "i.status = 'en_route'" in read_rpc and "l.user_id = a.user_id" in read_rpc and "a.responder_status = 'en_route'" in read_rpc,
+    "current dispatcher RPC filters malformed coordinates and future timestamps": "l.latitude between -90 and 90" in read_rpc and "l.longitude between -180 and 180" in read_rpc and "l.recorded_at <= now() + interval '5 minutes'" in read_rpc,
+    "current RLS policy limits location reads to the active assigned unit": "i.status = 'en_route'" in read_policy and "a.user_id = location_logs.user_id" in read_policy and "a.responder_status = 'en_route'" in read_policy,
     "dashboard exposes freshness and missing/configuration states": all(text in dashboard for text in ('ageMs < 30_000', 'ageMs <= 120_000', 'unavailable', 'no live marker is shown')),
     "Android requests approximate updates with movement and cadence limits": all(text in location_provider for text in ('responderForegroundUpdates()', 'GRANULARITY_COARSE', 'RESPONDER_INTERVAL_MS = 12_000L', 'RESPONDER_MIN_DISTANCE_M = 20f')),
     "Android unregisters callback on flow cancellation": "awaitClose()" in location_provider and "finally {\n            client.removeLocationUpdates(callback)" in location_provider,
