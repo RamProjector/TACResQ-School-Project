@@ -24,6 +24,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -644,44 +647,50 @@ fun GpsMapScreen(
             detailsExpanded -> 112.dp
             else -> 84.dp
         }
-        Column(
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = mapActionsTopPadding, end = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            horizontalAlignment = Alignment.End,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            androidx.compose.material3.FloatingActionButton(
+            androidx.compose.material3.FilledTonalButton(
+                onClick = ::showIncidentPins,
+                modifier = Modifier.widthIn(min = 100.dp).heightIn(min = 48.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                androidx.compose.foundation.layout.Spacer(Modifier.size(width = 6.dp, height = 1.dp))
+                Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
+            }
+            if (role == Role.DISPATCHER) {
+                androidx.compose.material3.FilledTonalButton(
+                    onClick = ::showActiveUnits,
+                    modifier = Modifier.widthIn(min = 112.dp).heightIn(min = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Groups,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    androidx.compose.foundation.layout.Spacer(Modifier.size(width = 6.dp, height = 1.dp))
+                    Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
+                }
+            }
+            androidx.compose.material3.FilledTonalIconButton(
                 onClick = onLocateClick,
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(48.dp),
             ) {
                 androidx.compose.material3.Icon(
                     imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
                     contentDescription = if (deviceFix == null) "Locate me" else "Refresh location",
+                    modifier = Modifier.size(20.dp),
                 )
-            }
-            androidx.compose.material3.FloatingActionButton(
-                onClick = ::showIncidentPins,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
-                    contentDescription = "Show incident pins",
-                )
-            }
-            if (role == Role.DISPATCHER) {
-                androidx.compose.material3.FloatingActionButton(
-                    onClick = ::showActiveUnits,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Groups,
-                        contentDescription = "Show active units",
-                    )
-                }
             }
         }
 
@@ -727,8 +736,8 @@ fun GpsMapScreen(
                     androidx.compose.material3.IconButton(onClick = { detailsExpanded = !detailsExpanded }) {
                         androidx.compose.material3.Icon(
                             imageVector = if (detailsExpanded)
-                                androidx.compose.material.icons.Icons.Default.ExpandMore
-                            else androidx.compose.material.icons.Icons.Default.ExpandLess,
+                                androidx.compose.material.icons.Icons.Default.ExpandLess
+                            else androidx.compose.material.icons.Icons.Default.ExpandMore,
                             contentDescription = if (detailsExpanded) "Collapse map details" else "Expand map details",
                         )
                     }

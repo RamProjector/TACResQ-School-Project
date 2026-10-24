@@ -39,3 +39,23 @@ assert "if (detailsExpanded) 330.dp else 74.dp" not in map_screen, (
     "fixed bottom offset can push controls off-screen on short devices"
 )
 print("GPS map responsive control placement contract passed.")
+
+# Keep spatial actions compact so they do not form a tall stack over the map.
+assert 'Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)' in map_screen
+assert 'Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)' in map_screen
+assert 'contentDescription = if (deviceFix == null) "Locate me" else "Refresh location"' in map_screen, (
+    "the compact recenter control must remain accessible to screen readers"
+)
+assert "Modifier.widthIn(min = 100.dp).heightIn(min = 48.dp)" in map_screen
+assert "Modifier.widthIn(min = 112.dp).heightIn(min = 48.dp)" in map_screen
+assert "Modifier.size(48.dp)" in map_screen, "recenter target must remain at least 48dp"
+assert "horizontalArrangement = Arrangement.spacedBy(8.dp)" in map_screen
+print("GPS map compact action-row and touch-target contract passed.")
+
+# The chevron must describe the action available in the current state.
+assert """imageVector = if (detailsExpanded)
+                                androidx.compose.material.icons.Icons.Default.ExpandLess
+                            else androidx.compose.material.icons.Icons.Default.ExpandMore,""" in map_screen, (
+    "expanded details should show collapse; collapsed details should show expand"
+)
+print("GPS map details affordance contract passed.")
