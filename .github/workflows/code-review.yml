@@ -14,7 +14,7 @@ permissions:
   pull-requests: read
   issues: write
 concurrency:
-  group: tacresq-review-\${{ github.event.pull_request.number || inputs.pull_request_number }}
+  group: tacresq-review-${{ github.event.pull_request.number || inputs.pull_request_number }}
   cancel-in-progress: true
 jobs:
   automated-review:
@@ -25,7 +25,7 @@ jobs:
       - name: Check out trusted base branch only
         uses: actions/checkout@v7
         with:
-          ref: \${{ github.event.pull_request.base.sha || github.sha }}
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -33,8 +33,8 @@ jobs:
           python-version: '3.11'
       - name: Review pull request diff and publish findings
         env:
-          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: \${{ github.repository }}
-          PR_NUMBER: \${{ github.event.pull_request.number || inputs.pull_request_number }}
-          PR_HEAD_SHA: \${{ github.event.pull_request.head.sha || '' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pull_request_number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
         run: python3 tools/tacresq_code_reviewer.py
