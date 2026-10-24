@@ -9,46 +9,64 @@ api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 bridge_config = (ROOT / "backend/src/config/tacru.php").read_text()
 
 checks = {
-    "Render bridge canary is explicitly opt-in":
+    "debug bridge canary remains explicitly opt-in": 
         'providers.gradleProperty("useRenderBridge").orNull == "true"' in gradle,
     "Render bridge canary requires real Supabase mode":
         'if (useRenderBridgeInDebug && !useSupabaseInDebug)' in gradle,
-    "release builds keep the bridge disabled":
-        'buildConfigField("boolean", "USE_RENDER_BRIDGE", "false")' in gradle,
+    "release builds route data RPCs through Render":
+        'buildConfigField("boolean", "USE_RENDER_BRIDGE", "true")' in gradle,
     "AppContainer passes the build flag to the Supabase adapter":
         "useRenderBridge = AppConfig.USE_RENDER_BRIDGE" in container,
-    "only four currently allowlisted RPCs have a bridge transport":
+    "all current data RPCs have a bridge transport": 
         all(f'@POST("bridge/rpc/{name}")' in api for name in (
+            "api_me",
+            "api_set_duty_status",
+            "api_my_incidents",
+            "api_all_incidents",
             "api_units",
+            "api_active_responder_locations",
             "api_create_incident_v4",
             "api_cancel_my_incident",
             "api_update_my_incident",
-        ))
-        and api.count('@POST("bridge/rpc/') == 4,
-    "client bridge paths match the server allowlist":
-        all(f"'{name}'" in bridge_config for name in (
-            "api_units",
-            "api_create_incident_v4",
-            "api_cancel_my_incident",
-            "api_update_my_incident",
+            "api_update_incident_status",
+            "api_update_my_assignment_status",
+            "api_assign_incident",
+            "api_assign_incident_team",
+            "api_record_location_v2",
         )),
-    "unsupported RPCs remain direct to Supabase":
-        "rpc.myIncidents(EmptyRpcBody())" in api
-        and "rpc.allIncidents(EmptyRpcBody())" in api
-        and "rpc.setDutyStatus(" in api
-        and "rpc.activeResponderLocations(EmptyRpcBody())" in api
-        and "rpc.updateIncidentStatus(" in api
-        and "rpc.updateMyAssignmentStatus(" in api
-        and "rpc.assignIncidentTeam(" in api
-        and "rpc.recordLocation(" in api,
+    "server allowlist exactly covers the client bridge RPCs":
+        all(f"'{name}'" in bridge_config for name in (
+            "api_me",
+            "api_set_duty_status",
+            "api_my_incidents",
+            "api_all_incidents",
+            "api_units",
+            "api_active_responder_locations",
+            "api_create_incident_v4",
+            "api_cancel_my_incident",
+            "api_update_my_incident",
+            "api_update_incident_status",
+            "api_update_my_assignment_status",
+            "api_assign_incident",
+            "api_assign_incident_team",
+            "api_record_location_v2",
+        )),
+    "client bridge transport count matches the allowlisted RPC surface":
+        api.count('@POST("bridge/rpc/') == 14,
     "auth continues using Supabase endpoints":
         'baseUrl(AppConfig.SUPABASE_URL.trimEnd(\'/\') + "/")' in api
         and '@POST("auth/v1/token")' in api
         and '@POST("auth/v1/signup")' in api,
-    "bridge uses the caller bearer token":
-        '.header("Authorization", "Bearer $it")' in api,
-    "write errors do not silently trigger direct-Supabase fallback":
-        "return if (bridgeRpc != null) bridgeRpc.createIncidentV4(request) else rpc.createIncidentV4(request)" in api,
+    "bridge forwards the caller bearer token":
+        '.header("Authorization", "Bearer $it")' in api
+        and '@Header("Authorization") authorization: String? = null' in api,
+    "all normal data methods prefer bridge and never silently fallback after bridge errors":
+        all(f"bridgeRpc?.{name}(" in api for name in (
+            "me", "setDutyStatus", "myIncidents", "allIncidents", "units",
+            "activeResponderLocations", "createIncidentV4", "cancelMyIncident",
+            "updateMyIncident", "updateIncidentStatus", "updateMyAssignmentStatus",
+            "assignIncident", "assignIncidentTeam", "recordLocation",
+        )),
 }
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
