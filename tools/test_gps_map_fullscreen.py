@@ -26,8 +26,14 @@ print("GPS map persistent-navigation contract passed.")
 assert ".align(Alignment.TopEnd)" in map_screen, (
     "map action buttons must stay in the upper-right viewport"
 )
-assert ".padding(top = if (detailsExpanded) 112.dp else 84.dp, end = 12.dp)" in map_screen, (
-    "map action buttons must clear the top overlay and remain reachable when details expand"
+assert "val mapActionsTopPadding = when {" in map_screen, (
+    "map action controls need a responsive top offset"
+)
+assert "hasValidatedInternet == false -> if (detailsExpanded) 184.dp else 156.dp" in map_screen, (
+    "map action buttons must clear the offline banner when connectivity is unavailable"
+)
+assert ".padding(top = mapActionsTopPadding, end = 12.dp)" in map_screen, (
+    "map action buttons must use the responsive offset and remain reachable"
 )
 assert "if (detailsExpanded) 330.dp else 74.dp" not in map_screen, (
     "fixed bottom offset can push controls off-screen on short devices"
