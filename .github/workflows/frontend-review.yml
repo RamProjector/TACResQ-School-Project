@@ -1,0 +1,49 @@
+name: TACResQ Frontend Review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: Base commit SHA to compare against
+        required: true
+        type: string
+      head_sha:
+        description: Head commit SHA to review
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tacresq-frontend-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend-review:
+    name: Static UI/UX and TACResQ workflow review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Test frontend reviewer
+        run: python3 tools/test_tacresq_frontend_reviewer.py
+
+      - name: Review frontend changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.head_sha || github.sha }}
+        run: python3 tools/tacresq_frontend_reviewer.py
