@@ -24,13 +24,13 @@ RUN rm -f database/migrations/*.php
 COPY src/ ./
 COPY --from=dashboard-build /dashboard/dist/ ./public/dispatch/
 COPY docker/entrypoint.sh /usr/local/bin/tacresq-entrypoint
-COPY docker/migrate-with-lock.php /usr/local/bin/tacresq-migrate-with-lock.php
 RUN chmod +x /usr/local/bin/tacresq-entrypoint \
     && php artisan optimize:clear
 
+# The bridge is stateless with respect to application records: Supabase owns auth/data.
+# Use local file cache so Laravel's rate limiter does not require a separate SQL database.
 # These are browser-safe Supabase client settings, not service-role credentials.
-# Render environment variables may override them when configured successfully.
-ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr SESSION_DRIVER=file \
+ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr SESSION_DRIVER=file CACHE_STORE=file \
     SUPABASE_URL=https://kttguamhznoflzagfutr.supabase.co \
     SUPABASE_PUBLISHABLE_KEY=sb_publishable_1-_oEKiNRWO0tvEOr5Gr3g_USY07s2g
 EXPOSE 10000
