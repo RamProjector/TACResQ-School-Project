@@ -84,7 +84,7 @@ jobs:
           status="$(curl --connect-timeout 5 --max-time 10 --silent --show-error \
             --output /tmp/bridge-unauth.json --write-out '%{http_code}' \
             --request POST --header 'Content-Type: application/json' --data '{}' \
-            "$BASE_URL/api/bridge/rpc/api_me")"
+            "$BASE_URL/api/bridge/rpc/api_units")"
           if [ "$status" != "401" ]; then
             echo "::error::Expected unauthenticated bridge request to return 401, got HTTP $status."
             cat /tmp/bridge-unauth.json
