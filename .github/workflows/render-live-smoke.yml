@@ -18,6 +18,7 @@ on:
       - "backend/router.php"
       - "backend/src/routes/api.php"
       - "backend/src/routes/web.php"
+      - "backend/src/config/tacru.php"
       - ".github/workflows/render-live-smoke.yml"
 
 permissions:
