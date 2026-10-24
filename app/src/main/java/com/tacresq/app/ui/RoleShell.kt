@@ -1,20 +1,36 @@
 package com.tacresq.app.ui
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role as SemanticsRole
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tacresq.app.data.model.Role
 
@@ -37,7 +53,6 @@ fun RoleShell(
     androidx.compose.material3.Scaffold(
         bottomBar = {
             // Keep all five top-level destinations available, including while viewing the map.
-            // Material 3 supplies a consistent selected indicator, label semantics, and touch target.
             TacruBottomNavigation(
                 role = role,
                 selected = selected,
@@ -45,7 +60,7 @@ fun RoleShell(
             )
         },
     ) { padding ->
-        androidx.compose.foundation.layout.Box(modifier = Modifier.padding(padding)) {
+        Box(modifier = Modifier.padding(padding)) {
             if (selected == AppDestination.MAP) mapContent() else content()
         }
     }
@@ -88,7 +103,7 @@ private fun TacruBottomNavigation(
 }
 
 @Composable
-private fun NavigationItem(
+private fun RowScope.NavigationItem(
     destination: AppDestination,
     label: String,
     selected: AppDestination,
@@ -101,51 +116,71 @@ private fun NavigationItem(
         AppDestination.PROFILE -> Icons.Filled.Person
         AppDestination.MAP -> Icons.Filled.LocationOn
     }
-    NavigationBarItem(
-        selected = selected == destination,
+    NavigationDestinationItem(
+        destination = destination,
+        label = label,
+        icon = icon,
+        active = selected == destination,
         onClick = { onDestinationSelected(destination) },
-        icon = { androidx.compose.material3.Icon(imageVector = icon, contentDescription = null) },
-        label = { androidx.compose.material3.Text(text = label, maxLines = 1, softWrap = false) },
-        alwaysShowLabel = true,
-        colors = NavigationBarItemDefaults.colors(
-            selectedIconColor = MaterialTheme.colorScheme.primary,
-            selectedTextColor = MaterialTheme.colorScheme.primary,
-            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
     )
 }
 
 @Composable
-private fun GpsMapNavigationItem(
+private fun RowScope.GpsMapNavigationItem(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
     compact: Boolean,
 ) {
-    NavigationBarItem(
-        selected = selected == AppDestination.MAP,
+    NavigationDestinationItem(
+        destination = AppDestination.MAP,
+        label = if (compact) "Map" else "GPS Map",
+        icon = Icons.Filled.LocationOn,
+        active = selected == AppDestination.MAP,
         onClick = { onDestinationSelected(AppDestination.MAP) },
-        icon = {
-            androidx.compose.material3.Icon(
-                imageVector = Icons.Filled.LocationOn,
-                contentDescription = null,
-            )
-        },
-        label = {
-            androidx.compose.material3.Text(
-                text = if (compact) "Map" else "GPS Map",
-                maxLines = 1,
-                softWrap = false,
-            )
-        },
-        alwaysShowLabel = true,
-        colors = NavigationBarItemDefaults.colors(
-            selectedIconColor = MaterialTheme.colorScheme.primary,
-            selectedTextColor = MaterialTheme.colorScheme.primary,
-            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
     )
+}
+
+@Composable
+private fun RowScope.NavigationDestinationItem(
+    destination: AppDestination,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .clickable(onClick = onClick)
+            .semantics {
+                contentDescription = label
+                selected = active
+                role = SemanticsRole.Tab
+            }
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 0.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Surface(
+            color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+            contentColor = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Box(
+                modifier = Modifier.size(width = 48.dp, height = 30.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            }
+        }
+        Text(
+            text = label,
+            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false,
+        )
+    }
 }
