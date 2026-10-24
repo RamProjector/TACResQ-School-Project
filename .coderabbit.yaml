@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+tone_instructions: "Be direct, evidence-based, and prioritize actionable correctness, security, privacy, and reliability findings over style."
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 0
+  path_filters:
+    - "!**/build/**"
+    - "!**/.gradle/**"
+    - "!**/generated/**"
+    - "!**/*.lock"
+  path_instructions:
+    - path: "app/src/main/**"
+      instructions: >
+        Review TACResQ as a safety-relevant emergency response Android app. Prioritize runtime correctness,
+        Android lifecycle and permission handling, offline/network failure behavior, accessibility and HCI,
+        privacy of location/contact data, and consistency between UI state and backend state. For location
+        changes, inspect approximate versus precise permission behavior, freshness, stale fixes, cancellation,
+        background collection, and whether user-facing errors distinguish permission denial, disabled settings,
+        timeout, and unavailable providers. Require focused tests for behavior changes. Do not suggest a visual
+        redesign without a concrete usability or accessibility reason.
+    - path: "backend/**"
+      instructions: >
+        Treat the Render API as a security boundary. Verify authentication and caller JWT forwarding, role and
+        ownership authorization, input validation, bounded payloads, rate limits, timeouts, safe error responses,
+        and no service-role key exposure. Do not assume an allowlisted RPC is safe merely because it is allowlisted;
+        verify its SQL signature, grants, SECURITY DEFINER behavior, authorization checks, and returned data.
+        Never recommend a silent direct-Supabase fallback that bypasses the bridge policy.
+    - path: "supabase/**"
+      instructions: >
+        Review SQL migrations for least-privilege grants, RLS correctness, SECURITY DEFINER search_path safety,
+        explicit authorization and ownership checks, idempotency, transaction boundaries, data exposure, and
+        safe migration ordering. Consider existing policies and triggers before recommending schema changes.
+    - path: "**/*Test*"
+      instructions: >
+        Check that tests assert externally meaningful behavior and security invariants, include negative cases,
+        and fail when the relevant regression is introduced. Avoid brittle tests that only assert implementation
+        text when a behavioral or contract-level test is feasible.
+    - path: ".github/workflows/**"
+      instructions: >
+        Review workflow permissions using least privilege, pinning and supply-chain risks, secret exposure,
+        untrusted pull-request execution, artifact naming, and whether checks validate the exact commit under review.
+    - path: "docs/**"
+      instructions: >
+        Distinguish verified behavior from planned behavior. Check that operational, security, backend, and QA
+        instructions agree with the current code and workflows. Flag unsupported claims that a live service or
+        end-to-end flow was verified.
