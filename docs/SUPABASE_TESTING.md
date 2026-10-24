@@ -1,16 +1,16 @@
 # Testing the real Supabase-backed Android app
 
-Use this guide when you need to test real authentication and database RPCs instead of the in-memory demo backend.
+Use this guide to test real Supabase authentication and database operations through TACResQ's authenticated Render bridge instead of the in-memory demo backend. The bridge does not use a service-role key; it validates and forwards the caller's own access token.
 
 ## 1. Choose the correct APK
 
 The GitHub Actions artifact named `tacresq-android-apks` contains:
 
 - `tacresq-demo-debug.apk` — fictional in-memory accounts and incidents; no live Supabase writes.
-- `tacresq-supabase-debug.apk` — uses the configured Supabase project and real Auth/RPC calls.
+- `tacresq-supabase-debug.apk` — uses real Supabase Auth and routes all application data RPCs through the authenticated Render bridge to Supabase.
 - `tacresq-release.apk` — real Supabase mode; unsigned unless release-signing secrets are configured.
 
-The demo and Supabase debug APKs use different Android application IDs (`com.tacresq.app.demo` and `com.tacresq.app.supabase`). They can be installed side-by-side. Build the demo with `./gradlew --no-daemon assembleDebug` and the Supabase-backed version with `./gradlew --no-daemon assembleDebug -PuseSupabase=true`.
+The demo and Supabase debug APKs use different Android application IDs (`com.tacresq.app.demo` and `com.tacresq.app.supabase`). They can be installed side-by-side. Build the demo with `./gradlew --no-daemon assembleDebug` and the Supabase-backed version with `./gradlew --no-daemon assembleDebug -PuseSupabase=true -PuseRenderBridge=true`.
 
 For a local real-backend debug build:
 
