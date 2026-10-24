@@ -25,6 +25,20 @@ class SupabaseBridgeTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_bridge_routes_apply_a_coarse_ip_rate_limit(): void
+    {
+        Http::preventStrayRequests();
+
+        $lastResponse = null;
+        for ($attempt = 0; $attempt < 121; $attempt++) {
+            $lastResponse = $this->getJson('/api/bridge/me');
+        }
+
+        $this->assertNotNull($lastResponse);
+        $lastResponse->assertTooManyRequests();
+        Http::assertNothingSent();
+    }
+
     public function test_invalid_supabase_token_is_rejected_without_rpc_execution(): void
     {
         Http::fake([
