@@ -56,6 +56,10 @@ checks = {
     "bridge forwards caller bearer token":
         '.header("Authorization", "Bearer $it")' in api
         and '@Header("Authorization") authorization: String? = null' in api,
+    "explicit fresh Authorization headers are not overwritten by cached tokens":
+        api.count('if (original.header("Authorization") == null)') == 2
+        and api.count("val original = chain.request()") == 2
+        and api.count('tokenProvider()?.let { request.header("Authorization", "Bearer $it") }') == 2,
     "bridge errors are not caught and retried against direct Supabase":
         "catch (Exception)" not in api and "catch (Throwable)" not in api,
 }
