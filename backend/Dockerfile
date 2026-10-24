@@ -23,6 +23,7 @@ RUN composer require laravel/sanctum:^4.0 --no-interaction
 RUN rm -f database/migrations/*.php
 COPY src/ ./
 COPY --from=dashboard-build /dashboard/dist/ ./public/dispatch/
+COPY router.php ./router.php
 RUN php artisan optimize:clear
 
 # Supabase owns application auth/data. The bridge must not need a Render SQL database.
@@ -32,4 +33,4 @@ ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr SESSION_DRIVER=file CA
     SUPABASE_URL=https://kttguamhznoflzagfutr.supabase.co \
     SUPABASE_PUBLISHABLE_KEY=sb_publishable_1-_oEKiNRWO0tvEOr5Gr3g_USY07s2g
 EXPOSE 10000
-CMD ["sh", "-ec", "php artisan config:clear; exec php artisan serve --host=0.0.0.0 --port=\"${PORT:-10000}\""]
+CMD ["sh", "-ec", "exec php -S 0.0.0.0:${PORT:-10000} -t public router.php"]
