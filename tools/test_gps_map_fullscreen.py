@@ -39,3 +39,19 @@ assert "if (detailsExpanded) 330.dp else 74.dp" not in map_screen, (
     "fixed bottom offset can push controls off-screen on short devices"
 )
 print("GPS map responsive control placement contract passed.")
+
+# Visible text labels make map actions discoverable without relying on icon inference.
+for label in ('"Locate me"', '"Incidents"', '"Field units"'):
+    assert label in map_screen, f"map action must show a visible {label} label"
+assert "Modifier.widthIn(min = 132.dp).heightIn(min = 48.dp)" in map_screen, (
+    "map action buttons must preserve a generous minimum touch target"
+)
+print("GPS map action-label and touch-target contract passed.")
+
+# The chevron must describe the action available in the current state.
+assert """imageVector = if (detailsExpanded)
+                                androidx.compose.material.icons.Icons.Default.ExpandLess
+                            else androidx.compose.material.icons.Icons.Default.ExpandMore,""" in map_screen, (
+    "expanded details should show collapse; collapsed details should show expand"
+)
+print("GPS map details affordance contract passed.")
