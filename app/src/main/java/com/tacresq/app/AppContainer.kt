@@ -21,7 +21,10 @@ class AppContainer(context: Context) {
 
     private val api: TacApi = when {
         AppConfig.USE_FAKE_API -> FakeTacApi({ tokenHolder.value }, AppConfig.FAKE_AUTO_DISPATCH)
-        AppConfig.USE_SUPABASE_API -> SupabaseTacApi.create { tokenHolder.value }
+        AppConfig.USE_SUPABASE_API -> SupabaseTacApi.create(
+            tokenProvider = { tokenHolder.value },
+            useRenderBridge = AppConfig.USE_RENDER_BRIDGE,
+        )
         else -> ApiClient.create { tokenHolder.value }
     }
 
