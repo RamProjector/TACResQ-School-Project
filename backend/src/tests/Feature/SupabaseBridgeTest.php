@@ -94,4 +94,20 @@ class SupabaseBridgeTest extends TestCase
             ->assertStatus(502)
             ->assertExactJson(['message' => 'Supabase is temporarily unavailable. Please retry.']);
     }
+
+    public function test_auth_upstream_outage_returns_502_not_a_false_invalid_session(): void
+    {
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response([
+                'message' => 'private upstream details',
+            ], 503),
+        ]);
+
+        $this->withToken('valid-looking-access-token')
+            ->getJson('/api/bridge/me')
+            ->assertStatus(502)
+            ->assertExactJson(['message' => 'Supabase is temporarily unavailable. Please retry.']);
+
+        Http::assertSentCount(1);
+    }
 }
