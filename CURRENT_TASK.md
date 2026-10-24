@@ -1,3 +1,13 @@
+## Active continuation — 2026-10-24: Route all Android data RPCs through Render
+
+- **User direction:** Move the real app's database/data calls behind the authenticated Render bridge rather than letting the Android client call Supabase PostgREST RPCs directly.
+- **Scope:** Keep Supabase Auth login/signup/logout direct using the public publishable key so the app can obtain user access tokens. Route every application data RPC through Render with the caller's Supabase bearer token. Render validates the token against Supabase Auth and forwards the same caller token to an explicit RPC allowlist; no service-role key is used.
+- **Android branch:** `agent/android-render-bridge-all-data`; release builds enable `USE_RENDER_BRIDGE`; all 14 current data RPCs have bridge transport methods. Debug fake/demo remains separate, and the Supabase+Render debug canary uses `-PuseSupabase=true -PuseRenderBridge=true`.
+- **Server changes:** Expand `backend/src/config/tacru.php` allowlist only to RPCs already used by the app. Each function still relies on database-side identity/role/ownership checks. No live data, Render secrets, Supabase settings, or deployment was changed.
+- **Dependencies:** PR #132 (Laravel cache tables) has been merged as `c2859ed6b95e4cf07e59b14caaf92733fd169d52`. PR #131 is being revalidated with a 600/min shared-IP ceiling plus a 120/min per-authenticated-user limit, to reduce false throttling for mobile carrier NAT. Do not merge this client cutover until the rate-limit PR and this PR pass exact-head CI and the bridge deployment is verified.
+- **Validation gate:** Android debug/release builds, source contracts, visual/navigation tests, clean migration replay, Laravel bridge feature tests, and RPC grant contract must pass. Use `./gradlew assembleDebug -PuseSupabase=true -PuseRenderBridge=true` with synthetic test accounts/incidents for end-to-end QA. Physical-device verification and live operational acceptance remain separate requirements.
+- **Safety caveat:** The bridge improves central control, request limiting, and error sanitization; it does not by itself make TACResQ safe. Database RLS/RPC grants, role/ownership checks, location privacy, outage behavior, monitoring, incident response, and TACRU field validation remain required. Do not silently fall back to direct Supabase if a bridge request fails.
+
 ## Active continuation — 2026-10-24: Repair bridge rate-limit cache dependency
 
 - **Finding:** PR #131's new `throttle:120,1` middleware failed integration CI because Laravel's configured database cache store had no `cache` table. This is not just a test-only problem: the public Render bridge could error when rate limiting tries to access that missing table.
