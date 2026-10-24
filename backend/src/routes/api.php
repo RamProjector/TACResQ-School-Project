@@ -164,3 +164,53 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         return response()->json($incidentJson($updated));
     });
 });
+
+
+// Transitional Render -> Supabase bridge. This is additive; existing clients are
+// not switched to it until endpoint parity and end-to-end tests are complete.
+Route::get('/bridge/me', function (Request $request, \\App\\SupabaseBridge $bridge) {
+    $token = $request->bearerToken();
+    abort_if (!$token, 401, 'A valid Supabase access token is required.');
+
+    $user = $bridge->getUser($token);
+    abort_if (!$user, 401, 'The Supabase session is invalid or expired.');
+
+    return response()->json([
+        'id' => $user['id'],
+        'email' => $user['email'] ?? null,
+    ]);
+});
+
+Route::post('/bridge/rpc/{function}', function (
+    Request $request,
+    string $function,
+    \\App\\SupabaseBridge $bridge
+) {
+    $allowlist = config('tacru.bridge_rpc_allowlist', []);
+    abort_unless(in_array($function, $allowlist, true), 404, 'RPC endpoint not found.');
+
+    $token = $request->bearerToken();
+    abort_if (!$token, 401, 'A valid Supabase access token is required.');
+
+    if (!$bridge->getUser($token)) {
+        return response()->json(['message' => 'The Supabase session is invalid or expired.'], 401);
+    }
+
+    $result = $bridge->callRpc($token, $function, $request->json()->all());
+    if ($result['status'] >= 500) {
+        return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+
+    if ($result['status'] >= 400) {
+        $body = is_array($result['body']) ? $result['body'] : [];
+        $message = $body['message'] ?? $body['msg'] ?? 'The request could not be completed.';
+        $error = ['message' => mb_substr((string) $message, 0, 300)];
+        if (isset($body['code'])) {
+            $error['code'] = (string) $body['code'];
+        }
+
+        return response()->json($error, $result['status']);
+    }
+
+    return response()->json($result['body'], $result['status']);
+});
