@@ -48,7 +48,7 @@ def review_file(path: str, patch: str) -> list[Finding]:
         s = text.strip()
         if not s or s.startswith(("//", "/*", "*", "<!--")):
             continue
-        if re.search(r"Modifier\.(?:clickable|combinedClickable)\s*\(", s) and not any(
+        if re.search(r"Modifier\.(?:clickable|combinedClickable)(?:\s*\(|\s*\{)", s) and not any(
             re.search(r"(?:semantics\s*\{|contentDescription|onClickLabel|role\s*=)", lines[j][1])
             for j in range(max(0, i-4), min(len(lines), i+5))
         ):
