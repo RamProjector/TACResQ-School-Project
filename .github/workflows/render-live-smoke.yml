@@ -2,6 +2,14 @@ name: TACResQ Render live smoke
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/Dockerfile"
+      - "backend/router.php"
+      - "backend/src/routes/api.php"
+      - "backend/src/routes/web.php"
+      - ".github/workflows/render-live-smoke.yml"
   push:
     branches: [main]
     paths:
