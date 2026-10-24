@@ -1,4 +1,8 @@
+import pathlib
+import sys
 import unittest
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from tools.tacresq_frontend_reviewer import review_file, parse_added_lines
 
 class FrontendReviewerTests(unittest.TestCase):
