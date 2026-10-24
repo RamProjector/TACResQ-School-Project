@@ -29,6 +29,8 @@ Use these sources as implementation guidance, not as a substitute for device tes
 - [Google Play: background location policy](https://support.google.com/googleplay/android-developer/answer/9799150) — background access needs a justified core use case, clear disclosure, and policy review; foreground access is preferred where sufficient.
 - [Philippines Data Privacy Act of 2012 (NPC)](https://privacy.gov.ph/data-privacy-act/) and [Implementing Rules and Regulations](https://privacy.gov.ph/implementing-rules-regulations-data-privacy-act-2012/) — notice, legitimate purpose, proportionality, safeguards, data-subject rights, retention, and clear information are requirements to have counsel/privacy personnel validate against actual operations.
 - [Material Design 3: Floating action button](https://m3.material.io/components/floating-action-button/guidelines) — reserve prominent floating actions for the most important action; do not confuse the GPS-map navigation shortcut with the requester's emergency/SOS submission action.
+- [Google Maps Android navigation help](https://support.google.com/maps/answer/3273406?hl=en) — use familiar recenter/compass affordances, explicit start/stop actions, and an expandable information card. TACResQ must label external navigation as external unless it implements actual in-app routing.
+- [Google Maps Android sheet redesign (9to5Google, 2025)](https://9to5google.com/2025/04/24/google-maps-sheet-redesign-android/) — a useful visual reference for keeping the map visible behind a compact, reversible sheet instead of replacing the map with full-screen detail content. Borrow the map-context principle, not Google's information architecture or unimplemented features.
 
 ## 3. Initial repository observations
 
