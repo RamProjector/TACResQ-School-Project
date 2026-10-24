@@ -24,6 +24,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Test TACResQ automated code reviewer
+        run: python3 tools/test_tacresq_code_reviewer.py
+
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
