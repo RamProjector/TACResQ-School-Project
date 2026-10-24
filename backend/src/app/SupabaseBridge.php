@@ -2,7 +2,7 @@
 
 namespace App;
 
-use Illuminate\\Support\\Facades\\Http;
+use Illuminate\Support\Facades\Http;
 use Throwable;
 
 final class SupabaseBridge
