@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Contract checks that CI publishes unmistakably separate demo and real-backend APKs."""
 from pathlib import Path
+import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 gradle = (ROOT / "app/build.gradle.kts").read_text()
@@ -42,3 +44,6 @@ for name, passed in checks.items():
 if failed:
     raise SystemExit(f"{len(failed)} Android build-mode contract check(s) failed")
 print(f"Android build-mode contract OK: {len(checks)} checks.")
+# Keep the bridge canary contract inside this established CI step so it is
+# exercised on pull requests even before workflow-file changes reach main.
+subprocess.run([sys.executable, str(ROOT / "tools/test_render_bridge_canary.py")], check=True)

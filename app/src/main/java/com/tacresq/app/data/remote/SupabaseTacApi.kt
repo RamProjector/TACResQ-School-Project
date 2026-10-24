@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 class SupabaseTacApi private constructor(
     private val auth: SupabaseAuthWire,
     private val rpc: SupabaseRpcWire,
+    private val bridgeRpc: SupabaseBridgeRpcWire?,
 ) : TacApi {
     override suspend fun login(body: LoginRequest): AuthResponse = authenticate {
         auth.login(body)
@@ -46,10 +47,11 @@ class SupabaseTacApi private constructor(
         rpc.setDutyStatus(DutyStatusRpc(body.dutyStatus.wireValue))
     override suspend fun myIncidents(): List<Incident> = rpc.myIncidents(EmptyRpcBody())
     override suspend fun allIncidents(): List<Incident> = rpc.allIncidents(EmptyRpcBody())
-    override suspend fun units(): List<User> = rpc.units(EmptyRpcBody())
+    override suspend fun units(): List<User> =
+        bridgeRpc?.units(EmptyRpcBody()) ?: rpc.units(EmptyRpcBody())
     override suspend fun activeResponderLocations(): List<ResponderLocation> = rpc.activeResponderLocations(EmptyRpcBody())
-    override suspend fun createIncident(body: CreateIncidentRequest): Incident = rpc.createIncidentV4(
-        CreateIncidentV4Rpc(
+    override suspend fun createIncident(body: CreateIncidentRequest): Incident {
+        val request = CreateIncidentV4Rpc(
             body.type.wireValue,
             body.description,
             body.latitude,
@@ -60,9 +62,14 @@ class SupabaseTacApi private constructor(
             body.locationSource,
             body.clientRequestId,
         )
-    )
-    override suspend fun cancelMyIncident(id: Long): Incident = rpc.cancelMyIncident(CancelIncidentRpc(id))
-    override suspend fun updateMyIncident(body: UpdateMyIncidentRequest): Incident = rpc.updateMyIncident(body)
+        return if (bridgeRpc != null) bridgeRpc.createIncidentV4(request) else rpc.createIncidentV4(request)
+    }
+    override suspend fun cancelMyIncident(id: Long): Incident {
+        val request = CancelIncidentRpc(id)
+        return if (bridgeRpc != null) bridgeRpc.cancelMyIncident(request) else rpc.cancelMyIncident(request)
+    }
+    override suspend fun updateMyIncident(body: UpdateMyIncidentRequest): Incident =
+        if (bridgeRpc != null) bridgeRpc.updateMyIncident(body) else rpc.updateMyIncident(body)
     override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident =
         rpc.updateIncidentStatus(UpdateIncidentRpc(id, body.status.wireValue))
     override suspend fun updateMyAssignmentStatus(id: Long, body: UpdateStatusRequest): Incident =
@@ -75,7 +82,7 @@ class SupabaseTacApi private constructor(
         rpc.recordLocation(RecordLocationRpc(body.incidentId, body.latitude, body.longitude, body.accuracyM, body.recordedAt))
 
     companion object {
-        fun create(tokenProvider: () -> String?): TacApi {
+        fun create(tokenProvider: () -> String?, useRenderBridge: Boolean = false): TacApi {
             val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
             val common = OkHttpClient.Builder()
                 .addInterceptor { chain ->
@@ -89,12 +96,36 @@ class SupabaseTacApi private constructor(
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(20, TimeUnit.SECONDS)
                 .build()
+            val gson = GsonBuilder().serializeNulls().create()
             val retrofit = Retrofit.Builder()
                 .baseUrl(AppConfig.SUPABASE_URL.trimEnd('/') + "/")
                 .client(common)
-                .addConverterFactory(GsonConverterFactory.create(GsonBuilder().serializeNulls().create()))
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
-            return SupabaseTacApi(retrofit.create(SupabaseAuthWire::class.java), retrofit.create(SupabaseRpcWire::class.java))
+            val bridgeRpc = if (useRenderBridge) {
+                val bridgeClient = OkHttpClient.Builder()
+                    .addInterceptor { chain ->
+                        val request = chain.request().newBuilder()
+                            .header("Accept", "application/json")
+                        tokenProvider()?.let { request.header("Authorization", "Bearer $it") }
+                        chain.proceed(request.build())
+                    }
+                    .addInterceptor(logging)
+                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .readTimeout(20, TimeUnit.SECONDS)
+                    .build()
+                Retrofit.Builder()
+                    .baseUrl(AppConfig.BASE_URL)
+                    .client(bridgeClient)
+                    .addConverterFactory(GsonConverterFactory.create(gson))
+                    .build()
+                    .create(SupabaseBridgeRpcWire::class.java)
+            } else null
+            return SupabaseTacApi(
+                retrofit.create(SupabaseAuthWire::class.java),
+                retrofit.create(SupabaseRpcWire::class.java),
+                bridgeRpc,
+            )
         }
     }
 }
@@ -111,6 +142,24 @@ private interface SupabaseAuthWire {
 
     @POST("auth/v1/logout")
     suspend fun logout()
+}
+
+/**
+ * Narrow Render canary transport. These four functions are currently allowlisted
+ * server-side; all other RPCs deliberately remain on the direct Supabase client.
+ */
+private interface SupabaseBridgeRpcWire {
+    @POST("bridge/rpc/api_units")
+    suspend fun units(@Body body: EmptyRpcBody): List<User>
+
+    @POST("bridge/rpc/api_create_incident_v4")
+    suspend fun createIncidentV4(@Body body: CreateIncidentV4Rpc): Incident
+
+    @POST("bridge/rpc/api_cancel_my_incident")
+    suspend fun cancelMyIncident(@Body body: CancelIncidentRpc): Incident
+
+    @POST("bridge/rpc/api_update_my_incident")
+    suspend fun updateMyIncident(@Body body: UpdateMyIncidentRequest): Incident
 }
 
 private interface SupabaseRpcWire {

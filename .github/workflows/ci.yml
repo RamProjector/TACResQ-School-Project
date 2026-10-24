@@ -144,6 +144,7 @@ jobs:
       - name: Check demo and Supabase build-mode separation
         run: python3 tools/test_android_build_modes.py
 
+
       - name: Accept Android SDK licenses and install API 37
         if: hashFiles('gradlew') != ''
         env:
