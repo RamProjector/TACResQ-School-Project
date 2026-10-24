@@ -41,6 +41,7 @@ These are code-inspection findings from the current default branch, not claims t
 - `AppRoot.kt` contains generic role sections for profile, safety, history/requests, and field units. These need real-purpose content, consistency, and data/privacy review rather than merely changing colours.
 - Requester and dispatcher screens include sync status and errors. Audit whether these messages are concise, actionable, and consistent; do not hide the fact that displayed data may be stale.
 - The current theme defines light/dark palettes and shape tokens, but spacing, typography hierarchy, card treatments, status semantics, and component usage still need a cross-screen audit.
+- A repository-tree audit found `SUPPORT.md` but no standalone privacy policy or terms-of-service document. Do not fabricate the responsible controller's contact details, legal basis, retention periods, or vendor disclosures; confirm them with the project owner and actual data flow before publishing a policy.
 - The map recommendation document `docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md` includes useful placement guidance but contains older implementation-boundary statements that should be checked against the present repository before relying on them.
 - Supabase/Render bridge work is tracked separately in PR #134. UI changes must not be represented as a substitute for the pending authenticated end-to-end verification.
 
