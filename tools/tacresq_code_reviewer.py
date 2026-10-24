@@ -95,11 +95,20 @@ def main():
   if not patch:skipped+=1;continue
   findings.extend(review_file(item.get("filename",""),patch))
  report,counts=build_report(findings,len(files),skipped)
- marker="<!-- tacresq-automated-review -->"
- comments=api_request(f"/repos/{REPO}/issues/{PR_NUMBER}/comments?per_page=100")
- existing=next((c for c in comments if marker in c.get("body","")),None)
- if existing:api_request(f"/repos/{REPO}/issues/comments/{existing['id']}","PATCH",{"body":report})
- else:api_request(f"/repos/{REPO}/issues/{PR_NUMBER}/comments","POST",{"body":report})
  print(report)
+ summary=os.environ.get("GITHUB_STEP_SUMMARY")
+ if summary:
+  with open(summary,"a",encoding="utf-8") as output:
+   output.write(report+"\n")
+ marker="<!-- tacresq-automated-review -->"
+ try:
+  comments=api_request(f"/repos/{REPO}/issues/{PR_NUMBER}/comments?per_page=100")
+  existing=next((c for c in comments if marker in c.get("body","")),None)
+  if existing:api_request(f"/repos/{REPO}/issues/comments/{existing['id']}","PATCH",{"body":report})
+  else:api_request(f"/repos/{REPO}/issues/{PR_NUMBER}/comments","POST",{"body":report})
+ except RuntimeError as exc:
+  # Keep the report available in the Actions summary even when repository token
+  # policy blocks comments; only actual critical findings should fail this job.
+  print(f"::warning::Could not publish reviewer comment; report is in the Actions summary. {exc}",file=sys.stderr)
  return 1 if counts["CRITICAL"] else 0
 if __name__=="__main__":raise SystemExit(main())
