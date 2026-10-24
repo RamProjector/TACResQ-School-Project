@@ -54,7 +54,7 @@ checks = {
         and '@POST("auth/v1/token")' in api
         and '@POST("auth/v1/signup")' in api,
     "bridge forwards caller bearer token":
-        '.header("Authorization", "Bearer $it")' in api
+        '.header("Authorization", "Bearer $token")' in api
         and '@Header("Authorization") authorization: String? = null' in api,
     "both transports use shared bearer-token precedence logic":
         api.count("withStoredSessionAuthorization(request, tokenProvider)") == 2
