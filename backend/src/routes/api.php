@@ -270,7 +270,8 @@ Route::post('/bridge/rpc/{function}', function (
     abort_if (!$token, 401, 'A valid Supabase access token is required.');
 
     try {
-        if (!$bridge->getUser($token)) {
+        $user = $bridge->getUser($token);
+        if (!$user) {
             return response()->json(['message' => 'The Supabase session is invalid or expired.'], 401);
         }
     } catch (\RuntimeException) {
