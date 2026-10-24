@@ -62,7 +62,7 @@ Build from the repository root:
 ./gradlew --no-daemon assembleRelease
 ```
 
-On Windows, use `gradlew.bat` instead of `./gradlew`. APK outputs are written to `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`. The GitHub Actions artifact `tacresq-android-apks` publishes three distinctly named files: `tacresq-demo-debug.apk` (in-memory demo backend), `tacresq-supabase-debug.apk` (configured real Supabase backend), and `tacresq-release.apk` (unsigned unless signing secrets are configured). The demo and Supabase debug APKs use distinct Android application IDs (`com.tacresq.app.demo` and `com.tacresq.app.supabase`) and can be installed side-by-side. The wrapper pins Gradle 9.3.1 and validates the distribution checksum; `gradle/wrapper/gradle-wrapper.jar.sha256` records the upstream wrapper-JAR checksum.
+On Windows, use `gradlew.bat` instead of `./gradlew`. APK outputs are written to `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`. The GitHub Actions artifact `tacresq-android-apks` publishes three distinctly named files: `tacresq-demo-debug.apk` (in-memory demo backend), `tacresq-supabase-debug.apk` (Supabase Auth plus Render-bridged data RPCs), and `tacresq-release.apk` (unsigned unless signing secrets are configured). The demo and Supabase debug APKs use distinct Android application IDs (`com.tacresq.app.demo` and `com.tacresq.app.supabase`) and can be installed side-by-side. The wrapper pins Gradle 9.3.1 and validates the distribution checksum; `gradle/wrapper/gradle-wrapper.jar.sha256` records the upstream wrapper-JAR checksum.
 
 ### Optional release APK signing
 
@@ -104,7 +104,7 @@ Debug APKs use the in-memory fake backend by default, with four role shortcuts o
 To test a configured Supabase project from a debug build instead, build with:
 
 ```bash
-./gradlew --no-daemon assembleDebug -PuseSupabase=true
+./gradlew --no-daemon assembleDebug -PuseSupabase=true -PuseRenderBridge=true
 ```
 
 This changes only that debug build. It does not create Supabase Auth users; provision real test identities separately through a trusted administrator. See [Real Supabase testing and QA account setup](docs/SUPABASE_TESTING.md) and [opt-in Render bridge canary](docs/RENDER_BRIDGE_CANARY.md) for the correct APK, safe role provisioning, and verification flow. Never use real emergency records for QA.
