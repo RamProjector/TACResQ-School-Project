@@ -2,6 +2,8 @@
 
 The bridge is deliberately opt-in and incomplete. It is **not** a production cutover.
 
+**Current-state reconciliation (2026-10-24):** the Android canary adapter routes four RPCs through Render. The server-side `bridge_rpc_allowlist` currently contains five entries, including `api_record_location_v2`; that fifth entry is not routed through Render by the current Android canary adapter. Treat it as server-allowlisted but client-unused until the adapter and its tests are deliberately updated. This mismatch must not be mistaken for a five-RPC client canary or a production cutover.
+
 ## Build the canary
 
 From the repository root:
@@ -21,7 +23,7 @@ Only these allowlisted RPCs use `POST /api/bridge/rpc/{function}` when the opt-i
 - `api_cancel_my_incident`
 - `api_update_my_incident`
 
-All other RPCs—including profile loading, incident lists, duty status, assignment/status transitions, and location reporting—remain direct to Supabase. Do not expand the allowlist until each RPC's complete SQL definition, role/ownership checks, grants, and response shape have been reviewed.
+The server configuration currently also allowlists `api_record_location_v2`, but the Android canary adapter does not call it through Render. Therefore location reporting, along with profile loading, incident lists, duty status, and assignment/status transitions, remains direct to Supabase in this client build. Keep the server/client discrepancy explicit until a separately reviewed change either removes the unused server allowlist entry or adds the location RPC to the canary with SQL, grants, ownership, response-shape, and lifecycle tests. Do not expand the allowlist until each RPC's complete SQL definition, role/ownership checks, grants, and response shape have been reviewed.
 
 The bridge forwards the caller's Supabase access token. It must never accept a client-provided role as authority or use a service-role key to perform a user's operation.
 
