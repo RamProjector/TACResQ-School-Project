@@ -30,13 +30,32 @@ class SupabaseBridgeTest extends TestCase
         Http::preventStrayRequests();
 
         $lastResponse = null;
-        for ($attempt = 0; $attempt < 121; $attempt++) {
+        for ($attempt = 0; $attempt < 601; $attempt++) {
             $lastResponse = $this->getJson('/api/bridge/me');
         }
 
         $this->assertNotNull($lastResponse);
         $lastResponse->assertTooManyRequests();
         Http::assertNothingSent();
+    }
+
+    public function test_bridge_limits_authenticated_users_independently_of_shared_ip(): void
+    {
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response([
+                'id' => 'auth-user-rate-limit',
+                'email' => 'requester@example.test',
+            ], 200),
+        ]);
+
+        $lastResponse = null;
+        for ($attempt = 0; $attempt < 121; $attempt++) {
+            $lastResponse = $this->withToken('valid-supabase-access-token')->getJson('/api/bridge/me');
+        }
+
+        $this->assertNotNull($lastResponse);
+        $lastResponse->assertTooManyRequests();
+        $this->assertSame('60', $lastResponse->headers->get('Retry-After'));
     }
 
     public function test_invalid_supabase_token_is_rejected_without_rpc_execution(): void
