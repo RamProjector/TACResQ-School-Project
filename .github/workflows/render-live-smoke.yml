@@ -18,6 +18,7 @@ on:
       - "backend/router.php"
       - "backend/src/routes/api.php"
       - "backend/src/routes/web.php"
+      - "backend/src/config/tacru.php"
       - ".github/workflows/render-live-smoke.yml"
 
 permissions:
@@ -67,7 +68,7 @@ jobs:
           from urllib.parse import urlparse
 
           config = json.loads(Path('/tmp/runtime-config.json').read_text())
-          headers = Path('/tmp/runtime-config-headers.txt').read_text().lower().replace('\r', '')
+          headers = Path('/tmp/runtime-config-headers.txt').read_text().lower().replace('\\r', '')
           url = config.get('supabaseUrl')
           key = config.get('supabasePublishableKey')
           assert url == 'https://kttguamhznoflzagfutr.supabase.co', 'Unexpected Supabase project URL'
