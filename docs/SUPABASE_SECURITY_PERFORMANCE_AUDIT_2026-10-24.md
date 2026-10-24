@@ -46,6 +46,21 @@ For every bridged RPC, verify:
 
 Use synthetic QA accounts only. Do not create test incidents against live operations.
 
+## Priority 0 — Direct table privileges and row-level policies
+
+A second read-only query compared `information_schema.role_table_grants` with the live `pg_policies` catalog. The table-level grant inventory returned direct grants to `anon` on `public.incident_assignments` for SELECT, INSERT, UPDATE, DELETE, and other table privileges. RLS is enabled and the only policy returned for that table is an authenticated-only SELECT policy; no `anon` policy was listed. This is not evidence that anonymous writes succeed—RLS should deny rows without a matching policy—but it is broader table privilege exposure than the documented anonymous-privilege hardening suggests. Revoke unnecessary anonymous grants through a reviewed migration and verify effective privileges afterward.
+
+The same inventory returned table-level INSERT/UPDATE/DELETE grants to `authenticated` on several operational tables. Current policies and triggers provide additional controls, so grants alone do not prove an exploit:
+- `incident_assignments` has only a participant/dispatcher/requester SELECT policy in the inspected policy inventory; no INSERT/UPDATE/DELETE policies were listed for client roles.
+- `incidents` has requester-only INSERT, participant/dispatcher SELECT, and dispatcher/assigned-unit UPDATE policies. Its trigger `tacresq_guard_incident_update` rejects field-unit edits to the original emergency report fields and validates status transitions; `tacresq_guard_single_active_incident` enforces one active incident per requester on insert. These safeguards reduce bypass risk but should be covered by direct-table and RPC integration tests.
+- `profiles` has self/dispatcher SELECT and responder/driver self-UPDATE policies. Its `tacresq_guard_profile_update` trigger rejects mobile-client changes to identity/role fields and blocks duty changes while an active assignment exists.
+- `location_logs` has participant/dispatcher SELECT and an assigned, en-route responder/driver INSERT policy. The grant inventory did not list authenticated INSERT for this table, and no client UPDATE/DELETE policies were listed.
+- `incident_request_edit_logs` and `incident_submission_keys` had no policies; the grant inventory showed no direct `anon` or `authenticated` grants for these tables, consistent with a deny-by-default internal-table design.
+
+**Recommendation:** decide explicitly whether the app should use RPCs as the only write interface. If yes, revoke direct table DML grants from `anon` and `authenticated` where not required, keeping only narrowly justified reads (if any). Do not run a blanket revoke until every Android screen, dashboard query, trigger, helper and RPC is checked for dependency. If direct table access is intentionally retained, document the rationale and add tests proving RLS plus triggers preserve the same business invariants as the RPCs—especially single-active-request, idempotency, request edit audit, dispatcher-only assignment, and per-responder status transitions.
+
+The read-only catalog showed a trigger `tacresq_guard_profile_update` on profiles and `tacresq_guard_incident_update` plus `tacresq_guard_single_active_incident` on incidents. Their inspected definitions use a fixed `pg_catalog` search path. This is useful defense in depth, but it does not replace least-privilege table grants or authenticated end-to-end tests.
+
 ## Priority 1 — Review security advisor findings
 
 ### 2. `SECURITY DEFINER` RPCs are executable by authenticated users
