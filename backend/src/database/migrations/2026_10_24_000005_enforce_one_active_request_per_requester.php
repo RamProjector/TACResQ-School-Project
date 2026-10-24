@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 return new class extends Migration {
     public function up(): void
@@ -15,7 +14,7 @@ return new class extends Migration {
             ->value('requester_id');
 
         if ($duplicateRequester !== null) {
-            throw new RuntimeException(
+            throw new \RuntimeException(
                 'Cannot enforce one active incident per requester: existing duplicate active incidents must be reconciled first.'
             );
         }
