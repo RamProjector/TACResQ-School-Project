@@ -63,9 +63,11 @@ checks = {
     "all normal data methods prefer bridge and never silently fallback after bridge errors":
         all(f"bridgeRpc?.{name}(" in api for name in (
             "me", "setDutyStatus", "myIncidents", "allIncidents", "units",
-            "activeResponderLocations", "createIncidentV4", "cancelMyIncident",
-            "updateMyIncident", "updateIncidentStatus", "updateMyAssignmentStatus",
+            "activeResponderLocations", "updateIncidentStatus", "updateMyAssignmentStatus",
             "assignIncident", "assignIncidentTeam", "recordLocation",
+        ))
+        and all(f"bridgeRpc != null) bridgeRpc.{name}(" in api for name in (
+            "createIncidentV4", "cancelMyIncident", "updateMyIncident",
         )),
 }
 failed = [name for name, passed in checks.items() if not passed]
