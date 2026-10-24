@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Guard the opt-in Render bridge canary against accidental full-client cutover."""
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 gradle = (ROOT / "app/build.gradle.kts").read_text()
