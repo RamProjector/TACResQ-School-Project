@@ -72,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
     Route::post('/incidents', function (Request $request) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['requester']);
         $data = $request->validate([
+            'client_request_id' => ['required', 'uuid'],
             'type' => ['required', Rule::in(['medical', 'fire', 'vehicular', 'disaster', 'other'])],
             'description' => ['nullable', 'string', 'max:2000'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
@@ -114,12 +115,70 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
             'A location capture time is required with coordinates.'
         );
         $data['location_notes'] = isset($data['location_notes']) ? (trim($data['location_notes']) ?: null) : null;
-        $incident = DB::transaction(function () use ($data, $request) {
-            $incident = Incident::create([...$data, 'requester_id' => $request->user()->id, 'status' => 'pending']);
-            $incident->statusLogs()->create(['status' => 'pending', 'changed_by' => $request->user()->id]);
-            return $incident;
+
+        $requestId = $data['client_request_id'];
+        unset($data['client_request_id']);
+        $requestPayload = json_encode(
+            $data,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
+
+        $result = DB::transaction(function () use ($data, $request, $requestId, $requestPayload, $incidentJson) {
+            // Lock the account row so simultaneous submissions from this requester
+            // cannot both pass the active-request check.
+            User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+
+            $existingKey = DB::table('incident_submission_keys')
+                ->where('requester_id', $request->user()->id)
+                ->where('client_request_id', $requestId)
+                ->first();
+
+            if ($existingKey) {
+                if (!hash_equals((string) $existingKey->request_payload, $requestPayload)) {
+                    abort(409, 'This request ID was already used for different request details.');
+                }
+                if ($existingKey->response_payload !== null) {
+                    return [
+                        'payload' => json_decode($existingKey->response_payload, true, 512, JSON_THROW_ON_ERROR),
+                        'replayed' => true,
+                    ];
+                }
+                abort(409, 'This request is still being processed. Please retry shortly.');
+            }
+
+            $active = Incident::where('requester_id', $request->user()->id)
+                ->whereIn('status', ['pending', 'assigned', 'en_route', 'on_scene', 'transporting'])
+                ->exists();
+            abort_if($active, 409, 'You already have an active request. Cancel or resolve it before submitting another.');
+
+            DB::table('incident_submission_keys')->insert([
+                'requester_id' => $request->user()->id,
+                'client_request_id' => $requestId,
+                'request_payload' => $requestPayload,
+                'response_payload' => null,
+                'created_at' => now(),
+            ]);
+
+            $incident = Incident::create([
+                ...$data,
+                'requester_id' => $request->user()->id,
+                'status' => 'pending',
+            ]);
+            $incident->statusLogs()->create([
+                'status' => 'pending',
+                'changed_by' => $request->user()->id,
+            ]);
+            $payload = $incidentJson($incident);
+
+            DB::table('incident_submission_keys')
+                ->where('requester_id', $request->user()->id)
+                ->where('client_request_id', $requestId)
+                ->update(['response_payload' => json_encode($payload, JSON_THROW_ON_ERROR)]);
+
+            return ['payload' => $payload, 'replayed' => false];
         });
-        return response()->json($incidentJson($incident), 201);
+
+        return response()->json($result['payload'], $result['replayed'] ? 200 : 201);
     });
     Route::patch('/incidents/{incident}/status', function (Request $request, Incident $incident) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['responder', 'driver']);
