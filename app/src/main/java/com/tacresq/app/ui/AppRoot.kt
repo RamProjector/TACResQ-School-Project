@@ -139,154 +139,224 @@ private fun RoleApp(
 }
 
 @Composable
-private fun RoleSectionScreen(destination: AppDestination, user: User, logout: () -> Unit, incidents: List<Incident>, units: List<User> = emptyList()) {
+private fun RoleSectionScreen(
+    destination: AppDestination,
+    user: User,
+    logout: () -> Unit,
+    incidents: List<Incident>,
+    units: List<User> = emptyList(),
+) {
     val role = user.role
+    val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER
     val title = when (destination) {
         AppDestination.SECONDARY -> when (role) {
             Role.REQUESTER -> "My requests"
             Role.RESPONDER, Role.DRIVER -> "Response history"
             Role.DISPATCHER -> "Field units"
         }
-        AppDestination.ALERTS -> "Safety and alerts"
+        AppDestination.ALERTS -> "Safety"
         AppDestination.PROFILE -> "Profile"
         AppDestination.PRIMARY, AppDestination.MAP -> "TACResQ"
     }
+    val activeCount = incidents.count { it.status.isActive }
+    val completedCount = incidents.count { !it.status.isActive }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        ScreenHeader(
-            title = title,
-            subtitle = "",
-            onLogout = logout,
-        )
+        ScreenHeader(title = title, subtitle = "", onLogout = logout)
 
-        if (destination != AppDestination.SECONDARY || role == Role.DISPATCHER) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+        when {
+            isHistory -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
                 ) {
-                    when (destination) {
-                        AppDestination.SECONDARY -> {
-                            if (role == Role.DISPATCHER) {
-                                Text(
-                                    "${units.size} field units",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        AppDestination.ALERTS -> {
-                            Text("Safety information", style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                "Share your location only when needed and verify incident details before responding.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                "For a real emergency, contact local emergency services.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        AppDestination.PROFILE -> {
-                            Text("Account details", style = MaterialTheme.typography.titleLarge)
-                            Text(user.name, style = MaterialTheme.typography.titleMedium)
-                            Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Role: ${role.label}")
-                            user.phone?.let { Text("Mobile: $it") }
-                        }
-                        AppDestination.PRIMARY, AppDestination.MAP -> Unit
-                    }
-                }
-            }
-        }
-
-        if (destination == AppDestination.SECONDARY && role == Role.DISPATCHER) {
-            if (units.isEmpty()) {
-                Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth().padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
-                        Text("No field units returned", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "No field units available.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
+                            if (role == Role.REQUESTER) "Your emergency requests" else "Your response activity",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            "$activeCount active · $completedCount completed",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 }
-            } else {
-                units.forEach { unit ->
+                if (incidents.isEmpty()) {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(20.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Text(unit.name, style = MaterialTheme.typography.titleMedium)
-                            Text(unit.role.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Nothing here yet", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Duty status: ${unit.dutyStatus?.label ?: "Not applicable"}",
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                            unit.phone?.let { Text("Phone: $it", style = MaterialTheme.typography.bodySmall) }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (destination == AppDestination.SECONDARY && role != Role.DISPATCHER) {
-            if (incidents.isEmpty()) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Text("No requests yet", style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-            } else {
-                incidents.forEach { incident ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Text(
-                                "Incident #${incident.id} • ${incident.type.label}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                incident.status.label,
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                            incident.description?.takeIf { it.isNotBlank() }?.let {
-                                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            incident.locationNotes?.takeIf { it.isNotBlank() }?.let {
-                                Text("Location note: $it", style = MaterialTheme.typography.bodySmall)
-                            }
-                            val hasCoordinates = incident.latitude != null &&
-                                incident.longitude != null &&
-                                incident.latitude in -90.0..90.0 &&
-                                incident.longitude in -180.0..180.0
-                            Text(
-                                if (hasCoordinates) "GPS coordinates recorded" else "No valid GPS pin recorded",
+                                if (role == Role.REQUESTER)
+                                    "When you submit an emergency request, its current status and location details will appear here."
+                                else
+                                    "Assignments and completed responses will appear here when they are returned by dispatch.",
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall,
                             )
-                            incident.createdAt?.takeIf { it.isNotBlank() }?.let {
-                                Text("Submitted: $it", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                } else {
+                    incidents.sortedByDescending { it.createdAt.orEmpty() }.forEach { incident ->
+                        com.tacresq.app.ui.common.IncidentCard(incident)
+                    }
+                }
+            }
+
+            destination == AppDestination.SECONDARY && role == Role.DISPATCHER -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Field units", style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        Text(
+                            "${units.size} unit profiles returned",
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+                if (units.isEmpty()) {
+                    EmptySectionCard("No field units returned", "Check the connection and refresh the queue before making staffing decisions.")
+                } else {
+                    units.forEach { unit ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                Modifier.fillMaxWidth().padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(7.dp),
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        unit.name,
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        unit.dutyStatus?.label ?: "Status unavailable",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.labelLarge,
+                                    )
+                                }
+                                Text(unit.role.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                unit.phone?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                             }
                         }
                     }
                 }
             }
+
+            destination == AppDestination.ALERTS -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "Stay safe first",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            "TACResQ helps coordinate information. It does not replace emergency call handlers, trained responders, or on-scene judgment.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+                SafetyGuidanceCard(
+                    title = "If you need urgent help",
+                    body = "If someone is in immediate danger, contact the appropriate local emergency service directly when you can. Do not wait for an app status update to seek urgent assistance.",
+                )
+                SafetyGuidanceCard(
+                    title = "Confirm the location",
+                    body = "Check the map pin and landmark together. GPS can be inaccurate indoors or near tall buildings; correct a misplaced pin before sending when it is safe to do so.",
+                )
+                SafetyGuidanceCard(
+                    title = "Share location deliberately",
+                    body = "Field-unit location sharing is visible to authorized dispatch while the app is in use. Stop sharing when the response no longer requires it.",
+                )
+                SafetyGuidanceCard(
+                    title = "Protect personal information",
+                    body = "Share only details relevant to the incident. Do not post medical details, phone numbers, or another person's location publicly.",
+                )
+            }
+
+            destination == AppDestination.PROFILE -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("Your account", style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        Text("Signed in to TACResQ", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ProfileDetail("Full name", user.name)
+                        ProfileDetail("Email", user.email)
+                        ProfileDetail("Role", role.label)
+                        user.phone?.takeIf { it.isNotBlank() }?.let { ProfileDetail("Mobile", it) }
+                        androidx.compose.material3.HorizontalDivider()
+                        androidx.compose.material3.TextButton(
+                            onClick = logout,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Sign out") }
+                    }
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun EmptySectionCard(title: String, body: String) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun SafetyGuidanceCard(title: String, body: String) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ProfileDetail(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyLarge)
     }
 }
