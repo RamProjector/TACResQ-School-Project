@@ -101,10 +101,14 @@ class SupabaseTacApi private constructor(
             val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
             val common = OkHttpClient.Builder()
                 .addInterceptor { chain ->
-                    val request = chain.request().newBuilder()
+                    val original = chain.request()
+                    val request = original.newBuilder()
                         .header("apikey", AppConfig.SUPABASE_PUBLISHABLE_KEY)
                         .header("Accept", "application/json")
-                    tokenProvider()?.let { request.header("Authorization", "Bearer $it") }
+                    // Preserve an explicitly supplied fresh token (e.g. immediately after login).
+                    if (original.header("Authorization") == null) {
+                        tokenProvider()?.let { request.header("Authorization", "Bearer $it") }
+                    }
                     chain.proceed(request.build())
                 }
                 .addInterceptor(logging)
@@ -120,9 +124,13 @@ class SupabaseTacApi private constructor(
             val bridgeRpc = if (useRenderBridge) {
                 val bridgeClient = OkHttpClient.Builder()
                     .addInterceptor { chain ->
-                        val request = chain.request().newBuilder()
+                        val original = chain.request()
+                        val request = original.newBuilder()
                             .header("Accept", "application/json")
-                        tokenProvider()?.let { request.header("Authorization", "Bearer $it") }
+                        // Never replace a request's explicit Authorization header with a cached session token.
+                        if (original.header("Authorization") == null) {
+                            tokenProvider()?.let { request.header("Authorization", "Bearer $it") }
+                        }
                         chain.proceed(request.build())
                     }
                     .addInterceptor(logging)
