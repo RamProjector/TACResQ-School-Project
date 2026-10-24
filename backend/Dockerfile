@@ -29,7 +29,7 @@ RUN chmod +x /usr/local/bin/tacresq-entrypoint \
 
 # These are browser-safe Supabase client settings, not service-role credentials.
 # Render environment variables may override them when configured successfully.
-ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr \
+ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr SESSION_DRIVER=file \
     SUPABASE_URL=https://kttguamhznoflzagfutr.supabase.co \
     SUPABASE_PUBLISHABLE_KEY=sb_publishable_1-_oEKiNRWO0tvEOr5Gr3g_USY07s2g
 EXPOSE 10000

@@ -319,6 +319,12 @@ jobs:
             test "$SUPABASE_PUBLISHABLE_KEY" = "sb_publishable_ci_placeholder"
           '
 
+      - name: Verify PostgreSQL migrations on the real integration database
+        working-directory: backend
+        run: |
+          docker compose exec -T api php artisan migrate --force
+          docker compose exec -T api php artisan migrate:status --database=pgsql
+
       - name: Run Laravel feature tests
         working-directory: backend
         run: docker compose exec -T api php artisan test
@@ -362,6 +368,11 @@ jobs:
           assert 'cache-control: no-store, private' in headers, 'Cache-Control must disable storage'
           print('Runtime configuration is correct and non-cacheable.')
           PY
+
+      - name: Capture Laravel logs on integration failure
+        if: failure()
+        working-directory: backend
+        run: docker compose logs --no-color api db || true
 
       - name: Stop test services
         if: always()
