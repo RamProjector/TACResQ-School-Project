@@ -69,6 +69,23 @@ class SupabaseBridgeTest extends TestCase
         });
     }
 
+    public function test_rpc_without_arguments_is_forwarded_as_empty_json_object(): void
+    {
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(['id' => 'auth-user-123'], 200),
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => Http::response([], 200),
+        ]);
+
+        $this->withToken('valid-supabase-access-token')
+            ->postJson('/api/bridge/rpc/api_units', [])
+            ->assertOk();
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/rest/v1/rpc/api_units')
+                && $request->body() === '{}';
+        });
+    }
+
     public function test_unlisted_rpc_is_not_forwarded(): void
     {
         Http::preventStrayRequests();
