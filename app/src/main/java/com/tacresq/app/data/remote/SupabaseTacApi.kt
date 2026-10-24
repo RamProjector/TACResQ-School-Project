@@ -8,6 +8,7 @@ import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -101,15 +102,11 @@ class SupabaseTacApi private constructor(
             val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
             val common = OkHttpClient.Builder()
                 .addInterceptor { chain ->
-                    val original = chain.request()
-                    val request = original.newBuilder()
+                    val request = chain.request().newBuilder()
                         .header("apikey", AppConfig.SUPABASE_PUBLISHABLE_KEY)
                         .header("Accept", "application/json")
-                    // Preserve an explicitly supplied fresh token (e.g. immediately after login).
-                    if (original.header("Authorization") == null) {
-                        tokenProvider()?.let { request.header("Authorization", "Bearer $it") }
-                    }
-                    chain.proceed(request.build())
+                        .build()
+                    chain.proceed(withStoredSessionAuthorization(request, tokenProvider))
                 }
                 .addInterceptor(logging)
                 .connectTimeout(15, TimeUnit.SECONDS)
@@ -124,14 +121,10 @@ class SupabaseTacApi private constructor(
             val bridgeRpc = if (useRenderBridge) {
                 val bridgeClient = OkHttpClient.Builder()
                     .addInterceptor { chain ->
-                        val original = chain.request()
-                        val request = original.newBuilder()
+                        val request = chain.request().newBuilder()
                             .header("Accept", "application/json")
-                        // Never replace a request's explicit Authorization header with a cached session token.
-                        if (original.header("Authorization") == null) {
-                            tokenProvider()?.let { request.header("Authorization", "Bearer $it") }
-                        }
-                        chain.proceed(request.build())
+                            .build()
+                        chain.proceed(withStoredSessionAuthorization(request, tokenProvider))
                     }
                     .addInterceptor(logging)
                     .connectTimeout(15, TimeUnit.SECONDS)
@@ -151,6 +144,19 @@ class SupabaseTacApi private constructor(
             )
         }
     }
+}
+
+/**
+ * Add the cached session token only when a request has no usable explicit bearer token.
+ * This keeps a freshly authenticated session from being overwritten by an older stored token.
+ */
+internal fun withStoredSessionAuthorization(
+    original: Request,
+    tokenProvider: () -> String?,
+): Request {
+    if (!original.header("Authorization").isNullOrBlank()) return original
+    val token = tokenProvider()?.takeIf { it.isNotBlank() } ?: return original
+    return original.newBuilder().header("Authorization", "Bearer $token").build()
 }
 
 private interface SupabaseAuthWire {
