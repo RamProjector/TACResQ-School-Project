@@ -224,6 +224,11 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
     });
 });
 
+// Transitional Render -> Supabase bridge. Apply a coarse per-IP ceiling before
+// validating Supabase tokens so unauthenticated traffic cannot hammer Auth.
+// Keep the limit conservative; user-token-aware limiting can follow after QA.
+Route::middleware('throttle:120,1')->group(function () {
+
 // Transitional Render -> Supabase bridge. This is additive; existing clients are
 // not switched to it until endpoint parity and end-to-end tests are complete.
 Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge) {
@@ -279,4 +284,6 @@ Route::post('/bridge/rpc/{function}', function (
     }
 
     return response()->json($result['body'], $result['status']);
+});
+
 });
