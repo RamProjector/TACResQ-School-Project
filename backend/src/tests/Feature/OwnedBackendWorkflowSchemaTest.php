@@ -44,18 +44,19 @@ class OwnedBackendWorkflowSchemaTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $clientRequestId = 'd2719c7e-4c4d-4d2d-8e3c-b2d28b01a0af';
-        $payload = json_encode(['type' => 'medical'], JSON_THROW_ON_ERROR);
         $record = [
             'requester_id' => $requesterId,
-            'client_request_id' => $clientRequestId,
-            'request_payload' => $payload,
+            'client_request_id' => 'd2719c7e-4c4d-4d2d-8e3c-b2d28b01a0af',
+            'request_payload' => json_encode(['type' => 'medical'], JSON_THROW_ON_ERROR),
             'created_at' => now(),
         ];
         DB::table('incident_submission_keys')->insert($record);
 
         try {
-            DB::table('incident_submission_keys')->insert($record);
+            // A nested transaction creates a savepoint on PostgreSQL. The expected
+            // uniqueness violation is rolled back to that savepoint so the test's
+            // outer RefreshDatabase transaction remains usable for assertions.
+            DB::transaction(fn () => DB::table('incident_submission_keys')->insert($record));
             $this->fail('A repeated requester/client request key must be rejected by the database.');
         } catch (QueryException) {
             $this->assertDatabaseCount('incident_submission_keys', 1);
@@ -98,7 +99,7 @@ class OwnedBackendWorkflowSchemaTest extends TestCase
         DB::table('incident_assignments')->insert($assignment);
 
         try {
-            DB::table('incident_assignments')->insert($assignment);
+            DB::transaction(fn () => DB::table('incident_assignments')->insert($assignment));
             $this->fail('Duplicate assignment rows for the same incident/responder must be rejected.');
         } catch (QueryException) {
             $this->assertDatabaseCount('incident_assignments', 1);
