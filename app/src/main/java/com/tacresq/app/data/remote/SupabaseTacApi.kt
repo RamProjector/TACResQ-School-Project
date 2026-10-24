@@ -18,7 +18,7 @@ import retrofit2.http.Header
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-/** Supabase Auth + PostgREST RPC adapter; only the publishable key is embedded in the app. */
+/** Supabase Auth + Render-bridged PostgREST RPC adapter; only the publishable key is embedded in the app. */
 class SupabaseTacApi private constructor(
     private val auth: SupabaseAuthWire,
     private val rpc: SupabaseRpcWire,
