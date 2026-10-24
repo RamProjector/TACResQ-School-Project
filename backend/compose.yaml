@@ -8,7 +8,13 @@ services:
       APP_ENV: local
       APP_DEBUG: "true"
       LOG_CHANNEL: stderr
-      DATABASE_URL: postgresql://tacresq:tacresq@db:5432/tacresq
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: tacresq
+      DB_USERNAME: tacresq
+      DB_PASSWORD: tacresq
+      SESSION_DRIVER: file
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
     depends_on:
