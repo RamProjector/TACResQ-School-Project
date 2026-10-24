@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard the opt-in Render bridge canary against accidental full-client cutover."""
+"""Guard the opt-in full-data Render bridge canary without enabling release cutover."""
 from pathlib import Path
 import re
 
@@ -9,65 +9,82 @@ container = (ROOT / "app/src/main/java/com/tacresq/app/AppContainer.kt").read_te
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 bridge_config = (ROOT / "backend/src/config/tacru.php").read_text()
 
-bridge_transport_names = re.findall(r'@POST\("bridge/rpc/(api_[a-z0-9_]+)"\)', api)
+expected_rpcs = {
+    "api_active_responder_locations",
+    "api_all_incidents",
+    "api_assign_incident",
+    "api_assign_incident_team",
+    "api_cancel_my_incident",
+    "api_create_incident_v4",
+    "api_me",
+    "api_my_incidents",
+    "api_record_location_v2",
+    "api_set_duty_status",
+    "api_units",
+    "api_update_incident_status",
+    "api_update_my_assignment_status",
+    "api_update_my_incident",
+}
+transport_names = re.findall(r'@POST\("bridge/rpc/(api_[a-z0-9_]+)"\)', api)
 allowlist_match = re.search(
     r"'bridge_rpc_allowlist'\s*=>\s*\[(.*?)\]",
     bridge_config,
     re.IGNORECASE | re.DOTALL,
 )
-allowlist_names = re.findall(r"'(api_[a-z0-9_]+)'", allowlist_match.group(1)) if allowlist_match else []
+allowlist_names = re.findall(
+    r"'(api_[a-z0-9_]+)'", allowlist_match.group(1)
+) if allowlist_match else []
+transport_set = set(transport_names)
 allowlist_set = set(allowlist_names)
-transport_set = set(bridge_transport_names)
 
 checks = {
-    "Render bridge canary is explicitly opt-in":
+    "Render bridge is opt-in in debug builds":
         'providers.gradleProperty("useRenderBridge").orNull == "true"' in gradle,
-    "server bridge allowlist is explicit and has no duplicate entries":
-        allowlist_match is not None and bool(allowlist_names) and len(allowlist_names) == len(allowlist_set),
-    "every Android bridge transport is explicitly allowlisted by Render":
-        bool(transport_set) and transport_set <= allowlist_set,
-    "bridge route declarations use RPC identifiers":
-        all(name.startswith("api_") for name in bridge_transport_names),
-    "service-role credentials are not embedded in the Android bridge adapter":
-        "service_role" not in api.lower() and "service-role" not in api.lower(),
     "Render bridge canary requires real Supabase mode":
         'if (useRenderBridgeInDebug && !useSupabaseInDebug)' in gradle,
-    "release builds keep the bridge disabled":
+    "release builds keep the bridge disabled until separately verified":
         'buildConfigField("boolean", "USE_RENDER_BRIDGE", "false")' in gradle,
-    "AppContainer passes the build flag to the Supabase adapter":
+    "AppContainer passes the bridge build flag to the adapter":
         "useRenderBridge = AppConfig.USE_RENDER_BRIDGE" in container,
-    "only four currently allowlisted RPCs have a bridge transport":
-        all(f'@POST("bridge/rpc/{name}")' in api for name in (
-            "api_units",
-            "api_create_incident_v4",
-            "api_cancel_my_incident",
-            "api_update_my_incident",
-        ))
-        and api.count('@POST("bridge/rpc/') == 4,
-    "client bridge paths match the server allowlist":
-        all(f"'{name}'" in bridge_config for name in (
-            "api_units",
-            "api_create_incident_v4",
-            "api_cancel_my_incident",
-            "api_update_my_incident",
-        )),
-    "unsupported RPCs remain direct to Supabase":
-        "rpc.myIncidents(EmptyRpcBody())" in api
-        and "rpc.allIncidents(EmptyRpcBody())" in api
-        and "rpc.setDutyStatus(" in api
-        and "rpc.activeResponderLocations(EmptyRpcBody())" in api
-        and "rpc.updateIncidentStatus(" in api
-        and "rpc.updateMyAssignmentStatus(" in api
-        and "rpc.assignIncidentTeam(" in api
-        and "rpc.recordLocation(" in api,
-    "auth continues using Supabase endpoints":
+    "Android transport list is exactly the reviewed 14-RPC inventory":
+        len(transport_names) == len(expected_rpcs)
+        and transport_set == expected_rpcs
+        and len(transport_names) == len(transport_set),
+    "Render allowlist exactly matches the Android transport inventory":
+        allowlist_match is not None
+        and bool(allowlist_names)
+        and len(allowlist_names) == len(allowlist_set)
+        and allowlist_set == transport_set,
+    "all application data methods use bridge when the opt-in is enabled":
+        all(
+            re.search(
+                rf"if \(bridgeRpc != null\) bridgeRpc\.{method}\(",
+                api,
+            )
+            for method in (
+                "me", "setDutyStatus", "myIncidents", "allIncidents", "units",
+                "activeResponderLocations", "createIncidentV4", "cancelMyIncident",
+                "updateMyIncident", "updateIncidentStatus",
+                "updateMyAssignmentStatus", "assignIncident", "assignIncidentTeam",
+                "recordLocation",
+            )
+        ),
+    "no nullable-result Elvis fallback can retry a bridge call against Supabase":
+        not re.search(r"bridgeRpc\?\.\w+\([^;\n]*\)\s*\?:\s*rpc\.", api),
+    "Supabase Auth continues to use Supabase endpoints":
         'baseUrl(AppConfig.SUPABASE_URL.trimEnd(\'/\') + "/")' in api
         and '@POST("auth/v1/token")' in api
         and '@POST("auth/v1/signup")' in api,
-    "bridge uses the caller bearer token":
-        '.header("Authorization", "Bearer $it")' in api,
-    "write errors do not silently trigger direct-Supabase fallback":
-        "return if (bridgeRpc != null) bridgeRpc.createIncidentV4(request) else rpc.createIncidentV4(request)" in api,
+    "fresh explicit auth token is preserved over cached session token":
+        "withStoredSessionAuthorization(request.build(), tokenProvider)" in api
+        and 'if (!original.header("Authorization").isNullOrBlank()) return original' in api
+        and 'tokenProvider()?.takeIf { it.isNotBlank() }' in api,
+    "bridge requests forward caller bearer token and do not embed service role":
+        "withStoredSessionAuthorization(request.build(), tokenProvider)" in api
+        and "service_role" not in api.lower()
+        and "SUPABASE_SERVICE_ROLE_KEY" not in api,
+    "bridge errors are surfaced without catch-and-retry fallback":
+        "catch (Exception)" not in api and "catch (Throwable)" not in api,
 }
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
