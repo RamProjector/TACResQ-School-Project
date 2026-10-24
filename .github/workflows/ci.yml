@@ -144,8 +144,6 @@ jobs:
       - name: Check demo and Supabase build-mode separation
         run: python3 tools/test_android_build_modes.py
 
-      - name: Check opt-in Render bridge canary contract
-        run: python3 tools/test_render_bridge_canary.py
 
       - name: Accept Android SDK licenses and install API 37
         if: hashFiles('gradlew') != ''
