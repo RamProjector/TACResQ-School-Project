@@ -37,19 +37,24 @@ class SupabaseTacApi private constructor(
         val token = result.accessToken ?: throw IllegalStateException(
             "Account created. Check your email and tap the confirmation link, then return to TACResQ and sign in."
         )
-        val profile = rpc.me("Bearer $token")
+        val profile = bridgeRpc?.me(EmptyRpcBody(), "Bearer $token") ?: rpc.me("Bearer $token")
         return AuthResponse(token = token, user = profile)
     }
 
     override suspend fun logout() { auth.logout() }
-    override suspend fun me(): User = rpc.me()
-    override suspend fun setDutyStatus(body: DutyStatusRequest): User =
-        rpc.setDutyStatus(DutyStatusRpc(body.dutyStatus.wireValue))
-    override suspend fun myIncidents(): List<Incident> = rpc.myIncidents(EmptyRpcBody())
-    override suspend fun allIncidents(): List<Incident> = rpc.allIncidents(EmptyRpcBody())
+    override suspend fun me(): User = bridgeRpc?.me(EmptyRpcBody()) ?: rpc.me()
+    override suspend fun setDutyStatus(body: DutyStatusRequest): User {
+        val request = DutyStatusRpc(body.dutyStatus.wireValue)
+        return bridgeRpc?.setDutyStatus(request) ?: rpc.setDutyStatus(request)
+    }
+    override suspend fun myIncidents(): List<Incident> =
+        bridgeRpc?.myIncidents(EmptyRpcBody()) ?: rpc.myIncidents(EmptyRpcBody())
+    override suspend fun allIncidents(): List<Incident> =
+        bridgeRpc?.allIncidents(EmptyRpcBody()) ?: rpc.allIncidents(EmptyRpcBody())
     override suspend fun units(): List<User> =
         bridgeRpc?.units(EmptyRpcBody()) ?: rpc.units(EmptyRpcBody())
-    override suspend fun activeResponderLocations(): List<ResponderLocation> = rpc.activeResponderLocations(EmptyRpcBody())
+    override suspend fun activeResponderLocations(): List<ResponderLocation> =
+        bridgeRpc?.activeResponderLocations(EmptyRpcBody()) ?: rpc.activeResponderLocations(EmptyRpcBody())
     override suspend fun createIncident(body: CreateIncidentRequest): Incident {
         val request = CreateIncidentV4Rpc(
             body.type.wireValue,
@@ -70,16 +75,26 @@ class SupabaseTacApi private constructor(
     }
     override suspend fun updateMyIncident(body: UpdateMyIncidentRequest): Incident =
         if (bridgeRpc != null) bridgeRpc.updateMyIncident(body) else rpc.updateMyIncident(body)
-    override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident =
-        rpc.updateIncidentStatus(UpdateIncidentRpc(id, body.status.wireValue))
-    override suspend fun updateMyAssignmentStatus(id: Long, body: UpdateStatusRequest): Incident =
-        rpc.updateMyAssignmentStatus(UpdateMyAssignmentStatusRpc(id, body.status.wireValue))
-    override suspend fun assignIncident(id: Long, body: AssignIncidentRequest): Incident =
-        rpc.assignIncident(AssignIncidentRpc(id, body.userId))
-    override suspend fun assignIncidentTeam(id: Long, body: AssignIncidentTeamRequest): Incident =
-        rpc.assignIncidentTeam(AssignIncidentTeamRpc(id, body.userIds))
-    override suspend fun recordLocation(body: ResponderLocationRequest): Long =
-        rpc.recordLocation(RecordLocationRpc(body.incidentId, body.latitude, body.longitude, body.accuracyM, body.recordedAt))
+    override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident {
+        val request = UpdateIncidentRpc(id, body.status.wireValue)
+        return bridgeRpc?.updateIncidentStatus(request) ?: rpc.updateIncidentStatus(request)
+    }
+    override suspend fun updateMyAssignmentStatus(id: Long, body: UpdateStatusRequest): Incident {
+        val request = UpdateMyAssignmentStatusRpc(id, body.status.wireValue)
+        return bridgeRpc?.updateMyAssignmentStatus(request) ?: rpc.updateMyAssignmentStatus(request)
+    }
+    override suspend fun assignIncident(id: Long, body: AssignIncidentRequest): Incident {
+        val request = AssignIncidentRpc(id, body.userId)
+        return bridgeRpc?.assignIncident(request) ?: rpc.assignIncident(request)
+    }
+    override suspend fun assignIncidentTeam(id: Long, body: AssignIncidentTeamRequest): Incident {
+        val request = AssignIncidentTeamRpc(id, body.userIds)
+        return bridgeRpc?.assignIncidentTeam(request) ?: rpc.assignIncidentTeam(request)
+    }
+    override suspend fun recordLocation(body: ResponderLocationRequest): Long {
+        val request = RecordLocationRpc(body.incidentId, body.latitude, body.longitude, body.accuracyM, body.recordedAt)
+        return bridgeRpc?.recordLocation(request) ?: rpc.recordLocation(request)
+    }
 
     companion object {
         fun create(tokenProvider: () -> String?, useRenderBridge: Boolean = false): TacApi {
@@ -145,10 +160,41 @@ private interface SupabaseAuthWire {
 }
 
 /**
- * Narrow Render canary transport. These four functions are currently allowlisted
- * server-side; all other RPCs deliberately remain on the direct Supabase client.
+ * Render transport for all application data RPCs. Supabase Auth remains direct so
+ * the client can obtain/refresh user access tokens; all database RPC calls are routed
+ * through the authenticated bridge when it is enabled.
  */
 private interface SupabaseBridgeRpcWire {
+    @POST("bridge/rpc/api_me")
+    suspend fun me(@Body body: EmptyRpcBody, @Header("Authorization") authorization: String? = null): User
+
+    @POST("bridge/rpc/api_set_duty_status")
+    suspend fun setDutyStatus(@Body body: DutyStatusRpc): User
+
+    @POST("bridge/rpc/api_my_incidents")
+    suspend fun myIncidents(@Body body: EmptyRpcBody): List<Incident>
+
+    @POST("bridge/rpc/api_all_incidents")
+    suspend fun allIncidents(@Body body: EmptyRpcBody): List<Incident>
+
+    @POST("bridge/rpc/api_active_responder_locations")
+    suspend fun activeResponderLocations(@Body body: EmptyRpcBody): List<ResponderLocation>
+
+    @POST("bridge/rpc/api_update_incident_status")
+    suspend fun updateIncidentStatus(@Body body: UpdateIncidentRpc): Incident
+
+    @POST("bridge/rpc/api_update_my_assignment_status")
+    suspend fun updateMyAssignmentStatus(@Body body: UpdateMyAssignmentStatusRpc): Incident
+
+    @POST("bridge/rpc/api_assign_incident")
+    suspend fun assignIncident(@Body body: AssignIncidentRpc): Incident
+
+    @POST("bridge/rpc/api_assign_incident_team")
+    suspend fun assignIncidentTeam(@Body body: AssignIncidentTeamRpc): Incident
+
+    @POST("bridge/rpc/api_record_location_v2")
+    suspend fun recordLocation(@Body body: RecordLocationRpc): Long
+
     @POST("bridge/rpc/api_units")
     suspend fun units(@Body body: EmptyRpcBody): List<User>
 
