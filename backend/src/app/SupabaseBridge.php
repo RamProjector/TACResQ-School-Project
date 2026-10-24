@@ -30,7 +30,7 @@ final class SupabaseBridge
                 ->get($baseUrl.'/auth/v1/user');
 
             if ($response->status() >= 500 || $response->status() === 429) {
-                throw new \\RuntimeException('Supabase Auth is temporarily unavailable.');
+                throw new \RuntimeException('Supabase Auth is temporarily unavailable.');
             }
 
             if (!$response->successful()) {
@@ -42,10 +42,10 @@ final class SupabaseBridge
             return is_array($user) && is_string($user['id'] ?? null)
                 ? $user
                 : null;
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             throw $exception;
         } catch (Throwable) {
-            throw new \\RuntimeException('Supabase Auth is temporarily unavailable.');
+            throw new \RuntimeException('Supabase Auth is temporarily unavailable.');
         }
     }
 
