@@ -168,7 +168,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
 
 // Transitional Render -> Supabase bridge. This is additive; existing clients are
 // not switched to it until endpoint parity and end-to-end tests are complete.
-Route::get('/bridge/me', function (Request $request, \\App\\SupabaseBridge $bridge) {
+Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge) {
     $token = $request->bearerToken();
     abort_if (!$token, 401, 'A valid Supabase access token is required.');
 
@@ -184,7 +184,7 @@ Route::get('/bridge/me', function (Request $request, \\App\\SupabaseBridge $brid
 Route::post('/bridge/rpc/{function}', function (
     Request $request,
     string $function,
-    \\App\\SupabaseBridge $bridge
+    \App\SupabaseBridge $bridge
 ) {
     $allowlist = config('tacru.bridge_rpc_allowlist', []);
     abort_unless(in_array($function, $allowlist, true), 404, 'RPC endpoint not found.');
