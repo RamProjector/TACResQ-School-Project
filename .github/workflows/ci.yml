@@ -313,6 +313,12 @@ jobs:
             test "$SUPABASE_PUBLISHABLE_KEY" = "sb_publishable_ci_placeholder"
           '
 
+      - name: Verify PostgreSQL migrations on the real integration database
+        working-directory: backend
+        run: |
+          docker compose exec -T api php artisan migrate --force
+          docker compose exec -T api php artisan migrate:status --database=pgsql
+
       - name: Run Laravel feature tests
         working-directory: backend
         run: docker compose exec -T api php artisan test
