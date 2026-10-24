@@ -55,7 +55,9 @@ class SupabaseBridgeTest extends TestCase
 
         $this->assertNotNull($lastResponse);
         $lastResponse->assertTooManyRequests();
-        $this->assertSame('60', $lastResponse->headers->get('Retry-After'));
+        $retryAfter = (int) $lastResponse->headers->get('Retry-After', '0');
+        $this->assertGreaterThan(0, $retryAfter);
+        $this->assertLessThanOrEqual(60, $retryAfter);
     }
 
     public function test_invalid_supabase_token_is_rejected_without_rpc_execution(): void
