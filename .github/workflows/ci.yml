@@ -124,6 +124,9 @@ jobs:
       - name: Check RPC and table privilege grants
         run: python3 tools/test_rpc_grants.py
 
+      - name: Check Render startup migration safety
+        run: python3 tools/test_render_startup_migrations.py
+
   android-builds:
     name: Android debug and release builds
     runs-on: ubuntu-latest
