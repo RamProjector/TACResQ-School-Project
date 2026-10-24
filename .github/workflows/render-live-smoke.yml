@@ -1,0 +1,85 @@
+name: TACResQ Render live smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "backend/Dockerfile"
+      - "backend/router.php"
+      - "backend/src/routes/api.php"
+      - "backend/src/routes/web.php"
+      - ".github/workflows/render-live-smoke.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tacresq-render-live-smoke
+  cancel-in-progress: false
+
+jobs:
+  live-smoke:
+    name: Verify deployed Render endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wait for Render health endpoint
+        env:
+          BASE_URL: https://tacresq-school-project.onrender.com
+        run: |
+          set -eu
+          for attempt in $(seq 1 18); do
+            status="$(curl --connect-timeout 5 --max-time 10 --silent --show-error \
+              --output /tmp/render-health.json --write-out '%{http_code}' \
+              "$BASE_URL/up" || true)"
+            if [ "$status" = "200" ]; then
+              echo "Render /up returned HTTP 200."
+              cat /tmp/render-health.json
+              exit 0
+            fi
+            echo "Attempt $attempt/18: /up returned ${status:-no response}; retrying."
+            sleep 10
+          done
+          echo "::error::Render /up did not return HTTP 200 within the retry window."
+          exit 1
+
+      - name: Verify runtime Supabase configuration without printing the key
+        env:
+          BASE_URL: https://tacresq-school-project.onrender.com
+        run: |
+          set -eu
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \
+            --dump-header /tmp/runtime-config-headers.txt \
+            "$BASE_URL/runtime-config.json" --output /tmp/runtime-config.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          config = json.loads(Path('/tmp/runtime-config.json').read_text())
+          headers = Path('/tmp/runtime-config-headers.txt').read_text().lower().replace('\r', '')
+          url = config.get('supabaseUrl')
+          key = config.get('supabasePublishableKey')
+          assert url == 'https://kttguamhznoflzagfutr.supabase.co', 'Unexpected Supabase project URL'
+          assert urlparse(url).scheme == 'https', 'Supabase URL must use HTTPS'
+          assert isinstance(key, str) and key.startswith('sb_publishable_'), 'Missing or unexpected publishable key format'
+          assert 'cache-control: no-store, private' in headers, 'Runtime config must not be cacheable'
+          print('Runtime configuration matches the expected Supabase project; publishable key is present and was not printed.')
+          PY
+
+      - name: Verify bridge rejects missing authentication
+        env:
+          BASE_URL: https://tacresq-school-project.onrender.com
+        run: |
+          set -eu
+          status="$(curl --connect-timeout 5 --max-time 10 --silent --show-error \
+            --output /tmp/bridge-unauth.json --write-out '%{http_code}' \
+            --request POST --header 'Content-Type: application/json' --data '{}' \
+            "$BASE_URL/api/bridge/rpc/api_me")"
+          if [ "$status" != "401" ]; then
+            echo "::error::Expected unauthenticated bridge request to return 401, got HTTP $status."
+            cat /tmp/bridge-unauth.json
+            exit 1
+          fi
+          echo "Bridge correctly rejected a request without a bearer token (HTTP 401)."
