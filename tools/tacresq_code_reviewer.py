@@ -99,7 +99,7 @@ def main():
  summary=os.environ.get("GITHUB_STEP_SUMMARY")
  if summary:
   with open(summary,"a",encoding="utf-8") as output:
-   output.write(report+"\\n")
+   output.write(report+"\n")
  marker="<!-- tacresq-automated-review -->"
  try:
   comments=api_request(f"/repos/{REPO}/issues/{PR_NUMBER}/comments?per_page=100")
