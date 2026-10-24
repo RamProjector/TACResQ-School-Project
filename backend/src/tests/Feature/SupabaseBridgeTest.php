@@ -21,6 +21,34 @@ class SupabaseBridgeTest extends TestCase
         ]);
     }
 
+    public function test_bridge_allowlist_matches_the_reviewed_application_rpc_inventory(): void
+    {
+        $expected = [
+            'api_active_responder_locations',
+            'api_all_incidents',
+            'api_assign_incident',
+            'api_assign_incident_team',
+            'api_cancel_my_incident',
+            'api_create_incident_v4',
+            'api_me',
+            'api_my_incidents',
+            'api_record_location_v2',
+            'api_set_duty_status',
+            'api_units',
+            'api_update_incident_status',
+            'api_update_my_assignment_status',
+            'api_update_my_incident',
+        ];
+
+        $actual = config('tacru.bridge_rpc_allowlist');
+
+        sort($expected);
+        sort($actual);
+
+        $this->assertSame($expected, $actual);
+        $this->assertCount(count(array_unique($actual)), $actual, 'Bridge allowlist must not contain duplicate RPC names.');
+    }
+
     public function test_bridge_requires_a_bearer_token(): void
     {
         Http::preventStrayRequests();
