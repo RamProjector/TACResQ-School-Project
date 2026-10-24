@@ -8,9 +8,27 @@ container = (ROOT / "app/src/main/java/com/tacresq/app/AppContainer.kt").read_te
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 bridge_config = (ROOT / "backend/src/config/tacru.php").read_text()
 
+bridge_transport_names = re.findall(r'@POST\("bridge/rpc/(api_[a-z0-9_]+)"\)', api)
+allowlist_match = re.search(
+    r"'bridge_rpc_allowlist'\s*=>\s*\[(.*?)\]",
+    bridge_config,
+    re.IGNORECASE | re.DOTALL,
+)
+allowlist_names = re.findall(r"'(api_[a-z0-9_]+)'", allowlist_match.group(1)) if allowlist_match else []
+allowlist_set = set(allowlist_names)
+transport_set = set(bridge_transport_names)
+
 checks = {
     "Render bridge canary is explicitly opt-in":
         'providers.gradleProperty("useRenderBridge").orNull == "true"' in gradle,
+    "server bridge allowlist is explicit and has no duplicate entries":
+        allowlist_match is not None and bool(allowlist_names) and len(allowlist_names) == len(allowlist_set),
+    "every Android bridge transport is explicitly allowlisted by Render":
+        bool(transport_set) and transport_set <= allowlist_set,
+    "bridge route declarations use RPC identifiers":
+        all(name.startswith("api_") for name in bridge_transport_names),
+    "service-role credentials are not embedded in the Android bridge adapter":
+        "service_role" not in api.lower() and "service-role" not in api.lower(),
     "Render bridge canary requires real Supabase mode":
         'if (useRenderBridgeInDebug && !useSupabaseInDebug)' in gradle,
     "release builds keep the bridge disabled":
