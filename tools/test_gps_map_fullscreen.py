@@ -40,6 +40,19 @@ assert "if (detailsExpanded) 330.dp else 74.dp" not in map_screen, (
 )
 print("GPS map responsive control placement contract passed.")
 
+# Old field-unit coordinates must remain labelled on the map without distorting
+# the initial camera when valid incident destinations are already available.
+assert "val responderPointsForInitialFrame = if (validIncidentPoints.isNotEmpty())" in map_screen
+assert "validResponderLocations\n            .filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }" in map_screen
+assert "else {\n        validResponderPoints\n    }" in map_screen, (
+    "when no valid incident coordinates exist, field-unit pins must remain discoverable"
+)
+assert "validIncidentPoints + responderPointsForInitialFrame" in map_screen
+assert "mapView.overlays.removeAll { it is Marker }" in map_screen, (
+    "stale pins must remain in the rendered overlay set; only initial framing excludes them"
+)
+print("GPS map initial framing excludes stale units when incidents exist.")
+
 # Keep spatial actions compact so they do not form a tall stack over the map.
 assert 'Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)' in map_screen
 assert 'Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)' in map_screen
