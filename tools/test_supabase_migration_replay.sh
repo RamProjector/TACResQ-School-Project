@@ -184,10 +184,9 @@ BEGIN
   -- en_route, not merely because the incident's aggregate status is en_route.
   PERFORM public.api_record_location_v2(incident_id, 11.244, 125.003, 10, now());
   IF NOT EXISTS (
-    SELECT 1 FROM public.location_logs
-    WHERE incident_id = incident_id
-      AND user_id = responder_one_id
-      AND latitude = 11.244 AND longitude = 125.003
+    SELECT 1 FROM public.location_logs l
+    WHERE l.user_id = responder_one_id
+      AND l.latitude = 11.244 AND l.longitude = 125.003
   ) THEN
     RAISE EXCEPTION 'Expected valid assigned en-route responder GPS fix to be stored';
   END IF;
