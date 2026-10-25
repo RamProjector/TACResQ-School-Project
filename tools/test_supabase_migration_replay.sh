@@ -132,6 +132,10 @@ BEGIN
      OR NOT has_function_privilege('authenticated', private_signature, 'EXECUTE') THEN
     RAISE EXCEPTION 'Authenticated role must retain execute access to the wrapper and helper';
   END IF;
+  IF has_table_privilege('authenticated', 'public.location_logs', 'INSERT')
+     OR has_table_privilege('anon', 'public.location_logs', 'INSERT') THEN
+    RAISE EXCEPTION 'Client roles must not bypass validated location RPC via direct table inserts';
+  END IF;
   IF NOT has_schema_privilege('authenticated', 'private', 'USAGE') THEN
     RAISE EXCEPTION 'Authenticated role needs private schema USAGE to invoke the wrapper';
   END IF;
