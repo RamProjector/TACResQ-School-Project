@@ -11,6 +11,9 @@ required = (
     "Stale pins are last-known locations, not live.",
     "Active incidents exist, but none has valid coordinates. They cannot appear as map pins.",
     "No active incidents with valid coordinates are available for this role yet.",
+    'else -> "Waiting for incident locations"',
+    'visibleIncidents.isNotEmpty() -> "Incident locations unavailable"',
+    'role == Role.DISPATCHER -> "Waiting for incident locations and field units"',
     "locationStatus ?: defaultMapStatus",
 )
 missing = [snippet for snippet in required if snippet not in source]
