@@ -94,3 +94,13 @@ assert "!locationProvider.hasPermission() && latestDeviceFix != null" in resume_
 assert "deviceFix = null" in resume_branch
 assert "The previous location preview was cleared." in resume_branch
 print("GPS map permission-revocation lifecycle contract passed.")
+
+
+# A responder-only initial view must not suppress camera framing when incident pins arrive later.
+assert "var hasAutoFramedInitialMapPoints by remember { mutableStateOf(false) }" in map_screen
+assert "var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }" in map_screen
+assert "val shouldFrameInitialUnits = !hasAutoFramedInitialMapPoints" in map_screen
+assert "val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
+assert "if (shouldFrameIncidentPoints) hasAutoFramedIncidentPoints = true" in map_screen
+assert "val pointsToFrame = if (shouldFrameIncidentPoints) initialMapPoints else responderPointsForInitialFrame" in map_screen
+print("GPS map late-arriving incident framing contract passed.")
