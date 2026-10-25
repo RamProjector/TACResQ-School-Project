@@ -51,7 +51,7 @@ BEGIN
       ON a.incident_id = i.id AND a.user_id = p.id
    WHERE p.auth_user_id = auth.uid()
      AND p.role IN ('responder', 'driver')
-   FOR UPDATE OF i;
+   FOR UPDATE OF i, a;
 
   IF actor_id IS NULL
      OR incident_status IS DISTINCT FROM 'en_route'
