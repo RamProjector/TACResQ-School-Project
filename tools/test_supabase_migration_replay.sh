@@ -135,6 +135,23 @@ BEGIN
   IF NOT has_schema_privilege('authenticated', 'private', 'USAGE') THEN
     RAISE EXCEPTION 'Authenticated role needs private schema USAGE to invoke the wrapper';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'location_logs'
+      AND column_name = 'received_at' AND is_nullable = 'NO'
+  ) THEN
+    RAISE EXCEPTION 'location_logs.received_at must exist and be non-null';
+  END IF;
+  IF to_regclass('public.location_logs_received_rate_idx') IS NULL THEN
+    RAISE EXCEPTION 'Missing index for per-incident location receipt-time rate checks';
+  END IF;
+  IF to_regprocedure('public.api_active_responder_locations()') IS NULL THEN
+    RAISE EXCEPTION 'Active responder location read RPC is missing';
+  END IF;
+  IF (SELECT prosecdef FROM pg_proc
+      WHERE oid = to_regprocedure('public.api_active_responder_locations()')) IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'Active responder location read RPC must remain SECURITY INVOKER';
+  END IF;
 END;
 $location_rpc_boundary_test$;
 
