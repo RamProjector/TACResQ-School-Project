@@ -33,7 +33,7 @@ checks = {
     "resuming tracking clears prior session send metadata": "lastLocationSentAt = null" in responder_screen and "lastLocationAccuracyM = null" in responder_screen and "fun resumeTracking(incidentId: Long)" in responder_screen,
     "responder navigation blocks missing, non-finite, and out-of-range coordinates": all(text in responder_screen for text in ("latitude.isFinite() && longitude.isFinite()", "latitude in -90.0..90.0 && longitude in -180.0..180.0", "No valid GPS pin is available.", "Incident coordinates are invalid. Confirm the destination with dispatch before navigating.")),
     "Android dispatcher map distinguishes fresh, aging, and stale locations": all(text in map_screen for text in ("MapLocationFreshness.FRESH", "MapLocationFreshness.AGING", "MapLocationFreshness.STALE", "age <= 120L", "else -> MapLocationFreshness.STALE")),
-    "Android map rejects future timestamps and warns stale pins are not live": all(text in map_screen for text in ("return age.takeIf { it >= 0L }", "STALE — last known position", "Do not treat this marker as live", "Stale markers are last-known positions, not live.")),
+    "Android map rejects future timestamps and warns stale pins are not live": all(text in map_screen for text in ("if (recorded.isAfter(now)) return null", "if (recordedAt.isAfter(now))", "STALE — last known position", "Do not treat this marker as live", "Stale markers are last-known positions, not live.")),
     "Android map refreshes incident-location ages for every role without polling responder locations for non-dispatchers": (
         all(text in map_screen for text in (
             "remember(freshnessTick) { Instant.now() }",
