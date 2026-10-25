@@ -11,11 +11,19 @@ BEGIN;
 -- location_logs has no created_at column. Store server receipt time separately
 -- from the client/device capture timestamp so rate limiting and latest-point
 -- ordering never depend on a client-controlled clock.
+-- Add the column without a volatile default so existing large location histories
+-- are not rewritten just to populate a receipt timestamp. Pre-migration rows use
+-- recorded_at as a fallback; all new rows receive a server timestamp by default.
 ALTER TABLE public.location_logs
-  ADD COLUMN IF NOT EXISTS received_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp();
+  ADD COLUMN IF NOT EXISTS received_at timestamptz;
+
+ALTER TABLE public.location_logs
+  ALTER COLUMN received_at SET DEFAULT pg_catalog.clock_timestamp();
 
 CREATE INDEX IF NOT EXISTS location_logs_received_rate_idx
-  ON public.location_logs (user_id, incident_id, received_at DESC);
+  ON public.location_logs (
+    user_id, incident_id, (COALESCE(received_at, recorded_at)) DESC
+  );
 
 CREATE OR REPLACE FUNCTION private.tacresq_record_location_v2(
   p_incident_id bigint,
@@ -76,7 +84,7 @@ BEGIN
       FROM public.location_logs l
      WHERE l.user_id = actor_id
        AND l.incident_id = p_incident_id
-       AND l.received_at > pg_catalog.clock_timestamp() - interval '8 seconds'
+       AND COALESCE(l.received_at, l.recorded_at) > pg_catalog.clock_timestamp() - interval '8 seconds'
   ) THEN
     RAISE EXCEPTION 'Location updates are arriving too quickly' USING ERRCODE = '22023';
   END IF;
@@ -159,7 +167,7 @@ BEGIN
       AND l.longitude BETWEEN -180 AND 180
       AND (l.accuracy_m IS NULL OR l.accuracy_m >= 0)
       AND l.recorded_at <= pg_catalog.now() + interval '5 minutes'
-    ORDER BY i.id, l.user_id, l.received_at DESC;
+    ORDER BY i.id, l.user_id, COALESCE(l.received_at, l.recorded_at) DESC;
 END;
 $function$;
 
