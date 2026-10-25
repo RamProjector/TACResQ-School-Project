@@ -162,6 +162,7 @@ private fun Incident.locationAgeStatus(now: Instant = Instant.now()): Pair<Strin
 private fun GpsMapActionButtons(
     role: Role,
     deviceFix: GeoFix?,
+    isLocationRequestInProgress: Boolean,
     onShowIncidents: () -> Unit,
     onShowActiveUnits: () -> Unit,
     onLocateClick: () -> Unit,
@@ -196,6 +197,7 @@ private fun GpsMapActionButtons(
     }
     androidx.compose.material3.FilledTonalIconButton(
         onClick = onLocateClick,
+        enabled = !isLocationRequestInProgress,
         modifier = Modifier.size(48.dp),
     ) {
         androidx.compose.material3.Icon(
@@ -227,6 +229,7 @@ fun GpsMapScreen(
     var hasAutoFramedIncidents by remember { mutableStateOf(false) }
     var freshnessTick by remember { mutableStateOf(0) }
     var locationStatus by remember { mutableStateOf<String?>(null) }
+    var isLocationRequestInProgress by remember { mutableStateOf(false) }
     var retryLocationAfterSettings by remember { mutableStateOf(false) }
     var hasValidatedInternet by remember { mutableStateOf<Boolean?>(null) }
     val connectivityManager = remember(context) {
@@ -404,8 +407,12 @@ fun GpsMapScreen(
     }
 
     fun locateOnce() {
+        // Claim synchronously before launching: rapid taps must not start overlapping location requests.
+        if (isLocationRequestInProgress) return
+        isLocationRequestInProgress = true
         scope.launch {
-            deviceFix = null
+            try {
+                deviceFix = null
             locationStatus = "Checking device location settings…"
             when (val settings = locationProvider.checkLocationSettings()) {
                 LocationSettingsCheck.Ready -> {
@@ -466,6 +473,9 @@ fun GpsMapScreen(
                         locationStatus = "Could not open Location settings. Enable Location in Quick Settings and try again."
                     }
                 }
+            }
+            } finally {
+                isLocationRequestInProgress = false
             }
         }
     }
@@ -715,6 +725,7 @@ fun GpsMapScreen(
                     GpsMapActionButtons(
                         role = role,
                         deviceFix = deviceFix,
+                        isLocationRequestInProgress = isLocationRequestInProgress,
                         onShowIncidents = ::showIncidentPins,
                         onShowActiveUnits = ::showActiveUnits,
                         onLocateClick = onLocateClick,
@@ -728,6 +739,7 @@ fun GpsMapScreen(
                     GpsMapActionButtons(
                         role = role,
                         deviceFix = deviceFix,
+                        isLocationRequestInProgress = isLocationRequestInProgress,
                         onShowIncidents = ::showIncidentPins,
                         onShowActiveUnits = ::showActiveUnits,
                         onLocateClick = onLocateClick,
