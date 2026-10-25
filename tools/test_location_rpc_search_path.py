@@ -49,7 +49,7 @@ assert "p.role in ('responder', 'driver')" in current
 assert "a.user_id = p.id" in current
 assert "assignment_status is distinct from 'en_route'" in current
 assert "incident_status is distinct from 'en_route'" in current
-assert "for update of i;" in current
+assert "for update of i, a;" in current, "lock both incident and assignment rows to avoid stale per-unit authorization"
 assert "pg_catalog.pg_advisory_xact_lock(actor_id)" in current
 assert "interval '8 seconds'" in current
 assert "interval '15 minutes'" in current
