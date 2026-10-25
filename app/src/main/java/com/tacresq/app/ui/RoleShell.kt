@@ -127,10 +127,10 @@ private fun RowScope.NavigationItem(
 
 @Composable
 private fun RowScope.GpsMapNavigationItem(
-    selected: AppDestination,
+    currentDestination: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
-    val active = selected == AppDestination.MAP
+    val active = currentDestination == AppDestination.MAP
     Column(
         modifier = Modifier
             .weight(1f)
