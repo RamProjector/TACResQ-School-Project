@@ -289,16 +289,12 @@ fun GpsMapScreen(
     val staleResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.STALE }
     val hasConfirmedIncidentCoordinates = visibleIncidents.any { it.hasValidMapCoordinates() }
     val validResponderPoints = validResponderLocations.map { GeoPoint(it.latitude, it.longitude) }
-    // Keep stale last-known positions visible, but don't let them pull the initial
-    // camera away from confirmed incidents or collapse incident pins into a tiny cluster.
-    // If there are no valid incident coordinates, field-unit pins remain discoverable.
-    val responderPointsForInitialFrame = if (validIncidentPoints.isNotEmpty()) {
-        validResponderLocations
-            .filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }
-            .map { GeoPoint(it.latitude, it.longitude) }
-    } else {
-        validResponderPoints
-    }
+    // Keep stale last-known positions visible, but never let them dominate the initial
+    // camera bounds. Fresh/aging units can still be framed when no incident pins exist;
+    // dispatchers can explicitly center the map on stale units with the Field units action.
+    val responderPointsForInitialFrame = validResponderLocations
+        .filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }
+        .map { GeoPoint(it.latitude, it.longitude) }
     val initialMapPoints = if (role == Role.DISPATCHER) {
         validIncidentPoints + responderPointsForInitialFrame
     } else {
