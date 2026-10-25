@@ -180,6 +180,46 @@ BEGIN
     RAISE EXCEPTION 'Expected incident aggregate to become en_route after first unit departs';
   END IF;
 
+  -- Location writes must work for the assigned unit while its own status is
+  -- en_route, not merely because the incident's aggregate status is en_route.
+  PERFORM public.api_record_location_v2(incident_id, 11.244, 125.003, 10, now());
+  IF NOT EXISTS (
+    SELECT 1 FROM public.location_logs
+    WHERE incident_id = incident_id
+      AND user_id = responder_one_id
+      AND latitude = 11.244 AND longitude = 125.003
+  ) THEN
+    RAISE EXCEPTION 'Expected valid assigned en-route responder GPS fix to be stored';
+  END IF;
+
+  -- A different assigned unit must not send GPS until that unit individually
+  -- acknowledges en_route, even while the incident aggregate is en_route.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
+  BEGIN
+    PERFORM public.api_record_location_v2(incident_id, 11.245, 125.004, 10, now());
+    RAISE EXCEPTION 'Expected GPS write to be rejected for assigned unit not yet en_route';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  -- Requesters must not use the responder GPS write endpoint.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000127', true);
+  BEGIN
+    PERFORM public.api_record_location_v2(incident_id, 11.245, 125.004, 10, now());
+    RAISE EXCEPTION 'Expected GPS write to be rejected for requester';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  -- The same authorized unit must still be rate-limited.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
+  BEGIN
+    PERFORM public.api_record_location_v2(incident_id, 11.246, 125.005, 10, now());
+    RAISE EXCEPTION 'Expected rapid repeated GPS write to be rejected';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    NULL;
+  END;
+
   response := public.api_update_my_assignment_status(incident_id, 'on_scene');
   IF response->>'status' <> 'en_route' THEN
     RAISE EXCEPTION 'Incident must remain en_route while another assigned unit has not arrived';
