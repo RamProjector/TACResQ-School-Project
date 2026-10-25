@@ -365,13 +365,22 @@ BEGIN
   END IF;
   PERFORM public.api_record_location_v2(incident_id, 11.245, 125.004, 10, now());
 
-  -- Prove the reader returns the secondary assignment's location too, rather
-  -- than only the incident's primary assigned unit.
+  -- Once the lead responder has arrived, its assignment must stop appearing
+  -- as actively en route, while the secondary unit's fresh fix remains visible.
+  -- This proves the reader follows per-unit state instead of the incident's
+  -- primary assigned_to field.
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
   IF (SELECT count(DISTINCT loc.user_id) FROM public.api_active_responder_locations() loc
       WHERE loc.incident_id = (SELECT i.id FROM public.incidents i WHERE i.description = 'Synthetic per-responder status test')
-        AND loc.user_id IN (responder_one_id, responder_two_id)) <> 2 THEN
-    RAISE EXCEPTION 'Dispatcher must see active GPS fixes from both assigned responders';
+        AND loc.user_id = responder_two_id) <> 1 THEN
+    RAISE EXCEPTION 'Dispatcher must see the secondary en-route responder GPS fix';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.api_active_responder_locations() loc
+    WHERE loc.incident_id = (SELECT i.id FROM public.incidents i WHERE i.description = 'Synthetic per-responder status test')
+      AND loc.user_id = responder_one_id
+  ) THEN
+    RAISE EXCEPTION 'Reader must not present an arrived lead responder as actively en route';
   END IF;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
