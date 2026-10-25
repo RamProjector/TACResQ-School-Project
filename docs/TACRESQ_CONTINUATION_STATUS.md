@@ -75,3 +75,22 @@ Expected behavior:
 ## Reporting standard
 
 For each continuation, state what was actually inspected/changed, provide the PR/commit link, list passed and failed/pending checks, and name any device/end-to-end tests not run. A planned feature is not an implemented feature; a passing build is not end-to-end validation.
+
+
+## Live Supabase audit observations (read-only, 2026-10-25)
+
+The connected Supabase project was inspected with read-only schema, migration, and advisor queries. No production database changes were made.
+
+- The live `public.profiles.role` constraint currently permits only `requester`, `responder`, `driver`, and `dispatcher`. An admin role is not yet supported by the live schema.
+- The live public schema has `fcm_tokens`, but no table whose name indicates notifications, messages, chat, or conversations. FCM token storage alone is not push notification delivery or an in-app notification system.
+- The live project currently has 23 recorded migrations through `20261023103737_per_responder_assignment_status`.
+- Supabase security advisors currently report two RLS-enabled tables with no policies: `incident_request_edit_logs` and `incident_submission_keys`. No policies means direct table access is denied under RLS, which may be intentional if access is exclusively through carefully constrained RPCs; verify actual intended access and RPC behavior before changing it.
+- Security advisors also flag five authenticated-callable `SECURITY DEFINER` RPCs: `api_cancel_my_incident`, `api_create_incident_v4`, `api_record_location_v2`, `api_units`, and `api_update_my_incident`. These findings require function-by-function review of definitions, ownership, grants, and caller/role checks. Do not blanket-revoke or switch functions to `SECURITY INVOKER` without tracing the app contract; some exposed per-user operations may be intentionally privileged but must validate the caller and inputs.
+- The Auth advisor reports leaked-password protection is disabled.
+- Performance advisors report two unindexed foreign keys and five policies with repeated auth/current-setting evaluation. These are follow-up hardening/performance items, not authorization proof by themselves.
+
+Official Supabase documentation reviewed: [Securing your API](https://supabase.com/docs/guides/api/securing-your-api) and [Database Advisor: authenticated SECURITY DEFINER functions](https://supabase.com/docs/guides/observability/advisors?queryGroups=lint&lint=0029_authenticated_security_definer_function_executable). Grants determine which roles can reach tables/functions; RLS governs row access for tables, while function EXECUTE grants and function security mode must be reviewed separately.
+
+### Next security-first step
+
+Before implementing the admin role, prepare a non-destructive privilege matrix for every exposed RPC: purpose, caller role, function owner/security mode, EXECUTE grants, data touched, explicit caller checks, and tests. Add adversarial tests for requester self-promotion, dispatcher/admin privilege boundaries, cross-incident data access, and unauthorised RPC calls. Keep the existing production database untouched until the reviewed migration and its tests are ready.
