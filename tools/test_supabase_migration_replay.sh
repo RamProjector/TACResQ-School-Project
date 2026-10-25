@@ -153,6 +153,19 @@ BEGIN
       WHERE oid = to_regprocedure('public.api_active_responder_locations()')) IS DISTINCT FROM false THEN
     RAISE EXCEPTION 'Active responder location read RPC must remain SECURITY INVOKER';
   END IF;
+  IF to_regprocedure('private.tacresq_active_responder_locations()') IS NULL THEN
+    RAISE EXCEPTION 'Private multi-responder location reader is missing';
+  END IF;
+  IF (SELECT prosecdef FROM pg_proc
+      WHERE oid = to_regprocedure('private.tacresq_active_responder_locations()')) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Private multi-responder location reader must be SECURITY DEFINER';
+  END IF;
+  IF NOT has_function_privilege('authenticated', 'private.tacresq_active_responder_locations()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Authenticated role must execute the checked private location reader';
+  END IF;
+  IF has_function_privilege('anon', 'private.tacresq_active_responder_locations()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Anonymous role must not execute the private location reader';
+  END IF;
 END;
 $location_rpc_boundary_test$;
 
