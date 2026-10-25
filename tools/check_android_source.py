@@ -126,6 +126,24 @@ if not (0 <= loading_guard < loading_claim < coroutine_start):
     )
 print("Authentication submit contract OK: login/signup claim the loading state before coroutine scheduling.")
 
+session_loading_source = (
+    ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt"
+).read_text(encoding="utf-8")
+session_loading_branch = session_loading_source.split(
+    "SessionState.Loading ->", 1
+)[1].split("SessionState.LoggedOut ->", 1)[0]
+for required in (
+    '"TACResQ"',
+    '"Restoring your session…"',
+    "CircularProgressIndicator()",
+    "Alignment.Center",
+):
+    if required not in session_loading_branch:
+        raise SystemExit(
+            f"Session loading screen contract failed: missing {required}"
+        )
+print("Session loading screen contract OK: branded, labeled, and progress-indicated.")
+
 gps_map_location_contract = {
     "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": (
         "ActivityResultContracts.RequestPermission()",
