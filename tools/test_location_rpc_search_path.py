@@ -66,7 +66,7 @@ assert "add column if not exists received_at timestamptz" in current
 assert "alter column received_at set default pg_catalog.clock_timestamp()" in current
 assert "coalesce(l.received_at, l.recorded_at)" in current
 assert "location_logs_received_rate_idx" in current
-assert "l.received_at > pg_catalog.clock_timestamp() - interval '8 seconds'" in current
+assert "coalesce(l.received_at, l.recorded_at) > pg_catalog.clock_timestamp() - interval '8 seconds'" in current
 assert "l.created_at" not in current
 assert "create or replace function public.api_active_responder_locations()" in current
 assert "security invoker" in current
