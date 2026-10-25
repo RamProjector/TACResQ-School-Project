@@ -91,6 +91,53 @@ BEGIN
 END;
 $dispatch_test$;
 
+-- Verify the latest location RPC privilege boundary after the full migration replay.
+DO $location_rpc_boundary_test$
+DECLARE
+  public_is_definer boolean;
+  private_is_definer boolean;
+  public_settings text[];
+  private_settings text[];
+  public_signature regprocedure :=
+    to_regprocedure('public.api_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)');
+  private_signature regprocedure :=
+    to_regprocedure('private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)');
+BEGIN
+  IF public_signature IS NULL OR private_signature IS NULL THEN
+    RAISE EXCEPTION 'Expected public location wrapper and private implementation to exist';
+  END IF;
+
+  SELECT prosecdef, proconfig INTO public_is_definer, public_settings
+    FROM pg_proc WHERE oid = public_signature;
+  SELECT prosecdef, proconfig INTO private_is_definer, private_settings
+    FROM pg_proc WHERE oid = private_signature;
+
+  IF public_is_definer IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'Public location RPC must be SECURITY INVOKER';
+  END IF;
+  IF private_is_definer IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Private location writer must be SECURITY DEFINER';
+  END IF;
+  IF NOT (coalesce(public_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'Public location RPC must pin search_path to pg_catalog';
+  END IF;
+  IF NOT (coalesce(private_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'Private location writer must pin search_path to pg_catalog';
+  END IF;
+  IF has_function_privilege('anon', public_signature, 'EXECUTE')
+     OR has_function_privilege('anon', private_signature, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Anonymous role must not execute either location function';
+  END IF;
+  IF NOT has_function_privilege('authenticated', public_signature, 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', private_signature, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Authenticated role must retain execute access to the wrapper and helper';
+  END IF;
+  IF NOT has_schema_privilege('authenticated', 'private', 'USAGE') THEN
+    RAISE EXCEPTION 'Authenticated role needs private schema USAGE to invoke the wrapper';
+  END IF;
+END;
+$location_rpc_boundary_test$;
+
 -- Regression test for the failure seen in the Android recording:
 -- creating an incident must also create its first status log without an FK error.
 INSERT INTO auth.users (id, email, raw_user_meta_data)
