@@ -17,6 +17,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -151,6 +152,54 @@ private fun Incident.locationAgeStatus(now: Instant = Instant.now()): Pair<Strin
         "$recordedLabel — confirm before navigating." to true
     } else {
         recordedLabel to false
+    }
+}
+
+@Composable
+private fun GpsMapActionButtons(
+    role: Role,
+    hasDeviceFix: Boolean,
+    onShowIncidents: () -> Unit,
+    onShowActiveUnits: () -> Unit,
+    onLocateClick: () -> Unit,
+) {
+    androidx.compose.material3.FilledTonalButton(
+        onClick = onShowIncidents,
+        modifier = Modifier.widthIn(min = 100.dp).heightIn(min = 48.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        androidx.compose.material3.Icon(
+            imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        androidx.compose.foundation.layout.Spacer(Modifier.size(width = 6.dp, height = 1.dp))
+        Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
+    }
+    if (role == Role.DISPATCHER) {
+        androidx.compose.material3.FilledTonalButton(
+            onClick = onShowActiveUnits,
+            modifier = Modifier.widthIn(min = 112.dp).heightIn(min = 48.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Default.Groups,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.size(width = 6.dp, height = 1.dp))
+            Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
+        }
+    }
+    androidx.compose.material3.FilledTonalIconButton(
+        onClick = onLocateClick,
+        modifier = Modifier.size(48.dp),
+    ) {
+        androidx.compose.material3.Icon(
+            imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+            contentDescription = if (hasDeviceFix) "Refresh location" else "Locate me",
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -647,50 +696,39 @@ fun GpsMapScreen(
             detailsExpanded -> 112.dp
             else -> 84.dp
         }
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 .align(Alignment.TopEnd)
+                .fillMaxWidth()
                 .padding(top = mapActionsTopPadding, end = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            androidx.compose.material3.FilledTonalButton(
-                onClick = ::showIncidentPins,
-                modifier = Modifier.widthIn(min = 100.dp).heightIn(min = 48.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                androidx.compose.foundation.layout.Spacer(Modifier.size(width = 6.dp, height = 1.dp))
-                Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
-            }
-            if (role == Role.DISPATCHER) {
-                androidx.compose.material3.FilledTonalButton(
-                    onClick = ::showActiveUnits,
-                    modifier = Modifier.widthIn(min = 112.dp).heightIn(min = 48.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+            if (maxWidth < 360.dp) {
+                // A vertical stack avoids clipping labels or hiding Locate me on narrow phones.
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Groups,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
+                    GpsMapActionButtons(
+                        role = role,
+                        hasDeviceFix = deviceFix != null,
+                        onShowIncidents = ::showIncidentPins,
+                        onShowActiveUnits = ::showActiveUnits,
+                        onLocateClick = onLocateClick,
                     )
-                    androidx.compose.foundation.layout.Spacer(Modifier.size(width = 6.dp, height = 1.dp))
-                    Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
                 }
-            }
-            androidx.compose.material3.FilledTonalIconButton(
-                onClick = onLocateClick,
-                modifier = Modifier.size(48.dp),
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
-                    contentDescription = if (deviceFix == null) "Locate me" else "Refresh location",
-                    modifier = Modifier.size(20.dp),
-                )
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    GpsMapActionButtons(
+                        role = role,
+                        hasDeviceFix = deviceFix != null,
+                        onShowIncidents = ::showIncidentPins,
+                        onShowActiveUnits = ::showActiveUnits,
+                        onLocateClick = onLocateClick,
+                    )
+                }
             }
         }
 
