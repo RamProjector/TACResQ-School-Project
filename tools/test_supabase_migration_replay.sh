@@ -138,9 +138,10 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'location_logs'
-      AND column_name = 'received_at' AND is_nullable = 'NO'
+      AND column_name = 'received_at'
+      AND column_default LIKE '%clock_timestamp%'
   ) THEN
-    RAISE EXCEPTION 'location_logs.received_at must exist and be non-null';
+    RAISE EXCEPTION 'location_logs.received_at must exist with a server-generated default';
   END IF;
   IF to_regclass('public.location_logs_received_rate_idx') IS NULL THEN
     RAISE EXCEPTION 'Missing index for per-incident location receipt-time rate checks';
@@ -251,6 +252,7 @@ BEGIN
     SELECT 1 FROM public.location_logs l
     WHERE l.user_id = responder_one_id
       AND l.latitude = 11.244 AND l.longitude = 125.003
+      AND l.received_at IS NOT NULL
   ) THEN
     RAISE EXCEPTION 'Expected valid assigned en-route responder GPS fix to be stored';
   END IF;
