@@ -116,9 +116,10 @@ private fun ResponderLocation.mapAgeSeconds(now: Instant = Instant.now()): Long?
         latitude !in -90.0..90.0 || longitude !in -180.0..180.0
     ) return null
     val recorded = runCatching { Instant.parse(recordedAt) }.getOrNull() ?: return null
-    val age = runCatching { Duration.between(recorded, now).seconds }.getOrNull() ?: return null
-    // Future timestamps are invalid; never make them appear fresh.
-    return age.takeIf { it >= 0L }
+    // Duration.seconds truncates sub-second negative durations toward zero.
+    // Compare instants first so even a timestamp milliseconds in the future is invalid.
+    if (recorded.isAfter(now)) return null
+    return runCatching { Duration.between(recorded, now).seconds }.getOrNull()
 }
 
 private fun ResponderLocation.mapFreshness(now: Instant = Instant.now()): MapLocationFreshness? {
@@ -145,6 +146,11 @@ private fun Incident.locationAgeStatus(now: Instant = Instant.now()): Pair<Strin
         ?: return "Location time unavailable — confirm before navigating." to true
     val recordedAt = runCatching { Instant.parse(rawTimestamp) }.getOrNull()
         ?: return "Location timestamp invalid — confirm before navigating." to true
+    // Compare instants before calculating whole seconds; sub-second future times
+    // otherwise truncate to zero and could be presented as a current location.
+    if (recordedAt.isAfter(now)) {
+        return "Location timestamp is in the future — confirm before navigating." to true
+    }
     val ageSeconds = runCatching { Duration.between(recordedAt, now).seconds }.getOrNull()
         ?: return "Location timestamp invalid — confirm before navigating." to true
     if (ageSeconds < 0L) {
