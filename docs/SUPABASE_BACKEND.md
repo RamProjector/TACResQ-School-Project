@@ -33,7 +33,7 @@ All RPC calls require a signed-in Supabase user and use `POST /rest/v1/rpc/<func
 
 The v2 create function uses `SECURITY INVOKER`, checks the signed-in profile's requester role, and relies on the existing Row Level Security policy. The provenance migration adds `location_source`, preserves older create RPCs, and returns the source in incident history. The coordinate pair must be wholly present or wholly absent. Accuracy and `location_recorded_at` require coordinates; manual pins carry a selection timestamp and no GPS accuracy. The Android client uses an ISO-8601 device capture time and records no continuous requester path.
 
-A database trigger writes status history and updates unit duty status when an incident changes. Database guards reject invalid role operations and status transitions, including direct table updates that bypass the intended RPCs. The one narrowly scoped `SECURITY DEFINER` helper lives in the non-API-exposed `private` schema; the Supabase security advisor returned no findings after the hardening migration.
+A database trigger writes status history and updates unit duty status when an incident changes. Database guards reject invalid role operations and status transitions, including direct table updates that bypass the intended RPCs. Privileged implementation helpers are intended to live in the non-API-exposed `private` schema, with public RPC wrappers using `SECURITY INVOKER` where possible. Do not assume the live project still matches this intended migration state; the latest read-only audit below found function-security drift and outstanding advisor warnings.
 
 ## App setup and role provisioning
 
@@ -51,3 +51,18 @@ A database trigger writes status history and updates unit duty status when an in
 ## Current limitations
 
 The app supports requester SOS submission, atomic multi-responder dispatcher assignment, duty-status controls, shared incident status progression for assigned team members, polling, and a user-initiated one-time requester GPS capture. A requester fix is sent only with the SOS and remains subject to the incident access rules. If GPS is unavailable, the SOS can be submitted without coordinates and with an optional landmark; responders see that no pin was shared. The requester flow does **not** collect continuous or background location. The Android responder source calls the incident-bound, en-route-only location RPC after explicit consent and a successful transition to en route. This foreground tracking has not yet been device-validated; no background tracking, offline replay, or guaranteed delivery is implemented. This is a school prototype, not an emergency-services production deployment.
+
+
+## Live security posture audit
+
+Read-only audit date: 2026-10-25. These observations describe the connected project at audit time; re-run the advisors and compare deployed definitions before making security decisions.
+
+- `public.profiles.role` currently permits requester, responder, driver, and dispatcher. A separate admin role is not implemented.
+- `public.fcm_tokens` and token registration/unregistration RPCs exist, but token storage is not a notification inbox or proof that push delivery is implemented. There is no public table named for notifications, messages, chat, or conversations in the inspected schema.
+- Supabase Security Advisor reported RLS-enabled tables with no direct policies: `incident_request_edit_logs` and `incident_submission_keys`. This may be intentional because these tables are accessed through constrained RPCs; verify the RPC contract before changing the policy model.
+- Advisor reported authenticated-callable `SECURITY DEFINER` functions: `api_cancel_my_incident`, `api_create_incident_v4`, `api_record_location_v2`, `api_units`, and `api_update_my_incident`. Each must be reviewed individually for ownership, grants, search path, input validation, and caller-role checks; do not blindly revoke access or change security mode.
+- The latest recorded migration, `20261023103737_per_responder_assignment_status.sql`, intentionally redefines `api_units()` and `api_record_location_v2` as `SECURITY DEFINER` functions to support per-responder status and assignment validation. The live catalog matches those latest definitions; this is not unexplained migration drift. However, `api_record_location_v2` has `public, pg_temp` in its search path, and both RPCs are authenticated-callable definer functions. Their inspected bodies contain explicit role/assignment checks and anonymous EXECUTE is false, so the advisor warning is a review item, not proof of an exploit. Consider moving the location write implementation into `private` while preserving the newer per-responder checks, minimizing search paths, and adding authorization regression tests before any migration.
+- Auth Advisor reports leaked-password protection disabled. Enablement should be reviewed in project Auth settings.
+- Performance Advisor reports two unindexed foreign keys and several RLS policies that can optimize auth-function evaluation. Treat these as separate performance hardening tasks.
+
+No production schema or Auth settings were changed during this audit. Follow the repository's PR workflow; do not make direct production changes to bypass migration review. See [Supabase Securing your API](https://supabase.com/docs/guides/api/securing-your-api) and [Supabase Database Advisor: SECURITY DEFINER functions](https://supabase.com/docs/guides/observability/advisors?queryGroups=lint&lint=0029_authenticated_security_definer_function_executable).
