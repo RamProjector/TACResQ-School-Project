@@ -12,33 +12,41 @@ concurrency:
 
 jobs:
   authenticated-read:
-    name: Verify authenticated read-only bridge RPC
+    name: Verify ${{ matrix.expected_role }} account
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - secret_suffix: REQUESTER
+            expected_role: requester
+          - secret_suffix: RESPONDER
+            expected_role: responder
+          - secret_suffix: DRIVER
+            expected_role: driver
+          - secret_suffix: DISPATCHER
+            expected_role: dispatcher
     steps:
-      - name: Sign in with dedicated integration account and call read-only RPC
+      - name: Sign in and verify role through the live Render bridge
         env:
           BASE_URL: https://tacresq-school-project.onrender.com
           SUPABASE_URL: https://kttguamhznoflzagfutr.supabase.co
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          TEST_EMAIL: ${{ secrets.SUPABASE_TEST_EMAIL }}
+          TEST_EMAIL: ${{ secrets[format('SUPABASE_{0}_TEST_EMAIL', matrix.secret_suffix)] }}
           TEST_PASSWORD: ${{ secrets.SUPABASE_TEST_PASSWORD }}
+          EXPECTED_ROLE: ${{ matrix.expected_role }}
         shell: bash
         run: |
           set -euo pipefail
 
-          # This workflow is intentionally optional until a dedicated, low-privilege
-          # integration account is configured in GitHub Actions secrets.
-          if [[ -z "${TEST_EMAIL}" || -z "${TEST_PASSWORD}" ]]; then
-            echo "::notice::Skipped authenticated live test: configure SUPABASE_TEST_EMAIL and SUPABASE_TEST_PASSWORD using a dedicated test account."
-            exit 0
-          fi
-          if [[ -z "${SUPABASE_PUBLISHABLE_KEY}" ]]; then
-            echo "::error::SUPABASE_PUBLISHABLE_KEY secret is not configured."
+          # Fail closed when a role-specific test account or shared test password is missing.
+          if [[ -z "${TEST_EMAIL}" || -z "${TEST_PASSWORD}" || -z "${SUPABASE_PUBLISHABLE_KEY}" ]]; then
+            echo "::error::Required Actions secret missing. Configure SUPABASE_${{ matrix.secret_suffix }}_TEST_EMAIL, SUPABASE_TEST_PASSWORD, and SUPABASE_PUBLISHABLE_KEY."
             exit 1
           fi
 
-          # Never print credentials, access tokens, auth response bodies, or RPC data.
+          # Never print credentials, access tokens, auth response bodies, or profile data.
           auth_status="$(curl --connect-timeout 5 --max-time 15 --silent --show-error \
             --output /tmp/supabase-auth.json --write-out '%{http_code}' \
             --request POST "${SUPABASE_URL}/auth/v1/token?grant_type=password" \
@@ -47,13 +55,13 @@ jobs:
             --data "$(python3 -c 'import json,os; print(json.dumps({"email":os.environ["TEST_EMAIL"],"password":os.environ["TEST_PASSWORD"]}))')")"
 
           if [[ "${auth_status}" != "200" ]]; then
-            echo "::error::Supabase test-account sign-in failed (HTTP ${auth_status}); response body intentionally suppressed."
+            echo "::error::Supabase sign-in failed for the ${EXPECTED_ROLE} test account (HTTP ${auth_status}); response body suppressed."
             exit 1
           fi
 
           access_token="$(python3 -c 'import json; print(json.load(open("/tmp/supabase-auth.json")).get("access_token",""))')"
           if [[ -z "${access_token}" ]]; then
-            echo "::error::Supabase sign-in response did not contain an access token."
+            echo "::error::Supabase sign-in response contained no access token."
             exit 1
           fi
 
@@ -65,15 +73,22 @@ jobs:
             --data '{}')"
 
           if [[ "${rpc_status}" != "200" ]]; then
-            echo "::error::Authenticated read-only api_me RPC failed through Render (HTTP ${rpc_status}); response body intentionally suppressed."
+            echo "::error::Authenticated api_me call failed for the ${EXPECTED_ROLE} account (HTTP ${rpc_status}); response body suppressed."
             exit 1
           fi
 
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
 
           result = json.loads(Path('/tmp/bridge-rpc.json').read_text())
-          assert result is not None, 'Read-only RPC returned an empty JSON document'
-          print('Authenticated read-only api_me RPC succeeded through the live Render bridge (HTTP 200). Response contents were not logged.')
+          actual_role = result.get('role') if isinstance(result, dict) else None
+          expected_role = os.environ['EXPECTED_ROLE']
+          if actual_role != expected_role:
+              raise SystemExit(
+                  f"Role mismatch: expected {expected_role}, received "
+                  f"{actual_role if isinstance(actual_role, str) else 'missing/invalid'}"
+              )
+          print(f"Supabase sign-in and live Render api_me role check passed for {expected_role}. No profile data or credentials logged.")
           PY
