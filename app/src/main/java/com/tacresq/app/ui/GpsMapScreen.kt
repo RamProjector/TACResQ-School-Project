@@ -227,7 +227,8 @@ fun GpsMapScreen(
     val refreshResponderLocations by rememberUpdatedState(onRefreshResponderLocations)
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
     val latestDeviceFix by rememberUpdatedState(deviceFix)
-    var hasAutoFramedIncidents by remember { mutableStateOf(false) }
+    var hasAutoFramedInitialMapPoints by remember { mutableStateOf(false) }
+    var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }
     var freshnessTick by remember { mutableStateOf(0) }
     var locationStatus by remember { mutableStateOf<String?>(null) }
     var isLocationRequestInProgress by remember { mutableStateOf(false) }
@@ -624,19 +625,34 @@ fun GpsMapScreen(
             }
             mapView.overlays.add(locationMarker)
         }
-        if (!hasAutoFramedIncidents && deviceFix == null && initialMapPoints.isNotEmpty()) {
-            // Include fresh dispatcher unit points so markers are discoverable even when far from incidents.
-            hasAutoFramedIncidents = true
+        // Frame a unit-only view once while incident data is absent, but do not treat
+        // that as having framed incidents. If incident coordinates arrive later, frame
+        // them once so an early responder refresh cannot strand dispatchers on the wrong area.
+        val shouldFrameInitialUnits = !hasAutoFramedInitialMapPoints &&
+            validIncidentPoints.isEmpty() && responderPointsForInitialFrame.isNotEmpty()
+        val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()
+        if (deviceFix == null && (shouldFrameInitialUnits || shouldFrameIncidentPoints)) {
+            hasAutoFramedInitialMapPoints = true
+            if (shouldFrameIncidentPoints) hasAutoFramedIncidentPoints = true
+            val pointsToFrame = if (shouldFrameIncidentPoints) initialMapPoints else responderPointsForInitialFrame
             mapView.post {
-                when (initialMapPoints.size) {
+                when (pointsToFrame.size) {
                     1 -> {
                         mapView.controller.setZoom(15.0)
-                        mapView.controller.animateTo(initialMapPoints.first())
-                        locationStatus = "Centered on the available incident or field-unit pin."
+                        mapView.controller.animateTo(pointsToFrame.first())
+                        locationStatus = if (shouldFrameIncidentPoints) {
+                            "Centered on the available incident or field-unit pin."
+                        } else {
+                            "Centered on the available field-unit pin while waiting for incident locations."
+                        }
                     }
                     else -> {
-                        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(initialMapPoints), true, 64)
-                        locationStatus = "Showing confirmed incident pins and field-unit locations. Stale unit markers are labeled as last known, not live."
+                        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(pointsToFrame), true, 64)
+                        locationStatus = if (shouldFrameIncidentPoints) {
+                            "Showing confirmed incident pins and eligible field-unit locations. Stale unit markers are labeled as last known, not live."
+                        } else {
+                            "Showing eligible field-unit locations while waiting for incident locations. Stale unit markers are labeled as last known, not live."
+                        }
                     }
                 }
             }
