@@ -20,6 +20,10 @@ ALTER TABLE public.location_logs
 ALTER TABLE public.location_logs
   ALTER COLUMN received_at SET DEFAULT pg_catalog.clock_timestamp();
 
+-- Force authenticated clients through the validated RPC; otherwise the legacy
+-- table grant plus INSERT policy would let responders bypass RPC rate/timestamp checks.
+REVOKE INSERT ON TABLE public.location_logs FROM PUBLIC, anon, authenticated;
+
 CREATE INDEX IF NOT EXISTS location_logs_received_rate_idx
   ON public.location_logs (
     user_id, incident_id, (COALESCE(received_at, recorded_at)) DESC
