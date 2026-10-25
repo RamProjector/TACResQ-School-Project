@@ -62,6 +62,10 @@ map_contract = {
         "else -> MapLocationFreshness.STALE",
         "Do not treat this marker as live",
         "Text(\"Field units\", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)",
+        "BoxWithConstraints(",
+        "if (maxWidth < 360.dp)",
+        "A vertical stack avoids clipping labels or hiding Locate me on narrow phones.",
+        "GpsMapActionButtons(",
     ),
 }
 for relative_path, required_text in map_contract.items():
