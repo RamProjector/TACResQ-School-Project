@@ -721,7 +721,9 @@ fun GpsMapScreen(
                                 role == Role.DISPATCHER && validResponderLocations.isNotEmpty() ->
                                     "$freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale field unit(s)"
                                 validIncidentPoints.isNotEmpty() -> "${validIncidentPoints.size} confirmed incident(s)"
-                                else -> "Map ready"
+                                visibleIncidents.isNotEmpty() -> "Incident locations unavailable"
+                                role == Role.DISPATCHER -> "Waiting for incident locations and field units"
+                                else -> "Waiting for incident locations"
                             },
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
