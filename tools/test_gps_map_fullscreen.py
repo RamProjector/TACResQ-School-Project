@@ -49,6 +49,15 @@ assert 'contentDescription = if (deviceFix == null) "Locate me" else "Refresh lo
 assert "Modifier.widthIn(min = 100.dp).heightIn(min = 48.dp)" in map_screen
 assert "Modifier.widthIn(min = 112.dp).heightIn(min = 48.dp)" in map_screen
 assert "Modifier.size(48.dp)" in map_screen, "recenter target must remain at least 48dp"
+assert "enabled = !isLocationRequestInProgress" in map_screen, (
+    "Locate me must be disabled while a location request is in flight"
+)
+assert "if (isLocationRequestInProgress) return" in map_screen, (
+    "rapid taps must not launch overlapping device-location requests"
+)
+assert "isLocationRequestInProgress = false" in map_screen, (
+    "location action state must reset in finally after success or failure"
+)
 assert "horizontalArrangement = Arrangement.spacedBy(8.dp)" in map_screen
 print("GPS map compact action-row and touch-target contract passed.")
 
