@@ -47,6 +47,10 @@ print("GPS map responsive control placement contract passed.")
 assert "val responderPointsForInitialFrame = validResponderLocations" in map_screen
 assert ".filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }" in map_screen
 assert "validIncidentPoints + responderPointsForInitialFrame" in map_screen
+assert "var hasAutoFramedInitialMapPoints by remember { mutableStateOf(false) }" in map_screen
+assert "var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }" in map_screen
+assert "val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
+assert "if (shouldFrameIncidentPoints) hasAutoFramedIncidentPoints = true" in map_screen
 assert "val validResponderPoints = validResponderLocations.map { GeoPoint(it.latitude, it.longitude) }" in map_screen
 assert "onShowActiveUnits = ::showActiveUnits" in map_screen
 assert "mapView.overlays.removeAll { it is Marker }" in map_screen, (
@@ -96,11 +100,12 @@ assert "The previous location preview was cleared." in resume_branch
 print("GPS map permission-revocation lifecycle contract passed.")
 
 
-# A responder-only initial view must not suppress camera framing when incident pins arrive later.
-assert "var hasAutoFramedInitialMapPoints by remember { mutableStateOf(false) }" in map_screen
-assert "var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }" in map_screen
-assert "val shouldFrameInitialUnits = !hasAutoFramedInitialMapPoints" in map_screen
-assert "val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
-assert "if (shouldFrameIncidentPoints) hasAutoFramedIncidentPoints = true" in map_screen
-assert "val pointsToFrame = if (shouldFrameIncidentPoints) initialMapPoints else responderPointsForInitialFrame" in map_screen
-print("GPS map late-arriving incident framing contract passed.")
+# Reject future location timestamps before converting age to whole seconds. Java Duration.seconds
+# truncates sub-second negative durations toward zero, so the comparison must be explicit.
+assert "if (recorded.isAfter(now)) return null" in map_screen, (
+    "future responder timestamps, including sub-second offsets, must not be classified as fresh"
+)
+assert "if (recordedAt.isAfter(now))" in map_screen, (
+    "future incident timestamps must remain marked for confirmation before navigation"
+)
+print("GPS future-timestamp safety contract passed.")
