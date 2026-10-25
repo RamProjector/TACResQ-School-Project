@@ -15,6 +15,9 @@ required = (
     'visibleIncidents.isNotEmpty() -> "Incident locations unavailable"',
     'role == Role.DISPATCHER -> "Waiting for incident locations and field units"',
     "locationStatus ?: defaultMapStatus",
+    "modifier = Modifier.semantics {",
+    "LiveRegionMode.Polite",
+    "if (locationStatus != null) liveRegion = LiveRegionMode.Polite",
 )
 missing = [snippet for snippet in required if snippet not in source]
 if missing:

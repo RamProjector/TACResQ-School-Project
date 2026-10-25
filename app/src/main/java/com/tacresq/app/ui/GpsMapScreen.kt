@@ -54,6 +54,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -768,7 +771,12 @@ fun GpsMapScreen(
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            locationStatus ?: defaultMapStatus,
+                            text = locationStatus ?: defaultMapStatus,
+                            modifier = Modifier.semantics {
+                                // Announce user-triggered location/centering outcomes politely,
+                                // without repeatedly announcing the changing freshness summary.
+                                if (locationStatus != null) liveRegion = LiveRegionMode.Polite
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = if (detailsExpanded) 4 else 1,
