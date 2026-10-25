@@ -75,3 +75,22 @@ assert "revoke all on function public.api_active_responder_locations() from publ
 assert "grant execute on function public.api_active_responder_locations() to authenticated" in current
 
 print("Location RPC search-path and privilege-boundary contract passed.")
+
+
+# Dispatcher reads must bypass the legacy lead-unit-only RLS filter only inside
+# a role-checked private helper; the public API endpoint remains an invoker wrapper.
+reader = (
+    ROOT
+    / "supabase/migrations/20261026010000_isolate_multi_responder_location_reader.sql"
+).read_text().lower()
+assert "create or replace function private.tacresq_active_responder_locations()" in reader
+assert "security definer" in reader and "set search_path = pg_catalog" in reader
+assert "private.tacresq_actor_role() is distinct from 'dispatcher'" in reader
+assert "join public.incident_assignments a on a.incident_id = i.id" in reader
+assert "l.user_id = a.user_id" in reader and "a.responder_status = 'en_route'" in reader
+assert "coalesce(l.received_at, l.recorded_at) desc" in reader
+assert "create or replace function public.api_active_responder_locations()" in reader
+assert "security invoker" in reader and "select * from private.tacresq_active_responder_locations()" in reader
+assert "revoke all on function private.tacresq_active_responder_locations() from public, anon" in reader
+assert "grant execute on function private.tacresq_active_responder_locations() to authenticated" in reader
+print("Multi-responder dispatcher reader privilege-boundary contract passed.")
