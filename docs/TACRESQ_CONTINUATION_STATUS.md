@@ -94,3 +94,15 @@ Official Supabase documentation reviewed: [Securing your API](https://supabase.c
 ### Next security-first step
 
 Before implementing the admin role, prepare a non-destructive privilege matrix for every exposed RPC: purpose, caller role, function owner/security mode, EXECUTE grants, data touched, explicit caller checks, and tests. Add adversarial tests for requester self-promotion, dispatcher/admin privilege boundaries, cross-incident data access, and unauthorised RPC calls. Keep the existing production database untouched until the reviewed migration and its tests are ready.
+
+
+### Migration-to-live-schema drift requiring reconciliation
+
+A direct comparison of the checked-in migrations with the connected project's live function catalog found two mismatches that should be investigated before extending role privileges:
+
+- Checked-in `20261015081107_harden_rpc_exposure.sql` defines `public.api_units()` as `SECURITY INVOKER`, with a dispatcher check. The live catalog reports it as `SECURITY DEFINER`, owned by `postgres`, with `search_path = pg_catalog, public, auth`.
+- Checked-in `20261021103213_isolate_location_writer.sql` moves the privileged implementation to `private.tacresq_record_location_v2` and defines the public `api_record_location_v2` as an invoker wrapper. The live catalog instead reports `public.api_record_location_v2` itself as `SECURITY DEFINER`, owned by `postgres`, with `search_path = pg_catalog, public, pg_temp`.
+
+Both live functions reject unauthorized roles in the definitions inspected, and anonymous EXECUTE is false. However, the live definitions do not match the reviewed migration intent, and the location RPC's public/temporary search path deserves particular attention for a definer function. This is a schema-drift/security-hardening task, not proof of an exploitable vulnerability.
+
+Next: inspect the full live definitions and ACLs for the private location writer and the dispatcher unit function; compare all deployed functions against migration replay; then prepare a tested, forward-only corrective migration/PR. Do not directly mutate the production schema as a shortcut, and do not blindly remove SECURITY DEFINER from functions that intentionally perform validated per-user writes.
