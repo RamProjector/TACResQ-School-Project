@@ -164,6 +164,9 @@ gps_map_location_contract = {
         "if (isLocationRequestInProgress) return",
         "enabled = !isLocationRequestInProgress",
         "isLocationRequestInProgress = false",
+        "val latestDeviceFix by rememberUpdatedState(deviceFix)",
+        "!locationProvider.hasPermission() && latestDeviceFix != null",
+        "The previous location preview was cleared.",
     ),
     "app/src/main/java/com/tacresq/app/ui/AppRoot.kt": (
         "locationProvider = locationProvider",
