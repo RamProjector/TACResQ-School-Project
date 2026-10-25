@@ -1,0 +1,79 @@
+name: TACResQ authenticated Render bridge smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tacresq-authenticated-bridge-smoke
+  cancel-in-progress: false
+
+jobs:
+  authenticated-read:
+    name: Verify authenticated read-only bridge RPC
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Sign in with dedicated integration account and call read-only RPC
+        env:
+          BASE_URL: https://tacresq-school-project.onrender.com
+          SUPABASE_URL: https://kttguamhznoflzagfutr.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          TEST_EMAIL: ${{ secrets.SUPABASE_TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.SUPABASE_TEST_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # This workflow is intentionally optional until a dedicated, low-privilege
+          # integration account is configured in GitHub Actions secrets.
+          if [[ -z "${TEST_EMAIL}" || -z "${TEST_PASSWORD}" ]]; then
+            echo "::notice::Skipped authenticated live test: configure SUPABASE_TEST_EMAIL and SUPABASE_TEST_PASSWORD using a dedicated test account."
+            exit 0
+          fi
+          if [[ -z "${SUPABASE_PUBLISHABLE_KEY}" ]]; then
+            echo "::error::SUPABASE_PUBLISHABLE_KEY secret is not configured."
+            exit 1
+          fi
+
+          # Never print credentials, access tokens, auth response bodies, or RPC data.
+          auth_status="$(curl --connect-timeout 5 --max-time 15 --silent --show-error \
+            --output /tmp/supabase-auth.json --write-out '%{http_code}' \
+            --request POST "${SUPABASE_URL}/auth/v1/token?grant_type=password" \
+            --header "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
+            --header 'Content-Type: application/json' \
+            --data "$(python3 -c 'import json,os; print(json.dumps({"email":os.environ["TEST_EMAIL"],"password":os.environ["TEST_PASSWORD"]}))')")"
+
+          if [[ "${auth_status}" != "200" ]]; then
+            echo "::error::Supabase test-account sign-in failed (HTTP ${auth_status}); response body intentionally suppressed."
+            exit 1
+          fi
+
+          access_token="$(python3 -c 'import json; print(json.load(open("/tmp/supabase-auth.json")).get("access_token",""))')"
+          if [[ -z "${access_token}" ]]; then
+            echo "::error::Supabase sign-in response did not contain an access token."
+            exit 1
+          fi
+
+          rpc_status="$(curl --connect-timeout 5 --max-time 15 --silent --show-error \
+            --output /tmp/bridge-rpc.json --write-out '%{http_code}' \
+            --request POST "${BASE_URL}/api/bridge/rpc/api_me" \
+            --header "Authorization: Bearer ${access_token}" \
+            --header 'Content-Type: application/json' \
+            --data '{}')"
+
+          if [[ "${rpc_status}" != "200" ]]; then
+            echo "::error::Authenticated read-only api_me RPC failed through Render (HTTP ${rpc_status}); response body intentionally suppressed."
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path('/tmp/bridge-rpc.json').read_text())
+          assert result is not None, 'Read-only RPC returned an empty JSON document'
+          print('Authenticated read-only api_me RPC succeeded through the live Render bridge (HTTP 200). Response contents were not logged.')
+          PY
