@@ -22,14 +22,15 @@ checks = {
     "write RPC is privileged only after explicit validation": "security definer" in write_rpc and "auth.uid()" in write_rpc and "incident_status <> 'en_route'" in write_rpc,
     "write RPC validates coordinate and timestamp ranges": "p_latitude < -90" in write_rpc and "p_longitude > 180" in write_rpc and "interval '5 minutes'" in write_rpc and "interval '15 minutes'" in write_rpc,
     "hardened GPS writer uses server receipt time rather than nonexistent created_at": (
-        "add column if not exists received_at timestamptz not null" in location_hardening_migration
-        and "l.received_at > pg_catalog.clock_timestamp() - interval '8 seconds'" in location_hardening_migration
+        "add column if not exists received_at timestamptz" in location_hardening_migration
+        and "alter column received_at set default pg_catalog.clock_timestamp()" in location_hardening_migration
+        and "coalesce(l.received_at, l.recorded_at) > pg_catalog.clock_timestamp() - interval '8 seconds'" in location_hardening_migration
         and "l.created_at" not in location_hardening_migration
     ),
     "active responder-location RPC selects the latest accepted fix by server receipt time": (
         "create or replace function public.api_active_responder_locations()" in location_hardening_migration
         and "security invoker" in location_hardening_migration
-        and "order by i.id, l.user_id, l.received_at desc" in location_hardening_migration
+        and "order by i.id, l.user_id, coalesce(l.received_at, l.recorded_at) desc" in location_hardening_migration
         and "l.created_at" not in location_hardening_migration
     ),
     "server serializes and throttles writes; direct inserts are revoked": "pg_advisory_xact_lock(actor_id)" in write_rpc and "interval '8 seconds'" in write_rpc and "revoke insert on public.location_logs from authenticated" in migration,
