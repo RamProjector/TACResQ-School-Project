@@ -30,7 +30,7 @@ EXPECTED = {
     "20261023082939_pin_dispatch_team_search_path.sql",
     "20261023103737_per_responder_assignment_status.sql",
 }
-PENDING = set()
+PENDING = {"20261025170000_isolate_per_responder_location_writer.sql"}
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
     f"Supabase migration history drift. Missing={sorted((EXPECTED | PENDING) - actual)}; "
