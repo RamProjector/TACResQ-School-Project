@@ -8,6 +8,15 @@
 -- incident state, coordinate/timestamp bounds, and update rate.
 BEGIN;
 
+-- location_logs has no created_at column. Store server receipt time separately
+-- from the client/device capture timestamp so rate limiting and latest-point
+-- ordering never depend on a client-controlled clock.
+ALTER TABLE public.location_logs
+  ADD COLUMN IF NOT EXISTS received_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp();
+
+CREATE INDEX IF NOT EXISTS location_logs_received_rate_idx
+  ON public.location_logs (user_id, incident_id, received_at DESC);
+
 CREATE OR REPLACE FUNCTION private.tacresq_record_location_v2(
   p_incident_id bigint,
   p_latitude double precision,
@@ -67,7 +76,7 @@ BEGIN
       FROM public.location_logs l
      WHERE l.user_id = actor_id
        AND l.incident_id = p_incident_id
-       AND l.created_at > pg_catalog.now() - interval '8 seconds'
+       AND l.received_at > pg_catalog.clock_timestamp() - interval '8 seconds'
   ) THEN
     RAISE EXCEPTION 'Location updates are arriving too quickly' USING ERRCODE = '22023';
   END IF;
@@ -114,5 +123,47 @@ REVOKE ALL ON FUNCTION public.api_record_location_v2(
 GRANT EXECUTE ON FUNCTION public.api_record_location_v2(
   bigint, double precision, double precision, real, timestamptz
 ) TO authenticated;
+
+-- Replace the existing read RPC as well: the historical body also referenced
+-- nonexistent location_logs.created_at. Use server receipt time to select the
+-- latest accepted fix, while returning the original capture timestamp so clients
+-- can continue to label old fixes as stale rather than implying they are live.
+CREATE OR REPLACE FUNCTION public.api_active_responder_locations()
+RETURNS TABLE (
+  incident_id bigint,
+  user_id bigint,
+  latitude double precision,
+  longitude double precision,
+  accuracy_m real,
+  recorded_at timestamptz
+)
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog
+AS $function$
+BEGIN
+  IF private.tacresq_actor_role() IS DISTINCT FROM 'dispatcher' THEN
+    RAISE EXCEPTION 'Only dispatchers can view responder locations'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN QUERY
+    SELECT DISTINCT ON (i.id, l.user_id)
+      i.id, l.user_id, l.latitude, l.longitude, l.accuracy_m, l.recorded_at
+    FROM public.incidents i
+    JOIN public.incident_assignments a ON a.incident_id = i.id
+    JOIN public.location_logs l ON l.incident_id = i.id AND l.user_id = a.user_id
+    WHERE i.status = 'en_route'
+      AND a.responder_status = 'en_route'
+      AND l.latitude BETWEEN -90 AND 90
+      AND l.longitude BETWEEN -180 AND 180
+      AND (l.accuracy_m IS NULL OR l.accuracy_m >= 0)
+      AND l.recorded_at <= pg_catalog.now() + interval '5 minutes'
+    ORDER BY i.id, l.user_id, l.received_at DESC;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.api_active_responder_locations() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.api_active_responder_locations() TO authenticated;
 
 COMMIT;
