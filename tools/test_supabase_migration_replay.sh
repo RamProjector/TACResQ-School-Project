@@ -359,7 +359,10 @@ BEGIN
   END;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
-  PERFORM public.api_update_incident_status(incident_id, 'en_route');
+  response := public.api_update_my_assignment_status(incident_id, 'en_route');
+  IF response->>'status' <> 'en_route' THEN
+    RAISE EXCEPTION 'Secondary responder must independently enter en_route before sharing GPS';
+  END IF;
   PERFORM public.api_record_location_v2(incident_id, 11.245, 125.004, 10, now());
 
   -- Prove the reader returns the secondary assignment's location too, rather
