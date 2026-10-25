@@ -226,6 +226,7 @@ fun GpsMapScreen(
     // Keep the latest callback without restarting the polling coroutine on recomposition.
     val refreshResponderLocations by rememberUpdatedState(onRefreshResponderLocations)
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
+    val latestDeviceFix by rememberUpdatedState(deviceFix)
     var hasAutoFramedIncidents by remember { mutableStateOf(false) }
     var freshnessTick by remember { mutableStateOf(0) }
     var locationStatus by remember { mutableStateOf<String?>(null) }
@@ -514,6 +515,12 @@ fun GpsMapScreen(
                     if (!mapIsResumed) {
                         mapView.onResume()
                         mapIsResumed = true
+                    }
+                    // A one-time preview must not remain visible after the user revokes
+                    // location permission in Android Settings while TACResQ is paused.
+                    if (!locationProvider.hasPermission() && latestDeviceFix != null) {
+                        deviceFix = null
+                        locationStatus = "Location permission is off. The previous location preview was cleared. Grant permission and tap Locate me to try again."
                     }
                 }
                 Lifecycle.Event.ON_PAUSE -> {
