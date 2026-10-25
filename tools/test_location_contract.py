@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261020062532_responder_location_tracking.sql").read_text()
 current_location_migration = (ROOT / "supabase/migrations/20261023103737_per_responder_assignment_status.sql").read_text().lower()
+location_hardening_migration = (ROOT / "supabase/migrations/20261025170000_isolate_per_responder_location_writer.sql").read_text().lower()
 dashboard = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
 location_provider = (ROOT / "app/src/main/java/com/tacresq/app/location/LocationProvider.kt").read_text()
 responder_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
@@ -20,6 +21,17 @@ read_policy = current_location_migration.split("create policy location_logs_read
 checks = {
     "write RPC is privileged only after explicit validation": "security definer" in write_rpc and "auth.uid()" in write_rpc and "incident_status <> 'en_route'" in write_rpc,
     "write RPC validates coordinate and timestamp ranges": "p_latitude < -90" in write_rpc and "p_longitude > 180" in write_rpc and "interval '5 minutes'" in write_rpc and "interval '15 minutes'" in write_rpc,
+    "hardened GPS writer uses server receipt time rather than nonexistent created_at": (
+        "add column if not exists received_at timestamptz not null" in location_hardening_migration
+        and "l.received_at > pg_catalog.clock_timestamp() - interval '8 seconds'" in location_hardening_migration
+        and "l.created_at" not in location_hardening_migration
+    ),
+    "active responder-location RPC selects the latest accepted fix by server receipt time": (
+        "create or replace function public.api_active_responder_locations()" in location_hardening_migration
+        and "security invoker" in location_hardening_migration
+        and "order by i.id, l.user_id, l.received_at desc" in location_hardening_migration
+        and "l.created_at" not in location_hardening_migration
+    ),
     "server serializes and throttles writes; direct inserts are revoked": "pg_advisory_xact_lock(actor_id)" in write_rpc and "interval '8 seconds'" in write_rpc and "revoke insert on public.location_logs from authenticated" in migration,
     "dispatcher read RPC rejects non-dispatchers": "tacresq_actor_role() is distinct from 'dispatcher'" in read_rpc,
     "dispatcher RPC returns active members of multi-unit assignments": "i.status = 'en_route'" in read_rpc and "l.user_id = a.user_id" in read_rpc and "a.responder_status = 'en_route'" in read_rpc,
