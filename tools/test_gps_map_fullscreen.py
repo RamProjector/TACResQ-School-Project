@@ -47,6 +47,10 @@ print("GPS map responsive control placement contract passed.")
 assert "val responderPointsForInitialFrame = validResponderLocations" in map_screen
 assert ".filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }" in map_screen
 assert "validIncidentPoints + responderPointsForInitialFrame" in map_screen
+assert "var hasAutoFramedInitialMapPoints by remember { mutableStateOf(false) }" in map_screen
+assert "var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }" in map_screen
+assert "val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
+assert "if (shouldFrameIncidentPoints) hasAutoFramedIncidentPoints = true" in map_screen
 assert "val validResponderPoints = validResponderLocations.map { GeoPoint(it.latitude, it.longitude) }" in map_screen
 assert "onShowActiveUnits = ::showActiveUnits" in map_screen
 assert "mapView.overlays.removeAll { it is Marker }" in map_screen, (
