@@ -158,7 +158,7 @@ private fun Incident.locationAgeStatus(now: Instant = Instant.now()): Pair<Strin
 @Composable
 private fun GpsMapActionButtons(
     role: Role,
-    hasDeviceFix: Boolean,
+    deviceFix: GeoFix?,
     onShowIncidents: () -> Unit,
     onShowActiveUnits: () -> Unit,
     onLocateClick: () -> Unit,
@@ -197,7 +197,7 @@ private fun GpsMapActionButtons(
     ) {
         androidx.compose.material3.Icon(
             imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
-            contentDescription = if (hasDeviceFix) "Refresh location" else "Locate me",
+            contentDescription = if (deviceFix == null) "Locate me" else "Refresh location",
             modifier = Modifier.size(20.dp),
         )
     }
@@ -711,7 +711,7 @@ fun GpsMapScreen(
                 ) {
                     GpsMapActionButtons(
                         role = role,
-                        hasDeviceFix = deviceFix != null,
+                        deviceFix = deviceFix,
                         onShowIncidents = ::showIncidentPins,
                         onShowActiveUnits = ::showActiveUnits,
                         onLocateClick = onLocateClick,
@@ -724,7 +724,7 @@ fun GpsMapScreen(
                 ) {
                     GpsMapActionButtons(
                         role = role,
-                        hasDeviceFix = deviceFix != null,
+                        deviceFix = deviceFix,
                         onShowIncidents = ::showIncidentPins,
                         onShowActiveUnits = ::showActiveUnits,
                         onLocateClick = onLocateClick,
