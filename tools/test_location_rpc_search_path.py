@@ -62,13 +62,15 @@ assert "grant execute on function public.api_record_location_v2(" in current
 assert "public, pg_temp" not in current
 assert "set search_path = public" not in current
 assert "alter table public.location_logs" in current
-assert "add column if not exists received_at timestamptz not null default pg_catalog.clock_timestamp()" in current
+assert "add column if not exists received_at timestamptz" in current
+assert "alter column received_at set default pg_catalog.clock_timestamp()" in current
+assert "coalesce(l.received_at, l.recorded_at)" in current
 assert "location_logs_received_rate_idx" in current
 assert "l.received_at > pg_catalog.clock_timestamp() - interval '8 seconds'" in current
 assert "l.created_at" not in current
 assert "create or replace function public.api_active_responder_locations()" in current
 assert "security invoker" in current
-assert "order by i.id, l.user_id, l.received_at desc" in current
+assert "order by i.id, l.user_id, coalesce(l.received_at, l.recorded_at) desc" in current
 assert "revoke all on function public.api_active_responder_locations() from public, anon" in current
 assert "grant execute on function public.api_active_responder_locations() to authenticated" in current
 
