@@ -266,6 +266,31 @@ BEGIN
     NULL;
   END;
 
+  -- Reject malformed coordinates and timestamps independently of authorization.
+  BEGIN
+    PERFORM public.api_record_location_v2(incident_id, -91, 125.005, 10, now());
+    RAISE EXCEPTION 'Expected out-of-range latitude to be rejected';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    NULL;
+  END;
+  BEGIN
+    PERFORM public.api_record_location_v2(incident_id, 11.246, 125.005, 10, now() + interval '6 minutes');
+    RAISE EXCEPTION 'Expected future timestamp to be rejected';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    NULL;
+  END;
+
+  -- Dispatchers are allowed to read locations but cannot impersonate a field
+  -- unit through the location-write RPC.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
+  BEGIN
+    PERFORM public.api_record_location_v2(incident_id, 11.246, 125.005, 10, now());
+    RAISE EXCEPTION 'Expected GPS write to be rejected for dispatcher';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
+
   response := public.api_update_my_assignment_status(incident_id, 'on_scene');
   IF response->>'status' <> 'en_route' THEN
     RAISE EXCEPTION 'Incident must remain en_route while another assigned unit has not arrived';
