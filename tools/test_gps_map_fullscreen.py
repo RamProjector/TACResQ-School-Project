@@ -94,3 +94,14 @@ assert "!locationProvider.hasPermission() && latestDeviceFix != null" in resume_
 assert "deviceFix = null" in resume_branch
 assert "The previous location preview was cleared." in resume_branch
 print("GPS map permission-revocation lifecycle contract passed.")
+
+
+# Reject future location timestamps before converting age to whole seconds. Java Duration.seconds
+# truncates sub-second negative durations toward zero, so the comparison must be explicit.
+assert "if (recorded.isAfter(now)) return null" in map_screen, (
+    "future responder timestamps, including sub-second offsets, must not be classified as fresh"
+)
+assert "if (recordedAt.isAfter(now))" in map_screen, (
+    "future incident timestamps must remain marked for confirmation before navigation"
+)
+print("GPS future-timestamp safety contract passed.")
