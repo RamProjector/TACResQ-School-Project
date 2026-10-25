@@ -701,6 +701,7 @@ fun GpsMapScreen(
                 .align(Alignment.TopEnd)
                 .fillMaxWidth()
                 .padding(top = mapActionsTopPadding, end = 12.dp),
+            contentAlignment = Alignment.TopEnd,
         ) {
             if (maxWidth < 360.dp) {
                 // A vertical stack avoids clipping labels or hiding Locate me on narrow phones.
