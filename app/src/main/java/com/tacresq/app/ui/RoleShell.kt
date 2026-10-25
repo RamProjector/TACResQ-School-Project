@@ -74,7 +74,7 @@ private fun TacruBottomNavigation(
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val compact = maxWidth < 400.dp
-        // Shorten only labels that would crowd a narrow phone; never hide inactive labels.
+        // Keep all role-specific labels visible; GPS Map remains a stable, prominent center destination.
         val labels = when (role) {
             Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
             Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")
@@ -95,7 +95,7 @@ private fun TacruBottomNavigation(
         ) {
             NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected)
             NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected)
-            GpsMapNavigationItem(selected, onDestinationSelected, compact)
+            GpsMapNavigationItem(selected, onDestinationSelected)
             NavigationItem(destinations[2].first, destinations[2].second, selected, onDestinationSelected)
             NavigationItem(destinations[3].first, destinations[3].second, selected, onDestinationSelected)
         }
@@ -127,17 +127,52 @@ private fun RowScope.NavigationItem(
 
 @Composable
 private fun RowScope.GpsMapNavigationItem(
-    selected: AppDestination,
+    currentDestination: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
-    compact: Boolean,
 ) {
-    NavigationDestinationItem(
-        destination = AppDestination.MAP,
-        label = if (compact) "Map" else "GPS Map",
-        icon = Icons.Filled.LocationOn,
-        active = selected == AppDestination.MAP,
-        onClick = { onDestinationSelected(AppDestination.MAP) },
-    )
+    val active = currentDestination == AppDestination.MAP
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .clickable { onDestinationSelected(AppDestination.MAP) }
+            .semantics {
+                contentDescription = "GPS Map"
+                selected = active
+                role = SemanticsRole.Tab
+            }
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 0.dp, vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Surface(
+            color = if (active) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.primaryContainer,
+            contentColor = if (active) MaterialTheme.colorScheme.onPrimary
+                else MaterialTheme.colorScheme.onPrimaryContainer,
+            shape = RoundedCornerShape(18.dp),
+            tonalElevation = if (active) 2.dp else 0.dp,
+        ) {
+            Box(
+                modifier = Modifier.size(width = 54.dp, height = 36.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.LocationOn,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        }
+        Text(
+            text = "GPS Map",
+            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+        )
+    }
 }
 
 @Composable
