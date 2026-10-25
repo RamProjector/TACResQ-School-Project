@@ -139,6 +139,9 @@ gps_map_location_contract = {
         "LocationCaptureResult.InvalidFix",
         "deviceFix == null",
         "Refresh location",
+        "import androidx.compose.ui.semantics.LiveRegionMode",
+        "liveRegion = LiveRegionMode.Polite",
+        "if (locationStatus != null) liveRegion = LiveRegionMode.Polite",
     ),
     "app/src/main/java/com/tacresq/app/ui/AppRoot.kt": (
         "locationProvider = locationProvider",
