@@ -95,7 +95,7 @@ private fun TacruBottomNavigation(
         ) {
             NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected)
             NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected)
-            GpsMapNavigationItem(selected, onDestinationSelected, compact)
+            GpsMapNavigationItem(selected, onDestinationSelected)
             NavigationItem(destinations[2].first, destinations[2].second, selected, onDestinationSelected)
             NavigationItem(destinations[3].first, destinations[3].second, selected, onDestinationSelected)
         }
@@ -129,7 +129,6 @@ private fun RowScope.NavigationItem(
 private fun RowScope.GpsMapNavigationItem(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
-    compact: Boolean,
 ) {
     val active = selected == AppDestination.MAP
     Column(
