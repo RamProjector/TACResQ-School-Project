@@ -739,6 +739,7 @@ fun GpsMapScreen(
                     GpsMapActionButtons(
                         role = role,
                         deviceFix = deviceFix,
+                        isLocationRequestInProgress = isLocationRequestInProgress,
                         onShowIncidents = ::showIncidentPins,
                         onShowActiveUnits = ::showActiveUnits,
                         onLocateClick = onLocateClick,
