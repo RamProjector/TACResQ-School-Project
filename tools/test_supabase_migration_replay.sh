@@ -270,6 +270,22 @@ BEGIN
     RAISE EXCEPTION 'Expected valid assigned en-route responder GPS fix to be stored';
   END IF;
 
+  -- Dispatcher reader must expose the lead responder's active fix, while the
+  -- same private reader must reject a requester even though both are authenticated.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
+  IF (SELECT count(*) FROM public.api_active_responder_locations()
+      WHERE incident_id = incident_id AND user_id = responder_one_id) <> 1 THEN
+    RAISE EXCEPTION 'Dispatcher must see the active assigned responder location';
+  END IF;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000127', true);
+  BEGIN
+    PERFORM * FROM public.api_active_responder_locations();
+    RAISE EXCEPTION 'Expected active responder location read to be rejected for requester';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
+
   -- A different assigned unit must not send GPS until that unit individually
   -- acknowledges en_route, even while the incident aggregate is en_route.
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
@@ -343,6 +359,17 @@ BEGIN
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
   PERFORM public.api_update_incident_status(incident_id, 'en_route');
+  PERFORM public.api_record_location_v2(incident_id, 11.245, 125.004, 10, now());
+
+  -- Prove the reader returns the secondary assignment's location too, rather
+  -- than only the incident's primary assigned unit.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
+  IF (SELECT count(DISTINCT user_id) FROM public.api_active_responder_locations()
+      WHERE incident_id = incident_id AND user_id IN (responder_one_id, responder_two_id)) <> 2 THEN
+    RAISE EXCEPTION 'Dispatcher must see active GPS fixes from both assigned responders';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
   response := public.api_update_my_assignment_status(incident_id, 'on_scene');
   IF response->>'status' <> 'on_scene' THEN
     RAISE EXCEPTION 'Incident should move to on_scene once every assigned unit has arrived';
