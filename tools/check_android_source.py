@@ -239,7 +239,7 @@ navigation_contract = {
         'Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")',
         'Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")',
         'Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")',
-        "GpsMapNavigationItem(selected, onDestinationSelected, compact)",
+        "GpsMapNavigationItem(selected, onDestinationSelected)",
     ),
     "app/src/main/java/com/tacresq/app/ui/AppRoot.kt": (
         'AppDestination.PROFILE -> "Profile"',
