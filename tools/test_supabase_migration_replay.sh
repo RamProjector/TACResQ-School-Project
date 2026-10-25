@@ -383,6 +383,31 @@ BEGIN
     RAISE EXCEPTION 'Reader must not present an arrived lead responder as actively en route';
   END IF;
 
+  -- Fresh server receipt time must not make an old device-reported fix appear live.
+  UPDATE public.location_logs ll
+     SET recorded_at = pg_catalog.now() - interval '3 minutes'
+   WHERE ll.incident_id = (SELECT i.id FROM public.incidents i WHERE i.description = 'Synthetic per-responder status test')
+     AND ll.user_id = responder_two_id;
+  IF EXISTS (
+    SELECT 1 FROM public.api_active_responder_locations() loc
+    WHERE loc.incident_id = (SELECT i.id FROM public.incidents i WHERE i.description = 'Synthetic per-responder status test')
+      AND loc.user_id = responder_two_id
+  ) THEN
+    RAISE EXCEPTION 'Reader must exclude GPS fixes older than two minutes';
+  END IF;
+
+  UPDATE public.location_logs ll
+     SET recorded_at = pg_catalog.now() + interval '1 minute'
+   WHERE ll.incident_id = (SELECT i.id FROM public.incidents i WHERE i.description = 'Synthetic per-responder status test')
+     AND ll.user_id = responder_two_id;
+  IF EXISTS (
+    SELECT 1 FROM public.api_active_responder_locations() loc
+    WHERE loc.incident_id = (SELECT i.id FROM public.incidents i WHERE i.description = 'Synthetic per-responder status test')
+      AND loc.user_id = responder_two_id
+  ) THEN
+    RAISE EXCEPTION 'Reader must exclude future-dated GPS fixes';
+  END IF;
+
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
   response := public.api_update_my_assignment_status(incident_id, 'on_scene');
   IF response->>'status' <> 'on_scene' THEN
