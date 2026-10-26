@@ -47,10 +47,11 @@ class RoutingModelsTest {
     fun polyline6DecoderReturnsCoordinatesAtSixDecimalPrecision() {
         val points = ValhallaPolylineDecoder.decode("AAAA")
         assertEquals(2, points.size)
-        assertEquals(0.0, points[0].latitude, 0.0)
-        assertEquals(0.0, points[0].longitude, 0.0)
-        assertEquals(0.000001, points[1].latitude, 0.0000000001)
-        assertEquals(0.000001, points[1].longitude, 0.0000000001)
+        // Each 'A' encodes a +1 delta at polyline6 precision.
+        assertEquals(0.000001, points[0].latitude, 0.0000000001)
+        assertEquals(0.000001, points[0].longitude, 0.0000000001)
+        assertEquals(0.000002, points[1].latitude, 0.0000000001)
+        assertEquals(0.000002, points[1].longitude, 0.0000000001)
     }
 
     @Test(expected = IllegalArgumentException::class)
