@@ -151,7 +151,7 @@ assert 'profile.role === "admin"' in home and "<AdminConsole" in home, (
     "Authenticated Admin profiles must route to the Admin console after api_me role verification"
 )
 for required in (
-    "getAdminUsers()",
+    "getAdminUsersPage(pageSize, page * pageSize, query, roleFilter)",
     "getAdminAuditLogs(100)",
     "setAdminUserRole(target.id, nextRole, reason.trim())",
     "Enter an audit reason between 10 and 500 characters.",
