@@ -140,10 +140,7 @@ for required in (
     "setAdminUserRole(target.id, nextRole, reason.trim())",
     "Enter an audit reason between 10 and 500 characters.",
     "Admin accounts cannot be created, promoted, demoted, or edited here.",
-    "No demo accounts",
 ):
-    if required == "No demo accounts":
-        continue
     assert required in admin_ui, f"Missing Admin UI guard/workflow: {required}"
 assert '.from("profiles").update' not in admin_ui, (
     "Admin UI must use the protected role-change RPC, not direct profile writes"
