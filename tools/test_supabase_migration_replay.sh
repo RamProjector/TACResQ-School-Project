@@ -514,6 +514,45 @@ BEGIN
   END LOOP;
 END;
 $admin_role_matrix_test$;
+
+-- Audit history must keep immutable actor/target identity values after profile deletion.
+-- This protects historical attribution from ON DELETE SET NULL side effects.
+DO $admin_audit_immutability_test$
+DECLARE
+  audit_event_id bigint;
+  audit_target_id bigint;
+  audit_actor_id bigint;
+BEGIN
+  SELECT id, target_user_id, actor_user_id
+  INTO audit_event_id, audit_target_id, audit_actor_id
+  FROM public.admin_audit_logs
+  WHERE target_user_id = (
+    SELECT id FROM public.profiles
+    WHERE auth_user_id = '00000000-0000-4000-8000-000000000129'
+  )
+  ORDER BY id DESC
+  LIMIT 1;
+
+  IF audit_event_id IS NULL OR audit_target_id IS NULL OR audit_actor_id IS NULL THEN
+    RAISE EXCEPTION 'Expected a complete audit event before testing identity retention';
+  END IF;
+
+  DELETE FROM public.profiles
+  WHERE auth_user_id IN (
+    '00000000-0000-4000-8000-000000000129',
+    '00000000-0000-4000-8000-000000000128'
+  );
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.admin_audit_logs
+    WHERE id = audit_event_id
+      AND target_user_id = audit_target_id
+      AND actor_user_id = audit_actor_id
+  ) THEN
+    RAISE EXCEPTION 'Deleting profiles must not mutate or erase historical Admin audit identity snapshots';
+  END IF;
+END;
+$admin_audit_immutability_test$;
 SQL
 
 echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed; incident regressions and Admin role/audit authorization tests passed."
