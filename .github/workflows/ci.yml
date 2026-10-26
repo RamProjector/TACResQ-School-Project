@@ -202,6 +202,17 @@ jobs:
         if: hashFiles('gradlew') != ''
         run: ./gradlew --no-daemon testDebugUnitTest
 
+      - name: Run Compose smoke tests on Android emulator
+        if: hashFiles('gradlew') != ''
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 37
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: ./gradlew --no-daemon connectedDebugAndroidTest
+
       - name: Build Supabase-mode debug APK
         if: hashFiles('gradlew') != ''
         run: |
