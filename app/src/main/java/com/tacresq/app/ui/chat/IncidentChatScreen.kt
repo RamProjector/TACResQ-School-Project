@@ -84,6 +84,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         if (activeIncidentId != incidentId) {
             refreshJob?.cancel()
             olderJob?.cancel()
+            sendJob = null
             activeIncidentId = incidentId
             pendingClientMessageId = null
             _state.value = IncidentChatUiState()
@@ -202,6 +203,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     fun closeConversation() {
         refreshJob?.cancel()
         olderJob?.cancel()
+        sendJob = null
         activeIncidentId = null
         pendingClientMessageId = null
         _state.value = IncidentChatUiState()
