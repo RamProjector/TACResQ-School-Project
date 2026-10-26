@@ -1,3 +1,12 @@
+## Active continuation — 2026-10-26: Protected Admin role and audit foundation
+
+- **Branch / PR:** `feature/admin-supabase-role-audit-foundation`; draft [PR #173](https://github.com/RamProjector/TACResQ-School-Project/pull/173). Not merged.
+- **Completed in this branch:** Server-authorized Admin user listing and role-change RPCs, required reason and transactional audit insert, bounded search/filter/pagination, web Admin console with session revalidation, operator-only provisioning runbook, and Android fail-closed Admin landing screen.
+- **Latest security hardening:** Audit actor/target numeric IDs are immutable snapshots without profile foreign keys that would set historical values to NULL on profile deletion. Disposable PostgreSQL replay now deletes dedicated fixture profiles and asserts the audit event and its actor/target IDs remain intact.
+- **Validation on commit `2abea5b0b5a9143633eeac7f76d573934c192346`:** All five TACResQ CI jobs passed (source/dashboard build, navigation/visual, Android debug/release/JVM tests, clean PostgreSQL migration replay, Laravel/dashboard integration). RPC-grant contract and frontend review workflows also passed. The migration is pending and has not been applied to any live database.
+- **Earlier test correction:** A source assertion accidentally matched explanatory comment text; it was narrowed to check actual column declarations. The full rerun on the commit above passed.
+- **Next actions:** Keep PR draft until a security review and current-head checks are complete. Do not provision an Admin account, apply the migration to production, deploy, or merge without explicit authorization.
+
 ## Active continuation — 2026-10-24: Repair bridge rate-limit cache dependency
 
 - **Finding:** PR #131's new `throttle:120,1` middleware failed integration CI because Laravel's configured database cache store had no `cache` table. This is not just a test-only problem: the public Render bridge could error when rate limiting tries to access that missing table.
