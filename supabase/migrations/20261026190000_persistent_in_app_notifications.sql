@@ -92,7 +92,7 @@ BEGIN
   END IF;
 
   notification_title := 'Incident status updated';
-  notification_body := 'The incident status is now ' || replace(NEW.status, '_', ' ') || '.';
+  notification_body := 'The incident status is now ' || replace(NEW.status::text, '_', ' ') || '.';
 
   FOR recipient IN
     SELECT participant.profile_id
