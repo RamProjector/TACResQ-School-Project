@@ -116,7 +116,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 }
 
 @Composable
-fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) {
+fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, focusedIncidentId: Long? = null) {
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
@@ -138,6 +138,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
         }.thenBy { it.id })
     val active = state.incidents.count { it.status.isActive }
     val availableUnits = state.units.filter { it.dutyStatus == DutyStatus.AVAILABLE }
+    val focusedIncident = focusedIncidentId?.let { targetId -> state.incidents.firstOrNull { it.id == targetId } }
     val existingTeamCount = assignmentCandidate?.let { candidate ->
         if (candidate.status == IncidentStatus.PENDING) 0
         else candidate.assignedUserIds.ifEmpty { listOfNotNull(candidate.assignedTo) }.distinct().size
@@ -155,6 +156,21 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
                 subtitle = "",
                 onLogout = onLogout,
             )
+        }
+        if (focusedIncidentId != null) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Opened from alert", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    when {
+                        focusedIncident != null -> IncidentCard(focusedIncident)
+                        state.loading -> Text("Loading the incident from the current dispatch queue…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else -> Text(
+                            "This incident is not in the current authorized dispatch queue. Refresh before acting on an older alert.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
         item {
