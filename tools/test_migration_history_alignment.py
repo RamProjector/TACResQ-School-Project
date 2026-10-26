@@ -30,7 +30,7 @@ EXPECTED = {
     "20261023082939_pin_dispatch_team_search_path.sql",
     "20261023103737_per_responder_assignment_status.sql",
 }
-PENDING = {"20261026161500_admin_role_audit_foundation.sql"}
+PENDING = {"20261026161500_admin_role_audit_foundation.sql", "20261026170000_admin_server_side_user_pagination.sql"}
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
     f"Supabase migration history drift. Missing={sorted((EXPECTED | PENDING) - actual)}; "
@@ -119,7 +119,24 @@ print("PASS: public assignment RPCs are invoker wrappers over a private authoriz
 print("PASS: private assignment RPC pins its search path to pg_catalog.")
 print("PASS: missing location_and_push migration recreates FCM storage, RLS, and RPCs.")
 print("PASS: incident status logging runs after insert to satisfy the incident foreign key.")
+pagination = (MIGRATIONS / "20261026170000_admin_server_side_user_pagination.sql").read_text()
+for required in (
+    "CREATE OR REPLACE FUNCTION public.api_admin_list_users_page(",
+    "p_limit integer DEFAULT 25",
+    "p_offset integer DEFAULT 0",
+    "p_query text DEFAULT ''",
+    "p_role text DEFAULT 'all'",
+    "matching_total",
+    "LIMIT p_limit OFFSET p_offset",
+    "REVOKE ALL ON FUNCTION public.api_admin_list_users_page(integer, integer, text, text) FROM PUBLIC, anon",
+    "GRANT EXECUTE ON FUNCTION public.api_admin_list_users_page(integer, integer, text, text) TO authenticated",
+):
+    assert required.lower() in pagination.lower(), f"Missing Admin pagination security contract: {required}"
+assert "SET search_path = pg_catalog" in pagination
+assert "DROP FUNCTION" not in pagination.upper()
+assert "DELETE FROM" not in pagination.upper()
 print("PASS: Admin role, role-change RPC, and append-only audit access contracts are present.")
+print("PASS: Admin user listing has a bounded, role-authorized server-side pagination/search RPC.")
 web_client = (ROOT / "backend" / "web" / "src" / "lib" / "supabase.ts").read_text()
 home = (ROOT / "backend" / "web" / "src" / "pages" / "Home.tsx").read_text()
 admin_ui = (ROOT / "backend" / "web" / "src" / "pages" / "AdminConsole.tsx").read_text()
