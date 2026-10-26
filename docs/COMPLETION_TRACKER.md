@@ -19,14 +19,14 @@ The project tracks ten major functional capability groups at equal weight. A gro
 | 6 | Supabase schema, RPC authorization, and direct-table privilege boundaries | Verified in CI | Clean PostgreSQL replay, RPC grant checks, and migration-history checks |
 | 7 | Web dispatcher/Laravel dashboard integration | Verified in CI | Laravel/dashboard integration job |
 | 8 | Persistent in-app notifications and Android inbox | **Verified in CI** | Backend PR #174 and inbox PR #175 full CI passed on their recorded heads; still draft/unmerged |
-| 9 | Admin role, dashboard, and audit foundation | In review — not counted yet | PR #173 latest head has a CI run in progress; wait for all checks |
+| 9 | Admin role, dashboard, and audit foundation | **Verified in CI** | PR #173 latest head passed source checks, Android debug/release builds, clean PostgreSQL replay, dashboard integration, visual/navigation checks, RPC grant contract, and frontend review; still draft/unmerged |
 | 10 | Incident-scoped chat | In review — not counted yet | PR #176 backend passed on an earlier head; a concurrency fix needs a fresh run. PR #178 UI passed on an earlier head; latest cleanup changes need a fresh run |
 
 ## Current result
 
-**8/10 functional capability groups = 80% implementation coverage.**
+**9/10 functional capability groups = 90% implementation coverage.**
 
-This is an implementation milestone across the current repository and draft review branches, not a claim that 80% of production readiness is complete. The notification capability is the eighth counted group because its backend and Android inbox both have complete CI evidence on the recorded heads. Admin and chat remain uncounted until their current heads pass.
+This is an implementation milestone across the current repository and draft review branches, not a claim that 80% of production readiness is complete. The notification capability is the eighth counted group because its backend and Android inbox both have complete CI evidence on the recorded heads. Admin is now the ninth counted group because PR #173's current head passed all required checks. Chat remains uncounted until the latest backend concurrency-fix and Android UI heads pass.
 
 ## Release gates still outstanding
 
