@@ -2,7 +2,7 @@
 
 ## Scope
 
-This migration adds text-only incident messaging over Supabase RPCs. It is a backend foundation, not a finished Android conversation screen or a live deployment. Messages are durable records tied to an incident and sender. No attachments, edits, deletes, or public/global chat are included.
+This workstream adds text-only incident messaging over Supabase RPCs and a first Android conversation screen reachable from role-scoped incident lists, the dispatcher queue, and incident-message notifications. Messages are durable records tied to an incident and sender. No attachments, edits, deletes, read receipts, or public/global chat are included.
 
 ## Authorization model
 
@@ -27,12 +27,19 @@ This migration adds text-only incident messaging over Supabase RPCs. It is a bac
 
 The clean-PostgreSQL replay test covers requester/responder/dispatcher access, unrelated-account denial, sender identity, idempotent retry, conflicting idempotency-key reuse, message length/blank rejection, pagination, direct table privilege denial, RPC grants, message notifications, and rate limiting. The latest branch CI must pass before the backend can be considered verified.
 
+## Android behavior in this stage
+
+- Uses typed message models and the caller-scoped list/send RPCs; no direct table access.
+- Opens from requester/responder incident history, dispatcher queue cards, and incident-message notifications without adding a sixth bottom-navigation destination.
+- Polls every 10 seconds only while the conversation screen is in the foreground.
+- Supports bounded 50-message pages, older-message pagination, a 2000-character composer, send-in-progress feedback, and visible error/retry states.
+- Reuses the same client message UUID when retrying an unconfirmed send, preventing duplicate messages when the server committed but the response was lost.
+- Disables sending until the conversation list confirms the caller has access. The database independently reauthorizes every list/send request.
+
 ## Remaining work
 
-1. Add typed Android message models and Supabase RPC calls.
-2. Add a conversation screen reachable from the role-scoped incident details, preserving the existing five-destination navigation and central GPS Map.
-3. Poll only while the conversation is visible; handle send-in-progress, retry, offline/error, empty, and older-message pagination states.
-4. Keep incident IDs as navigation references only; every conversation open/list/send must be reauthorized server-side.
-5. Test actual role accounts and device behavior against a non-production Supabase environment before considering live rollout.
+1. Test actual requester, assigned responder/driver, dispatcher, and unrelated accounts against a non-production Supabase environment.
+2. Test foreground/background transitions, keyboard/insets, long messages, network loss during send, idempotent retry, and pagination on physical Android devices.
+3. Decide whether to add read receipts or web dispatcher chat only if there is a clear workflow need; do not add attachments or broad dispatcher notifications without a separate privacy review.
 
 No live Supabase migration, production message, account change, Render deployment, or FCM delivery was performed by this change.
