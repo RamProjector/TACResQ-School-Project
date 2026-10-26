@@ -44,6 +44,8 @@ CREATE TABLE public.admin_audit_logs (
   reason text NOT NULL CHECK (length(trim(reason)) BETWEEN 10 AND 500),
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX admin_audit_logs_created_idx ON public.admin_audit_logs (created_at DESC, id DESC);
+CREATE INDEX admin_audit_logs_target_idx ON public.admin_audit_logs (target_user_id, created_at DESC);
 
 ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE public.admin_audit_logs FROM PUBLIC, anon, authenticated;
@@ -190,7 +192,7 @@ BEGIN
     RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
   END IF;
 
-  IF p_user_id IS NULL OR p_role NOT IN ('requester', 'responder', 'driver', 'dispatcher') THEN
+  IF p_user_id IS NULL OR p_role IS NULL OR p_role NOT IN ('requester', 'responder', 'driver', 'dispatcher') THEN
     RAISE EXCEPTION 'Unsupported target or role; administrator provisioning is operator-only'
       USING ERRCODE = '22023';
   END IF;
