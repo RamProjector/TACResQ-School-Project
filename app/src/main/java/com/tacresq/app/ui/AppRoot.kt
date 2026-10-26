@@ -172,9 +172,9 @@ private fun RoleSectionScreen(
     logout: () -> Unit,
     incidents: List<Incident>,
     units: List<User> = emptyList(),
-    notificationsVm: NotificationsViewModel? = null,
+    notificationsVm: NotificationsViewModel,
 ) {
-    if (destination == AppDestination.ALERTS && notificationsVm != null) {
+    if (destination == AppDestination.ALERTS) {
         NotificationsAndSafetyScreen(notificationsVm, user, logout)
         return
     }
@@ -332,16 +332,6 @@ private fun RoleSectionScreen(
 private fun EmptySectionCard(title: String, body: String) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun SafetyGuidanceCard(title: String, body: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
