@@ -60,6 +60,7 @@ for required in (
     "items(state.items, key = { it.id })",
     "Mark as read",
     "Open incident",
+    "Open conversation",
     "Notifications unavailable",
     "You're all caught up",
     "Loading your notifications",
