@@ -72,7 +72,7 @@ The first implementation scope is the Supabase identity path used by the dispatc
 ## Implementation sequence and remaining work
 
 1. **In this PR:** proposed Supabase role constraint, Admin-only user/audit RPCs, transactional ordinary-role changes, append-only client access to audit rows, web role gate, user search/filter, required reason, and audit view.
-2. Validate the migration by replaying every migration against clean PostgreSQL and run the dashboard TypeScript build; automated CI for the latest commits is not yet visible.
+2. **Passed so far:** migration replay on clean PostgreSQL, dashboard TypeScript type-check/build, source/security contract checks, RPC grant workflow, frontend review, Playwright navigation/visual checks, and Android builds. Laravel/dashboard integration was still running at the last status check.
 3. Add database-level authorization tests for anonymous and all ordinary roles, attempted profile self-promotion, invalid role transitions, audit atomicity, and concurrent assignment/role-change behavior.
 4. Add server-side pagination and query filtering for user lists, denied-attempt audit/monitoring, request correlation IDs, and a documented session-revocation policy.
 5. Complete accessible focus management and keyboard interaction tests for the role-change dialog.
@@ -81,4 +81,4 @@ The first implementation scope is the Supabase identity path used by the dispatc
 
 ## Current boundary
 
-The branch now contains a proposed Admin role/audit migration and a Supabase-RPC-backed web console, but **the feature is not yet validated or production-ready**. Automated CI for the latest commits has not appeared in the repository status checks; clean PostgreSQL replay, frontend build, database authorization matrix, accessibility tests, and live end-to-end verification are still outstanding. The migration is marked pending in the migration-history contract. No Admin account was provisioned, no live migration was applied, and no Render/Supabase production setting was changed.
+The branch contains a proposed Admin role/audit migration and a Supabase-RPC-backed web console, but **the feature is not yet production-ready**. At the latest status check, source/security contract checks, dashboard type-check/build, frontend review, RPC grant workflow, Playwright visual/navigation checks, Android builds, and clean PostgreSQL migration replay had passed; Laravel/dashboard integration was still running. The full database authorization matrix, live end-to-end verification, and review of operator provisioning remain outstanding. The migration is marked pending in the migration-history contract. No Admin account was provisioned, no live migration was applied, and no Render/Supabase production setting was changed.
