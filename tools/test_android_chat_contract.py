@@ -61,6 +61,7 @@ for required in (
     "pendingClientMessageId",
     "2000",
     "Back to incident list",
+    "!state.loading && state.error == null",
 ):
     assert required in screen, f"Chat UI/lifecycle contract missing: {required}"
 
