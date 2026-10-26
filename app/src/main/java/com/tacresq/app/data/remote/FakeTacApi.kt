@@ -7,6 +7,7 @@ import com.tacresq.app.data.model.Role
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.ResponderAssignmentStatus
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.model.nextSteps
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +33,7 @@ import java.util.UUID
 class FakeTacApi(
     private val tokenProvider: () -> String?,
     private val autoDispatchEnabled: Boolean = false,
-) : TacApi {
+) : TacApi, TacNotificationApi {
 
     private data class Account(val user: User, val password: String)
 
@@ -48,6 +49,9 @@ class FakeTacApi(
     private val tokens = mutableMapOf<String, Long>()
     private val incidents = mutableListOf<Incident>()
     private val requesterOf = mutableMapOf<Long, Long>()
+    private data class StoredNotification(val recipientId: Long, val value: UserNotification)
+    private val notifications = mutableListOf<StoredNotification>()
+    private var nextNotificationId = 1L
     private var nextUserId = 100L
     private var nextIncidentId = 1L
 
@@ -137,6 +141,35 @@ class FakeTacApi(
         return synchronized(lock) {
             if (current().role != Role.DISPATCHER) throw httpError(403, "Only dispatchers can view field units.")
             accounts.map { it.user }.filter { it.role == Role.RESPONDER || it.role == Role.DRIVER }
+        }
+    }
+
+    override suspend fun myNotifications(limit: Int): List<UserNotification> {
+        delay(120)
+        if (limit !in 1..100) throw httpError(422, "Notification page size must be between 1 and 100.")
+        return synchronized(lock) {
+            val me = current()
+            notifications.asSequence()
+                .filter { it.recipientId == me.id }
+                .map { it.value }
+                .sortedWith(compareByDescending<UserNotification> { it.createdAt.orEmpty() }.thenByDescending { it.id })
+                .take(limit)
+                .toList()
+        }
+    }
+
+    override suspend fun markNotificationRead(notificationId: Long): Boolean {
+        delay(100)
+        if (notificationId < 1) throw httpError(422, "Notification ID must be positive.")
+        return synchronized(lock) {
+            val me = current()
+            val index = notifications.indexOfFirst { it.value.id == notificationId && it.recipientId == me.id }
+            if (index < 0) return@synchronized false
+            val stored = notifications[index]
+            notifications[index] = stored.copy(
+                value = stored.value.copy(readAt = stored.value.readAt ?: Instant.now().toString()),
+            )
+            true
         }
     }
 
@@ -277,6 +310,9 @@ class FakeTacApi(
             }
             val result = incident.copy(status = aggregate, assignedUserStatuses = nextStatuses)
             incidents[index] = result
+            if (result.status != incident.status) {
+                emitStatusNotifications(result, me.id)
+            }
             val duty = when (body.status) {
                 IncidentStatus.ASSIGNED -> DutyStatus.ASSIGNED
                 IncidentStatus.EN_ROUTE -> DutyStatus.EN_ROUTE
@@ -317,6 +353,7 @@ class FakeTacApi(
                 assignedUserStatuses = listOf(ResponderAssignmentStatus(unit.id, IncidentStatus.ASSIGNED, Instant.now().toString())),
             ).also {
                 incidents[index] = it
+                emitAssignmentNotifications(id, listOf(unit.id))
             }
         }
     }
@@ -357,6 +394,7 @@ class FakeTacApi(
                 assignedUserStatuses = newStatuses.distinctBy { it.userId },
             ).also {
                 incidents[index] = it
+                emitAssignmentNotifications(id, body.userIds)
             }
         }
     }
@@ -381,6 +419,64 @@ class FakeTacApi(
     }
 
     // ---- helpers (call only while holding `lock`, except dispatchLater/httpError) ----
+
+    private fun emitAssignmentNotifications(incidentId: Long, assignedUserIds: List<Long>) {
+        val requesterId = requesterOf[incidentId] ?: return
+        assignedUserIds.distinct().forEach { recipientId ->
+            addNotification(
+                recipientId, incidentId, "incident_assigned",
+                "New incident assignment",
+                "You have been assigned to an incident. Open TACResQ to review the details.",
+            )
+        }
+        addNotification(
+            requesterId, incidentId, "incident_assigned",
+            "Response unit assigned",
+            "A response unit has been assigned to your request.",
+        )
+    }
+
+    private fun emitStatusNotifications(incident: Incident, actorId: Long) {
+        val requesterId = requesterOf[incident.id] ?: return
+        val recipients = (listOf(requesterId) + incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) })
+            .distinct()
+            .filterNot { it == actorId }
+        recipients.forEach { recipientId ->
+            addNotification(
+                recipientId, incident.id, "incident_status_changed",
+                "Incident status updated",
+                "The incident status is now ${incident.status.name.lowercase().replace('_', ' ')}.",
+            )
+        }
+    }
+
+    private fun addNotification(
+        recipientId: Long,
+        incidentId: Long,
+        eventType: String,
+        title: String,
+        body: String,
+    ) {
+        if (eventType == "incident_assigned" && notifications.any {
+                it.recipientId == recipientId &&
+                    it.value.incidentId == incidentId &&
+                    it.value.eventType == eventType &&
+                    it.value.readAt == null
+            }
+        ) return
+        notifications += StoredNotification(
+            recipientId = recipientId,
+            value = UserNotification(
+                id = nextNotificationId++,
+                incidentId = incidentId,
+                eventType = eventType,
+                title = title,
+                body = body,
+                createdAt = Instant.now().toString(),
+                readAt = null,
+            ),
+        )
+    }
 
     private fun issueToken(userId: Long): String =
         UUID.randomUUID().toString().also { tokens[it] = userId }
