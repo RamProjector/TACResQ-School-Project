@@ -276,8 +276,7 @@ BEGIN
   SELECT id INTO attacker_profile_id FROM public.profiles
   WHERE auth_user_id = '00000000-0000-4000-8000-000000000130';
 
-  IF NOT has_function_privilege('anon', 'public.api_admin_list_users()', 'EXECUTE')
-     IS FALSE THEN
+  IF has_function_privilege('anon', 'public.api_admin_list_users()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Anonymous role must not execute the Admin user-list RPC';
   END IF;
   IF NOT has_function_privilege('authenticated', 'public.api_admin_list_users()', 'EXECUTE') THEN
