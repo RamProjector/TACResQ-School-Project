@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -15,6 +14,7 @@ import androidx.compose.ui.test.performClick
 import com.tacresq.app.data.model.Role
 import com.tacresq.app.ui.AppDestination
 import com.tacresq.app.ui.RoleShell
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,11 +48,11 @@ class NavigationInstrumentedTest {
         composeRule.onNodeWithText("Home destination content").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("GPS Map").performClick()
         composeRule.onNodeWithText("GPS Map destination content").assertIsDisplayed()
-        composeRule.onNodeWithText("Home destination content").assertDoesNotExist()
+        assertTrue(composeRule.onAllNodesWithText("Home destination content").fetchSemanticsNodes().isEmpty())
 
         composeRule.onNodeWithContentDescription("Home").performClick()
         composeRule.onNodeWithText("Home destination content").assertIsDisplayed()
-        composeRule.onNodeWithText("GPS Map destination content").assertDoesNotExist()
+        assertTrue(composeRule.onAllNodesWithText("GPS Map destination content").fetchSemanticsNodes().isEmpty())
     }
 
     @Test
