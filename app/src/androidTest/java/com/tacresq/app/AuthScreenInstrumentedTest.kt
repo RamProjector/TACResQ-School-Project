@@ -113,9 +113,10 @@ class AuthScreenInstrumentedTest {
         composeRule.onNodeWithText("Send SOS").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Cancel request").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Active emergency").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Cancel request").assertIsDisplayed()
+        composeRule.onNodeWithText("Active emergency").assertIsDisplayed()
+        composeRule.onNodeWithText("Request #", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Start emergency request", substring = true).assertDoesNotExist()
     }
 }
