@@ -140,6 +140,7 @@ fun NotificationsAndSafetyScreen(
     vm: NotificationsViewModel,
     user: User,
     onLogout: () -> Unit,
+    onOpenIncident: (Long) -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -260,6 +261,10 @@ fun NotificationsAndSafetyScreen(
                     notification = notification,
                     busy = notification.id in state.busyIds,
                     onMarkRead = { vm.markRead(notification) },
+                    onOpenIncident = { incidentId ->
+                        if (notification.readAt == null) vm.markRead(notification)
+                        onOpenIncident(incidentId)
+                    },
                 )
             }
         }
@@ -304,6 +309,7 @@ private fun NotificationCard(
     notification: UserNotification,
     busy: Boolean,
     onMarkRead: () -> Unit,
+    onOpenIncident: (Long) -> Unit,
 ) {
     val unread = notification.readAt == null
     Card(
@@ -336,11 +342,23 @@ private fun NotificationCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (unread) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onMarkRead, enabled = !busy) {
-                        if (busy) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        else Text("Mark as read")
+            if (unread || notification.incidentId != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (notification.incidentId != null) {
+                        TextButton(
+                            onClick = { onOpenIncident(notification.incidentId) },
+                            enabled = !busy,
+                        ) { Text("Open incident") }
+                    }
+                    if (unread) {
+                        TextButton(onClick = onMarkRead, enabled = !busy) {
+                            if (busy) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            else Text("Mark as read")
+                        }
                     }
                 }
             }
