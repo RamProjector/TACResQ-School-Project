@@ -355,7 +355,7 @@ private fun NotificationCard(
                         TextButton(
                             onClick = { onOpenIncident(incidentId) },
                             enabled = !busy,
-                        ) { Text("Open incident") }
+                        ) { Text(if (notification.eventType == "incident_message") "Open conversation" else "Open incident") }
                     }
                     if (unread) {
                         TextButton(onClick = onMarkRead, enabled = !busy) {
