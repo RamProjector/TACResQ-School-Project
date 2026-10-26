@@ -2,9 +2,9 @@
 
 - **Goal:** Reduce reliance on compile-only verification by exercising the real Android Activity and Compose sign-in screen in an emulator, especially because local device testing is not reliably available.
 - **Branch:** `agent/android-emulator-auth-smoke-tests`, created from `main`; PR not yet opened.
-- **Changes:** Added `app/src/androidTest/java/com/tacresq/app/AuthScreenInstrumentedTest.kt` with three tests: sign-in/demo disclosure, requester-only registration intent, and inline email/password required-field validation without backend calls. Added a CI emulator step using Android API 37 and documented its scope in README.
+- **Changes:** Added `app/src/androidTest/java/com/tacresq/app/AuthScreenInstrumentedTest.kt` with three tests: sign-in/demo disclosure, requester-only registration intent, and inline email/password required-field validation without backend calls. Added a CI emulator step using Android API 36 (the runner expects a stable `platforms;android-36` package) while preserving API 37 compile/build checks, and documented its scope in README.
 - **Safety:** Tests run against the default in-memory demo build, do not sign into Supabase, and do not create incidents or send GPS data.
-- **Validation:** Pending a PR workflow run. If API 37 emulator startup or instrumentation fails, inspect the exact job logs and fix or adjust the runner before treating emulator coverage as established.
+- **Validation:** First run failed before instrumentation: the emulator action requested `platforms;android-37`, but this project's SDK platform is `android-37.0`. Updated the runner to API 36; the next full CI run must verify emulator startup and test execution before treating coverage as established.
 - **Limits:** This is UI smoke coverage, not GPS hardware, process-death/lifecycle stress, real Supabase email confirmation, or live end-to-end validation.
 - **Next actions:** Run source checks and Android debug/release plus emulator instrumentation CI, fix any compile/runtime failures, then open a draft PR. Do not merge or deploy without explicit authorization.
 
