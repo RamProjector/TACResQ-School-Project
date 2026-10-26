@@ -170,12 +170,13 @@ private fun RoleSectionScreen(
     units: List<User> = emptyList(),
 ) {
     val role = user.role
-    val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER
+    val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER && role != Role.ADMIN
     val title = when (destination) {
         AppDestination.SECONDARY -> when (role) {
             Role.REQUESTER -> "My requests"
             Role.RESPONDER, Role.DRIVER -> "Response history"
             Role.DISPATCHER -> "Field units"
+            Role.ADMIN -> "Administrator access"
         }
         AppDestination.ALERTS -> "Safety"
         AppDestination.PROFILE -> "Profile"
@@ -194,6 +195,11 @@ private fun RoleSectionScreen(
         ScreenHeader(title = title, subtitle = "", onLogout = logout)
 
         when {
+            role == Role.ADMIN -> EmptySectionCard(
+                "Administrator access",
+                "Administrative tools are not available in this Android build yet.",
+            )
+
             isHistory -> {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
