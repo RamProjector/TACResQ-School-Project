@@ -99,6 +99,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       setUsers(nextUsers);
       setAudit(nextAudit);
     } catch (cause) {
+      // Never keep privileged data visible after an authorization or connection failure.
+      setUsers([]);
+      setAudit([]);
       setError(cause instanceof Error ? cause.message : "The Admin service could not load its data.");
     } finally {
       setLoading(false);
