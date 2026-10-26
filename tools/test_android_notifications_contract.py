@@ -59,6 +59,7 @@ for required in (
     "LazyColumn(",
     "items(state.items, key = { it.id })",
     "Mark as read",
+    "Open incident",
     "Notifications unavailable",
     "You're all caught up",
     "Loading your notifications",
@@ -70,8 +71,12 @@ for required in (
 root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
 for required in (
     "NotificationsViewModel",
-    "NotificationsAndSafetyScreen(notificationsVm, user, logout)",
+    "NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident)",
     "destination == AppDestination.ALERTS",
+    "destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY",
+    "focusedIncidentId = selectedIncidentId",
+    "incidents.firstOrNull { it.id == targetId }",
+    "Incident unavailable",
 ):
     assert required in root, f"Notification screen routing missing: {required}"
 
@@ -90,5 +95,13 @@ for path in (
 ):
     source = read(path)
     assert "user_notifications" not in source, f"{path} must not directly access the private table"
+
+dispatcher = read("app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt")
+for required in (
+    "focusedIncidentId: Long? = null",
+    "Opened from alert",
+    "current authorized dispatch queue",
+):
+    assert required in dispatcher, f"Dispatcher alert target handling missing: {required}"
 
 print("PASS: Android notifications use caller-scoped RPCs, recipient-filtered demo data, lifecycle-aware polling, explicit loading/empty/error/retry states, and preserve GPS Map navigation.")
