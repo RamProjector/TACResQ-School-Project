@@ -122,7 +122,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     });
   }, [users, query, roleFilter]);
 
-  const userById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
+  const userById = useMemo(() => new Map<number, AdminUser>(users.map((user) => [user.id, user] as const)), [users]);
 
   function openRoleChange(user: AdminUser) {
     if (user.role === "admin") return;
