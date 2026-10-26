@@ -143,6 +143,7 @@ admin_ui = (ROOT / "backend" / "web" / "src" / "pages" / "AdminConsole.tsx").rea
 for required in (
     '"admin"',
     'api_admin_list_users',
+    'api_admin_list_users_page',
     'api_admin_set_user_role',
     'api_admin_list_audit_logs',
 ):
