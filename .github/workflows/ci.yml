@@ -33,6 +33,9 @@ jobs:
       - name: Check inline authentication validation
         run: python3 tools/test_auth_inline_validation.py
 
+      - name: Check Android Supabase auth redirect contract
+        run: python3 tools/test_android_auth_redirect_contract.py
+
       - name: Test bounded stress utility without Docker
         run: python3 tools/test_stress_test.py
 
