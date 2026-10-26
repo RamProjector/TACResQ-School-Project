@@ -8,6 +8,7 @@ import com.tacresq.app.data.model.IncidentType
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.UserNotification
+import com.tacresq.app.data.model.IncidentMessage
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
@@ -25,6 +26,11 @@ import retrofit2.http.Path
 interface TacNotificationApi {
     suspend fun myNotifications(limit: Int): List<UserNotification>
     suspend fun markNotificationRead(notificationId: Long): Boolean
+}
+
+interface TacChatApi {
+    suspend fun myIncidentMessages(incidentId: Long, limit: Int, beforeId: Long?): List<IncidentMessage>
+    suspend fun sendIncidentMessage(incidentId: Long, message: String, clientMessageId: String): IncidentMessage
 }
 
 interface TacApi {
