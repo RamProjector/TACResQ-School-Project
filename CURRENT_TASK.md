@@ -1,10 +1,10 @@
 ## Active continuation — 2026-10-26: Android emulator auth smoke tests
 
 - **Goal:** Reduce reliance on compile-only verification by exercising the real Android Activity and Compose sign-in screen in an emulator, especially because local device testing is not reliably available.
-- **Branch:** `agent/android-emulator-auth-smoke-tests`, created from `main`; PR not yet opened.
-- **Changes:** Added `app/src/androidTest/java/com/tacresq/app/AuthScreenInstrumentedTest.kt` with three tests: sign-in/demo disclosure, requester-only registration intent, and inline email/password required-field validation without backend calls. Added a CI emulator step using Android API 36 (the runner expects a stable `platforms;android-36` package) while preserving API 37 compile/build checks, and documented its scope in README.
+- **Branch / PR:** `agent/android-emulator-auth-smoke-tests`; draft [PR #179](https://github.com/RamProjector/TACResQ-School-Project/pull/179), based on `main`.
+- **Changes:** Added `AuthScreenInstrumentedTest.kt` for sign-in/demo disclosure, requester-only registration intent, and inline email/password required-field validation without backend calls. Added `NavigationInstrumentedTest.kt` to verify all five requester destinations are exposed and the centered GPS Map destination opens and returns to Home. CI runs these on Android API 36 while retaining API 37 compile/build checks; README documents coverage.
 - **Safety:** Tests run against the default in-memory demo build, do not sign into Supabase, and do not create incidents or send GPS data.
-- **Validation:** First run failed before instrumentation: the emulator action requested `platforms;android-37`, but this project's SDK platform is `android-37.0`. Updated the runner to API 36; the next full CI run must verify emulator startup and test execution before treating coverage as established.
+- **Validation:** First emulator run failed before instrumentation because the action requested `platforms;android-37` while this project's SDK platform is `android-37.0`. Updated the runner to API 36. The previous API-36 CI run was still executing auth instrumentation when last checked; the added navigation tests are a newer commit and require their own full CI run. Do not treat emulator coverage as established until the newest run passes.
 - **Limits:** This is UI smoke coverage, not GPS hardware, process-death/lifecycle stress, real Supabase email confirmation, or live end-to-end validation.
 - **Next actions:** Run source checks and Android debug/release plus emulator instrumentation CI, fix any compile/runtime failures, then open a draft PR. Do not merge or deploy without explicit authorization.
 
