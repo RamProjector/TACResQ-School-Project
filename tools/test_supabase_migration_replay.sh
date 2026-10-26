@@ -229,4 +229,137 @@ END;
 $per_responder_test$;
 SQL
 
-echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and incident audit plus per-responder status regressions passed."
+psql -v ON_ERROR_STOP=1 <<'SQL'
+-- Notification persistence, event creation, ownership, and RPC grants.
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('00000000-0000-4000-8000-000000000131', 'notification-dispatcher@example.test', '{"name":"Notification Dispatcher"}'),
+  ('00000000-0000-4000-8000-000000000132', 'notification-requester@example.test', '{"name":"Notification Requester"}'),
+  ('00000000-0000-4000-8000-000000000133', 'notification-responder@example.test', '{"name":"Notification Responder"}');
+
+DO $notification_test$
+DECLARE
+  dispatcher_id bigint;
+  requester_id bigint;
+  responder_id bigint;
+  incident_id bigint;
+  requester_notifications jsonb;
+  responder_notifications jsonb;
+  requester_notification_id bigint;
+  responder_notification_id bigint;
+  result_boolean boolean;
+  notification_count integer;
+  denied boolean;
+BEGIN
+  SELECT id INTO dispatcher_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000131';
+  SELECT id INTO requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000132';
+  SELECT id INTO responder_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000133';
+
+  UPDATE public.profiles SET role = 'dispatcher', duty_status = NULL WHERE id = dispatcher_id;
+  UPDATE public.profiles SET role = 'requester', duty_status = NULL WHERE id = requester_id;
+  UPDATE public.profiles SET role = 'responder', duty_status = 'available' WHERE id = responder_id;
+
+  INSERT INTO public.incidents (
+    requester_id, type, description, latitude, longitude,
+    location_recorded_at, location_source
+  ) VALUES (
+    requester_id, 'medical', 'Synthetic notification test incident',
+    11.244, 125.003, now(), 'manual'
+  ) RETURNING id INTO incident_id;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000131', true);
+  PERFORM public.api_assign_incident_team(incident_id, ARRAY[responder_id]);
+
+  SELECT count(*) INTO notification_count
+    FROM public.user_notifications n
+   WHERE n.incident_id = incident_id
+     AND n.event_type = 'incident_assigned';
+  IF notification_count <> 2 THEN
+    RAISE EXCEPTION 'Assignment must create one notification for the requester and one for the assigned unit; found %', notification_count;
+  END IF;
+
+  IF has_table_privilege('anon', 'public.user_notifications', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.user_notifications', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.user_notifications', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.user_notifications', 'UPDATE')
+     OR has_table_privilege('authenticated', 'public.user_notifications', 'DELETE') THEN
+    RAISE EXCEPTION 'Notification table must not be directly accessible to API roles';
+  END IF;
+  IF has_function_privilege('anon', 'public.api_my_notifications(integer)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.api_mark_notification_read(bigint)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'public.api_my_notifications(integer)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'public.api_mark_notification_read(bigint)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Notification RPC execute grants are incorrect';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000132', true);
+  requester_notifications := public.api_my_notifications(10);
+  IF jsonb_array_length(requester_notifications) <> 1
+     OR requester_notifications->0->>'event_type' <> 'incident_assigned'
+     OR requester_notifications->0->>'title' <> 'Response unit assigned' THEN
+    RAISE EXCEPTION 'Requester must receive only their own assignment notification: %', requester_notifications;
+  END IF;
+  requester_notification_id := (requester_notifications->0->>'id')::bigint;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000133', true);
+  responder_notifications := public.api_my_notifications(10);
+  IF jsonb_array_length(responder_notifications) <> 1
+     OR responder_notifications->0->>'title' <> 'New incident assignment' THEN
+    RAISE EXCEPTION 'Assigned unit must receive only its own assignment notification: %', responder_notifications;
+  END IF;
+  responder_notification_id := (responder_notifications->0->>'id')::bigint;
+
+  -- A requester cannot mark a responder's notification read or learn whether it exists.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000132', true);
+  result_boolean := public.api_mark_notification_read(responder_notification_id);
+  IF result_boolean THEN
+    RAISE EXCEPTION 'A user must not mark another recipient''s notification as read';
+  END IF;
+  result_boolean := public.api_mark_notification_read(requester_notification_id);
+  IF NOT result_boolean THEN
+    RAISE EXCEPTION 'A recipient should be able to mark their own notification read';
+  END IF;
+  result_boolean := public.api_mark_notification_read(requester_notification_id);
+  IF NOT result_boolean THEN
+    RAISE EXCEPTION 'Marking an already-read notification should be safely idempotent';
+  END IF;
+
+  -- A field-unit status transition should notify the requester, not expose other users' rows.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000133', true);
+  PERFORM public.api_update_my_assignment_status(incident_id, 'en_route');
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000132', true);
+  requester_notifications := public.api_my_notifications(10);
+  SELECT count(*) INTO notification_count
+    FROM jsonb_array_elements(requester_notifications) AS item
+   WHERE item->>'event_type' = 'incident_status_changed'
+     AND item->>'incident_id' = incident_id::text;
+  IF notification_count < 1 THEN
+    RAISE EXCEPTION 'Requester must be notified when an assigned unit changes incident status: %', requester_notifications;
+  END IF;
+
+  denied := false;
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  BEGIN
+    PERFORM public.api_my_notifications(10);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Notification list must reject unauthenticated callers';
+  END IF;
+
+  denied := false;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000132', true);
+  BEGIN
+    PERFORM public.api_my_notifications(101);
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Notification list must reject limits above 100';
+  END IF;
+END;
+$notification_test$;
+SQL
+
+echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and incident, notification authorization, and per-responder status regressions passed."
