@@ -356,6 +356,16 @@ BEGIN
     RAISE EXCEPTION 'Ordinary requester must not change another profile role';
   END IF;
 
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_audit_logs(100);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Ordinary requester must not read Admin audit events';
+  END IF;
+
   -- Direct profile role mutation is rejected by the existing database guard.
   denied := false;
   BEGIN
