@@ -410,10 +410,10 @@ BEGIN
 
   FOR principal IN
     SELECT * FROM (VALUES
-      ('00000000-0000-4000-8000-000000000124'::text, 'dispatcher'::text),
-      ('00000000-0000-4000-8000-000000000125'::text, 'responder'::text),
-      ('00000000-0000-4000-8000-000000000126'::text, 'driver'::text),
-      ('00000000-0000-4000-8000-000000000130'::text, 'requester'::text)
+      ('00000000-0000-4000-8000-000000000124'::uuid, 'dispatcher'::text),
+      ('00000000-0000-4000-8000-000000000125'::uuid, 'responder'::text),
+      ('00000000-0000-4000-8000-000000000126'::uuid, 'driver'::text),
+      ('00000000-0000-4000-8000-000000000130'::uuid, 'requester'::text)
     ) AS ordinary_principals(auth_id, role_name)
   LOOP
     PERFORM set_config('request.jwt.claim.sub', principal.auth_id, true);
