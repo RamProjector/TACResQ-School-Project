@@ -11,6 +11,7 @@ import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.Session
 import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.remote.AuthResponse
 import com.tacresq.app.data.remote.AssignIncidentTeamRequest
 import com.tacresq.app.data.remote.CreateIncidentRequest
@@ -19,6 +20,7 @@ import com.tacresq.app.data.remote.LoginRequest
 import com.tacresq.app.data.remote.RegisterRequest
 import com.tacresq.app.data.remote.ResponderLocationRequest
 import com.tacresq.app.data.remote.TacApi
+import com.tacresq.app.data.remote.TacNotificationApi
 import com.tacresq.app.data.remote.UpdateStatusRequest
 import com.tacresq.app.data.remote.UpdateMyIncidentRequest
 import kotlinx.coroutines.CancellationException
@@ -84,6 +86,20 @@ class TacRepository(
     suspend fun units(): Result<List<User>> = call { api.units() }
 
     suspend fun activeResponderLocations(): Result<List<ResponderLocation>> = call { api.activeResponderLocations() }
+
+    suspend fun myNotifications(limit: Int = 50): Result<List<UserNotification>> = call {
+        val notificationApi = api as? TacNotificationApi
+            ?: throw ApiException("Notifications are not available with the configured backend.")
+        require(limit in 1..100) { "Notification page size must be between 1 and 100." }
+        notificationApi.myNotifications(limit)
+    }
+
+    suspend fun markNotificationRead(notificationId: Long): Result<Boolean> = call {
+        val notificationApi = api as? TacNotificationApi
+            ?: throw ApiException("Notifications are not available with the configured backend.")
+        require(notificationId > 0) { "Notification ID must be positive." }
+        notificationApi.markNotificationRead(notificationId)
+    }
 
     suspend fun createIncident(
         type: IncidentType,
