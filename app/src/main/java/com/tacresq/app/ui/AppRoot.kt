@@ -134,7 +134,7 @@ fun AppRoot(
                             responderLocations = vmState.responderLocations,
                             onMapRefresh = vm::refresh,
                         ) { destination, openIncident, selectedIncidentId ->
-                            if (destination == AppDestination.PRIMARY) DispatcherScreen(vm, user, logout)
+                            if (destination == AppDestination.PRIMARY) DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId)
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents, vmState.units, notificationsVm,
                                 onOpenIncident = openIncident,
@@ -163,7 +163,7 @@ private fun RoleApp(
     var selectedIncidentId by rememberSaveable(role, user.id) { mutableStateOf<Long?>(null) }
     val openIncident: (Long) -> Unit = { incidentId ->
         selectedIncidentId = incidentId
-        destination = AppDestination.SECONDARY
+        destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY
     }
     RoleShell(
         role = role,
