@@ -411,4 +411,211 @@ END;
 $notification_test$;
 SQL
 
-echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and incident, notification authorization, and per-responder status regressions passed."
+psql -v ON_ERROR_STOP=1 <<'SQL'
+-- Incident chat authorization, idempotency, rate/size bounds, and message alerts.
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('00000000-0000-4000-8000-000000000136', 'chat-dispatcher@example.test', '{"name":"Chat Dispatcher"}'),
+  ('00000000-0000-4000-8000-000000000137', 'chat-requester@example.test', '{"name":"Chat Requester"}'),
+  ('00000000-0000-4000-8000-000000000138', 'chat-responder@example.test', '{"name":"Chat Responder"}'),
+  ('00000000-0000-4000-8000-000000000139', 'chat-outsider@example.test', '{"name":"Chat Outsider"}');
+
+DO $chat_test$
+DECLARE
+  dispatcher_id bigint;
+  requester_id bigint;
+  responder_id bigint;
+  outsider_id bigint;
+  test_incident_id bigint;
+  send_result jsonb;
+  retry_result jsonb;
+  message_list jsonb;
+  first_message_id bigint;
+  reply_message_id bigint;
+  denied boolean;
+  notification_count integer;
+BEGIN
+  SELECT id INTO dispatcher_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000136';
+  SELECT id INTO requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000137';
+  SELECT id INTO responder_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000138';
+  SELECT id INTO outsider_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000139';
+
+  UPDATE public.profiles SET role = 'dispatcher', duty_status = NULL WHERE id = dispatcher_id;
+  UPDATE public.profiles SET role = 'requester', duty_status = NULL WHERE id = requester_id;
+  UPDATE public.profiles SET role = 'responder', duty_status = 'available' WHERE id = responder_id;
+  UPDATE public.profiles SET role = 'requester', duty_status = NULL WHERE id = outsider_id;
+
+  INSERT INTO public.incidents (
+    requester_id, type, description, latitude, longitude,
+    location_recorded_at, location_source
+  ) VALUES (
+    requester_id, 'medical', 'Synthetic chat access test incident',
+    11.246, 125.005, now(), 'manual'
+  ) RETURNING id INTO test_incident_id;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000136', true);
+  PERFORM public.api_assign_incident_team(test_incident_id, ARRAY[responder_id]);
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000137', true);
+  send_result := public.api_send_incident_message(
+    test_incident_id, 'Need help at the front entrance.',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0136'
+  );
+  first_message_id := (send_result->>'id')::bigint;
+  retry_result := public.api_send_incident_message(
+    test_incident_id, 'Need help at the front entrance.',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0136'
+  );
+  IF (retry_result->>'id')::bigint <> first_message_id THEN
+    RAISE EXCEPTION 'Retry with the same client message ID must return the original message';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_send_incident_message(
+      test_incident_id, 'Different content with reused key.',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0136'
+    );
+  EXCEPTION WHEN unique_violation THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Reusing a client message ID for different content must be rejected';
+  END IF;
+
+  message_list := public.api_my_incident_messages(test_incident_id, 50, NULL);
+  IF jsonb_array_length(message_list) <> 1
+     OR message_list->0->>'message' <> 'Need help at the front entrance.'
+     OR (message_list->0->>'sender_id')::bigint <> requester_id THEN
+    RAISE EXCEPTION 'Requester must see their own incident message: %', message_list;
+  END IF;
+
+  -- Only the assigned responder is notified about the requester message; the
+  -- sender must not receive a notification for their own message.
+  SELECT count(*) INTO notification_count
+    FROM public.user_notifications n
+   WHERE n.incident_id = test_incident_id
+     AND n.event_type = 'incident_message'
+     AND n.recipient_user_id = responder_id;
+  IF notification_count <> 1 THEN
+    RAISE EXCEPTION 'Assigned responder must receive one generic message notification; found %', notification_count;
+  END IF;
+  SELECT count(*) INTO notification_count
+    FROM public.user_notifications n
+   WHERE n.incident_id = test_incident_id
+     AND n.event_type = 'incident_message'
+     AND n.recipient_user_id = requester_id;
+  IF notification_count <> 0 THEN
+    RAISE EXCEPTION 'A sender must not be notified about their own message';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000138', true);
+  message_list := public.api_my_incident_messages(test_incident_id, 50, NULL);
+  IF jsonb_array_length(message_list) <> 1
+     OR (message_list->0->>'id')::bigint <> first_message_id THEN
+    RAISE EXCEPTION 'Assigned responder must be able to read the incident conversation';
+  END IF;
+
+  send_result := public.api_send_incident_message(
+    test_incident_id, 'Responder is on the way.',
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb0138'
+  );
+  reply_message_id := (send_result->>'id')::bigint;
+  message_list := public.api_my_incident_messages(test_incident_id, 1, reply_message_id);
+  IF jsonb_array_length(message_list) <> 1
+     OR (message_list->0->>'id')::bigint <> first_message_id THEN
+    RAISE EXCEPTION 'Before-ID pagination must return the older message';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000139', true);
+  denied := false;
+  BEGIN
+    PERFORM public.api_my_incident_messages(test_incident_id, 50, NULL);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Unrelated account must not read incident chat';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_send_incident_message(
+      test_incident_id, 'Unauthorized message.',
+      'cccccccc-cccc-4ccc-8ccc-cccccccc0139'
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Unrelated account must not send incident chat messages';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000136', true);
+  message_list := public.api_my_incident_messages(test_incident_id, 50, NULL);
+  IF jsonb_array_length(message_list) <> 2 THEN
+    RAISE EXCEPTION 'Dispatcher should be able to read incident chat';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_my_incident_messages(test_incident_id, 101, NULL);
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Chat page size above 100 must be rejected';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_send_incident_message(
+      test_incident_id, '   ',
+      'dddddddd-dddd-4ddd-8ddd-dddddddd0136'
+    );
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Blank chat messages must be rejected';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_send_incident_message(
+      test_incident_id, repeat('x', 2001),
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeee0136'
+    );
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Chat messages longer than 2000 characters must be rejected';
+  END IF;
+
+  IF has_table_privilege('anon', 'public.incident_messages', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.incident_messages', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.incident_messages', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.incident_messages', 'UPDATE')
+     OR has_table_privilege('authenticated', 'public.incident_messages', 'DELETE') THEN
+    RAISE EXCEPTION 'Chat table must not be directly accessible to API roles';
+  END IF;
+  IF has_function_privilege('anon', 'public.api_my_incident_messages(bigint,integer,bigint)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.api_send_incident_message(bigint,text,uuid)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'public.api_my_incident_messages(bigint,integer,bigint)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'public.api_send_incident_message(bigint,text,uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Incident chat RPC grants are incorrect';
+  END IF;
+
+  SELECT count(*) INTO notification_count
+    FROM public.user_notifications n
+   WHERE n.incident_id = test_incident_id
+     AND n.event_type = 'incident_message'
+     AND n.recipient_user_id = requester_id;
+  IF notification_count <> 1 THEN
+    RAISE EXCEPTION 'Requester must receive one message notification after responder reply';
+  END IF;
+END;
+$chat_test$;
+SQL
+
+echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and incident chat, notification authorization, and per-responder status regressions passed."
