@@ -29,6 +29,7 @@ EXPECTED = {
     "20261023082526_harden_dispatch_team_assignment.sql",
     "20261023082939_pin_dispatch_team_search_path.sql",
     "20261023103737_per_responder_assignment_status.sql",
+    "20261026161500_admin_role_audit_foundation.sql",
 }
 PENDING = set()
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
@@ -74,6 +75,34 @@ for required in (
 ):
     assert required in team, f"Missing multi-unit dispatch contract: {required}"
 
+admin = (MIGRATIONS / "20261026161500_admin_role_audit_foundation.sql").read_text()
+for required in (
+    "CHECK (role IN ('requester', 'responder', 'driver', 'dispatcher', 'admin'))",
+    "CREATE TABLE public.admin_audit_logs",
+    "ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY",
+    "CREATE POLICY admin_audit_logs_read_admin",
+    "CREATE OR REPLACE FUNCTION public.api_admin_list_users()",
+    "CREATE OR REPLACE FUNCTION public.api_admin_set_user_role(",
+    "CREATE OR REPLACE FUNCTION public.api_admin_list_audit_logs(",
+    "REVOKE ALL ON FUNCTION public.api_admin_list_users() FROM PUBLIC, anon",
+    "REVOKE ALL ON FUNCTION public.api_admin_set_user_role(bigint, text, text) FROM PUBLIC, anon",
+    "REVOKE ALL ON FUNCTION public.api_admin_list_audit_logs(integer) FROM PUBLIC, anon",
+    "GRANT EXECUTE ON FUNCTION public.api_admin_list_users() TO authenticated",
+    "GRANT EXECUTE ON FUNCTION public.api_admin_set_user_role(bigint, text, text) TO authenticated",
+    "GRANT EXECUTE ON FUNCTION public.api_admin_list_audit_logs(integer) TO authenticated",
+    "INSERT INTO public.admin_audit_logs",
+    "Administrator promotion and demotion require trusted operator provisioning",
+    "Provide an audit reason between 10 and 500 characters",
+):
+    assert required.lower() in admin.lower(), f"Missing Admin security contract: {required}"
+assert "CREATE POLICY admin_audit_logs_read_admin" in admin
+assert "FOR SELECT TO authenticated" in admin
+assert "FOR INSERT TO authenticated" not in admin
+assert "FOR UPDATE TO authenticated" not in admin
+assert "FOR DELETE TO authenticated" not in admin
+assert "DROP FUNCTION" not in admin.upper(), "Admin migration must not drop existing functions"
+assert "DELETE FROM" not in admin.upper(), "Admin migration must not alter user data"
+
 print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history; {len(PENDING)} proposed migration(s) are explicitly pending live application.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
@@ -81,7 +110,7 @@ for required in (
     "SECURITY INVOKER",
     "private.tacresq_assign_incident_team",
 ):
-    assert required in hardening, f"Missing private dispatch RPC hardening: {required}"
+    assert required in hardening, f"Missing multi-unit dispatch hardening: {required}"
 
 print("PASS: dispatcher team-assignment schema and RPC contract are present.")
 search_path_fix = (MIGRATIONS / "20261023082939_pin_dispatch_team_search_path.sql").read_text()
@@ -91,3 +120,4 @@ print("PASS: public assignment RPCs are invoker wrappers over a private authoriz
 print("PASS: private assignment RPC pins its search path to pg_catalog.")
 print("PASS: missing location_and_push migration recreates FCM storage, RLS, and RPCs.")
 print("PASS: incident status logging runs after insert to satisfy the incident foreign key.")
+print("PASS: Admin role, role-change RPC, and append-only audit access contracts are present.")
