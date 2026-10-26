@@ -104,7 +104,8 @@ fun AppRoot(
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents,
                                 notificationsVm = notificationsVm,
-                                onOpenIncident = openIncident,
+                                onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
+                                onRefreshIncidents = vm::refresh,
                                 selectedIncidentId = selectedIncidentId,
                             )
                         }
@@ -117,7 +118,8 @@ fun AppRoot(
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents,
                                 notificationsVm = notificationsVm,
-                                onOpenIncident = openIncident,
+                                onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
+                                onRefreshIncidents = vm::refresh,
                                 selectedIncidentId = selectedIncidentId,
                             )
                         }
@@ -137,7 +139,8 @@ fun AppRoot(
                             if (destination == AppDestination.PRIMARY) DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId)
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents, vmState.units, notificationsVm,
-                                onOpenIncident = openIncident,
+                                onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
+                                onRefreshIncidents = vm::refresh,
                                 selectedIncidentId = selectedIncidentId,
                             )
                         }
@@ -193,6 +196,7 @@ private fun RoleSectionScreen(
     units: List<User> = emptyList(),
     notificationsVm: NotificationsViewModel,
     onOpenIncident: (Long) -> Unit = {},
+    onRefreshIncidents: () -> Unit = {},
     selectedIncidentId: Long? = null,
 ) {
     if (destination == AppDestination.ALERTS) {
@@ -271,10 +275,19 @@ private fun RoleSectionScreen(
                         }
                         com.tacresq.app.ui.common.IncidentCard(focusedIncident)
                     } else {
-                        EmptySectionCard(
-                            "Incident unavailable",
-                            "This incident is not in your current authorized request list. Refresh before acting on an older alert.",
-                        )
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Incident not in the current list", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Refresh your role-scoped list before acting on this alert. If the incident still does not appear, it may no longer be available to this account.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                androidx.compose.material3.OutlinedButton(onClick = onRefreshIncidents) {
+                                    Text("Refresh list")
+                                }
+                            }
+                        }
                     }
                 }
                 if (incidents.isEmpty()) {
