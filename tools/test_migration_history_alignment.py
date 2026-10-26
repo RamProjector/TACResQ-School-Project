@@ -32,6 +32,7 @@ EXPECTED = {
 }
 PENDING = {
     "20261026190000_persistent_in_app_notifications.sql",
+    "20261026200000_incident_scoped_chat.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
@@ -93,6 +94,23 @@ for required in (
     "GRANT EXECUTE ON FUNCTION public.api_mark_notification_read(bigint) TO authenticated",
 ):
     assert required in notifications, f"Missing in-app notification security contract: {required}"
+
+
+chat = (MIGRATIONS / "20261026200000_incident_scoped_chat.sql").read_text()
+for required in (
+    "CREATE TABLE IF NOT EXISTS public.incident_messages",
+    "ALTER TABLE public.incident_messages ENABLE ROW LEVEL SECURITY",
+    "REVOKE ALL ON TABLE public.incident_messages FROM PUBLIC, anon, authenticated",
+    "private.tacresq_can_access_incident_chat",
+    "public.api_my_incident_messages(",
+    "public.api_send_incident_message(",
+    "client_message_id",
+    "pg_advisory_xact_lock(actor_profile_id)",
+    "GRANT EXECUTE ON FUNCTION public.api_my_incident_messages(bigint, integer, bigint) TO authenticated",
+    "GRANT EXECUTE ON FUNCTION public.api_send_incident_message(bigint, text, uuid) TO authenticated",
+    "'incident_message'",
+):
+    assert required in chat, f"Missing incident chat security contract: {required}"
 
 print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history; {len(PENDING)} proposed migration(s) are explicitly pending live application.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
