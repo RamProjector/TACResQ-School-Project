@@ -433,6 +433,7 @@ DECLARE
   reply_message_id bigint;
   denied boolean;
   notification_count integer;
+  i integer;
 BEGIN
   SELECT id INTO dispatcher_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000136';
   SELECT id INTO requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000137';
@@ -613,6 +614,28 @@ BEGIN
      AND n.recipient_user_id = requester_id;
   IF notification_count <> 1 THEN
     RAISE EXCEPTION 'Requester must receive one message notification after responder reply';
+  END IF;
+
+  -- Per-sender flood guard: twenty sends in a minute are allowed; the next is rejected.
+  FOR i IN 1..20 LOOP
+    PERFORM public.api_send_incident_message(
+      test_incident_id,
+      'Rate limit probe ' || i,
+      ('f0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid
+    );
+  END LOOP;
+  denied := false;
+  BEGIN
+    PERFORM public.api_send_incident_message(
+      test_incident_id,
+      'Rate limit probe 21',
+      'f0000000-0000-4000-8000-000000000021'
+    );
+  EXCEPTION WHEN program_limit_exceeded THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'The 21st message within one minute must be rate limited';
   END IF;
 END;
 $chat_test$;
