@@ -80,6 +80,7 @@ for required in (
 notifications = (MIGRATIONS / "20261026190000_persistent_in_app_notifications.sql").read_text()
 for required in (
     "CREATE TABLE IF NOT EXISTS public.user_notifications",
+    "user_notifications_one_unread_assignment_idx",
     "ALTER TABLE public.user_notifications ENABLE ROW LEVEL SECURITY",
     "REVOKE ALL ON TABLE public.user_notifications FROM PUBLIC, anon, authenticated",
     "private.tacresq_notify_assignment_insert",
