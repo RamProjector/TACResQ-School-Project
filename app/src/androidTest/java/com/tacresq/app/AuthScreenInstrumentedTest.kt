@@ -76,8 +76,7 @@ class AuthScreenInstrumentedTest {
 
     @Test
     fun emergencyRequestFormOpensOnlyOnDemandAndCanBeClosedWithoutSending() {
-        composeRule.onNodeWithText("Requester").performClick()
-        composeRule.onNodeWithText("Sign in").performClick()
+        signInAsDemoRequester()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Start emergency request", substring = true)
