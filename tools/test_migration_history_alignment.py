@@ -155,3 +155,18 @@ assert "getFocusable()[0]?.focus()" in admin_ui
 assert "Never keep privileged data visible after an authorization or connection failure." in admin_ui
 print("PASS: Admin role dialog has keyboard focus management and failed refresh clears privileged data.")
 
+# Privileged browser sessions must re-check their role after trusted-operator
+# revocation; a network error alone must not falsely sign out a live Admin.
+for required in (
+    "getMyProfile()",
+    "currentProfile.role !== \"admin\"",
+    "setUsers([])",
+    "setAudit([])",
+    "document.visibilityState === \"hidden\"",
+    "window.setInterval",
+    "document.addEventListener(\"visibilitychange\"",
+    "A transient network failure is not proof that the role was revoked.",
+):
+    assert required in admin_ui, f"Missing Admin session-revalidation contract: {required}"
+print("PASS: Admin console revalidates privileges on visibility and periodically, clears privileged state, and handles transient network errors safely.")
+
