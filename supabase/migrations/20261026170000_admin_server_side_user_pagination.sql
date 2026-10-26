@@ -67,10 +67,10 @@ BEGIN
     WHERE (normalized_role = 'all' OR p.role = normalized_role)
       AND (
         normalized_query = ''
-        OR strpos(lower(coalesce(p.name, '')), normalized_query) > 0
-      OR strpos(lower(coalesce(p.email, '')), normalized_query) > 0
-      OR strpos(lower(coalesce(p.phone, '')), normalized_query) > 0
-      OR strpos(p.id::text, normalized_query) > 0
+          OR strpos(lower(coalesce(p.name, '')), normalized_query) > 0
+        OR strpos(lower(coalesce(p.email, '')), normalized_query) > 0
+        OR strpos(lower(coalesce(p.phone, '')), normalized_query) > 0
+        OR strpos(p.id::text, normalized_query) > 0
       )
     ORDER BY p.created_at DESC, p.id DESC
     LIMIT p_limit OFFSET p_offset
