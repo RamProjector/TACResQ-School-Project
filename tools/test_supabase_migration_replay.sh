@@ -363,8 +363,8 @@ BEGIN
   END IF;
 
   -- The web dispatcher still uses the legacy single-unit api_assign_incident RPC.
-  -- Its assignment must also produce exactly one alert per recipient.
-  UPDATE public.profiles SET duty_status = 'available' WHERE id = responder_id;
+  -- Its assignment must also produce exactly one alert per recipient. Use a
+  -- separate available unit because the first responder is still on an active incident.
   INSERT INTO public.incidents (
     requester_id, type, description, latitude, longitude,
     location_recorded_at, location_source
