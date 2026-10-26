@@ -7,6 +7,7 @@ import com.tacresq.app.ui.auth.AuthViewModel
 import com.tacresq.app.ui.dispatcher.DispatcherViewModel
 import com.tacresq.app.ui.requester.RequesterViewModel
 import com.tacresq.app.ui.responder.ResponderViewModel
+import com.tacresq.app.ui.notifications.NotificationsViewModel
 
 class VmFactory(private val container: AppContainer) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -20,6 +21,8 @@ class VmFactory(private val container: AppContainer) : ViewModelProvider.Factory
                 ResponderViewModel(container.repository, container.locationProvider)
             modelClass.isAssignableFrom(DispatcherViewModel::class.java) ->
                 DispatcherViewModel(container.repository)
+            modelClass.isAssignableFrom(NotificationsViewModel::class.java) ->
+                NotificationsViewModel(container.repository)
             else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
         }
         return viewModel as T
