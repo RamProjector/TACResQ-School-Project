@@ -23,7 +23,7 @@ internal object ValhallaPolylineDecoder {
                 require(index < encoded.length) { "Route geometry ended unexpectedly." }
                 val value = encoded[index++].code - 63
                 require(value in 0..63) { "Route geometry contains an invalid character." }
-                require(shift <= 60) { "Route geometry delta is too large." }
+                require(shift <= 55) { "Route geometry delta is too large." }
                 result = result or ((value and 0x1f).toLong() shl shift)
                 if (value < 0x20) break
                 shift += 5
