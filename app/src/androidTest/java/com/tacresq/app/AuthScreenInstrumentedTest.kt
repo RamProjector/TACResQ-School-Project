@@ -65,7 +65,6 @@ class AuthScreenInstrumentedTest {
         composeRule.onNodeWithContentDescription("Home").performClick()
         composeRule.onNodeWithText("Start emergency request", substring = true).assertIsDisplayed()
     }
-}
 
     @Test
     fun emergencyRequestFormOpensOnlyOnDemandAndCanBeClosedWithoutSending() {
