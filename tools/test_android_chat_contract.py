@@ -80,10 +80,11 @@ dispatcher = read("app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScr
 assert "onOpenChat: (Long) -> Unit" in dispatcher
 assert 'Text("Open conversation")' in dispatcher
 
-for path in (
-    "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt",
-    "app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt",
-):
-    assert "incident_messages" not in read(path), f"{path} must not directly access the private chat table"
+api_source = read("app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
+assert "rest/v1/incident_messages" not in api_source, "Android must not access the private chat table directly"
+assert "rest/v1/rpc/api_my_incident_messages" in api_source, "Android must use the scoped list RPC"
+assert "rest/v1/rpc/api_send_incident_message" in api_source, "Android must use the scoped send RPC"
+screen_source = read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
+assert "incident_messages" not in screen_source, "UI must not directly access the private chat table"
 
 print("PASS: incident chat uses caller-scoped RPCs, role-scoped navigation, lifecycle-bound polling, bounded text, idempotent retry, and no direct table access.")
