@@ -242,6 +242,7 @@ DECLARE
   requester_id bigint;
   responder_id bigint;
   test_incident_id bigint;
+  legacy_incident_id bigint;
   requester_notifications jsonb;
   responder_notifications jsonb;
   requester_notification_id bigint;
@@ -263,6 +264,12 @@ BEGIN
   IF function_is_definer IS DISTINCT FROM true
      OR NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
     RAISE EXCEPTION 'Status notification trigger must be SECURITY DEFINER with a pinned search_path';
+  END IF;
+  SELECT prosecdef, proconfig INTO function_is_definer, function_settings
+    FROM pg_proc WHERE oid = to_regprocedure('private.tacresq_notify_legacy_assignment_update()');
+  IF function_is_definer IS DISTINCT FROM true
+     OR NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'Legacy assignment notification trigger must be SECURITY DEFINER with a pinned search_path';
   END IF;
   SELECT id INTO dispatcher_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000131';
   SELECT id INTO requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000132';
@@ -349,6 +356,26 @@ BEGIN
      AND item->>'incident_id' = test_incident_id::text;
   IF notification_count < 1 THEN
     RAISE EXCEPTION 'Requester must be notified when an assigned unit changes incident status: %', requester_notifications;
+  END IF;
+
+  -- The web dispatcher still uses the legacy single-unit api_assign_incident RPC.
+  -- Its assignment must also produce exactly one alert per recipient.
+  UPDATE public.profiles SET duty_status = 'available' WHERE id = responder_id;
+  INSERT INTO public.incidents (
+    requester_id, type, description, latitude, longitude,
+    location_recorded_at, location_source
+  ) VALUES (
+    requester_id, 'medical', 'Synthetic legacy assignment notification test',
+    11.245, 125.004, now(), 'manual'
+  ) RETURNING id INTO legacy_incident_id;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000131', true);
+  PERFORM public.api_assign_incident(legacy_incident_id, responder_id);
+  SELECT count(*) INTO notification_count
+    FROM public.user_notifications n
+   WHERE n.incident_id = legacy_incident_id
+     AND n.event_type = 'incident_assigned';
+  IF notification_count <> 2 THEN
+    RAISE EXCEPTION 'Legacy dashboard assignment must create exactly two recipient alerts, found %', notification_count;
   END IF;
 
   denied := false;
