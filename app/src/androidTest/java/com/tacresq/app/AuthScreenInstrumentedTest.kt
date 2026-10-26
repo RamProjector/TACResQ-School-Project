@@ -21,6 +21,15 @@ class AuthScreenInstrumentedTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()
 
+    private fun signInAsDemoRequester() {
+        // Role selection can survive between instrumented tests in the same app process.
+        // Select it only when the role chooser is actually visible.
+        if (composeRule.onAllNodesWithText("Requester").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onNodeWithText("Requester").performClick()
+        }
+        composeRule.onNodeWithText("Sign in").performClick()
+    }
+
     @Test
     fun signInScreenExplainsDemoModeAndShowsPrimaryAction() {
         composeRule.onNodeWithText("Welcome back").assertIsDisplayed()
@@ -50,8 +59,7 @@ class AuthScreenInstrumentedTest {
 
     @Test
     fun demoRequesterCanReachEmergencyHomeAndOpenGpsMap() {
-        composeRule.onNodeWithText("Requester").performClick()
-        composeRule.onNodeWithText("Sign in").performClick()
+        signInAsDemoRequester()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Start emergency request", substring = true)
