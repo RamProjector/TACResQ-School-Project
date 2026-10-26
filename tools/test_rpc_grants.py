@@ -33,6 +33,9 @@ MIGRATION_SQL = "\n".join(
 )
 
 ACTIVE_CLIENT_RPCS = {
+    "api_admin_list_users",
+    "api_admin_set_user_role",
+    "api_admin_list_audit_logs",
     "api_active_responder_locations",
     "api_all_incidents",
     "api_assign_incident",
@@ -87,6 +90,9 @@ bridge_rpc_list = re.findall(r"'(api_[a-z0-9_]+)'", bridge_block.group(1), re.IG
 bridge_rpcs = set(bridge_rpc_list)
 assert bridge_rpcs, "Render bridge allowlist must not be empty"
 assert len(bridge_rpc_list) == len(bridge_rpcs), "Duplicate RPC in Render bridge allowlist"
+assert not (bridge_rpcs & {"api_admin_list_users", "api_admin_set_user_role", "api_admin_list_audit_logs"}), (
+    "Admin RPCs must not be exposed through the separate Laravel/Sanctum bridge"
+)
 unknown_bridge_rpcs = bridge_rpcs - ACTIVE_CLIENT_RPCS
 assert not unknown_bridge_rpcs, (
     "Render bridge exposes RPCs outside the reviewed/grant-checked inventory: "
