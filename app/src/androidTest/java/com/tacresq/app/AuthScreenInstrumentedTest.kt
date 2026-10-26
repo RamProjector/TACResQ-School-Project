@@ -94,4 +94,28 @@ class AuthScreenInstrumentedTest {
         composeRule.onNodeWithText("Emergency request").assertDoesNotExist()
         composeRule.onNodeWithText("Start emergency request", substring = true).assertIsDisplayed()
     }
+    @Test
+    fun demoRequesterCanSubmitOneDemoSosAndSeesActiveRequestInsteadOfAnotherForm() {
+        composeRule.onNodeWithText("Requester").performClick()
+        composeRule.onNodeWithText("Sign in").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithText("Start emergency request", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Start emergency request", substring = true).performClick()
+        composeRule.onNodeWithText("Continue to location").performClick()
+        composeRule.onNodeWithText("Review request").performClick()
+        composeRule.onNodeWithText("Review before sending").assertIsDisplayed()
+        composeRule.onNodeWithText("Confirm SOS").performClick()
+        composeRule.onNodeWithText("Send emergency request?").assertIsDisplayed()
+        composeRule.onNodeWithText("No GPS pin. Dispatch may call to confirm your location.").assertIsDisplayed()
+        composeRule.onNodeWithText("Send SOS").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithText("Cancel request").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Cancel request").assertIsDisplayed()
+        composeRule.onNodeWithText("Start emergency request", substring = true).assertDoesNotExist()
+    }
 }
