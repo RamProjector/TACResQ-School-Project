@@ -416,7 +416,7 @@ BEGIN
       ('00000000-0000-4000-8000-000000000130'::uuid, 'requester'::text)
     ) AS ordinary_principals(auth_id, role_name)
   LOOP
-    PERFORM set_config('request.jwt.claim.sub', principal.auth_id, true);
+    PERFORM set_config('request.jwt.claim.sub', principal.auth_id::text, true);
 
     denied := false;
     BEGIN
