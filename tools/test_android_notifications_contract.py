@@ -71,7 +71,7 @@ for required in (
 root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
 for required in (
     "NotificationsViewModel",
-    "NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident)",
+    "NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident, onOpenChat)",
     "destination == AppDestination.ALERTS",
     "destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY",
     "focusedIncidentId = selectedIncidentId",
