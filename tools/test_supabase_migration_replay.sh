@@ -395,6 +395,86 @@ BEGIN
   END IF;
 END;
 $admin_authorization_test$;
+
+-- Every ordinary operational role must be denied by the database authorization
+-- boundary, even though each role can execute the authenticated RPC entrypoint.
+DO $admin_role_matrix_test$
+DECLARE
+  principal record;
+  denied boolean;
+  target_profile_id bigint;
+BEGIN
+  SELECT id INTO target_profile_id
+  FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000129';
+
+  FOR principal IN
+    SELECT * FROM (VALUES
+      ('00000000-0000-4000-8000-000000000124'::text, 'dispatcher'::text),
+      ('00000000-0000-4000-8000-000000000125'::text, 'responder'::text),
+      ('00000000-0000-4000-8000-000000000126'::text, 'driver'::text),
+      ('00000000-0000-4000-8000-000000000130'::text, 'requester'::text)
+    ) AS ordinary_principals(auth_id, role_name)
+  LOOP
+    PERFORM set_config('request.jwt.claim.sub', principal.auth_id, true);
+
+    denied := false;
+    BEGIN
+      PERFORM public.api_admin_list_users();
+    EXCEPTION WHEN insufficient_privilege THEN
+      denied := true;
+    END;
+    IF NOT denied THEN
+      RAISE EXCEPTION 'Ordinary role % unexpectedly read Admin user list', principal.role_name;
+    END IF;
+
+    denied := false;
+    BEGIN
+      PERFORM public.api_admin_set_user_role(
+        target_profile_id,
+        'responder',
+        'Unauthorized role change regression test.'
+      );
+    EXCEPTION WHEN insufficient_privilege THEN
+      denied := true;
+    END;
+    IF NOT denied THEN
+      RAISE EXCEPTION 'Ordinary role % unexpectedly changed an account role', principal.role_name;
+    END IF;
+
+    denied := false;
+    BEGIN
+      PERFORM public.api_admin_list_audit_logs(100);
+    EXCEPTION WHEN insufficient_privilege THEN
+      denied := true;
+    END;
+    IF NOT denied THEN
+      RAISE EXCEPTION 'Ordinary role % unexpectedly read Admin audit logs', principal.role_name;
+    END IF;
+
+    -- A user cannot self-promote through the profile-update route regardless
+    -- of whether the account is a requester, responder, driver, or dispatcher.
+    denied := false;
+    BEGIN
+      UPDATE public.profiles
+      SET role = 'admin', duty_status = NULL
+      WHERE auth_user_id = principal.auth_id;
+    EXCEPTION WHEN insufficient_privilege THEN
+      denied := true;
+    END;
+    IF NOT denied THEN
+      RAISE EXCEPTION 'Ordinary role % unexpectedly self-promoted via profile update', principal.role_name;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE auth_user_id = principal.auth_id AND role = 'admin'
+    ) THEN
+      RAISE EXCEPTION 'Denied self-promotion changed ordinary role % to admin', principal.role_name;
+    END IF;
+  END LOOP;
+END;
+$admin_role_matrix_test$;
 SQL
 
 echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed; incident regressions and Admin role/audit authorization tests passed."
