@@ -82,6 +82,8 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun open(incidentId: Long) {
         if (activeIncidentId != incidentId) {
+            refreshJob?.cancel()
+            olderJob?.cancel()
             activeIncidentId = incidentId
             pendingClientMessageId = null
             _state.value = IncidentChatUiState()
@@ -101,6 +103,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             }
             repo.myIncidentMessages(incidentId, limit = 50)
                 .onSuccess { latest ->
+                    if (activeIncidentId != incidentId) return@onSuccess
                     _state.update { current ->
                         val merged = (current.items + latest).distinctBy { it.id }.sortedBy { it.id }
                         current.copy(
@@ -113,6 +116,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     }
                 }
                 .onFailure { failure ->
+                    if (activeIncidentId != incidentId) return@onFailure
                     _state.update {
                         it.copy(
                             loading = false,
@@ -132,6 +136,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             _state.update { it.copy(loadingOlder = true, error = null) }
             repo.myIncidentMessages(incidentId, limit = 50, beforeId = cursor)
                 .onSuccess { older ->
+                    if (activeIncidentId != incidentId) return@onSuccess
                     _state.update { current ->
                         current.copy(
                             items = (older + current.items).distinctBy { it.id }.sortedBy { it.id },
@@ -142,6 +147,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     }
                 }
                 .onFailure { failure ->
+                    if (activeIncidentId != incidentId) return@onFailure
                     _state.update {
                         it.copy(
                             loadingOlder = false,
@@ -168,6 +174,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             _state.update { it.copy(sending = true, sendError = null, error = null) }
             repo.sendIncidentMessage(incidentId, message, clientMessageId)
                 .onSuccess { sent ->
+                    if (activeIncidentId != incidentId) return@onSuccess
                     pendingClientMessageId = null
                     _state.update { current ->
                         current.copy(
@@ -179,6 +186,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     }
                 }
                 .onFailure { failure ->
+                    if (activeIncidentId != incidentId) return@onFailure
                     _state.update {
                         it.copy(
                             sending = false,
