@@ -16,6 +16,12 @@ CREATE INDEX IF NOT EXISTS user_notifications_recipient_created_idx
 CREATE INDEX IF NOT EXISTS user_notifications_unread_idx
   ON public.user_notifications (recipient_user_id, created_at DESC)
   WHERE read_at IS NULL;
+-- A team assignment can update incidents.assigned_to before inserting all assignment
+-- rows. Both trigger paths may observe the same event; suppress duplicate unread
+-- assignment alerts per recipient, while allowing a new alert after the old one is read.
+CREATE UNIQUE INDEX IF NOT EXISTS user_notifications_one_unread_assignment_idx
+  ON public.user_notifications (recipient_user_id, incident_id)
+  WHERE event_type = 'incident_assigned' AND read_at IS NULL;
 
 ALTER TABLE public.user_notifications ENABLE ROW LEVEL SECURITY;
 -- Notifications are accessed only through narrowly scoped RPCs. Keep direct table
@@ -48,7 +54,9 @@ BEGIN
     NEW.user_id, NEW.incident_id, 'incident_assigned',
     'New incident assignment',
     'You have been assigned to an incident. Open TACResQ to review the details.'
-  );
+  ) ON CONFLICT (recipient_user_id, incident_id)
+    WHERE event_type = 'incident_assigned' AND read_at IS NULL
+    DO NOTHING;
 
   INSERT INTO public.user_notifications (
     recipient_user_id, incident_id, event_type, title, body
@@ -56,7 +64,9 @@ BEGIN
     requester_profile_id, NEW.incident_id, 'incident_assigned',
     'Response unit assigned',
     'A response unit has been assigned to your request.'
-  );
+  ) ON CONFLICT (recipient_user_id, incident_id)
+    WHERE event_type = 'incident_assigned' AND read_at IS NULL
+    DO NOTHING;
 
   RETURN NEW;
 END;
@@ -93,7 +103,9 @@ BEGIN
     NEW.assigned_to, NEW.id, 'incident_assigned',
     'New incident assignment',
     'You have been assigned to an incident. Open TACResQ to review the details.'
-  );
+  ) ON CONFLICT (recipient_user_id, incident_id)
+    WHERE event_type = 'incident_assigned' AND read_at IS NULL
+    DO NOTHING;
 
   INSERT INTO public.user_notifications (
     recipient_user_id, incident_id, event_type, title, body
@@ -101,7 +113,9 @@ BEGIN
     NEW.requester_id, NEW.id, 'incident_assigned',
     'Response unit assigned',
     'A response unit has been assigned to your request.'
-  );
+  ) ON CONFLICT (recipient_user_id, incident_id)
+    WHERE event_type = 'incident_assigned' AND read_at IS NULL
+    DO NOTHING;
 
   RETURN NEW;
 END;
