@@ -128,6 +128,8 @@ for required in (
     "p_role text DEFAULT 'all'",
     "matching_total",
     "LIMIT p_limit OFFSET p_offset",
+    "strpos(lower(coalesce(p.name, '')), normalized_query) > 0",
+    "strpos(lower(coalesce(p.email, '')), normalized_query) > 0",
     "REVOKE ALL ON FUNCTION public.api_admin_list_users_page(integer, integer, text, text) FROM PUBLIC, anon",
     "GRANT EXECUTE ON FUNCTION public.api_admin_list_users_page(integer, integer, text, text) TO authenticated",
 ):
