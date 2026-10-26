@@ -190,6 +190,10 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  -- Serialize sends per sender before checking idempotency. This prevents
+  -- concurrent retries with the same client key from racing into a unique error.
+  PERFORM pg_advisory_xact_lock(actor_profile_id);
+
   -- An idempotent retry returns the original message. Reusing the same key for
   -- different content or a different incident is rejected.
   SELECT m.*
@@ -213,9 +217,7 @@ BEGIN
     );
   END IF;
 
-  -- Serialize sends per sender so concurrent requests cannot trivially bypass
-  -- the simple per-minute flood guard.
-  PERFORM pg_advisory_xact_lock(actor_profile_id);
+  -- Apply the flood guard only to new messages, not to idempotent retries.
   SELECT count(*) INTO recent_message_count
     FROM public.incident_messages m
    WHERE m.sender_id = actor_profile_id
