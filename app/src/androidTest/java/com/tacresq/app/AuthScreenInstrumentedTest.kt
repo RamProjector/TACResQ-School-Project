@@ -65,3 +65,32 @@ class AuthScreenInstrumentedTest {
         composeRule.onNodeWithText("Start emergency request", substring = true).assertIsDisplayed()
     }
 }
+
+    @Test
+    fun emergencyRequestFormOpensOnlyOnDemandAndCanBeClosedWithoutSending() {
+        composeRule.onNodeWithText("Requester").performClick()
+        composeRule.onNodeWithText("Sign in").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithText("Start emergency request", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Emergency request").assertDoesNotExist()
+
+        composeRule.onNodeWithText("Start emergency request", substring = true).performClick()
+        composeRule.onNodeWithText("Emergency request").assertIsDisplayed()
+        composeRule.onNodeWithText("Step 1 of 3 · Details").assertIsDisplayed()
+        composeRule.onNodeWithText("What kind of help do you need?").assertIsDisplayed()
+
+        composeRule.onNodeWithText("Continue to location").performClick()
+        composeRule.onNodeWithText("Confirm your location").assertIsDisplayed()
+        composeRule.onNodeWithText("Add a GPS pin or continue without one.").assertIsDisplayed()
+
+        composeRule.onNodeWithText("Back").performClick()
+        composeRule.onNodeWithText("What kind of help do you need?").assertIsDisplayed()
+        composeRule.onNodeWithText("Close").performClick()
+
+        composeRule.onNodeWithText("Emergency request").assertDoesNotExist()
+        composeRule.onNodeWithText("Start emergency request", substring = true).assertIsDisplayed()
+    }
+}
