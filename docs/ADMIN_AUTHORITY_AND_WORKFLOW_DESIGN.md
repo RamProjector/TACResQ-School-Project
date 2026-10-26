@@ -4,7 +4,7 @@
 **Date:** 2026-10-26  
 **Scope:** repository design only; no production schema, account, role, or service configuration changed.
 
-## Why this must precede an Admin UI
+## Verified identity split and chosen first implementation boundary
 
 The inspected repository currently contains two separate identity/authorization paths:
 
@@ -13,11 +13,11 @@ The inspected repository currently contains two separate identity/authorization 
 
 These are not interchangeable identities. Adding an `admin` value to one role constraint or building a frontend route alone would not grant secure, coherent administration across both systems. A browser-side role check is only presentation; every privileged operation needs server/database authorization.
 
-The current deployed dispatcher console is not an Admin panel. The live Supabase profile role constraint was inspected read-only and currently permits `requester`, `responder`, `driver`, and `dispatcher`, not `admin`. Do not infer that provider-level Render/Supabase ownership equals an in-product TACResQ Admin role.
+The deployed dispatcher console was not an Admin panel at the time of the initial read-only inspection. This PR adds a proposed Supabase-backed Admin role and web console on a separate branch; neither is live until the migration and UI are reviewed, merged, and deployed. The live Supabase profile role constraint was inspected read-only and permits `requester`, `responder`, `driver`, and `dispatcher`, not `admin`. Do not infer that provider-level Render/Supabase ownership equals an in-product TACResQ Admin role.
 
 ## Decision gate
 
-Before adding the first privileged endpoint or migration, explicitly establish which identity system is authoritative for in-product administration. Preferred safe direction:
+The first implementation scope is the Supabase identity path used by the dispatcher web client and the Supabase-backed Android app. This does not silently grant Admin authority to Laravel Sanctum users. If administration later spans both data stores, a trusted identity mapping and authorization boundary must be designed before connecting the systems. Preferred safe direction:
 
 - Keep the existing dispatcher access path and its operational permissions separate.
 - Do not silently merge Laravel Sanctum users and Supabase Auth profiles by matching email; email equality is not proof that two records are the same principal.
@@ -38,13 +38,13 @@ Before adding the first privileged endpoint or migration, explicitly establish w
 ### 2. User and role management
 - Search and view minimal account details; avoid exposing sensitive incident data by default.
 - Role changes require server-side validation, confirmation, reason capture, and an audit event.
-- Prevent self-promotion, self-granting through profile updates, and accidental removal/demotion of the last active administrator.
+- Prevent self-promotion and self-granting through profile updates. The current proposed RPC cannot promote, demote, or edit Admin accounts; first-admin provisioning and later Admin membership changes remain trusted-operator operations.
 - Define permitted transitions per role instead of accepting arbitrary role strings.
 - Deactivation/revocation must invalidate or constrain active sessions/tokens where supported.
 - Do not permit account deletion if it would erase required incident/audit history; prefer controlled deactivation.
 
 ### 3. Audit trail
-- Record actor principal, action, target principal, timestamp, result, reason, and correlation/request ID.
+- The current proposed audit table records actor profile, target profile, action, old/new role, timestamp, and required reason for successful role changes. Result/correlation IDs and denied-attempt logging remain follow-up requirements.
 - Write audit events server-side in the same transaction as the privileged state change where feasible.
 - Treat audit records as append-only for ordinary Admin users; do not expose secrets, passwords, bearer tokens, or unnecessary personal data.
 - Log denied privileged attempts without recording submitted credentials or tokens.
@@ -69,16 +69,16 @@ Before adding the first privileged endpoint or migration, explicitly establish w
 | Data isolation | Admin reads return only fields needed for the task; ordinary roles cannot query audit data. |
 | Web UI | Loading/error/empty states, keyboard navigation, focus management, confirmation for consequential actions, and session-expiry handling are tested. |
 
-## Implementation sequence
+## Implementation sequence and remaining work
 
-1. Confirm the authoritative identity system and document the trust boundary.
-2. Add schema/permission migration and server-side authorization checks with rollback strategy; write escalation tests before exposing a UI.
-3. Add audit persistence and tests for atomicity and access isolation.
-4. Add Admin API endpoints with request validation, pagination, rate limits, and non-sensitive error handling.
-5. Build a distinct Admin web experience, with accessible user/role management and audit views.
-6. Run backend tests, frontend typecheck/build, migration replay, role-matrix tests, and an end-to-end demo against disposable test data.
-7. Review the diff and CI findings; only then request approval for merging. Production migration and initial Admin provisioning remain a separately approved operation.
+1. **In this PR:** proposed Supabase role constraint, Admin-only user/audit RPCs, transactional ordinary-role changes, append-only client access to audit rows, web role gate, user search/filter, required reason, and audit view.
+2. Validate the migration by replaying every migration against clean PostgreSQL and run the dashboard TypeScript build; automated CI for the latest commits is not yet visible.
+3. Add database-level authorization tests for anonymous and all ordinary roles, attempted profile self-promotion, invalid role transitions, audit atomicity, and concurrent assignment/role-change behavior.
+4. Add server-side pagination and query filtering for user lists, denied-attempt audit/monitoring, request correlation IDs, and a documented session-revocation policy.
+5. Complete accessible focus management and keyboard interaction tests for the role-change dialog.
+6. Implement the separate Admin Android experience only after the shared database authorization contract is verified; do not add a second role authority.
+7. Review CI findings and request approval before merging. Production migration and initial Admin provisioning remain separately approved operator actions.
 
 ## Current boundary
 
-This document is not a claim that Admin is implemented. No Admin role, account, route, credentials, or production database change has been created by this design step. The purpose is to prevent a misleading frontend-only implementation and to make the next code changes testable and secure.
+The branch now contains a proposed Admin role/audit migration and a Supabase-RPC-backed web console, but **the feature is not yet validated or production-ready**. Automated CI for the latest commits has not appeared in the repository status checks; clean PostgreSQL replay, frontend build, database authorization matrix, accessibility tests, and live end-to-end verification are still outstanding. The migration is marked pending in the migration-history contract. No Admin account was provisioned, no live migration was applied, and no Render/Supabase production setting was changed.
