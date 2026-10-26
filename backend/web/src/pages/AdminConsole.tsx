@@ -15,7 +15,7 @@ import {
 import { Brand } from "@/components/Brand";
 import {
   getAdminAuditLogs,
-  getAdminUsers,
+  getAdminUsersPage,
   getMyProfile,
   setAdminUserRole,
 } from "@/lib/supabase";
@@ -59,6 +59,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [page, setPage] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const pageSize = 25;
   const [target, setTarget] = useState<AdminUser | null>(null);
   const [nextRole, setNextRole] = useState<AdminManagedRole>("requester");
   const [reason, setReason] = useState("");
@@ -96,8 +99,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setRefreshing(true);
     setError(null);
     try {
-      const [nextUsers, nextAudit] = await Promise.all([getAdminUsers(), getAdminAuditLogs(100)]);
-      setUsers(nextUsers);
+      const [userPage, nextAudit] = await Promise.all([getAdminUsersPage(pageSize, page * pageSize, query, roleFilter), getAdminAuditLogs(100)]);
+      setUsers(userPage.users);
+      setTotalUsers(userPage.total_count);
       setAudit(nextAudit);
     } catch (cause) {
       // Never keep privileged data visible after an authorization or connection failure.
@@ -108,7 +112,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [page, query, roleFilter]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -144,16 +148,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     };
   }, [onSignOut]);
 
-  const filteredUsers = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
-    return users.filter((user) => {
-      if (roleFilter !== "all" && user.role !== roleFilter) return false;
-      if (!normalized) return true;
-      return [user.name, user.email, user.phone, user.id, user.role]
-        .filter((value) => value !== null && value !== undefined)
-        .join(" ").toLocaleLowerCase().includes(normalized);
-    });
-  }, [users, query, roleFilter]);
+  const filteredUsers = users;
 
   const userById = useMemo(() => new Map<number, AdminUser>(users.map((user) => [user.id, user] as const)), [users]);
 
@@ -238,20 +233,20 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           )}
 
           <section className="admin-metrics" aria-label="Account summary">
-            <article><span>REGISTERED PROFILES</span><strong>{users.length}</strong><small>Profiles returned by the protected Admin API</small></article>
-            <article><span>REQUESTERS</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Accounts allowed to submit requests</small></article>
-            <article><span>FIELD UNITS</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responder and driver accounts</small></article>
+            <article><span>REGISTERED PROFILES</span><strong>{totalUsers}</strong><small>Matching profiles across all pages</small></article>
+            <article><span>REQUESTERS ON PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Requester accounts on this page</small></article>
+            <article><span>FIELD UNITS ON PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</small></article>
             <article><span>RECENT AUDIT EVENTS</span><strong>{audit.length}</strong><small>Latest records, maximum 100 loaded</small></article>
           </section>
 
           <section className="admin-panel">
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><Users size={19} /> User management</h2></div>
-              <span className="admin-count">{filteredUsers.length} of {users.length}</span>
+              <span className="admin-count">{totalUsers === 0 ? 0 : page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalUsers)} of {totalUsers}</span>
             </div>
             <div className="admin-toolbar">
-              <label className="admin-search"><Search size={16} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, email, phone or ID" aria-label="Search users" /></label>
-              <label className="admin-role-filter"><span>Role</span><select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)} aria-label="Filter users by role"><option value="all">All roles</option><option value="requester">Requester</option><option value="responder">Responder</option><option value="driver">Driver</option><option value="dispatcher">Dispatcher</option><option value="admin">Admin</option></select></label>
+              <label className="admin-search"><Search size={16} /><input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search name, email, phone or ID" aria-label="Search users" /></label>
+              <label className="admin-role-filter"><span>Role</span><select value={roleFilter} onChange={(event) => { setPage(0); setRoleFilter(event.target.value as RoleFilter); }} aria-label="Filter users by role"><option value="all">All roles</option><option value="requester">Requester</option><option value="responder">Responder</option><option value="driver">Driver</option><option value="dispatcher">Dispatcher</option><option value="admin">Admin</option></select></label>
             </div>
             <div className="admin-table-wrap">
               <table className="admin-table">
@@ -273,6 +268,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 </tbody>
               </table>
             </div>
+            <div className="admin-pagination" aria-label="User directory pagination"><span>Page {totalUsers === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(totalUsers / pageSize))}</span><div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || refreshing}>Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={refreshing || (page + 1) * pageSize >= totalUsers}>Next</button></div></div>
             <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident.</p>
           </section>
 
