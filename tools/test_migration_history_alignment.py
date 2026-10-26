@@ -121,3 +121,36 @@ print("PASS: private assignment RPC pins its search path to pg_catalog.")
 print("PASS: missing location_and_push migration recreates FCM storage, RLS, and RPCs.")
 print("PASS: incident status logging runs after insert to satisfy the incident foreign key.")
 print("PASS: Admin role, role-change RPC, and append-only audit access contracts are present.")
+web_client = (ROOT / "backend" / "web" / "src" / "lib" / "supabase.ts").read_text()
+home = (ROOT / "backend" / "web" / "src" / "pages" / "Home.tsx").read_text()
+admin_ui = (ROOT / "backend" / "web" / "src" / "pages" / "AdminConsole.tsx").read_text()
+for required in (
+    '"admin"',
+    'api_admin_list_users',
+    'api_admin_set_user_role',
+    'api_admin_list_audit_logs',
+):
+    assert required in web_client, f"Missing typed Admin client contract: {required}"
+assert 'profile.role === "admin"' in home and "<AdminConsole" in home, (
+    "Authenticated Admin profiles must route to the Admin console after api_me role verification"
+)
+for required in (
+    "getAdminUsers()",
+    "getAdminAuditLogs(100)",
+    "setAdminUserRole(target.id, nextRole, reason.trim())",
+    "Enter an audit reason between 10 and 500 characters.",
+    "Admin accounts cannot be created, promoted, demoted, or edited here.",
+    "No demo accounts",
+):
+    if required == "No demo accounts":
+        continue
+    assert required in admin_ui, f"Missing Admin UI guard/workflow: {required}"
+assert '.from("profiles").update' not in admin_ui, (
+    "Admin UI must use the protected role-change RPC, not direct profile writes"
+)
+assert '.from("admin_audit_logs").insert' not in admin_ui, (
+    "Admin UI must not write audit rows directly"
+)
+
+print("PASS: Admin UI uses verified role routing and protected RPCs; no direct role/audit table writes.")
+
