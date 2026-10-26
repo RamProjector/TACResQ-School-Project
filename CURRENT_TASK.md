@@ -1,3 +1,14 @@
+## Active continuation — 2026-10-26: Android incident chat UI
+
+- **Objective:** Complete the next TACResQ capability after notification inbox work: role-scoped incident chat without a paid provider or additional navigation tab.
+- **Dependency:** Branch `agent/incident-chat-android` is stacked on [PR #176](https://github.com/RamProjector/TACResQ-School-Project/pull/176), which adds the secure chat backend. The backend PR's latest CI passed on commit `03f0e9320bd090d6bd5c0f1de099e0b15e3501cf`; the UI branch still needs its own CI run.
+- **Implementation:** Added `IncidentMessage`, `TacChatApi`, Supabase list/send RPC calls, repository methods, recipient/role-filtered demo chat, a lifecycle-aware conversation screen, and a `IncidentChatViewModel`. The screen supports 50-message pages, older-message loading, visible-screen-only 10-second refresh, a 2000-character text composer, send-in-progress/error states, and idempotent retry using the same client UUID after an unconfirmed send.
+- **Navigation:** Conversations open from role-scoped incident history, dispatcher queue cards, and incident-message notifications. Requester/responder users route to their current incident list; dispatchers route to the queue. Server-side authorization is checked on every list/send call; the incident ID is never treated as permission. No sixth bottom-navigation tab was added and GPS Map remains central.
+- **Security:** The backend migration in the dependency branch provides append-only messages, direct table privilege denial, participant authorization, per-sender rate limiting, idempotency, bounded pagination, and generic message notifications. The UI uses only RPCs, not direct table access.
+- **Validation:** Added `FakeTacApiChatTest.kt` and `tools/test_android_chat_contract.py`; CI has not yet completed for this UI branch. Do not treat the current UI as verified until Android debug/release builds, JVM tests, source contracts, clean PostgreSQL replay, dashboard integration, and visual/navigation checks pass.
+- **Remaining release gaps:** No live migration, real Supabase/device end-to-end tests, read receipts, attachments, web chat, or FCM. No production service/data changed.
+- **Next actions:** Open a draft stacked PR targeting `agent/incident-chat-backend`; fix every CI failure, then test real role accounts and network-loss retry behavior in a non-production environment. Reassess the overall completion tracker only after these checks.
+
 ## Active continuation — 2026-10-26: Incident-scoped chat backend foundation
 
 - **Objective:** Add secure text-only incident conversations without a paid provider, stack change, or public/global chat.
