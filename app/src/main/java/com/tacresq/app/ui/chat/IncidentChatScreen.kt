@@ -31,7 +31,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -347,11 +346,11 @@ fun IncidentChatScreen(
                 supportingText = { Text("${state.draft.length}/2000") },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { vm.send(incidentId) }),
-                enabled = !state.sending,
+                enabled = !state.sending && !state.loading && state.error == null,
             )
             Button(
                 onClick = { vm.send(incidentId) },
-                enabled = !state.sending && state.draft.trim().isNotEmpty() && state.draft.trim().length <= 2000,
+                enabled = !state.sending && !state.loading && state.error == null && state.draft.trim().isNotEmpty() && state.draft.trim().length <= 2000,
             ) {
                 if (state.sending) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 else Text("Send")
