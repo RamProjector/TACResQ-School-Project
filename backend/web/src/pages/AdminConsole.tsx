@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowDownUp,
@@ -62,6 +62,34 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [nextRole, setNextRole] = useState<AdminManagedRole>("requester");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const modalRoot = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!target) return;
+    const root = modalRoot.current;
+    const getFocusable = () => Array.from(root?.querySelectorAll<HTMLElement>("button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1'])") ?? []);
+    getFocusable()[0]?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !saving) {
+        setTarget(null);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = getFocusable();
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [target, saving]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -244,7 +272,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       </main>
 
       {target && (
-        <div className="admin-modal-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setTarget(null); }}>
+        <div className="admin-modal-scrim" ref={modalRoot} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setTarget(null); }}>
           <section className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-role-dialog-title">
             <button className="admin-modal__close" type="button" aria-label="Close role change" onClick={() => setTarget(null)} disabled={saving}><X size={18} /></button>
             <div className="admin-modal__icon"><ShieldCheck size={22} /></div>
