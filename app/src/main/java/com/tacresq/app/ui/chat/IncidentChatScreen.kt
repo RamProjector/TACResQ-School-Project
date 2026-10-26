@@ -198,6 +198,14 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     }
 
     fun dismissError() = _state.update { it.copy(error = null, sendError = null) }
+
+    fun closeConversation() {
+        refreshJob?.cancel()
+        olderJob?.cancel()
+        activeIncidentId = null
+        pendingClientMessageId = null
+        _state.value = IncidentChatUiState()
+    }
 }
 
 @Composable
