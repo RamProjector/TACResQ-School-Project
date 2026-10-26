@@ -64,6 +64,51 @@ $function$;
 
 REVOKE ALL ON FUNCTION private.tacresq_notify_assignment_insert() FROM PUBLIC, anon, authenticated;
 
+-- The existing web dashboard still uses api_assign_incident. Cover that legacy
+-- single-unit path as well, while avoiding duplicate alerts when the team RPC
+-- has already inserted the matching incident_assignments row.
+CREATE OR REPLACE FUNCTION private.tacresq_notify_legacy_assignment_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+BEGIN
+  IF NEW.assigned_to IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM public.incident_assignments a
+     WHERE a.incident_id = NEW.id
+       AND a.user_id = NEW.assigned_to
+  ) THEN
+    RETURN NEW;
+  END IF;
+
+  INSERT INTO public.user_notifications (
+    recipient_user_id, incident_id, event_type, title, body
+  ) VALUES (
+    NEW.assigned_to, NEW.id, 'incident_assigned',
+    'New incident assignment',
+    'You have been assigned to an incident. Open TACResQ to review the details.'
+  );
+
+  INSERT INTO public.user_notifications (
+    recipient_user_id, incident_id, event_type, title, body
+  ) VALUES (
+    NEW.requester_id, NEW.id, 'incident_assigned',
+    'Response unit assigned',
+    'A response unit has been assigned to your request.'
+  );
+
+  RETURN NEW;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION private.tacresq_notify_legacy_assignment_update() FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION private.tacresq_notify_status_log_insert()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -124,6 +169,13 @@ DROP TRIGGER IF EXISTS tacresq_notify_assignment_insert ON public.incident_assig
 CREATE TRIGGER tacresq_notify_assignment_insert
 AFTER INSERT ON public.incident_assignments
 FOR EACH ROW EXECUTE FUNCTION private.tacresq_notify_assignment_insert();
+
+DROP TRIGGER IF EXISTS tacresq_notify_legacy_assignment_update ON public.incidents;
+CREATE TRIGGER tacresq_notify_legacy_assignment_update
+AFTER UPDATE OF assigned_to ON public.incidents
+FOR EACH ROW
+WHEN (NEW.assigned_to IS DISTINCT FROM OLD.assigned_to)
+EXECUTE FUNCTION private.tacresq_notify_legacy_assignment_update();
 
 DROP TRIGGER IF EXISTS tacresq_notify_status_log_insert ON public.incident_status_logs;
 CREATE TRIGGER tacresq_notify_status_log_insert
