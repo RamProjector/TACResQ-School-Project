@@ -1,3 +1,11 @@
+## Active continuation — 2026-10-26: Android Supabase auth redirect hardening
+
+- **Goal:** Prevent regressions in the Android email-confirmation redirect contract and document the external Supabase settings required when a confirmation link falls back to `localhost:3000`.
+- **Branch:** `agent/harden-supabase-auth-redirect-contract`, created from `main`; changes are in progress and not merged.
+- **Changes:** Added `tools/test_android_auth_redirect_contract.py` for the configured `tacresq://auth/callback` URL, explicit Supabase `redirect_to` parameter, Android manifest intent filter, build-mode scheme separation, and token-rejecting callback parser/JVM test coverage. Added `docs/ANDROID_SUPABASE_AUTH_REDIRECTS.md` and linked it from README.
+- **Important boundary:** The repo already passes the redirect URI as `redirect_to`; this change does not claim to alter the user's live Supabase Auth URL allowlist or email template. A `localhost:3000` fallback still requires checking the intended Supabase project's Redirect URLs and deployed email template.
+- **Validation:** CI step has been added; run the new Python contract test locally/CI and verify all latest workflow jobs before opening a reviewable PR. Live email delivery, the deployed Supabase configuration, and physical-device deep-link behavior remain unverified.
+- **Next actions:** Run `python3 tools/test_android_auth_redirect_contract.py`; inspect its result, fix any test mismatch, then open a draft PR and monitor CI. Do not edit live Supabase settings, merge, or deploy without explicit authorization.
 ## Active continuation — 2026-10-24: Repair bridge rate-limit cache dependency
 
 - **Finding:** PR #131's new `throttle:120,1` middleware failed integration CI because Laravel's configured database cache store had no `cache` table. This is not just a test-only problem: the public Render bridge could error when rate limiting tries to access that missing table.
