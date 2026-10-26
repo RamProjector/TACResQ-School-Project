@@ -7,6 +7,7 @@ import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.model.UserNotification
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
@@ -24,7 +25,7 @@ class SupabaseTacApi private constructor(
     private val auth: SupabaseAuthWire,
     private val rpc: SupabaseRpcWire,
     private val bridgeRpc: SupabaseBridgeRpcWire?,
-) : TacApi {
+) : TacApi, TacNotificationApi {
     override suspend fun login(body: LoginRequest): AuthResponse = authenticate {
         auth.login(body)
     }
@@ -109,6 +110,18 @@ class SupabaseTacApi private constructor(
     override suspend fun recordLocation(body: ResponderLocationRequest): Long {
         val request = RecordLocationRpc(body.incidentId, body.latitude, body.longitude, body.accuracyM, body.recordedAt)
         return if (bridgeRpc != null) bridgeRpc.recordLocation(request) else rpc.recordLocation(request)
+    }
+
+    override suspend fun myNotifications(limit: Int): List<UserNotification> {
+        require(limit in 1..100) { "Notification page size must be between 1 and 100." }
+        // The current Render bridge allowlist has no notification routes yet. Use the
+        // authenticated Supabase RPC directly; the same stored session token is applied.
+        return rpc.myNotifications(NotificationsLimitRpc(limit))
+    }
+
+    override suspend fun markNotificationRead(notificationId: Long): Boolean {
+        require(notificationId > 0) { "Notification ID must be positive." }
+        return rpc.markNotificationRead(MarkNotificationReadRpc(notificationId))
     }
 
     companion object {
@@ -278,6 +291,12 @@ private interface SupabaseRpcWire {
 
     @POST("rest/v1/rpc/api_record_location_v2")
     suspend fun recordLocation(@Body body: RecordLocationRpc): Long
+
+    @POST("rest/v1/rpc/api_my_notifications")
+    suspend fun myNotifications(@Body body: NotificationsLimitRpc): List<UserNotification>
+
+    @POST("rest/v1/rpc/api_mark_notification_read")
+    suspend fun markNotificationRead(@Body body: MarkNotificationReadRpc): Boolean
 }
 
 private data class SupabaseSession(@SerializedName("access_token") val accessToken: String?)
@@ -310,6 +329,8 @@ private data class RecordLocationRpc(
     @SerializedName("p_accuracy_m") val accuracyM: Float?,
     @SerializedName("p_recorded_at") val recordedAt: String,
 )
+private data class NotificationsLimitRpc(@SerializedName("p_limit") val limit: Int)
+private data class MarkNotificationReadRpc(@SerializedName("p_notification_id") val notificationId: Long)
 
 private val DutyStatus.wireValue: String get() = when (this) {
     DutyStatus.OFF_DUTY -> "off_duty"
