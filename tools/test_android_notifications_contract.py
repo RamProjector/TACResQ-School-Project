@@ -80,6 +80,8 @@ assert 'MAP("GPS Map")' in shell, "GPS Map must remain a top-level destination"
 assert "GpsMapNavigationItem(selected, onDestinationSelected)" in shell
 assert shell.count("NavigationItem(destinations[") >= 4, "The four non-map destinations must remain"
 assert "GPS Map" in shell, "GPS Map must remain visible in the central navigation item"
+assert 'ALERTS("Alerts")' in shell, "notifications must be discoverable from the Alerts destination"
+assert 'title = "Alerts & safety"' in screen, "the destination must preserve its safety guidance context"
 
 # Client code must consume the protected RPCs, not read/write the private table directly.
 for path in (
