@@ -59,6 +59,8 @@ for required in (
     "Load older messages",
     "Message was not confirmed. Retry safely.",
     "pendingClientMessageId",
+    "refreshJob?.cancel()",
+    "if (activeIncidentId != incidentId) return@onSuccess",
     "2000",
     "Back to incident list",
     "!state.loading && state.error == null",
