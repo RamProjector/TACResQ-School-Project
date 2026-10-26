@@ -67,6 +67,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const modalRoot = useRef<HTMLDivElement>(null);
+  const requestVersion = useRef(0);
 
   useEffect(() => {
     if (!target) return;
@@ -96,21 +97,27 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }, [target, saving]);
 
   const refresh = useCallback(async () => {
+    const requestId = ++requestVersion.current;
     setRefreshing(true);
     setError(null);
     try {
       const [userPage, nextAudit] = await Promise.all([getAdminUsersPage(pageSize, page * pageSize, query, roleFilter), getAdminAuditLogs(100)]);
+      if (requestId !== requestVersion.current) return;
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
       setAudit(nextAudit);
     } catch (cause) {
+      if (requestId !== requestVersion.current) return;
       // Never keep privileged data visible after an authorization or connection failure.
       setUsers([]);
+      setTotalUsers(0);
       setAudit([]);
       setError(cause instanceof Error ? cause.message : "The Admin service could not load its data.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === requestVersion.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [page, query, roleFilter]);
 
