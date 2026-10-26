@@ -38,7 +38,7 @@ enum class AppDestination(val label: String) {
     PRIMARY("Home"),
     SECONDARY("Requests"),
     MAP("GPS Map"),
-    ALERTS("Safety"),
+    ALERTS("Alerts"),
     PROFILE("Profile"),
 }
 
@@ -76,9 +76,9 @@ private fun TacruBottomNavigation(
         val compact = maxWidth < 400.dp
         // Keep all role-specific labels visible; GPS Map remains a stable, prominent center destination.
         val labels = when (role) {
-            Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
-            Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")
-            Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")
+            Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")
+            Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Alerts", "Profile")
+            Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")
         }
         val destinations = listOf(
             AppDestination.PRIMARY to labels[0],
