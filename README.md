@@ -136,7 +136,7 @@ python3 tools/visual_regression.py
 ```
 
 The CI workflow type-checks and builds the dashboard, runs Laravel integration checks, validates the Android wrapper checksum, and attempts real Android debug and release builds. The source checker distinguishes missing build tooling from successful APK compilation.
-The Android CI job also runs instrumented Compose smoke tests on an Android API 36 emulator for sign-in, requester-only registration copy, and inline required-field validation. These use the demo backend; they do not validate GPS hardware, live Supabase email delivery, or real-backend end-to-end behavior.
+The Android CI job also runs instrumented Compose smoke tests on an Android API 36 emulator for sign-in, requester-only registration copy, and inline required-field validation. These use the demo backend; they do not validate GPS hardware, live Supabase email delivery, or real-backend end-to-end behavior. The suite also checks that all five top-level requester destinations remain visible and that the centered GPS Map destination opens the map body and returns to Home without relying on device GPS, network tiles, or live incidents.
 
 For the complete operator runbook covering debug/release builds, web navigation, all-state screenshots, bounded stress tests, and static/AI-assisted security review, see [`docs/QA_WORKFLOWS.md`](docs/QA_WORKFLOWS.md).
 
