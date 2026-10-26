@@ -1,8 +1,8 @@
 # Persistent in-app notifications — implementation boundary
 
-## Scope of this migration
+## Scope of this implementation stage
 
-This change adds the server-side persistence and authorization foundation for TACResQ in-app notifications. It does **not** implement a notification screen, Android push delivery, Firebase Cloud Messaging delivery, or a claim of real-time delivery.
+This workstream adds the server-side persistence/authorization foundation and a first Android inbox in the existing Alerts & safety destination. It does **not** implement Firebase Cloud Messaging delivery, web notification UI, notification-to-incident deep links, or a claim of real-time delivery.
 
 The authoritative notification record is stored in PostgreSQL. Database triggers create notifications in the same transaction as assignment/status-log writes, so a successful state change and its in-app notification commit or roll back together.
 
@@ -20,12 +20,12 @@ Notification text is intentionally generic. It does not copy incident descriptio
 - Trigger writers are private SECURITY DEFINER functions with 'search_path = pg_catalog' and fully qualified table references.
 - 'api_my_notifications' derives the recipient from 'auth.uid()' → 'profiles.auth_user_id'; it never accepts a recipient ID from the client.
 - 'api_mark_notification_read' updates only a row owned by the caller. It returns 'false' for both missing and non-owned IDs to avoid leaking another user's notification existence.
-- The listing RPC accepts a bounded limit (1–100). The UI should request a small page and offer retry/loading/empty/error states.
+- The listing RPC accepts a bounded limit (1–100). The Android inbox requests 50 records and has lifecycle-bound refresh, loading/empty/error states, retry, unread/read styling, and mark-read actions.
 - SECURITY DEFINER functions, grants, triggers, and RLS are all part of the security boundary; client-side hiding is not authorization.
 
 ## Validation
 
-The clean-PostgreSQL migration replay test covers assignment and status event creation, recipient isolation, cross-user mark-read denial, idempotent read marking, anonymous grant denial, direct table access denial, unauthenticated calls, and the maximum page size. CI results for the current branch must be checked before treating these tests as passed.
+The clean-PostgreSQL migration replay test covers assignment and status event creation, recipient isolation, cross-user mark-read denial, idempotent read marking, anonymous grant denial, direct table access denial, unauthenticated calls, and the maximum page size. The Android source-contract test checks RPC use, recipient filtering in demo mode, lifecycle-bound polling, visible loading/empty/error/retry states, and preservation of the central GPS Map destination. CI results for the current branch must be checked before treating these tests as passed; source contracts do not replace runtime UI or live-backend tests.
 
 ## Follow-up work required
 
