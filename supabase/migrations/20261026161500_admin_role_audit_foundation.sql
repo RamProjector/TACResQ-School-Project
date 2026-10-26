@@ -36,8 +36,10 @@ ALTER TABLE public.profiles
 -- delete these rows directly; trusted RPCs insert events transactionally.
 CREATE TABLE public.admin_audit_logs (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  actor_user_id bigint REFERENCES public.profiles(id) ON DELETE SET NULL,
-  target_user_id bigint REFERENCES public.profiles(id) ON DELETE SET NULL,
+  -- Keep immutable numeric identity snapshots even if a profile is later deleted.
+  -- Foreign keys with ON DELETE SET NULL would mutate historical audit rows.
+  actor_user_id bigint NOT NULL,
+  target_user_id bigint NOT NULL,
   action text NOT NULL CHECK (action IN ('user_role_changed')),
   old_role text NOT NULL CHECK (old_role IN ('requester', 'responder', 'driver', 'dispatcher', 'admin')),
   new_role text NOT NULL CHECK (new_role IN ('requester', 'responder', 'driver', 'dispatcher', 'admin')),
