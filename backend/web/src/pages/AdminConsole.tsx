@@ -235,7 +235,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <section className="admin-metrics" aria-label="Account summary">
             <article><span>REGISTERED PROFILES</span><strong>{totalUsers}</strong><small>Matching profiles across all pages</small></article>
             <article><span>REQUESTERS ON PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Requester accounts on this page</small></article>
-            <article><span>FIELD UNITS ON PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</small></article>
+            <article><span>FIELD UNITS ON PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responder and driver accounts on this page</small></article>
             <article><span>RECENT AUDIT EVENTS</span><strong>{audit.length}</strong><small>Latest records, maximum 100 loaded</small></article>
           </section>
 
