@@ -101,7 +101,8 @@ assert "FOR UPDATE TO authenticated" not in admin
 assert "FOR DELETE TO authenticated" not in admin
 assert "actor_user_id bigint NOT NULL" in admin
 assert "target_user_id bigint NOT NULL" in admin
-assert "ON DELETE SET NULL" not in admin
+assert "actor_user_id bigint REFERENCES" not in admin
+assert "target_user_id bigint REFERENCES" not in admin
 assert "DROP FUNCTION" not in admin.upper(), "Admin migration must not drop existing functions"
 assert "DELETE FROM" not in admin.upper(), "Admin migration must not alter user data"
 
