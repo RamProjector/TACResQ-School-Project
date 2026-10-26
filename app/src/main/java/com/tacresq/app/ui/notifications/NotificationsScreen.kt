@@ -141,6 +141,7 @@ fun NotificationsAndSafetyScreen(
     user: User,
     onLogout: () -> Unit,
     onOpenIncident: (Long) -> Unit,
+    onOpenChat: (Long) -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -263,7 +264,8 @@ fun NotificationsAndSafetyScreen(
                     onMarkRead = { vm.markRead(notification) },
                     onOpenIncident = { incidentId ->
                         if (notification.readAt == null) vm.markRead(notification)
-                        onOpenIncident(incidentId)
+                        if (notification.eventType == "incident_message") onOpenChat(incidentId)
+                        else onOpenIncident(incidentId)
                     },
                 )
             }
