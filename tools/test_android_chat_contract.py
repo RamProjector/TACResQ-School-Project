@@ -60,6 +60,7 @@ for required in (
     "Message was not confirmed. Retry safely.",
     "pendingClientMessageId",
     "refreshJob?.cancel()",
+    "fun closeConversation()",
     "if (activeIncidentId != incidentId) return@onSuccess",
     "2000",
     "Back to incident list",
@@ -72,6 +73,7 @@ for required in (
     "IncidentChatScreen(chatVm, selectedChatIncidentId, user",
     "onOpenChat = openChat",
     "selectedChatIncidentId",
+    "chatVm.closeConversation()",
     "Text(\"Open conversation\")",
 ):
     assert required in root, f"Chat navigation wiring missing: {required}"
