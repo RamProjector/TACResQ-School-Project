@@ -354,10 +354,12 @@ private fun GuidanceCard(title: String, body: String) {
     }
 }
 
-private fun formatNotificationTime(raw: String?): String =
-    runCatching {
+private fun formatNotificationTime(raw: String?): String {
+    if (raw.isNullOrBlank()) return "Time unavailable"
+    return runCatching {
         val instant = Instant.parse(raw)
         DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.getDefault())
             .withZone(ZoneId.systemDefault())
             .format(instant)
     }.getOrDefault("Time unavailable")
+}
