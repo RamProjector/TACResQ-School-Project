@@ -45,10 +45,10 @@ BEGIN
   WHERE (normalized_role = 'all' OR p.role = normalized_role)
     AND (
       normalized_query = ''
-      OR lower(coalesce(p.name, '')) LIKE '%' || replace(replace(replace(normalized_query, E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_') || '%' ESCAPE E'\\'
-      OR lower(coalesce(p.email, '')) LIKE '%' || replace(replace(replace(normalized_query, E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_') || '%' ESCAPE E'\\'
-      OR coalesce(p.phone, '') LIKE '%' || replace(replace(replace(normalized_query, E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_') || '%' ESCAPE E'\\'
-      OR p.id::text LIKE '%' || normalized_query || '%'
+      OR strpos(lower(coalesce(p.name, '')), normalized_query) > 0
+      OR strpos(lower(coalesce(p.email, '')), normalized_query) > 0
+      OR strpos(lower(coalesce(p.phone, '')), normalized_query) > 0
+      OR strpos(p.id::text, normalized_query) > 0
     );
 
   SELECT coalesce(jsonb_agg(jsonb_build_object(
@@ -67,10 +67,10 @@ BEGIN
     WHERE (normalized_role = 'all' OR p.role = normalized_role)
       AND (
         normalized_query = ''
-        OR lower(coalesce(p.name, '')) LIKE '%' || replace(replace(replace(normalized_query, E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_') || '%' ESCAPE E'\\'
-        OR lower(coalesce(p.email, '')) LIKE '%' || replace(replace(replace(normalized_query, E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_') || '%' ESCAPE E'\\'
-        OR coalesce(p.phone, '') LIKE '%' || replace(replace(replace(normalized_query, E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_') || '%' ESCAPE E'\\'
-        OR p.id::text LIKE '%' || normalized_query || '%'
+        OR strpos(lower(coalesce(p.name, '')), normalized_query) > 0
+      OR strpos(lower(coalesce(p.email, '')), normalized_query) > 0
+      OR strpos(lower(coalesce(p.phone, '')), normalized_query) > 0
+      OR strpos(p.id::text, normalized_query) > 0
       )
     ORDER BY p.created_at DESC, p.id DESC
     LIMIT p_limit OFFSET p_offset
