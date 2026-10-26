@@ -249,7 +249,21 @@ DECLARE
   result_boolean boolean;
   notification_count integer;
   denied boolean;
+  function_is_definer boolean;
+  function_settings text[];
 BEGIN
+  SELECT prosecdef, proconfig INTO function_is_definer, function_settings
+    FROM pg_proc WHERE oid = to_regprocedure('private.tacresq_notify_assignment_insert()');
+  IF function_is_definer IS DISTINCT FROM true
+     OR NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'Assignment notification trigger must be SECURITY DEFINER with a pinned search_path';
+  END IF;
+  SELECT prosecdef, proconfig INTO function_is_definer, function_settings
+    FROM pg_proc WHERE oid = to_regprocedure('private.tacresq_notify_status_log_insert()');
+  IF function_is_definer IS DISTINCT FROM true
+     OR NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'Status notification trigger must be SECURITY DEFINER with a pinned search_path';
+  END IF;
   SELECT id INTO dispatcher_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000131';
   SELECT id INTO requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000132';
   SELECT id INTO responder_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000133';
