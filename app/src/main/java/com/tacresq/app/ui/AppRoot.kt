@@ -248,6 +248,35 @@ private fun RoleSectionScreen(
                         )
                     }
                 }
+                val focusedIncident = selectedIncidentId?.let { targetId ->
+                    incidents.firstOrNull { it.id == targetId }
+                }
+                if (selectedIncidentId != null) {
+                    if (focusedIncident != null) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = androidx.compose.material3.CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Opened from alert", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                Text("Incident #${focusedIncident.id} · ${focusedIncident.status.label}")
+                                Text(
+                                    "This record is shown only because it appears in your current authorized incident list.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            }
+                        }
+                        com.tacresq.app.ui.common.IncidentCard(focusedIncident)
+                    } else {
+                        EmptySectionCard(
+                            "Incident unavailable",
+                            "This incident is not in your current authorized request list. Refresh before acting on an older alert.",
+                        )
+                    }
+                }
                 if (incidents.isEmpty()) {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(
@@ -266,8 +295,14 @@ private fun RoleSectionScreen(
                         }
                     }
                 } else {
-                    incidents.sortedByDescending { it.createdAt.orEmpty() }.forEach { incident ->
-                        com.tacresq.app.ui.common.IncidentCard(incident)
+                    val remainingIncidents = incidents
+                        .sortedByDescending { it.createdAt.orEmpty() }
+                        .filterNot { focusedIncident?.id == it.id }
+                    if (remainingIncidents.isNotEmpty()) {
+                        Text("Other incidents", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        remainingIncidents.forEach { incident ->
+                            com.tacresq.app.ui.common.IncidentCard(incident)
+                        }
                     }
                 }
             }
