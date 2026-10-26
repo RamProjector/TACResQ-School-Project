@@ -79,6 +79,8 @@ private fun TacruBottomNavigation(
             Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")
             Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")
             Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")
+            // Admin accounts use AdminAccessScreen; this label is a fail-safe if the shell is reused.
+            Role.ADMIN -> listOf("Admin", "Audit", "Safety", "Profile")
         }
         val destinations = listOf(
             AppDestination.PRIMARY to labels[0],
