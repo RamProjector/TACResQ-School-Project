@@ -2,6 +2,8 @@ package com.tacresq.app
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Rule
@@ -43,5 +45,23 @@ class AuthScreenInstrumentedTest {
         composeRule.onNodeWithText("Sign in").performClick()
         composeRule.onNodeWithText("Enter your email address.").assertIsDisplayed()
         composeRule.onNodeWithText("Enter your password.").assertIsDisplayed()
+    }
+
+    @Test
+    fun demoRequesterCanReachEmergencyHomeAndOpenGpsMap() {
+        composeRule.onNodeWithText("Requester").performClick()
+        composeRule.onNodeWithText("Sign in").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithText("Start emergency request", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Start emergency request", substring = true).assertIsDisplayed()
+
+        composeRule.onNodeWithContentDescription("GPS Map").performClick()
+        composeRule.onNodeWithText("© OpenStreetMap contributors").assertIsDisplayed()
+
+        composeRule.onNodeWithContentDescription("Home").performClick()
+        composeRule.onNodeWithText("Start emergency request", substring = true).assertIsDisplayed()
     }
 }
