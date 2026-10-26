@@ -107,10 +107,19 @@ BEGIN
         USING ERRCODE = '22023';
     END IF;
 
-    IF EXISTS (
-      SELECT 1 FROM public.incidents
-      WHERE assigned_to = OLD.id
-        AND status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+    IF (
+      EXISTS (
+        SELECT 1 FROM public.incidents
+        WHERE assigned_to = OLD.id
+          AND status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.incident_assignments ia
+        JOIN public.incidents i ON i.id = ia.incident_id
+        WHERE ia.user_id = OLD.id
+          AND i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+      )
     ) AND (NEW.role IS DISTINCT FROM OLD.role OR NEW.duty_status IS DISTINCT FROM OLD.duty_status) THEN
       RAISE EXCEPTION 'Finish the active incident before changing a field unit role or duty status'
         USING ERRCODE = '22023';
@@ -210,11 +219,20 @@ BEGIN
     RAISE EXCEPTION 'The account already has this role' USING ERRCODE = '22023';
   END IF;
 
-  IF EXISTS (
-    SELECT 1 FROM public.incidents
-    WHERE assigned_to = target_row.id
-      AND status IN ('assigned', 'en_route', 'on_scene', 'transporting')
-  ) AND target_row.role IN ('responder', 'driver') THEN
+  IF (
+    EXISTS (
+      SELECT 1 FROM public.incidents
+      WHERE assigned_to = target_row.id
+        AND status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.incident_assignments ia
+      JOIN public.incidents i ON i.id = ia.incident_id
+      WHERE ia.user_id = target_row.id
+        AND i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+    )
+  ) THEN
     RAISE EXCEPTION 'Finish the active incident before changing this field unit role'
       USING ERRCODE = '22023';
   END IF;
