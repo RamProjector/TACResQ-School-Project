@@ -235,7 +235,8 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-000000000131', 'notification-dispatcher@example.test', '{"name":"Notification Dispatcher"}'),
   ('00000000-0000-4000-8000-000000000132', 'notification-requester@example.test', '{"name":"Notification Requester"}'),
   ('00000000-0000-4000-8000-000000000133', 'notification-responder@example.test', '{"name":"Notification Responder"}'),
-  ('00000000-0000-4000-8000-000000000134', 'notification-legacy-responder@example.test', '{"name":"Notification Legacy Responder"}');
+  ('00000000-0000-4000-8000-000000000134', 'notification-legacy-responder@example.test', '{"name":"Notification Legacy Responder"}'),
+  ('00000000-0000-4000-8000-000000000135', 'notification-legacy-requester@example.test', '{"name":"Notification Legacy Requester"}');
 
 DO $notification_test$
 DECLARE
@@ -243,6 +244,7 @@ DECLARE
   requester_id bigint;
   responder_id bigint;
   legacy_responder_id bigint;
+  legacy_requester_id bigint;
   test_incident_id bigint;
   legacy_incident_id bigint;
   requester_notifications jsonb;
@@ -277,11 +279,13 @@ BEGIN
   SELECT id INTO requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000132';
   SELECT id INTO responder_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000133';
   SELECT id INTO legacy_responder_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000134';
+  SELECT id INTO legacy_requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000135';
 
   UPDATE public.profiles SET role = 'dispatcher', duty_status = NULL WHERE id = dispatcher_id;
   UPDATE public.profiles SET role = 'requester', duty_status = NULL WHERE id = requester_id;
   UPDATE public.profiles SET role = 'responder', duty_status = 'available' WHERE id = responder_id;
   UPDATE public.profiles SET role = 'responder', duty_status = 'available' WHERE id = legacy_responder_id;
+  UPDATE public.profiles SET role = 'requester', duty_status = NULL WHERE id = legacy_requester_id;
 
   INSERT INTO public.incidents (
     requester_id, type, description, latitude, longitude,
@@ -369,7 +373,7 @@ BEGIN
     requester_id, type, description, latitude, longitude,
     location_recorded_at, location_source
   ) VALUES (
-    requester_id, 'medical', 'Synthetic legacy assignment notification test',
+    legacy_requester_id, 'medical', 'Synthetic legacy assignment notification test',
     11.245, 125.004, now(), 'manual'
   ) RETURNING id INTO legacy_incident_id;
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000131', true);
