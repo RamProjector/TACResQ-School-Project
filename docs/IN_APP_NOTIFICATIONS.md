@@ -12,7 +12,7 @@ The authoritative notification record is stored in PostgreSQL. Database triggers
 - A meaningful incident status-log entry creates notifications for the requester and assigned units, excluding the profile recorded as the actor.
 - Initial 'pending' logs and 'assigned' status logs are skipped by the status-log trigger to avoid duplicating the assignment alert.
 
-Notification text is intentionally generic. It does not copy incident descriptions, phone numbers, or coordinates into notification bodies. The incident ID is a navigation reference, not an authorization grant; the app must still reload the incident through the existing role-checked API.
+Notification text is intentionally generic. It does not copy incident descriptions, phone numbers, or coordinates into notification bodies. The incident ID is a navigation reference, not an authorization grant; opening an alert routes to the current role-scoped incident list and displays the target only if that API currently returns it. Missing or unauthorized targets show a generic unavailable state.
 
 ## Access-control design
 
