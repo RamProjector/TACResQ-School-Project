@@ -62,7 +62,7 @@ CREATE OR REPLACE FUNCTION public.tacresq_guard_profile_update()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public, auth
+SET search_path = pg_catalog
 AS $function$
 DECLARE
   actor_role text;
@@ -111,8 +111,8 @@ BEGIN
       SELECT 1 FROM public.incidents
       WHERE assigned_to = OLD.id
         AND status IN ('assigned', 'en_route', 'on_scene', 'transporting')
-    ) AND NEW.role IS DISTINCT FROM OLD.role THEN
-      RAISE EXCEPTION 'Finish the active incident before changing a field unit role'
+    ) AND (NEW.role IS DISTINCT FROM OLD.role OR NEW.duty_status IS DISTINCT FROM OLD.duty_status) THEN
+      RAISE EXCEPTION 'Finish the active incident before changing a field unit role or duty status'
         USING ERRCODE = '22023';
     END IF;
   END IF;
@@ -129,7 +129,7 @@ CREATE OR REPLACE FUNCTION public.api_admin_list_users()
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public, auth
+SET search_path = pg_catalog
 AS $function$
 BEGIN
   IF NOT EXISTS (
@@ -166,7 +166,7 @@ CREATE OR REPLACE FUNCTION public.api_admin_set_user_role(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public, auth
+SET search_path = pg_catalog
 AS $function$
 DECLARE
   actor_id bigint;
@@ -245,7 +245,7 @@ CREATE OR REPLACE FUNCTION public.api_admin_list_audit_logs(p_limit integer DEFA
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public, auth
+SET search_path = pg_catalog
 AS $function$
 BEGIN
   IF NOT EXISTS (
