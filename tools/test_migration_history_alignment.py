@@ -83,6 +83,7 @@ for required in (
     "ALTER TABLE public.user_notifications ENABLE ROW LEVEL SECURITY",
     "REVOKE ALL ON TABLE public.user_notifications FROM PUBLIC, anon, authenticated",
     "private.tacresq_notify_assignment_insert",
+    "private.tacresq_notify_legacy_assignment_update",
     "private.tacresq_notify_status_log_insert",
     "public.api_my_notifications(p_limit integer DEFAULT 50)",
     "public.api_mark_notification_read(p_notification_id bigint)",
