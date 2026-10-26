@@ -312,6 +312,7 @@ private fun NotificationCard(
     onOpenIncident: (Long) -> Unit,
 ) {
     val unread = notification.readAt == null
+    val incidentId = notification.incidentId
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -336,21 +337,21 @@ private fun NotificationCard(
                 )
             }
             Text(notification.body, style = MaterialTheme.typography.bodyMedium)
-            val incidentLabel = notification.incidentId?.let { "Incident #$it · " }.orEmpty()
+            val incidentLabel = incidentId?.let { "Incident #$it · " }.orEmpty()
             Text(
                 incidentLabel + formatNotificationTime(notification.createdAt),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (unread || notification.incidentId != null) {
+            if (unread || incidentId != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (notification.incidentId != null) {
+                    if (incidentId != null) {
                         TextButton(
-                            onClick = { onOpenIncident(notification.incidentId) },
+                            onClick = { onOpenIncident(incidentId) },
                             enabled = !busy,
                         ) { Text("Open incident") }
                     }
