@@ -81,6 +81,7 @@ type TacruDatabase = {
       api_assign_incident: { Args: { p_id: number; p_user_id: number }; Returns: Incident };
       api_active_responder_locations: { Args: Record<string, never>; Returns: ResponderLocation[] };
       api_admin_list_users: { Args: Record<string, never>; Returns: AdminUser[] };
+      api_admin_list_users_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_role: string }; Returns: { users: AdminUser[]; total_count: number } };
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
     };
@@ -181,10 +182,30 @@ function throwAdminError(error: { code?: string; message?: string } | null) {
   throw new Error("The Admin service could not complete the request. Check the connection and try again.");
 }
 
-export async function getAdminUsers(): Promise<AdminUser[]> {
-  const { data, error } = await getSupabase().rpc("api_admin_list_users");
+export interface AdminUserPage {
+  users: AdminUser[];
+  total_count: number;
+}
+
+export async function getAdminUsersPage(
+  limit: number,
+  offset: number,
+  query: string,
+  role: string,
+): Promise<AdminUserPage> {
+  const { data, error } = await getSupabase().rpc("api_admin_list_users_page", {
+    p_limit: limit,
+    p_offset: offset,
+    p_query: query.trim(),
+    p_role: role,
+  });
   throwAdminError(error);
-  return (data as unknown as AdminUser[] | null) ?? [];
+  if (!data || typeof data !== "object") throw new Error("The Admin service returned an invalid user page.");
+  const page = data as unknown as AdminUserPage;
+  if (!Array.isArray(page.users) || !Number.isSafeInteger(page.total_count) || page.total_count < 0) {
+    throw new Error("The Admin service returned an invalid user page.");
+  }
+  return page;
 }
 
 export async function setAdminUserRole(userId: number, role: AdminManagedRole, reason: string): Promise<AdminRoleChangeResult> {
