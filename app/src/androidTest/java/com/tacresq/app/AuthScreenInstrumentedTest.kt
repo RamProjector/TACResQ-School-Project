@@ -1,12 +1,12 @@
 package com.tacresq.app
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,7 +75,7 @@ class AuthScreenInstrumentedTest {
             composeRule.onAllNodesWithText("Start emergency request", substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Emergency request").assertDoesNotExist()
+        assertTrue(composeRule.onAllNodesWithText("Emergency request").fetchSemanticsNodes().isEmpty())
 
         composeRule.onNodeWithText("Start emergency request", substring = true).performClick()
         composeRule.onNodeWithText("Emergency request").assertIsDisplayed()
@@ -116,6 +116,6 @@ class AuthScreenInstrumentedTest {
         }
         composeRule.onNodeWithText("Active emergency").assertIsDisplayed()
         composeRule.onNodeWithText("Request #", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Start emergency request", substring = true).assertDoesNotExist()
+        assertTrue(composeRule.onAllNodesWithText("Start emergency request", substring = true).fetchSemanticsNodes().isEmpty())
     }
 }
