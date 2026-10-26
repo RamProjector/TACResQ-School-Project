@@ -282,6 +282,12 @@ BEGIN
   IF NOT has_function_privilege('authenticated', 'public.api_admin_list_users()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Authenticated role must have the explicitly granted Admin RPC entry point';
   END IF;
+  IF has_function_privilege('anon', 'public.api_admin_list_users_page(integer,integer,text,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Anonymous role must not execute the Admin paginated user-list RPC';
+  END IF;
+  IF NOT has_function_privilege('authenticated', 'public.api_admin_list_users_page(integer,integer,text,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Authenticated role must have the explicitly granted Admin pagination RPC entry point';
+  END IF;
   IF has_table_privilege('authenticated', 'public.admin_audit_logs', 'INSERT')
      OR has_table_privilege('authenticated', 'public.admin_audit_logs', 'UPDATE')
      OR has_table_privilege('authenticated', 'public.admin_audit_logs', 'DELETE') THEN
@@ -293,6 +299,29 @@ BEGIN
   IF jsonb_typeof(changed) <> 'array' OR jsonb_array_length(changed) < 3 THEN
     RAISE EXCEPTION 'Admin user-list RPC should return profile data for an authorized administrator';
   END IF;
+  -- Search must be case-insensitive and literal (wildcard characters are not SQL patterns).
+  changed := public.api_admin_list_users_page(25, 0, 'ADMIN-ROLE-TARGET@example.test', 'requester');
+  IF changed->>'total_count' <> '1'
+     OR jsonb_array_length(changed->'users') <> 1
+     OR changed->'users'->0->>'email' <> 'admin-role-target@example.test' THEN
+    RAISE EXCEPTION 'Admin pagination search/filter returned an unexpected result: %', changed;
+  END IF;
+
+  changed := public.api_admin_list_users_page(25, 0, '%', 'requester');
+  IF changed->>'total_count' <> '0' OR jsonb_array_length(changed->'users') <> 0 THEN
+    RAISE EXCEPTION 'Percent in Admin search must be treated literally, not as a wildcard: %', changed;
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_users_page(101, 0, '', 'all');
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin pagination must reject page sizes above 100';
+  END IF;
+
 
   changed := public.api_admin_set_user_role(
     target_profile_id,
@@ -426,6 +455,16 @@ BEGIN
     END;
     IF NOT denied THEN
       RAISE EXCEPTION 'Ordinary role % unexpectedly read Admin user list', principal.role_name;
+    END IF;
+
+    denied := false;
+    BEGIN
+      PERFORM public.api_admin_list_users_page(25, 0, '', 'all');
+    EXCEPTION WHEN insufficient_privilege THEN
+      denied := true;
+    END;
+    IF NOT denied THEN
+      RAISE EXCEPTION 'Ordinary role % unexpectedly used Admin pagination RPC', principal.role_name;
     END IF;
 
     denied := false;
