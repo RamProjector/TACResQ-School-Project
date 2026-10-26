@@ -22,6 +22,12 @@ CREATE INDEX IF NOT EXISTS user_notifications_unread_idx
 CREATE UNIQUE INDEX IF NOT EXISTS user_notifications_one_unread_assignment_idx
   ON public.user_notifications (recipient_user_id, incident_id)
   WHERE event_type = 'incident_assigned' AND read_at IS NULL;
+-- A team assignment can update incidents.assigned_to before inserting all assignment
+-- rows. Both trigger paths may observe the same event; suppress duplicate unread
+-- assignment alerts per recipient, while allowing a new alert after the old one is read.
+CREATE UNIQUE INDEX IF NOT EXISTS user_notifications_one_unread_assignment_idx
+  ON public.user_notifications (recipient_user_id, incident_id)
+  WHERE event_type = 'incident_assigned' AND read_at IS NULL;
 
 ALTER TABLE public.user_notifications ENABLE ROW LEVEL SECURITY;
 -- Notifications are accessed only through narrowly scoped RPCs. Keep direct table
