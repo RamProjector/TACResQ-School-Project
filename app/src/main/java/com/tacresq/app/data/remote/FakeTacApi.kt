@@ -8,6 +8,7 @@ import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.ResponderAssignmentStatus
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.UserNotification
+import com.tacresq.app.data.model.IncidentMessage
 import com.tacresq.app.data.model.nextSteps
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +34,7 @@ import java.util.UUID
 class FakeTacApi(
     private val tokenProvider: () -> String?,
     private val autoDispatchEnabled: Boolean = false,
-) : TacApi, TacNotificationApi {
+) : TacApi, TacNotificationApi, TacChatApi {
 
     private data class Account(val user: User, val password: String)
 
@@ -50,8 +51,12 @@ class FakeTacApi(
     private val incidents = mutableListOf<Incident>()
     private val requesterOf = mutableMapOf<Long, Long>()
     private data class StoredNotification(val recipientId: Long, val value: UserNotification)
+    private data class StoredMessage(val incidentId: Long, val senderId: Long, val clientMessageId: String, val value: IncidentMessage)
     private val notifications = mutableListOf<StoredNotification>()
+    private val messages = mutableListOf<StoredMessage>()
+    private val messageSendTimes = mutableMapOf<Long, MutableList<Long>>()
     private var nextNotificationId = 1L
+    private var nextMessageId = 1L
     private var nextUserId = 100L
     private var nextIncidentId = 1L
 
@@ -170,6 +175,78 @@ class FakeTacApi(
                 value = stored.value.copy(readAt = stored.value.readAt ?: Instant.now().toString()),
             )
             true
+        }
+    }
+
+    override suspend fun myIncidentMessages(incidentId: Long, limit: Int, beforeId: Long?): List<IncidentMessage> {
+        delay(120)
+        if (limit !in 1..100) throw httpError(422, "Message page size must be between 1 and 100.")
+        if (incidentId < 1 || (beforeId != null && beforeId < 1)) throw httpError(422, "Incident ID or message cursor is invalid.")
+        return synchronized(lock) {
+            val me = current()
+            ensureChatAccess(incidentId, me)
+            messages.asSequence()
+                .filter { it.incidentId == incidentId && (beforeId == null || it.value.id < beforeId) }
+                .sortedByDescending { it.value.id }
+                .take(limit)
+                .map { it.value }
+                .toList()
+                .sortedBy { it.id }
+        }
+    }
+
+    override suspend fun sendIncidentMessage(incidentId: Long, message: String, clientMessageId: String): IncidentMessage {
+        delay(120)
+        val normalized = message.trim()
+        if (incidentId < 1 || normalized.length !in 1..2000) {
+            throw httpError(422, "Message must contain 1 to 2000 characters and use a valid incident ID.")
+        }
+        val normalizedClientId = try {
+            UUID.fromString(clientMessageId).toString()
+        } catch (_: IllegalArgumentException) {
+            throw httpError(422, "A valid client message ID is required.")
+        }
+
+        return synchronized(lock) {
+            val me = current()
+            val incident = ensureChatAccess(incidentId, me)
+            val existing = messages.firstOrNull {
+                it.senderId == me.id && it.clientMessageId == normalizedClientId
+            }
+            if (existing != null) {
+                if (existing.incidentId != incidentId || existing.value.message != normalized) {
+                    throw httpError(409, "Client message ID was already used for different content.")
+                }
+                return@synchronized existing.value
+            }
+
+            val nowMs = System.currentTimeMillis()
+            val recentTimes = messageSendTimes.getOrPut(me.id) { mutableListOf() }
+            recentTimes.removeAll { it < nowMs - 60_000 }
+            if (recentTimes.size >= 20) throw httpError(429, "Message rate limit reached. Wait before sending again.")
+
+            val created = IncidentMessage(
+                id = nextMessageId++,
+                incidentId = incidentId,
+                senderId = me.id,
+                message = normalized,
+                createdAt = Instant.now().toString(),
+            )
+            messages += StoredMessage(incidentId, me.id, normalizedClientId, created)
+            recentTimes += nowMs
+
+            val recipients = (
+                listOfNotNull(requesterOf[incidentId]) +
+                    incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+                ).distinct().filterNot { it == me.id }
+            recipients.forEach { recipientId ->
+                addNotification(
+                    recipientId, incidentId, "incident_message",
+                    "New incident message",
+                    "A participant sent a new message in an incident conversation.",
+                )
+            }
+            created
         }
     }
 
@@ -419,6 +496,20 @@ class FakeTacApi(
     }
 
     // ---- helpers (call only while holding `lock`, except dispatchLater/httpError) ----
+
+    private fun ensureChatAccess(incidentId: Long, user: User): Incident {
+        val incident = incidents.firstOrNull { it.id == incidentId }
+            ?: throw httpError(404, "Incident not found.")
+        val allowed = when (user.role) {
+            Role.DISPATCHER -> true
+            Role.REQUESTER -> requesterOf[incidentId] == user.id
+            Role.RESPONDER, Role.DRIVER ->
+                user.id in incident.assignedUserIds || incident.assignedTo == user.id
+            else -> false
+        }
+        if (!allowed) throw httpError(403, "Incident chat is not available to this account.")
+        return incident
+    }
 
     private fun emitAssignmentNotifications(incidentId: Long, assignedUserIds: List<Long>) {
         val requesterId = requesterOf[incidentId] ?: return
