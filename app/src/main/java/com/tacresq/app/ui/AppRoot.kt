@@ -99,17 +99,27 @@ fun AppRoot(
                     Role.REQUESTER -> {
                         val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId ->
                             if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout)
-                            else RoleSectionScreen(destination, user, logout, vmState.incidents, notificationsVm = notificationsVm)
+                            else RoleSectionScreen(
+                                destination, user, logout, vmState.incidents,
+                                notificationsVm = notificationsVm,
+                                onOpenIncident = openIncident,
+                                selectedIncidentId = selectedIncidentId,
+                            )
                         }
                     }
                     Role.RESPONDER, Role.DRIVER -> {
                         val vm: ResponderViewModel = viewModel(key = "unit-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId ->
                             if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, logout)
-                            else RoleSectionScreen(destination, user, logout, vmState.incidents, notificationsVm = notificationsVm)
+                            else RoleSectionScreen(
+                                destination, user, logout, vmState.incidents,
+                                notificationsVm = notificationsVm,
+                                onOpenIncident = openIncident,
+                                selectedIncidentId = selectedIncidentId,
+                            )
                         }
                     }
                     Role.DISPATCHER -> {
@@ -123,9 +133,13 @@ fun AppRoot(
                             logout = logout,
                             responderLocations = vmState.responderLocations,
                             onMapRefresh = vm::refresh,
-                        ) { destination ->
+                        ) { destination, openIncident, selectedIncidentId ->
                             if (destination == AppDestination.PRIMARY) DispatcherScreen(vm, user, logout)
-                            else RoleSectionScreen(destination, user, logout, vmState.incidents, vmState.units, notificationsVm)
+                            else RoleSectionScreen(
+                                destination, user, logout, vmState.incidents, vmState.units, notificationsVm,
+                                onOpenIncident = openIncident,
+                                selectedIncidentId = selectedIncidentId,
+                            )
                         }
                     }
                 }
@@ -143,14 +157,19 @@ private fun RoleApp(
     logout: () -> Unit,
     responderLocations: List<ResponderLocation> = emptyList(),
     onMapRefresh: () -> Unit = {},
-    contentFor: @Composable (AppDestination) -> Unit,
+    contentFor: @Composable (AppDestination, (Long) -> Unit, Long?) -> Unit,
 ) {
     var destination by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
+    var selectedIncidentId by rememberSaveable(role, user.id) { mutableStateOf<Long?>(null) }
+    val openIncident: (Long) -> Unit = { incidentId ->
+        selectedIncidentId = incidentId
+        destination = AppDestination.SECONDARY
+    }
     RoleShell(
         role = role,
         selected = destination,
         onDestinationSelected = { destination = it },
-        content = { contentFor(destination) },
+        content = { contentFor(destination, openIncident, selectedIncidentId) },
         mapContent = {
             GpsMapScreen(
                 role = role,
@@ -173,9 +192,11 @@ private fun RoleSectionScreen(
     incidents: List<Incident>,
     units: List<User> = emptyList(),
     notificationsVm: NotificationsViewModel,
+    onOpenIncident: (Long) -> Unit = {},
+    selectedIncidentId: Long? = null,
 ) {
     if (destination == AppDestination.ALERTS) {
-        NotificationsAndSafetyScreen(notificationsVm, user, logout)
+        NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident)
         return
     }
     val role = user.role
