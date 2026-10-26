@@ -11,6 +11,7 @@ enum class Role(val label: String) {
     @SerializedName("responder") RESPONDER("Field responder"),
     @SerializedName("driver") DRIVER("Driver"),
     @SerializedName("dispatcher") DISPATCHER("Dispatcher"),
+    @SerializedName("admin") ADMIN("Administrator"),
 }
 
 enum class DutyStatus(val label: String) {
