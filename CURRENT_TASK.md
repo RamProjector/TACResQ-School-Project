@@ -1,3 +1,13 @@
+## Active continuation — 2026-10-26: Persistent in-app notification backend foundation
+
+- **Objective:** Start the documented notifications workstream without adding paid services or changing the existing Android/Supabase/Laravel stack.
+- **Base:** `main` at `dcc6d8167240aded69c40d5e978426242397725f`; branch `agent/persistent-in-app-notifications`.
+- **Implementation:** Added `supabase/migrations/20261026190000_persistent_in_app_notifications.sql`. It creates a private-by-default notification store, assignment/status-log event triggers, a bounded caller-scoped list RPC, and an owner-scoped idempotent mark-read RPC. Notification bodies avoid incident descriptions, phone numbers, and coordinates.
+- **Security/test work:** Extended `tools/test_supabase_migration_replay.sh` with synthetic assignment/status events, own-recipient filtering, cross-user mark-read denial, direct table privilege denial, RPC grant checks, unauthenticated denial, and page-size bounds. Added `docs/IN_APP_NOTIFICATIONS.md` to document the contract and explicit follow-up gaps.
+- **Deployment boundary:** No live Supabase migration, Render deployment, account change, or production notification was performed. The Android notification UI and FCM delivery are not implemented by this backend-only stage.
+- **Validation:** CI has not yet completed for this branch at handoff. Do not treat the migration or SQL tests as passed until the clean PostgreSQL replay job and all required CI checks complete. The SQL test has been reviewed for variable ambiguity and explicit JSON element aliases, but execution is still the deciding gate.
+- **Next actions:** Run the branch CI; fix every migration/test/build failure before opening/finishing the PR. Then implement the Android notification list as a separate stage, preserving the prominent GPS Map destination and adding loading/empty/error/retry/mark-read states. FCM remains optional and later.
+
 ## Active continuation — 2026-10-24: Repair bridge rate-limit cache dependency
 
 - **Finding:** PR #131's new `throttle:120,1` middleware failed integration CI because Laravel's configured database cache store had no `cache` table. This is not just a test-only problem: the public Render bridge could error when rate limiting tries to access that missing table.
