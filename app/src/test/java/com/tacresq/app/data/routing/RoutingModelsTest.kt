@@ -44,6 +44,26 @@ class RoutingModelsTest {
     }
 
     @Test
+    fun polyline6DecoderReturnsCoordinatesAtSixDecimalPrecision() {
+        val points = ValhallaPolylineDecoder.decode("AAAA")
+        assertEquals(2, points.size)
+        assertEquals(0.0, points[0].latitude, 0.0)
+        assertEquals(0.0, points[0].longitude, 0.0)
+        assertEquals(0.000001, points[1].latitude, 0.0000000001)
+        assertEquals(0.000001, points[1].longitude, 0.0000000001)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun polyline6DecoderRejectsTruncatedGeometry() {
+        ValhallaPolylineDecoder.decode("A")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun polyline6DecoderRejectsSinglePointGeometry() {
+        ValhallaPolylineDecoder.decode("AA")
+    }
+
+    @Test
     fun modesMapToExplicitValhallaCostingNames() {
         assertEquals("auto", RouteMode.DRIVING.valhallaCosting())
         assertEquals("pedestrian", RouteMode.WALKING.valhallaCosting())
