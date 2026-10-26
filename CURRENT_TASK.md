@@ -1,3 +1,13 @@
+## Active continuation — 2026-10-26: Incident-scoped chat backend foundation
+
+- **Objective:** Add secure text-only incident conversations without a paid provider, stack change, or public/global chat.
+- **Dependency:** Branch `agent/incident-chat-backend` is stacked on the Android notification inbox branch. Keep it dependent until the notification PR's current CI passes and the chat migration replay passes.
+- **Implementation:** Added `supabase/migrations/20261026200000_incident_scoped_chat.sql` with an append-only message table, caller-scoped list/send RPCs, participant authorization, idempotent client message IDs, bounded paging, a per-sender 20-message/minute flood guard, and generic participant notifications.
+- **Authorization:** Requesters only access their own incident; responders/drivers only access assigned incidents (including the legacy single-assignee field); dispatchers can access incidents through the dispatch role. Unknown roles fail closed, and Admin does not implicitly inherit chat access. Direct table privileges are revoked; clients must use RPCs.
+- **Tests/docs:** Added clean-PostgreSQL test coverage for requester/responder/dispatcher access, outsider denial, idempotent retries/conflicting keys, message bounds, paging, generic notifications, grants, and rate limiting. Added `docs/INCIDENT_CHAT.md`. Migration history now marks this proposed migration pending; no live migration has been applied.
+- **Current status:** CI has not yet run for this branch. Do not treat the migration/tests as passed until the clean PostgreSQL replay and all required checks pass.
+- **Next actions:** Open a draft stacked PR targeting `agent/android-notification-inbox`; fix SQL/test failures before implementation of the Android conversation UI. Then add typed RPC models, visible-screen-only polling, send/retry/offline/empty states, and safe access from incident details without adding a sixth bottom-navigation tab. No production service/data changed.
+
 ## Active continuation — 2026-10-26: Android notification inbox and safe incident opening
 
 - **Objective:** Connect the persistent notification RPCs to an Android inbox while preserving the existing five-destination navigation and prominent central GPS Map.
