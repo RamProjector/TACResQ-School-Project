@@ -241,7 +241,7 @@ DECLARE
   dispatcher_id bigint;
   requester_id bigint;
   responder_id bigint;
-  incident_id bigint;
+  test_incident_id bigint;
   requester_notifications jsonb;
   responder_notifications jsonb;
   requester_notification_id bigint;
@@ -264,14 +264,14 @@ BEGIN
   ) VALUES (
     requester_id, 'medical', 'Synthetic notification test incident',
     11.244, 125.003, now(), 'manual'
-  ) RETURNING id INTO incident_id;
+  ) RETURNING id INTO test_incident_id;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000131', true);
-  PERFORM public.api_assign_incident_team(incident_id, ARRAY[responder_id]);
+  PERFORM public.api_assign_incident_team(test_incident_id, ARRAY[responder_id]);
 
   SELECT count(*) INTO notification_count
     FROM public.user_notifications n
-   WHERE n.incident_id = incident_id
+   WHERE n.incident_id = test_incident_id
      AND n.event_type = 'incident_assigned';
   IF notification_count <> 2 THEN
     RAISE EXCEPTION 'Assignment must create one notification for the requester and one for the assigned unit; found %', notification_count;
@@ -325,14 +325,14 @@ BEGIN
 
   -- A field-unit status transition should notify the requester, not expose other users' rows.
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000133', true);
-  PERFORM public.api_update_my_assignment_status(incident_id, 'en_route');
+  PERFORM public.api_update_my_assignment_status(test_incident_id, 'en_route');
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000132', true);
   requester_notifications := public.api_my_notifications(10);
   SELECT count(*) INTO notification_count
-    FROM jsonb_array_elements(requester_notifications) AS item
+    FROM jsonb_array_elements(requester_notifications) AS notifications(item)
    WHERE item->>'event_type' = 'incident_status_changed'
-     AND item->>'incident_id' = incident_id::text;
+     AND item->>'incident_id' = test_incident_id::text;
   IF notification_count < 1 THEN
     RAISE EXCEPTION 'Requester must be notified when an assigned unit changes incident status: %', requester_notifications;
   END IF;
