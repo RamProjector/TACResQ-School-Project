@@ -135,9 +135,9 @@ function LoginScreen() {
       <section className="login-form-wrap">
         <div className="login-form-card">
           <div className="login-mobile-brand"><Brand /></div>
-          <p className="eyebrow">DISPATCH ACCESS</p>
-          <h2>Sign in to the desk</h2>
-          <p className="muted">Use an authorized dispatcher account connected to the TACResQ Supabase project.</p>
+          <p className="eyebrow">SECURE OPERATIONS ACCESS</p>
+          <h2>Sign in to TACResQ</h2>
+          <p className="muted">Use an authorized TACResQ account. Your verified role determines which workspace you can access.</p>
           <form className="login-form" onSubmit={handleSubmit}>
             <label htmlFor="email">Email address</label>
             <input id="email" name="email" type="email" autoComplete="username" placeholder="dispatcher@example.org" value={email} onChange={(event) => setEmail(event.target.value)} required />
@@ -145,10 +145,10 @@ function LoginScreen() {
             <input id="password" name="password" type="password" autoComplete="current-password" placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} required />
             {error && <div className="inline-alert inline-alert--error" role="alert"><AlertCircle size={17} />{error}</div>}
             <button className="button button--primary button--wide" type="submit" disabled={submitting}>
-              {submitting ? <><LoaderCircle size={17} className="spin" /> Verifying access…</> : <>Enter dispatch desk <ArrowUpRight size={17} /></>}
+              {submitting ? <><LoaderCircle size={17} className="spin" /> Verifying access…</> : <>Continue securely <ArrowUpRight size={17} /></>}
             </button>
           </form>
-          <div className="login-access-note"><BadgeCheck size={17} /><p>Access is role-checked by Supabase. New public sign-ups are requesters; dispatcher accounts must be provisioned by a trusted administrator.</p></div>
+          <div className="login-access-note"><BadgeCheck size={17} /><p>Access is checked by Supabase. Public sign-ups are requesters; privileged operational roles are provisioned by a trusted operator.</p></div>
         </div>
         <p className="login-footnote">TACRU RESPONSE OPERATIONS</p>
       </section>
@@ -162,7 +162,7 @@ function GateScreen({ title, description, onSignOut, icon = "shield" }: { title:
       <header className="gate-header"><Brand /><button className="button button--quiet" onClick={onSignOut}><LogOut size={16} /> Sign out</button></header>
       <section className="gate-card">
         <div className={`gate-icon${icon === "error" ? " gate-icon--error" : ""}`}>{icon === "error" ? <AlertCircle size={24} /> : <ShieldAlert size={24} />}</div>
-        <p className="eyebrow">DISPATCH ACCESS CHECK</p>
+        <p className="eyebrow">TACRESQ ACCESS CHECK</p>
         <h1>{title}</h1>
         <p className="muted">{description}</p>
         <div className="gate-footnote">This screen does not grant or change account roles. Ask a trusted project administrator to provision the correct role.</div>
@@ -535,7 +535,7 @@ export default function Home({ session }: HomeProps) {
   }, []);
 
   if (!session) return <LoginScreen />;
-  if (profileLoading) return <main className="loading-screen"><Brand /><LoaderCircle size={22} className="spin" /><span>Checking dispatcher access…</span></main>;
+  if (profileLoading) return <main className="loading-screen"><Brand /><LoaderCircle size={22} className="spin" /><span>Checking role permissions…</span></main>;
   if (profileError) return <GateScreen title="We couldn't verify this profile." description={profileError} onSignOut={handleSignOut} icon="error" />;
   if (!profile) return <GateScreen title="A TACRU profile is required." description="This account is signed in, but no linked TACResQ profile was returned. Ask a trusted project administrator to verify the account mapping." onSignOut={handleSignOut} />;
   if (profile.role === "admin") return <AdminConsole profile={profile} onSignOut={handleSignOut} />;
