@@ -225,7 +225,7 @@ fun IncidentChatScreen(
 
     LaunchedEffect(state.loading, state.items.size, incidentId) {
         if (!state.loading && state.items.isNotEmpty() && !didInitialScroll) {
-            listState.scrollToItem(state.items.lastIndex)
+            listState.scrollToItem(state.items.lastIndex + if (state.hasOlder) 1 else 0)
             didInitialScroll = true
         }
     }
