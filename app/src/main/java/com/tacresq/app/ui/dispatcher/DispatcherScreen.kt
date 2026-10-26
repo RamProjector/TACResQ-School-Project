@@ -116,7 +116,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 }
 
 @Composable
-fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, focusedIncidentId: Long? = null) {
+fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, focusedIncidentId: Long? = null, onOpenChat: (Long) -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
@@ -162,7 +162,9 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Opened from alert", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     when {
-                        focusedIncident != null -> IncidentCard(focusedIncident)
+                        focusedIncident != null -> IncidentCard(focusedIncident) {
+                            TextButton(onClick = { onOpenChat(focusedIncident.id) }) { Text("Open conversation") }
+                        }
                         state.loading -> Text("Loading the incident from the current dispatch queue…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         else -> Text(
                             "This incident is not in the current authorized dispatch queue. Refresh before acting on an older alert.",
@@ -243,6 +245,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         Text("Select response team")
                     }
                 }
+                TextButton(onClick = { onOpenChat(incident.id) }) { Text("Open conversation") }
             }
         }
 
@@ -274,6 +277,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         ) { Text("Add responders") }
                     }
                 }
+                TextButton(onClick = { onOpenChat(incident.id) }) { Text("Open conversation") }
             }
         }
 
