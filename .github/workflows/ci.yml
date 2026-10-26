@@ -98,6 +98,9 @@ jobs:
       - name: Check Android notification inbox security and lifecycle
         run: python3 tools/test_android_notifications_contract.py
 
+      - name: Check Android incident chat security and lifecycle
+        run: python3 tools/test_android_chat_contract.py
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
