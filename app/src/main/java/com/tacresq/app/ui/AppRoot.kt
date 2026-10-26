@@ -34,6 +34,7 @@ import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
 import com.tacresq.app.ui.auth.AuthScreen
+import com.tacresq.app.ui.admin.AdminAccessScreen
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.dispatcher.DispatcherScreen
 import com.tacresq.app.ui.dispatcher.DispatcherViewModel
@@ -90,6 +91,7 @@ fun AppRoot(
             is SessionState.LoggedIn -> {
                 val user = state.session.user
                 when (user.role) {
+                    Role.ADMIN -> AdminAccessScreen(user = user, onSignOut = logout)
                     Role.REQUESTER -> {
                         val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
