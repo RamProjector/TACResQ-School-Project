@@ -30,7 +30,7 @@ EXPECTED = {
     "20261023082939_pin_dispatch_team_search_path.sql",
     "20261023103737_per_responder_assignment_status.sql",
 }
-PENDING = set()
+PENDING = {\n    "20261026190000_persistent_in_app_notifications.sql",\n}
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
     f"Supabase migration history drift. Missing={sorted((EXPECTED | PENDING) - actual)}; "
@@ -73,6 +73,22 @@ for required in (
     "private.tacresq_is_incident_assignee",
 ):
     assert required in team, f"Missing multi-unit dispatch contract: {required}"
+
+
+notifications = (MIGRATIONS / "20261026190000_persistent_in_app_notifications.sql").read_text()
+for required in (
+    "CREATE TABLE IF NOT EXISTS public.user_notifications",
+    "ALTER TABLE public.user_notifications ENABLE ROW LEVEL SECURITY",
+    "REVOKE ALL ON TABLE public.user_notifications FROM PUBLIC, anon, authenticated",
+    "private.tacresq_notify_assignment_insert",
+    "private.tacresq_notify_status_log_insert",
+    "public.api_my_notifications(p_limit integer DEFAULT 50)",
+    "public.api_mark_notification_read(p_notification_id bigint)",
+    "SET search_path = pg_catalog",
+    "GRANT EXECUTE ON FUNCTION public.api_my_notifications(integer) TO authenticated",
+    "GRANT EXECUTE ON FUNCTION public.api_mark_notification_read(bigint) TO authenticated",
+):
+    assert required in notifications, f"Missing in-app notification security contract: {required}"
 
 print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history; {len(PENDING)} proposed migration(s) are explicitly pending live application.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
