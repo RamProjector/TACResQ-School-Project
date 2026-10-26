@@ -180,7 +180,11 @@ fun NotificationsAndSafetyScreen(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                     Text(
-                        if (unreadCount == 0) "No unread notifications" else "$unreadCount unread notifications",
+                        when {
+                            state.items.isEmpty() -> "No notifications yet"
+                            unreadCount == 0 -> "No unread among the latest ${state.items.size} notifications"
+                            else -> "$unreadCount unread among the latest ${state.items.size} notifications"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
