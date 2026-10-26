@@ -296,7 +296,11 @@ private fun RoleSectionScreen(
                                 )
                             }
                         }
-                        com.tacresq.app.ui.common.IncidentCard(focusedIncident)
+                        com.tacresq.app.ui.common.IncidentCard(focusedIncident) {
+                            androidx.compose.material3.TextButton(onClick = { onOpenChat(focusedIncident.id) }) {
+                                Text("Open conversation")
+                            }
+                        }
                     } else {
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -337,7 +341,11 @@ private fun RoleSectionScreen(
                     if (remainingIncidents.isNotEmpty()) {
                         Text("Other incidents", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                         remainingIncidents.forEach { incident ->
-                            com.tacresq.app.ui.common.IncidentCard(incident)
+                            com.tacresq.app.ui.common.IncidentCard(incident) {
+                                androidx.compose.material3.TextButton(onClick = { onOpenChat(incident.id) }) {
+                                    Text("Open conversation")
+                                }
+                            }
                         }
                     }
                 }
