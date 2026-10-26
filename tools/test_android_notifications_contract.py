@@ -62,6 +62,7 @@ for required in (
     "Notifications unavailable",
     "You're all caught up",
     "Loading your notifications",
+    "latest ${state.items.size} notifications",
     "Try again",
 ):
     assert required in screen, f"Notification UI/lifecycle contract missing: {required}"
