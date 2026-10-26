@@ -149,4 +149,9 @@ assert '.from("admin_audit_logs").insert' not in admin_ui, (
 )
 
 print("PASS: Admin UI uses verified role routing and protected RPCs; no direct role/audit table writes.")
+assert "const modalRoot = useRef<HTMLDivElement>(null)" in admin_ui
+assert 'event.key === "Escape"' in admin_ui and 'event.key !== "Tab"' in admin_ui
+assert "getFocusable()[0]?.focus()" in admin_ui
+assert "Never keep privileged data visible after an authorization or connection failure." in admin_ui
+print("PASS: Admin role dialog has keyboard focus management and failed refresh clears privileged data.")
 
