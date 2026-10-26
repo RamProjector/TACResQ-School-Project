@@ -234,13 +234,15 @@ psql -v ON_ERROR_STOP=1 <<'SQL'
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-000000000131', 'notification-dispatcher@example.test', '{"name":"Notification Dispatcher"}'),
   ('00000000-0000-4000-8000-000000000132', 'notification-requester@example.test', '{"name":"Notification Requester"}'),
-  ('00000000-0000-4000-8000-000000000133', 'notification-responder@example.test', '{"name":"Notification Responder"}');
+  ('00000000-0000-4000-8000-000000000133', 'notification-responder@example.test', '{"name":"Notification Responder"}'),
+  ('00000000-0000-4000-8000-000000000134', 'notification-legacy-responder@example.test', '{"name":"Notification Legacy Responder"}');
 
 DO $notification_test$
 DECLARE
   dispatcher_id bigint;
   requester_id bigint;
   responder_id bigint;
+  legacy_responder_id bigint;
   test_incident_id bigint;
   legacy_incident_id bigint;
   requester_notifications jsonb;
@@ -274,10 +276,12 @@ BEGIN
   SELECT id INTO dispatcher_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000131';
   SELECT id INTO requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000132';
   SELECT id INTO responder_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000133';
+  SELECT id INTO legacy_responder_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000134';
 
   UPDATE public.profiles SET role = 'dispatcher', duty_status = NULL WHERE id = dispatcher_id;
   UPDATE public.profiles SET role = 'requester', duty_status = NULL WHERE id = requester_id;
   UPDATE public.profiles SET role = 'responder', duty_status = 'available' WHERE id = responder_id;
+  UPDATE public.profiles SET role = 'responder', duty_status = 'available' WHERE id = legacy_responder_id;
 
   INSERT INTO public.incidents (
     requester_id, type, description, latitude, longitude,
@@ -369,7 +373,7 @@ BEGIN
     11.245, 125.004, now(), 'manual'
   ) RETURNING id INTO legacy_incident_id;
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000131', true);
-  PERFORM public.api_assign_incident(legacy_incident_id, responder_id);
+  PERFORM public.api_assign_incident(legacy_incident_id, legacy_responder_id);
   SELECT count(*) INTO notification_count
     FROM public.user_notifications n
    WHERE n.incident_id = legacy_incident_id
