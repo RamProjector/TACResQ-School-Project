@@ -16,6 +16,7 @@ import { Brand } from "@/components/Brand";
 import {
   getAdminAuditLogs,
   getAdminUsers,
+  getMyProfile,
   setAdminUserRole,
 } from "@/lib/supabase";
 import type {
@@ -110,6 +111,38 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  // Admin privileges can be revoked outside this browser session. Revalidate
+  // when the console is visible and periodically while it remains open; a
+  // successful profile response with a different role immediately signs out.
+  useEffect(() => {
+    let checking = false;
+    const verifyCurrentRole = async () => {
+      if (checking || document.visibilityState === "hidden") return;
+      checking = true;
+      try {
+        const currentProfile = await getMyProfile();
+        if (currentProfile.role !== "admin") {
+          setUsers([]);
+          setAudit([]);
+          setTarget(null);
+          setError("Administrator access has been revoked. Sign in again with an authorized account.");
+          onSignOut();
+        }
+      } catch {
+        // A transient network failure is not proof that the role was revoked.
+        // Protected RPCs still enforce authorization for every privileged action.
+      } finally {
+        checking = false;
+      }
+    };
+    const interval = window.setInterval(() => { void verifyCurrentRole(); }, 60_000);
+    document.addEventListener("visibilitychange", verifyCurrentRole);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", verifyCurrentRole);
+    };
+  }, [onSignOut]);
 
   const filteredUsers = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
