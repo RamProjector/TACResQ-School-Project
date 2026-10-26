@@ -76,7 +76,9 @@ for required in (
     "destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY",
     "focusedIncidentId = selectedIncidentId",
     "incidents.firstOrNull { it.id == targetId }",
-    "Incident unavailable",
+    "Incident not in the current list",
+    "vm.refresh(); openIncident(incidentId)",
+    "onRefreshIncidents = vm::refresh",
 ):
     assert required in root, f"Notification screen routing missing: {required}"
 
