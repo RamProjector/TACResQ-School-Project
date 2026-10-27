@@ -244,7 +244,7 @@ class ResponderViewModel(
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                Result.failure(failure)
+                Result.failure<Nothing>(failure)
             }
             _state.update { s ->
                 s.copy(
