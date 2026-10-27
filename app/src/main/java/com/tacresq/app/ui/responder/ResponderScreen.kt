@@ -73,6 +73,7 @@ data class ResponderUiState(
     val incidents: List<Incident> = emptyList(),
     val dutyStatus: DutyStatus = DutyStatus.OFF_DUTY,
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
     val busy: Boolean = false,
     val error: String? = null,
     val trackingIncidentId: Long? = null,
@@ -94,6 +95,7 @@ class ResponderViewModel(
 
     fun refresh() {
         if (refreshJob?.isActive == true) return
+        _state.update { it.copy(refreshing = true) }
         refreshJob = viewModelScope.launch {
             val me = repo.me()
             val mine = repo.myIncidents()
@@ -109,6 +111,7 @@ class ResponderViewModel(
                     })
                 s.copy(
                     loading = false,
+                    refreshing = false,
                     dutyStatus = me.getOrNull()?.dutyStatus ?: s.dutyStatus,
                     incidents = serverIncidents ?: s.incidents,
                     trackingIncidentId = if (trackingEnded) null else s.trackingIncidentId,
@@ -292,10 +295,29 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
 
         item {
+            OutlinedButton(
+                onClick = vm::refresh,
+                enabled = !state.refreshing && !state.loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (state.refreshing || state.loading) {
+                    CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
+                    Text("Refreshing assignments…")
+                } else {
+                    Text("Refresh assignments")
+                }
+            }
+        }
+
+        item {
             DutyCard(
                 current = state.dutyStatus,
-                canChange = active.isEmpty() && !state.loading,
-                loading = state.loading,
+                canChange = active.isEmpty() && !state.loading && !state.refreshing && state.syncError == null,
+                unavailableMessage = when {
+                    state.loading || state.refreshing -> "Checking assignments before allowing duty changes."
+                    state.syncError != null -> "Could not verify assignments. Refresh before changing duty status."
+                    else -> "Your status updates automatically as you move the incident forward."
+                },
                 busy = state.busy,
                 onChange = vm::setDuty,
             )
@@ -498,7 +520,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 private fun DutyCard(
     current: DutyStatus,
     canChange: Boolean,
-    loading: Boolean,
+    unavailableMessage: String,
     busy: Boolean,
     onChange: (DutyStatus) -> Unit,
 ) {
@@ -525,10 +547,7 @@ private fun DutyCard(
                     )
                 }
             } else {
-                Text(
-                    if (loading) "Checking assignments before allowing duty changes."
-                    else "Your status updates automatically as you move the incident forward."
-                )
+                Text(unavailableMessage)
             }
         }
     }
