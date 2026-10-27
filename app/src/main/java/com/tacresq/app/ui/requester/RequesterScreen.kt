@@ -613,7 +613,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                "Share what happened and where you are.",
+                                "Share what happened and where you are. You can continue without GPS.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f),
                             )
@@ -630,7 +630,44 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             disabledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
                             disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
                         ),
-                    ) { Text("Start emergency request  →", fontWeight = FontWeight.Bold) }
+                    ) {
+                        if (state.loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Checking current requests…", fontWeight = FontWeight.Bold)
+                        } else {
+                            Text("Start emergency request  →", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showRequestForm && (activeIncident != null || state.pendingSosAvailable)) item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text("Unsent draft paused", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (activeIncident != null) {
+                            "Request #${activeIncident.id} is active. Your draft is preserved but cannot be sent while this request is active."
+                        } else {
+                            "A previously saved SOS still needs confirmation. Your draft is preserved; retry or resolve the saved SOS before creating another request."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    TextButton(
+                        onClick = { showDiscardConfirmation = true },
+                        modifier = Modifier.align(Alignment.End),
+                    ) { Text("Discard draft") }
                 }
             }
         }
@@ -721,8 +758,11 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         }
                         2 -> {
                             Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Add a GPS pin or continue without one.",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "Your location is not tracked continuously. Share a one-time GPS pin, choose a map pin, or continue without GPS.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             if (state.capturingLocation) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
