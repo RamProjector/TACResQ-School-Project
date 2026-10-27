@@ -22,12 +22,32 @@ class AuthScreenInstrumentedTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     private fun signInAsDemoRequester() {
-        // Role selection can survive between instrumented tests in the same app process.
-        // Select it only when the role chooser is actually visible.
+        // The Activity and demo session may survive between test methods. Normalize whichever
+        // auth/home state is present instead of assuming every test starts at the role chooser.
+        val homeVisible = composeRule.onAllNodesWithText(
+            "Start emergency request",
+            substring = true,
+        ).fetchSemanticsNodes().isNotEmpty()
+        if (homeVisible) return
+
+        if (composeRule.onAllNodesWithText("Create a requester account")
+                .fetchSemanticsNodes().isNotEmpty()
+        ) {
+            composeRule.onNodeWithText("I already have an account").performClick()
+        }
         if (composeRule.onAllNodesWithText("Requester").fetchSemanticsNodes().isNotEmpty()) {
             composeRule.onNodeWithText("Requester").performClick()
         }
-        composeRule.onNodeWithText("Sign in").performClick()
+        if (composeRule.onAllNodesWithText("Sign in").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onNodeWithText("Sign in").performClick()
+        }
+
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithText(
+                "Start emergency request",
+                substring = true,
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test
