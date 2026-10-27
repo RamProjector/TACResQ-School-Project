@@ -295,6 +295,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             DutyCard(
                 current = state.dutyStatus,
                 canChange = active.isEmpty() && !state.loading,
+                loading = state.loading,
                 busy = state.busy,
                 onChange = vm::setDuty,
             )
@@ -497,6 +498,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 private fun DutyCard(
     current: DutyStatus,
     canChange: Boolean,
+    loading: Boolean,
     busy: Boolean,
     onChange: (DutyStatus) -> Unit,
 ) {
@@ -523,7 +525,10 @@ private fun DutyCard(
                     )
                 }
             } else {
-                Text("Your status updates automatically as you move the incident forward.")
+                Text(
+                    if (loading) "Checking assignments before allowing duty changes."
+                    else "Your status updates automatically as you move the incident forward."
+                )
             }
         }
     }
