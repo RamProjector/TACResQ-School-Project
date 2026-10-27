@@ -97,28 +97,42 @@ class ResponderViewModel(
         if (refreshJob?.isActive == true) return
         _state.update { it.copy(refreshing = true) }
         refreshJob = viewModelScope.launch {
-            val me = repo.me()
-            val mine = repo.myIncidents()
-            val refreshError = me.exceptionOrNull() ?: mine.exceptionOrNull()
-            val currentUserId = me.getOrNull()?.id
-            _state.update { s ->
-                val serverIncidents = mine.getOrNull()
-                // The aggregate can stay en-route while another unit is still travelling.
-                // Stop this device's GPS stream when this responder's own assignment advances.
-                val trackingEnded = s.trackingIncidentId != null && serverIncidents != null &&
-                    (currentUserId == null || serverIncidents.none {
-                        it.id == s.trackingIncidentId && it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE
-                    })
-                s.copy(
-                    loading = false,
-                    refreshing = false,
-                    dutyStatus = me.getOrNull()?.dutyStatus ?: s.dutyStatus,
-                    incidents = serverIncidents ?: s.incidents,
-                    trackingIncidentId = if (trackingEnded) null else s.trackingIncidentId,
-                    trackingError = if (trackingEnded) "Location sharing stopped because this incident is no longer assigned en route." else s.trackingError,
-                    syncError = refreshError?.message,
-                    lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else s.lastSyncedAtEpochMs,
-                )
+            try {
+                val me = repo.me()
+                val mine = repo.myIncidents()
+                val refreshError = me.exceptionOrNull() ?: mine.exceptionOrNull()
+                val currentUserId = me.getOrNull()?.id
+                _state.update { s ->
+                    val serverIncidents = mine.getOrNull()
+                    // The aggregate can stay en-route while another unit is still travelling.
+                    // Stop this device's GPS stream when this responder's own assignment advances.
+                    val trackingEnded = s.trackingIncidentId != null && serverIncidents != null &&
+                        (currentUserId == null || serverIncidents.none {
+                            it.id == s.trackingIncidentId && it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE
+                        })
+                    s.copy(
+                        loading = false,
+                        refreshing = false,
+                        dutyStatus = me.getOrNull()?.dutyStatus ?: s.dutyStatus,
+                        incidents = serverIncidents ?: s.incidents,
+                        trackingIncidentId = if (trackingEnded) null else s.trackingIncidentId,
+                        trackingError = if (trackingEnded) "Location sharing stopped because this incident is no longer assigned en route." else s.trackingError,
+                        syncError = refreshError?.message,
+                        lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else s.lastSyncedAtEpochMs,
+                    )
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                // Unexpected repository exceptions must not leave the refresh spinner stuck
+                // or unlock duty controls as if the assignment check had succeeded.
+                _state.update { s ->
+                    s.copy(
+                        loading = false,
+                        refreshing = false,
+                        syncError = failure.message ?: "Could not verify assignments. Refresh and try again.",
+                    )
+                }
             }
         }
     }
