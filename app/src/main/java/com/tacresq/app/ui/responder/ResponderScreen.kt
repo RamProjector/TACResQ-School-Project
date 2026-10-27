@@ -255,7 +255,8 @@ class ResponderViewModel(
             }
             if (result.isSuccess) {
                 // refresh() queues a follow-up when an earlier sync is still active.
-                refreshJob?.cancel()
+                // Do not cancel and replace the job: its finally block could clear the
+                // reference to the newer job and make overlapping refreshes possible.
                 refresh()
             }
         }
