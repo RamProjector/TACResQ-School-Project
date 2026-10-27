@@ -239,9 +239,22 @@ class ResponderViewModel(
         if (_state.value.busy) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null) }
-            val result = call()
-            _state.update { it.copy(busy = false, error = result.exceptionOrNull()?.message) }
+            val result = try {
+                call()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                Result.failure(failure)
+            }
+            _state.update { s ->
+                s.copy(
+                    busy = false,
+                    error = result.exceptionOrNull()?.message
+                        ?: if (result.isFailure) "The action failed. Refresh and try again." else null,
+                )
+            }
             if (result.isSuccess) {
+                // refresh() queues a follow-up when an earlier sync is still active.
                 refreshJob?.cancel()
                 refresh()
             }
