@@ -4,8 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -73,6 +76,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun refresh() {
         if (refreshJob?.isActive == true) return
+        _state.update { it.copy(loading = true) }
         refreshJob = viewModelScope.launch {
             val incidents = repo.allIncidents()
             val units = repo.units()
@@ -158,8 +162,18 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
         }
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
         item {
-            OutlinedButton(onClick = vm::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
-                Text("Refresh queue")
+            OutlinedButton(
+                onClick = vm::refresh,
+                enabled = !state.busy && !state.loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (state.loading) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Refreshing queue…")
+                } else {
+                    Text("Refresh queue")
+                }
             }
         }
         item {
