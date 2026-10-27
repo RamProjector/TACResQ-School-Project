@@ -646,6 +646,32 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             }
         }
 
+        if (showRequestForm && (activeIncident != null || state.pendingSosAvailable)) item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text("Unsent draft paused", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (activeIncident != null) {
+                            "Request #${activeIncident.id} is active. Your draft is preserved but cannot be sent while this request is active."
+                        } else {
+                            "A previously saved SOS still needs confirmation. Your draft is preserved; retry or resolve the saved SOS before creating another request."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    TextButton(
+                        onClick = { showDiscardConfirmation = true },
+                        modifier = Modifier.align(Alignment.End),
+                    ) { Text("Discard draft") }
+                }
+            }
+        }
+
         if (showRequestForm && activeIncident == null && !state.pendingSosAvailable) item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
