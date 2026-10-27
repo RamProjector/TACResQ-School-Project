@@ -92,9 +92,15 @@ class ResponderViewModel(
     private val _state = MutableStateFlow(ResponderUiState())
     val state: StateFlow<ResponderUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
+    private var refreshRequested = false
 
     fun refresh() {
-        if (refreshJob?.isActive == true) return
+        if (refreshJob?.isActive == true) {
+            // If an action completes during a refresh, queue one follow-up so the
+            // screen cannot finish with the pre-action server snapshot.
+            refreshRequested = true
+            return
+        }
         _state.update { it.copy(refreshing = true) }
         refreshJob = viewModelScope.launch {
             try {
@@ -133,6 +139,12 @@ class ResponderViewModel(
                         syncError = failure.message ?: "Could not verify assignments. Refresh and try again.",
                     )
                 }
+            } finally {
+                _state.update { it.copy(refreshing = false) }
+                val runQueuedRefresh = refreshRequested
+                refreshRequested = false
+                refreshJob = null
+                if (runQueuedRefresh) refresh()
             }
         }
     }
