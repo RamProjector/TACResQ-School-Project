@@ -294,7 +294,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         item {
             DutyCard(
                 current = state.dutyStatus,
-                canChange = active.isEmpty(),
+                canChange = active.isEmpty() && !state.loading,
                 busy = state.busy,
                 onChange = vm::setDuty,
             )
