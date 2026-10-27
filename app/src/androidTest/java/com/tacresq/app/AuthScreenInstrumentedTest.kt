@@ -110,14 +110,22 @@ class AuthScreenInstrumentedTest {
         composeRule.onNodeWithText("What kind of help do you need?").assertIsDisplayed()
 
         composeRule.onNodeWithText("Continue to location").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Confirm your location").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("Confirm your location").assertIsDisplayed()
         composeRule.onNodeWithText("Add a GPS pin or continue without one.").assertIsDisplayed()
 
         composeRule.onNodeWithText("Back").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("What kind of help do you need?").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("What kind of help do you need?").assertIsDisplayed()
         composeRule.onNodeWithText("Close").performClick()
 
-        composeRule.onNodeWithText("Emergency request").assertDoesNotExist()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Emergency request").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithText("Start emergency request", substring = true).assertIsDisplayed()
     }
     @Test
@@ -130,7 +138,17 @@ class AuthScreenInstrumentedTest {
         }
         composeRule.onNodeWithText("Start emergency request", substring = true).performClick()
         composeRule.onNodeWithText("Continue to location").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Confirm your location").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Review request").fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithText("Finding a fresh location…").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithText("Review request").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Review before sending").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("Review before sending").assertIsDisplayed()
         composeRule.onNodeWithText("Confirm SOS").performClick()
         composeRule.onNodeWithText("Send emergency request?").assertIsDisplayed()
