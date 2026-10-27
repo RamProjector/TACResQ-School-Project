@@ -630,7 +630,18 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             disabledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
                             disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
                         ),
-                    ) { Text("Start emergency request  →", fontWeight = FontWeight.Bold) }
+                    ) {
+                        if (state.loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Checking current requests…", fontWeight = FontWeight.Bold)
+                        } else {
+                            Text("Start emergency request  →", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }
