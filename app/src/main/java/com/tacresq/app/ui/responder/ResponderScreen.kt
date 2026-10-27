@@ -363,6 +363,17 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                                     )
                                 }
                             }
+                        } else if (state.syncError != null) {
+                            Text(
+                                "Assignments could not be verified",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            Text(
+                                "Do not assume there are no active calls. Refresh assignments to verify your current duty status and assignments.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         } else {
                             Text(
                                 if (state.dutyStatus == DutyStatus.AVAILABLE) "No active assignments"
