@@ -3,6 +3,8 @@ package com.tacresq.app
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -110,6 +112,7 @@ class AuthScreenInstrumentedTest {
         composeRule.onNodeWithText("What kind of help do you need?").assertIsDisplayed()
 
         composeRule.onNodeWithText("Continue to location").performClick()
+        composeRule.onRoot().printToLog("TACRESQ_AFTER_CONTINUE_FORM_TEST")
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Confirm your location").fetchSemanticsNodes().isNotEmpty()
         }
@@ -138,6 +141,7 @@ class AuthScreenInstrumentedTest {
         }
         composeRule.onNodeWithText("Start emergency request", substring = true).performClick()
         composeRule.onNodeWithText("Continue to location").performClick()
+        composeRule.onRoot().printToLog("TACRESQ_AFTER_CONTINUE_SOS_TEST")
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Confirm your location").fetchSemanticsNodes().isNotEmpty()
         }
