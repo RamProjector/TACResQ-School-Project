@@ -73,6 +73,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun refresh() {
         if (refreshJob?.isActive == true) return
+        _state.update { it.copy(loading = true) }
         refreshJob = viewModelScope.launch {
             val incidents = repo.allIncidents()
             val units = repo.units()
@@ -158,8 +159,18 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
         }
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
         item {
-            OutlinedButton(onClick = vm::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
-                Text("Refresh queue")
+            OutlinedButton(
+                onClick = vm::refresh,
+                enabled = !state.busy && !state.loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (state.loading) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Refreshing queue…")
+                } else {
+                    Text("Refresh queue")
+                }
             }
         }
         item {
