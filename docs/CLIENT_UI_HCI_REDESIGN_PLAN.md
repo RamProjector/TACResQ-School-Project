@@ -207,3 +207,52 @@ Do not call TACResQ production-ready solely because the UI looks modern or CI bu
 ## 7. Review notes and change log
 
 - 2026-10-24: Created initial plan from repository inspection and official Android, W3C, Google Play, and Philippine NPC guidance. This document does not claim that the planned work is implemented.
+
+## 8. Implemented screen contract — Responder workspace (PR #185)
+
+This section records the intended screen hierarchy and the state rules implemented in `ResponderScreen.kt`. It is a source-level contract, not a claim that a rendered emulator screenshot has been visually approved.
+
+### Screen hierarchy
+
+1. **Screen header:** “Responder workspace” and a short explanation of assignments, duty status, and location sharing; logout remains available from the shared header.
+2. **Synchronization status:** shown when the last assignment/duty refresh failed. A previous successful timestamp may be retained, but must never make a failed refresh look successful.
+3. **Refresh assignments:** full-width explicit recovery action; disabled while initial load or a refresh is active, with visible progress text while loading.
+4. **Duty status card:** current status is not presented as verified during loading or after a sync failure. Duty changes are disabled while assignments are unverified, loading, refreshing, or any active assignment exists.
+5. **Assignment content:** a loading state, verified empty state, or unverified/error state are mutually distinguishable. A failed fetch must not be rendered as “no active calls.”
+6. **Active assignments:** per-unit status and requester contact when available; navigation is offered only for finite, in-range coordinates. Invalid/missing coordinates produce a warning rather than a fabricated destination.
+7. **Recent history:** completed/non-active incidents remain in a separate section so active work has higher visual priority.
+
+### State-to-visibility contract
+
+| State | What the responder sees | What is blocked |
+| --- | --- | --- |
+| Initial load | “Checking assignments” progress; duty status says it is checking | Duty changes; duplicate refresh |
+| Refresh in progress | Existing incident cards stay visible; refresh action shows progress | Duty changes; duplicate refresh |
+| Verified empty result | “No active assignments” or “You are off duty” with appropriate next step | Nothing beyond ordinary role/business rules |
+| Assignment sync failed | Sync error and “Assignments could not be verified”; prior data retained | Duty changes; any implication that no active call exists |
+| Active assignment exists | Active assignments above history; own-unit status and valid navigation affordance | Duty changes until the assignment is no longer active |
+| Invalid/missing incident coordinates | Explicit destination warning and instruction to confirm with dispatch | Opening navigation to an assumed/invalid location |
+| Location permission withdrawn/services disabled/stale fix | Sharing stops with a reason; responder must explicitly resume after recovery | Silent or stale location transmission |
+| Status action fails/throws | Error is surfaced; busy state clears; a refresh is requested after success only | False success messaging |
+
+### Lifecycle and concurrency rules
+
+- UI state is collected with `collectAsStateWithLifecycle`; location updates run only while the screen lifecycle is `STARTED`.
+- Location sharing stops on app `ON_STOP`, screen disposal, logout, loss of permission, disabled location services, invalid/stale fixes, or when the responder's own assignment is no longer en route.
+- Resuming location sharing re-verifies the responder identity, assignment status, and approximate-location permission. A prior session's timestamp/accuracy is cleared before re-verification.
+- Concurrent refresh requests coalesce into one queued follow-up. An action completing during a refresh cannot cancel/replace the active refresh job or leave the screen displaying an older server snapshot.
+- Unexpected repository exceptions clear loading/busy indicators and fail closed for duty changes/location sharing; cancellation is rethrown rather than converted into a user-facing error.
+
+### Review and evidence checklist
+
+- [x] Source-level loading, error, and verified-empty states are explicit.
+- [x] Duty status is not actionable when assignment verification failed.
+- [x] Failed refresh preserves previously loaded assignments instead of replacing them with an empty list.
+- [x] Location sharing is foreground-only and requires explicit re-verification to resume.
+- [x] Static contract test asserts key screen-state and refresh-queue rules.
+- [ ] Android debug/release build and all CI jobs pass on the final PR head.
+- [ ] Emulator/device visual review of compact and large screens, accessibility font scaling, and navigation/back behavior.
+- [ ] Operational validation against the real dispatch workflow; this PR does not establish production readiness.
+
+**Evidence boundary:** The checked-in code and static contract tests support the checked source-level items. The unchecked build, visual, and operational items must not be reported as completed until there is current evidence.
+
