@@ -1,94 +1,45 @@
-# Review-first autonomous coding workflow
+# TACResQ autonomous implementation workflow
 
-This workflow is for an agent or developer implementing TACResQ one feature at a time. It is designed for incremental work, reviewable changes, and honest reporting of validation limits.
+This workflow supports autonomous implementation, automated validation, pull requests, and merging eligible changes. Read `AGENTS.md` and `CURRENT_TASK.md` first. The user's latest explicit instruction takes precedence.
 
 ## Delivery contract
 
-- **Scope:** one specific feature, bug, or maintenance task per task/PR. Split unrelated requests into separate tasks.
-- **Autonomy:** the agent may inspect the code, plan, implement, test, and prepare a pull request without asking for approval at each low-risk step.
-- **Review boundary:** the default delivery is a pull request. Do not merge, enable auto-merge, deploy, run a production migration, change live data, or change repository security settings without explicit authorization for that action.
-- **Base branch:** `main`. Never commit feature changes directly to `main`.
-- **Safety:** preserve role authorization, location consent, data minimization, stale/unavailable labels, and the project's educational-prototype boundary. Do not use real emergency data.
+- Inspect the latest `main`, relevant source/tests, current open PRs, and CI before editing.
+- Work on a task-scoped branch from `main`; never commit feature changes directly to `main`.
+- Prefer one coherent feature PR. When a user asks for a consolidated update, inventory existing branches/PRs first to avoid duplicate implementation and consolidate related work where practical.
+- Keep credentials, private personal data, real emergency records, and actual incident coordinates out of source, fixtures, screenshots, logs, commits, and PR descriptions.
+- Preserve role authorization, location consent, data minimization, truthful status/location reporting, and the educational-prototype boundary.
 
-## Start-of-task checklist
+## Manual UI and emulator checks
 
-1. Read `AGENTS.md` and `CURRENT_TASK.md`.
-2. Check the latest `main` commit, branch list, relevant open issues/PRs, and current CI status.
-3. Read the relevant source, tests, migrations, and documentation before editing.
-4. State the goal, scope, affected roles/modules, acceptance criteria, risks, and validation plan.
-5. Create a feature branch from the latest `main`, named `agent/<short-task-slug>`. If the branch cannot be created from the latest base, stop before writing and reconcile the state.
+Manual UI review, screenshots, visual sign-off, emulator runs, and physical-device checks are **not required blockers** when the user has instructed the agent to skip them. Do not spend the task on these checks or claim they passed. Record them as skipped/not run and continue using automated evidence. Automated source checks and automated visual regression tests that already run in CI remain in scope unless the user specifically asks to skip those too.
 
-Do not assume an old conversation, handoff note, or README reflects the current code until checked against the current branch.
+## Implementation and automated validation
 
-## Implementation loop
+1. Read the relevant implementation, tests, migrations, and docs before making changes.
+2. Implement the requested behavior and focused automated tests.
+3. Run relevant checks available to the environment/CI, such as:
+   ```bash
+   python3 tools/check_android_source.py
+   python3 tools/test_workflow.py
+   python3 tools/test_prototype.py
+   python3 tools/test_location_contract.py
+   python3 tools/test_stress_test.py
+   python3 tools/visual_regression.py
+   ```
+4. For web/dashboard changes, run the documented frozen-lockfile install and build. For backend/database changes, run the applicable integration suite and isolated migration replay. Never apply migrations to the live project without explicit authorization.
+5. For Android changes, use CI debug/release builds and applicable source/contract tests. Emulator and device validation may be skipped under the user's instruction.
+6. Report every check as **passed**, **failed**, **skipped**, or **not run**. Static checks and builds do not prove live-backend or physical-device behavior.
 
-1. Make the smallest cohesive change that satisfies the acceptance criteria.
-2. Keep public interfaces and existing behavior compatible unless the task explicitly calls for a breaking change.
-3. Update focused tests and user-facing documentation with behavior changes. UI changes should update relevant visual baselines/screenshots when the existing harness applies.
-4. For authorization, authentication, GPS/location, Supabase RLS/RPC, schema, or deployment changes, add specific negative-case coverage and call out any tests that require staging or device access.
-5. Avoid mixing unrelated dependency updates, cleanup, redesigns, or refactors into the feature branch.
-6. Never place secrets, tokens, personal information, real incident coordinates, or real emergency records in source, fixtures, screenshots, logs, commits, or PR descriptions.
+## Pull requests and merging
 
-## Validation
+- Update `CURRENT_TASK.md` during each meaningful work session.
+- PR descriptions must summarize the problem, scope, implementation, security/privacy impact, automated validation, skipped checks, and known limitations. Screenshots are optional and not a merge prerequisite when manual UI review is waived.
+- Inspect the exact head SHA's required CI/workflow results before merging.
+- **Merge an eligible PR when required automated checks pass**, it is mergeable, and no known unresolved critical security/privacy defects remain. Do not force-merge failed checks or conflicts. Fix and rerun checks first.
+- Do not deploy, modify live data, apply live migrations, provision real accounts, change production configuration, or alter repository security settings without explicit authorization.
+- If branch protection or repository policy blocks a merge, report the blocker; do not bypass it.
 
-Run the checks relevant to the touched area. Start with the project's source/workflow tests:
+## Handoff
 
-```bash
-python3 tools/check_android_source.py
-python3 tools/test_workflow.py
-python3 tools/test_prototype.py
-python3 tools/test_location_contract.py
-python3 tools/test_stress_test.py
-python3 tools/visual_regression.py
-```
-
-For dispatcher-dashboard changes:
-
-```bash
-pnpm --dir backend/web install --frozen-lockfile
-pnpm --dir backend/web build
-```
-
-For backend changes, use the documented Laravel/Compose integration checks. For database changes, use an isolated test/staging project first and include unauthorized-role, invalid-input, and lifecycle tests. Do not apply migrations to the live project without explicit approval.
-
-For Android changes, run debug/release Gradle builds and device checks once a complete Gradle project and Android toolchain are available. The current repository may be only a source pack; source/static checks are not a substitute for compilation or device validation.
-
-Report each check as **passed**, **failed**, **skipped**, or **not run**. Include links to CI runs where available. Never describe a skipped build as a pass. Never claim a device, database, visual, security, or deployment test happened unless the result was actually observed.
-
-## Pull request requirements
-
-Before opening the PR:
-
-- Confirm the base is the latest `main` and the branch contains only the scoped task.
-- Review the diff for secrets, accidental generated files, unrelated edits, and unsafe weakening of authorization or privacy boundaries.
-- Run `git diff --check` when working in a local checkout.
-- Update `CURRENT_TASK.md` with the task, changed files, validations, unresolved gaps, and next action.
-- Confirm the latest CI results for the proposed commits where available.
-
-The PR description should include:
-
-1. **Problem and intended result**
-2. **Scope and affected roles/components**
-3. **Implementation summary**
-4. **Security/privacy and data-impact assessment**
-5. **Validation:** explicit passed/failed/skipped/not-run status
-6. **Known limitations and manual checks still required**
-7. **Screenshots** for meaningful UI changes
-
-Leave the PR open for user review. Do not merge it or enable auto-merge by default.
-
-## Handoff and continuity
-
-At the end of each meaningful session, update `CURRENT_TASK.md` to record:
-
-- Current objective and status.
-- Branch, latest relevant commit, and PR link/number if one exists.
-- Files changed and completed work.
-- Tests actually executed and their results.
-- Blockers, external actions still needed, and the next concrete step.
-
-Do not invent local working-tree status when operating only through GitHub APIs. Report remote branch/commit facts instead. Keep credentials and sensitive operational information out of the handoff.
-
-## Repository-level enforcement
-
-Agent instructions are guidance, not a server-side access control. If `main` is unprotected, tell the user that review-before-merge is not technically enforced. GitHub branch protection or rulesets, required status checks, and required PR reviews must be configured separately by an authorized repository administrator. Do not claim those settings are enabled unless they have been verified.
+Record the objective, completed changes, branch/commit/PR links, validation results, skipped checks, blockers, and next action in `CURRENT_TASK.md`. When operating through GitHub APIs only, report verified remote state and do not invent local checkout details.
