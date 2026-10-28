@@ -32,13 +32,23 @@ data class RouteResult(
     val instructions: List<RouteInstruction> = emptyList(),
     val generatedAtEpochMillis: Long,
 ) {
-    fun isUsable(nowEpochMillis: Long, maxAgeMillis: Long = 120_000L): Boolean =
-        geometry.size >= 2 &&
-            geometry.all(RouteCoordinate::isValid) &&
-            distanceMeters.isFinite() && distanceMeters > 0.0 &&
-            durationSeconds.isFinite() && durationSeconds > 0.0 &&
-            generatedAtEpochMillis <= nowEpochMillis &&
-            nowEpochMillis - generatedAtEpochMillis <= maxAgeMillis
+    fun isUsable(nowEpochMillis: Long, maxAgeMillis: Long = 120_000L): Boolean {
+        if (
+            geometry.size < 2 ||
+            !geometry.all(RouteCoordinate::isValid) ||
+            !distanceMeters.isFinite() || distanceMeters <= 0.0 ||
+            !durationSeconds.isFinite() || durationSeconds <= 0.0 ||
+            maxAgeMillis < 0L ||
+            generatedAtEpochMillis > nowEpochMillis
+        ) return false
+
+        // Subtraction can overflow for a corrupt timestamp such as Long.MIN_VALUE.
+        // Treat arithmetic overflow as invalid rather than accidentally fresh.
+        val ageMillis = runCatching {
+            Math.subtractExact(nowEpochMillis, generatedAtEpochMillis)
+        }.getOrNull() ?: return false
+        return ageMillis <= maxAgeMillis
+    }
 }
 
 /**
