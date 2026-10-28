@@ -7,6 +7,8 @@ import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.model.UserNotification
+import com.tacresq.app.data.model.IncidentMessage
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
@@ -24,7 +26,7 @@ class SupabaseTacApi private constructor(
     private val auth: SupabaseAuthWire,
     private val rpc: SupabaseRpcWire,
     private val bridgeRpc: SupabaseBridgeRpcWire?,
-) : TacApi {
+) : TacApi, TacNotificationApi, TacChatApi {
     override suspend fun login(body: LoginRequest): AuthResponse = authenticate {
         auth.login(body)
     }
@@ -109,6 +111,33 @@ class SupabaseTacApi private constructor(
     override suspend fun recordLocation(body: ResponderLocationRequest): Long {
         val request = RecordLocationRpc(body.incidentId, body.latitude, body.longitude, body.accuracyM, body.recordedAt)
         return if (bridgeRpc != null) bridgeRpc.recordLocation(request) else rpc.recordLocation(request)
+    }
+
+    override suspend fun myNotifications(limit: Int): List<UserNotification> {
+        require(limit in 1..100) { "Notification page size must be between 1 and 100." }
+        // The current Render bridge allowlist has no notification routes yet. Use the
+        // authenticated Supabase RPC directly; the same stored session token is applied.
+        return rpc.myNotifications(NotificationsLimitRpc(limit))
+    }
+
+    override suspend fun markNotificationRead(notificationId: Long): Boolean {
+        require(notificationId > 0) { "Notification ID must be positive." }
+        return rpc.markNotificationRead(MarkNotificationReadRpc(notificationId))
+    }
+
+    override suspend fun myIncidentMessages(incidentId: Long, limit: Int, beforeId: Long?): List<IncidentMessage> {
+        require(incidentId > 0) { "Incident ID must be positive." }
+        require(limit in 1..100) { "Message page size must be between 1 and 100." }
+        require(beforeId == null || beforeId > 0) { "Message cursor must be positive." }
+        return rpc.myIncidentMessages(IncidentMessagesRpc(incidentId, limit, beforeId))
+    }
+
+    override suspend fun sendIncidentMessage(incidentId: Long, message: String, clientMessageId: String): IncidentMessage {
+        require(incidentId > 0) { "Incident ID must be positive." }
+        val normalized = message.trim()
+        require(normalized.length in 1..2000) { "Message must contain 1 to 2000 characters." }
+        java.util.UUID.fromString(clientMessageId)
+        return rpc.sendIncidentMessage(SendIncidentMessageRpc(incidentId, normalized, clientMessageId))
     }
 
     companion object {
@@ -278,6 +307,18 @@ private interface SupabaseRpcWire {
 
     @POST("rest/v1/rpc/api_record_location_v2")
     suspend fun recordLocation(@Body body: RecordLocationRpc): Long
+
+    @POST("rest/v1/rpc/api_my_notifications")
+    suspend fun myNotifications(@Body body: NotificationsLimitRpc): List<UserNotification>
+
+    @POST("rest/v1/rpc/api_mark_notification_read")
+    suspend fun markNotificationRead(@Body body: MarkNotificationReadRpc): Boolean
+
+    @POST("rest/v1/rpc/api_my_incident_messages")
+    suspend fun myIncidentMessages(@Body body: IncidentMessagesRpc): List<IncidentMessage>
+
+    @POST("rest/v1/rpc/api_send_incident_message")
+    suspend fun sendIncidentMessage(@Body body: SendIncidentMessageRpc): IncidentMessage
 }
 
 private data class SupabaseSession(@SerializedName("access_token") val accessToken: String?)
@@ -309,6 +350,18 @@ private data class RecordLocationRpc(
     @SerializedName("p_longitude") val longitude: Double,
     @SerializedName("p_accuracy_m") val accuracyM: Float?,
     @SerializedName("p_recorded_at") val recordedAt: String,
+)
+private data class NotificationsLimitRpc(@SerializedName("p_limit") val limit: Int)
+private data class MarkNotificationReadRpc(@SerializedName("p_notification_id") val notificationId: Long)
+private data class IncidentMessagesRpc(
+    @SerializedName("p_incident_id") val incidentId: Long,
+    @SerializedName("p_limit") val limit: Int,
+    @SerializedName("p_before_id") val beforeId: Long?,
+)
+private data class SendIncidentMessageRpc(
+    @SerializedName("p_incident_id") val incidentId: Long,
+    @SerializedName("p_message") val message: String,
+    @SerializedName("p_client_message_id") val clientMessageId: String,
 )
 
 private val DutyStatus.wireValue: String get() = when (this) {

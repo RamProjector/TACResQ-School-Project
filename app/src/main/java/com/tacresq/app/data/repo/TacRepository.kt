@@ -11,6 +11,8 @@ import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.Session
 import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.model.UserNotification
+import com.tacresq.app.data.model.IncidentMessage
 import com.tacresq.app.data.remote.AuthResponse
 import com.tacresq.app.data.remote.AssignIncidentTeamRequest
 import com.tacresq.app.data.remote.CreateIncidentRequest
@@ -19,6 +21,8 @@ import com.tacresq.app.data.remote.LoginRequest
 import com.tacresq.app.data.remote.RegisterRequest
 import com.tacresq.app.data.remote.ResponderLocationRequest
 import com.tacresq.app.data.remote.TacApi
+import com.tacresq.app.data.remote.TacNotificationApi
+import com.tacresq.app.data.remote.TacChatApi
 import com.tacresq.app.data.remote.UpdateStatusRequest
 import com.tacresq.app.data.remote.UpdateMyIncidentRequest
 import kotlinx.coroutines.CancellationException
@@ -84,6 +88,46 @@ class TacRepository(
     suspend fun units(): Result<List<User>> = call { api.units() }
 
     suspend fun activeResponderLocations(): Result<List<ResponderLocation>> = call { api.activeResponderLocations() }
+
+    suspend fun myNotifications(limit: Int = 50): Result<List<UserNotification>> = call {
+        val notificationApi = api as? TacNotificationApi
+            ?: throw ApiException("Notifications are not available with the configured backend.")
+        require(limit in 1..100) { "Notification page size must be between 1 and 100." }
+        notificationApi.myNotifications(limit)
+    }
+
+    suspend fun markNotificationRead(notificationId: Long): Result<Boolean> = call {
+        val notificationApi = api as? TacNotificationApi
+            ?: throw ApiException("Notifications are not available with the configured backend.")
+        require(notificationId > 0) { "Notification ID must be positive." }
+        notificationApi.markNotificationRead(notificationId)
+    }
+
+    suspend fun myIncidentMessages(
+        incidentId: Long,
+        limit: Int = 50,
+        beforeId: Long? = null,
+    ): Result<List<IncidentMessage>> = call {
+        val chatApi = api as? TacChatApi
+            ?: throw ApiException("Incident chat is not available with the configured backend.")
+        require(incidentId > 0) { "Incident ID must be positive." }
+        require(limit in 1..100) { "Message page size must be between 1 and 100." }
+        require(beforeId == null || beforeId > 0) { "Message cursor must be positive." }
+        chatApi.myIncidentMessages(incidentId, limit, beforeId)
+    }
+
+    suspend fun sendIncidentMessage(
+        incidentId: Long,
+        message: String,
+        clientMessageId: String,
+    ): Result<IncidentMessage> = call {
+        val chatApi = api as? TacChatApi
+            ?: throw ApiException("Incident chat is not available with the configured backend.")
+        val normalized = message.trim()
+        require(incidentId > 0) { "Incident ID must be positive." }
+        require(normalized.length in 1..2000) { "Message must contain 1 to 2000 characters." }
+        chatApi.sendIncidentMessage(incidentId, normalized, clientMessageId)
+    }
 
     suspend fun createIncident(
         type: IncidentType,

@@ -7,6 +7,8 @@ import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.IncidentType
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.model.UserNotification
+import com.tacresq.app.data.model.IncidentMessage
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
@@ -17,6 +19,20 @@ import retrofit2.http.Path
  * The Laravel REST contract (see docs/API.md).
  * If your backend uses different routes or field names, change them here and in Models.kt only.
  */
+/**
+ * Notification capability is kept separate from the Laravel REST contract because
+ * the current persistent notification RPCs are Supabase-specific.
+ */
+interface TacNotificationApi {
+    suspend fun myNotifications(limit: Int): List<UserNotification>
+    suspend fun markNotificationRead(notificationId: Long): Boolean
+}
+
+interface TacChatApi {
+    suspend fun myIncidentMessages(incidentId: Long, limit: Int, beforeId: Long?): List<IncidentMessage>
+    suspend fun sendIncidentMessage(incidentId: Long, message: String, clientMessageId: String): IncidentMessage
+}
+
 interface TacApi {
     @POST("login")
     suspend fun login(@Body body: LoginRequest): AuthResponse

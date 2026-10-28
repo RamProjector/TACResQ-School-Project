@@ -5,12 +5,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / "app/src/main/java/com/tacresq/app/ui/RoleShell.kt").read_text(encoding="utf-8")
 
-for destination in ('PRIMARY("Home")', 'SECONDARY("Requests")', 'MAP("GPS Map")', 'ALERTS("Safety")', 'PROFILE("Profile")'):
+for destination in ('PRIMARY("Home")', 'SECONDARY("Requests")', 'MAP("GPS Map")', 'ALERTS("Alerts")', 'PROFILE("Profile")'):
     assert destination in source, f"missing canonical destination: {destination}"
 
-assert 'Role.DISPATCHER -> listOf("Queue", "Units", "Safety", "Profile")' in source
-assert 'Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Safety", "Profile")' in source
-assert 'Role.REQUESTER -> listOf("Home", "Requests", "Safety", "Profile")' in source
+assert 'Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")' in source
+assert 'Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Alerts", "Profile")' in source
+assert 'Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")' in source
 assert "val compact = maxWidth < 400.dp" in source
 assert "NavigationBar(" in source, "use a consistent Material 3 navigation surface"
 assert source.count("NavigationItem(destinations[") == 4, "all four role destinations must remain"

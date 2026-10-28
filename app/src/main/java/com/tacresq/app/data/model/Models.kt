@@ -95,6 +95,24 @@ fun Incident.statusFor(userId: Long): IncidentStatus =
 
 data class Session(val token: String, val user: User)
 
+data class UserNotification(
+    val id: Long,
+    @SerializedName("incident_id") val incidentId: Long?,
+    @SerializedName("event_type") val eventType: String,
+    val title: String,
+    val body: String,
+    @SerializedName("created_at") val createdAt: String?,
+    @SerializedName("read_at") val readAt: String?,
+)
+
+data class IncidentMessage(
+    val id: Long,
+    @SerializedName("incident_id") val incidentId: Long,
+    @SerializedName("sender_id") val senderId: Long,
+    val message: String,
+    @SerializedName("created_at") val createdAt: String?,
+)
+
 data class ResponderLocation(
     @SerializedName("incident_id") val incidentId: Long,
     @SerializedName("user_id") val userId: Long,

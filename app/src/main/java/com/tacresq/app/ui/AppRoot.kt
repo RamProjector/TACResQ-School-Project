@@ -41,6 +41,10 @@ import com.tacresq.app.ui.requester.RequesterScreen
 import com.tacresq.app.ui.requester.RequesterViewModel
 import com.tacresq.app.ui.responder.ResponderScreen
 import com.tacresq.app.ui.responder.ResponderViewModel
+import com.tacresq.app.ui.notifications.NotificationsViewModel
+import com.tacresq.app.ui.notifications.NotificationsAndSafetyScreen
+import com.tacresq.app.ui.chat.IncidentChatViewModel
+import com.tacresq.app.ui.chat.IncidentChatScreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -89,21 +93,47 @@ fun AppRoot(
 
             is SessionState.LoggedIn -> {
                 val user = state.session.user
+                val notificationsVm: NotificationsViewModel = viewModel(
+                    key = "notifications-${user.id}",
+                    factory = factory,
+                )
+                val chatVm: IncidentChatViewModel = viewModel(
+                    key = "chat-${user.id}",
+                    factory = factory,
+                )
                 when (user.role) {
                     Role.REQUESTER -> {
                         val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination ->
-                            if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout)
-                            else RoleSectionScreen(destination, user, logout, vmState.incidents)
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat ->
+                            if (selectedChatIncidentId != null) {
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
+                            } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout)
+                            else RoleSectionScreen(
+                                destination, user, logout, vmState.incidents,
+                                notificationsVm = notificationsVm,
+                                onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
+                                onOpenChat = openChat,
+                                onRefreshIncidents = vm::refresh,
+                                selectedIncidentId = selectedIncidentId,
+                            )
                         }
                     }
                     Role.RESPONDER, Role.DRIVER -> {
                         val vm: ResponderViewModel = viewModel(key = "unit-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination ->
-                            if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, logout)
-                            else RoleSectionScreen(destination, user, logout, vmState.incidents)
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat ->
+                            if (selectedChatIncidentId != null) {
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
+                            } else if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, logout)
+                            else RoleSectionScreen(
+                                destination, user, logout, vmState.incidents,
+                                notificationsVm = notificationsVm,
+                                onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
+                                onOpenChat = openChat,
+                                onRefreshIncidents = vm::refresh,
+                                selectedIncidentId = selectedIncidentId,
+                            )
                         }
                     }
                     Role.DISPATCHER -> {
@@ -117,9 +147,18 @@ fun AppRoot(
                             logout = logout,
                             responderLocations = vmState.responderLocations,
                             onMapRefresh = vm::refresh,
-                        ) { destination ->
-                            if (destination == AppDestination.PRIMARY) DispatcherScreen(vm, user, logout)
-                            else RoleSectionScreen(destination, user, logout, vmState.incidents, vmState.units)
+                        ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat ->
+                            if (selectedChatIncidentId != null) {
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
+                            } else if (destination == AppDestination.PRIMARY) {
+                                DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId, onOpenChat = openChat)
+                            } else RoleSectionScreen(
+                                destination, user, logout, vmState.incidents, vmState.units, notificationsVm,
+                                onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
+                                onOpenChat = openChat,
+                                onRefreshIncidents = vm::refresh,
+                                selectedIncidentId = selectedIncidentId,
+                            )
                         }
                     }
                 }
@@ -137,14 +176,25 @@ private fun RoleApp(
     logout: () -> Unit,
     responderLocations: List<ResponderLocation> = emptyList(),
     onMapRefresh: () -> Unit = {},
-    contentFor: @Composable (AppDestination) -> Unit,
+    contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit) -> Unit,
 ) {
     var destination by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
+    var selectedIncidentId by rememberSaveable(role, user.id) { mutableStateOf<Long?>(null) }
+    var selectedChatIncidentId by rememberSaveable(role, user.id) { mutableStateOf<Long?>(null) }
+    val openIncident: (Long) -> Unit = { incidentId ->
+        selectedIncidentId = incidentId
+        destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY
+    }
+    val openChat: (Long) -> Unit = { incidentId ->
+        selectedChatIncidentId = incidentId
+        destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY
+    }
+    val closeChat: () -> Unit = { selectedChatIncidentId = null }
     RoleShell(
         role = role,
         selected = destination,
         onDestinationSelected = { destination = it },
-        content = { contentFor(destination) },
+        content = { contentFor(destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat) },
         mapContent = {
             GpsMapScreen(
                 role = role,
@@ -166,7 +216,16 @@ private fun RoleSectionScreen(
     logout: () -> Unit,
     incidents: List<Incident>,
     units: List<User> = emptyList(),
+    notificationsVm: NotificationsViewModel,
+    onOpenIncident: (Long) -> Unit = {},
+    onRefreshIncidents: () -> Unit = {},
+    onOpenChat: (Long) -> Unit = {},
+    selectedIncidentId: Long? = null,
 ) {
+    if (destination == AppDestination.ALERTS) {
+        NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident, onOpenChat)
+        return
+    }
     val role = user.role
     val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER
     val title = when (destination) {
@@ -175,7 +234,7 @@ private fun RoleSectionScreen(
             Role.RESPONDER, Role.DRIVER -> "Response history"
             Role.DISPATCHER -> "Field units"
         }
-        AppDestination.ALERTS -> "Safety"
+        AppDestination.ALERTS -> "Alerts & safety"
         AppDestination.PROFILE -> "Profile"
         AppDestination.PRIMARY, AppDestination.MAP -> "TACResQ"
     }
@@ -216,6 +275,48 @@ private fun RoleSectionScreen(
                         )
                     }
                 }
+                val focusedIncident = selectedIncidentId?.let { targetId ->
+                    incidents.firstOrNull { it.id == targetId }
+                }
+                if (selectedIncidentId != null) {
+                    if (focusedIncident != null) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = androidx.compose.material3.CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Opened from alert", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                Text("Incident #${focusedIncident.id} · ${focusedIncident.status.label}")
+                                Text(
+                                    "This record is shown only because it appears in your current authorized incident list.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            }
+                        }
+                        com.tacresq.app.ui.common.IncidentCard(focusedIncident) {
+                            androidx.compose.material3.TextButton(onClick = { onOpenChat(focusedIncident.id) }) {
+                                Text("Open conversation")
+                            }
+                        }
+                    } else {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Incident not in the current list", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Refresh your role-scoped list before acting on this alert. If the incident still does not appear, it may no longer be available to this account.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                androidx.compose.material3.OutlinedButton(onClick = onRefreshIncidents) {
+                                    Text("Refresh list")
+                                }
+                            }
+                        }
+                    }
+                }
                 if (incidents.isEmpty()) {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(
@@ -234,8 +335,18 @@ private fun RoleSectionScreen(
                         }
                     }
                 } else {
-                    incidents.sortedByDescending { it.createdAt.orEmpty() }.forEach { incident ->
-                        com.tacresq.app.ui.common.IncidentCard(incident)
+                    val remainingIncidents = incidents
+                        .sortedByDescending { it.createdAt.orEmpty() }
+                        .filterNot { focusedIncident?.id == it.id }
+                    if (remainingIncidents.isNotEmpty()) {
+                        Text("Other incidents", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        remainingIncidents.forEach { incident ->
+                            com.tacresq.app.ui.common.IncidentCard(incident) {
+                                androidx.compose.material3.TextButton(onClick = { onOpenChat(incident.id) }) {
+                                    Text("Open conversation")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -285,44 +396,7 @@ private fun RoleSectionScreen(
                 }
             }
 
-            destination == AppDestination.ALERTS -> {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            "Stay safe first",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                        Text(
-                            "TACResQ helps coordinate information. It does not replace emergency call handlers, trained responders, or on-scene judgment.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
-                }
-                SafetyGuidanceCard(
-                    title = "If you need urgent help",
-                    body = "If someone is in immediate danger, contact the appropriate local emergency service directly when you can. Do not wait for an app status update to seek urgent assistance.",
-                )
-                SafetyGuidanceCard(
-                    title = "Confirm the location",
-                    body = "Check the map pin and landmark together. GPS can be inaccurate indoors or near tall buildings; correct a misplaced pin before sending when it is safe to do so.",
-                )
-                SafetyGuidanceCard(
-                    title = "Share location deliberately",
-                    body = "Field-unit location sharing is visible to authorized dispatch while the app is in use. Stop sharing when the response no longer requires it.",
-                )
-                SafetyGuidanceCard(
-                    title = "Protect personal information",
-                    body = "Share only details relevant to the incident. Do not post medical details, phone numbers, or another person's location publicly.",
-                )
-            }
+            destination == AppDestination.ALERTS -> Unit
 
             destination == AppDestination.PROFILE -> {
                 Card(
@@ -358,16 +432,6 @@ private fun RoleSectionScreen(
 private fun EmptySectionCard(title: String, body: String) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun SafetyGuidanceCard(title: String, body: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

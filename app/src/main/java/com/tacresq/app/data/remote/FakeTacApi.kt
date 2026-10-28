@@ -7,6 +7,8 @@ import com.tacresq.app.data.model.Role
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.ResponderAssignmentStatus
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.model.UserNotification
+import com.tacresq.app.data.model.IncidentMessage
 import com.tacresq.app.data.model.nextSteps
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +34,7 @@ import java.util.UUID
 class FakeTacApi(
     private val tokenProvider: () -> String?,
     private val autoDispatchEnabled: Boolean = false,
-) : TacApi {
+) : TacApi, TacNotificationApi, TacChatApi {
 
     private data class Account(val user: User, val password: String)
 
@@ -48,6 +50,13 @@ class FakeTacApi(
     private val tokens = mutableMapOf<String, Long>()
     private val incidents = mutableListOf<Incident>()
     private val requesterOf = mutableMapOf<Long, Long>()
+    private data class StoredNotification(val recipientId: Long, val value: UserNotification)
+    private data class StoredMessage(val incidentId: Long, val senderId: Long, val clientMessageId: String, val value: IncidentMessage)
+    private val notifications = mutableListOf<StoredNotification>()
+    private val messages = mutableListOf<StoredMessage>()
+    private val messageSendTimes = mutableMapOf<Long, MutableList<Long>>()
+    private var nextNotificationId = 1L
+    private var nextMessageId = 1L
     private var nextUserId = 100L
     private var nextIncidentId = 1L
 
@@ -137,6 +146,107 @@ class FakeTacApi(
         return synchronized(lock) {
             if (current().role != Role.DISPATCHER) throw httpError(403, "Only dispatchers can view field units.")
             accounts.map { it.user }.filter { it.role == Role.RESPONDER || it.role == Role.DRIVER }
+        }
+    }
+
+    override suspend fun myNotifications(limit: Int): List<UserNotification> {
+        delay(120)
+        if (limit !in 1..100) throw httpError(422, "Notification page size must be between 1 and 100.")
+        return synchronized(lock) {
+            val me = current()
+            notifications.asSequence()
+                .filter { it.recipientId == me.id }
+                .map { it.value }
+                .sortedWith(compareByDescending<UserNotification> { it.createdAt.orEmpty() }.thenByDescending { it.id })
+                .take(limit)
+                .toList()
+        }
+    }
+
+    override suspend fun markNotificationRead(notificationId: Long): Boolean {
+        delay(100)
+        if (notificationId < 1) throw httpError(422, "Notification ID must be positive.")
+        return synchronized(lock) {
+            val me = current()
+            val index = notifications.indexOfFirst { it.value.id == notificationId && it.recipientId == me.id }
+            if (index < 0) return@synchronized false
+            val stored = notifications[index]
+            notifications[index] = stored.copy(
+                value = stored.value.copy(readAt = stored.value.readAt ?: Instant.now().toString()),
+            )
+            true
+        }
+    }
+
+    override suspend fun myIncidentMessages(incidentId: Long, limit: Int, beforeId: Long?): List<IncidentMessage> {
+        delay(120)
+        if (limit !in 1..100) throw httpError(422, "Message page size must be between 1 and 100.")
+        if (incidentId < 1 || (beforeId != null && beforeId < 1)) throw httpError(422, "Incident ID or message cursor is invalid.")
+        return synchronized(lock) {
+            val me = current()
+            ensureChatAccess(incidentId, me)
+            messages.asSequence()
+                .filter { it.incidentId == incidentId && (beforeId == null || it.value.id < beforeId) }
+                .sortedByDescending { it.value.id }
+                .take(limit)
+                .map { it.value }
+                .toList()
+                .sortedBy { it.id }
+        }
+    }
+
+    override suspend fun sendIncidentMessage(incidentId: Long, message: String, clientMessageId: String): IncidentMessage {
+        delay(120)
+        val normalized = message.trim()
+        if (incidentId < 1 || normalized.length !in 1..2000) {
+            throw httpError(422, "Message must contain 1 to 2000 characters and use a valid incident ID.")
+        }
+        val normalizedClientId = try {
+            UUID.fromString(clientMessageId).toString()
+        } catch (_: IllegalArgumentException) {
+            throw httpError(422, "A valid client message ID is required.")
+        }
+
+        return synchronized(lock) {
+            val me = current()
+            val incident = ensureChatAccess(incidentId, me)
+            val existing = messages.firstOrNull {
+                it.senderId == me.id && it.clientMessageId == normalizedClientId
+            }
+            if (existing != null) {
+                if (existing.incidentId != incidentId || existing.value.message != normalized) {
+                    throw httpError(409, "Client message ID was already used for different content.")
+                }
+                return@synchronized existing.value
+            }
+
+            val nowMs = System.currentTimeMillis()
+            val recentTimes = messageSendTimes.getOrPut(me.id) { mutableListOf() }
+            recentTimes.removeAll { it < nowMs - 60_000 }
+            if (recentTimes.size >= 20) throw httpError(429, "Message rate limit reached. Wait before sending again.")
+
+            val created = IncidentMessage(
+                id = nextMessageId++,
+                incidentId = incidentId,
+                senderId = me.id,
+                message = normalized,
+                createdAt = Instant.now().toString(),
+            )
+            messages += StoredMessage(incidentId, me.id, normalizedClientId, created)
+            recentTimes += nowMs
+
+            val recipients = (
+                listOfNotNull(requesterOf[incidentId]) +
+                    incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+                ).distinct().filterNot { it == me.id }
+            recipients.forEach { recipientId ->
+                addNotification(
+                    recipientId, incidentId, "incident_message",
+                    "New incident message",
+                    "A participant sent a new message in an incident conversation.",
+                )
+            }
+            created
         }
     }
 
@@ -277,6 +387,9 @@ class FakeTacApi(
             }
             val result = incident.copy(status = aggregate, assignedUserStatuses = nextStatuses)
             incidents[index] = result
+            if (result.status != incident.status) {
+                emitStatusNotifications(result, me.id)
+            }
             val duty = when (body.status) {
                 IncidentStatus.ASSIGNED -> DutyStatus.ASSIGNED
                 IncidentStatus.EN_ROUTE -> DutyStatus.EN_ROUTE
@@ -317,6 +430,7 @@ class FakeTacApi(
                 assignedUserStatuses = listOf(ResponderAssignmentStatus(unit.id, IncidentStatus.ASSIGNED, Instant.now().toString())),
             ).also {
                 incidents[index] = it
+                emitAssignmentNotifications(id, listOf(unit.id))
             }
         }
     }
@@ -357,6 +471,7 @@ class FakeTacApi(
                 assignedUserStatuses = newStatuses.distinctBy { it.userId },
             ).also {
                 incidents[index] = it
+                emitAssignmentNotifications(id, body.userIds)
             }
         }
     }
@@ -381,6 +496,78 @@ class FakeTacApi(
     }
 
     // ---- helpers (call only while holding `lock`, except dispatchLater/httpError) ----
+
+    private fun ensureChatAccess(incidentId: Long, user: User): Incident {
+        val incident = incidents.firstOrNull { it.id == incidentId }
+            ?: throw httpError(404, "Incident not found.")
+        val allowed = when (user.role) {
+            Role.DISPATCHER -> true
+            Role.REQUESTER -> requesterOf[incidentId] == user.id
+            Role.RESPONDER, Role.DRIVER ->
+                user.id in incident.assignedUserIds || incident.assignedTo == user.id
+            else -> false
+        }
+        if (!allowed) throw httpError(403, "Incident chat is not available to this account.")
+        return incident
+    }
+
+    private fun emitAssignmentNotifications(incidentId: Long, assignedUserIds: List<Long>) {
+        val requesterId = requesterOf[incidentId] ?: return
+        assignedUserIds.distinct().forEach { recipientId ->
+            addNotification(
+                recipientId, incidentId, "incident_assigned",
+                "New incident assignment",
+                "You have been assigned to an incident. Open TACResQ to review the details.",
+            )
+        }
+        addNotification(
+            requesterId, incidentId, "incident_assigned",
+            "Response unit assigned",
+            "A response unit has been assigned to your request.",
+        )
+    }
+
+    private fun emitStatusNotifications(incident: Incident, actorId: Long) {
+        val requesterId = requesterOf[incident.id] ?: return
+        val recipients = (listOf(requesterId) + incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) })
+            .distinct()
+            .filterNot { it == actorId }
+        recipients.forEach { recipientId ->
+            addNotification(
+                recipientId, incident.id, "incident_status_changed",
+                "Incident status updated",
+                "The incident status is now ${incident.status.name.lowercase().replace('_', ' ')}.",
+            )
+        }
+    }
+
+    private fun addNotification(
+        recipientId: Long,
+        incidentId: Long,
+        eventType: String,
+        title: String,
+        body: String,
+    ) {
+        if (eventType == "incident_assigned" && notifications.any {
+                it.recipientId == recipientId &&
+                    it.value.incidentId == incidentId &&
+                    it.value.eventType == eventType &&
+                    it.value.readAt == null
+            }
+        ) return
+        notifications += StoredNotification(
+            recipientId = recipientId,
+            value = UserNotification(
+                id = nextNotificationId++,
+                incidentId = incidentId,
+                eventType = eventType,
+                title = title,
+                body = body,
+                createdAt = Instant.now().toString(),
+                readAt = null,
+            ),
+        )
+    }
 
     private fun issueToken(userId: Long): String =
         UUID.randomUUID().toString().also { tokens[it] = userId }

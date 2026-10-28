@@ -73,6 +73,7 @@ data class ResponderUiState(
     val incidents: List<Incident> = emptyList(),
     val dutyStatus: DutyStatus = DutyStatus.OFF_DUTY,
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
     val busy: Boolean = false,
     val error: String? = null,
     val trackingIncidentId: Long? = null,
@@ -91,31 +92,59 @@ class ResponderViewModel(
     private val _state = MutableStateFlow(ResponderUiState())
     val state: StateFlow<ResponderUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
+    private var refreshRequested = false
 
     fun refresh() {
-        if (refreshJob?.isActive == true) return
+        if (refreshJob?.isActive == true) {
+            // If an action completes during a refresh, queue one follow-up so the
+            // screen cannot finish with the pre-action server snapshot.
+            refreshRequested = true
+            return
+        }
+        _state.update { it.copy(refreshing = true) }
         refreshJob = viewModelScope.launch {
-            val me = repo.me()
-            val mine = repo.myIncidents()
-            val refreshError = me.exceptionOrNull() ?: mine.exceptionOrNull()
-            val currentUserId = me.getOrNull()?.id
-            _state.update { s ->
-                val serverIncidents = mine.getOrNull()
-                // The aggregate can stay en-route while another unit is still travelling.
-                // Stop this device's GPS stream when this responder's own assignment advances.
-                val trackingEnded = s.trackingIncidentId != null && serverIncidents != null &&
-                    (currentUserId == null || serverIncidents.none {
-                        it.id == s.trackingIncidentId && it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE
-                    })
-                s.copy(
-                    loading = false,
-                    dutyStatus = me.getOrNull()?.dutyStatus ?: s.dutyStatus,
-                    incidents = serverIncidents ?: s.incidents,
-                    trackingIncidentId = if (trackingEnded) null else s.trackingIncidentId,
-                    trackingError = if (trackingEnded) "Location sharing stopped because this incident is no longer assigned en route." else s.trackingError,
-                    syncError = refreshError?.message,
-                    lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else s.lastSyncedAtEpochMs,
-                )
+            try {
+                val me = repo.me()
+                val mine = repo.myIncidents()
+                val refreshError = me.exceptionOrNull() ?: mine.exceptionOrNull()
+                val currentUserId = me.getOrNull()?.id
+                _state.update { s ->
+                    val serverIncidents = mine.getOrNull()
+                    // The aggregate can stay en-route while another unit is still travelling.
+                    // Stop this device's GPS stream when this responder's own assignment advances.
+                    val trackingEnded = s.trackingIncidentId != null && serverIncidents != null &&
+                        (currentUserId == null || serverIncidents.none {
+                            it.id == s.trackingIncidentId && it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE
+                        })
+                    s.copy(
+                        loading = false,
+                        refreshing = false,
+                        dutyStatus = me.getOrNull()?.dutyStatus ?: s.dutyStatus,
+                        incidents = serverIncidents ?: s.incidents,
+                        trackingIncidentId = if (trackingEnded) null else s.trackingIncidentId,
+                        trackingError = if (trackingEnded) "Location sharing stopped because this incident is no longer assigned en route." else s.trackingError,
+                        syncError = refreshError?.message,
+                        lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else s.lastSyncedAtEpochMs,
+                    )
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                // Unexpected repository exceptions must not leave the refresh spinner stuck
+                // or unlock duty controls as if the assignment check had succeeded.
+                _state.update { s ->
+                    s.copy(
+                        loading = false,
+                        refreshing = false,
+                        syncError = failure.message ?: "Could not verify assignments. Refresh and try again.",
+                    )
+                }
+            } finally {
+                _state.update { it.copy(refreshing = false) }
+                val runQueuedRefresh = refreshRequested
+                refreshRequested = false
+                refreshJob = null
+                if (runQueuedRefresh) refresh()
             }
         }
     }
@@ -210,10 +239,24 @@ class ResponderViewModel(
         if (_state.value.busy) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null) }
-            val result = call()
-            _state.update { it.copy(busy = false, error = result.exceptionOrNull()?.message) }
+            val result = try {
+                call()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                Result.failure<Nothing>(failure)
+            }
+            _state.update { s ->
+                s.copy(
+                    busy = false,
+                    error = result.exceptionOrNull()?.message
+                        ?: if (result.isFailure) "The action failed. Refresh and try again." else null,
+                )
+            }
             if (result.isSuccess) {
-                refreshJob?.cancel()
+                // refresh() queues a follow-up when an earlier sync is still active.
+                // Do not cancel and replace the job: its finally block could clear the
+                // reference to the newer job and make overlapping refreshes possible.
                 refresh()
             }
         }
@@ -292,9 +335,29 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
 
         item {
+            OutlinedButton(
+                onClick = vm::refresh,
+                enabled = !state.refreshing && !state.loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (state.refreshing || state.loading) {
+                    CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
+                    Text("Refreshing assignments…")
+                } else {
+                    Text("Refresh assignments")
+                }
+            }
+        }
+
+        item {
             DutyCard(
                 current = state.dutyStatus,
-                canChange = active.isEmpty(),
+                canChange = active.isEmpty() && !state.loading && !state.refreshing && state.syncError == null,
+                unavailableMessage = when {
+                    state.loading || state.refreshing -> "Checking assignments before allowing duty changes."
+                    state.syncError != null -> "Could not verify assignments. Refresh before changing duty status."
+                    else -> "Your status updates automatically as you move the incident forward."
+                },
                 busy = state.busy,
                 onChange = vm::setDuty,
             )
@@ -326,6 +389,17 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                                     )
                                 }
                             }
+                        } else if (state.syncError != null) {
+                            Text(
+                                "Assignments could not be verified",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            Text(
+                                "Do not assume there are no active calls. Refresh assignments to verify your current duty status and assignments.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         } else {
                             Text(
                                 if (state.dutyStatus == DutyStatus.AVAILABLE) "No active assignments"
@@ -497,6 +571,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 private fun DutyCard(
     current: DutyStatus,
     canChange: Boolean,
+    unavailableMessage: String,
     busy: Boolean,
     onChange: (DutyStatus) -> Unit,
 ) {
@@ -523,7 +598,7 @@ private fun DutyCard(
                     )
                 }
             } else {
-                Text("Your status updates automatically as you move the incident forward.")
+                Text(unavailableMessage)
             }
         }
     }

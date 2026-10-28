@@ -1,3 +1,15 @@
+# Active handoff — 2026-10-28: Consolidated emergency workflow implementation
+
+- **User directive:** Implement the major TACResQ feature work in one comprehensive PR; do not block on emulator/manual UI review, but keep automated CI and security checks.
+- **Branch:** `agent/consolidated-emergency-workflows`, based on the validated notification/chat feature stack.
+- **Included work:** persistent recipient-scoped in-app notifications and inbox; secure incident-scoped chat backend and Android conversation UI; responder assignment/duty controls that remain fail-closed until assignment verification succeeds; canonical TACResQ product-scope documentation and README link.
+- **Source:** notification/chat stack from validated PRs #174–#178; responder safety from #185; product scope from #186. Consolidating related work avoids merging overlapping older PRs separately.
+- **Safety:** no live migration, production data changes, credentials, account provisioning, deployment, or repository security-setting changes. Use synthetic incidents only. Do not describe TACResQ as operationally ready.
+- **Validation:** source PR heads had successful TACResQ CI; #174/#175 also passed RPC grant and frontend-review workflows, and #185/#186 passed all three workflows. Consolidated branch CI is still required and must be checked on its exact head SHA. Emulator, physical-device, and manual UI review are skipped/not run per user directive.
+- **Next action:** open the consolidated PR, inspect CI on its exact head SHA, fix any failures, and merge only after required automated checks pass and GitHub confirms mergeability. Close superseded PRs only after confirming the consolidated implementation is merged.
+
+---
+
 # Active handoff — 2026-10-28: Autonomous implementation, skip manual UI/emulator gates
 
 - **User directive:** Rewrite agent instructions so manual UI review and emulator checks do not block progress, and eligible PRs are merged after automated checks pass.
