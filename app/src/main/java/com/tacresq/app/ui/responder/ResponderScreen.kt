@@ -521,7 +521,8 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                                 vm.advance(incident, next)
                             }
                         },
-                        enabled = !state.busy,
+                        // Do not advance a response from a stale assignment snapshot.
+                        enabled = !state.busy && !state.loading && !state.refreshing && state.syncError == null,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(next.actionLabel())
