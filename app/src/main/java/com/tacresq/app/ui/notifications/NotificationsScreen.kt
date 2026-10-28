@@ -34,7 +34,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.UserNotification
-import com.tacresq.app.data.repo.TacRepository
+import com.tacresq.app.data.repo.NotificationRepository
 import com.tacresq.app.ui.common.ScreenHeader
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,7 +56,7 @@ data class NotificationUiState(
     val actionError: String? = null,
 )
 
-class NotificationsViewModel(private val repo: TacRepository) : ViewModel() {
+class NotificationsViewModel(private val repo: NotificationRepository) : ViewModel() {
     private val _state = MutableStateFlow(NotificationUiState())
     val state: StateFlow<NotificationUiState> = _state.asStateFlow()
     private var refreshJob: kotlinx.coroutines.Job? = null
