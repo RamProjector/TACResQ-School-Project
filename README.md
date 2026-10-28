@@ -30,6 +30,8 @@ Review the incident queue, inspect available field units, confirm assignments, a
 
 Every authenticated role has a centered **GPS Map** destination in the mobile navigation shell. Selecting it hides the bottom navigation so the map fills the app viewport. The map automatically frames valid incident pins when they first become available, and **Show incident pins** lets users reframe one pin or all available pins on demand. **Locate me** requests permission only after a tap, centers on one fresh device fix, and shows a device-only marker; that preview is not uploaded or continuously tracked. The dispatcher view can also show fresh (at most two minutes old) foreground location reports from assigned en-route field units. Physical-device tile loading and GPS behavior remain unverified.
 
+The [in-app routing foundation](docs/IN_APP_ROUTING_FOUNDATION.md) defines validated route results and a bounded Valhalla polyline6 decoder for future integration. It does **not** enable a live routing provider; responders still use external turn-by-turn navigation, and route output must never be presented as proof of road passability or current traffic.
+
 ## Screens and wireframes
 
 The [TACRU mobile wireframe gallery](docs/wireframes/screenshots/README.md) documents role-specific screens, consent states, safety confirmations, GPS states, dispatcher workflows, and map destinations.
