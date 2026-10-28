@@ -21,7 +21,7 @@ internal interface ValhallaRoutingService {
  * The service URL and network timeouts belong to the caller's Retrofit/OkHttp
  * configuration. Only coordinates and routing mode are sent to the provider.
  */
-class ValhallaRoutingProvider(
+internal class ValhallaRoutingProvider(
     private val service: ValhallaRoutingService,
     private val clockMillis: () -> Long = System::currentTimeMillis,
 ) : RoutingProvider {
