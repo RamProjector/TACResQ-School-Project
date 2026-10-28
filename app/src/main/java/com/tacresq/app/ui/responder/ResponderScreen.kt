@@ -239,7 +239,15 @@ class ResponderViewModel(
                     if (!location.isFresh(capture.fix)) {
                         _state.update { it.copy(trackingError = "The location fix expired before sending; waiting for another current fix.") }
                     } else {
-                        val result = repo.recordResponderLocation(incidentId, capture.fix)
+                        val result = try {
+                            repo.recordResponderLocation(incidentId, capture.fix)
+                        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                            throw cancelled
+                        } catch (failure: Exception) {
+                            // Repository implementations may throw as well as return Result.failure.
+                            // Convert both paths into the same visible, fail-closed UI state.
+                            Result.failure(failure)
+                        }
                         if (result.isFailure) {
                             // Stop the GPS stream after a failed upload instead of repeatedly
                             // transmitting on every location tick. The responder can inspect
