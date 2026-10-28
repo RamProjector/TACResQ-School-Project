@@ -34,6 +34,8 @@ The first adapter increment now exists in `data/routing/ValhallaRoutingProvider.
 
 This is **not yet live app routing**: no Retrofit base URL is configured, no production routing service is selected, and the map screen does not yet request or draw routes. The adapter intentionally has no default host. The caller must configure connection/read/call timeouts and response-size limits; no provider credentials belong in the APK.
 
+The adapter now has a bounded client factory in `data/routing/ValhallaRoutingClientFactory.kt`. It stays disabled when no endpoint is configured, requires an explicit HTTPS base URL without embedded credentials/query/fragment, and applies 5-second connect, 10-second read/write, and 15-second overall call timeouts. Unit tests cover disabled configuration and rejected unsafe URLs. This still does not choose a provider host or enable routing in the GPS screen. Response-size limits and server-side authorization/rate limiting remain required before a production integration.
+
 ## Required next integration steps
 
 1. Host the routing service behind an authenticated, rate-limited Render API endpoint or choose a provider with documented production terms. Keep API keys server-side.
