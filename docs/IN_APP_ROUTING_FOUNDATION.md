@@ -28,16 +28,21 @@ OpenStreetMap's standard raster tile service is also best-effort, has no SLA, an
 
 Unit tests cover invalid coordinates, malformed route metrics, stale/future results, and explicit costing-mode mapping.
 
+## Implementation status
+
+The first adapter increment now exists in `data/routing/ValhallaRoutingProvider.kt`. It accepts an injected Retrofit service, sends only origin/destination coordinates plus explicit costing/units, converts Valhalla polyline6 legs and maneuvers into provider-neutral models, and rejects invalid coordinates, unsuccessful HTTP responses, missing route data, malformed geometry, and unusable metrics. Unit tests cover successful conversion, explicit driving costing, invalid-coordinate short-circuiting, and HTTP failure handling.
+
+This is **not yet live app routing**: no Retrofit base URL is configured, no production routing service is selected, and the map screen does not yet request or draw routes. The adapter intentionally has no default host. The caller must configure connection/read/call timeouts and response-size limits; no provider credentials belong in the APK.
+
 ## Required next integration steps
 
-1. Implement a routing adapter against a configured service endpoint. Do not hard-code a public demo endpoint in the app or put a provider secret in the APK.
-2. Host the routing service behind an authenticated, rate-limited Render API endpoint or choose a provider with documented production terms. Keep API keys server-side.
-3. Add route geometry decoding (Valhalla polyline6 or GeoJSON), enforce response-size/time limits, and validate every returned coordinate.
-4. Draw the route with an osmdroid polyline overlay, clearly label ETA as an estimate, and show route freshness and route failure states.
-5. Select mode by role: driving for driver; driving by default for field responder travelling by vehicle. Walking should be an explicit option only where it makes sense.
-6. Retain external navigation as a user-invoked fallback. Never auto-launch another app or claim a route is safe/passable.
-7. Validate location permission, foreground lifecycle, connectivity loss, cancellation, repeated route requests, stale GPS, malformed response, no route, and role/assignment authorization.
-8. Benchmark a fixed Tacloban test set against OSRM before finalizing Valhalla. Record route availability, distance/ETA differences, and implausible detours. Confirm local road access and flood/closure limitations with dispatch staff.
+1. Host the routing service behind an authenticated, rate-limited Render API endpoint or choose a provider with documented production terms. Keep API keys server-side.
+2. Wire the adapter through an explicit application configuration and enforce bounded network timeouts and response-size limits.
+3. Draw the route with an osmdroid polyline overlay, clearly label ETA as an estimate, and show route freshness and route failure states.
+4. Select mode by role: driving for driver; driving by default for field responder travelling by vehicle. Walking should be an explicit option only where it makes sense.
+5. Retain external navigation as a user-invoked fallback. Never auto-launch another app or claim a route is safe/passable.
+6. Validate location permission, foreground lifecycle, connectivity loss, cancellation, repeated route requests, stale GPS, malformed response, no route, and role/assignment authorization.
+7. Benchmark a fixed Tacloban test set against OSRM before finalizing Valhalla. Record route availability, distance/ETA differences, and implausible detours. Confirm local road access and flood/closure limitations with dispatch staff.
 
 ## Safety acceptance criteria
 
