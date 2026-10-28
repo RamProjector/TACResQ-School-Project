@@ -51,7 +51,7 @@ class TacRepository(
     private val store: SessionStore,
     private val tokenHolder: TokenHolder,
     appScope: CoroutineScope,
-) {
+) : NotificationRepository {
     /** Loading until the saved session is read, then LoggedOut or LoggedIn. */
     val sessionState: StateFlow<SessionState> = store.session
         .onEach { session -> tokenHolder.value = session?.token }
@@ -89,14 +89,14 @@ class TacRepository(
 
     suspend fun activeResponderLocations(): Result<List<ResponderLocation>> = call { api.activeResponderLocations() }
 
-    suspend fun myNotifications(limit: Int = 50): Result<List<UserNotification>> = call {
+    override suspend fun myNotifications(limit: Int): Result<List<UserNotification>> = call {
         val notificationApi = api as? TacNotificationApi
             ?: throw ApiException("Notifications are not available with the configured backend.")
         require(limit in 1..100) { "Notification page size must be between 1 and 100." }
         notificationApi.myNotifications(limit)
     }
 
-    suspend fun markNotificationRead(notificationId: Long): Result<Boolean> = call {
+    override suspend fun markNotificationRead(notificationId: Long): Result<Boolean> = call {
         val notificationApi = api as? TacNotificationApi
             ?: throw ApiException("Notifications are not available with the configured backend.")
         require(notificationId > 0) { "Notification ID must be positive." }

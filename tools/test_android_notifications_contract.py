@@ -30,10 +30,17 @@ for required in (
 ):
     assert required in api, f"Supabase notification RPC contract missing: {required}"
 
-repository = read("app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt")
+notification_contract = read("app/src/main/java/com/tacresq/app/data/repo/NotificationRepository.kt")
 for required in (
     "suspend fun myNotifications(limit: Int = 50)",
     "suspend fun markNotificationRead(notificationId: Long)",
+):
+    assert required in notification_contract, f"Notification interface contract missing: {required}"
+
+repository = read("app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt")
+for required in (
+    "override suspend fun myNotifications(limit: Int)",
+    "override suspend fun markNotificationRead(notificationId: Long)",
     "api as? TacNotificationApi",
     "Notification page size must be between 1 and 100.",
 ):
@@ -56,6 +63,9 @@ for required in (
     "collectAsStateWithLifecycle()",
     "repeatOnLifecycle(Lifecycle.State.STARTED)",
     "delay(30_000)",
+    "catch (cancelled: kotlinx.coroutines.CancellationException)",
+    "catch (_: Exception)",
+    "Could not load notifications. Try again.",
     "LazyColumn(",
     "items(state.items, key = { it.id })",
     "Mark as read",
@@ -68,6 +78,13 @@ for required in (
     "Try again",
 ):
     assert required in screen, f"Notification UI/lifecycle contract missing: {required}"
+
+assert screen.count("catch (cancelled: kotlinx.coroutines.CancellationException)") >= 2, (
+    "Both notification refresh and mark-read actions must preserve coroutine cancellation."
+)
+assert screen.count("catch (_: Exception)") >= 2, (
+    "Both notification refresh and mark-read actions must handle unexpected repository exceptions."
+)
 
 root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
 for required in (
@@ -106,5 +123,16 @@ for required in (
     "current authorized dispatch queue",
 ):
     assert required in dispatcher, f"Dispatcher alert target handling missing: {required}"
+
+behavior_tests = read("app/src/test/java/com/tacresq/app/ui/notifications/NotificationsViewModelTest.kt")
+for required in (
+    "refreshThrownExceptionUsesGenericErrorAndClearsProgress",
+    "refreshResultFailurePreservesRepositoryMessageAndClearsProgress",
+    "refreshCancellationPropagatesWithoutShowingErrorAndClearsProgress",
+    "markReadThrownExceptionUsesGenericErrorAndClearsBusyId",
+    "markReadResultFailurePreservesRepositoryMessageAndClearsBusyId",
+    "markReadCancellationPropagatesWithoutShowingErrorAndClearsBusyId",
+):
+    assert required in behavior_tests, f"Focused notification ViewModel behavior test missing: {required}"
 
 print("PASS: Android notifications use caller-scoped RPCs, recipient-filtered demo data, lifecycle-aware polling, explicit loading/empty/error/retry states, and preserve GPS Map navigation.")

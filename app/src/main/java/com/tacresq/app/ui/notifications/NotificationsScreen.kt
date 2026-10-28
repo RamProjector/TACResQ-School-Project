@@ -34,7 +34,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.UserNotification
-import com.tacresq.app.data.repo.TacRepository
+import com.tacresq.app.data.repo.NotificationRepository
 import com.tacresq.app.ui.common.ScreenHeader
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,7 +56,7 @@ data class NotificationUiState(
     val actionError: String? = null,
 )
 
-class NotificationsViewModel(private val repo: TacRepository) : ViewModel() {
+class NotificationsViewModel(private val repo: NotificationRepository) : ViewModel() {
     private val _state = MutableStateFlow(NotificationUiState())
     val state: StateFlow<NotificationUiState> = _state.asStateFlow()
     private var refreshJob: kotlinx.coroutines.Job? = null
@@ -71,26 +71,41 @@ class NotificationsViewModel(private val repo: TacRepository) : ViewModel() {
                     error = null,
                 )
             }
-            repo.myNotifications(limit = 50)
-                .onSuccess { items ->
-                    _state.update {
-                        it.copy(
-                            items = items,
-                            loading = false,
-                            refreshing = false,
-                            error = null,
-                        )
+            try {
+                repo.myNotifications(limit = 50)
+                    .onSuccess { items ->
+                        _state.update {
+                            it.copy(
+                                items = items,
+                                loading = false,
+                                refreshing = false,
+                                error = null,
+                            )
+                        }
                     }
-                }
-                .onFailure { failure ->
-                    _state.update {
-                        it.copy(
-                            loading = false,
-                            refreshing = false,
-                            error = failure.message ?: "Could not load notifications. Try again.",
-                        )
+                    .onFailure { failure ->
+                        _state.update {
+                            it.copy(
+                                loading = false,
+                                refreshing = false,
+                                error = failure.message ?: "Could not load notifications. Try again.",
+                            )
+                        }
                     }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        refreshing = false,
+                        error = "Could not load notifications. Try again.",
+                    )
                 }
+            } finally {
+                // Cancellation must not leave stale progress indicators in a still-visible VM.
+                _state.update { it.copy(loading = false, refreshing = false) }
+            }
         }
     }
 
@@ -98,37 +113,51 @@ class NotificationsViewModel(private val repo: TacRepository) : ViewModel() {
         if (notification.readAt != null || notification.id in _state.value.busyIds) return
         _state.update { it.copy(busyIds = it.busyIds + notification.id, actionError = null) }
         viewModelScope.launch {
-            repo.markNotificationRead(notification.id)
-                .onSuccess { marked ->
-                    if (marked) {
-                        val readAt = Instant.now().toString()
-                        _state.update { current ->
-                            current.copy(
-                                items = current.items.map {
-                                    if (it.id == notification.id) it.copy(readAt = it.readAt ?: readAt) else it
-                                },
-                                busyIds = current.busyIds - notification.id,
-                                actionError = null,
-                            )
+            try {
+                repo.markNotificationRead(notification.id)
+                    .onSuccess { marked ->
+                        if (marked) {
+                            val readAt = Instant.now().toString()
+                            _state.update { current ->
+                                current.copy(
+                                    items = current.items.map {
+                                        if (it.id == notification.id) it.copy(readAt = it.readAt ?: readAt) else it
+                                    },
+                                    busyIds = current.busyIds - notification.id,
+                                    actionError = null,
+                                )
+                            }
+                        } else {
+                            _state.update {
+                                it.copy(
+                                    busyIds = it.busyIds - notification.id,
+                                    actionError = "This notification is no longer available to your account. Refresh the list.",
+                                )
+                            }
+                            refresh()
                         }
-                    } else {
+                    }
+                    .onFailure { failure ->
                         _state.update {
                             it.copy(
                                 busyIds = it.busyIds - notification.id,
-                                actionError = "This notification is no longer available to your account. Refresh the list.",
+                                actionError = failure.message ?: "Could not mark this notification as read.",
                             )
                         }
-                        refresh()
                     }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update {
+                    it.copy(
+                        busyIds = it.busyIds - notification.id,
+                        actionError = "Could not mark this notification as read.",
+                    )
                 }
-                .onFailure { failure ->
-                    _state.update {
-                        it.copy(
-                            busyIds = it.busyIds - notification.id,
-                            actionError = failure.message ?: "Could not mark this notification as read.",
-                        )
-                    }
-                }
+            } finally {
+                // A cancelled action must be retryable if the ViewModel remains alive.
+                _state.update { it.copy(busyIds = it.busyIds - notification.id) }
+            }
         }
     }
 
