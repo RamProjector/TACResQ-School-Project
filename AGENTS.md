@@ -1,41 +1,38 @@
 # TACResQ agent instructions
 
-These instructions apply to any agent or chat working in this repository.
+These instructions apply to any agent or chat working in this repository. Read this file and [`CURRENT_TASK.md`](CURRENT_TASK.md) before every task, then follow [`docs/AGENT_WORKFLOW.md`](docs/AGENT_WORKFLOW.md). If instructions conflict, the user's latest explicit request takes precedence, followed by this file and then the workflow guide.
 
-## Task continuity is required
+## Task continuity
 
-Before changing code, documentation, infrastructure, or repository settings, read [`CURRENT_TASK.md`](CURRENT_TASK.md). Treat it as the current handoff for work that may be resumed by another chat.
+- Inspect the latest `main`, relevant source/tests, open PRs, and CI before implementation. Treat older handoff entries as history until verified against current repository state.
+- After every meaningful session, update `CURRENT_TASK.md` with objective, changes, branch/PR/commit, actual validation results, blockers, and next concrete action.
+- When working only through GitHub APIs, report verified remote facts; never invent a local working-tree status.
 
-After every meaningful work session, update `CURRENT_TASK.md` before stopping. The update must record the objective, completed work, current repository state, files changed, validation results, blockers, and the next concrete actions.
+## Autonomous implementation and delivery
 
-If a task stops midway, leave the repository in a safe state and document exactly where the next chat should resume. Never claim a task is complete when `CURRENT_TASK.md` still lists unfinished required actions.
+- Work autonomously through inspection, implementation, automated validation, PR creation, and eligible PR merging. Do not stop to ask for approval at each routine coding step.
+- Prefer one coherent feature PR. If the user explicitly requests a consolidated feature update, inspect existing open PRs and branches first, reuse or consolidate work where practical, and avoid duplicating features already implemented.
+- Never commit feature changes directly to `main`. Create a task-scoped branch from the latest `main`, using `agent/<short-task-slug>`.
+- **Do not require manual UI review, screenshots, visual sign-off, emulator runs, or physical-device review as blockers** when the user has instructed the agent to skip them. Mark them `skipped` or `not run`, never as passed. Do not add emulator/UI-review work merely to satisfy an old checklist.
+- Continue to run relevant automated checks: source/static tests, unit/integration tests, security/authorization contracts, database migration replay in isolated test environments, and Android/web/backend builds where supported. Fix failures before merging. A CodeRabbit or frontend-review report may inform work, but manual UI approval is not a merge gate under this workflow.
+- **Merge eligible PRs after required automated CI checks pass**, the branch is mergeable, and there are no known unresolved critical security/privacy defects or failing required checks. Use the repository's normal merge method. If required checks fail, conflict, or cannot be verified, do not force-merge; diagnose/fix and rerun checks.
+- Do not enable auto-merge unless needed and explicitly requested. Do not deploy, apply live database migrations, modify live data, provision real accounts, change production configuration, or alter repository security settings unless the user has explicitly authorized that specific side effect.
+- If GitHub branch protection/rulesets prevent a merge, report the exact blocker rather than bypassing protections.
 
-## Review-first autonomous coding workflow
+## Scope and product safety
 
-Follow [`docs/AGENT_WORKFLOW.md`](docs/AGENT_WORKFLOW.md) for the standard feature lifecycle.
+TACResQ is an emergency-response coordination project, not itself an emergency-services provider. Preserve its separation from LifeLink and blood-donor functionality. Do not claim operational readiness without evidence.
 
-- Handle one coherent, user-visible feature or maintenance task at a time. Do not bundle unrelated refactors, dependency upgrades, or drive-by cleanup.
-- Inspect the latest `main`, the relevant source, current issues/PRs, and this handoff before deciding how to implement a task.
-- **Never commit task changes directly to `main`.** Create a task-scoped branch from the latest `main`, using `agent/<short-task-slug>` for agent-managed work. If a safe branch cannot be created, do not write to `main`.
-- Validate the change, summarize limitations honestly, and prepare a focused pull request with the scope, impact, security/privacy implications, and test results.
-- **Do not merge a pull request, enable auto-merge, or deploy changes unless the user explicitly authorizes that separate action.** The default delivery state is a reviewable PR.
-- Repository instructions do not enforce GitHub settings. If `main` is unprotected, report that limitation; do not claim review is technically enforced until branch protection or a ruleset requires it.
+- Preserve server-side role authorization, least privilege, RLS/RPC grants, location consent, truthful GPS accuracy/freshness/unavailable states, duplicate-SOS safeguards, and data minimization.
+- Never fabricate GPS, successful delivery, incident status, backend connectivity, test results, or deployment state.
+- Use synthetic test incidents and test locations only. Never commit credentials, tokens, passwords, personal information, real incident coordinates, or real emergency records.
+- Treat authentication, authorization, GPS/location collection, Supabase migrations/RLS/RPCs, and deployment configuration as high-risk: add targeted automated negative-case coverage and document remaining live/device verification gaps.
+- Do not change the technology stack, introduce paid services, or perform destructive/production changes without explicit authorization.
 
-## Handoff rules
+## Validation and reporting
 
-- Keep the handoff factual and concise.
-- Include commit IDs and pull-request/deployment URLs when relevant.
-- Record commands and validation results, not private credentials.
-- Never put API keys, passwords, service-role keys, tokens, personal data, or real emergency data in the handoff.
-- If the handoff conflicts with the current user request, follow the current user request and update the handoff.
-- Check `git status`, current branch, and recent commits before writing the handoff when a local checkout is available. When work uses only the GitHub connector, state the remote branch/commit facts you verified and do not invent a local working-tree status.
-- A clean working tree is required before declaring local repository work complete unless the user explicitly asked to leave changes uncommitted.
-
-## Security and side-effect boundaries
-
-TACResQ is not an emergency-services provider. Preserve the project's privacy, role-authorization, location-consent, and no-fabricated-GPS boundaries. Run the relevant checks before handoff.
-
-- Never publish credentials, personal information, real emergency data, or actual incident coordinates.
-- Treat authentication, authorization, location collection, Supabase migrations/RLS/RPCs, and deployment configuration as high-risk surfaces. Add targeted validation and clearly document any coverage gap.
-- Do not apply a migration to a live Supabase project, change live data, deploy, or modify repository security settings without explicit user authorization for that specific action.
-- Never claim a build, test, device run, security review, or deployment succeeded unless its result was actually observed. Clearly distinguish skipped checks from passed checks.
+- Run all relevant automated checks available in CI and inspect their results on the exact PR head SHA before merging.
+- Report each check as **passed**, **failed**, **skipped**, or **not run**. Never describe skipped emulator/UI/device review as passed.
+- A passing build or static test does not prove physical-device behavior, live Supabase behavior, or production readiness.
+- Review diffs for accidental secrets, unrelated edits, and weakened safety/security behavior.
+- Keep the PR and handoff factual, concise, and specific about limitations.
