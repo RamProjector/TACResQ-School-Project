@@ -93,9 +93,10 @@ For Supabase:
 
 1. Apply the migrations in [`supabase/migrations/`](supabase/migrations/).
 2. Follow [`docs/SUPABASE_BACKEND.md`](docs/SUPABASE_BACKEND.md).
-3. Set `USE_FAKE_API = false` and `USE_SUPABASE_API = true`.
-4. Use only a Supabase publishable client key in Android code. Never use a service-role or secret key in the client.
-5. Provision responder, driver, and dispatcher accounts through a trusted administrator. Public registration creates requester accounts only.
+3. For Android confirmation links that open `localhost:3000`, follow [`docs/ANDROID_SUPABASE_AUTH_REDIRECTS.md`](docs/ANDROID_SUPABASE_AUTH_REDIRECTS.md) and verify the intended QA project's Auth Redirect URLs allowlist.
+4. Set `USE_FAKE_API = false` and `USE_SUPABASE_API = true`.
+5. Use only a Supabase publishable client key in Android code. Never use a service-role or secret key in the client.
+6. Provision responder, driver, and dispatcher accounts through a trusted administrator. Public registration creates requester accounts only.
 
 The Supabase publishable key is client configuration, not a server secret. Database access must remain protected by authentication, Row Level Security, and the RPC role checks in the migrations.
 
