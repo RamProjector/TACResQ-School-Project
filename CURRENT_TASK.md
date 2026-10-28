@@ -1,3 +1,13 @@
+# Active handoff — 2026-10-28: Android Supabase auth redirect contract
+
+- **Purpose:** retain the Android email-confirmation redirect contract and a repeatable regression test after the consolidated emergency-workflow merge.
+- **Implementation:** adds `docs/ANDROID_SUPABASE_AUTH_REDIRECTS.md`, `tools/test_android_auth_redirect_contract.py`, the CI step that runs the nine contract checks, and a README link.
+- **Security boundary:** app callback input is untrusted and does not establish a session from arbitrary URL tokens. This documents expected QA configuration only; it does not modify live Supabase Auth settings, email templates, or credentials.
+- **Validation:** source contract test must run in CI along with Android debug/release builds and JVM tests. Emulator/device callback behavior and live email delivery remain unverified and are not merge gates under the user's directive.
+- **Next action:** open a PR against current `main`, inspect all required automated checks on the exact head SHA, and merge only if checks pass and GitHub reports the PR mergeable.
+
+---
+
 # Active handoff — 2026-10-28: Consolidated emergency workflow implementation
 
 - **User directive:** Implement the major TACResQ feature work in one comprehensive PR; do not block on emulator/manual UI review, but keep automated CI and security checks.
