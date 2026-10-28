@@ -2,6 +2,8 @@
 
 TACResQ is a role-based emergency response coordination system for requesters, field responders, drivers, and dispatchers.
 
+**Canonical product scope:** TACResQ is a **general emergency GPS helper focused on Tacloban City**—not a blood-donor app and not LifeLink. Read [`docs/PRODUCT_SCOPE.md`](docs/PRODUCT_SCOPE.md) before planning or reviewing TACResQ changes; it defines the product identity, role boundaries, safety principles, and future-work guardrails.
+
 The repository contains a Kotlin/Jetpack Compose Android application with a Gradle build, a Supabase-backed data contract, a TACRU dispatcher dashboard, and documented mobile response workflows.
 
 > **Safety boundary:** TACResQ is an educational and engineering project, not an emergency-services provider. Do not use it as a substitute for local emergency services or real emergency dispatch.
@@ -148,6 +150,7 @@ For the complete operator runbook covering debug/release builds, web navigation,
 - [`docs/API.md`](docs/API.md) — API contract
 - [`docs/SUPABASE_BACKEND.md`](docs/SUPABASE_BACKEND.md) — Supabase setup and provisioning
 - [`docs/GPS_LOCATION_NOTES.md`](docs/GPS_LOCATION_NOTES.md) — location privacy and Android behavior
+- [`docs/PRODUCT_SCOPE.md`](docs/PRODUCT_SCOPE.md) — canonical TACResQ identity, Tacloban focus, scope boundaries, and agent guardrails
 - [`docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md`](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) — centered GPS Map navigation
 - [`PROJECT_ANALYSIS.md`](PROJECT_ANALYSIS.md) — project analysis and implementation context
 - [`docs/QA_WORKFLOWS.md`](docs/QA_WORKFLOWS.md) — actionable build, browser, screenshot, stress, and security workflows
