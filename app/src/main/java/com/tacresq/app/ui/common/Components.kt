@@ -153,8 +153,10 @@ fun IncidentStatus.actionLabel(): String = when (this) {
 fun IncidentCard(
     incident: Incident,
     modifier: Modifier = Modifier,
+    statusOverride: IncidentStatus? = null,
     actions: @Composable ColumnScope.() -> Unit = {},
 ) {
+    val displayStatus = statusOverride ?: incident.status
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -164,7 +166,7 @@ fun IncidentCard(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
                 )
-                StatusPill(incident.status.label, incident.status.pillColor())
+                StatusPill(displayStatus.label, displayStatus.pillColor())
             }
             val time = formatTime(incident.createdAt)
             if (time.isNotEmpty()) Text(time, style = MaterialTheme.typography.bodySmall)
