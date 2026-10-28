@@ -32,9 +32,9 @@ The clean-PostgreSQL migration replay test covers assignment and status event cr
 1. Add a typed Android repository/API model and a dedicated Notifications destination without removing or demoting the prominent GPS Map destination.
 2. Add an accessible notification list with unread/read styling, loading/empty/error states, retry, mark-read behavior, and incident navigation that re-checks authorization.
 3. Add equivalent web notifications only if dispatchers need personal alerts; do not expose all users' notifications to a dispatcher dashboard by default.
-4. If FCM is added, use it only as an optional delivery channel. Store/rotate/remove tokens securely, handle permission denial and sign-out, make delivery retry-safe, and never put service credentials in Android or browser code.
+4. FCM remains unimplemented. Follow [the FCM push-delivery security gate](FCM_PUSH_DELIVERY_SECURITY_GATE.md) before adding SDKs, token storage, a sender, or deployment configuration.
 5. Test duplicate event behavior for team assignments and all supported status transitions against the current RPC contract before live rollout.
 
 ## Deployment boundary
 
-No live Supabase migration, Render deployment, user/account mutation, token registration, or production notification was performed by this change. Apply the migration only after review and explicit authorization. Until native UI, real-backend integration, and device validation are complete, this is a backend foundation rather than a finished notification feature.
+No live Supabase migration, Render deployment, user/account mutation, token registration, or production notification was performed by this change. Apply migrations only after review and explicit authorization. The Render service currently hosts the dispatcher console; setting an environment variable alone does not implement FCM. Until the Android app is Firebase-configured, a trusted sender exists, and device delivery is validated, this is an in-app notification foundation rather than a finished push-notification feature.
