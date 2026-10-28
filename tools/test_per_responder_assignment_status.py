@@ -45,6 +45,8 @@ for required in (
     'enabled = !state.refreshing && !state.loading',
     'if (runQueuedRefresh) refresh()',
     'Result.failure<Nothing>(failure)',
+    'state.incidents.filter { it.statusFor(user.id).isActive }',
+    'state.incidents.filterNot { it.statusFor(user.id).isActive }',
 ):
     assert required in responder, f"Responder UI safety/usability contract missing: {required}"
 
