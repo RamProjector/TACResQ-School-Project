@@ -4,6 +4,8 @@ TACResQ is a role-based emergency response coordination system for requesters, f
 
 The repository contains a Kotlin/Jetpack Compose Android application with a Gradle build, a Supabase-backed data contract, a TACRU dispatcher dashboard, and documented mobile response workflows.
 
+See [canonical product scope](docs/PRODUCT_SCOPE.md) for the intended roles, safety boundaries, and verified-versus-planned functionality.
+
 > **Safety boundary:** TACResQ is an educational and engineering project, not an emergency-services provider. Do not use it as a substitute for local emergency services or real emergency dispatch.
 
 [![CI](https://github.com/RamProjector/TACResQ-School-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/RamProjector/TACResQ-School-Project/actions/workflows/ci.yml)
