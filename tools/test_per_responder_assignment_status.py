@@ -54,6 +54,10 @@ for required in (
     'incident == null || !isAssignedToMe -> "This incident is not verified as assigned to your responder account. Location sharing remains off."',
     'incident?.status?.takeIf { isAssignedToMe }',
     'IncidentCard(incident, statusOverride = incident.statusFor(user.id))',
+    'if (result.isFailure) {',
+    'stopTracking("$reason Location sharing paused; verify the assignment and resume sharing when ready.")',
+    'lastLocationSentAt = System.currentTimeMillis()',
+    'trackingError = null',
 ):
     assert required in responder, f"Responder UI safety/usability contract missing: {required}"
 
