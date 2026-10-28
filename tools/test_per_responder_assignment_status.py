@@ -47,6 +47,11 @@ for required in (
     'Result.failure<Nothing>(failure)',
     'state.incidents.filter { it.statusFor(user.id).isActive }',
     'state.incidents.filterNot { it.statusFor(user.id).isActive }',
+    'it.message ?: "Could not verify assignments. Refresh and try again."',
+    'val isAssignedToMe = currentUserId != null && (',
+    'incident?.assignedUserStatuses?.any { it.userId == currentUserId } == true',
+    'incident == null || !isAssignedToMe -> "This incident is not verified as assigned to your responder account. Location sharing remains off."',
+    'incident?.status?.takeIf { isAssignedToMe }',
 ):
     assert required in responder, f"Responder UI safety/usability contract missing: {required}"
 
