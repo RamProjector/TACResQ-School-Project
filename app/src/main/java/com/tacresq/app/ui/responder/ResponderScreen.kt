@@ -178,23 +178,38 @@ class ResponderViewModel(
                     lastLocationAccuracyM = null,
                 )
             }
-            val current = repo.myIncidents()
-            val me = repo.me()
-            val incident = current.getOrNull()?.firstOrNull { it.id == incidentId }
-            val ownStatus = incident?.assignedUserStatuses
-                ?.firstOrNull { it.userId == me.getOrNull()?.id }?.status ?: incident?.status
-            val failure = when {
-                current.isFailure -> current.exceptionOrNull()?.message ?: "Could not verify the active assignment."
-                me.isFailure -> me.exceptionOrNull()?.message ?: "Could not verify your responder identity."
-                ownStatus != IncidentStatus.EN_ROUTE -> "Location sharing is allowed only for your own en-route unit status. Refresh the assignment and try again."
-                !location.hasApproximatePermission() -> "Approximate location permission is not available. Location sharing remains off."
-                else -> null
+            try {
+                val current = repo.myIncidents()
+                val me = repo.me()
+                val incident = current.getOrNull()?.firstOrNull { it.id == incidentId }
+                val ownStatus = incident?.assignedUserStatuses
+                    ?.firstOrNull { it.userId == me.getOrNull()?.id }?.status ?: incident?.status
+                val failure = when {
+                    current.isFailure -> current.exceptionOrNull()?.message ?: "Could not verify the active assignment."
+                    me.isFailure -> me.exceptionOrNull()?.message ?: "Could not verify your responder identity."
+                    ownStatus != IncidentStatus.EN_ROUTE -> "Location sharing is allowed only for your own en-route unit status. Refresh the assignment and try again."
+                    !location.hasApproximatePermission() -> "Approximate location permission is not available. Location sharing remains off."
+                    else -> null
+                }
+                _state.update { it.copy(
+                    busy = false,
+                    trackingIncidentId = if (failure == null) incidentId else null,
+                    trackingError = failure,
+                ) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                // A thrown repository error must not strand the UI in a busy state or
+                // imply that location sharing resumed successfully.
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        trackingIncidentId = null,
+                        trackingError = failure.message
+                            ?: "Could not verify the active assignment. Location sharing remains off; refresh and try again.",
+                    )
+                }
             }
-            _state.update { it.copy(
-                busy = false,
-                trackingIncidentId = if (failure == null) incidentId else null,
-                trackingError = failure,
-            ) }
         }
     }
 
