@@ -372,8 +372,8 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
     ) {
         item {
             ScreenHeader(
-                title = "Responder workspace",
-                subtitle = "Your assignments, duty status, and location sharing",
+                title = if (user.role == com.tacresq.app.data.model.Role.DRIVER) "Driver workspace" else "Responder workspace",
+                subtitle = if (user.role == com.tacresq.app.data.model.Role.DRIVER) "Assigned trips, route guidance, and location sharing" else "Your assignments, duty status, and location sharing",
                 onLogout = {
                     vm.stopTracking("Location sharing stopped because you signed out.")
                     onLogout()
@@ -478,7 +478,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         if (active.isNotEmpty()) {
             item {
                 Text(
-                    "Active assignments",
+                    if (user.role == com.tacresq.app.data.model.Role.DRIVER) "Current trip" else "Active assignments",
                     style = MaterialTheme.typography.titleLarge,
                 )
             }
@@ -487,7 +487,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         items(active, key = { it.id }) { incident ->
             IncidentCard(incident, statusOverride = incident.statusFor(user.id)) {
                 Text(
-                    "Your unit: ${incident.statusFor(user.id).label}",
+                    "${if (user.role == com.tacresq.app.data.model.Role.DRIVER) "Trip status" else "Your unit"}: ${incident.statusFor(user.id).label}",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 val contact = listOfNotNull(incident.requesterName, incident.requesterPhone)
@@ -505,10 +505,10 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                         onClick = { openNavigation(context, latitude, longitude) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Open navigation app")
+                        Text(if (user.role == com.tacresq.app.data.model.Role.DRIVER) "Open route guidance" else "Open navigation app")
                     }
                     Text(
-                        "Opens an installed maps app for route guidance. Use TACResQ GPS Map for the incident and field-unit overview.",
+                        if (user.role == com.tacresq.app.data.model.Role.DRIVER) "Set your route before moving. Do not interact with this app while driving. Use TACResQ GPS Map to review incident and field-unit context." else "Opens an installed maps app for route guidance. Use TACResQ GPS Map for the incident and field-unit overview.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -585,7 +585,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         if (history.isNotEmpty()) {
             item {
                 Text(
-                    "Recent history",
+                    if (user.role == com.tacresq.app.data.model.Role.DRIVER) "Trip history" else "Recent history",
                     style = MaterialTheme.typography.titleLarge,
                 )
             }
