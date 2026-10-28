@@ -57,7 +57,7 @@ for required in (
     "repeatOnLifecycle(Lifecycle.State.STARTED)",
     "delay(30_000)",
     "catch (cancelled: kotlinx.coroutines.CancellationException)",
-    "catch (failure: Exception)",
+    "catch (_: Exception)",
     "Could not load notifications. Try again.",
     "LazyColumn(",
     "items(state.items, key = { it.id })",
@@ -75,7 +75,7 @@ for required in (
 assert screen.count("catch (cancelled: kotlinx.coroutines.CancellationException)") >= 2, (
     "Both notification refresh and mark-read actions must preserve coroutine cancellation."
 )
-assert screen.count("catch (failure: Exception)") >= 2, (
+assert screen.count("catch (_: Exception)") >= 2, (
     "Both notification refresh and mark-read actions must handle unexpected repository exceptions."
 )
 
