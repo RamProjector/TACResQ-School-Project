@@ -4,9 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    # Include stacked agent/* review branches so dependent draft PRs still run the
-    # same full CI suite instead of silently skipping validation.
-    branches: [main, 'agent/**']
+    branches: [main]
   workflow_dispatch:
 
 permissions:
