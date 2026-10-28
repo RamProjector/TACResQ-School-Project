@@ -28,6 +28,26 @@ for required in (
 ):
     assert required in sql, f"Missing per-responder status safety contract: {required}"
 
+
+# Responder UI safety and HCI contract: uncertain server state must never be
+# presented as a verified empty queue or an actionable duty status.
+for required in (
+    'title = "Responder workspace"',
+    'subtitle = "Your assignments, duty status, and location sharing"',
+    '"Checking status…"',
+    '"Status unverified"',
+    'canChange = active.isEmpty() && !state.loading && !state.refreshing && state.syncError == null',
+    '"Assignments could not be verified"',
+    '"Do not assume there are no active calls.',
+    '"Active assignments"',
+    '"Recent history"',
+    'onClick = vm::refresh',
+    'enabled = !state.refreshing && !state.loading',
+    'if (runQueuedRefresh) refresh()',
+    'Result.failure<Nothing>(failure)',
+):
+    assert required in responder, f"Responder UI safety/usability contract missing: {required}"
+
 assert "UPDATE public.profiles" not in sql, "This migration must not bypass profile duty-status safeguards."
 assert "public.api_update_incident_status(p_id bigint, p_status text)" in sql, (
     "Legacy status RPC must route through the per-assignment status checks."
