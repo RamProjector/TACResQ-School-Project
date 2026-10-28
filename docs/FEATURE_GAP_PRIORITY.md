@@ -66,7 +66,7 @@ These are release blockers, not optional polish.
 - Add server-side audit events for privileged dispatch actions and status changes if current backend logs are not sufficient; do not treat client logs as an authoritative audit trail.
 
 ## Priority 4 — Reliability features after the core loop is proven
-- Push notifications for assignment changes and requester status updates, with in-app refresh as the source of truth.
+- Push notifications for assignment changes and requester status updates, with in-app refresh as the source of truth. Follow [`FCM_NOTIFICATION_SECURITY_PLAN.md`](FCM_NOTIFICATION_SECURITY_PLAN.md); this is design-only until the exposed service-account key is revoked and security gates are satisfied.
 - Reconnect-aware refresh and a visible stale/offline indicator; never queue safety-critical status changes silently.
 - A debug-only, user-accessible diagnostic export for logs and environment/build metadata, redacting tokens, phone numbers, exact coordinates, and emergency descriptions by default.
 - Accessibility pass for 48 dp targets, TalkBack semantics, readable contrast/type, and predictable navigation on small screens.
