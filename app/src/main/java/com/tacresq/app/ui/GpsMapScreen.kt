@@ -431,67 +431,67 @@ fun GpsMapScreen(
         scope.launch {
             try {
                 deviceFix = null
-            locationStatus = "Checking device location settings…"
-            when (val settings = locationProvider.checkLocationSettings()) {
-                LocationSettingsCheck.Ready -> {
-                    locationStatus = "Getting a fresh device location…"
-                    when (val result = locationProvider.currentFix()) {
-                        is LocationCaptureResult.Success -> {
-                            val fix = result.fix
-                            deviceFix = fix
-                            // Recenter after the native MapView has processed the latest layout.
-                            // Zoom in enough for the user to recognize their own position, and
-                            // do this on every Locate me action (not only the first map render).
-                            mapView.post {
-                                mapView.controller.setZoom(16.0)
-                                mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))
-                                mapView.invalidate()
+                locationStatus = "Checking device location settings…"
+                when (val settings = locationProvider.checkLocationSettings()) {
+                    LocationSettingsCheck.Ready -> {
+                        locationStatus = "Getting a fresh device location…"
+                        when (val result = locationProvider.currentFix()) {
+                            is LocationCaptureResult.Success -> {
+                                val fix = result.fix
+                                deviceFix = fix
+                                // Recenter after the native MapView has processed the latest layout.
+                                // Zoom in enough for the user to recognize their own position, and
+                                // do this on every Locate me action (not only the first map render).
+                                mapView.post {
+                                    mapView.controller.setZoom(16.0)
+                                    mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))
+                                    mapView.invalidate()
+                                }
+                                val precision = if (fix.hasPrecisePermission) "Precise" else "Approximate"
+                                val accuracy = fix.accuracyM?.let { " · accuracy about ${it.roundToInt()} m" } ?: ""
+                                locationStatus = "One-time $precision location shown on this device only; not uploaded$accuracy."
                             }
-                            val precision = if (fix.hasPrecisePermission) "Precise" else "Approximate"
-                            val accuracy = fix.accuracyM?.let { " · accuracy about ${it.roundToInt()} m" } ?: ""
-                            locationStatus = "One-time $precision location shown on this device only; not uploaded$accuracy."
-                        }
-                        LocationCaptureResult.PermissionDenied -> {
-                            locationStatus = "Location permission denied. Incident pins remain available."
-                        }
-                        LocationCaptureResult.ServicesDisabled -> {
-                            locationStatus = "Opening Android Location settings. Turn Location on, return here, and tap Locate me again."
-                            runCatching {
-                                context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                            }.onFailure {
-                                locationStatus = "Device Location is off. Turn it on in Quick Settings, return here, and tap Locate me again."
+                            LocationCaptureResult.PermissionDenied -> {
+                                locationStatus = "Location permission denied. Incident pins remain available."
+                            }
+                            LocationCaptureResult.ServicesDisabled -> {
+                                locationStatus = "Opening Android Location settings. Turn Location on, return here, and tap Locate me again."
+                                runCatching {
+                                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                                }.onFailure {
+                                    locationStatus = "Device Location is off. Turn it on in Quick Settings, return here, and tap Locate me again."
+                                }
+                            }
+                            LocationCaptureResult.TimedOut -> {
+                                locationStatus = "No fresh location fix arrived in time. Try again."
+                            }
+                            LocationCaptureResult.InvalidFix -> {
+                                locationStatus = "The device returned invalid or stale coordinates. Try again."
+                            }
+                            LocationCaptureResult.Unavailable -> {
+                                locationStatus = "Current location is unavailable. Check signal and try again."
                             }
                         }
-                        LocationCaptureResult.TimedOut -> {
-                            locationStatus = "No fresh location fix arrived in time. Try again."
+                    }
+                    is LocationSettingsCheck.NeedsResolution -> {
+                        locationStatus = "Android needs your approval to enable the device location settings required for a fresh fix."
+                        runCatching {
+                            locationSettingsLauncher.launch(
+                                IntentSenderRequest.Builder(settings.exception.resolution).build(),
+                            )
+                        }.onFailure {
+                            locationStatus = "Could not open the location settings prompt. Enable Location in Quick Settings and try again."
                         }
-                        LocationCaptureResult.InvalidFix -> {
-                            locationStatus = "The device returned invalid or stale coordinates. Try again."
-                        }
-                        LocationCaptureResult.Unavailable -> {
-                            locationStatus = "Current location is unavailable. Check signal and try again."
+                    }
+                    LocationSettingsCheck.Unavailable -> {
+                        locationStatus = "Could not open the automatic location prompt. Opening Android Location settings instead."
+                        runCatching {
+                            context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                        }.onFailure {
+                            locationStatus = "Could not open Location settings. Enable Location in Quick Settings and try again."
                         }
                     }
                 }
-                is LocationSettingsCheck.NeedsResolution -> {
-                    locationStatus = "Android needs your approval to enable the device location settings required for a fresh fix."
-                    runCatching {
-                        locationSettingsLauncher.launch(
-                            IntentSenderRequest.Builder(settings.exception.resolution).build(),
-                        )
-                    }.onFailure {
-                        locationStatus = "Could not open the location settings prompt. Enable Location in Quick Settings and try again."
-                    }
-                }
-                LocationSettingsCheck.Unavailable -> {
-                    locationStatus = "Could not open the automatic location prompt. Opening Android Location settings instead."
-                    runCatching {
-                        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                    }.onFailure {
-                        locationStatus = "Could not open Location settings. Enable Location in Quick Settings and try again."
-                    }
-                }
-            }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 // Respect lifecycle cancellation; do not turn it into a location error.
                 throw cancelled
