@@ -72,6 +72,13 @@ for required in (
 ):
     assert required in screen, f"Notification UI/lifecycle contract missing: {required}"
 
+assert screen.count("catch (cancelled: kotlinx.coroutines.CancellationException)") >= 2, (
+    "Both notification refresh and mark-read actions must preserve coroutine cancellation."
+)
+assert screen.count("catch (failure: Exception)") >= 2, (
+    "Both notification refresh and mark-read actions must handle unexpected repository exceptions."
+)
+
 root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
 for required in (
     "NotificationsViewModel",
