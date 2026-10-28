@@ -33,8 +33,8 @@ for required in (
 # Responder UI safety and HCI contract: uncertain server state must never be
 # presented as a verified empty queue or an actionable duty status.
 for required in (
-    'title = "Responder workspace"',
-    'subtitle = "Your assignments, duty status, and location sharing"',
+    'title = if (user.role == com.tacresq.app.data.model.Role.DRIVER) "Driver workspace" else "Responder workspace"',
+    'subtitle = if (user.role == com.tacresq.app.data.model.Role.DRIVER) "Assigned trips, route guidance, and location sharing" else "Your assignments, duty status, and location sharing"',
     '"Checking status…"',
     '"Status unverified"',
     'canChange = active.isEmpty() && !state.loading && !state.refreshing && state.syncError == null',
