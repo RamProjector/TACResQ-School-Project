@@ -467,7 +467,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         }
 
         items(active, key = { it.id }) { incident ->
-            IncidentCard(incident) {
+            IncidentCard(incident, statusOverride = incident.statusFor(user.id)) {
                 Text(
                     "Your unit: ${incident.statusFor(user.id).label}",
                     style = MaterialTheme.typography.bodyMedium,
@@ -571,7 +571,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                 )
             }
             items(history, key = { it.id }) { incident ->
-                IncidentCard(incident)
+                IncidentCard(incident, statusOverride = incident.statusFor(user.id))
             }
         }
     }
