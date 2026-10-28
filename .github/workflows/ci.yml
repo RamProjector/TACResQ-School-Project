@@ -58,6 +58,9 @@ jobs:
       - name: Check per-responder assignment status contract
         run: python3 tools/test_per_responder_assignment_status.py
 
+      - name: Check driver workflow and route-safety contract
+        run: python3 tools/test_driver_workflow.py
+
       - name: Check urgent location correction cooldown bypass
         run: python3 tools/test_requester_urgent_location_correction.py
 
