@@ -240,11 +240,21 @@ class ResponderViewModel(
                         _state.update { it.copy(trackingError = "The location fix expired before sending; waiting for another current fix.") }
                     } else {
                         val result = repo.recordResponderLocation(incidentId, capture.fix)
-                        _state.update { it.copy(
-                            lastLocationSentAt = if (result.isSuccess) System.currentTimeMillis() else it.lastLocationSentAt,
-                            lastLocationAccuracyM = if (result.isSuccess) capture.fix.accuracyM else it.lastLocationAccuracyM,
-                            trackingError = result.exceptionOrNull()?.message,
-                        ) }
+                        if (result.isFailure) {
+                            // Stop the GPS stream after a failed upload instead of repeatedly
+                            // transmitting on every location tick. The responder can inspect
+                            // the error and explicitly retry after connectivity or authorization
+                            // is restored.
+                            val reason = result.exceptionOrNull()?.message
+                                ?: "The location update could not be confirmed."
+                            stopTracking("$reason Location sharing paused; verify the assignment and resume sharing when ready.")
+                        } else {
+                            _state.update { it.copy(
+                                lastLocationSentAt = System.currentTimeMillis(),
+                                lastLocationAccuracyM = capture.fix.accuracyM,
+                                trackingError = null,
+                            ) }
+                        }
                     }
                 }
                 LocationCaptureResult.PermissionDenied -> stopTracking("Approximate location permission was denied or withdrawn; no further location will be sent.")
