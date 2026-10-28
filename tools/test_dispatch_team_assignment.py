@@ -11,7 +11,19 @@ repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").r
 sql = (ROOT / "supabase/migrations/20261023081706_dispatch_team_assignment.sql").read_text()
 hardening = (ROOT / "supabase/migrations/20261023082526_harden_dispatch_team_assignment.sql").read_text()
 
-for required in ("Select response team", "Checkbox(", "selectedUnitIds.size < maxTeamSelection", "Add responders", "Assign team"):
+for required in (
+    "Select response team",
+    "Checkbox(",
+    "selectedUnitIds.size < maxTeamSelection",
+    "Add responders",
+    "Assign team",
+    "val refreshing: Boolean = false",
+    "catch (cancelled: kotlinx.coroutines.CancellationException)",
+    "Could not verify the dispatch queue. Refresh and try again.",
+    "current.refreshing || current.syncError != null",
+    "!state.loading && !state.refreshing && state.syncError == null",
+    "Refreshing queue…",
+):
     assert required in screen, f"Dispatcher team-selection UI missing: {required}"
 for required in ('@SerializedName("assigned_user_ids")', "val assignedUserIds: List<Long>"):
     assert required in models, f"Incident team model missing: {required}"
