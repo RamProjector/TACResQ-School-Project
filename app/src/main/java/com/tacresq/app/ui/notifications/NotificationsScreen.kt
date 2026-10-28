@@ -71,26 +71,38 @@ class NotificationsViewModel(private val repo: TacRepository) : ViewModel() {
                     error = null,
                 )
             }
-            repo.myNotifications(limit = 50)
-                .onSuccess { items ->
-                    _state.update {
-                        it.copy(
-                            items = items,
-                            loading = false,
-                            refreshing = false,
-                            error = null,
-                        )
+            try {
+                repo.myNotifications(limit = 50)
+                    .onSuccess { items ->
+                        _state.update {
+                            it.copy(
+                                items = items,
+                                loading = false,
+                                refreshing = false,
+                                error = null,
+                            )
+                        }
                     }
-                }
-                .onFailure { failure ->
-                    _state.update {
-                        it.copy(
-                            loading = false,
-                            refreshing = false,
-                            error = failure.message ?: "Could not load notifications. Try again.",
-                        )
+                    .onFailure { failure ->
+                        _state.update {
+                            it.copy(
+                                loading = false,
+                                refreshing = false,
+                                error = failure.message ?: "Could not load notifications. Try again.",
+                            )
+                        }
                     }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        refreshing = false,
+                        error = failure.message ?: "Could not load notifications. Try again.",
+                    )
                 }
+            }
         }
     }
 
