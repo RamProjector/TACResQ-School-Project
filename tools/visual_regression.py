@@ -68,6 +68,7 @@ def main() -> int:
     parser.add_argument("--actual", type=Path, default=Path("artifacts/visual/actual"))
     parser.add_argument("--report", type=Path, default=Path("artifacts/visual/report.md"))
     parser.add_argument("--update", action="store_true", help="Replace baselines instead of checking them")
+    parser.add_argument("--report-only", action="store_true", help="Write comparison results and artifacts without failing on intentional visual differences")
     args = parser.parse_args()
     args.baseline.mkdir(parents=True, exist_ok=True)
     args.actual.mkdir(parents=True, exist_ok=True)
@@ -106,10 +107,13 @@ def main() -> int:
     for label, result, artifact, ratio in results:
         failed |= result == "changed"
         lines.append(f"| {label} | {result} | {ratio:.3%} | `{artifact}` |")
-    lines += ["", "Map screens are intentionally excluded because OpenStreetMap tiles are external and nondeterministic in CI.", ""]
+    lines += ["", "Map screens are intentionally excluded because OpenStreetMap tiles are external and nondeterministic in CI."]
+    if args.report_only:
+        lines.append("Screenshot differences are report-only by repository policy; navigation/function checks, multi-viewport checks, builds, and security checks remain blocking.")
+    lines.append("")
     args.report.write_text("\n".join(lines), encoding="utf-8")
     print(args.report.read_text())
-    return 1 if failed else 0
+    return 1 if failed and not args.report_only else 0
 
 
 if __name__ == "__main__":
