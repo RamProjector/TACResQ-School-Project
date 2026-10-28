@@ -328,8 +328,11 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         }
     }
 
-    val active = state.incidents.filter { it.status.isActive }
-    val history = state.incidents.filterNot { it.status.isActive }
+    // A multi-unit incident can remain globally active after this responder's
+    // own unit has finished. Organize this screen by the signed-in responder's
+    // assignment status, not the incident-wide aggregate status.
+    val active = state.incidents.filter { it.statusFor(user.id).isActive }
+    val history = state.incidents.filterNot { it.statusFor(user.id).isActive }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().safeDrawingPadding(),
