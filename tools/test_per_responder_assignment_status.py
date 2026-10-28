@@ -9,6 +9,7 @@ api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 responder = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 dispatcher = (ROOT / "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt").read_text()
+components = (ROOT / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
 fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").read_text()
 
 for required in (
@@ -52,6 +53,7 @@ for required in (
     'incident?.assignedUserStatuses?.any { it.userId == currentUserId } == true',
     'incident == null || !isAssignedToMe -> "This incident is not verified as assigned to your responder account. Location sharing remains off."',
     'incident?.status?.takeIf { isAssignedToMe }',
+    'IncidentCard(incident, statusOverride = incident.statusFor(user.id))',
 ):
     assert required in responder, f"Responder UI safety/usability contract missing: {required}"
 
@@ -65,6 +67,7 @@ for source, requirements in (
     (repo, ('api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))',)),
     (responder, ('incident.statusFor(user.id).nextSteps()', 'Your unit:', 'it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE')),
     (dispatcher, ('memberStatus.status.label',)),
+    (components, ('statusOverride: IncidentStatus? = null', 'val displayStatus = statusOverride ?: incident.status', 'StatusPill(displayStatus.label, displayStatus.pillColor())')),
     (fake, ('override suspend fun updateMyAssignmentStatus', 'ResponderAssignmentStatus')),
 ):
     for required in requirements:
