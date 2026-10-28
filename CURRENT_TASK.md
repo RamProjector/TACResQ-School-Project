@@ -185,3 +185,13 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Notification validation:** source review and RPC grant workflow passed on the current PR #193 head; TACResQ CI was still running at handoff update time. Recheck the exact latest head before merge.
 - **Safety:** no credentials, live data, live migrations, production configuration, or Render deployment changes.
 - **Next action:** finish PR #193 CI, resolve any compile/test failures, inspect the final CodeRabbit review, and merge only if the exact head passes required workflows and is mergeable. Continue with another high-impact source-backed improvement afterward.
+
+
+## Handoff amendment — 2026-10-28: CodeRabbit findings and behavior-test follow-up
+
+- **PR #193:** addressed CodeRabbit's finding that unexpected exception text could leak into the UI. Thrown exceptions now use fixed, safe fallback messages; repository-returned `Result.failure` messages remain visible through their existing path.
+- **Cancellation cleanup:** refresh clears `loading` and `refreshing` in `finally`; mark-read clears the notification ID from `busyIds` in `finally`. Both still rethrow `CancellationException`.
+- **Testability:** extracted `NotificationRepository` as a narrow interface implemented by `TacRepository`, allowing JVM tests to exercise `NotificationsViewModel` using a fake without networking or Android context.
+- **Focused tests:** six JVM tests cover thrown exception, returned failure, and cancellation for both refresh and mark-read. They assert generic versus repository error messages, state cleanup, and cancelled-job propagation. Added `kotlinx-coroutines-test` to test dependencies.
+- **CI evidence before this amendment:** source checks passed after correcting the interface contract assertion; Android JVM unit tests passed on run 969. Release build and final workflow status were still running when inspected. The amendment commit will trigger another run; use that new exact head for final merge decision.
+- **Next action:** verify the new run's complete status, inspect the final diff for unintended changes, and merge PR #193 only when all required checks pass and GitHub confirms mergeability. Emulator/device review remains not run per repository policy.
