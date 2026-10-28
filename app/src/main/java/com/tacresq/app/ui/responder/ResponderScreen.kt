@@ -187,7 +187,8 @@ class ResponderViewModel(
                 val currentUserId = me.getOrNull()?.id
                 val isAssignedToMe = currentUserId != null && (
                     incident?.assignedUserIds?.contains(currentUserId) == true ||
-                        incident?.assignedTo == currentUserId
+                        incident?.assignedTo == currentUserId ||
+                        incident?.assignedUserStatuses?.any { it.userId == currentUserId } == true
                     )
                 // Prefer the explicit per-unit status. Only use the legacy aggregate
                 // status when the incident payload explicitly identifies this user as
