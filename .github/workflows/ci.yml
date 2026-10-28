@@ -272,8 +272,8 @@ jobs:
       - name: Test navigation and user functions
         run: python3 tools/test_prototype.py
 
-      - name: Compare visual screenshots
-        run: python3 tools/visual_regression.py
+      - name: Capture visual screenshot differences (report-only by user instruction)
+        run: python3 tools/visual_regression.py --report-only
 
       - name: Capture and validate multiple viewport sizes
         run: python3 tools/test_multi_viewport_visuals.py
