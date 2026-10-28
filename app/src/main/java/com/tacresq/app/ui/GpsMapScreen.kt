@@ -492,6 +492,14 @@ fun GpsMapScreen(
                     }
                 }
             }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                // Respect lifecycle cancellation; do not turn it into a location error.
+                throw cancelled
+            } catch (failure: Exception) {
+                // Location providers and OEM settings APIs can throw unexpectedly.
+                // Keep the map/incident pins usable and give the user a recoverable status.
+                deviceFix = null
+                locationStatus = "Could not get your location right now. Incident pins remain available; try again."
             } finally {
                 isLocationRequestInProgress = false
             }
