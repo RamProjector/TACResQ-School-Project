@@ -161,13 +161,24 @@ class RequesterViewModel(
     fun refresh() {
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
-            repo.myIncidents()
-                .onSuccess { list ->
-                    _state.update { it.copy(incidents = list, loading = false, syncError = null, lastSyncedAtEpochMs = System.currentTimeMillis()) }
+            try {
+                repo.myIncidents()
+                    .onSuccess { list ->
+                        _state.update { it.copy(incidents = list, loading = false, syncError = null, lastSyncedAtEpochMs = System.currentTimeMillis()) }
+                    }
+                    .onFailure { e ->
+                        _state.update { it.copy(loading = false, syncError = e.message ?: "Couldn't refresh incident updates.") }
+                    }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        syncError = failure.message ?: "Couldn't verify your current requests. Refresh and try again.",
+                    )
                 }
-                .onFailure { e ->
-                    _state.update { it.copy(loading = false, syncError = e.message ?: "Couldn't refresh incident updates.") }
-                }
+            }
         }
     }
 
@@ -270,6 +281,14 @@ class RequesterViewModel(
     fun sendSos(type: IncidentType, description: String, locationNotes: String) {
         if (_state.value.sending) return
         val current = _state.value
+        // Never create a second emergency while the existing-request list is unknown.
+        // A failed sync is not proof that the requester has no active incident.
+        if (current.loading || current.syncError != null) {
+            _state.update {
+                it.copy(error = "Your current requests could not be verified. Refresh before sending another SOS; do not create a duplicate emergency.")
+            }
+            return
+        }
         val existingActive = current.incidents.firstOrNull { it.status.isActive }
         if (existingActive != null) {
             _state.update {
