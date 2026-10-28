@@ -1,0 +1,50 @@
+# TACResQ in-app routing implementation notes
+
+Status: foundation only; no live routing provider is enabled by this change.
+
+## Decision
+
+Keep the existing osmdroid/OpenStreetMap renderer. Add a provider-neutral contract so the Android UI can draw an actual road route without binding UI code to one vendor. Evaluate Valhalla first and compare against OSRM using representative Tacloban routes before selecting the production engine.
+
+Valhalla's official route API supports driving (`auto`) and pedestrian (`pedestrian`) costing, route summaries, geometry and maneuvers. References:
+- https://valhalla.github.io/valhalla/api/route/api-reference/
+- https://valhalla.github.io/valhalla/api/turn-by-turn/overview/
+- https://project-osrm.org/docs/v5.24.0/api/
+
+## Why this change does not call a public demo server
+
+TACResQ is an emergency-response application. A public demo instance is not a production availability guarantee, and a route result does not account for live traffic, flooding, road closures, temporary access restrictions, or whether an emergency vehicle can pass. The app must not silently present a straight-line estimate as a road-route ETA.
+
+OpenStreetMap's standard raster tile service is also best-effort, has no SLA, and has explicit usage requirements. Map rendering and routing should remain separate provider choices. See https://operations.osmfoundation.org/policies/tiles/.
+
+## Foundation added
+
+`data/routing/RoutingModels.kt` defines:
+- Validated latitude/longitude values.
+- Provider-neutral route result, distance, duration, geometry, and instructions.
+- A provider interface for driving and walking.
+- Valhalla costing names and response DTOs for a future adapter.
+- A freshness/validity gate that rejects malformed, future-dated, stale, or non-positive route results.
+
+Unit tests cover invalid coordinates, malformed route metrics, stale/future results, and explicit costing-mode mapping.
+
+## Required next integration steps
+
+1. Implement a routing adapter against a configured service endpoint. Do not hard-code a public demo endpoint in the app or put a provider secret in the APK.
+2. Host the routing service behind an authenticated, rate-limited Render API endpoint or choose a provider with documented production terms. Keep API keys server-side.
+3. Add route geometry decoding (Valhalla polyline6 or GeoJSON), enforce response-size/time limits, and validate every returned coordinate.
+4. Draw the route with an osmdroid polyline overlay, clearly label ETA as an estimate, and show route freshness and route failure states.
+5. Select mode by role: driving for driver; driving by default for field responder travelling by vehicle. Walking should be an explicit option only where it makes sense.
+6. Retain external navigation as a user-invoked fallback. Never auto-launch another app or claim a route is safe/passable.
+7. Validate location permission, foreground lifecycle, connectivity loss, cancellation, repeated route requests, stale GPS, malformed response, no route, and role/assignment authorization.
+8. Benchmark a fixed Tacloban test set against OSRM before finalizing Valhalla. Record route availability, distance/ETA differences, and implausible detours. Confirm local road access and flood/closure limitations with dispatch staff.
+
+## Safety acceptance criteria
+
+- No fabricated route line or ETA when routing fails.
+- Invalid, future-dated, or stale location cannot be silently treated as live.
+- Destination coordinates must be validated before any request.
+- Route requests must be cancellable and must not block the main thread.
+- No sensitive incident details or requester identity sent to a third-party routing service; only the minimum required coordinates.
+- UI remains usable if routing is unavailable and provides a clear manual fallback.
+- No production service is switched until the adapter, CI, and Tacloban route tests pass.
