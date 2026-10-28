@@ -44,6 +44,7 @@ for required in (
     '"Recent history"',
     'onClick = vm::refresh',
     'enabled = !state.refreshing && !state.loading',
+    'enabled = !state.busy && !state.loading && !state.refreshing && state.syncError == null',
     'if (runQueuedRefresh) refresh()',
     'Result.failure<Nothing>(failure)',
     'state.incidents.filter { it.statusFor(user.id).isActive }',
