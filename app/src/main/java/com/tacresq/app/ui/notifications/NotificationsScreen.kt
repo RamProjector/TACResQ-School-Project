@@ -94,14 +94,17 @@ class NotificationsViewModel(private val repo: TacRepository) : ViewModel() {
                     }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
-            } catch (failure: Exception) {
+            } catch (_: Exception) {
                 _state.update {
                     it.copy(
                         loading = false,
                         refreshing = false,
-                        error = failure.message ?: "Could not load notifications. Try again.",
+                        error = "Could not load notifications. Try again.",
                     )
                 }
+            } finally {
+                // Cancellation must not leave stale progress indicators in a still-visible VM.
+                _state.update { it.copy(loading = false, refreshing = false) }
             }
         }
     }
@@ -144,13 +147,16 @@ class NotificationsViewModel(private val repo: TacRepository) : ViewModel() {
                     }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
-            } catch (failure: Exception) {
+            } catch (_: Exception) {
                 _state.update {
                     it.copy(
                         busyIds = it.busyIds - notification.id,
-                        actionError = failure.message ?: "Could not mark this notification as read.",
+                        actionError = "Could not mark this notification as read.",
                     )
                 }
+            } finally {
+                // A cancelled action must be retryable if the ViewModel remains alive.
+                _state.update { it.copy(busyIds = it.busyIds - notification.id) }
             }
         }
     }
