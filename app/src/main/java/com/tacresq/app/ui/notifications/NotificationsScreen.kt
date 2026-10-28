@@ -110,37 +110,48 @@ class NotificationsViewModel(private val repo: TacRepository) : ViewModel() {
         if (notification.readAt != null || notification.id in _state.value.busyIds) return
         _state.update { it.copy(busyIds = it.busyIds + notification.id, actionError = null) }
         viewModelScope.launch {
-            repo.markNotificationRead(notification.id)
-                .onSuccess { marked ->
-                    if (marked) {
-                        val readAt = Instant.now().toString()
-                        _state.update { current ->
-                            current.copy(
-                                items = current.items.map {
-                                    if (it.id == notification.id) it.copy(readAt = it.readAt ?: readAt) else it
-                                },
-                                busyIds = current.busyIds - notification.id,
-                                actionError = null,
-                            )
+            try {
+                repo.markNotificationRead(notification.id)
+                    .onSuccess { marked ->
+                        if (marked) {
+                            val readAt = Instant.now().toString()
+                            _state.update { current ->
+                                current.copy(
+                                    items = current.items.map {
+                                        if (it.id == notification.id) it.copy(readAt = it.readAt ?: readAt) else it
+                                    },
+                                    busyIds = current.busyIds - notification.id,
+                                    actionError = null,
+                                )
+                            }
+                        } else {
+                            _state.update {
+                                it.copy(
+                                    busyIds = it.busyIds - notification.id,
+                                    actionError = "This notification is no longer available to your account. Refresh the list.",
+                                )
+                            }
+                            refresh()
                         }
-                    } else {
+                    }
+                    .onFailure { failure ->
                         _state.update {
                             it.copy(
                                 busyIds = it.busyIds - notification.id,
-                                actionError = "This notification is no longer available to your account. Refresh the list.",
+                                actionError = failure.message ?: "Could not mark this notification as read.",
                             )
                         }
-                        refresh()
                     }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        busyIds = it.busyIds - notification.id,
+                        actionError = failure.message ?: "Could not mark this notification as read.",
+                    )
                 }
-                .onFailure { failure ->
-                    _state.update {
-                        it.copy(
-                            busyIds = it.busyIds - notification.id,
-                            actionError = failure.message ?: "Could not mark this notification as read.",
-                        )
-                    }
-                }
+            }
         }
     }
 
