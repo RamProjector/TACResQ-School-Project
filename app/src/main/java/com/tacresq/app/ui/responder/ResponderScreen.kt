@@ -123,7 +123,9 @@ class ResponderViewModel(
                         incidents = serverIncidents ?: s.incidents,
                         trackingIncidentId = if (trackingEnded) null else s.trackingIncidentId,
                         trackingError = if (trackingEnded) "Location sharing stopped because this incident is no longer assigned en route." else s.trackingError,
-                        syncError = refreshError?.message,
+                        syncError = refreshError?.let {
+                            it.message ?: "Could not verify assignments. Refresh and try again."
+                        },
                         lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else s.lastSyncedAtEpochMs,
                     )
                 }
@@ -182,11 +184,21 @@ class ResponderViewModel(
                 val current = repo.myIncidents()
                 val me = repo.me()
                 val incident = current.getOrNull()?.firstOrNull { it.id == incidentId }
+                val currentUserId = me.getOrNull()?.id
+                val isAssignedToMe = currentUserId != null && (
+                    incident?.assignedUserIds?.contains(currentUserId) == true ||
+                        incident?.assignedTo == currentUserId
+                    )
+                // Prefer the explicit per-unit status. Only use the legacy aggregate
+                // status when the incident payload explicitly identifies this user as
+                // an assignee; never infer ownership from an incident-wide EN_ROUTE.
                 val ownStatus = incident?.assignedUserStatuses
-                    ?.firstOrNull { it.userId == me.getOrNull()?.id }?.status ?: incident?.status
+                    ?.firstOrNull { it.userId == currentUserId }?.status
+                    ?: incident?.status?.takeIf { isAssignedToMe }
                 val failure = when {
                     current.isFailure -> current.exceptionOrNull()?.message ?: "Could not verify the active assignment."
                     me.isFailure -> me.exceptionOrNull()?.message ?: "Could not verify your responder identity."
+                    incident == null || !isAssignedToMe -> "This incident is not verified as assigned to your responder account. Location sharing remains off."
                     ownStatus != IncidentStatus.EN_ROUTE -> "Location sharing is allowed only for your own en-route unit status. Refresh the assignment and try again."
                     !location.hasApproximatePermission() -> "Approximate location permission is not available. Location sharing remains off."
                     else -> null
