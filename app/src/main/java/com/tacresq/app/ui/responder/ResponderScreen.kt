@@ -338,8 +338,8 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
     ) {
         item {
             ScreenHeader(
-                title = "Current call",
-                subtitle = "",
+                title = "Responder workspace",
+                subtitle = "Your assignments, duty status, and location sharing",
                 onLogout = {
                     vm.stopTracking("Location sharing stopped because you signed out.")
                     onLogout()
@@ -367,6 +367,11 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         item {
             DutyCard(
                 current = state.dutyStatus,
+                statusLabel = when {
+                    state.loading -> "Checking status…"
+                    state.syncError != null -> "Status unverified"
+                    else -> state.dutyStatus.label
+                },
                 canChange = active.isEmpty() && !state.loading && !state.refreshing && state.syncError == null,
                 unavailableMessage = when {
                     state.loading || state.refreshing -> "Checking assignments before allowing duty changes."
@@ -433,6 +438,15 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                         }
                     }
                 }
+            }
+        }
+
+        if (active.isNotEmpty()) {
+            item {
+                Text(
+                    "Active assignments",
+                    style = MaterialTheme.typography.titleLarge,
+                )
             }
         }
 
@@ -534,7 +548,12 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         }
 
         if (history.isNotEmpty()) {
-            item { Text("Completed", style = MaterialTheme.typography.titleMedium) }
+            item {
+                Text(
+                    "Recent history",
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }
             items(history, key = { it.id }) { incident ->
                 IncidentCard(incident)
             }
@@ -585,6 +604,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 @Composable
 private fun DutyCard(
     current: DutyStatus,
+    statusLabel: String,
     canChange: Boolean,
     unavailableMessage: String,
     busy: Boolean,
@@ -596,7 +616,7 @@ private fun DutyCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("Duty status", style = MaterialTheme.typography.titleMedium)
-            Text(current.label, style = MaterialTheme.typography.headlineSmall)
+            Text(statusLabel, style = MaterialTheme.typography.headlineSmall)
             if (canChange) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
