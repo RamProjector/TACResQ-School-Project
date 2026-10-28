@@ -1,3 +1,14 @@
+# Active handoff — 2026-10-28: UI cleanup and non-blocking screenshot diffs
+
+- **User directive:** Skip emulator/manual UI review as a merge gate, while retaining automated functional, build, backend, and security checks.
+- **Branch:** `agent/ui-cleanup-report-only-regression`, based on current main after PRs #188 and #189 merged.
+- **UI implementation:** apply the existing UI hierarchy/action-visibility CSS refinement from former PR #180. It improves contrast, typography, card density, button touch target, emergency-action visibility, map-hero scale, and bottom-navigation spacing in the HTML prototype.
+- **Validation policy adjustment:** visual screenshot diffs are captured and uploaded but report-only, because intentional redesign differences were the sole failure in #180. This does not suppress script errors or replace the separate prototype navigation/function smoke test, multi-viewport checks, Android builds/JVM tests, migration replay, or Laravel/dashboard integration.
+- **Safety:** do not update baselines automatically or hide screenshot results; the report and diff artifacts remain available. No live backend/data changes.
+- **Next action:** fresh CI must pass on the exact PR head. Merge only after all required blocking checks pass; note screenshot diff review was waived per user directive.
+
+---
+
 # Active handoff — 2026-10-28: Android Supabase auth redirect contract
 
 - **Purpose:** retain the Android email-confirmation redirect contract and a repeatable regression test after the consolidated emergency-workflow merge.
