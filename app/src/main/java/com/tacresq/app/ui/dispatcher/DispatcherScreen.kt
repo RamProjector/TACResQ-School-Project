@@ -59,6 +59,7 @@ data class DispatcherUiState(
     val units: List<User> = emptyList(),
     val responderLocations: List<ResponderLocation> = emptyList(),
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
     val busy: Boolean = false,
     val notice: String? = null,
     val error: String? = null,
@@ -74,41 +75,66 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
     fun refresh() {
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
-            val incidents = repo.allIncidents()
-            val units = repo.units()
-            val responderLocations = repo.activeResponderLocations()
-            val refreshError = incidents.exceptionOrNull() ?: units.exceptionOrNull() ?: responderLocations.exceptionOrNull()
-            _state.update { current ->
-                current.copy(
-                    incidents = incidents.getOrNull() ?: current.incidents,
-                    units = units.getOrNull() ?: current.units,
-                    responderLocations = responderLocations.getOrNull() ?: current.responderLocations,
-                    loading = false,
-                    syncError = refreshError?.message,
-                    lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else current.lastSyncedAtEpochMs,
-                )
+            _state.update { it.copy(refreshing = true) }
+            try {
+                val incidents = repo.allIncidents()
+                val units = repo.units()
+                val responderLocations = repo.activeResponderLocations()
+                val refreshError = incidents.exceptionOrNull() ?: units.exceptionOrNull() ?: responderLocations.exceptionOrNull()
+                _state.update { current ->
+                    current.copy(
+                        incidents = incidents.getOrNull() ?: current.incidents,
+                        units = units.getOrNull() ?: current.units,
+                        responderLocations = responderLocations.getOrNull() ?: current.responderLocations,
+                        loading = false,
+                        refreshing = false,
+                        syncError = if (refreshError == null) null else refreshError.message ?: "Could not verify the dispatch queue. Refresh and try again.",
+                        lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else current.lastSyncedAtEpochMs,
+                    )
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _state.update { current ->
+                    current.copy(
+                        loading = false,
+                        refreshing = false,
+                        syncError = failure.message ?: "Could not verify the dispatch queue. Refresh and try again.",
+                    )
+                }
+            } finally {
+                _state.update { it.copy(refreshing = false) }
             }
         }
     }
 
     fun assign(incident: Incident, userIds: List<Long>) {
-        if (_state.value.busy || userIds.isEmpty() || userIds.size > 5) return
+        val current = _state.value
+        if (current.busy || current.loading || current.refreshing || current.syncError != null || userIds.isEmpty() || userIds.size > 5) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, notice = null) }
-            repo.assignIncident(incident.id, userIds)
-                .onSuccess { updated ->
-                    val names = _state.value.units.filter { it.id in userIds }.joinToString(", ") { it.name }
-                    _state.update { state ->
-                        state.copy(
-                            busy = false,
-                            notice = "Incident #${updated.id} assigned to ${names.ifBlank { "the selected response team" }}.",
-                            incidents = state.incidents.map { if (it.id == updated.id) updated else it },
-                        )
+            try {
+                repo.assignIncident(incident.id, userIds)
+                    .onSuccess { updated ->
+                        val names = _state.value.units.filter { it.id in userIds }.joinToString(", ") { it.name }
+                        _state.update { state ->
+                            state.copy(
+                                busy = false,
+                                notice = "Incident #${updated.id} assigned to ${names.ifBlank { "the selected response team" }}.",
+                                incidents = state.incidents.map { if (it.id == updated.id) updated else it },
+                            )
+                        }
+                        refreshJob?.cancel()
+                        refresh()
                     }
-                    refreshJob?.cancel()
-                    refresh()
-                }
-                .onFailure { e -> _state.update { it.copy(busy = false, error = e.message) } }
+                    .onFailure { e -> _state.update { it.copy(busy = false, error = e.message ?: "Assignment failed. Refresh the queue and try again.") } }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _state.update { it.copy(busy = false, error = failure.message ?: "Assignment failed. Refresh the queue and try again.") }
+            } finally {
+                _state.update { it.copy(busy = false) }
+            }
         }
     }
 
@@ -158,8 +184,9 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
         }
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
         item {
-            OutlinedButton(onClick = vm::refresh, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
-                Text("Refresh queue")
+            OutlinedButton(onClick = vm::refresh, enabled = !state.busy && !state.refreshing, modifier = Modifier.fillMaxWidth()) {
+                if (state.refreshing) { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(modifier = Modifier.size(8.dp)); Text("Refreshing queue…") }
+                else Text("Refresh queue")
             }
         }
         item {
@@ -221,7 +248,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
                             selectedUnitIds = emptySet()
                             assignmentCandidate = incident
                         },
-                        enabled = !state.busy,
+                        enabled = !state.busy && !state.loading && !state.refreshing && state.syncError == null,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Select response team")
@@ -253,7 +280,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
                                 selectedUnitIds = emptySet()
                                 assignmentCandidate = incident
                             },
-                            enabled = !state.busy,
+                            enabled = !state.busy && !state.loading && !state.refreshing && state.syncError == null,
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text("Add responders") }
                     }
@@ -314,7 +341,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit) 
             },
             confirmButton = {
                 TextButton(
-                    enabled = !state.busy && selectedUnitIds.isNotEmpty() && selectedUnitIds.size <= maxTeamSelection,
+                    enabled = !state.busy && !state.loading && !state.refreshing && state.syncError == null && selectedUnitIds.isNotEmpty() && selectedUnitIds.size <= maxTeamSelection,
                     onClick = {
                         val ids = selectedUnitIds.toList()
                         assignmentCandidate = null
