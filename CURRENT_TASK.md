@@ -1,3 +1,14 @@
+# Active handoff — 2026-10-28: Autonomous implementation, skip manual UI/emulator gates
+
+- **User directive:** Rewrite agent instructions so manual UI review and emulator checks do not block progress, and eligible PRs are merged after automated checks pass.
+- **Branch:** `agent/streamline-agent-validation-merge`.
+- **Files changed:** `AGENTS.md` and `docs/AGENT_WORKFLOW.md`. This handoff entry is also being added.
+- **Policy update:** Agents should autonomously inspect, implement, test, open PRs, and merge eligible PRs once required automated checks pass and the branch is mergeable. Manual UI sign-off, screenshots, emulator, and physical-device review are skipped/not-run when waived; they must never be reported as passed. Existing automated tests/builds and security/authorization checks still run. No force-merges, no merging with failed/unverified required checks, no deployment/live database/data changes without separate explicit authorization.
+- **Validation status:** Documentation-only policy change. CI results for this branch are pending. No local checkout, emulator, physical device, or live backend was used.
+- **Next action:** Confirm this PR's automated checks. Merge only if the required checks pass and GitHub reports the branch mergeable; then resume the requested consolidated feature implementation using the refreshed handoff and open-PR inventory.
+
+---
+
 ## Active continuation — 2026-10-24: Repair bridge rate-limit cache dependency
 
 - **Finding:** PR #131's new `throttle:120,1` middleware failed integration CI because Laravel's configured database cache store had no `cache` table. This is not just a test-only problem: the public Render bridge could error when rate limiting tries to access that missing table.
