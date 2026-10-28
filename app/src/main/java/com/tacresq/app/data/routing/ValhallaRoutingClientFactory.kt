@@ -18,6 +18,7 @@ internal object ValhallaRoutingClientFactory {
     private const val READ_TIMEOUT_SECONDS = 10L
     private const val WRITE_TIMEOUT_SECONDS = 10L
     private const val CALL_TIMEOUT_SECONDS = 15L
+    private const val MAX_RESPONSE_BYTES = 2L * 1024L * 1024L
 
     fun createOrNull(baseUrl: String?): RoutingProvider? {
         if (baseUrl.isNullOrBlank()) return null
@@ -40,6 +41,7 @@ internal object ValhallaRoutingClientFactory {
             .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .addInterceptor(RoutingResponseSizeInterceptor(MAX_RESPONSE_BYTES))
             .build()
 
         val service = Retrofit.Builder()
