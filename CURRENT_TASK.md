@@ -1,3 +1,13 @@
+# Active handoff — 2026-10-28: In-app routing foundation
+
+- **Scope:** safely add the provider-neutral route model, Valhalla polyline6 decoder, unit tests, and design/operations note to current main.
+- **Explicit limit:** this is a foundation only. No live routing provider is configured, no public demo endpoint is hard-coded, no provider secret is added to the APK, and the app continues to use external turn-by-turn navigation.
+- **Safety contract:** reject invalid coordinates, malformed/oversized encoded geometry, non-positive/non-finite metrics, future timestamps, and stale route results. Route estimates are guidance, not confirmation of passable roads, traffic conditions, flooding, or emergency-vehicle access.
+- **Validation:** Android JVM tests and all required current-head CI jobs must pass. No emulator/manual UI review is required per user directive; device route behavior remains unverified because no provider is enabled.
+- **Next action:** open PR against current main; merge only after required automated checks pass and the branch is mergeable.
+
+---
+
 # Active handoff — 2026-10-28: UI cleanup and non-blocking screenshot diffs
 
 - **User directive:** Skip emulator/manual UI review as a merge gate, while retaining automated functional, build, backend, and security checks.
