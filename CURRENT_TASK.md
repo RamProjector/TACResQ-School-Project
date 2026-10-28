@@ -170,3 +170,18 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Keep privileged roles administrator-provisioned; public signup must only create requester profiles.
 - Preserve RLS, least-privilege grants, role/status checks, explicit location consent, and truthful GPS states.
 - Before further implementation, inspect the latest `main`, this handoff, and relevant code. Work on a task-scoped branch and validate changes before opening a focused PR. Do not merge or deploy by default unless the user explicitly authorizes it.
+
+
+---
+
+## Active continuation — 2026-10-28: Notification exception safety and GPS recovery
+
+- **Notification PR:** #193, branch `fix/notification-refresh-exception-safety`, latest implementation commit `4cddc8e5aa2ee3fdb8f5d6285eed16665a2e33fc`.
+- **Notification implementation:** refresh and mark-read now use a narrow `NotificationRepository` contract, catch unexpected exceptions with generic user-facing messages, preserve `CancellationException`, and clear loading/refreshing/busy state in `finally` so cancelled operations can recover.
+- **Notification tests:** added JVM behavior tests for thrown exceptions, repository `Result.failure`, and cancellation on both refresh and mark-read; tests assert error messages, operation-state cleanup, and cancelled jobs. Added `kotlinx-coroutines-test` to Android unit-test dependencies.
+- **Review response:** CodeRabbit flagged raw exception-message exposure and insufficient behavior coverage. Both are being addressed; its feedback is treated as actionable, not as a substitute for CI.
+- **GPS PR:** #194, branch `fix/gps-location-exception-recovery`, merged by squash as `627a054bde374ced3f389e01acf18aa67cec6d19`. Unexpected location/settings API exceptions now preserve the incident map, show a retryable message, rethrow cancellation, and clear the in-progress guard in `finally`. Added `tools/test_gps_map_location_exception_recovery.py`.
+- **GPS validation:** all three workflows passed on PR #194 head `4e7c0bd4edbcb2c8bbb18cb7978d133da2e69834`; emulator/physical-device checks were not run per the documented workflow.
+- **Notification validation:** source review and RPC grant workflow passed on the current PR #193 head; TACResQ CI was still running at handoff update time. Recheck the exact latest head before merge.
+- **Safety:** no credentials, live data, live migrations, production configuration, or Render deployment changes.
+- **Next action:** finish PR #193 CI, resolve any compile/test failures, inspect the final CodeRabbit review, and merge only if the exact head passes required workflows and is mergeable. Continue with another high-impact source-backed improvement afterward.
