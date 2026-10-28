@@ -32,7 +32,7 @@ internal object ValhallaRoutingClientFactory {
         require(url.query == null && url.fragment == null) {
             "Routing endpoint must not contain a query or fragment."
         }
-        require(url.encodedPath.endsWith("/")) {
+        require(baseUrl.trim().endsWith("/")) {
             "Routing endpoint must end with '/' for Retrofit."
         }
 
