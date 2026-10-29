@@ -156,8 +156,8 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
     ) {
         item {
             ScreenHeader(
-                title = "Queue",
-                subtitle = "",
+                title = "Dispatch queue",
+                subtitle = "Oldest emergency requests first · verify availability before assigning.",
                 onLogout = onLogout,
             )
         }
