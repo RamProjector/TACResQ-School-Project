@@ -27,10 +27,13 @@ jobs:
     # Only the repository owner can invoke the agent. This prevents arbitrary
     # commenters from consuming model quota or asking the agent to modify code.
     if: >-
-      github.actor == 'RamProjector' &&
+      github.event_name == 'workflow_dispatch' ||
       (
-        contains(github.event.comment.body, '/oc') ||
-        contains(github.event.comment.body, '/opencode')
+        github.actor == 'RamProjector' &&
+        (
+          contains(github.event.comment.body, '/oc') ||
+          contains(github.event.comment.body, '/opencode')
+        )
       )
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -47,3 +50,9 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
           model: opencode/big-pickle
+          prompt: >-
+            Follow the repository's AGENTS.md and CURRENT_TASK.md instructions.
+            For workflow_dispatch, the authorized maintainer's requested task is:
+            ${{ inputs.task || 'Inspect the current repository and choose the single highest-priority safe improvement.' }}
+            Inspect the repository and CI first. Make a focused, tested change on a branch and open a PR;
+            do not merge, deploy, alter production data, or perform destructive actions.
