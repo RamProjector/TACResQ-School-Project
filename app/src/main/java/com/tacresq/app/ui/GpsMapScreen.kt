@@ -940,13 +940,28 @@ private fun openExternalMaps(context: Context, latitude: Double, longitude: Doub
     val navigation = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$latitude,$longitude&mode=d"))
         .setPackage("com.google.android.apps.maps")
     val fallback = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$latitude,$longitude?q=$latitude,$longitude"))
-    try {
+
+    // Some devices block an explicit package launch or have a broken maps handler.
+    // Try the generic geo intent after either a missing handler or a security denial.
+    val opened = try {
         context.startActivity(navigation)
+        true
     } catch (_: ActivityNotFoundException) {
-        try {
-            context.startActivity(fallback)
-        } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, "No maps app found on this phone.", Toast.LENGTH_SHORT).show()
-        }
+        false
+    } catch (_: SecurityException) {
+        false
+    }
+    if (opened) return
+
+    val fallbackOpened = try {
+        context.startActivity(fallback)
+        true
+    } catch (_: ActivityNotFoundException) {
+        false
+    } catch (_: SecurityException) {
+        false
+    }
+    if (!fallbackOpened) {
+        Toast.makeText(context, "Unable to open a maps app on this phone.", Toast.LENGTH_SHORT).show()
     }
 }
