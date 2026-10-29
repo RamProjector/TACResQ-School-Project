@@ -42,6 +42,8 @@ assert "revoke insert on table public.location_logs from public, anon, authentic
 assert "create or replace function public.api_record_location_v2(" in writer
 assert "security invoker" in writer and "set search_path = pg_catalog" in writer
 assert "create or replace function private.tacresq_active_responder_locations()" in reader
+assert "grant usage on schema private to authenticated" in writer
+assert "grant usage on schema private to authenticated" in reader
 assert "security definer" in reader and "set search_path = pg_catalog" in reader
 assert "private.tacresq_actor_role() is distinct from 'dispatcher'" in reader
 assert "a.responder_status = 'en_route'" in reader
