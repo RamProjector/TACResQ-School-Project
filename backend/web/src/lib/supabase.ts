@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 export type TacruRole = "requester" | "responder" | "driver" | "dispatcher" | "admin";
 export type AdminManagedRole = Exclude<TacruRole, "admin">;
 export interface AdminUser { id: number; name: string; email: string; phone: string | null; role: TacruRole; duty_status: DutyStatus | null; created_at: string; }
-export interface AdminAuditEvent { id: number; actor_user_id: number | null; target_user_id: number | null; action: "user_role_changed"; old_role: TacruRole; new_role: TacruRole; reason: string; created_at: string; }
+export interface AdminAuditEvent { id: number; actor_user_id: number | null; actor_identity: string; target_user_id: number | null; action: "user_role_changed"; old_role: TacruRole; new_role: TacruRole; reason: string; created_at: string; }
 export interface AdminRoleChangeResult { id: number; name: string; email: string; old_role: AdminManagedRole; role: AdminManagedRole; duty_status: DutyStatus | null; }
 export type DutyStatus = "off_duty" | "available" | "en_route" | "on_scene" | "transporting";
 export type IncidentType = "medical" | "fire" | "vehicular" | "disaster" | "other";
