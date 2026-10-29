@@ -4,6 +4,10 @@
 -- bypasses location_logs RLS only after checking the caller's dispatcher role.
 BEGIN;
 
+-- The public invoker wrapper resolves this private helper as the caller.
+-- Schema USAGE does not grant table access or function EXECUTE by itself.
+GRANT USAGE ON SCHEMA private TO authenticated;
+
 CREATE OR REPLACE FUNCTION private.tacresq_active_responder_locations()
 RETURNS TABLE (
   incident_id bigint,
