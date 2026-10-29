@@ -38,7 +38,8 @@ CREATE TABLE public.admin_audit_logs (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   -- Keep immutable numeric identity snapshots even if a profile is later deleted.
   -- Foreign keys with ON DELETE SET NULL would mutate historical audit rows.
-  actor_user_id bigint NOT NULL,
+  actor_user_id bigint,
+  actor_identity text NOT NULL CHECK (length(trim(actor_identity)) BETWEEN 1 AND 200),
   target_user_id bigint NOT NULL,
   action text NOT NULL CHECK (action IN ('user_role_changed')),
   old_role text NOT NULL CHECK (old_role IN ('requester', 'responder', 'driver', 'dispatcher', 'admin')),
@@ -247,8 +248,8 @@ BEGIN
       updated_at = now()
   WHERE id = target_row.id;
 
-  INSERT INTO public.admin_audit_logs(actor_user_id, target_user_id, action, old_role, new_role, reason)
-  VALUES (actor_id, target_row.id, 'user_role_changed', old_role, p_role, trim(p_reason));
+  INSERT INTO public.admin_audit_logs(actor_user_id, actor_identity, target_user_id, action, old_role, new_role, reason)
+  VALUES (actor_id, format('Admin profile #%s', actor_id), target_row.id, 'user_role_changed', old_role, p_role, trim(p_reason));
 
   RETURN jsonb_build_object(
     'id', target_row.id,
@@ -284,7 +285,7 @@ BEGIN
   RETURN (
     SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY a.created_at DESC, a.id DESC), '[]'::jsonb)
     FROM (
-      SELECT id, actor_user_id, target_user_id, action, old_role, new_role, reason, created_at
+      SELECT id, actor_user_id, actor_identity, target_user_id, action, old_role, new_role, reason, created_at
       FROM public.admin_audit_logs
       ORDER BY created_at DESC, id DESC
       LIMIT p_limit
