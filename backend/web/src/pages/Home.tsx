@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
+import AdminConsole from "@/pages/AdminConsole";
 import {
   assignIncident,
   getActiveResponderLocations,
@@ -536,6 +537,8 @@ export default function Home({ session }: HomeProps) {
   if (!session) return <LoginScreen />;
   if (profileLoading) return <main className="loading-screen"><Brand /><LoaderCircle size={22} className="spin" /><span>Checking dispatcher access…</span></main>;
   if (profileError) return <GateScreen title="We couldn't verify this profile." description={profileError} onSignOut={handleSignOut} icon="error" />;
-  if (!profile || profile.role !== "dispatcher") return <GateScreen title="Dispatcher access is required." description="This account is signed in, but its TACResQ profile is not authorized to view the dispatch queue." onSignOut={handleSignOut} />;
+  if (!profile) return <GateScreen title="A TACRU profile is required." description="This account is signed in, but no linked TACResQ profile was returned. Ask a trusted project administrator to verify the account mapping." onSignOut={handleSignOut} />;
+  if (profile.role === "admin") return <AdminConsole profile={profile} onSignOut={handleSignOut} />;
+  if (profile.role !== "dispatcher") return <GateScreen title="Dispatcher access is required." description="This account is signed in, but its TACResQ profile is not authorized to view the dispatch queue." onSignOut={handleSignOut} />;
   return <DispatcherBoard session={session} profile={profile} onSignOut={handleSignOut} />;
 }
