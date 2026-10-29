@@ -13,7 +13,27 @@ permissions:
 jobs:
   rpc-grant-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: tacresq_test
+    services:
+      postgres:
+        image: postgres:16.15-bookworm@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tacresq_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tacresq_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Check out source
         uses: actions/checkout@v7
@@ -23,3 +43,7 @@ jobs:
           python-version: '3.11'
       - name: Verify anonymous RPC grants are restricted
         run: python3 tools/test_rpc_grants.py
+      - name: Replay migrations and verify existing database contracts
+        run: bash tools/test_supabase_migration_replay.sh
+      - name: Verify GPS RPC privileges and authorization at runtime
+        run: psql -v ON_ERROR_STOP=1 -f tools/test_location_rpc_security.sql
