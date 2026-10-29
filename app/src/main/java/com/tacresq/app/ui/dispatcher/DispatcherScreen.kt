@@ -78,7 +78,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun refresh() {
         if (refreshJob?.isActive == true) return
-        _state.update { it.copy(loading = true) }
+        _state.update { it.copy(loading = true, assignmentDataFresh = false) }
         refreshJob = viewModelScope.launch {
             val incidents = repo.allIncidents()
             val units = repo.units()
