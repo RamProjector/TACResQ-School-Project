@@ -66,9 +66,9 @@ BEGIN
   END IF;
 
   INSERT INTO public.admin_audit_logs (
-    actor_user_id, target_user_id, action, old_role, new_role, reason
+    actor_user_id, actor_identity, target_user_id, action, old_role, new_role, reason
   ) VALUES (
-    NULL, target_profile_id, 'user_role_changed', old_role, 'admin',
+    NULL, operator_identity, target_profile_id, 'user_role_changed', old_role, 'admin',
     format('Initial trusted-operator provisioning by %s; reference: %s',
            operator_identity, change_reference)
   );
@@ -152,9 +152,9 @@ BEGIN
   END IF;
 
   INSERT INTO public.admin_audit_logs (
-    actor_user_id, target_user_id, action, old_role, new_role, reason
+    actor_user_id, actor_identity, target_user_id, action, old_role, new_role, reason
   ) VALUES (
-    NULL, target_profile_id, 'user_role_changed', 'admin', target_role,
+    NULL, operator_identity, target_profile_id, 'user_role_changed', 'admin', target_role,
     format('Trusted-operator Admin rotation by %s; reference: %s',
            operator_identity, change_reference)
   );
