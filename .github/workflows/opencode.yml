@@ -1,6 +1,14 @@
 name: OpenCode GitHub Agent
 
 on:
+  # Allows an authorized repository maintainer to start an agent run from Actions.
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Task or focus for this run (leave blank to follow AGENTS.md and CURRENT_TASK.md)"
+        required: false
+        type: string
+        default: ""
   issue_comment:
     types: [created]
   pull_request_review_comment:
