@@ -288,11 +288,13 @@ jobs:
       - name: Run Android instrumented smoke tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 37
+          # Use the stable API 36 emulator image; the app compile SDK package is android-37.0.
+          api-level: 36
           target: google_apis
           arch: x86_64
           profile: pixel_2
           disable-animations: true
+          pre-emulator-launch-script: sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0"
           script: ./gradlew --no-daemon connectedDebugAndroidTest
 
   prototype-browser-checks:
