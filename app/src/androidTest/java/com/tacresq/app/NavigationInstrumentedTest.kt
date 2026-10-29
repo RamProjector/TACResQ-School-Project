@@ -36,13 +36,13 @@ class NavigationInstrumentedTest {
         composeRule.setContent {
             var selected by remember { mutableStateOf(AppDestination.PRIMARY) }
             MaterialTheme {
-                    RoleShell(
-                        role = Role.REQUESTER,
-                        selected = selected,
-                        onDestinationSelected = { selected = it },
-                        content = { Text("Home destination content") },
-                        mapContent = { Text("GPS Map destination content") },
-                    )
+                RoleShell(
+                    role = Role.REQUESTER,
+                    selected = selected,
+                    onDestinationSelected = { selected = it },
+                    content = { Text("Home destination content") },
+                    mapContent = { Text("GPS Map destination content") },
+                )
             }
         }
 
@@ -61,16 +61,18 @@ class NavigationInstrumentedTest {
         composeRule.setContent {
             MaterialTheme {
                 RoleShell(
-                        role = Role.REQUESTER,
-                        selected = AppDestination.PRIMARY,
-                        onDestinationSelected = {},
-                        content = { Text("Home destination content") },
-                        mapContent = { Text("GPS Map destination content") },
+                    role = Role.REQUESTER,
+                    selected = AppDestination.PRIMARY,
+                    onDestinationSelected = {},
+                    content = { Text("Home destination content") },
+                    mapContent = { Text("GPS Map destination content") },
                 )
             }
         }
 
-        listOf("Home", "Requests", "GPS Map", "Safety", "Profile").forEach { label ->
+        // The current requester shell calls this destination "Alerts"; "Safety" was
+        // an obsolete label and made the emulator suite fail despite a valid navigation item.
+        listOf("Home", "Requests", "GPS Map", "Alerts", "Profile").forEach { label ->
             composeRule.onNodeWithContentDescription(label).assertIsDisplayed()
         }
     }
