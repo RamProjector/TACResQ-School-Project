@@ -21,7 +21,7 @@ TACResQ is not restricted to one kind of emergency. The product concept covers g
 - **Dispatcher:** Reviews the incident queue and available field units, confirms assignments, and coordinates supported response actions.
 - **Administrator or trusted operator:** Handles only the administration functions explicitly implemented and authorized in the repository. Do not assume a role has privileges merely because its name appears in documentation.
 
-These roles describe TACResQ's emergency-response workflow. They do not turn it into a blood-donor matching product.
+These roles define TACResQ's emergency-response workflow and must remain specific to this product.
 
 ## 3. Product boundaries
 
@@ -37,7 +37,6 @@ These roles describe TACResQ's emergency-response workflow. They do not turn it 
 
 ### Not the product's purpose
 
-- **Not a blood-donor matching, blood inventory, or blood-request application.**
 - **Not LifeLink.** LifeLink is a separate repository/product and must not be used as the source of TACResQ's requirements, feature assumptions, screens, or implementation plan.
 - Not a generic chat app, social network, fleet-management product, or broad enterprise management system.
 - Not a replacement for official emergency hotlines, local emergency services, authorized dispatch procedures, trained responders, or medical advice.
@@ -87,7 +86,7 @@ Do not add features merely to increase feature count. Any proposed feature shoul
 **For every future TACResQ task, read this document before researching, designing, editing, or reviewing code.**
 
 - Keep TACResQ and LifeLink as separate products and repositories.
-- Do not import LifeLink's blood-donor domain, donor-matching logic, blood inventory concepts, or donor-specific terminology into TACResQ.
+- Keep requirements, screens, data models, and terminology specific to TACResQ's emergency GPS and incident-response domain; do not import unrelated product requirements.
 - Keep proposed changes tied to general emergency reporting, GPS/location clarity, authorized response coordination, navigation, privacy, reliability, and accessibility for the Tacloban focus.
 - Inspect the current branch, relevant files, previous PRs, and CI before making changes; avoid redoing work already merged.
 - Prefer one coherent, reviewable PR at a time. Add or update tests for safety-critical behavior, run required checks, and merge only when the required checks pass.

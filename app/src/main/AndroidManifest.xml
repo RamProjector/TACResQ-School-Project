@@ -13,7 +13,8 @@
     <application
         android:name=".TacResqApp"
         android:allowBackup="false"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_tacresq_emergency_launcher"
+        android:roundIcon="@drawable/ic_tacresq_emergency_launcher"
         android:label="TACResQ"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
