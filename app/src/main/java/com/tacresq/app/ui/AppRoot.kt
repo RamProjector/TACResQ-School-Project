@@ -34,6 +34,7 @@ import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
 import com.tacresq.app.ui.auth.AuthScreen
+import com.tacresq.app.ui.admin.AdminAccessScreen
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.dispatcher.DispatcherScreen
 import com.tacresq.app.ui.dispatcher.DispatcherViewModel
@@ -102,6 +103,7 @@ fun AppRoot(
                     factory = factory,
                 )
                 when (user.role) {
+                    Role.ADMIN -> AdminAccessScreen(user = user, onSignOut = logout)
                     Role.REQUESTER -> {
                         val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
@@ -227,12 +229,13 @@ private fun RoleSectionScreen(
         return
     }
     val role = user.role
-    val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER
+    val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER && role != Role.ADMIN
     val title = when (destination) {
         AppDestination.SECONDARY -> when (role) {
             Role.REQUESTER -> "My requests"
             Role.RESPONDER, Role.DRIVER -> "Response history"
             Role.DISPATCHER -> "Field units"
+            Role.ADMIN -> "Administrator access"
         }
         AppDestination.ALERTS -> "Alerts & safety"
         AppDestination.PROFILE -> "Profile"
@@ -251,6 +254,7 @@ private fun RoleSectionScreen(
         ScreenHeader(title = title, subtitle = "", onLogout = logout)
 
         when {
+            role == Role.ADMIN -> EmptySectionCard("Administrator access", "Administrative tools are not available in this Android build yet.")
             isHistory -> {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
