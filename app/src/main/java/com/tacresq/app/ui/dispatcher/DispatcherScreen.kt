@@ -146,7 +146,22 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
     val active = state.incidents.count { it.status.isActive }
     val availableUnits = state.units.filter { it.dutyStatus == DutyStatus.AVAILABLE }
     val focusedIncident = focusedIncidentId?.let { targetId -> state.incidents.firstOrNull { it.id == targetId } }
-    val existingTeamCount = assignmentCandidate?.let { candidate ->
+    // The dialog must use the latest queue snapshot, not the Incident object captured
+    // when it opened. A refresh can change assignment state while the dialog is visible.
+    val currentAssignmentCandidate = assignmentCandidate?.let { candidate ->
+        state.incidents.firstOrNull { current ->
+            current.id == candidate.id && current.status in listOf(
+                IncidentStatus.PENDING, IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE,
+            )
+        }
+    }
+    LaunchedEffect(state.assignmentDataFresh, availableUnits) {
+        if (state.assignmentDataFresh) {
+            val currentlyAvailableIds = availableUnits.map { it.id }.toSet()
+            selectedUnitIds = selectedUnitIds.intersect(currentlyAvailableIds)
+        }
+    }
+    val existingTeamCount = currentAssignmentCandidate?.let { candidate ->
         if (candidate.status == IncidentStatus.PENDING) 0
         else candidate.assignedUserIds.ifEmpty { listOfNotNull(candidate.assignedTo) }.distinct().size
     } ?: 0
@@ -327,7 +342,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         items(state.units, key = { it.id }) { unit -> UnitCard(unit) }
     }
 
-    assignmentCandidate?.let { incident ->
+    currentAssignmentCandidate?.let { incident ->
         AlertDialog(
             onDismissRequest = { assignmentCandidate = null; selectedUnitIds = emptySet() },
             title = { Text("Build response team") },
