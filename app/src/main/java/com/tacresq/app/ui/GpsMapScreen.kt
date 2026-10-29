@@ -239,6 +239,7 @@ fun GpsMapScreen(
     var locationStatus by remember { mutableStateOf<String?>(null) }
     var isLocationRequestInProgress by remember { mutableStateOf(false) }
     var retryLocationAfterSettings by remember { mutableStateOf(false) }
+    var showAppSettingsAction by remember { mutableStateOf(false) }
     var hasValidatedInternet by remember { mutableStateOf<Boolean?>(null) }
     val connectivityManager = remember(context) {
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
@@ -425,6 +426,16 @@ fun GpsMapScreen(
         }
     }
 
+    fun openAppLocationSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+        }
+        runCatching { context.startActivity(intent) }
+            .onFailure {
+                locationStatus = "Could not open TACResQ app settings. Open Android Settings, choose Apps, then TACResQ, and allow Location."
+            }
+    }
+
     fun locateOnce() {
         // Claim synchronously before launching: rapid taps must not start overlapping location requests.
         if (isLocationRequestInProgress) return
@@ -432,12 +443,14 @@ fun GpsMapScreen(
         scope.launch {
             try {
                 deviceFix = null
+                showAppSettingsAction = false
                 locationStatus = "Checking device location settings…"
                 when (val settings = locationProvider.checkLocationSettings()) {
                     LocationSettingsCheck.Ready -> {
                         locationStatus = "Getting a fresh device location…"
                         when (val result = locationProvider.currentFix()) {
                             is LocationCaptureResult.Success -> {
+                                showAppSettingsAction = false
                                 val fix = result.fix
                                 deviceFix = fix
                                 // Recenter after the native MapView has processed the latest layout.
@@ -453,7 +466,8 @@ fun GpsMapScreen(
                                 locationStatus = "One-time $precision location shown on this device only; not uploaded$accuracy."
                             }
                             LocationCaptureResult.PermissionDenied -> {
-                                locationStatus = "Location permission denied. Incident pins remain available."
+                                showAppSettingsAction = true
+                                locationStatus = "Location permission is unavailable. Incident pins remain available; allow Location in TACResQ app settings to use Locate me"
                             }
                             LocationCaptureResult.ServicesDisabled -> {
                                 locationStatus = "Opening Android Location settings. Turn Location on, return here, and tap Locate me again."
@@ -518,10 +532,12 @@ fun GpsMapScreen(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
+            showAppSettingsAction = false
             locateOnce()
         } else {
             deviceFix = null
-            locationStatus = "Location permission denied. Incident pins remain available."
+            showAppSettingsAction = true
+            locationStatus = "Location permission denied. Incident pins remain available; allow Location in TACResQ app settings to use Locate me"
         }
     }
     val onLocateClick: () -> Unit = {
@@ -548,6 +564,7 @@ fun GpsMapScreen(
                         deviceFix = null
                         locationStatus = "Location permission is off. The previous location preview was cleared. Grant permission and tap Locate me to try again."
                     }
+                    if (locationProvider.hasPermission()) showAppSettingsAction = false
                 }
                 Lifecycle.Event.ON_PAUSE -> {
                     if (mapIsResumed) {
@@ -849,6 +866,15 @@ fun GpsMapScreen(
                             else androidx.compose.material.icons.Icons.Default.ExpandMore,
                             contentDescription = if (detailsExpanded) "Collapse map details" else "Expand map details",
                         )
+                    }
+                }
+
+                if (showAppSettingsAction) {
+                    androidx.compose.material3.TextButton(
+                        onClick = ::openAppLocationSettings,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Open TACResQ app settings")
                     }
                 }
 
