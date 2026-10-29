@@ -98,6 +98,9 @@ jobs:
       - name: Check GPS map foreground-only polling
         run: python3 tools/test_gps_map_lifecycle_polling.py
 
+      - name: Check external turn-by-turn map intent recovery
+        run: python3 tools/test_external_map_intent_recovery.py
+
       - name: Check Android notification inbox security and lifecycle
         run: python3 tools/test_android_notifications_contract.py
 
