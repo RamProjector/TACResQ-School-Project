@@ -295,7 +295,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   ) : audit.map((event) => (
                     <tr key={event.id}>
                       <td className="admin-date">{formatDate(event.created_at)}</td>
-                      <td>{event.actor_user_id === profile.id ? "You" : (userById.get(event.actor_user_id ?? -1)?.name ?? (event.actor_user_id ? "Profile #" + event.actor_user_id : "Unknown / removed"))}</td>
+                      <td>{event.actor_user_id === profile.id ? "You" : (userById.get(event.actor_user_id ?? -1)?.name ?? event.actor_identity)}</td>
                       <td>{userById.get(event.target_user_id ?? -1)?.name ?? (event.target_user_id ? "Profile #" + event.target_user_id : "Unknown / removed")}</td>
                       <td><span className="admin-audit-change">{displayRole(event.old_role)} <span>→</span> {displayRole(event.new_role)}</span></td>
                       <td className="admin-audit-reason">{event.reason}</td>
