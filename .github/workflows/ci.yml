@@ -272,19 +272,10 @@ jobs:
       - name: Test navigation and user functions
         run: python3 tools/test_prototype.py
 
-      - name: Capture visual screenshot differences (report-only by user instruction)
-        run: python3 tools/visual_regression.py --report-only
-
-      - name: Capture and validate multiple viewport sizes
-        run: python3 tools/test_multi_viewport_visuals.py
-
-      - name: Upload visual report and changed screenshots
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: tacresq-visual-regression
-          path: artifacts/visual/
-          if-no-files-found: error
+      # Temporarily paused at the user's direction while prioritizing core system readiness.
+      # Keep navigation and functional smoke tests above enabled; restore visual checks after release-critical flows stabilize.
+      - name: Note paused visual regression checks
+        run: echo "Visual regression and multi-viewport screenshot checks are temporarily paused."
 
   backend-integration:
     name: Laravel and dashboard integration
