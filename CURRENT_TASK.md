@@ -6,7 +6,7 @@
 - **Regression coverage:** added `tools/test_gps_permission_settings_recovery.py` and wired it into `TACResQ CI` source checks.
 - **Commits on branch:** UI fix `5deef1e81f552dc3f44bcc0496a7f3d48eb06e5a`; test `7d4a4718c8fca59760fa737af552a9a9bc32884e`; CI `085dff5374be186532960335b4b134ab4833a2b4`.
 - **Validation:** not yet run locally; PR CI must execute the new contract and full required builds/integration checks. No emulator or physical-device verification was performed.
-- **Next action:** open PR, inspect exact-head required checks, fix failures, and merge only when all required checks pass and GitHub confirms mergeability. Then continue GPS reliability work (permission revocation/resume and location freshness), followed by the auth-authority blocker for Admin.
+- **PR:** #207 — https://github.com/RamProjector/TACResQ-School-Project/pull/207 (open; head `63a4292c2707d654ef8794018fed3a8ceb242a1a`). Initial combined commit status had no reported statuses yet; CI is pending/not yet visible. Do not merge until required checks appear and pass. **Next action:** monitor exact-head CI, fix failures, and merge only when all required checks pass and GitHub confirms mergeability. Then continue GPS reliability work (permission revocation/resume and location freshness), followed by the auth-authority blocker for Admin.
 - **Limitations:** no live backend, deployment, device permission flow, or production data was touched.
 
 ---
