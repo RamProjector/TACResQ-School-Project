@@ -1,3 +1,16 @@
+# Active handoff — 2026-10-30: GPS permission-denial recovery
+
+- **Verified main at task start:** `b6fa737230f7e69de8273ba4652088026e2e9f7a` (PR #206 merged; external map intent recovery).
+- **Current branch:** `agent/gps-permission-settings-recovery`.
+- **Implementation:** `GpsMapScreen.kt` now exposes an explicit “Open TACResQ app settings” action after location permission denial or a permission failure. It opens this app's Android details settings page, provides manual navigation instructions if Android cannot open it, and hides the recovery action after permission is granted. The incident map remains usable; this does not request background location or broaden manifest permissions.
+- **Regression coverage:** added `tools/test_gps_permission_settings_recovery.py` and wired it into `TACResQ CI` source checks.
+- **Commits on branch:** UI fix `5deef1e81f552dc3f44bcc0496a7f3d48eb06e5a`; test `7d4a4718c8fca59760fa737af552a9a9bc32884e`; CI `085dff5374be186532960335b4b134ab4833a2b4`.
+- **Validation:** not yet run locally; PR CI must execute the new contract and full required builds/integration checks. No emulator or physical-device verification was performed.
+- **Next action:** open PR, inspect exact-head required checks, fix failures, and merge only when all required checks pass and GitHub confirms mergeability. Then continue GPS reliability work (permission revocation/resume and location freshness), followed by the auth-authority blocker for Admin.
+- **Limitations:** no live backend, deployment, device permission flow, or production data was touched.
+
+---
+
 # Active handoff — 2026-10-29: external map intent recovery
 
 - **Latest verified main:** `8046540f70e05886938fb08577d69d96f53a3d14`. PR #205 documentation handoff was merged at this commit after all PR checks passed.
