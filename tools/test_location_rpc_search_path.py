@@ -29,3 +29,23 @@ assert "interval '8 seconds'" in boundary
 assert "interval '15 minutes'" in boundary
 assert "p_latitude < -90" in boundary and "p_longitude > 180" in boundary
 print("Location RPC search-path and privilege-boundary contract passed.")
+
+# New GPS isolation migrations are checked separately so this test remains useful
+# even when the historical migration boundary changes.
+writer = (ROOT / "supabase/migrations/20261025170000_isolate_per_responder_location_writer.sql").read_text().lower()
+reader = (ROOT / "supabase/migrations/20261026010000_isolate_multi_responder_location_reader.sql").read_text().lower()
+assert "add column if not exists received_at timestamptz" in writer
+assert "alter column received_at set default pg_catalog.clock_timestamp()" in writer
+assert "l.created_at" not in writer and "coalesce(l.received_at, l.recorded_at)" in writer
+assert "for update of i, a;" in writer
+assert "revoke insert on table public.location_logs from public, anon, authenticated" in writer
+assert "create or replace function public.api_record_location_v2(" in writer
+assert "security invoker" in writer and "set search_path = pg_catalog" in writer
+assert "create or replace function private.tacresq_active_responder_locations()" in reader
+assert "security definer" in reader and "set search_path = pg_catalog" in reader
+assert "private.tacresq_actor_role() is distinct from 'dispatcher'" in reader
+assert "a.responder_status = 'en_route'" in reader
+assert "order by i.id, l.user_id, coalesce(l.received_at, l.recorded_at) desc" in reader
+assert "create or replace function public.api_active_responder_locations()" in reader
+assert "security invoker" in reader
+print("PASS: isolated GPS writer/reader privilege boundaries and server receipt-time contracts.")
