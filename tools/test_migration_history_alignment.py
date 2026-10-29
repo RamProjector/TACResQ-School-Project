@@ -31,6 +31,8 @@ EXPECTED = {
     "20261023103737_per_responder_assignment_status.sql",
 }
 PENDING = {
+    "20261025170000_isolate_per_responder_location_writer.sql",
+    "20261026010000_isolate_multi_responder_location_reader.sql",
     "20261026190000_persistent_in_app_notifications.sql",
     "20261026200000_incident_scoped_chat.sql",
     "20261026161500_admin_role_audit_foundation.sql",
