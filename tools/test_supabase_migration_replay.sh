@@ -939,9 +939,10 @@ DECLARE
   audit_event_id bigint;
   audit_target_id bigint;
   audit_actor_id bigint;
+  audit_actor_identity text;
 BEGIN
-  SELECT id, target_user_id, actor_user_id
-  INTO audit_event_id, audit_target_id, audit_actor_id
+  SELECT id, target_user_id, actor_user_id, actor_identity
+  INTO audit_event_id, audit_target_id, audit_actor_id, audit_actor_identity
   FROM public.admin_audit_logs
   WHERE target_user_id = (
     SELECT id FROM public.profiles
@@ -950,8 +951,23 @@ BEGIN
   ORDER BY id DESC
   LIMIT 1;
 
-  IF audit_event_id IS NULL OR audit_target_id IS NULL OR audit_actor_id IS NULL THEN
-    RAISE EXCEPTION 'Expected a complete audit event before testing identity retention';
+  IF audit_event_id IS NULL OR audit_target_id IS NULL OR audit_actor_id IS NULL OR audit_actor_identity IS NULL THEN
+    RAISE EXCEPTION 'Expected a complete application-admin audit event before testing identity retention';
+  END IF;
+
+  INSERT INTO public.admin_audit_logs (
+    actor_user_id, actor_identity, target_user_id, action, old_role, new_role, reason
+  ) VALUES (
+    NULL, 'CI trusted operator', audit_target_id, 'user_role_changed', 'requester', 'admin',
+    'Disposable migration test operator provisioning event'
+  );
+  IF NOT EXISTS (
+    SELECT 1 FROM public.admin_audit_logs
+    WHERE target_user_id = audit_target_id
+      AND actor_user_id IS NULL
+      AND actor_identity = 'CI trusted operator'
+  ) THEN
+    RAISE EXCEPTION 'Trusted-operator audit events must support an explicit identity without a profile actor ID';
   END IF;
 
   DELETE FROM public.profiles
