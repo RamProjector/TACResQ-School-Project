@@ -1,3 +1,15 @@
+# Active handoff — 2026-10-29: GPS security and emergency launcher identity
+
+- **Latest verified main before this handoff:** `12cd2894a85aa7c93b05eac8582e47576c7e18c7` (PR #201 merged as `446e71586c5ffbedeabae4bfb97f8aa8fc912832`; PR #202 merged as `12cd2894a85aa7c93b05eac8582e47576c7e18c7`).
+- **Completed:** PR #201 isolates responder GPS writes behind a private, narrowly scoped helper, removes direct authenticated INSERT to `public.location_logs`, validates assignment/incident state and coordinates/timestamps, rate-limits by server receipt time, and restricts active GPS reads to dispatchers for en-route assigned units. Added isolated PostgreSQL runtime privilege/authorization tests and migration replay coverage.
+- **Completed:** PR #202 updates the launcher identity to a distinctive emergency GPS pin/beacon/route vector icon. No blood-donation imagery or blood-matching behavior was introduced.
+- **Validation evidence:** PR #201 head `8ff403ba885aaa57db69ff3d1f004cc6eebf1ff4` had successful check-runs for Android debug/release builds, source checks, emulator smoke tests, prototype navigation/screenshots, Laravel/dashboard integration, migration replay, RPC grant contract, and static security/correctness review. PR #202 head `14b9ca7642ed2b179f3d1f8ba742f0a2f94080e7` had the same set successful. CodeRabbit was skipped. These were pre-merge branch results; **fresh main CI after the merges was still queued/in progress at handoff time** (runs `40907186698`, `40907186533`, `40907233500`, `40907233536`).
+- **OpenCode blocker:** workflow run `40905524704` failed at GitHub App token exchange with HTTP 502. Checkout and OpenCode installation succeeded; no model response or code task ran. This is not evidence of an invalid `OPENCODE_API_KEY`. Retry once; if repeated, investigate the action/App token exchange path before altering repository permissions or credentials.
+- **Important limitation:** these merges do not mean the live Supabase project was migrated or the app is production-ready. Migrations were validated in disposable CI PostgreSQL only; live deployment/device behavior remains unverified.
+- **Next concrete action:** verify fresh main CI for `12cd2894a85aa7c93b05eac8582e47576c7e18c7`; then inspect remaining open PRs against latest main and choose the next highest-priority non-duplicate security/reliability task. Keep TACResQ scoped to emergency response and GPS.
+
+---
+
 # Active handoff — 2026-10-28: In-app routing foundation
 
 - **Scope:** safely add the provider-neutral route model, Valhalla polyline6 decoder, unit tests, and design/operations note to current main.
