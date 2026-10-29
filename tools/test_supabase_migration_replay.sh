@@ -644,6 +644,7 @@ SQL
 echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and incident chat, notification authorization, and per-responder status regressions passed."
 
 
+psql -v ON_ERROR_STOP=1 <<'SQL'
 -- Admin role/audit regression tests run only in this disposable clean database.
 -- Public signup metadata must never grant the privileged role.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
