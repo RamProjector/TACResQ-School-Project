@@ -8,6 +8,10 @@
 -- incident state, coordinate/timestamp bounds, and update rate.
 BEGIN;
 
+-- Invoker wrappers need schema visibility to resolve narrowly granted private helpers.
+-- This grants name resolution only; function EXECUTE remains explicitly controlled below.
+GRANT USAGE ON SCHEMA private TO authenticated;
+
 -- location_logs has no created_at column. Store server receipt time separately
 -- from the client/device capture timestamp so rate limiting and latest-point
 -- ordering never depend on a client-controlled clock.
