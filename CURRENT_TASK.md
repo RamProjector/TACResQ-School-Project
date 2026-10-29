@@ -195,3 +195,16 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Focused tests:** six JVM tests cover thrown exception, returned failure, and cancellation for both refresh and mark-read. They assert generic versus repository error messages, state cleanup, and cancelled-job propagation. Added `kotlinx-coroutines-test` to test dependencies.
 - **CI evidence before this amendment:** source checks passed after correcting the interface contract assertion; Android JVM unit tests passed on run 969. Release build and final workflow status were still running when inspected. The amendment commit will trigger another run; use that new exact head for final merge decision.
 - **Next action:** verify the new run's complete status, inspect the final diff for unintended changes, and merge PR #193 only when all required checks pass and GitHub confirms mergeability. Emulator/device review remains not run per repository policy.
+
+
+## Handoff — 2026-10-29: OpenCode GitHub Actions agent setup
+
+- **Objective:** Add an owner-triggered OpenCode GitHub Actions workflow after the user confirmed adding the `OPENCODE_API_KEY` repository secret.
+- **Branch:** `agent/opencode-github-actions`.
+- **Change:** Added `.github/workflows/opencode.yml` using the official `anomalyco/opencode/github@latest` action and `opencode/big-pickle`, which the current OpenCode Console model documentation lists as free.
+- **Invocation:** The repository owner `RamProjector` can trigger the workflow by commenting `/oc` or `/opencode` on an issue/PR or PR review comment. Other actors are filtered out to reduce abuse and model usage.
+- **Credential handling:** Workflow reads `secrets.OPENCODE_API_KEY`; no credential value is stored in repository files or logs intentionally.
+- **Required external setup:** The OpenCode GitHub App must also be installed for this repository. This workflow file alone cannot install the app or verify the secret's existence/value.
+- **Validation:** Workflow syntax and a real model invocation have not yet been run in GitHub Actions. Verify the first manually triggered run and inspect the resulting PR/checks before relying on the agent.
+- **Safety/limits:** The selected model is documented as free, but availability and rate limits may change. Workflow only allows the repository owner to invoke it and has a 20-minute timeout. No automatic merge or production changes are enabled.
+- **Next action:** Open a PR for this workflow, then verify required checks and the first real invocation after confirming the OpenCode GitHub App installation.
