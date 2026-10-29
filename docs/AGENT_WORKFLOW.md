@@ -1,6 +1,6 @@
 # TACResQ autonomous implementation workflow
 
-This workflow supports autonomous implementation, automated validation, pull requests, and merging eligible changes. Read `AGENTS.md` and `CURRENT_TASK.md` first. The user's latest explicit instruction takes precedence.
+This workflow supports continuous implementation, automated validation, pull requests, and merging eligible changes. Read `AGENTS.md` and `CURRENT_TASK.md` first. The user's latest explicit instruction takes precedence.
 
 ## Delivery contract
 
@@ -9,6 +9,23 @@ This workflow supports autonomous implementation, automated validation, pull req
 - Prefer one coherent feature PR. When a user asks for a consolidated update, inventory existing branches/PRs first to avoid duplicate implementation and consolidate related work where practical.
 - Keep credentials, private personal data, real emergency records, and actual incident coordinates out of source, fixtures, screenshots, logs, commits, and PR descriptions.
 - Preserve role authorization, location consent, data minimization, truthful status/location reporting, and the educational-prototype boundary.
+- Never introduce paid services or switch stacks without a documented reason and explicit authorization where required.
+
+## Continuous improvement loop
+
+Every run must make forward progress when a safe, actionable task is available. Do not respond with only a plan or a generic status report.
+
+1. Re-read `AGENTS.md`, `CURRENT_TASK.md`, and the current remote repository state.
+2. Check open PRs and recent commits to avoid duplicate work; inspect current CI on the exact relevant commit.
+3. Select the highest-priority verified defect or incomplete feature using the ordering in `AGENTS.md`.
+4. State measurable acceptance criteria, then implement the complete fix across the affected layers.
+5. Add focused regression tests and meaningful negative-path coverage.
+6. Run focused checks, then all applicable automated CI checks. Diagnose and fix failures rather than suppressing them.
+7. Inspect the full diff for regressions, security/privacy problems, unrelated edits, secret exposure, and unsafe production side effects.
+8. Open/update a focused PR, record exact validation evidence, and merge only when eligible under the policy below.
+9. Update `CURRENT_TASK.md` with verified progress and the next concrete task so a later run can continue without repeating work.
+
+If blocked by missing access, unavailable credentials, an external service, or a check that cannot be run, document the precise blocker and continue with another independent safe task where possible. Never invent successful results.
 
 ## Manual UI and emulator checks
 
