@@ -7,6 +7,7 @@ screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScre
 
 checks = {
     "freshness state defaults closed": "val assignmentDataFresh: Boolean = false" in screen,
+    "freshness is invalidated while refresh is in flight": "_state.update { it.copy(loading = true, assignmentDataFresh = false) }" in screen,
     "freshness requires successful incident and unit reads": "assignmentDataFresh = incidents.isSuccess && units.isSuccess" in screen,
     "view-model rejects assignment with stale data": "_state.value.busy || !_state.value.assignmentDataFresh || userIds.isEmpty()" in screen,
     "queue exposes an assignment-paused warning": '"Assignment paused"' in screen,
