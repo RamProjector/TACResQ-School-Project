@@ -41,6 +41,20 @@ class RoutingModelsTest {
         assertFalse(route.isUsable(now, maxAgeMillis = -1L))
         assertFalse(route.copy(generatedAtEpochMillis = now + 1).isUsable(now))
         assertFalse(route.copy(generatedAtEpochMillis = now - 120_001).isUsable(now))
+        assertTrue(route.copy(generatedAtEpochMillis = now - 120_000).isUsable(now))
+    }
+
+    @Test
+    fun routeRejectsExtremeOldTimestampInsteadOfOverflowingFreshnessCheck() {
+        val now = 1_800_000_000_000L
+        val route = RouteResult(
+            geometry = listOf(RouteCoordinate(11.24, 125.0), RouteCoordinate(11.25, 125.01)),
+            distanceMeters = 1_200.0,
+            durationSeconds = 240.0,
+            generatedAtEpochMillis = Long.MIN_VALUE,
+        )
+
+        assertFalse(route.isUsable(now))
     }
 
     @Test
