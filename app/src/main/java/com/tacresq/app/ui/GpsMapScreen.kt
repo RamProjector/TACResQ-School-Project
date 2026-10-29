@@ -837,7 +837,8 @@ fun GpsMapScreen(
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = if (detailsExpanded) 4 else 1,
+                            // Two collapsed lines preserve actionable status on narrow screens without obscuring the map.
+                            maxLines = if (detailsExpanded) 4 else 2,
                         )
                     }
                     androidx.compose.material3.IconButton(onClick = { detailsExpanded = !detailsExpanded }) {
