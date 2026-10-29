@@ -55,6 +55,8 @@ jobs:
 
       - name: Check dispatcher multi-responder assignment
         run: python3 tools/test_dispatch_team_assignment.py
+      - name: Check dispatcher assignment freshness safety
+        run: python3 tools/test_dispatcher_assignment_freshness.py
       - name: Check dispatcher queue wait-time prioritization
         run: python3 tools/test_dispatcher_wait_time_queue.py
 
@@ -156,6 +158,11 @@ jobs:
       - name: Check demo and Supabase build-mode separation
         run: python3 tools/test_android_build_modes.py
 
+      - name: Check Admin role isolation in Android navigation
+        run: python3 tools/test_android_admin_role_safety.py
+
+      - name: Check Android emulator KVM configuration
+        run: python3 tools/test_android_emulator_kvm.py
 
       - name: Accept Android SDK licenses and install API 37
         if: hashFiles('gradlew') != ''
@@ -251,6 +258,47 @@ jobs:
         if: hashFiles('gradlew') == ''
         run: echo 'No Gradle wrapper is checked in; Android source-contract validation ran instead of APK builds.'
 
+  android-emulator-smoke:
+    name: Android emulator smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Enable KVM permissions for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            ls -l /dev/kvm
+          else
+            echo "::warning::/dev/kvm unavailable; emulator startup may be slower or time out."
+          fi
+
+      - name: Run Android instrumented smoke tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          # Use the stable API 36 emulator image; the app compile SDK package is android-37.0.
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          pre-emulator-launch-script: sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0"
+          script: ./gradlew --no-daemon connectedDebugAndroidTest
+
   prototype-browser-checks:
     name: Prototype navigation, functions, and visual screenshots
     runs-on: ubuntu-latest
@@ -272,19 +320,10 @@ jobs:
       - name: Test navigation and user functions
         run: python3 tools/test_prototype.py
 
-      - name: Capture visual screenshot differences (report-only by user instruction)
-        run: python3 tools/visual_regression.py --report-only
-
-      - name: Capture and validate multiple viewport sizes
-        run: python3 tools/test_multi_viewport_visuals.py
-
-      - name: Upload visual report and changed screenshots
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: tacresq-visual-regression
-          path: artifacts/visual/
-          if-no-files-found: error
+      # Temporarily paused at the user's direction while prioritizing core system readiness.
+      # Keep navigation and functional smoke tests above enabled; restore visual checks after release-critical flows stabilize.
+      - name: Note paused visual regression checks
+        run: echo "Visual regression and multi-viewport screenshot checks are temporarily paused."
 
   backend-integration:
     name: Laravel and dashboard integration

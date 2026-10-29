@@ -79,6 +79,7 @@ private fun TacruBottomNavigation(
             Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")
             Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Alerts", "Profile")
             Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")
+            Role.ADMIN -> listOf("Admin", "Audit", "Alerts", "Profile")
         }
         val destinations = listOf(
             AppDestination.PRIMARY to labels[0],

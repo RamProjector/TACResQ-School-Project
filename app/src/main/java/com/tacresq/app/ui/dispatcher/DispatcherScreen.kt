@@ -66,6 +66,8 @@ data class DispatcherUiState(
     val notice: String? = null,
     val error: String? = null,
     val syncError: String? = null,
+    // Assignment is safe only when queue and unit availability are fresh.
+    val assignmentDataFresh: Boolean = false,
     val lastSyncedAtEpochMs: Long? = null,
 )
 
@@ -76,7 +78,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun refresh() {
         if (refreshJob?.isActive == true) return
-        _state.update { it.copy(loading = true) }
+        _state.update { it.copy(loading = true, assignmentDataFresh = false) }
         refreshJob = viewModelScope.launch {
             val incidents = repo.allIncidents()
             val units = repo.units()
@@ -89,6 +91,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
                     responderLocations = responderLocations.getOrNull() ?: current.responderLocations,
                     loading = false,
                     syncError = refreshError?.message,
+                    assignmentDataFresh = incidents.isSuccess && units.isSuccess,
                     lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else current.lastSyncedAtEpochMs,
                 )
             }
@@ -96,7 +99,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
     }
 
     fun assign(incident: Incident, userIds: List<Long>) {
-        if (_state.value.busy || userIds.isEmpty() || userIds.size > 5) return
+        if (_state.value.busy || !_state.value.assignmentDataFresh || userIds.isEmpty() || userIds.size > 5) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, notice = null) }
             repo.assignIncident(incident.id, userIds)
@@ -143,7 +146,22 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
     val active = state.incidents.count { it.status.isActive }
     val availableUnits = state.units.filter { it.dutyStatus == DutyStatus.AVAILABLE }
     val focusedIncident = focusedIncidentId?.let { targetId -> state.incidents.firstOrNull { it.id == targetId } }
-    val existingTeamCount = assignmentCandidate?.let { candidate ->
+    // The dialog must use the latest queue snapshot, not the Incident object captured
+    // when it opened. A refresh can change assignment state while the dialog is visible.
+    val currentAssignmentCandidate = assignmentCandidate?.let { candidate ->
+        state.incidents.firstOrNull { current ->
+            current.id == candidate.id && current.status in listOf(
+                IncidentStatus.PENDING, IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE,
+            )
+        }
+    }
+    LaunchedEffect(state.assignmentDataFresh, availableUnits) {
+        if (state.assignmentDataFresh) {
+            val currentlyAvailableIds = availableUnits.map { it.id }.toSet()
+            selectedUnitIds = selectedUnitIds.intersect(currentlyAvailableIds)
+        }
+    }
+    val existingTeamCount = currentAssignmentCandidate?.let { candidate ->
         if (candidate.status == IncidentStatus.PENDING) 0
         else candidate.assignedUserIds.ifEmpty { listOfNotNull(candidate.assignedTo) }.distinct().size
     } ?: 0
@@ -156,8 +174,8 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
     ) {
         item {
             ScreenHeader(
-                title = "Queue",
-                subtitle = "",
+                title = "Dispatch queue",
+                subtitle = "Oldest emergency requests first · verify availability before assigning.",
                 onLogout = onLogout,
             )
         }
@@ -179,6 +197,19 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             }
         }
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
+        if (!state.loading && !state.assignmentDataFresh) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Assignment paused", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "The latest incident queue or field-unit availability could not be confirmed. Refresh successfully before assigning or adding responders; the information currently shown may be out of date.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+        }
         item {
             OutlinedButton(
                 onClick = vm::refresh,
@@ -253,7 +284,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                             selectedUnitIds = emptySet()
                             assignmentCandidate = incident
                         },
-                        enabled = !state.busy,
+                        enabled = !state.busy && state.assignmentDataFresh,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Select response team")
@@ -286,7 +317,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                 selectedUnitIds = emptySet()
                                 assignmentCandidate = incident
                             },
-                            enabled = !state.busy,
+                            enabled = !state.busy && state.assignmentDataFresh,
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text("Add responders") }
                     }
@@ -311,7 +342,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         items(state.units, key = { it.id }) { unit -> UnitCard(unit) }
     }
 
-    assignmentCandidate?.let { incident ->
+    currentAssignmentCandidate?.let { incident ->
         AlertDialog(
             onDismissRequest = { assignmentCandidate = null; selectedUnitIds = emptySet() },
             title = { Text("Build response team") },
@@ -348,7 +379,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             },
             confirmButton = {
                 TextButton(
-                    enabled = !state.busy && selectedUnitIds.isNotEmpty() && selectedUnitIds.size <= maxTeamSelection,
+                    enabled = !state.busy && state.assignmentDataFresh && selectedUnitIds.isNotEmpty() && selectedUnitIds.size <= maxTeamSelection,
                     onClick = {
                         val ids = selectedUnitIds.toList()
                         assignmentCandidate = null

@@ -33,6 +33,8 @@ EXPECTED = {
 PENDING = {
     "20261026190000_persistent_in_app_notifications.sql",
     "20261026200000_incident_scoped_chat.sql",
+    "20261026161500_admin_role_audit_foundation.sql",
+    "20261026170000_admin_server_side_user_pagination.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
@@ -129,3 +131,28 @@ print("PASS: public assignment RPCs are invoker wrappers over a private authoriz
 print("PASS: private assignment RPC pins its search path to pg_catalog.")
 print("PASS: missing location_and_push migration recreates FCM storage, RLS, and RPCs.")
 print("PASS: incident status logging runs after insert to satisfy the incident foreign key.")
+
+admin = (MIGRATIONS / "20261026161500_admin_role_audit_foundation.sql").read_text()
+for required in (
+    "CREATE TABLE public.admin_audit_logs",
+    "ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY",
+    "CREATE OR REPLACE FUNCTION public.api_admin_list_users()",
+    "CREATE OR REPLACE FUNCTION public.api_admin_set_user_role(",
+    "CREATE OR REPLACE FUNCTION public.api_admin_list_audit_logs(",
+    "REVOKE ALL ON FUNCTION public.api_admin_set_user_role(bigint, text, text) FROM PUBLIC, anon",
+    "GRANT EXECUTE ON FUNCTION public.api_admin_set_user_role(bigint, text, text) TO authenticated",
+    "Provide an audit reason between 10 and 500 characters",
+):
+    assert required.lower() in admin.lower(), f"Missing Admin security contract: {required}"
+assert "FOR INSERT TO authenticated" not in admin
+assert "FOR UPDATE TO authenticated" not in admin
+assert "FOR DELETE TO authenticated" not in admin
+assert "DROP FUNCTION" not in admin.upper()
+assert "DELETE FROM" not in admin.upper()
+pagination = (MIGRATIONS / "20261026170000_admin_server_side_user_pagination.sql").read_text()
+assert "LIMIT p_limit OFFSET p_offset" in pagination
+assert "SET search_path = pg_catalog" in pagination
+assert "DROP FUNCTION" not in pagination.upper()
+assert "DELETE FROM" not in pagination.upper()
+print("PASS: Admin RPC authorization, append-only audit, and bounded pagination contracts are present.")
+

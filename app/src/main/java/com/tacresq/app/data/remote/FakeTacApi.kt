@@ -127,6 +127,7 @@ class FakeTacApi(
                         Role.REQUESTER -> requesterOf[it.id] == me.id
                         Role.RESPONDER, Role.DRIVER -> it.assignedTo == me.id || me.id in it.assignedUserIds
                         Role.DISPATCHER -> true
+                        Role.ADMIN -> false
                     }
                 }
                 .sortedByDescending { it.id }

@@ -642,3 +642,350 @@ $chat_test$;
 SQL
 
 echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and incident chat, notification authorization, and per-responder status regressions passed."
+
+
+psql -v ON_ERROR_STOP=1 <<'SQL'
+-- Admin role/audit regression tests run only in this disposable clean database.
+-- Public signup metadata must never grant the privileged role.
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('00000000-0000-4000-8000-000000000128', 'admin-spoof@example.test', '{"name":"Admin Spoof Attempt","role":"admin"}'),
+  ('00000000-0000-4000-8000-000000000129', 'admin-role-target@example.test', '{"name":"Admin Role Target","role":"requester"}'),
+  ('00000000-0000-4000-8000-000000000130', 'admin-escalation-attempt@example.test', '{"name":"Admin Escalation Attempt","role":"requester"}');
+
+DO $admin_provision_fixture$
+DECLARE
+  admin_profile_id bigint;
+  signup_role text;
+BEGIN
+  SELECT id, role INTO admin_profile_id, signup_role
+  FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000128';
+
+  IF admin_profile_id IS NULL OR signup_role <> 'requester' THEN
+    RAISE EXCEPTION 'Public signup metadata must be forced to requester, including forged role=admin';
+  END IF;
+
+  -- Simulate the trusted operator's out-of-band first-admin provisioning.
+  UPDATE public.profiles
+  SET role = 'admin', duty_status = NULL
+  WHERE id = admin_profile_id;
+
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = admin_profile_id AND role = 'admin') THEN
+    RAISE EXCEPTION 'Trusted operator fixture could not provision the test administrator';
+  END IF;
+END;
+$admin_provision_fixture$;
+
+DO $admin_authorization_test$
+DECLARE
+  admin_profile_id bigint;
+  target_profile_id bigint;
+  attacker_profile_id bigint;
+  changed jsonb;
+  role_after_attempt text;
+  audit_count integer;
+  denied boolean;
+BEGIN
+  SELECT id INTO admin_profile_id FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000128';
+  SELECT id INTO target_profile_id FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000129';
+  SELECT id INTO attacker_profile_id FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000130';
+
+  IF has_function_privilege('anon', 'public.api_admin_list_users()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Anonymous role must not execute the Admin user-list RPC';
+  END IF;
+  IF NOT has_function_privilege('authenticated', 'public.api_admin_list_users()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Authenticated role must have the explicitly granted Admin RPC entry point';
+  END IF;
+  IF has_function_privilege('anon', 'public.api_admin_list_users_page(integer,integer,text,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Anonymous role must not execute the Admin paginated user-list RPC';
+  END IF;
+  IF NOT has_function_privilege('authenticated', 'public.api_admin_list_users_page(integer,integer,text,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Authenticated role must have the explicitly granted Admin pagination RPC entry point';
+  END IF;
+  IF has_table_privilege('authenticated', 'public.admin_audit_logs', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.admin_audit_logs', 'UPDATE')
+     OR has_table_privilege('authenticated', 'public.admin_audit_logs', 'DELETE') THEN
+    RAISE EXCEPTION 'Authenticated clients must not directly mutate Admin audit rows';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
+  changed := public.api_admin_list_users();
+  IF jsonb_typeof(changed) <> 'array' OR jsonb_array_length(changed) < 3 THEN
+    RAISE EXCEPTION 'Admin user-list RPC should return profile data for an authorized administrator';
+  END IF;
+  -- Search must be case-insensitive and literal (wildcard characters are not SQL patterns).
+  changed := public.api_admin_list_users_page(25, 0, 'ADMIN-ROLE-TARGET@example.test', 'requester');
+  IF changed->>'total_count' <> '1'
+     OR jsonb_array_length(changed->'users') <> 1
+     OR changed->'users'->0->>'email' <> 'admin-role-target@example.test' THEN
+    RAISE EXCEPTION 'Admin pagination search/filter returned an unexpected result: %', changed;
+  END IF;
+
+  changed := public.api_admin_list_users_page(25, 0, '%', 'requester');
+  IF changed->>'total_count' <> '0' OR jsonb_array_length(changed->'users') <> 0 THEN
+    RAISE EXCEPTION 'Percent in Admin search must be treated literally, not as a wildcard: %', changed;
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_users_page(101, 0, '', 'all');
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin pagination must reject page sizes above 100';
+  END IF;
+
+
+  changed := public.api_admin_set_user_role(
+    target_profile_id,
+    'dispatcher',
+    'Approved role assignment for emergency dispatch coordination.'
+  );
+  IF changed->>'role' <> 'dispatcher' OR changed->>'old_role' <> 'requester' THEN
+    RAISE EXCEPTION 'Authorized Admin role change returned an unexpected result: %', changed;
+  END IF;
+
+  SELECT count(*) INTO audit_count
+  FROM public.admin_audit_logs
+  WHERE actor_user_id = admin_profile_id
+    AND target_user_id = target_profile_id
+    AND action = 'user_role_changed'
+    AND old_role = 'requester'
+    AND new_role = 'dispatcher'
+    AND reason = 'Approved role assignment for emergency dispatch coordination.';
+  IF audit_count <> 1 THEN
+    RAISE EXCEPTION 'Successful role change must write exactly one matching audit event, found %', audit_count;
+  END IF;
+
+  -- Even an Admin cannot promote, demote, or edit an Admin account through this RPC.
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_set_user_role(
+      admin_profile_id,
+      'requester',
+      'Attempt to demote an administrator account.'
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin role-change RPC must reject changes to an Admin account';
+  END IF;
+
+  -- Ordinary authenticated profiles must not list users or change another role.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000130', true);
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_users();
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Ordinary requester must not read the Admin user list';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_set_user_role(
+      target_profile_id,
+      'responder',
+      'Unauthorized role escalation attempt by a requester.'
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Ordinary requester must not change another profile role';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_audit_logs(100);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Ordinary requester must not read Admin audit events';
+  END IF;
+
+  -- Direct profile role mutation is rejected by the existing database guard.
+  denied := false;
+  BEGIN
+    UPDATE public.profiles SET role = 'admin'
+    WHERE id = attacker_profile_id;
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Ordinary requester must not self-promote through a direct profile update';
+  END IF;
+  SELECT role INTO role_after_attempt FROM public.profiles WHERE id = attacker_profile_id;
+  IF role_after_attempt <> 'requester' THEN
+    RAISE EXCEPTION 'Failed self-promotion attempt changed the profile role to %', role_after_attempt;
+  END IF;
+
+  -- A missing auth.uid() is treated as unauthenticated, not as an Admin.
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_audit_logs(100);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Unauthenticated request must not read Admin audit events';
+  END IF;
+END;
+$admin_authorization_test$;
+
+-- Every ordinary operational role must be denied by the database authorization
+-- boundary, even though each role can execute the authenticated RPC entrypoint.
+DO $admin_role_matrix_test$
+DECLARE
+  principal record;
+  denied boolean;
+  target_profile_id bigint;
+BEGIN
+  SELECT id INTO target_profile_id
+  FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000129';
+
+  FOR principal IN
+    SELECT * FROM (VALUES
+      ('00000000-0000-4000-8000-000000000124'::uuid, 'dispatcher'::text),
+      ('00000000-0000-4000-8000-000000000125'::uuid, 'responder'::text),
+      ('00000000-0000-4000-8000-000000000126'::uuid, 'driver'::text),
+      ('00000000-0000-4000-8000-000000000130'::uuid, 'requester'::text)
+    ) AS ordinary_principals(auth_id, role_name)
+  LOOP
+    PERFORM set_config('request.jwt.claim.sub', principal.auth_id::text, true);
+
+    denied := false;
+    BEGIN
+      PERFORM public.api_admin_list_users();
+    EXCEPTION WHEN insufficient_privilege THEN
+      denied := true;
+    END;
+    IF NOT denied THEN
+      RAISE EXCEPTION 'Ordinary role % unexpectedly read Admin user list', principal.role_name;
+    END IF;
+
+    denied := false;
+    BEGIN
+      PERFORM public.api_admin_list_users_page(25, 0, '', 'all');
+    EXCEPTION WHEN insufficient_privilege THEN
+      denied := true;
+    END;
+    IF NOT denied THEN
+      RAISE EXCEPTION 'Ordinary role % unexpectedly used Admin pagination RPC', principal.role_name;
+    END IF;
+
+    denied := false;
+    BEGIN
+      PERFORM public.api_admin_set_user_role(
+        target_profile_id,
+        'responder',
+        'Unauthorized role change regression test.'
+      );
+    EXCEPTION WHEN insufficient_privilege THEN
+      denied := true;
+    END;
+    IF NOT denied THEN
+      RAISE EXCEPTION 'Ordinary role % unexpectedly changed an account role', principal.role_name;
+    END IF;
+
+    denied := false;
+    BEGIN
+      PERFORM public.api_admin_list_audit_logs(100);
+    EXCEPTION WHEN insufficient_privilege THEN
+      denied := true;
+    END;
+    IF NOT denied THEN
+      RAISE EXCEPTION 'Ordinary role % unexpectedly read Admin audit logs', principal.role_name;
+    END IF;
+
+    -- A user cannot self-promote through the profile-update route regardless
+    -- of whether the account is a requester, responder, driver, or dispatcher.
+    denied := false;
+    BEGIN
+      UPDATE public.profiles
+      SET role = 'admin', duty_status = NULL
+      WHERE auth_user_id = principal.auth_id;
+    EXCEPTION WHEN insufficient_privilege THEN
+      denied := true;
+    END;
+    IF NOT denied THEN
+      RAISE EXCEPTION 'Ordinary role % unexpectedly self-promoted via profile update', principal.role_name;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE auth_user_id = principal.auth_id AND role = 'admin'
+    ) THEN
+      RAISE EXCEPTION 'Denied self-promotion changed ordinary role % to admin', principal.role_name;
+    END IF;
+  END LOOP;
+END;
+$admin_role_matrix_test$;
+
+-- Audit history must keep immutable actor/target identity values after profile deletion.
+-- This protects historical attribution from ON DELETE SET NULL side effects.
+DO $admin_audit_immutability_test$
+DECLARE
+  audit_event_id bigint;
+  audit_target_id bigint;
+  audit_actor_id bigint;
+  audit_actor_identity text;
+BEGIN
+  SELECT id, target_user_id, actor_user_id, actor_identity
+  INTO audit_event_id, audit_target_id, audit_actor_id, audit_actor_identity
+  FROM public.admin_audit_logs
+  WHERE target_user_id = (
+    SELECT id FROM public.profiles
+    WHERE auth_user_id = '00000000-0000-4000-8000-000000000129'
+  )
+  ORDER BY id DESC
+  LIMIT 1;
+
+  IF audit_event_id IS NULL OR audit_target_id IS NULL OR audit_actor_id IS NULL OR audit_actor_identity IS NULL THEN
+    RAISE EXCEPTION 'Expected a complete application-admin audit event before testing identity retention';
+  END IF;
+
+  INSERT INTO public.admin_audit_logs (
+    actor_user_id, actor_identity, target_user_id, action, old_role, new_role, reason
+  ) VALUES (
+    NULL, 'CI trusted operator', audit_target_id, 'user_role_changed', 'requester', 'admin',
+    'Disposable migration test operator provisioning event'
+  );
+  IF NOT EXISTS (
+    SELECT 1 FROM public.admin_audit_logs
+    WHERE target_user_id = audit_target_id
+      AND actor_user_id IS NULL
+      AND actor_identity = 'CI trusted operator'
+  ) THEN
+    RAISE EXCEPTION 'Trusted-operator audit events must support an explicit identity without a profile actor ID';
+  END IF;
+
+  DELETE FROM public.profiles
+  WHERE auth_user_id IN (
+    '00000000-0000-4000-8000-000000000129',
+    '00000000-0000-4000-8000-000000000128'
+  );
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.admin_audit_logs
+    WHERE id = audit_event_id
+      AND target_user_id = audit_target_id
+      AND actor_user_id = audit_actor_id
+  ) THEN
+    RAISE EXCEPTION 'Deleting profiles must not mutate or erase historical Admin audit identity snapshots';
+  END IF;
+END;
+$admin_audit_immutability_test$;
+SQL
+
+echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed; incident regressions and Admin role/audit authorization tests passed."

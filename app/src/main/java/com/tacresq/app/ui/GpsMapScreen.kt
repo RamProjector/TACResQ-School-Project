@@ -273,6 +273,7 @@ fun GpsMapScreen(
     val visibleIncidents = when (role) {
         Role.REQUESTER, Role.RESPONDER, Role.DRIVER -> incidents.filter { it.status.isActive }
         Role.DISPATCHER -> incidents.filter { it.status.isActive || it.status.name == "PENDING" }
+        Role.ADMIN -> emptyList()
     }
     val title = "GPS Map"
     val description = "Confirmed incident pins. Tap Locate me to preview your current location."
