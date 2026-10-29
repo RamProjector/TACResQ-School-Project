@@ -1,3 +1,15 @@
+# Active handoff — 2026-10-29: external map intent recovery
+
+- **Latest verified main:** `8046540f70e05886938fb08577d69d96f53a3d14`. PR #205 documentation handoff was merged at this commit after all PR checks passed.
+- **Fresh main CI:** TACResQ CI and RPC grant contract both passed for merged GPS hardening/icon commit `12cd2894a85aa7c93b05eac8582e47576c7e18c7`. PR #205 source checks, Android debug/release builds, emulator smoke tests, prototype navigation/function tests, backend integration, RPC grant contract, and static review all passed. Automated reviewer reported zero configured pattern findings; CodeRabbit automatic review was skipped due repository eligibility.
+- **Completed:** PR #201 GPS RPC security hardening and PR #202 emergency GPS launcher icon are merged. No live Supabase migration or deployment was performed.
+- **Current implementation:** PR #206 `fix(android): recover from unavailable external map handlers`, branch `agent/maps-intent-fallback-recovery`, head `d5352da41b7d057ea8cfecb9902e369bf22850ba`. It treats both ActivityNotFoundException and SecurityException as recoverable when launching turn-by-turn navigation, tries the generic geo intent after Google Maps explicit launch fails, and displays an error only if both handlers fail. Adds a source regression test wired into CI. **PR checks pending at handoff.**
+- **Known automation issue:** OpenCode run `40905524704` failed during GitHub App token exchange with HTTP 502 before model execution. A later comment-triggered run was skipped (not an agent execution). Do not claim OpenCode completed a code task until a run actually reaches model execution and opens a PR.
+- **Next action:** verify PR #206 exact-head CI and automated review; fix any failures, merge only after required checks pass. Then resume the highest-priority verified GPS/map/backend reliability issue. Admin role implementation remains gated on resolving the separate Supabase-vs-Laravel identity authority design; do not implement a frontend-only admin route.
+- **Limitations:** device-specific Android intent resolution and live backend behavior remain unverified. TACResQ is an emergency-response coordination project, not an emergency service or production-ready dispatch system.
+
+---
+
 # Active handoff — 2026-10-29: GPS security and emergency launcher identity
 
 - **Latest verified main before this handoff:** `12cd2894a85aa7c93b05eac8582e47576c7e18c7` (PR #201 merged as `446e71586c5ffbedeabae4bfb97f8aa8fc912832`; PR #202 merged as `12cd2894a85aa7c93b05eac8582e47576c7e18c7`).
