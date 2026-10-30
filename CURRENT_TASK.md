@@ -278,3 +278,13 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Admin caveat:** AdminAccessScreen is separate from RoleShell and does not yet expose this shared header action.
 - **No backend changes:** Notification RPCs, polling, read state, RLS, push delivery, and notification content are unchanged.
 - **Next:** Run exact-head CI, then inspect the admin role's profile/session UX and consider badge/unread count only after verifying refresh cadence and performance.
+
+
+# Active handoff — 2026-10-31: compact requester review action
+
+- **Task:** Prevent the requester location-step primary action from wrapping/clipping on narrow displays.
+- **Research basis:** Android navigation/layout guidance supports keeping actions concise and accessible; Android touch-target guidance recommends at least 48dp. Official sources: https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns and https://developer.android.com/guide/topics/ui/accessibility/views/apps-views.
+- **Implementation:** Shortened the step action label from `Review request` to `Review`, forced a single line, and preserved the existing 52dp button height, weighted layout, validation behavior, and step transition.
+- **Regression coverage:** Added source contract assertions for the one-line label and prevention of the old wrapping label.
+- **Scope:** No request payload, validation, SOS submission, location handling, or backend behavior changed.
+- **Validation:** CI must verify this exact PR head. Emulator/narrow-device visual check not run.
