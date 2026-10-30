@@ -29,18 +29,15 @@
         android:pathData="M54,28a19,19 0,1 0,0 38a19,19 0,1 0,0 -38" />
 
     <path
-        android:fillColor="#31B9D2"
-        android:pathData="M54,34a13,13 0,1 0,0 26a13,13 0,1 0,0 -26" />
+        android:fillColor="#0B2944"
+        android:pathData="M54,28a19,19 0,1 0,0 38a19,19 0,1 0,0 -38" />
 
     <path
         android:fillColor="#FF9D42"
-        android:pathData="M54,37l7,16 -7,-3 -7,3z" />
+        android:pathData="M54,34l12,29 -12,-7 -12,7z" />
 
     <path
         android:fillColor="#F4FAFF"
-        android:pathData="M54,50l7,3 -7,16 -7,-16z" />
+        android:pathData="M54,48a4,4 0,1 0,0 8a4,4 0,1 0,0 -8" />
 
-    <path
-        android:fillColor="#0B2944"
-        android:pathData="M52.5,52h3v8h-3z" />
 </vector>
