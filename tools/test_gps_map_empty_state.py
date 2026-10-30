@@ -37,6 +37,11 @@ required = (
     'location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }',
     '.heightIn(min = 48.dp)\n                        .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution")',
     '.padding(horizontal = 8.dp, vertical = 12.dp)',
+    ".heightIn(max = 320.dp)",
+    'LazyColumn(\n                        modifier = Modifier\n                            .fillMaxWidth()\n                            .heightIn(max = 320.dp)',
+    'item(key = "map-key", contentType = "map-info")',
+    'contentType = { _, _ -> "incident" }',
+    'contentType = { _, _ -> "field-unit" }',
 )
 missing = [snippet for snippet in required if snippet not in source]
 if missing:
