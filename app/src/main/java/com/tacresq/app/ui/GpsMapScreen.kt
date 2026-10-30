@@ -301,8 +301,6 @@ fun GpsMapScreen(
         if (count == 1) "1 incident pin on map" else "$count incident pins on map"
     }
     val defaultMapStatus = when {
-        deviceFix != null ->
-            "One-time location preview · stays on this device."
         role == Role.DISPATCHER && validResponderLocations.isNotEmpty() ->
             listOfNotNull(incidentPinSummary, responderFreshnessSummary).joinToString(" · ")
         validIncidentPoints.isNotEmpty() ->
@@ -827,7 +825,7 @@ fun GpsMapScreen(
                     }
                     if (deviceFix != null) {
                         Text(
-                            "Your one-time location preview stays on this device and is not uploaded.",
+                            "One-time preview · stays on this device, not uploaded.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
