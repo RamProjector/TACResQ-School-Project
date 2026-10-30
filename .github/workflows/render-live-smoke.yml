@@ -32,6 +32,7 @@ jobs:
   live-smoke:
     name: Verify deployed Render endpoints
     runs-on: ubuntu-latest
+    permissions: {}
     timeout-minutes: 5
     steps:
       - name: Wait for Render health endpoint
