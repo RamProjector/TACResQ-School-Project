@@ -40,6 +40,7 @@ PENDING = {
     "20261026170000_admin_server_side_user_pagination.sql",
     "20261030100000_require_incident_location_fallback.sql",
     "20261030110000_require_requester_signup_contact.sql",
+    "20261030120000_bound_requester_signup_contact_lengths.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
