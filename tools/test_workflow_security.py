@@ -79,7 +79,7 @@ def main() -> None:
         ("code-review.yml", code_review),
         ("security.yml", security),
     ):
-        action_refs = re.findall(r"(?m)^\\s*uses:\\s*([^\\s#]+)", workflow_text)
+        action_refs = re.findall(r"(?m)^\s*uses:\s*([^\s#]+)", workflow_text)
         assert action_refs, f"{workflow_name}: expected external actions"
         for action_ref in action_refs:
             assert re.search(r"@[0-9a-f]{40}$", action_ref), (
