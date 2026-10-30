@@ -544,16 +544,22 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         if (activeIncident != null) item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = MaterialTheme.shapes.large,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Active emergency", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Request #${activeIncident.id}", modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("Active emergency", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(activeIncident.type.label, style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                        }
                         StatusPill(activeIncident.status.label, activeIncident.status.pillColor())
                     }
+                    Text("Request #${activeIncident.id}", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f))
                     Text(
                         if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING)
                             "Waiting for dispatch to assign a response unit."
@@ -584,7 +590,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                     confirmingEdit = false
                                 },
                                 enabled = !state.sending,
-                                modifier = Modifier.weight(1f).height(48.dp),
+                                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
                             ) { Text("Edit") }
                             OutlinedButton(
                                 onClick = { incidentToCancel = activeIncident.id },
