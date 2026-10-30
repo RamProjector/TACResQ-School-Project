@@ -54,7 +54,7 @@ assert "phone.length > 25" in auth
 assert "char_length(phone_value) > 25" in signup_bounds_migration
 assert "phone.count { it in '0'..'9' }" in auth
 assert 'phone.any { it !in \'0\'..\'9\' && it !in "+- ()" }' in auth
-assert "phone_value !~ '^[0-9+() -]+
+assert "phone_value !~ '^[0-9+() -]+$'" in signup_bounds_migration
 for prerequisite in (
     "approved out-of-band process",
     "existing Supabase Auth user UUID",
