@@ -595,10 +595,11 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             OutlinedButton(
                                 onClick = { incidentToCancel = activeIncident.id },
                                 enabled = !state.sending,
-                                modifier = Modifier.weight(1f).height(48.dp),
+                                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
                             ) { Text("Cancel") }
                         }
-                    }                }
+                    }
+                }
             }
         } else if (!showRequestForm && !state.pendingSosAvailable) item {
             Card(
