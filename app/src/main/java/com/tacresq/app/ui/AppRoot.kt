@@ -103,7 +103,7 @@ fun AppRoot(
                     factory = factory,
                 )
                 when (user.role) {
-                    Role.ADMIN -> AdminAccessScreen(user = user, onSignOut = logout)
+                    Role.ADMIN -> AdminAccessScreen(user = user, repository = container.repository, onSignOut = logout)
                     Role.REQUESTER -> {
                         val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()

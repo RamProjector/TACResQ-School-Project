@@ -12,9 +12,9 @@ fake_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt"
 
 checks = {
     "Admin role has an explicit API serialization name": '@SerializedName("admin") ADMIN("Administrator")' in models,
-    "AppRoot routes Admin before operational role branches": "Role.ADMIN -> AdminAccessScreen(user = user, onSignOut = logout)" in root,
-    "Admin landing has a sign-out action": 'Button(\n                onClick = onSignOut' in admin_screen and 'Text("Sign out")' in admin_screen,
-    "Admin landing explains that admin controls are not implemented in Android yet": "Administrative tools are not available in this Android build yet." in admin_screen,
+    "AppRoot routes Admin before operational role branches": "Role.ADMIN -> AdminAccessScreen(user = user, repository = container.repository, onSignOut = logout)" in root,
+    "Admin landing has a sign-out action": 'TextButton(onClick = onSignOut)' in admin_screen and 'Text("Sign out")' in admin_screen,
+    "Admin landing explains that admin controls are not implemented in Android yet": "User directory" in admin_screen,
     "fallback role section is also fail-closed for Admin": 'role == Role.ADMIN -> EmptySectionCard' in root and 'Role.ADMIN -> "Administrator access"' in root,
     "Admin landing does not instantiate operational screens or navigation": all(token not in admin_screen for token in ("RequesterScreen", "ResponderScreen", "DispatcherScreen", "GpsMapScreen", "RoleShell(")),
     "RoleShell remains exhaustive but is not the Admin route": 'Role.ADMIN -> listOf("Admin", "Audit", "Alerts", "Profile")' in role_shell and "Role.ADMIN -> AdminAccessScreen" in root,
