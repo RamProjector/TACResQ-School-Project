@@ -265,6 +265,10 @@ jobs:
         if: hashFiles('gradlew') != ''
         run: ./gradlew --no-daemon testDebugUnitTest
 
+      - name: Run Android Lint for the debug variant
+        if: hashFiles('gradlew') != ''
+        run: ./gradlew --no-daemon lintDebug
+
       - name: Build Supabase-mode debug APK
         if: hashFiles('gradlew') != ''
         run: |
