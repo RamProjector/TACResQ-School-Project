@@ -78,6 +78,12 @@ for required in (
 ):
     assert required in root, f"Chat navigation wiring missing: {required}"
 
+requester = read("app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt")
+assert "onOpenChat: (Long) -> Unit" in requester
+assert "onClick = { onOpenChat(activeIncident.id) }" in requester
+assert 'Text("Open incident messages")' in requester
+assert "RequesterScreen(vm, user, logout, onOpenChat = openChat)" in root
+
 dispatcher = read("app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt")
 assert "onOpenChat: (Long) -> Unit" in dispatcher
 assert 'Text("Open conversation")' in dispatcher
