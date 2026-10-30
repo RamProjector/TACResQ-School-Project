@@ -582,7 +582,6 @@ fun RequesterScreen(
             ScreenHeader(
                 title = "Home",
                 subtitle = "Request help and track your current response.",
-                onLogout = onLogout,
             )
         }
 
