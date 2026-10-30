@@ -446,6 +446,11 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                     ) {
                         Text("Open navigation app")
                     }
+                    Text(
+                        "Opens an installed maps app for route guidance. Use GPS Map for the incident and field-unit overview.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 } else {
                     Text(
                         "No valid GPS pin is available. Coordinates are missing or invalid; do not navigate to an assumed location. Use the landmark note and confirm the destination with dispatch.",
@@ -479,13 +484,13 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                             val lastLocationSentAt = state.lastLocationSentAt
                             Text(
                                 when {
-                                    !sharing -> "Location sharing is off."
+                                    !sharing -> "Responder location is not currently being shared."
                                     lastLocationSentAt == null && state.trackingError != null ->
-                                        "Waiting for the first location update."
+                                        "Waiting for the first confirmed location update."
                                     lastLocationSentAt == null ->
                                         "Waiting for the first location update."
                                     state.trackingError != null ->
-                                        "Latest location update failed."
+                                        "Location sharing is on, but the latest update failed."
                                     else ->
                                         "Sharing approximate location while this app is open."
                                 },
