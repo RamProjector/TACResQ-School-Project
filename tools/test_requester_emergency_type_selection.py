@@ -9,7 +9,7 @@ assert "import androidx.compose.foundation.selection.selectableGroup" in source
 assert "import androidx.compose.ui.semantics.Role" in source
 
 start = source.index('Text("Emergency type (required)"')
-end = source.index('OutlinedTextField(value = description', start)
+end = source.index('OutlinedTextField(\\n                                value = description', start)
 options = source[start:end]
 
 assert "Modifier.fillMaxWidth().selectableGroup()" in options
