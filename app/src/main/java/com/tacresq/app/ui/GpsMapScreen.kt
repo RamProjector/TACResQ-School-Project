@@ -886,6 +886,58 @@ fun GpsMapScreen(
                             }
                         }
                     }
+                    if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
+                        Text(
+                            "Field-unit locations",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        LazyColumn(
+                            modifier = Modifier
+                                .heightIn(max = 120.dp)
+                                .semantics {
+                                    collectionInfo = CollectionInfo(
+                                        rowCount = validResponderLocations.size,
+                                        columnCount = 1,
+                                    )
+                                },
+                            contentPadding = PaddingValues(vertical = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            itemsIndexed(validResponderLocations) { index, location ->
+                                val ageSeconds = location.mapAgeSeconds(mapNow)
+                                val freshness = location.mapFreshness(mapNow)
+                                Text(
+                                    text = buildString {
+                                        append("Incident #${location.incidentId} · ")
+                                        append(freshness?.label ?: "Freshness unavailable")
+                                        if (ageSeconds != null) {
+                                            append(" · last reported ${formatLocationAge(ageSeconds)}")
+                                        }
+                                        location.accuracyM?.let {
+                                            append(" · accuracy about ${it.roundToInt()} m")
+                                        }
+                                        if (freshness == MapLocationFreshness.STALE) {
+                                            append(" · last known, not live")
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .semantics {
+                                            collectionItemInfo = CollectionItemInfo(
+                                                rowIndex = index,
+                                                columnIndex = 0,
+                                                rowSpan = 1,
+                                                columnSpan = 1,
+                                            )
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
                 }
                 Text(
                     text = "© OpenStreetMap contributors",
