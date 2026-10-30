@@ -9,6 +9,13 @@ admin_migration = (ROOT / "supabase/migrations/20261026161500_admin_role_audit_f
 admin_runbook = (ROOT / "docs/ADMIN_PROVISIONING_RUNBOOK.md").read_text()
 location_migration = (ROOT / "supabase/migrations/20261030100000_require_incident_location_fallback.sql").read_text().lower()
 
+# SOS category must be selected explicitly; Other requires details.
+assert "mutableStateOf<IncidentType?>(null)" in requester
+assert "emergencyTypeError = selectedType == null" in requester
+assert "selectedType == IncidentType.OTHER && description.isBlank()" in requester
+assert "Describe the emergency (required)" in requester
+assert "Emergency type (required)" in requester
+
 # A requester must provide either a fresh location pin or a usable landmark.
 assert "if (!hasFreshPin && locationNotes.isBlank())" in requester
 assert "locationRequirementError = \"Add a location pin or a landmark/access detail before continuing.\"" in requester
