@@ -761,6 +761,24 @@ fun GpsMapScreen(
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f),
                     )
+                    if (hasValidatedInternet == false) {
+                        androidx.compose.material3.Surface(
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ) {
+                            Text(
+                                "Offline",
+                                modifier = Modifier
+                                    .semantics {
+                                        contentDescription = "Internet unavailable. Cached map tiles may still appear."
+                                    }
+                                    .padding(horizontal = 9.dp, vertical = 5.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                            )
+                        }
+                    }
                     androidx.compose.material3.FilledTonalIconButton(
                         onClick = onLocateClick,
                         enabled = !isLocationRequestInProgress,
@@ -791,20 +809,6 @@ fun GpsMapScreen(
                 onShowActiveUnits = ::showActiveUnits,
             )
 
-            if (hasValidatedInternet == false) {
-                androidx.compose.material3.Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                ) {
-                    Text(
-                        "Map tiles may be unavailable offline. Cached areas can still appear.",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
         }
 
         androidx.compose.material3.Surface(
