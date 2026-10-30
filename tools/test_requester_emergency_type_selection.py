@@ -8,14 +8,16 @@ assert "import androidx.compose.foundation.selection.selectable" in source
 assert "import androidx.compose.foundation.selection.selectableGroup" in source
 assert "import androidx.compose.ui.semantics.Role" in source
 
-start = source.index('Text("Emergency type"')
+start = source.index('Text("Emergency type (required)"')
 end = source.index('OutlinedTextField(value = description', start)
 options = source[start:end]
 
 assert "Modifier.fillMaxWidth().selectableGroup()" in options
 assert "selected = type == selectedType" in options
 assert "role = Role.RadioButton" in options
-assert "onClick = { selectedType = type }" in options
+assert "onClick = {" in options
+assert "selectedType = type" in options
+assert "emergencyTypeError = false" in options
 assert "RadioButton(\n                                                selected = type == selectedType,\n                                                onClick = null," in options
 assert "onClick = { selectedType = type },\n                                    )" not in options
 
