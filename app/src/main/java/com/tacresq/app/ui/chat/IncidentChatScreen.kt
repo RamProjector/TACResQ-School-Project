@@ -218,6 +218,7 @@ fun IncidentChatScreen(
     user: User,
     onBack: () -> Unit,
     onLogout: () -> Unit,
+    onOpenNotifications: () -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -248,6 +249,7 @@ fun IncidentChatScreen(
             ScreenHeader(
                 title = "Incident chat",
                 subtitle = "Incident #$incidentId",
+                onOpenNotifications = onOpenNotifications,
             )
         }
         Row(
