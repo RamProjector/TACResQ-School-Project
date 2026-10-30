@@ -22,7 +22,7 @@ checks = {
     "Admin console revalidates the live profile before loading privileged data": "repository.me()" in admin_screen and "currentUser.role != Role.ADMIN" in admin_screen,
     "A transient profile network failure does not automatically sign out": "current.isSuccess && currentUser?.role != Role.ADMIN" in admin_screen,
     "Admin data is cleared after protected RPC failures": "users = emptyList()" in admin_screen and "audit = emptyList()" in admin_screen,
-    "User directory is bounded and paginated": "pageSize = 25" in admin_screen and "adminUsersPage(pageSize, page * pageSize" in admin_screen,
+    "User directory is bounded and paginated": "pageSize = 25" in admin_screen and "adminUsersPage(pageSize, targetPage * pageSize" in admin_screen,
     "Audit view is bounded": "adminAuditLogs(100)" in admin_screen,
     "Role change requires a 10-500 character reason": "reason.trim().length in 10..500" in admin_screen,
     "Admin role is excluded from Android-managed target roles": 'setOf("requester", "responder", "driver", "dispatcher")' in api,
