@@ -992,7 +992,8 @@ fun GpsMapScreen(
                     text = "© OpenStreetMap contributors",
                     modifier = Modifier
                         .align(Alignment.End)
-                        .clickable {
+                        .heightIn(min = 48.dp)
+                        .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution") {
                             runCatching {
                                 context.startActivity(
                                     Intent(
@@ -1002,7 +1003,7 @@ fun GpsMapScreen(
                                 )
                             }
                         }
-                        .padding(top = 2.dp),
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
