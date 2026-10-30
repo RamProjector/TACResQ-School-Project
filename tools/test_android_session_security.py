@@ -24,6 +24,7 @@ checks = {
     "DataStore read retries use bounded exponential backoff": "sessionStoreReadRetryDelayMillis(attempt)" in store and "(1_000L shl exponent).coerceAtMost(30_000L)" in store,
     "logout clears local session before attempting remote revocation": repository.index("val capturedToken = tokenHolder.value") < repository.index("endSession()") < repository.index("api.logout(capturedToken)"),
     "remote logout uses the captured token after token holder is cleared": "suspend fun logout(token: String?)" in (ROOT / "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt").read_text() and "auth.logout(\"Bearer $token\")" in (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text(),
+    "Supabase logout explicitly revokes only the current device session": '@Query("scope") scope: String = "local"' in (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text(),
     "logout schedules remote revocation in application scope after local cleanup": "appScope.launch(Dispatchers.IO)" in repository and repository.index("endSession()") < repository.index("appScope.launch(Dispatchers.IO)") < repository.index("api.logout(capturedToken)"),
 }
 failed = [name for name, passed in checks.items() if not passed]
