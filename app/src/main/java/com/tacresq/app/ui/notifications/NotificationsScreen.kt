@@ -208,16 +208,10 @@ fun NotificationsAndSafetyScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        "Notifications",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
                         when {
                             state.items.isEmpty() -> "No notifications yet"
-                            unreadCount == 0 -> "No unread among the latest ${state.items.size} notifications"
-                            else -> "$unreadCount unread among the latest ${state.items.size} notifications"
+                            unreadCount == 0 -> "All caught up"
+                            else -> "$unreadCount unread"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
