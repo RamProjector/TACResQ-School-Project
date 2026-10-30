@@ -30,7 +30,7 @@ checks = {
     "explicit retry reuses the saved payload and request id": "retryPendingIncident()" in REPO and "Gson().fromJson(pending.payloadJson, CreateIncidentRequest::class.java)" in REPO and "copy(clientRequestId = pending.requestId)" in REPO,
     "requester UI offers retry for an unresolved saved SOS": "Retry saved SOS" in (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text() and "pendingSosAvailable" in (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text(),
     "Android calls versioned idempotent RPC": "api_create_incident_v4" in API and "body.clientRequestId" in API,
-    "recoverable authentication, timeout, conflict, and rate-limit responses preserve pending SOS": "httpcode !in setof(401, 403, 408, 409, 429)" in REPO.lower() and "error?.httpCode?.let(::isDefinitiveIncidentRejection)" in REPO,
+    "recoverable authentication, timeout, conflict, and rate-limit responses preserve pending SOS": "httpcode !in setof(401, 403, 408, 409, 425, 429)" in REPO.lower() and "error?.httpCode?.let(::isDefinitiveIncidentRejection)" in REPO,
     "both new and retry SOS paths use the same definitive-rejection policy": REPO.count("error?.httpCode?.let(::isDefinitiveIncidentRejection)") == 2,
 }
 failed = [name for name, ok in checks.items() if not ok]
