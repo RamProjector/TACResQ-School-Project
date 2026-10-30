@@ -152,7 +152,7 @@ checks = {
         )
     ),
     "external routing remains a separate action without redundant helper copy": (
-        'Text("Open navigation app")' in responder
+        'Text("Navigate to incident")' in responder
         and 'google.navigation:q=$lat,$lng&mode=d' in responder
         and "Opens an installed maps app for route guidance." not in responder
     ),
