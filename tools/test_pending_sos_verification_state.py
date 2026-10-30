@@ -27,7 +27,7 @@ assert "current.pendingSosCheckInProgress || current.pendingSosCheckError != nul
 assert "if (current.pendingSosAvailable)" in send
 assert "repo.createIncident" in send
 
-assert 'Text("Checking saved SOS status")' in source
+assert 'Text("Checking saved SOS status",' in source
 assert source.count("semantics { liveRegion = LiveRegionMode.Polite }") >= 2
 assert "Text(\"Couldn't verify saved SOS status\")" in source
 assert "onClick = vm::refreshPendingSos" in source
