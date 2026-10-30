@@ -59,6 +59,8 @@ import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SyncStatus
+import com.tacresq.app.ui.common.SectionHeading
+import com.tacresq.app.ui.common.StatusPill
 import com.tacresq.app.ui.common.actionLabel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -443,11 +445,6 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                     ) {
                         Text("Open navigation app")
                     }
-                    Text(
-                        "Opens an installed maps app for route guidance. Use TACResQ GPS Map for the incident and field-unit overview.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 } else {
                     Text(
                         "No valid GPS pin is available. Coordinates are missing or invalid; do not navigate to an assumed location. Use the landmark note and confirm the destination with dispatch.",
@@ -481,15 +478,15 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                             val lastLocationSentAt = state.lastLocationSentAt
                             Text(
                                 when {
-                                    !sharing -> "Responder location is not currently being shared."
+                                    !sharing -> "Location sharing is off."
                                     lastLocationSentAt == null && state.trackingError != null ->
-                                        "Location sharing was requested, but the first location update has not been confirmed."
+                                        "Waiting for the first location update."
                                     lastLocationSentAt == null ->
-                                        "Location sharing is enabled; waiting for the first confirmed location update."
+                                        "Waiting for the first location update."
                                     state.trackingError != null ->
-                                        "Location sharing is enabled, but the latest update failed."
+                                        "Latest location update failed."
                                     else ->
-                                        "Approximate location sharing is active while this app is in the foreground."
+                                        "Sharing approximate location while this app is open."
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                             )
@@ -518,7 +515,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         }
 
         if (history.isNotEmpty()) {
-            item { Text("Completed", style = MaterialTheme.typography.titleMedium) }
+            item { SectionHeading("Completed") }
             items(history, key = { it.id }) { incident ->
                 IncidentCard(incident)
             }
@@ -574,13 +571,27 @@ private fun DutyCard(
     busy: Boolean,
     onChange: (DutyStatus) -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Duty status", style = MaterialTheme.typography.titleMedium)
-            Text(current.label, style = MaterialTheme.typography.headlineSmall)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Duty status", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                StatusPill(
+                    current.label,
+                    if (current == DutyStatus.AVAILABLE) MaterialTheme.colorScheme.secondary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (canChange) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
@@ -597,7 +608,8 @@ private fun DutyCard(
                     )
                 }
             } else {
-                Text(unavailableMessage)
+                Text(unavailableMessage, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
