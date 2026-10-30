@@ -424,7 +424,7 @@ private fun SummaryCard(total: Int, pending: Int, active: Int, available: Int) {
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("Live overview", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
             Row(
@@ -433,6 +433,11 @@ private fun SummaryCard(total: Int, pending: Int, active: Int, available: Int) {
             ) {
                 DispatchMetric(total, "Total")
                 DispatchMetric(pending, "Pending")
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 DispatchMetric(active, "Active")
                 DispatchMetric(available, "Available")
             }
