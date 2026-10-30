@@ -1,5 +1,6 @@
 package com.tacresq.app.ui.dispatcher
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -201,9 +202,17 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
         if (!state.loading && !state.assignmentDataFresh) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Assignment paused", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f)),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                    elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Assignment paused", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.SemiBold)
                         Text(
                             "Latest queue or unit availability could not be confirmed. Refresh before assigning responders.",
                             style = MaterialTheme.typography.bodySmall,
@@ -216,7 +225,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             OutlinedButton(
                 onClick = vm::refresh,
                 enabled = !state.busy && !state.loading,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             ) {
                 if (state.loading) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -286,7 +295,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                             assignmentCandidate = incident
                         },
                         enabled = !state.busy && state.assignmentDataFresh,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     ) {
                         Text("Select response team")
                     }
@@ -335,7 +344,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                 assignmentCandidate = incident
                             },
                             enabled = !state.busy && state.assignmentDataFresh,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         ) { Text("Add responders") }
                     }
                 }
