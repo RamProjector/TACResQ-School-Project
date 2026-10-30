@@ -270,7 +270,7 @@ class ResponderViewModel(
 }
 
 @Composable
-fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
+fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit, onOpenNotifications: () -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
     val context = LocalContext.current
@@ -331,6 +331,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             ScreenHeader(
                 title = "Current call",
                 subtitle = "",
+                onOpenNotifications = onOpenNotifications,
             )
         }
 
