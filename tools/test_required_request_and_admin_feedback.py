@@ -70,5 +70,11 @@ assert 'No role is preselected.' in admin
 assert 'Text("${account.email} · Account ID ${account.id}"' in admin
 assert 'targetRole in adminRoles' in admin
 assert 'Confirm ${targetRole.replaceFirstChar { it.uppercase() }} role' in admin
+assert "onDismissRequest = { if (!loading) selectedUser = null }" in admin
+assert 'enabled = !loading, onClick = { targetRole = role; error = null }' in admin
+assert 'onValueChange = { if (it.length <= 500) { reason = it; error = null } }' in admin
+assert 'error?.let {' in admin[admin.indexOf('selectedUser?.let'):admin.indexOf('confirmButton = {')]
+assert "Saving role change…" in admin
+assert 'enabled = !loading) { Text("Cancel") }' in admin
 
 print("Required requester, SOS location, and admin audit feedback contracts passed.")
