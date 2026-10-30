@@ -39,11 +39,11 @@ checks = {
             "Handler(Looper.getMainLooper()).post { hasValidatedInternet = connected }",
         )
     ),
-    "offline map banner explains cached tiles and reconnecting": all(
+    "offline map banner gives a concise cached-tile warning": all(
         text in source for text in (
             "if (hasValidatedInternet == false)",
-            "Internet connection not verified",
-            "New map tiles need internet. Cached tiles may still appear; reconnect if the map stays blank.",
+            "Map tiles may be unavailable offline. Cached areas can still appear.",
+            
             "MaterialTheme.colorScheme.errorContainer",
         )
     ),
