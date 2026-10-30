@@ -6,7 +6,7 @@ source = Path("app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text(
 required = (
     "var locationStatus by remember { mutableStateOf<String?>(null) }",
     "val defaultMapStatus = when {",
-    "One-time location preview · stays on this device.",
+    "One-time preview · stays on this device, not uploaded.",
     "androidx.compose.runtime.LaunchedEffect(visibleIncidents)",
     "locationStatus = null",
     "Field units · $freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale",
