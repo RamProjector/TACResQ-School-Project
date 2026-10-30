@@ -30,6 +30,11 @@ required = (
     "modifier = Modifier.weight(1f).heightIn(min = 48.dp)",
     'contentDescription = "Show incident #${incident.id} on map"',
     'contentDescription = "Navigate to incident #${incident.id}"',
+    "private fun Float?.validAccuracyLabel(prefix: String): String?",
+    'this?.takeIf { it.isFinite() && it >= 0f }',
+    'incident.accuracyM.validAccuracyLabel("GPS accuracy about ")',
+    'location.accuracyM.validAccuracyLabel(" · reported accuracy about ")',
+    'location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let(::append)',
 )
 missing = [snippet for snippet in required if snippet not in source]
 if missing:
