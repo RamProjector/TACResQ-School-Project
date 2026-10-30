@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
@@ -115,7 +115,7 @@ private fun RowScope.NavigationItem(
 ) {
     val icon = when (destination) {
         AppDestination.PRIMARY -> Icons.Filled.Home
-        AppDestination.SECONDARY -> Icons.Filled.List
+        AppDestination.SECONDARY -> Icons.AutoMirrored.Filled.List
         AppDestination.ALERTS -> Icons.Filled.Warning
         AppDestination.PROFILE -> Icons.Filled.Person
         AppDestination.MAP -> Icons.Filled.LocationOn
