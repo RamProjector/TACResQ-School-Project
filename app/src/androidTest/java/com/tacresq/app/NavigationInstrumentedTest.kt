@@ -10,6 +10,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -63,6 +66,37 @@ class NavigationInstrumentedTest {
         composeRule.onNodeWithText("Home").assertIsSelected()
         composeRule.onNodeWithText("Home destination content").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("GPS Map destination content").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun requesterNavigationDestinationsMeetMinimumTouchTargetSize() {
+        composeRule.setContent {
+            MaterialTheme {
+                RoleShell(
+                    role = Role.REQUESTER,
+                    selected = AppDestination.PRIMARY,
+                    onDestinationSelected = {},
+                    content = { Text("Home destination content") },
+                    mapContent = { Text("GPS Map destination content") },
+                )
+            }
+        }
+
+        val density = composeRule.activity.resources.displayMetrics.density
+        listOf("Home", "Requests", "GPS Map", "Alerts", "Profile").forEach { label ->
+            val item = composeRule.onNode(hasText(label) and hasClickAction())
+                .fetchSemanticsNode()
+            val widthDp = item.boundsInRoot.width / density
+            val heightDp = item.boundsInRoot.height / density
+            assertTrue(
+                "$label navigation target is too narrow: ${widthDp}dp",
+                widthDp >= 48f,
+            )
+            assertTrue(
+                "$label navigation target is too short: ${heightDp}dp",
+                heightDp >= 48f,
+            )
+        }
     }
 
     @Test
