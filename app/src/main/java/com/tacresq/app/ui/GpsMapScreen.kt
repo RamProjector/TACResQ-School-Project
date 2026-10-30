@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -228,6 +229,11 @@ fun GpsMapScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    // Scale the expanded sheet to the available window so it cannot crowd out the map.
+    val mapDetailsMaxHeight = (LocalConfiguration.current.screenHeightDp * 0.38f)
+        .coerceAtMost(320f)
+        .coerceAtLeast(160f)
+        .dp
     // A dedicated map destination must return to the prior app screen on system Back too.
     BackHandler { onBack() }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -871,7 +877,7 @@ fun GpsMapScreen(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 320.dp),
+                            .heightIn(max = mapDetailsMaxHeight),
                         contentPadding = PaddingValues(vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
