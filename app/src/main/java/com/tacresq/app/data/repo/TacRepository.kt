@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.io.IOException
 import java.time.Instant
@@ -73,14 +74,19 @@ class TacRepository(
         val capturedToken = tokenHolder.value
         endSession()
         if (capturedToken.isNullOrBlank()) return
-        try {
-            withContext(Dispatchers.IO) { api.logout(capturedToken) }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            // Local credentials are already cleared. Server-side token expiry/revocation
-            // remains authoritative even if this best-effort network call cannot complete.
+        // The injected application scope outlives this screen, so network revocation
+        // cannot delay navigation away from the signed-in UI or be cancelled with it.
+        appScope.launch(Dispatchers.IO) {
+            try {
+                api.logout(capturedToken)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Local credentials are already cleared. Server-side token expiry/revocation
+                // remains authoritative even if this best-effort network call cannot complete.
+            }
         }
+    }
     }
 
     suspend fun me(): Result<User> = call { api.me() }
