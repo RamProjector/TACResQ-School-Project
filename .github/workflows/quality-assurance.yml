@@ -57,7 +57,9 @@ jobs:
           docker compose logs api db
           exit 1
       - name: Run bounded GET stress test
-        run: python3 tools/stress_test.py --base-url http://127.0.0.1:8000 --allow-localhost --requests "${{ inputs.stress_requests || '120' }}" --concurrency 8
+        env:
+          STRESS_REQUESTS: ${{ inputs.stress_requests || '120' }}
+        run: python3 tools/stress_test.py --base-url http://127.0.0.1:8000 --allow-localhost --requests "$STRESS_REQUESTS" --concurrency 8
       - name: Collect logs and stop stack
         if: always()
         working-directory: backend
