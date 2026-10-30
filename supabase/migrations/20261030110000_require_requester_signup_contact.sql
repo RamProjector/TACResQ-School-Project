@@ -8,10 +8,12 @@ SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
 DECLARE
-  full_name text := NULLIF(pg_catalog.btrim(NEW.raw_user_meta_data ->> 'name'), '');
-  phone_value text := NULLIF(pg_catalog.btrim(NEW.raw_user_meta_data ->> 'phone'), '');
+  full_name text;
+  phone_value text;
   phone_digits text;
 BEGIN
+  full_name := NULLIF(pg_catalog.btrim(NEW.raw_user_meta_data ->> 'name'), '');
+  phone_value := NULLIF(pg_catalog.btrim(NEW.raw_user_meta_data ->> 'phone'), '');
   IF NEW.email IS NULL OR pg_catalog.btrim(NEW.email) = '' THEN
     RAISE EXCEPTION 'A valid email address is required for requester registration'
       USING ERRCODE = '22023';
