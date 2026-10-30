@@ -234,9 +234,19 @@ fun AdminAccessScreen(
                             label = { Text(role.replaceFirstChar { it.uppercase() }) })
                     }
                     OutlinedTextField(
-                        value = reason, onValueChange = { if (it.length <= 500) reason = it },
-                        modifier = Modifier.fillMaxWidth(), minLines = 3,
-                        label = { Text("Required audit reason (10–500 characters)") },
+                        value = reason,
+                        onValueChange = { if (it.length <= 500) reason = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        label = { Text("Audit reason (required)") },
+                        isError = reason.isNotBlank() && reason.trim().length < 10,
+                        supportingText = {
+                            when {
+                                reason.isBlank() -> Text("Required: explain why this role change is necessary.")
+                                reason.trim().length < 10 -> Text("Add at least ${10 - reason.trim().length} more characters.")
+                                else -> Text("${reason.trim().length}/500 · This explanation is saved in the audit history.")
+                            }
+                        },
                     )
                 }
             },
