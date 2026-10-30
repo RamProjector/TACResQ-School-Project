@@ -48,44 +48,31 @@ import kotlin.math.ceil
 fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_tacresq_emergency_launcher),
-                contentDescription = "TACResQ",
-                modifier = Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)),
-                tint = Color.Unspecified,
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                "TACResQ",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onLogout) { Text("Sign out") }
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
-            if (subtitle.isNotBlank()) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                )
-            }
+            TextButton(onClick = onLogout) { Text("Sign out") }
+        }
+        subtitle.takeIf { it.isNotBlank() }?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -209,24 +196,23 @@ private fun locationText(incident: Incident): String {
     val latitude = incident.latitude
     val longitude = incident.longitude
     if (latitude == null || longitude == null) {
-        return if (incident.locationSource in listOf(null, "none")) "No location pin was shared"
-        else "Incomplete location data — do not rely on a map pin"
+        return if (incident.locationSource in listOf(null, "none")) "No location pin"
+        else "Location needs verification"
     }
     val source = when (incident.locationSource) {
-        "gps" -> "GPS pin"
-        "manual" -> "Manual map pin"
-        else -> "Location pin (source unverified)"
+        "gps" -> "GPS"
+        "manual" -> "Map pin"
+        else -> "Unverified pin"
     }
-    val coordinates = String.format(Locale.US, "%.5f, %.5f", latitude, longitude)
     val accuracy = if (incident.locationSource == "gps") {
         incident.accuracyM?.let { " · ±" + ceil(it.toDouble()).toInt() + " m" } ?: " · accuracy unknown"
     } else ""
     val captured = if (incident.locationSource == "gps") {
         incident.locationRecordedAt?.let { formatTime(it) }?.takeIf { it.isNotBlank() }
-            ?.let { " · captured $it" } ?: " · capture time unverified"
+            ?.let { " · $it" } ?: " · time unverified"
     } else ""
     val note = incident.locationNotes?.trim()?.takeIf { it.isNotEmpty() }?.let { " · " + it }.orEmpty()
-    return "$source · $coordinates$accuracy$captured$note"
+    return "$source$accuracy$captured$note"
 }
 
 private val timeFormatter: DateTimeFormatter =
