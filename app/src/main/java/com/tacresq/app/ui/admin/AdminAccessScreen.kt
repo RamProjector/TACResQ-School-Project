@@ -3,11 +3,10 @@ package com.tacresq.app.ui.admin
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -127,7 +126,7 @@ fun AdminAccessScreen(
                         Text("$totalCount matching accounts · page size 25", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(
-                            value = query, onValueChange = { query = it },
+                            value = query, onValueChange = { if (it.length <= 120) query = it },
                             modifier = Modifier.fillMaxWidth(), singleLine = true,
                             label = { Text("Search name, email, phone, or ID") },
                         )
@@ -212,7 +211,10 @@ fun AdminAccessScreen(
             onDismissRequest = { selectedUser = null },
             title = { Text("Change account role") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     Text("${account.name} · currently ${account.role}")
                     Text("Choose an operational role. Admin promotion and demotion are not available in the app.")
                     adminRoles.forEach { role ->
@@ -254,7 +256,8 @@ fun AdminAccessScreen(
 private fun AuditEventCard(event: AdminAuditEvent) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("User role changed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(event.action.replace("_", " ").replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("Account #${event.targetUserId}: ${event.oldRole} → ${event.newRole}")
             Text("By ${event.actorIdentity} · ${event.createdAt}", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
