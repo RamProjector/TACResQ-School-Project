@@ -47,6 +47,14 @@ class TokenHolder {
 
 class ApiException(message: String, val httpCode: Int? = null) : Exception(message)
 
+/**
+ * Only discard a saved SOS after a response that definitively rejects the operation.
+ * Authentication, throttling, timeout, and conflict responses must retain the exact
+ * request envelope so the user can recover without creating a second emergency request.
+ */
+internal fun isDefinitiveIncidentRejection(httpCode: Int): Boolean =
+    httpCode in 400..499 && httpCode !in setOf(401, 403, 408, 409, 429)
+
 class TacRepository(
     private val api: TacApi,
     private val store: SessionStore,
@@ -176,7 +184,7 @@ class TacRepository(
             .getOrElse { return Result.failure(ApiException("Could not restore the pending SOS submission. Please contact support before creating another request.")) }
         val result = call { api.createIncident(request) }
         val error = result.exceptionOrNull() as? ApiException
-        if (result.isSuccess || error?.httpCode?.let { it in 400..499 && it != 408 && it != 429 } == true) {
+        if (result.isSuccess || error?.httpCode?.let(::isDefinitiveIncidentRejection) == true) {
             // A definitive 4xx response means the server rejected the request; only
             // ambiguous network/server failures should keep the exact SOS envelope.
             store.clearPendingIncidentRequestId(pending.requestId)
@@ -201,7 +209,7 @@ class TacRepository(
         }
         val result = call { api.createIncident(request) }
         val error = result.exceptionOrNull() as? ApiException
-        if (result.isSuccess || error?.httpCode?.let { it in 400..499 && it != 408 && it != 429 } == true) {
+        if (result.isSuccess || error?.httpCode?.let(::isDefinitiveIncidentRejection) == true) {
             store.clearPendingIncidentRequestId(pending.requestId)
         }
         return result
