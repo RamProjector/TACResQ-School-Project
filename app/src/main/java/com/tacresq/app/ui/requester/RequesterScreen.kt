@@ -556,40 +556,42 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     }
                     Text(
                         if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING)
-                            "Dispatch has not assigned a unit yet. If you submitted this accidentally, you can cancel it here."
+                            "Waiting for dispatch to assign a response unit."
                         else
-                            "A unit may already be responding. Contact dispatch directly to cancel or correct this emergency; this app will not silently withdraw it.",
+                            "A unit may already be responding. Contact dispatch before requesting changes.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     if (activeIncidents.size > 1) {
                         Text(
-                            "More than one active request was returned. Do not submit another. Contact dispatch to reconcile the active requests.",
+                            "Multiple active requests found. Contact dispatch before sending another SOS.",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING) {
-                        OutlinedButton(
-                            onClick = {
-                                incidentToEdit = activeIncident
-                                editType = activeIncident.type
-                                editDescription = activeIncident.description.orEmpty()
-                                editLocationNotes = activeIncident.locationNotes.orEmpty()
-                                editLatitude = activeIncident.latitude
-                                editLongitude = activeIncident.longitude
-                                editAccuracyM = activeIncident.accuracyM
-                                editLocationRecordedAt = activeIncident.locationRecordedAt
-                                editLocationSource = activeIncident.locationSource ?: if (activeIncident.latitude == null) "none" else "gps"
-                                confirmingEdit = false
-                            },
-                            enabled = !state.sending,
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                        ) { Text("Edit request") }
-                        OutlinedButton(
-                            onClick = { incidentToCancel = activeIncident.id },
-                            enabled = !state.sending,
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                        ) { Text("Cancel request") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    incidentToEdit = activeIncident
+                                    editType = activeIncident.type
+                                    editDescription = activeIncident.description.orEmpty()
+                                    editLocationNotes = activeIncident.locationNotes.orEmpty()
+                                    editLatitude = activeIncident.latitude
+                                    editLongitude = activeIncident.longitude
+                                    editAccuracyM = activeIncident.accuracyM
+                                    editLocationRecordedAt = activeIncident.locationRecordedAt
+                                    editLocationSource = activeIncident.locationSource ?: if (activeIncident.latitude == null) "none" else "gps"
+                                    confirmingEdit = false
+                                },
+                                enabled = !state.sending,
+                                modifier = Modifier.weight(1f).height(48.dp),
+                            ) { Text("Edit") }
+                            OutlinedButton(
+                                onClick = { incidentToCancel = activeIncident.id },
+                                enabled = !state.sending,
+                                modifier = Modifier.weight(1f).height(48.dp),
+                            ) { Text("Cancel") }
+                        }
                     }                }
             }
         } else if (!showRequestForm && !state.pendingSosAvailable) item {
@@ -621,7 +623,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                "Share what happened and where you are. You can continue without GPS.",
+                                "Share what happened and where. GPS is optional.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f),
                             )
@@ -645,9 +647,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 strokeWidth = 2.dp,
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("Checking current requests…", fontWeight = FontWeight.Bold)
+                            Text("Checking requests…", fontWeight = FontWeight.Bold)
                         } else {
-                            Text("Start emergency request  →", fontWeight = FontWeight.Bold)
+                            Text("Request emergency help", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
