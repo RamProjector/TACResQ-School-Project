@@ -965,7 +965,7 @@ fun GpsMapScreen(
                                         if (ageSeconds != null) {
                                             append(" · last reported ${formatLocationAge(ageSeconds)}")
                                         }
-                                        location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let(::append)
+                                        location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }
                                         if (freshness == MapLocationFreshness.STALE) {
                                             append(" · last known, not live")
                                         }
