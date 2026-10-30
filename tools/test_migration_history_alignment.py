@@ -166,6 +166,7 @@ for required in (
     "set search_path = pg_catalog",
     "latitude and longitude must be supplied together",
     "a location pin or landmark/access detail is required",
+    "an emergency description is required for the other type",
     "before insert on public.incidents",
 ):
     assert required in location_fallback, f"Missing required SOS location database guard: {required}"
