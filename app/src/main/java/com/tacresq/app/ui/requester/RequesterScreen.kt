@@ -335,6 +335,12 @@ class RequesterViewModel(
             return
         }
         val fix = current.locationFix
+        if (fix == null && locationNotes.isBlank()) {
+            _state.update {
+                it.copy(error = "Add a location pin or a landmark/access detail before sending. Dispatch needs a usable location to coordinate help.")
+            }
+            return
+        }
         // Claim the submission synchronously before launching the coroutine. This closes
         // the small double-tap window where two taps could both observe sending == false.
         _state.update { it.copy(sending = true, notice = null, error = null) }
@@ -505,6 +511,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     var selectedType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
+    var locationRequirementError by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmingSos by remember { mutableStateOf(false) }
     var showDiscardConfirmation by remember { mutableStateOf(false) }
     var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -941,13 +948,43 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 !state.capturingLocation -> LocationNoticeCard("No GPS pin", "Add a landmark or continue without GPS.")
                             }
                             state.locationError?.let { Banner(it, isError = true, onDismiss = vm::dismissMessages) }
-                            OutlinedTextField(value = locationNotes, onValueChange = { if (it.length <= 500) locationNotes = it },
-                                label = { Text("Landmark or access detail (optional)") }, minLines = 2, maxLines = 3,
-                                modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(
+                                value = locationNotes,
+                                onValueChange = {
+                                    if (it.length <= 500) {
+                                        locationNotes = it
+                                        if (it.isNotBlank()) locationRequirementError = null
+                                    }
+                                },
+                                label = { Text(if (freshFix == null) "Landmark or access detail (required without a pin)" else "Landmark or access detail (optional)") },
+                                isError = freshFix == null && locationRequirementError != null,
+                                supportingText = {
+                                    when {
+                                        freshFix != null -> Text("Optional: add a building, entrance, floor, or nearby landmark.")
+                                        locationRequirementError != null -> Text(locationRequirementError!!)
+                                        else -> Text("Required when no GPS or map pin is attached. Add a place dispatch can locate.")
+                                    }
+                                },
+                                minLines = 2,
+                                maxLines = 3,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { requestStep = 1 }, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
-                                Button(onClick = { vm.expireStaleLocation(); requestStep = 3 }, enabled = !state.capturingLocation,
-                                    modifier = Modifier.weight(1f).height(52.dp)) { Text("Review request") }
+                                Button(
+                                    onClick = {
+                                        val hasFreshPin = state.locationFix?.let(vm::isFresh) == true
+                                        if (!hasFreshPin && locationNotes.isBlank()) {
+                                            locationRequirementError = "Add a location pin or a landmark/access detail before continuing."
+                                        } else {
+                                            locationRequirementError = null
+                                            vm.expireStaleLocation()
+                                            requestStep = 3
+                                        }
+                                    },
+                                    enabled = !state.capturingLocation,
+                                    modifier = Modifier.weight(1f).height(52.dp),
+                                ) { Text("Review request") }
                             }
                         }
                         else -> {
