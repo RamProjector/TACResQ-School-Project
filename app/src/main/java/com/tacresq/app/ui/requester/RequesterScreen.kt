@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -58,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -851,12 +854,16 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         1 -> {
                             Text("Emergency type", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Column(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().selectableGroup(),
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 IncidentType.entries.forEach { type ->
                                     Card(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth().selectable(
+                                            selected = type == selectedType,
+                                            role = Role.RadioButton,
+                                            onClick = { selectedType = type },
+                                        ),
                                         shape = MaterialTheme.shapes.medium,
                                         border = BorderStroke(
                                             if (type == selectedType) 1.5.dp else 1.dp,
@@ -868,7 +875,6 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                                 MaterialTheme.colorScheme.primaryContainer
                                             else MaterialTheme.colorScheme.surface,
                                         ),
-                                        onClick = { selectedType = type },
                                     ) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp)
@@ -878,7 +884,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                         ) {
                                             RadioButton(
                                                 selected = type == selectedType,
-                                                onClick = { selectedType = type },
+                                                onClick = null,
                                             )
                                             Text(
                                                 type.label,
