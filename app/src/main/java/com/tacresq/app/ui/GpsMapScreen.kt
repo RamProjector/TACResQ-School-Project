@@ -46,6 +46,8 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.locationbutton.compose.LocationButton
+import androidx.core.locationbutton.compose.LocationButtonTextType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -786,12 +788,12 @@ fun GpsMapScreen(
                             )
                         }
                     }
-                    androidx.compose.material3.FilledTonalIconButton(
-                        onClick = onLocateClick,
-                        enabled = !isLocationRequestInProgress,
-                        modifier = Modifier.size(52.dp),
-                    ) {
-                        if (isLocationRequestInProgress) {
+                    if (isLocationRequestInProgress) {
+                        androidx.compose.material3.FilledTonalIconButton(
+                            onClick = {},
+                            enabled = false,
+                            modifier = Modifier.size(52.dp),
+                        ) {
                             androidx.compose.material3.CircularProgressIndicator(
                                 modifier = Modifier
                                     .size(18.dp)
@@ -800,12 +802,61 @@ fun GpsMapScreen(
                                     },
                                 strokeWidth = 2.dp,
                             )
-                        } else {
+                        }
+                    } else if (locationProvider.hasPrecisePermission()) {
+                        androidx.compose.material3.FilledTonalIconButton(
+                            onClick = ::locateOnce,
+                            modifier = Modifier.size(52.dp),
+                        ) {
                             androidx.compose.material3.Icon(
                                 imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
                                 contentDescription = if (deviceFix == null) "Locate me" else "Refresh location",
                             )
                         }
+                    } else if (!locationProvider.hasApproximatePermission()) {
+                        // Coarse permission is requested first so users can use an
+                        // approximate preview without granting session-based precision.
+                        androidx.compose.material3.FilledTonalIconButton(
+                            onClick = onLocateClick,
+                            modifier = Modifier.size(52.dp),
+                        ) {
+                            androidx.compose.material3.Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+                                contentDescription = if (deviceFix == null) "Locate me" else "Refresh location",
+                            )
+                        }
+                    } else {
+                        // API 37 requires the secure system Location Button for
+                        // session-based precise access. The AndroidX component falls
+                        // back to the platform permission flow on older releases.
+                        LocationButton(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .semantics {
+                                    contentDescription = "Use precise location for a one-time map preview"
+                                },
+                            backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
+                            iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            textColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            textType = LocationButtonTextType.None,
+                            cornerRadius = 26.dp,
+                            onPermissionResult = { granted ->
+                                if (granted) {
+                                    locateOnce()
+                                } else if (locationProvider.hasApproximatePermission()) {
+                                    // Respect the user's precise-location choice while
+                                    // retaining the already-granted approximate fallback.
+                                    locateOnce()
+                                } else {
+                                    deviceFix = null
+                                    showAppSettingsAction = true
+                                    locationStatus = "Location permission not granted. Incident pins remain available; choose a map location manually or allow Location in app settings."
+                                }
+                            },
+                            onError = {
+                                locationStatus = "The secure location button could not start. Incident pins remain available; try again."
+                            },
+                        )
                     }
                 }
             }
