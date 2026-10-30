@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -37,6 +38,8 @@ import com.tacresq.app.data.remote.AdminAuditEvent
 import com.tacresq.app.data.remote.AdminUser
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
+import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.StatusPill
 import kotlinx.coroutines.launch
 
 private val adminRoles = listOf("requester", "responder", "driver", "dispatcher")
@@ -94,19 +97,14 @@ fun AdminAccessScreen(
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("TACResQ ADMIN", color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                    Text("Control center", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("Signed in as ${user.name}", style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                TextButton(onClick = onSignOut) { Text("Sign out") }
-            }
+            ScreenHeader(
+                title = "Admin",
+                subtitle = "Manage accounts and review activity.",
+                onLogout = onSignOut,
+            )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = selectedTab == "Users", onClick = {
@@ -123,23 +121,23 @@ fun AdminAccessScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("User directory", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                        Text("$totalCount matching accounts · page size 25", style = MaterialTheme.typography.bodySmall,
+                        Text("$totalCount accounts", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(
                             value = query, onValueChange = { if (it.length <= 120) query = it },
                             modifier = Modifier.fillMaxWidth(), singleLine = true,
-                            label = { Text("Search name, email, phone, or ID") },
+                            label = { Text("Search accounts") },
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf("all", "requester", "responder", "driver", "dispatcher", "admin").take(3).forEach { role ->
-                                FilterChip(selected = selectedRole == role, onClick = { selectedRole = role; loadUsers() },
-                                    label = { Text(role.replaceFirstChar { it.uppercase() }) })
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf("driver", "dispatcher", "admin").forEach { role ->
-                                FilterChip(selected = selectedRole == role, onClick = { selectedRole = role; loadUsers() },
-                                    label = { Text(role.replaceFirstChar { it.uppercase() }) })
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            listOf("all", "requester", "responder", "driver", "dispatcher", "admin").forEach { role ->
+                                FilterChip(
+                                    selected = selectedRole == role,
+                                    onClick = { selectedRole = role; loadUsers() },
+                                    label = { Text(role.replaceFirstChar { it.uppercase() }) },
+                                )
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -161,9 +159,12 @@ fun AdminAccessScreen(
                             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(account.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(account.email, style = MaterialTheme.typography.bodySmall)
-                                Text("ID ${account.id} · ${account.role} · ${account.dutyStatus ?: "no duty status"}",
-                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (account.role != "admin") {
+                                Text("ID ${account.id}", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    StatusPill(account.role.replaceFirstChar { it.uppercase() }, MaterialTheme.colorScheme.primary)
+                                    account.dutyStatus?.let { StatusPill(it.replaceFirstChar { ch -> ch.uppercase() }, MaterialTheme.colorScheme.secondary) }
+                                }                                if (account.role != "admin") {
                                     TextButton(onClick = {
                                         selectedUser = account
                                         targetRole = if (account.role == "requester") "responder" else "requester"
