@@ -903,9 +903,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                 ) {
                     Text(
                         if (editCooldownSeconds > 0 && urgentLocationCorrection)
-                            "This is a location-only correction. Review the pin and confirm to save it now; other changes remain locked until the timer ends."
+                            "Correct the map pin now. Other edits remain locked until the timer ends."
                         else
-                            "Edits are available only before dispatch assigns a unit. Your first correction is immediate. After that, another edit is locked for 60 seconds and requires a review confirmation."
+                            "Before assignment, your first correction is immediate. Further changes wait 60 seconds and require review."
                     )
                     IncidentType.entries.forEach { type ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1068,18 +1068,18 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("This will notify dispatch of a ${selectedType.label.lowercase()} emergency.")
-                    description.trim().takeIf { it.isNotEmpty() }?.let { Text("Report details: $it") }
+                    Text("Dispatch will receive a ${selectedType.label.lowercase()} emergency.")
+                    description.trim().takeIf { it.isNotEmpty() }?.let { Text(it) }
                     if (freshFix != null) {
                         Text(locationSummary(freshFix))
-                        Text("Only this pin is included with the SOS; ongoing location updates are not sent.", style = MaterialTheme.typography.bodySmall)
+                        Text("This one-time pin is sent; ongoing tracking is not.", style = MaterialTheme.typography.bodySmall)
                     } else {
-                        Text("No GPS pin. Dispatch may call to confirm your location.")
+                        Text("No GPS pin. Dispatch may call to confirm the location.")
                     }
                     locationNotes.trim().takeIf { it.isNotEmpty() }?.let {
-                        Text("Location note to share: $it")
+                        Text("Landmark: $it")
                     }
-                    Text("Only continue if help is needed now.", style = MaterialTheme.typography.bodySmall)
+                    Text("Only send if help is needed now.", style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
