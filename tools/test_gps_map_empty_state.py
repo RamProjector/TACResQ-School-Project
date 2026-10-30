@@ -45,6 +45,8 @@ required = (
     'var showNavigationConfirmation by remember(incident.id) { mutableStateOf(false) }',
     'showNavigationConfirmation = true',
     'Text(if (needsConfirmation) "Review location" else "Navigate", maxLines = 1)',
+    'androidx.compose.material3.TextButton(',
+    'contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)',
     'androidx.compose.material3.AlertDialog(',
     'title = { Text("Confirm incident location") }',
     'Text("Navigate anyway")',
