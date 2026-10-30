@@ -180,6 +180,7 @@ fun AdminAccessScreen(
                                         selectedUser = account
                                         targetRole = ""
                                         reason = ""
+                                        error = null
                                     }) { Text("Change role") }
                                 } else {
                                     Text("Admin access is managed outside the app.",
@@ -211,7 +212,9 @@ fun AdminAccessScreen(
                 }
             }
 
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            if (selectedUser == null) {
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            }
             notice?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
             if (loading) Text("Refreshing…", style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -237,7 +240,7 @@ fun AdminAccessScreen(
                     }
                     OutlinedTextField(
                         value = reason,
-                        onValueChange = { if (it.length <= 500) reason = it },
+                        onValueChange = { if (it.length <= 500) { reason = it; error = null } },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3,
                         label = { Text("Audit reason (required)") },
@@ -250,6 +253,9 @@ fun AdminAccessScreen(
                             }
                         },
                     )
+                    error?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             },
             confirmButton = {
@@ -269,7 +275,16 @@ fun AdminAccessScreen(
                             loading = false
                         }
                     },
-                ) { Text(if (targetRole in adminRoles) "Confirm ${targetRole.replaceFirstChar { it.uppercase() }} role" else "Select a role") }
+                ) {
+                    if (loading) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            CircularProgressIndicator()
+                            Text("Saving role change…")
+                        }
+                    } else {
+                        Text(if (targetRole in adminRoles) "Confirm ${targetRole.replaceFirstChar { it.uppercase() }} role" else "Select a role")
+                    }
+                }
             },
             dismissButton = { TextButton(onClick = { selectedUser = null }) { Text("Cancel") } },
         )
