@@ -182,7 +182,8 @@ fun IncidentCard(
                 locationText(incident),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
+                fontWeight = FontWeight.Medium,
+                maxLines = 3,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
             actions()
