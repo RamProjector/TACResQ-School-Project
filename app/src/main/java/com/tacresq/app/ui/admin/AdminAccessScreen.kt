@@ -257,7 +257,7 @@ fun AdminAccessScreen(
                         scope.launch {
                             loading = true
                             error = null
-                            repository.setAdminUserRole(account.id, targetRole, reason)
+                            repository.setAdminUserRole(account.id, targetRole, reason.trim())
                                 .onSuccess {
                                     notice = "${account.name}'s role was updated and the action was audited."
                                     selectedUser = null
