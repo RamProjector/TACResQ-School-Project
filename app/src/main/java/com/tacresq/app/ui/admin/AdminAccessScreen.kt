@@ -241,6 +241,7 @@ fun AdminAccessScreen(
                     OutlinedTextField(
                         value = reason,
                         onValueChange = { if (it.length <= 500) { reason = it; error = null } },
+                        enabled = !loading,
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3,
                         label = { Text("Audit reason (required)") },
