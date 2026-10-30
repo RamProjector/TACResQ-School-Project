@@ -718,20 +718,22 @@ fun GpsMapScreen(
             shadowElevation = 4.dp,
         ) {
             Row(
-                modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 7.dp, bottom = 7.dp),
+                modifier = Modifier.padding(start = 6.dp, end = 14.dp, top = 5.dp, bottom = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text("GPS Map", style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                }
                 androidx.compose.material3.IconButton(onClick = onBack) {
                     androidx.compose.material3.Icon(
                         imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
                         contentDescription = "Back to app",
                     )
                 }
+                Text(
+                    "GPS Map",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
 
