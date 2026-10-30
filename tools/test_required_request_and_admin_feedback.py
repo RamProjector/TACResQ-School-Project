@@ -69,6 +69,10 @@ for snippet in (
     "We couldn't complete sign-up. Check your details or try again later.",
     '"Too many sign-in attempts. Wait a moment and try again."',
     '"Too many sign-up attempts. Wait a moment and try again."',
+    'catch (e: ApiException)',
+    'catch (e: IllegalArgumentException)',
+    'Result.failure(ApiException("Please check the information you entered and try again."))',
+    'Result.failure(ApiException("Something went wrong. Please try again."))',
 ):
     assert snippet in repository, f"Missing authentication privacy contract: {snippet}"
 
