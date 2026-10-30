@@ -164,7 +164,8 @@ fun AdminAccessScreen(
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     StatusPill(account.role.replaceFirstChar { it.uppercase() }, MaterialTheme.colorScheme.primary)
                                     account.dutyStatus?.let { StatusPill(it.replaceFirstChar { ch -> ch.uppercase() }, MaterialTheme.colorScheme.secondary) }
-                                }                                if (account.role != "admin") {
+                                }
+                                if (account.role != "admin") {
                                     TextButton(onClick = {
                                         selectedUser = account
                                         targetRole = if (account.role == "requester") "responder" else "requester"
