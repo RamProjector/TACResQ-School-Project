@@ -2,105 +2,263 @@ package com.tacresq.app.ui.admin
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.tacresq.app.data.remote.AdminAuditEvent
+import com.tacresq.app.data.remote.AdminUser
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.repo.TacRepository
+import kotlinx.coroutines.launch
 
-/**
- * Fail-closed landing screen for administrator accounts.
- *
- * Admin is intentionally not routed through requester, field-unit, or dispatcher
- * workflows. Administrative actions stay unavailable in Android until their
- * own authenticated, audited API and UI are implemented.
- */
+private val adminRoles = listOf("requester", "responder", "driver", "dispatcher")
+
 @Composable
 fun AdminAccessScreen(
     user: User,
+    repository: TacRepository,
     onSignOut: () -> Unit,
 ) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
-    ) {
+    var selectedTab by remember { mutableStateOf("Users") }
+    var selectedRole by remember { mutableStateOf("all") }
+    var query by remember { mutableStateOf("") }
+    var users by remember { mutableStateOf<List<AdminUser>>(emptyList()) }
+    var audit by remember { mutableStateOf<List<AdminAuditEvent>>(emptyList()) }
+    var totalCount by remember { mutableStateOf(0L) }
+    var offset by remember { mutableStateOf(0) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    var selectedUser by remember { mutableStateOf<AdminUser?>(null) }
+    var targetRole by remember { mutableStateOf("requester") }
+    var reason by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    fun loadUsers(reset: Boolean = true) {
+        scope.launch {
+            loading = true
+            error = null
+            if (reset) offset = 0
+            val pageOffset = if (reset) 0 else offset
+            repository.adminUsersPage(limit = 25, offset = pageOffset, query = query, role = selectedRole)
+                .onSuccess { page ->
+                    users = if (reset) page.users else users + page.users
+                    totalCount = page.totalCount
+                    offset = pageOffset + page.users.size
+                }
+                .onFailure { error = it.message ?: "Unable to load the administrator user directory." }
+            loading = false
+        }
+    }
+
+    fun loadAudit() {
+        scope.launch {
+            loading = true
+            error = null
+            repository.adminAuditLogs(100)
+                .onSuccess { audit = it }
+                .onFailure { error = it.message ?: "Unable to load audit history." }
+            loading = false
+        }
+    }
+
+    LaunchedEffect(user.id) { loadUsers() }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 32.dp),
-            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = "TACResQ",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = "Administrator access",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Signed in as ${user.name}",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = user.email,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(24.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("TACResQ ADMIN", color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    Text("Control center", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text("Signed in as ${user.name}", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                TextButton(onClick = onSignOut) { Text("Sign out") }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = selectedTab == "Users", onClick = {
+                    selectedTab = "Users"
+                    loadUsers()
+                }, label = { Text("Users") })
+                FilterChip(selected = selectedTab == "Audit", onClick = {
+                    selectedTab = "Audit"
+                    loadAudit()
+                }, label = { Text("Audit history") })
+            }
+
+            if (selectedTab == "Users") {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("User directory", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                        Text("$totalCount matching accounts · page size 25", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedTextField(
+                            value = query, onValueChange = { query = it },
+                            modifier = Modifier.fillMaxWidth(), singleLine = true,
+                            label = { Text("Search name, email, phone, or ID") },
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("all", "requester", "responder", "driver", "dispatcher", "admin").take(3).forEach { role ->
+                                FilterChip(selected = selectedRole == role, onClick = { selectedRole = role; loadUsers() },
+                                    label = { Text(role.replaceFirstChar { it.uppercase() }) })
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("driver", "dispatcher", "admin").forEach { role ->
+                                FilterChip(selected = selectedRole == role, onClick = { selectedRole = role; loadUsers() },
+                                    label = { Text(role.replaceFirstChar { it.uppercase() }) })
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { loadUsers() }, enabled = !loading) { Text("Search") }
+                            OutlinedButton(onClick = { query = ""; selectedRole = "all"; loadUsers() }, enabled = !loading) {
+                                Text("Clear")
+                            }
+                        }
+                    }
+                }
+
+                if (loading && users.isEmpty()) CircularProgressIndicator()
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text = "Administrative tools are not available in this Android build yet.",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Your account has not been changed. For safety, this session cannot open requester, responder, driver, dispatcher, or live-map workflows.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "Sign out and use the approved administrator interface when it is available to your organization.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    items(users, key = { it.id }) { account ->
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(account.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(account.email, style = MaterialTheme.typography.bodySmall)
+                                Text("ID ${account.id} · ${account.role} · ${account.dutyStatus ?: "no duty status"}",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (account.role != "admin") {
+                                    TextButton(onClick = {
+                                        selectedUser = account
+                                        targetRole = if (account.role == "requester") "responder" else "requester"
+                                        reason = ""
+                                    }) { Text("Change operational role") }
+                                } else {
+                                    Text("Administrator role is operator-managed and cannot be changed here.",
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                    if (users.isEmpty() && !loading && error == null) {
+                        item { Text("No matching accounts found.", modifier = Modifier.padding(12.dp)) }
+                    }
+                    if (offset < totalCount) {
+                        item {
+                            OutlinedButton(onClick = { loadUsers(reset = false) }, enabled = !loading,
+                                modifier = Modifier.fillMaxWidth()) { Text("Load more accounts") }
+                        }
+                    }
+                }
+            } else {
+                Text("Recent administrative actions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                if (loading && audit.isEmpty()) CircularProgressIndicator()
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(audit, key = { it.id }) { event ->
+                        AuditEventCard(event)
+                    }
+                    if (audit.isEmpty() && !loading && error == null) {
+                        item { Text("No administrative actions have been recorded.") }
+                    }
                 }
             }
-            Spacer(Modifier.height(24.dp))
-            Button(
-                onClick = onSignOut,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Sign out")
-            }
+
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            notice?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
+            if (loading) Text("Refreshing…", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+
+    selectedUser?.let { account ->
+        AlertDialog(
+            onDismissRequest = { selectedUser = null },
+            title = { Text("Change account role") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("${account.name} · currently ${account.role}")
+                    Text("Choose an operational role. Admin promotion and demotion are not available in the app.")
+                    adminRoles.forEach { role ->
+                        FilterChip(selected = targetRole == role, onClick = { targetRole = role },
+                            label = { Text(role.replaceFirstChar { it.uppercase() }) })
+                    }
+                    OutlinedTextField(
+                        value = reason, onValueChange = { if (it.length <= 500) reason = it },
+                        modifier = Modifier.fillMaxWidth(), minLines = 3,
+                        label = { Text("Required audit reason (10–500 characters)") },
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = targetRole != account.role && reason.trim().length in 10..500 && !loading,
+                    onClick = {
+                        scope.launch {
+                            loading = true
+                            error = null
+                            repository.setAdminUserRole(account.id, targetRole, reason)
+                                .onSuccess {
+                                    notice = "${account.name}'s role was updated and the action was audited."
+                                    selectedUser = null
+                                    loadUsers()
+                                }
+                                .onFailure { error = it.message ?: "Role change was rejected." }
+                            loading = false
+                        }
+                    },
+                ) { Text("Confirm role change") }
+            },
+            dismissButton = { TextButton(onClick = { selectedUser = null }) { Text("Cancel") } },
+        )
+    }
+}
+
+@Composable
+private fun AuditEventCard(event: AdminAuditEvent) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("User role changed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("Account #${event.targetUserId}: ${event.oldRole} → ${event.newRole}")
+            Text("By ${event.actorIdentity} · ${event.createdAt}", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Reason: ${event.reason}", style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
