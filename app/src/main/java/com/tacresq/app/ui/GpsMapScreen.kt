@@ -831,6 +831,18 @@ fun GpsMapScreen(
                 }
 
                 if (detailsExpanded) {
+                    // Explain marker categories in text as well as through their artwork.
+                    // Android accessibility guidance recommends never using color alone
+                    // to communicate category or operational state.
+                    Text(
+                        if (role == Role.DISPATCHER) {
+                            "Map key · Incident pin: active emergency · Field-unit pin: responder location"
+                        } else {
+                            "Map key · Incident pin: active emergency"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     if (role == Role.DISPATCHER) {
                         Text(
                             "Fresh under 30s · Aging 30–120s · Stale over 120s. Stale markers are last-known positions, not live.",
