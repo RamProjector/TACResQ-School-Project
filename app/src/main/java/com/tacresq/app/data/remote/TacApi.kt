@@ -33,6 +33,12 @@ interface TacChatApi {
     suspend fun sendIncidentMessage(incidentId: Long, message: String, clientMessageId: String): IncidentMessage
 }
 
+interface TacAdminApi {
+    suspend fun adminUsersPage(limit: Int, offset: Int, query: String, role: String): com.tacresq.app.data.model.AdminUserPage
+    suspend fun adminAuditLogs(limit: Int): List<com.tacresq.app.data.model.AdminAuditEvent>
+    suspend fun adminSetUserRole(userId: Long, role: String, reason: String): com.tacresq.app.data.model.AdminRoleChangeResult
+}
+
 interface TacApi {
     @POST("login")
     suspend fun login(@Body body: LoginRequest): AuthResponse
