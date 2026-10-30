@@ -209,13 +209,13 @@ private fun locationText(incident: Incident): String {
     val latitude = incident.latitude
     val longitude = incident.longitude
     if (latitude == null || longitude == null) {
-        return if (incident.locationSource in listOf(null, "none")) "No location shared"
-        else "Location needs verification"
+        return if (incident.locationSource in listOf(null, "none")) "No location pin was shared"
+        else "Incomplete location data — do not rely on a map pin"
     }
     val source = when (incident.locationSource) {
-        "gps" -> "GPS"
-        "manual" -> "Map pin"
-        else -> "Unverified pin"
+        "gps" -> "GPS pin"
+        "manual" -> "Manual map pin"
+        else -> "Location pin (source unverified)"
     }
     val coordinates = String.format(Locale.US, "%.5f, %.5f", latitude, longitude)
     val accuracy = if (incident.locationSource == "gps") {
