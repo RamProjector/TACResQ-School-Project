@@ -241,13 +241,17 @@ fun IncidentChatScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader(
-            title = "Incident chat",
-            subtitle = "Incident #$incidentId",
-            onLogout = onLogout,
-        )
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
+        ) {
+            ScreenHeader(
+                title = "Incident chat",
+                subtitle = "Incident #$incidentId",
+                onLogout = onLogout,
+            )
+        }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.Start,
         ) {
             TextButton(onClick = onBack) { Text("Back to incident list") }
@@ -294,7 +298,7 @@ fun IncidentChatScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (state.hasOlder && state.items.isNotEmpty()) {
@@ -350,7 +354,7 @@ fun IncidentChatScreen(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
