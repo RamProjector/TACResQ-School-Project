@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -317,9 +316,9 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
     val history = state.incidents.filterNot { it.status.isActive }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().safeDrawingPadding(),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             ScreenHeader(
