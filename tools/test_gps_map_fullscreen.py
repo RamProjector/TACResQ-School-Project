@@ -13,6 +13,8 @@ assert "Scaffold(" in shell and "TacruBottomNavigation(" in shell
 assert "BackHandler { onBack() }" in map_screen
 assert "Text(\"Back\", style = MaterialTheme.typography.labelLarge)" in map_screen
 assert "onClick = onBack" in map_screen
+assert "maxLines = 1" in map_screen and "softWrap = false" in map_screen
+assert "overflow = TextOverflow.Ellipsis" in map_screen
 assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen
 assert "modifier = Modifier.fillMaxSize()" in map_screen
 # osmdroid custom controller is the supported API for hiding its legacy zoom widgets.
