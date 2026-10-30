@@ -300,10 +300,15 @@ fun AuthScreen(
                 }
 
                 if (registering) {
+                    Text(
+                        "All four fields are required. Staff and administrator accounts are provisioned separately; public sign-up creates requester accounts only.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it; vm.clearFieldError("name") },
-                        label = { Text("Full name") },
+                        label = { Text("Full name (required)") },
                         singleLine = true,
                         isError = state.nameError != null,
                         supportingText = { state.nameError?.let { Text(it) } },
@@ -312,7 +317,7 @@ fun AuthScreen(
                     OutlinedTextField(
                         value = phone,
                         onValueChange = { phone = it; vm.clearFieldError("phone") },
-                        label = { Text("Mobile number") },
+                        label = { Text("Mobile number (required)") },
                         singleLine = true,
                         isError = state.phoneError != null,
                         supportingText = { state.phoneError?.let { Text(it) } },
@@ -323,7 +328,7 @@ fun AuthScreen(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it; vm.clearFieldError("email") },
-                    label = { Text("Email address") },
+                    label = { Text("Email address (required)") },
                     singleLine = true,
                     isError = state.emailError != null,
                     supportingText = { state.emailError?.let { Text(it) } },
@@ -333,7 +338,7 @@ fun AuthScreen(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it; vm.clearFieldError("password") },
-                    label = { Text("Password") },
+                    label = { Text("Password (required)") },
                     singleLine = true,
                     isError = state.passwordError != null,
                     supportingText = { state.passwordError?.let { Text(it) } },
