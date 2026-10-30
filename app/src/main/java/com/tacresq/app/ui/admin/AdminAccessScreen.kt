@@ -223,7 +223,7 @@ fun AdminAccessScreen(
 
     selectedUser?.let { account ->
         AlertDialog(
-            onDismissRequest = { selectedUser = null },
+            onDismissRequest = { if (!loading) selectedUser = null },
             title = { Text("Change account role") },
             text = {
                 Column(
@@ -235,7 +235,7 @@ fun AdminAccessScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("Select the intended operational role. No role is preselected. Admin promotion and demotion are not available in the app.")
                     adminRoles.forEach { role ->
-                        FilterChip(selected = targetRole == role, onClick = { targetRole = role },
+                        FilterChip(selected = targetRole == role, enabled = !loading, onClick = { targetRole = role; error = null },
                             label = { Text(role.replaceFirstChar { it.uppercase() }) })
                     }
                     OutlinedTextField(
@@ -260,7 +260,7 @@ fun AdminAccessScreen(
             },
             confirmButton = {
                 Button(
-                    enabled = targetRole != account.role && reason.trim().length in 10..500 && !loading,
+                    enabled = targetRole in adminRoles && targetRole != account.role && reason.trim().length in 10..500 && !loading,
                     onClick = {
                         scope.launch {
                             loading = true
@@ -286,7 +286,7 @@ fun AdminAccessScreen(
                     }
                 }
             },
-            dismissButton = { TextButton(onClick = { selectedUser = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { selectedUser = null }, enabled = !loading) { Text("Cancel") } },
         )
     }
 }
