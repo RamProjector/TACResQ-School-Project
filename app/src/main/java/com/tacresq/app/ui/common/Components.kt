@@ -42,7 +42,7 @@ import java.util.Date
 import kotlin.math.ceil
 
 @Composable
-fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
+fun ScreenHeader(title: String, subtitle: String = "") {
     Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp),
@@ -60,7 +60,6 @@ fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
-            TextButton(onClick = onLogout, modifier = Modifier.heightIn(min = 48.dp)) { Text("Sign out") }
         }
         subtitle.takeIf { it.isNotBlank() }?.let {
             Text(
