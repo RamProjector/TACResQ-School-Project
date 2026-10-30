@@ -30,3 +30,8 @@ assert "TacruBottomNavigation(" in source
 assert "onDestinationSelected(AppDestination.MAP)" in source
 
 print("Role-aware five-destination navigation and unified GPS Map styling passed.")
+
+# Navigation labels can reflow instead of being clipped at enlarged font scales.
+assert "maxLines = 2" in source
+assert "softWrap = true" in source
+assert "textAlign = TextAlign.Center" in source
