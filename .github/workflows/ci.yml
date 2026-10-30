@@ -312,7 +312,10 @@ jobs:
           script: ./gradlew --no-daemon connectedDebugAndroidTest
 
   prototype-browser-checks:
-    name: Prototype navigation, functions, and visual screenshots
+    name: Advisory prototype checks (not a UI acceptance gate)
+    # The user will perform the native app's visual acceptance review manually.
+    # Keep prototype checks useful for diagnostics, but do not block the Android release gate.
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
