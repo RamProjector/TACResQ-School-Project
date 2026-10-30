@@ -301,13 +301,29 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
                 val teamNames = state.units.filter { it.id in teamIds }.joinToString(", ") { it.name }
                 val remainingTeamSlots = (5 - teamIds.distinct().size).coerceAtLeast(0)
-                Text("Assigned team: ${teamNames.ifBlank { "Not assigned" }}")
-                incident.assignedUserStatuses.forEach { memberStatus ->
-                    val unit = state.units.firstOrNull { it.id == memberStatus.userId }
-                    Text(
-                        "${unit?.name ?: "Unit #${memberStatus.userId}"} · ${memberStatus.status.label}",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                if (incident.assignedUserStatuses.isEmpty()) {
+                    Text("Team: ${teamNames.ifBlank { "Not assigned" }}")
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        incident.assignedUserStatuses.forEach { memberStatus ->
+                            val unit = state.units.firstOrNull { it.id == memberStatus.userId }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    unit?.name ?: "Unit #${memberStatus.userId}",
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                StatusPill(
+                                    memberStatus.status.label,
+                                    MaterialTheme.colorScheme.secondary,
+                                )
+                            }
+                        }
+                    }
                 }
                 if (incident.status == IncidentStatus.ASSIGNED || incident.status == IncidentStatus.EN_ROUTE) {
                     if (remainingTeamSlots == 0) {
