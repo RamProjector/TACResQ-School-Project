@@ -79,6 +79,9 @@ import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.SectionHeading
+import com.tacresq.app.ui.common.StatusPill
+import com.tacresq.app.ui.common.pillColor
 import com.tacresq.app.ui.common.SyncStatus
 import com.tacresq.app.ui.common.formatTime
 import kotlinx.coroutines.CancellationException
@@ -541,11 +544,16 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         if (activeIncident != null) item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape = MaterialTheme.shapes.medium,
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Active emergency", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text("Request #${activeIncident.id} · ${activeIncident.status.label}", style = MaterialTheme.typography.titleMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Request #${activeIncident.id}", modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        StatusPill(activeIncident.status.label, activeIncident.status.pillColor())
+                    }
                     Text(
                         if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING)
                             "Dispatch has not assigned a unit yet. If you submitted this accidentally, you can cancel it here."
@@ -824,13 +832,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         state.notice?.let { message -> item { Banner(message, isError = false, onDismiss = vm::dismissMessages) } }
         state.error?.let { message -> item { Banner(message, isError = true, onDismiss = vm::dismissMessages) } }
 
-        item {
-            Text(
-                "My requests",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
+        item { SectionHeading("My requests") }
         if (state.loading && state.incidents.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
