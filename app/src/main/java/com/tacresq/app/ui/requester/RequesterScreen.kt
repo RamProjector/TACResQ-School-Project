@@ -1301,35 +1301,18 @@ private fun ManualLocationPickerDialog(
                     }
                 }
 
-                Column(
-                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                androidx.compose.material3.FilledTonalIconButton(
+                    onClick = {
+                        mapView.controller.animateTo(GeoPoint(initialLatitude, initialLongitude))
+                        mapView.controller.setZoom(16.5)
+                        centerCoordinates.value = initialLatitude to initialLongitude
+                    },
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp).size(48.dp),
                 ) {
-                    androidx.compose.material3.FilledTonalIconButton(
-                        onClick = { mapView.controller.zoomIn() },
-                        modifier = Modifier.size(48.dp),
-                    ) {
-                        Text("+", style = MaterialTheme.typography.titleLarge)
-                    }
-                    androidx.compose.material3.FilledTonalIconButton(
-                        onClick = { mapView.controller.zoomOut() },
-                        modifier = Modifier.size(48.dp),
-                    ) {
-                        Text("−", style = MaterialTheme.typography.titleLarge)
-                    }
-                    androidx.compose.material3.FilledTonalIconButton(
-                        onClick = {
-                            mapView.controller.animateTo(GeoPoint(initialLatitude, initialLongitude))
-                            mapView.controller.setZoom(16.5)
-                            centerCoordinates.value = initialLatitude to initialLongitude
-                        },
-                        modifier = Modifier.size(48.dp),
-                    ) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
-                            contentDescription = "Return to starting location",
-                        )
-                    }
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+                        contentDescription = "Return to starting location",
+                    )
                 }
 
                 Card(
