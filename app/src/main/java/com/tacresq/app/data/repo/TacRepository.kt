@@ -53,7 +53,7 @@ class ApiException(message: String, val httpCode: Int? = null) : Exception(messa
  * request envelope so the user can recover without creating a second emergency request.
  */
 internal fun isDefinitiveIncidentRejection(httpCode: Int): Boolean =
-    httpCode in 400..499 && httpCode !in setOf(401, 403, 408, 409, 429)
+    httpCode in 400..499 && httpCode !in setOf(401, 403, 408, 409, 425, 429)
 
 class TacRepository(
     private val api: TacApi,
