@@ -822,7 +822,8 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                         TextButton(
                             onClick = {
-                                val hasDraft = description.isNotBlank() ||
+                                val hasDraft = selectedType != null ||
+                                    description.isNotBlank() ||
                                     locationNotes.isNotBlank() ||
                                     requestStep != 1 ||
                                     state.locationFix != null
@@ -865,7 +866,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     }
                     when (requestStep) {
                         1 -> {
-                            Text("Emergency type", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
+                            Text("Emergency type (required)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
                             Column(
                                 modifier = Modifier.fillMaxWidth().selectableGroup(),
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -949,13 +950,6 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 maxLines = 5,
                                 modifier = Modifier.fillMaxWidth(),
                             )
-                            if (descriptionError) {
-                                Text(
-                                    "Add a short description for an Other emergency.",
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
                             Button(
                                 onClick = {
                                     emergencyTypeError = selectedType == null
