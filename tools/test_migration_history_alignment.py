@@ -38,6 +38,7 @@ PENDING = {
     "20261026200000_incident_scoped_chat.sql",
     "20261026161500_admin_role_audit_foundation.sql",
     "20261026170000_admin_server_side_user_pagination.sql",
+    "20261030100000_require_incident_location_fallback.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
@@ -158,4 +159,16 @@ assert "SET search_path = pg_catalog" in pagination
 assert "DROP FUNCTION" not in pagination.upper()
 assert "DELETE FROM" not in pagination.upper()
 print("PASS: Admin RPC authorization, append-only audit, and bounded pagination contracts are present.")
+
+location_fallback = (MIGRATIONS / "20261030100000_require_incident_location_fallback.sql").read_text().lower()
+for required in (
+    "create or replace function public.tacresq_require_incident_location()",
+    "set search_path = pg_catalog",
+    "latitude and longitude must be supplied together",
+    "a location pin or landmark/access detail is required",
+    "before insert on public.incidents",
+):
+    assert required in location_fallback, f"Missing required SOS location database guard: {required}"
+assert "security definer" not in location_fallback
+print("PASS: new SOS inserts require a complete pin or a nonblank landmark/access detail.")
 
