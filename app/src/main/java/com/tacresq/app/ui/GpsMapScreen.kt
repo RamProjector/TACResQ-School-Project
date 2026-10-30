@@ -1057,37 +1057,70 @@ private fun MapIncidentCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    androidx.compose.material3.FilledTonalButton(
-                        onClick = { onFocusOnMap(incident) },
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
-                            contentDescription = "Show incident #${incident.id} on map"
-                        },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                    ) {
-                        Text("Show on map", maxLines = 1)
+                val navigateToIncident = {
+                    if (needsConfirmation) {
+                        showNavigationConfirmation = true
+                    } else {
+                        openExternalMaps(context, lat!!, lng!!)
                     }
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            if (needsConfirmation) {
-                                showNavigationConfirmation = true
-                            } else {
-                                openExternalMaps(context, lat!!, lng!!)
+                }
+                // Reflow actions on compact cards; on wider cards keep the primary and
+                // secondary actions side by side. Labels may wrap at large font scales.
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val stackActions = maxWidth < 320.dp
+                    if (stackActions) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            androidx.compose.material3.FilledTonalButton(
+                                onClick = { onFocusOnMap(incident) },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics {
+                                    contentDescription = "Show incident #${incident.id} on map"
+                                },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            ) {
+                                Text("Show on map")
                             }
-                        },
-                        modifier = Modifier.heightIn(min = 48.dp).semantics {
-                            contentDescription = if (needsConfirmation) {
-                                "Review location before navigating to incident #${incident.id}"
-                            } else {
-                                "Navigate to incident #${incident.id}"
+                            androidx.compose.material3.TextButton(
+                                onClick = navigateToIncident,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics {
+                                    contentDescription = if (needsConfirmation) {
+                                        "Review location before navigating to incident #${incident.id}"
+                                    } else {
+                                        "Navigate to incident #${incident.id}"
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            ) {
+                                Text(if (needsConfirmation) "Review location" else "Navigate")
                             }
-                        },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                    ) {
-                        Text(if (needsConfirmation) "Review location" else "Navigate", maxLines = 1)
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            androidx.compose.material3.FilledTonalButton(
+                                onClick = { onFocusOnMap(incident) },
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
+                                    contentDescription = "Show incident #${incident.id} on map"
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                            ) {
+                                Text("Show on map")
+                            }
+                            androidx.compose.material3.TextButton(
+                                onClick = navigateToIncident,
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
+                                    contentDescription = if (needsConfirmation) {
+                                        "Review location before navigating to incident #${incident.id}"
+                                    } else {
+                                        "Navigate to incident #${incident.id}"
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                            ) {
+                                Text(if (needsConfirmation) "Review location" else "Navigate")
+                            }
+                        }
                     }
                 }
             } else {
