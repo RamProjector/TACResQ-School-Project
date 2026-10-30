@@ -4,7 +4,7 @@ from pathlib import Path
 
 workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
 kvm_step = workflow.find("- name: Enable KVM permissions for Android emulator")
-emulator_step = workflow.find("uses: reactivecircus/android-emulator-runner@v2")
+emulator_step = workflow.find("uses: reactivecircus/android-emulator-runner@")
 
 assert kvm_step >= 0, "Android emulator job must configure KVM permissions."
 assert emulator_step > kvm_step, "KVM permissions must be configured before emulator startup."
