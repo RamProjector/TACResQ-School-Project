@@ -53,8 +53,9 @@ class NavigationInstrumentedTest {
         composeRule.onNodeWithText("Home destination content").assertIsDisplayed()
         composeRule.onNodeWithText("Home").assertIsSelected()
         composeRule.onNodeWithText("GPS Map").performClick()
-        composeRule.onNodeWithText("GPS Map").assertIsSelected()
+        composeRule.onNodeWithText("GPS Map destination content").assertIsDisplayed()
         composeRule.onNodeWithText("Back to app").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("GPS Map").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Home").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Home destination content").fetchSemanticsNodes().isEmpty())
 
