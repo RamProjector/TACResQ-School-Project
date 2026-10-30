@@ -6,11 +6,13 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,8 +41,8 @@ import kotlin.math.ceil
 @Composable
 fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -55,7 +57,7 @@ fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
-            TextButton(onClick = onLogout) { Text("Sign out") }
+            TextButton(onClick = onLogout, modifier = Modifier.heightIn(min = 44.dp)) { Text("Sign out") }
         }
         subtitle.takeIf { it.isNotBlank() }?.let {
             Text(
@@ -72,8 +74,8 @@ fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
 @Composable
 fun SectionHeading(title: String, supportingText: String? = null) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 3.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Text(
             title,
@@ -95,6 +97,7 @@ fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null) {
         if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
     ) {
         Row(
@@ -116,7 +119,7 @@ fun StatusPill(text: String, color: Color) {
             text,
             color = color,
             style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
         )
     }
 }
@@ -148,13 +151,13 @@ fun IncidentCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -167,7 +170,7 @@ fun IncidentCard(
             }
             val time = formatTime(incident.createdAt)
             if (time.isNotEmpty()) {
-                Text(time, style = MaterialTheme.typography.labelSmall,
+                Text("Submitted $time", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             incident.description?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
