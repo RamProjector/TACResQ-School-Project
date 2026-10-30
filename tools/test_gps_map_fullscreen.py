@@ -1,25 +1,38 @@
 #!/usr/bin/env python3
-"""Keep the five-destination navigation available on the GPS map."""
+"""Keep the GPS map full-window, independently navigable, and free of zoom chrome."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 shell = (ROOT / "app/src/main/java/com/tacresq/app/ui/RoleShell.kt").read_text()
 map_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text()
 
-bottom_bar = shell.split("bottomBar = {", 1)[1].split("},\n    )", 1)[0]
-assert "if (selected != AppDestination.MAP)" not in bottom_bar, (
-    "the five-item bottom navigation must remain visible while the GPS map is selected"
+map_branch = shell.split("if (selected == AppDestination.MAP)", 1)[1].split("} else {", 1)[0]
+assert "mapContent()" in map_branch, "the map destination must render its dedicated content"
+assert "TacruBottomNavigation(" not in map_branch, (
+    "the app bottom navigation must not consume space on the full-screen map"
 )
-assert "TacruBottomNavigation(" in bottom_bar, (
-    "the shared five-destination navigation must remain mounted on the map screen"
+assert "Scaffold(" in shell and "TacruBottomNavigation(" in shell, (
+    "the regular role destinations must retain the shared navigation shell"
 )
 assert "BackHandler { onBack() }" in map_screen, (
     "Android system Back must close the full-screen map and return to the prior screen"
 )
+assert 'contentDescription = "Back to app"' in map_screen, (
+    "the map must expose a clear, accessible visible return action"
+)
+assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen, (
+    "map controls must respect system bars while the map surface remains edge-to-edge"
+)
 assert "modifier = Modifier.fillMaxSize()" in map_screen, (
     "the map surface must continue filling its available viewport"
 )
-print("GPS map persistent-navigation contract passed.")
+assert "setBuiltInZoomControls(false)" in map_screen, (
+    "osmdroid's built-in zoom buttons must not clutter the map"
+)
+assert "CustomZoomButtonsController.Visibility.NEVER" in map_screen, (
+    "the osmdroid zoom controller must remain hidden"
+)
+print("GPS map full-window, visible Back, and no-zoom-controls contract passed.")
 
 # Floating controls stay in the upper-right map area so a fixed bottom offset
 # cannot push them outside the viewport on short screens.
