@@ -110,6 +110,8 @@ data class RequesterUiState(
     val loading: Boolean = true,
     val sending: Boolean = false,
     val pendingSosAvailable: Boolean = false,
+    val pendingSosCheckInProgress: Boolean = true,
+    val pendingSosCheckError: String? = null,
     val capturingLocation: Boolean = false,
     val locationFix: GeoFix? = null,
     val locationError: String? = null,
@@ -126,11 +128,33 @@ class RequesterViewModel(
     private val _state = MutableStateFlow(RequesterUiState())
     val state: StateFlow<RequesterUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
+    private var pendingSosCheckJob: Job? = null
 
     fun refreshPendingSos() {
-        viewModelScope.launch {
-            val pending = runCatching { repo.hasPendingIncident() }.getOrDefault(true)
-            _state.update { it.copy(pendingSosAvailable = pending) }
+        if (pendingSosCheckJob?.isActive == true) return
+        _state.update {
+            it.copy(pendingSosCheckInProgress = true, pendingSosCheckError = null)
+        }
+        pendingSosCheckJob = viewModelScope.launch {
+            try {
+                val pending = repo.hasPendingIncident()
+                _state.update {
+                    it.copy(
+                        pendingSosAvailable = pending,
+                        pendingSosCheckInProgress = false,
+                        pendingSosCheckError = null,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _state.update {
+                    it.copy(
+                        pendingSosCheckInProgress = false,
+                        pendingSosCheckError = "TACResQ couldn't verify whether an earlier SOS is still awaiting confirmation. Check again before creating another request.",
+                    )
+                }
+            }
         }
     }
 
@@ -273,6 +297,12 @@ class RequesterViewModel(
     fun sendSos(type: IncidentType, description: String, locationNotes: String) {
         if (_state.value.sending) return
         val current = _state.value
+        if (current.pendingSosCheckInProgress || current.pendingSosCheckError != null) {
+            _state.update {
+                it.copy(error = "TACResQ hasn't verified whether an earlier SOS is still pending. Check again before sending another request.")
+            }
+            return
+        }
         val existingActive = current.incidents.firstOrNull { it.status.isActive }
         if (existingActive != null) {
             _state.update {
@@ -525,6 +555,48 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
 
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
 
+        if (state.pendingSosCheckInProgress) item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Checking saved SOS status", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text("Verifying whether an earlier request still needs confirmation before another SOS can be sent.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+
+        state.pendingSosCheckError?.let { message ->
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Couldn't verify saved SOS status", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text(message, style = MaterialTheme.typography.bodyMedium)
+                        Button(
+                            onClick = vm::refreshPendingSos,
+                            enabled = !state.pendingSosCheckInProgress,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                        ) { Text("Check again") }
+                    }
+                }
+            }
+        }
+
         if (state.pendingSosAvailable) item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -609,7 +681,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     }
                 }
             }
-        } else if (!showRequestForm && !state.pendingSosAvailable) item {
+        } else if (!showRequestForm && !state.pendingSosAvailable &&
+            !state.pendingSosCheckInProgress && state.pendingSosCheckError == null
+        ) item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
@@ -699,7 +773,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             }
         }
 
-        if (showRequestForm && activeIncident == null && !state.pendingSosAvailable) item {
+        if (showRequestForm && activeIncident == null && !state.pendingSosAvailable &&
+            !state.pendingSosCheckInProgress && state.pendingSosCheckError == null
+        ) item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
@@ -1134,7 +1210,8 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             },
             confirmButton = {
                 TextButton(
-                    enabled = !state.sending && !state.capturingLocation,
+                    enabled = !state.sending && !state.capturingLocation &&
+                        !state.pendingSosCheckInProgress && state.pendingSosCheckError == null,
                     onClick = {
                         confirmingSos = false
                         vm.sendSos(selectedType, description, locationNotes)
