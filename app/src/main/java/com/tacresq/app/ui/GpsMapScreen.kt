@@ -15,6 +15,8 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -180,7 +182,10 @@ private fun GpsMapFilterButtons(
     onShowIncidents: () -> Unit,
     onShowActiveUnits: () -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         androidx.compose.material3.FilledTonalButton(
             onClick = onShowIncidents,
             modifier = Modifier.heightIn(min = 48.dp).semantics {
