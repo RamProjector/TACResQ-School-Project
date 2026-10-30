@@ -111,7 +111,7 @@ fun AppRoot(
                         RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat ->
                             if (selectedChatIncidentId != null) {
                                 IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
-                            } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout)
+                            } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat)
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents,
                                 notificationsVm = notificationsVm,
