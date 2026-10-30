@@ -22,6 +22,12 @@ required = (
     "role == Role.DISPATCHER && validResponderLocations.isNotEmpty()",
     'contentDescription = "Center map on active incidents"',
     'contentDescription = "Center map on responder field units"',
+    "fun focusIncidentOnMap(incident: Incident)",
+    'locationStatus = "Centered on incident #${incident.id}. Check the recorded location time before navigating."',
+    "onFocusOnMap = ::focusIncidentOnMap",
+    'Text("Show on map", maxLines = 1)',
+    'Text("Navigate", maxLines = 1)',
+    "modifier = Modifier.weight(1f).heightIn(min = 48.dp)",
 )
 missing = [snippet for snippet in required if snippet not in source]
 if missing:
