@@ -641,7 +641,7 @@ END;
 $chat_test$;
 SQL
 
-echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and incident chat, notification authorization, and per-responder status regressions passed."
+echo "PASS: migration replay and baseline incident/chat/notification/admin regressions passed; continuing with SOS idempotency stress tests."
 
 
 psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -1006,7 +1006,7 @@ trap cleanup_concurrent_dir EXIT
 
 for worker in $(seq 1 8); do
   (
-    psql -X -qAt -v ON_ERROR_STOP=1 >"$concurrent_dir/response-\${worker}.json" <<'SQL'
+    psql -X -qAt -v ON_ERROR_STOP=1 >"$concurrent_dir/response-${worker}.json" <<'SQL'
 BEGIN;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000136', true);
 SELECT public.api_create_incident_v4(
@@ -1023,8 +1023,11 @@ SELECT public.api_create_incident_v4(
 COMMIT;
 SQL
   ) &
+  worker_pids+=("$!")
 done
-wait
+for worker_pid in "${worker_pids[@]}"; do
+  wait "$worker_pid"
+done
 
 python3 - "$concurrent_dir" <<'PY'
 from pathlib import Path
@@ -1121,6 +1124,113 @@ BEGIN
   END IF;
 END;
 $sos_idempotency_negative_test$;
+SQL
+
+
+# Failure-atomicity regression: force the underlying incident insert to fail
+# after the idempotency key has been reserved. The failed RPC must roll back
+# that reservation so the same request ID can be retried successfully.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+INSERT INTO auth.users (id, email, raw_user_meta_data)
+VALUES (
+  '00000000-0000-4000-8000-000000000138',
+  'sos-atomicity-regression@example.test',
+  '{"name":"SOS Atomicity Regression","phone":"+63917000138","role":"requester"}'::jsonb
+);
+
+CREATE OR REPLACE FUNCTION public.tacresq_test_fail_sos_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $test$
+BEGIN
+  IF NEW.description = 'Atomicity failure injection' THEN
+    RAISE EXCEPTION 'Intentional CI failure after idempotency reservation'
+      USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$test$;
+
+CREATE TRIGGER tacresq_test_fail_sos_insert
+BEFORE INSERT ON public.incidents
+FOR EACH ROW EXECUTE FUNCTION public.tacresq_test_fail_sos_insert();
+SQL
+
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $sos_atomicity_failure$
+DECLARE
+  requester_profile_id bigint;
+  failure_observed boolean := false;
+BEGIN
+  SELECT id INTO requester_profile_id FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000138';
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000138', true);
+  BEGIN
+    PERFORM public.api_create_incident_v4(
+      'medical', 'Atomicity failure injection', 11.244, 125.003, 10,
+      'Synthetic CI failure location', '2026-10-30T12:00:00Z'::timestamptz,
+      'manual', '00000000-0000-4000-8000-000000000138'::uuid
+    );
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    failure_observed := true;
+  END;
+
+  IF NOT failure_observed THEN
+    RAISE EXCEPTION 'Expected the injected incident-creation failure';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.incident_submission_keys
+    WHERE requester_id = requester_profile_id
+      AND client_request_id = '00000000-0000-4000-8000-000000000138'::uuid
+  ) THEN
+    RAISE EXCEPTION 'Failed SOS transaction left behind an idempotency reservation';
+  END IF;
+END;
+$sos_atomicity_failure$;
+
+DROP TRIGGER tacresq_test_fail_sos_insert ON public.incidents;
+DROP FUNCTION public.tacresq_test_fail_sos_insert();
+
+DO $sos_atomicity_retry$
+DECLARE
+  response jsonb;
+  requester_profile_id bigint;
+  incident_count integer;
+  completed_key_count integer;
+BEGIN
+  SELECT id INTO requester_profile_id FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000138';
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000138', true);
+  response := public.api_create_incident_v4(
+    'medical', 'Atomicity failure injection', 11.244, 125.003, 10,
+    'Synthetic CI failure location', '2026-10-30T12:00:00Z'::timestamptz,
+    'manual', '00000000-0000-4000-8000-000000000138'::uuid
+  );
+
+  IF response IS NULL OR response = '{}'::jsonb THEN
+    RAISE EXCEPTION 'Retry after rollback did not return a valid incident response';
+  END IF;
+
+  SELECT count(*) INTO incident_count
+  FROM public.incidents
+  WHERE requester_id = requester_profile_id
+    AND description = 'Atomicity failure injection';
+
+  SELECT count(*) INTO completed_key_count
+  FROM public.incident_submission_keys
+  WHERE requester_id = requester_profile_id
+    AND client_request_id = '00000000-0000-4000-8000-000000000138'::uuid
+    AND response_payload IS NOT NULL;
+
+  IF incident_count <> 1 OR completed_key_count <> 1 THEN
+    RAISE EXCEPTION 'Expected one incident and one completed idempotency key after retry; incidents %, keys %',
+      incident_count, completed_key_count;
+  END IF;
+END;
+$sos_atomicity_retry$;
 SQL
 
 echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed; incident regressions and Admin role/audit authorization tests passed."
