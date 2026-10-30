@@ -708,11 +708,17 @@ fun GpsMapScreen(
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    androidx.compose.material3.IconButton(onClick = onBack) {
+                    androidx.compose.material3.TextButton(
+                        onClick = onBack,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                    ) {
                         androidx.compose.material3.Icon(
                             imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
-                            contentDescription = "Back to app",
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
                         )
+                        androidx.compose.foundation.layout.Spacer(Modifier.size(width = 4.dp, height = 1.dp))
+                        Text("Back", style = MaterialTheme.typography.labelLarge)
                     }
                     Text(
                         "GPS Map",
