@@ -476,6 +476,7 @@ fun RequesterScreen(
     user: User,
     onLogout: () -> Unit,
     onOpenChat: (Long) -> Unit,
+    onOpenNotifications: () -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -582,6 +583,7 @@ fun RequesterScreen(
             ScreenHeader(
                 title = "Home",
                 subtitle = "Request help and track your current response.",
+                onOpenNotifications = onOpenNotifications,
             )
         }
 
