@@ -29,10 +29,6 @@
         android:pathData="M54,28a19,19 0,1 0,0 38a19,19 0,1 0,0 -38" />
 
     <path
-        android:fillColor="#0B2944"
-        android:pathData="M54,28a19,19 0,1 0,0 38a19,19 0,1 0,0 -38" />
-
-    <path
         android:fillColor="#FF9D42"
         android:pathData="M54,34l12,29 -12,-7 -12,7z" />
 
