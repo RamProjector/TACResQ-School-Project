@@ -47,6 +47,9 @@ jobs:
       - name: Check pending SOS verification state
         run: python3 tools/test_pending_sos_verification_state.py
 
+      - name: Check requester SOS progress accessibility
+        run: python3 tools/test_requester_sos_progress_accessibility.py
+
       - name: Check Android Supabase auth redirect contract
         run: python3 tools/test_android_auth_redirect_contract.py
 
