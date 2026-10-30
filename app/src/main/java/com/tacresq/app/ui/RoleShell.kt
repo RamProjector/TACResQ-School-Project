@@ -82,10 +82,9 @@ private fun TacruBottomNavigation(
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val compact = maxWidth < 400.dp
         val labels = when (role) {
             Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")
-            Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Alerts", "Profile")
+            Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Alerts", "Profile")
             Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")
             Role.ADMIN -> listOf("Admin", "Audit", "Alerts", "Profile")
         }
