@@ -72,7 +72,7 @@ def main() -> None:
     )
 
     code_review = (WORKFLOWS / "code-review.yml").read_text(encoding="utf-8")
-    assert re.search(r"(?m)^permissions:\\n  contents: read\\s*$", code_review), (
+    assert code_review.split("jobs:", 1)[0].split("permissions:", 1)[1].strip() == "contents: read", (
         "Privileged review workflow must default to contents: read only"
     )
     reviewer_job = code_review.split("  automated-review:", 1)[1]
