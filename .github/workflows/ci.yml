@@ -68,6 +68,9 @@ jobs:
       - name: Check encrypted Android session storage contract
         run: python3 tools/test_android_session_security.py
 
+      - name: Check Android HTTP logging privacy contract
+        run: python3 tools/test_android_http_logging_privacy.py
+
       - name: Test bounded Docker Compose retry helper
         run: python3 tools/test_docker_compose_retry.py
 
