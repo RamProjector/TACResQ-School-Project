@@ -20,6 +20,8 @@ required = (
     "LiveRegionMode.Polite",
     "if (locationStatus != null) liveRegion = LiveRegionMode.Polite",
     "role == Role.DISPATCHER && validResponderLocations.isNotEmpty()",
+    'contentDescription = "Center map on active incidents"',
+    'contentDescription = "Center map on responder field units"',
 )
 missing = [snippet for snippet in required if snippet not in source]
 if missing:
