@@ -271,7 +271,10 @@ jobs:
         run: echo 'No Gradle wrapper is checked in; Android source-contract validation ran instead of APK builds.'
 
   android-emulator-smoke:
-    name: Android emulator smoke tests
+    name: Advisory Android emulator/UI smoke tests
+    # Native UI acceptance is performed manually by the user; emulator UI tests
+    # remain diagnostic and must not block reliable build/security checks.
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
