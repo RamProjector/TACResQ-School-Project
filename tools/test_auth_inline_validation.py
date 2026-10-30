@@ -35,6 +35,13 @@ required = (
     "Credentials are intentionally transient",
     'Text(if (passwordVisible) "Hide" else "Show")',
     "fun clearFieldError(field: String)",
+    "contentType = ContentType.PersonFullName",
+    "contentType = ContentType.PhoneNumberNational",
+    "ContentType.NewUsername + ContentType.EmailAddress",
+    "ContentType.Username + ContentType.EmailAddress",
+    "contentType = if (registering) ContentType.NewPassword else ContentType.Password",
+    "import androidx.compose.ui.autofill.ContentType",
+    "import androidx.compose.ui.semantics.contentType",
     'vm.clearFieldError("email")',
     'vm.clearFieldError("password")',
 )
