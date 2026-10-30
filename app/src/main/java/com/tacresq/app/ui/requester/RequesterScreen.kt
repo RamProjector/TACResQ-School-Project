@@ -1286,13 +1286,13 @@ private fun ManualLocationPickerDialog(
                     ) {
                         Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                             Text(
-                                "Choose emergency location",
+                                "Choose location",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                if (startsAtTaclobanDefault) "The map starts at Tacloban as a reference only—not your phone's location. Move the map to the actual emergency location before confirming."
-                                else "Drag the map until the exact location is under the center pin. This can be different from your phone's GPS location.",
+                                if (startsAtTaclobanDefault) "Starts at Tacloban, not your GPS position. Move the map to the emergency site."
+                                else "Move the map so the center pin marks the emergency site.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (startsAtTaclobanDefault) MaterialTheme.colorScheme.error
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1327,7 +1327,7 @@ private fun ManualLocationPickerDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text(
-                            "Selected center: %.5f, %.5f".format(
+                            "Selected location: %.5f, %.5f".format(
                                 Locale.US,
                                 centerCoordinates.value.first,
                                 centerCoordinates.value.second,
@@ -1335,33 +1335,17 @@ private fun ManualLocationPickerDialog(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        Text(
-                            String.format(
-                                Locale.US,
-                                "%.5f, %.5f",
-                                centerCoordinates.value.first,
-                                centerCoordinates.value.second,
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
                         if (startsAtTaclobanDefault && !userAdjustedMap) {
                             Text(
-                                "This is only a Tacloban reference view, not your phone's location. Move the map before confirming.",
+                                "Starts at Tacloban. Move the map before confirming.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )
                         } else {
                             Text(
-                                "This is a map-selected pin, not a GPS accuracy measurement. Wait until roads and landmarks appear before confirming. If the map stays blank, cancel and use a landmark instead.",
+                                "Map pin only; it does not measure GPS accuracy. If the map is blank, cancel and share a landmark.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        if (startsAtTaclobanDefault && !userAdjustedMap) {
-                            Text(
-                                "Move the map to the real emergency location to enable confirmation.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
                             )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
