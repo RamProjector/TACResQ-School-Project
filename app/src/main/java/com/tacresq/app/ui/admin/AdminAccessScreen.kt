@@ -1,5 +1,6 @@
 package com.tacresq.app.ui.admin
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -155,8 +156,12 @@ fun AdminAccessScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(users, key = { it.id }) { account ->
-                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Card(
+                            shape = MaterialTheme.shapes.large,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(account.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(account.email, style = MaterialTheme.typography.bodySmall)
                                 Text("ID ${account.id}", style = MaterialTheme.typography.labelSmall,
@@ -256,8 +261,12 @@ fun AdminAccessScreen(
 
 @Composable
 private fun AuditEventCard(event: AdminAuditEvent) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Card(
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(event.action.replace("_", " ").replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("Account #${event.targetUserId}: ${event.oldRole} → ${event.newRole}")
