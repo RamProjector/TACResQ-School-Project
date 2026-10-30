@@ -10,7 +10,7 @@ required = (
     "repo.login(email.trim(), password)",
     "repo.register(name.trim(), email.trim(), phone.trim(), password)",
     "phoneDigits !in 7..15",
-    'phone.any { !it.isDigit() && it !in "+- ()" }',
+    'phone.any { it !in \'0\'..\'9\' && it !in "+- ()" }',
     'password.isBlank() -> "Enter a password."',
     "catch (cancelled: CancellationException)",
     "catch (failure: Exception)",
