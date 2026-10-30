@@ -116,6 +116,15 @@ assert 'Text("Sign out")' in app_root and 'Text("Cancel")' in app_root
 assert 'Text("Your emergency requests will remain active.' in app_root, "logout confirmation must explain active-request behavior"
 assert "showSignOutConfirmation = true" in app_root
 
+assert "onOpenNotifications: (() -> Unit)? = null" in components
+assert 'contentDescription = "Open notifications"' in components
+assert "val openNotifications: () -> Unit = { destination = AppDestination.ALERTS }" in app_root
+assert "onOpenNotifications = openNotifications" in app_root
+assert "onOpenNotifications = onOpenNotifications" in requester
+assert "onOpenNotifications = onOpenNotifications" in responder
+assert "onOpenNotifications = onOpenNotifications" in dispatcher
+assert "onOpenNotifications = onOpenNotifications" in read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
+
 
 # Client code must consume the protected RPCs, not read/write the private table directly.
 for path in (
