@@ -119,8 +119,13 @@ fun AdminAccessScreen(
             }
 
             if (selectedTab == "Users") {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Card(
+                    shape = MaterialTheme.shapes.large,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("User directory", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                         Text("$totalCount accounts", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -175,9 +180,9 @@ fun AdminAccessScreen(
                                         selectedUser = account
                                         targetRole = if (account.role == "requester") "responder" else "requester"
                                         reason = ""
-                                    }) { Text("Change operational role") }
+                                    }) { Text("Change role") }
                                 } else {
-                                    Text("Administrator role is operator-managed and cannot be changed here.",
+                                    Text("Admin access is managed outside the app.",
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
