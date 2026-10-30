@@ -71,6 +71,21 @@ def main() -> None:
         "Skipped dependency review must produce an actionable warning, not silently pass"
     )
 
+    code_review = (WORKFLOWS / "code-review.yml").read_text(encoding="utf-8")
+    assert re.search(r"(?m)^permissions:\\n  contents: read\\s*$", code_review), (
+        "Privileged review workflow must default to contents: read only"
+    )
+    reviewer_job = code_review.split("  automated-review:", 1)[1]
+    assert "pull-requests: write" in reviewer_job and "issues: write" in reviewer_job, (
+        "Only the automated reviewer job should receive comment permissions"
+    )
+    assert "persist-credentials: false" in reviewer_job, (
+        "The privileged pull_request_target job must not persist checkout credentials"
+    )
+    assert "github.event.pull_request.base.sha || github.sha" in reviewer_job, (
+        "The privileged reviewer must check out trusted base code, never the PR head"
+    )
+
     quality = (WORKFLOWS / "quality-assurance.yml").read_text(encoding="utf-8")
     assert "STRESS_REQUESTS:" in quality and "inputs.stress_requests" in quality, (
         "Manual stress-test input must be passed through an environment variable"
