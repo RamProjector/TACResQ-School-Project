@@ -508,7 +508,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     PollWhileStarted { vm.refresh() }
     LaunchedEffect(Unit) { vm.refreshPendingSos() }
 
-    var selectedType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
+    var selectedType by rememberSaveable { mutableStateOf<IncidentType?>(null) }
+    var emergencyTypeError by rememberSaveable { mutableStateOf(false) }
+    var descriptionError by rememberSaveable { mutableStateOf(false) }
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
     var locationRequirementError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -555,6 +557,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             message?.startsWith("SOS request was accepted") == true ||
             message?.startsWith("The previously saved SOS was confirmed") == true
         ) {
+            selectedType = null
+            emergencyTypeError = false
+            descriptionError = false
             description = ""
             locationNotes = ""
             requestStep = 1
@@ -870,7 +875,11 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                         modifier = Modifier.fillMaxWidth().selectable(
                                             selected = type == selectedType,
                                             role = Role.RadioButton,
-                                            onClick = { selectedType = type },
+                                            onClick = {
+                                                selectedType = type
+                                                emergencyTypeError = false
+                                                if (type != IncidentType.OTHER) descriptionError = false
+                                            },
                                         ),
                                         shape = MaterialTheme.shapes.medium,
                                         border = BorderStroke(
@@ -910,9 +919,53 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                     }
                                 }
                             }
-                            OutlinedTextField(value = description, onValueChange = { if (it.length <= 2000) description = it },
-                                label = { Text("What is happening? (optional)") }, minLines = 3, maxLines = 5, modifier = Modifier.fillMaxWidth())
-                            Button(onClick = { requestStep = 2 }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Continue") }
+                            if (emergencyTypeError) {
+                                Text(
+                                    "Choose the emergency type before continuing.",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            OutlinedTextField(
+                                value = description,
+                                onValueChange = {
+                                    if (it.length <= 2000) {
+                                        description = it
+                                        if (it.isNotBlank()) descriptionError = false
+                                    }
+                                },
+                                label = {
+                                    Text(if (selectedType == IncidentType.OTHER) "Describe the emergency (required)" else "What is happening? (optional)")
+                                },
+                                isError = descriptionError,
+                                supportingText = {
+                                    if (selectedType == IncidentType.OTHER) {
+                                        Text(if (descriptionError) "Describe what happened so dispatch can identify the emergency." else "Required when the emergency type is Other.")
+                                    } else {
+                                        Text("Optional details help dispatch prepare a response.")
+                                    }
+                                },
+                                minLines = 3,
+                                maxLines = 5,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            if (descriptionError) {
+                                Text(
+                                    "Add a short description for an Other emergency.",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    emergencyTypeError = selectedType == null
+                                    descriptionError = selectedType == IncidentType.OTHER && description.isBlank()
+                                    if (selectedType != null && !(selectedType == IncidentType.OTHER && description.isBlank())) {
+                                        requestStep = 2
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                            ) { Text("Continue") }
                         }
                         2 -> {
                             Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
@@ -989,7 +1042,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         }
                         else -> {
                             Text("Review before sending", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
-                            Text("Emergency type: ${selectedType.label}", fontWeight = FontWeight.SemiBold)
+                            Text("Emergency type: ${selectedType?.label ?: "Not selected"}", fontWeight = FontWeight.SemiBold)
                             description.trim().takeIf { it.isNotEmpty() }?.let { Text("Details: $it") }
                             if (freshFix != null) LocationFixCard(freshFix, onClear = { vm.clearLocationFix(); requestStep = 2 })
                             else LocationNoticeCard("Sending without a GPS pin", "Dispatch may need to call you to confirm the exact location.")
@@ -1233,6 +1286,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     showDiscardConfirmation = false
                     confirmingSos = false
                     showManualPinPicker = false
+                    selectedType = null
+                    emergencyTypeError = false
+                    descriptionError = false
                     description = ""
                     locationNotes = ""
                     requestStep = 1
@@ -1255,7 +1311,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Dispatch will receive a ${selectedType.label.lowercase()} emergency.")
+                    Text("Dispatch will receive a ${selectedType?.label?.lowercase() ?: "unselected"} emergency.")
                     description.trim().takeIf { it.isNotEmpty() }?.let { Text(it) }
                     if (freshFix != null) {
                         Text(locationSummary(freshFix))
@@ -1275,7 +1331,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         !state.pendingSosCheckInProgress && state.pendingSosCheckError == null,
                     onClick = {
                         confirmingSos = false
-                        vm.sendSos(selectedType, description, locationNotes)
+                        selectedType?.let { vm.sendSos(it, description, locationNotes) }
                     },
                 ) { Text(if (state.sending) "Sending…" else "Send SOS") }
             },
