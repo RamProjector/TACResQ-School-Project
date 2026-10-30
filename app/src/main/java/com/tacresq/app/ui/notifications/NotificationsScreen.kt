@@ -196,7 +196,7 @@ fun NotificationsAndSafetyScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            ScreenHeader(title = "Alerts & safety", onLogout = onLogout)
+            ScreenHeader(title = "Alerts & safety")
         }
         item {
             Card(
