@@ -7,6 +7,7 @@ admin = (ROOT / "app/src/main/java/com/tacresq/app/ui/admin/AdminAccessScreen.kt
 supabase_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 admin_migration = (ROOT / "supabase/migrations/20261026161500_admin_role_audit_foundation.sql").read_text()
 admin_runbook = (ROOT / "docs/ADMIN_PROVISIONING_RUNBOOK.md").read_text()
+location_migration = (ROOT / "supabase/migrations/20261030100000_require_incident_location_fallback.sql").read_text().lower()
 
 # A requester must provide either a fresh location pin or a usable landmark.
 assert "if (!hasFreshPin && locationNotes.isBlank())" in requester
@@ -14,6 +15,8 @@ assert "locationRequirementError = \"Add a location pin or a landmark/access det
 assert "if (fix == null && locationNotes.isBlank())" in requester
 assert "Add a location pin or a landmark/access detail before sending." in requester
 assert "Landmark or access detail (required without a pin)" in requester
+assert "a location pin or landmark/access detail is required" in location_migration
+assert "before insert on public.incidents" in location_migration
 
 # Registration requires all identity/contact/credential fields and explains the
 # separate provisioning path for staff and administrators.
