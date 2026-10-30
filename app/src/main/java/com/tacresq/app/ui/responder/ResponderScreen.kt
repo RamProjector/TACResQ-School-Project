@@ -331,10 +331,6 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             ScreenHeader(
                 title = "Current call",
                 subtitle = "",
-                onLogout = {
-                    vm.stopTracking("Location sharing stopped because you signed out.")
-                    onLogout()
-                },
             )
         }
 
