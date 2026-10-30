@@ -328,6 +328,28 @@ jobs:
             echo "::warning::/dev/kvm unavailable; emulator startup may be slower or time out."
           fi
 
+      - name: Preinstall Android 36 emulator image with bounded retry
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "::error::sdkmanager was not found under $ANDROID_HOME/cmdline-tools"
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          for attempt in 1 2 3; do
+            echo "Installing Android 36 Google APIs x86_64 system image (attempt $attempt/3)."
+            if "$SDKMANAGER" --install "system-images;android-36;google_apis;x86_64"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              sleep $((attempt * 10))
+            fi
+          done
+          echo "::error::Android emulator image installation failed after 3 attempts."
+          exit 1
+
       - name: Run Android instrumented smoke tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
