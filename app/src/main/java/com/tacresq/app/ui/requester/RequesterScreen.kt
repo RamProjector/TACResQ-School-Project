@@ -1044,7 +1044,7 @@ fun RequesterScreen(
                                     },
                                     enabled = !state.capturingLocation,
                                     modifier = Modifier.weight(1f).height(52.dp),
-                                ) { Text("Review request") }
+                                ) { Text("Review", maxLines = 1, softWrap = false) }
                             }
                         }
                         else -> {
