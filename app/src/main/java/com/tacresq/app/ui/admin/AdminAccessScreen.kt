@@ -83,7 +83,8 @@ fun AdminAccessScreen(
                 loading = false
                 error = current.exceptionOrNull()?.message
                     ?: "Administrator access is no longer active. Sign in again with an authorized account."
-                if (currentUser?.role != Role.ADMIN) onSignOut()
+                // A network error is not evidence of revoked privileges. Only sign out after a successful profile lookup confirms a different role.
+                if (current.isSuccess && currentUser?.role != Role.ADMIN) onSignOut()
                 return@launch
             }
             val directory = repository.adminUsersPage(pageSize, page * pageSize, appliedQuery, "all")
