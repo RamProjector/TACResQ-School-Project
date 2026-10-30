@@ -28,26 +28,24 @@ checks = {
     "requester manual location picker is a full-screen map with reachable map controls": all(
         text in requester for text in (
             "DialogProperties(usePlatformDefaultWidth = false)",
-            "Choose emergency location",
-            "Selected center: %.5f, %.5f",
-            "controller.zoomIn()",
-            "controller.zoomOut()",
+            "Choose location",
+            "Selected location: %.5f, %.5f",
             "Return to starting location",
             "Map data",
             "modifier = Modifier.fillMaxSize()",
             "enabled = !startsAtTaclobanDefault || userAdjustedMap",
         )
-    ) and "height(320.dp)" not in requester,
+    ) and "height(320.dp)" not in requester and "controller.zoomIn()" not in requester and "controller.zoomOut()" not in requester,
     "fallback map center is clearly identified when GPS is unavailable": all(
         text in requester for text in (
             "startsAtTaclobanDefault = initial == null",
             "startsAtTaclobanDefault: Boolean",
-            "The map starts at Tacloban as a reference only—not your phone's location.",
-            "Move the map to the actual emergency location before confirming.",
+            "Starts at Tacloban, not your GPS position. Move the map to the emergency site.",
+            "Move the map before confirming.",
             "setOnTouchListener { _, event ->",
             "if (event.action == MotionEvent.ACTION_MOVE) userAdjustedMap = true",
             "enabled = !startsAtTaclobanDefault || userAdjustedMap",
-            "Move the map to the real emergency location to enable confirmation.",
+            "Move the map before confirming.",
         )
     ),
     "manual map pin is explicitly represented instead of mislabelled as GPS": all(
@@ -70,8 +68,8 @@ checks = {
             "import org.osmdroid.events.MapListener",
             "centerCoordinates.value = point.latitude to point.longitude",
             '"Selected center: %.5f, %.5f"',
-            "Wait until roads and landmarks appear before confirming.",
-            "If the map stays blank, cancel and use a landmark instead.",
+            "Map pin only; it does not measure GPS accuracy.",
+            "If the map is blank, cancel and share a landmark.",
         )
     ),
     "incident creation carries source through the Supabase RPC": all(
@@ -146,7 +144,7 @@ checks = {
     ),
     "field units are not described as live before a location is confirmed": all(
         text in responder for text in (
-            "waiting for the first confirmed location update",
+            "Waiting for the first confirmed location update.",
             "the latest update failed",
             "Responder location is not currently being shared.",
             "Share location & start",
@@ -156,8 +154,8 @@ checks = {
     "external routing is distinguished from the in-app incident map": all(
         text in responder for text in (
             'Text("Open navigation app")',
-            "Opens an installed maps app for route guidance.",
-            "Use TACResQ GPS Map for the incident and field-unit overview.",
+            "Opens an installed maps app for route guidance. Use GPS Map for the incident and field-unit overview.",
+            "Use GPS Map for the incident and field-unit overview.",
         )
     ) and "Text(\"Navigate in Google Maps\")" not in responder,
     "SOS submission lock is set before launching asynchronous work": (
