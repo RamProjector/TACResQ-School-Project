@@ -57,7 +57,7 @@ fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
-            TextButton(onClick = onLogout, modifier = Modifier.heightIn(min = 44.dp)) { Text("Sign out") }
+            TextButton(onClick = onLogout, modifier = Modifier.heightIn(min = 48.dp)) { Text("Sign out") }
         }
         subtitle.takeIf { it.isNotBlank() }?.let {
             Text(
