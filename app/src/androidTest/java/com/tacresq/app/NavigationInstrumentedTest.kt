@@ -9,7 +9,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -54,7 +53,7 @@ class NavigationInstrumentedTest {
         composeRule.onNodeWithText("Home destination content").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("GPS Map").performClick()
         composeRule.onNodeWithText("Back to app").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Home").assertDoesNotExist()
+        assertTrue(composeRule.onAllNodesWithContentDescription("Home").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Home destination content").fetchSemanticsNodes().isEmpty())
 
         composeRule.onNodeWithText("Back to app").performClick()
