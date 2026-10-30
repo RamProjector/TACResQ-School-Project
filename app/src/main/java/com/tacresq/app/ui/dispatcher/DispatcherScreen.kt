@@ -126,7 +126,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 }
 
 @Composable
-fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, focusedIncidentId: Long? = null, onOpenChat: (Long) -> Unit = {}) {
+fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, focusedIncidentId: Long? = null, onOpenChat: (Long) -> Unit = {}, onOpenNotifications: () -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
@@ -179,6 +179,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             ScreenHeader(
                 title = "Dispatch queue",
                 subtitle = "Oldest requests first.",
+                onOpenNotifications = onOpenNotifications,
             )
         }
         if (focusedIncidentId != null) {
