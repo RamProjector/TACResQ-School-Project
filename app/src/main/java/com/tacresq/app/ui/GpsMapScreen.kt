@@ -370,12 +370,12 @@ fun GpsMapScreen(
                 deviceFix = null
                 mapView.controller.setZoom(15.0)
                 mapView.controller.animateTo(validIncidentPoints.first())
-                locationStatus = "Centered on the one confirmed incident pin. Tap Locate me to return to your device location."
+                locationStatus = "Centered on 1 incident pin."
             }
             else -> {
                 deviceFix = null
                 mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)
-                locationStatus = "Showing all ${validIncidentPoints.size} confirmed incident pins. Tap Locate me to return to your device location."
+                locationStatus = "Showing ${validIncidentPoints.size} incident pins."
             }
         }
     }
@@ -389,9 +389,9 @@ fun GpsMapScreen(
                 mapView.controller.animateTo(validResponderPoints.first())
                 val freshness = validResponderLocations.first().mapFreshness(mapNow)
                 locationStatus = if (freshness == MapLocationFreshness.STALE) {
-                    "Centered on a stale last-known field-unit location. It is not live; confirm with dispatch before relying on it."
+                    "Centered on a stale unit pin · confirm with dispatch."
                 } else {
-                    "Centered on the latest reported field-unit location (${freshness?.label?.lowercase() ?: "unknown freshness"})."
+                    "Centered on latest unit pin · ${freshness?.label?.lowercase() ?: "freshness unknown"}."
                 }
             }
             else -> {
@@ -549,7 +549,7 @@ fun GpsMapScreen(
                     // location permission in Android Settings while TACResQ is paused.
                     if (!locationProvider.hasPermission() && latestDeviceFix != null) {
                         deviceFix = null
-                        locationStatus = "Location permission is off. The previous location preview was cleared. Grant permission and tap Locate me to try again."
+                        locationStatus = "Location permission is off. Previous preview cleared. Grant permission to locate again."
                     }
                     if (locationProvider.hasPermission()) showAppSettingsAction = false
                 }
@@ -659,15 +659,15 @@ fun GpsMapScreen(
                         mapView.controller.setZoom(15.0)
                         mapView.controller.animateTo(pointsToFrame.first())
                         locationStatus = if (shouldFrameIncidentPoints) {
-                            "Centered on the available incident or field-unit pin."
+                            "Map centered on available pins."
                         } else {
-                            "Centered on the available field-unit pin while waiting for incident locations."
+                            "Map centered on field units; incident pins are pending."
                         }
                     }
                     else -> {
                         mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(pointsToFrame), true, 64)
                         locationStatus = if (shouldFrameIncidentPoints) {
-                            "Showing confirmed incident pins and eligible field-unit locations. Stale unit markers are labeled as last known, not live."
+                            "Incident pins and eligible field units shown. Stale units are marked as last known."
                         } else {
                             "Showing eligible field-unit locations while waiting for incident locations. Stale unit markers are labeled as last known, not live."
                         }
