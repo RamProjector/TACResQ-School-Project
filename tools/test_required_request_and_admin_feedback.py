@@ -73,6 +73,7 @@ assert 'Confirm ${targetRole.replaceFirstChar { it.uppercase() }} role' in admin
 assert "onDismissRequest = { if (!loading) selectedUser = null }" in admin
 assert 'enabled = !loading, onClick = { targetRole = role; error = null }' in admin
 assert 'onValueChange = { if (it.length <= 500) { reason = it; error = null } }' in admin
+assert "enabled = !loading," in admin[admin.indexOf("value = reason"):admin.indexOf("modifier = Modifier.fillMaxWidth()", admin.indexOf("value = reason"))]
 assert 'error?.let {' in admin[admin.indexOf('selectedUser?.let'):admin.indexOf('confirmButton = {')]
 assert "Saving role change…" in admin
 assert 'enabled = !loading) { Text("Cancel") }' in admin
