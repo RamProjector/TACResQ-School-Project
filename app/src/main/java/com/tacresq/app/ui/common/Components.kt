@@ -219,10 +219,14 @@ private fun locationText(incident: Incident): String {
     }
     val coordinates = String.format(Locale.US, "%.5f, %.5f", latitude, longitude)
     val accuracy = if (incident.locationSource == "gps") {
-        incident.accuracyM?.let { " · ±" + ceil(it.toDouble()).toInt() + " m" }.orEmpty()
+        incident.accuracyM?.let { " · ±" + ceil(it.toDouble()).toInt() + " m" } ?: " · accuracy unknown"
+    } else ""
+    val captured = if (incident.locationSource == "gps") {
+        incident.locationRecordedAt?.let { formatTime(it) }?.takeIf { it.isNotBlank() }
+            ?.let { " · captured $it" } ?: " · capture time unverified"
     } else ""
     val note = incident.locationNotes?.trim()?.takeIf { it.isNotEmpty() }?.let { " · " + it }.orEmpty()
-    return "$source · $coordinates$accuracy$note"
+    return "$source · $coordinates$accuracy$captured$note"
 }
 
 private val timeFormatter: DateTimeFormatter =
