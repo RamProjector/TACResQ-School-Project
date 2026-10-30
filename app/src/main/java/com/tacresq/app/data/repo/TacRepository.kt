@@ -250,6 +250,26 @@ class TacRepository(
         )
     }
 
+
+    suspend fun adminUsersPage(limit: Int = 25, offset: Int = 0, query: String = "", role: String = "all") =
+        call {
+            val adminApi = api as? com.tacresq.app.data.remote.TacAdminApi
+                ?: throw ApiException("Administrator tools require the authenticated Supabase backend.")
+            adminApi.adminUsersPage(limit, offset, query.trim(), role)
+        }
+
+    suspend fun adminAuditLogs(limit: Int = 100) = call {
+        val adminApi = api as? com.tacresq.app.data.remote.TacAdminApi
+            ?: throw ApiException("Administrator tools require the authenticated Supabase backend.")
+        adminApi.adminAuditLogs(limit)
+    }
+
+    suspend fun setAdminUserRole(userId: Long, role: String, reason: String) = call {
+        val adminApi = api as? com.tacresq.app.data.remote.TacAdminApi
+            ?: throw ApiException("Administrator tools require the authenticated Supabase backend.")
+        adminApi.setAdminUserRole(userId, role, reason)
+    }
+
     // ---- internals ----
 
     private suspend fun startSession(response: AuthResponse) {
