@@ -25,6 +25,20 @@ checks = {
             "val point = mapView.mapCenter", 'Text("Use this location")',
         )
     ),
+    "manual pin confirmation submits the live map center only after finite-coordinate validation": all(
+        text in requester for text in (
+            "val point = mapView.mapCenter",
+            "if (point.latitude.isFinite() && point.longitude.isFinite())",
+            "onConfirm(point.latitude, point.longitude)",
+            "enabled = !startsAtTaclobanDefault || userAdjustedMap",
+        )
+    ) and all(
+        text in requester for text in (
+            "latitude !in -90.0..90.0",
+            "longitude !in -180.0..180.0",
+            "The selected map pin is invalid.",
+        )
+    ),
     "requester manual location picker is a full-screen map with reachable map controls": all(
         text in requester for text in (
             "DialogProperties(usePlatformDefaultWidth = false)",
