@@ -11,7 +11,7 @@ required = (
     "locationStatus = null",
     "Units: $freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale",
     '"Field-unit locations"',
-    '"last known, not live"',
+    'last known, not live',
     "Stale markers are last-known positions, not live.",
     "Active incidents have no valid map pins.",
     "No incident pins yet.",
