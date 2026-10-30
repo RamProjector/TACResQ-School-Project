@@ -1003,6 +1003,11 @@ private fun MapIncidentCard(
 ) {
     val lat = incident.latitude
     val lng = incident.longitude
+    val hasUsableCoordinates = lat != null && lng != null &&
+        lat.isFinite() && lng.isFinite() &&
+        lat in -90.0..90.0 && lng in -180.0..180.0
+    val (ageLabel, needsConfirmation) = incident.locationAgeStatus(now)
+    var showNavigationConfirmation by remember(incident.id) { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -1025,10 +1030,7 @@ private fun MapIncidentCard(
                 )
                 StatusPill(incident.status.label, incident.status.pillColor())
             }
-            if (lat != null && lng != null && lat.isFinite() && lng.isFinite() &&
-                lat in -90.0..90.0 && lng in -180.0..180.0
-            ) {
-                val (ageLabel, needsConfirmation) = incident.locationAgeStatus(now)
+            if (hasUsableCoordinates) {
                 Text(
                     ageLabel,
                     style = MaterialTheme.typography.bodySmall,
@@ -1064,13 +1066,23 @@ private fun MapIncidentCard(
                         Text("Show on map", maxLines = 1)
                     }
                     OutlinedButton(
-                        onClick = { openExternalMaps(context, lat, lng) },
+                        onClick = {
+                            if (needsConfirmation) {
+                                showNavigationConfirmation = true
+                            } else {
+                                openExternalMaps(context, lat!!, lng!!)
+                            }
+                        },
                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
-                            contentDescription = "Navigate to incident #${incident.id}"
+                            contentDescription = if (needsConfirmation) {
+                                "Review location before navigating to incident #${incident.id}"
+                            } else {
+                                "Navigate to incident #${incident.id}"
+                            }
                         },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                     ) {
-                        Text("Navigate", maxLines = 1)
+                        Text(if (needsConfirmation) "Review location" else "Navigate", maxLines = 1)
                     }
                 }
             } else {
@@ -1081,6 +1093,35 @@ private fun MapIncidentCard(
                 )
             }
         }
+    }
+    if (showNavigationConfirmation && hasUsableCoordinates) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showNavigationConfirmation = false },
+            title = { Text("Confirm incident location") },
+            text = {
+                Text(
+                    "This incident location may be outdated or its timestamp cannot be verified. " +
+                        ageLabel + " Confirm the location with the requester or dispatcher before proceeding."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        showNavigationConfirmation = false
+                        openExternalMaps(context, lat!!, lng!!)
+                    },
+                ) {
+                    Text("Navigate anyway")
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { showNavigationConfirmation = false },
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
