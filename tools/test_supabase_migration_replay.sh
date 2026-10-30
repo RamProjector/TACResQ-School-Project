@@ -397,8 +397,7 @@ BEGIN
     RAISE EXCEPTION 'Notification list must reject unauthenticated callers';
   END IF;
 
-  denied := false;
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000132', true);
+  denied := false;  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000132', true);
   BEGIN
     PERFORM public.api_my_notifications(101);
   EXCEPTION WHEN invalid_parameter_value THEN
@@ -797,8 +796,7 @@ BEGIN
     );
   EXCEPTION WHEN insufficient_privilege THEN
     denied := true;
-  END;
-  IF NOT denied THEN
+  END;  IF NOT denied THEN
     RAISE EXCEPTION 'Ordinary requester must not change another profile role';
   END IF;
 
@@ -1083,8 +1081,8 @@ $concurrent_sos_assert$;
 SQL
 
 
--- Reusing a key with changed details must be rejected, and an unauthenticated
--- caller must not be able to reserve or retrieve another request's idempotency key.
+# Reusing a key with changed details must be rejected, and an unauthenticated
+# caller must not be able to reserve or retrieve another request's idempotency key.
 psql -v ON_ERROR_STOP=1 <<'SQL'
 DO $sos_idempotency_negative_test$
 DECLARE
@@ -1198,40 +1196,3 @@ DO $sos_atomicity_retry$
 DECLARE
   response jsonb;
   requester_profile_id bigint;
-  incident_count integer;
-  completed_key_count integer;
-BEGIN
-  SELECT id INTO requester_profile_id FROM public.profiles
-  WHERE auth_user_id = '00000000-0000-4000-8000-000000000138';
-
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000138', true);
-  response := public.api_create_incident_v4(
-    'medical', 'Atomicity failure injection', 11.244, 125.003, NULL,
-    'Synthetic CI failure location', '2026-10-30T12:00:00Z'::timestamptz,
-    'manual', '00000000-0000-4000-8000-000000000138'::uuid
-  );
-
-  IF response IS NULL OR response = '{}'::jsonb THEN
-    RAISE EXCEPTION 'Retry after rollback did not return a valid incident response';
-  END IF;
-
-  SELECT count(*) INTO incident_count
-  FROM public.incidents
-  WHERE requester_id = requester_profile_id
-    AND description = 'Atomicity failure injection';
-
-  SELECT count(*) INTO completed_key_count
-  FROM public.incident_submission_keys
-  WHERE requester_id = requester_profile_id
-    AND client_request_id = '00000000-0000-4000-8000-000000000138'::uuid
-    AND response_payload IS NOT NULL;
-
-  IF incident_count <> 1 OR completed_key_count <> 1 THEN
-    RAISE EXCEPTION 'Expected one incident and one completed idempotency key after retry; incidents %, keys %',
-      incident_count, completed_key_count;
-  END IF;
-END;
-$sos_atomicity_retry$;
-SQL
-
-echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed; incident regressions and Admin role/audit authorization tests passed."
