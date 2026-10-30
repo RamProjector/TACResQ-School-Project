@@ -695,7 +695,7 @@ fun GpsMapScreen(
         ) {
             androidx.compose.material3.Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
                 tonalElevation = 3.dp,
                 shadowElevation = 4.dp,
@@ -771,7 +771,7 @@ fun GpsMapScreen(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 10.dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
             tonalElevation = 4.dp,
             shadowElevation = 6.dp,
@@ -809,7 +809,7 @@ fun GpsMapScreen(
                 if (showAppSettingsAction) {
                     androidx.compose.material3.TextButton(
                         onClick = ::openAppLocationSettings,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     ) {
                         Text("Open app location settings")
                     }
