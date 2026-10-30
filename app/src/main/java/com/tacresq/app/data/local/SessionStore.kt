@@ -52,7 +52,7 @@ class SessionStore(
             // A transient disk read failure is not proof that the user signed out.
             // Keep the last StateFlow value while DataStore retries the read.
             .retryWhen { cause, attempt ->
-                if (cause is IOException) {
+                if (shouldRetrySessionStoreRead(cause)) {
                     delay(sessionStoreReadRetryDelayMillis(attempt))
                     true
                 } else {
@@ -219,6 +219,9 @@ class SessionStore(
 }
 
 /** Capped exponential backoff for recoverable DataStore read failures. */
+internal fun shouldRetrySessionStoreRead(cause: Throwable): Boolean =
+    cause is IOException && cause !is kotlinx.coroutines.CancellationException
+
 internal fun sessionStoreReadRetryDelayMillis(attempt: Long): Long {
     val exponent = attempt.coerceIn(0L, 5L).toInt()
     return (1_000L shl exponent).coerceAtMost(30_000L)
