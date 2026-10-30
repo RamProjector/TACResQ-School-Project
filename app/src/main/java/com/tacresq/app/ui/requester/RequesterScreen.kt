@@ -690,10 +690,16 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         }
 
         if (showRequestForm && activeIncident == null && !state.pendingSosAvailable) item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -740,7 +746,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     }
                     when (requestStep) {
                         1 -> {
-                            Text("What kind of help do you need?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Emergency type", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -789,7 +795,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             }
                             OutlinedTextField(value = description, onValueChange = { if (it.length <= 2000) description = it },
                                 label = { Text("What is happening? (optional)") }, minLines = 3, maxLines = 5, modifier = Modifier.fillMaxWidth())
-                            Button(onClick = { requestStep = 2 }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Continue to location") }
+                            Button(onClick = { requestStep = 2 }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Continue") }
                         }
                         2 -> {
                             Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
