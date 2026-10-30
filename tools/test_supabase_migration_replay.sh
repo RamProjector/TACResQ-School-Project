@@ -97,7 +97,7 @@ INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES (
   '00000000-0000-4000-8000-000000000123',
   'sos-regression@example.test',
-  '{"name":"SOS Regression","role":"requester"}'::jsonb
+  '{"name":"SOS Regression","phone":"+63917000001","role":"requester"}'::jsonb
 );
 
 DO $$
@@ -140,10 +140,10 @@ $$;
 -- End-to-end SQL regression: team members advance independently, the aggregate
 -- stays en_route until all units arrive, and GPS is rejected for an arrived unit.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000124', 'dispatch-regression@example.test', '{"name":"Dispatch Regression"}'),
-  ('00000000-0000-4000-8000-000000000127', 'per-responder-requester@example.test', '{"name":"Per Responder Requester"}'),
-  ('00000000-0000-4000-8000-000000000125', 'responder-one@example.test', '{"name":"Responder One"}'),
-  ('00000000-0000-4000-8000-000000000126', 'responder-two@example.test', '{"name":"Responder Two"}');
+  ('00000000-0000-4000-8000-000000000124', 'dispatch-regression@example.test', '{"name":"Dispatch Regression","phone":"+63917000002"}'),
+  ('00000000-0000-4000-8000-000000000127', 'per-responder-requester@example.test', '{"name":"Per Responder Requester","phone":"+63917000003"}'),
+  ('00000000-0000-4000-8000-000000000125', 'responder-one@example.test', '{"name":"Responder One","phone":"+63917000004"}'),
+  ('00000000-0000-4000-8000-000000000126', 'responder-two@example.test', '{"name":"Responder Two","phone":"+63917000005"}');
 
 DO $per_responder_test$
 DECLARE
@@ -232,11 +232,11 @@ SQL
 psql -v ON_ERROR_STOP=1 <<'SQL'
 -- Notification persistence, event creation, ownership, and RPC grants.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000131', 'notification-dispatcher@example.test', '{"name":"Notification Dispatcher"}'),
-  ('00000000-0000-4000-8000-000000000132', 'notification-requester@example.test', '{"name":"Notification Requester"}'),
-  ('00000000-0000-4000-8000-000000000133', 'notification-responder@example.test', '{"name":"Notification Responder"}'),
-  ('00000000-0000-4000-8000-000000000134', 'notification-legacy-responder@example.test', '{"name":"Notification Legacy Responder"}'),
-  ('00000000-0000-4000-8000-000000000135', 'notification-legacy-requester@example.test', '{"name":"Notification Legacy Requester"}');
+  ('00000000-0000-4000-8000-000000000131', 'notification-dispatcher@example.test', '{"name":"Notification Dispatcher","phone":"+63917000006"}'),
+  ('00000000-0000-4000-8000-000000000132', 'notification-requester@example.test', '{"name":"Notification Requester","phone":"+63917000007"}'),
+  ('00000000-0000-4000-8000-000000000133', 'notification-responder@example.test', '{"name":"Notification Responder","phone":"+63917000008"}'),
+  ('00000000-0000-4000-8000-000000000134', 'notification-legacy-responder@example.test', '{"name":"Notification Legacy Responder","phone":"+63917000009"}'),
+  ('00000000-0000-4000-8000-000000000135', 'notification-legacy-requester@example.test', '{"name":"Notification Legacy Requester","phone":"+63917000010"}');
 
 DO $notification_test$
 DECLARE
@@ -414,10 +414,10 @@ SQL
 psql -v ON_ERROR_STOP=1 <<'SQL'
 -- Incident chat authorization, idempotency, rate/size bounds, and message alerts.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000136', 'chat-dispatcher@example.test', '{"name":"Chat Dispatcher"}'),
-  ('00000000-0000-4000-8000-000000000137', 'chat-requester@example.test', '{"name":"Chat Requester"}'),
-  ('00000000-0000-4000-8000-000000000138', 'chat-responder@example.test', '{"name":"Chat Responder"}'),
-  ('00000000-0000-4000-8000-000000000139', 'chat-outsider@example.test', '{"name":"Chat Outsider"}');
+  ('00000000-0000-4000-8000-000000000136', 'chat-dispatcher@example.test', '{"name":"Chat Dispatcher","phone":"+63917000011"}'),
+  ('00000000-0000-4000-8000-000000000137', 'chat-requester@example.test', '{"name":"Chat Requester","phone":"+63917000012"}'),
+  ('00000000-0000-4000-8000-000000000138', 'chat-responder@example.test', '{"name":"Chat Responder","phone":"+63917000013"}'),
+  ('00000000-0000-4000-8000-000000000139', 'chat-outsider@example.test', '{"name":"Chat Outsider","phone":"+63917000014"}');
 
 DO $chat_test$
 DECLARE
@@ -648,9 +648,9 @@ psql -v ON_ERROR_STOP=1 <<'SQL'
 -- Admin role/audit regression tests run only in this disposable clean database.
 -- Public signup metadata must never grant the privileged role.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000128', 'admin-spoof@example.test', '{"name":"Admin Spoof Attempt","role":"admin"}'),
-  ('00000000-0000-4000-8000-000000000129', 'admin-role-target@example.test', '{"name":"Admin Role Target","role":"requester"}'),
-  ('00000000-0000-4000-8000-000000000130', 'admin-escalation-attempt@example.test', '{"name":"Admin Escalation Attempt","role":"requester"}');
+  ('00000000-0000-4000-8000-000000000128', 'admin-spoof@example.test', '{"name":"Admin Spoof Attempt","phone":"+63917000015","role":"admin"}'),
+  ('00000000-0000-4000-8000-000000000129', 'admin-role-target@example.test', '{"name":"Admin Role Target","phone":"+63917000016","role":"requester"}'),
+  ('00000000-0000-4000-8000-000000000130', 'admin-escalation-attempt@example.test', '{"name":"Admin Escalation Attempt","phone":"+63917000017","role":"requester"}');
 
 DO $admin_provision_fixture$
 DECLARE
