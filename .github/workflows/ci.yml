@@ -40,6 +40,8 @@ jobs:
         run: python3 tools/test_notification_action_feedback.py
       - name: Check responder sync feedback hierarchy
         run: python3 tools/test_responder_sync_feedback.py
+      - name: Check responder sync feedback hierarchy
+        run: python3 tools/test_responder_sync_feedback.py
 
       - name: Check Android Supabase auth redirect contract
         run: python3 tools/test_android_auth_redirect_contract.py
