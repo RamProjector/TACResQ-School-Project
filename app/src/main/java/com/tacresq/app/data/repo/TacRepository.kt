@@ -2,6 +2,9 @@ package com.tacresq.app.data.repo
 
 import com.google.gson.Gson
 import com.tacresq.app.data.local.SessionStore
+import com.tacresq.app.data.model.AdminUserPage
+import com.tacresq.app.data.model.AdminAuditEvent
+import com.tacresq.app.data.model.AdminRoleChangeResult
 import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
@@ -21,6 +24,7 @@ import com.tacresq.app.data.remote.LoginRequest
 import com.tacresq.app.data.remote.RegisterRequest
 import com.tacresq.app.data.remote.ResponderLocationRequest
 import com.tacresq.app.data.remote.TacApi
+import com.tacresq.app.data.remote.TacAdminApi
 import com.tacresq.app.data.remote.TacNotificationApi
 import com.tacresq.app.data.remote.TacChatApi
 import com.tacresq.app.data.remote.UpdateStatusRequest
@@ -74,6 +78,31 @@ class TacRepository(
     }
 
     suspend fun me(): Result<User> = call { api.me() }
+
+    /** Privileged methods are available only when the configured backend implements the Supabase admin RPC contract. */
+    suspend fun adminUsersPage(limit: Int, offset: Int, query: String, role: String): Result<AdminUserPage> = call {
+        val adminApi = api as? TacAdminApi
+            ?: throw ApiException("Administrator tools are unavailable with the configured backend.")
+        require(limit in 1..100 && offset >= 0) { "Invalid administrator page bounds." }
+        adminApi.adminUsersPage(limit, offset, query, role)
+    }
+
+    suspend fun adminAuditLogs(limit: Int = 100): Result<List<AdminAuditEvent>> = call {
+        val adminApi = api as? TacAdminApi
+            ?: throw ApiException("Administrator tools are unavailable with the configured backend.")
+        adminApi.adminAuditLogs(limit)
+    }
+
+    suspend fun adminSetUserRole(userId: Long, role: String, reason: String): Result<AdminRoleChangeResult> = call {
+        val adminApi = api as? TacAdminApi
+            ?: throw ApiException("Administrator tools are unavailable with the configured backend.")
+        require(userId > 0) { "User ID must be positive." }
+        require(role in setOf("requester", "responder", "driver", "dispatcher")) {
+            "Administrator accounts cannot be provisioned or demoted here."
+        }
+        require(reason.trim().length in 10..500) { "Provide an audit reason between 10 and 500 characters." }
+        adminApi.adminSetUserRole(userId, role, reason.trim())
+    }
 
     suspend fun setDutyStatus(status: DutyStatus): Result<User> = call {
         val user = api.setDutyStatus(DutyStatusRequest(status))
