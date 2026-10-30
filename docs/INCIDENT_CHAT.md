@@ -43,3 +43,12 @@ The clean-PostgreSQL replay test covers requester/responder/dispatcher access, u
 3. Decide whether to add read receipts or web dispatcher chat only if there is a clear workflow need; do not add attachments or broad dispatcher notifications without a separate privacy review.
 
 No live Supabase migration, production message, account change, Render deployment, or FCM delivery was performed by this change.
+
+
+## Requester discoverability follow-up
+
+- The requester Home screen's active-emergency card exposes a full-width **Open incident messages** action, so communication is available at the point where the active request is being monitored.
+- The action opens the existing incident-scoped conversation for that exact incident; it does not create a global requester inbox or add a bottom-navigation destination.
+- Requesters retain the existing conversation entry from their role-scoped request list and incident-message notifications.
+- Message access continues to be authorized by the existing caller-scoped RPCs and database policies; the UI action is not an authorization boundary.
+- Automated source-contract coverage verifies that the active request ID is passed to the chat route. Physical-device and live non-production account verification remain separate checks.
