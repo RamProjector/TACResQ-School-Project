@@ -235,6 +235,7 @@ private fun RoleSectionScreen(
         NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident, onOpenChat)
         return
     }
+    var showSignOutConfirmation by remember(user.id) { mutableStateOf(false) }
     val role = user.role
     val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER && role != Role.ADMIN
     val title = when (destination) {
@@ -419,7 +420,34 @@ private fun RoleSectionScreen(
                         ProfileDetail("Email", user.email)
                         ProfileDetail("Role", role.label)
                         user.phone?.takeIf { it.isNotBlank() }?.let { ProfileDetail("Mobile", it) }
+                        androidx.compose.material3.HorizontalDivider()
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { showSignOutConfirmation = true },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                        ) {
+                            Text("Sign out")
+                        }
                     }
+                }
+                if (showSignOutConfirmation) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { showSignOutConfirmation = false },
+                        title = { Text("Sign out of TACResQ?") },
+                        text = { Text("Your emergency requests will remain active. Signing out only ends this account session.") },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    showSignOutConfirmation = false
+                                    logout()
+                                },
+                            ) { Text("Sign out") }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = { showSignOutConfirmation = false },
+                            ) { Text("Cancel") }
+                        },
+                    )
                 }
             }
         }
