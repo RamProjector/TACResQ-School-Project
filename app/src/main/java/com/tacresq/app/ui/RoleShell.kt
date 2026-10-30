@@ -140,6 +140,7 @@ private fun RowScope.GpsMapNavigationItem(
         label = "GPS Map",
         icon = Icons.Filled.LocationOn,
         active = active,
+        emphasized = true,
         onClick = { onDestinationSelected(AppDestination.MAP) },
     )
 }
@@ -150,6 +151,7 @@ private fun RowScope.NavigationDestinationItem(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     active: Boolean,
+    emphasized: Boolean = false,
     onClick: () -> Unit,
 ) {
     Column(
@@ -167,8 +169,18 @@ private fun RowScope.NavigationDestinationItem(
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Surface(
-            color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-            contentColor = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = when {
+                emphasized && active -> MaterialTheme.colorScheme.primaryContainer
+                emphasized -> MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                active -> MaterialTheme.colorScheme.secondaryContainer
+                else -> MaterialTheme.colorScheme.surface
+            },
+            contentColor = when {
+                emphasized && active -> MaterialTheme.colorScheme.onPrimaryContainer
+                emphasized -> MaterialTheme.colorScheme.primary
+                active -> MaterialTheme.colorScheme.onSecondaryContainer
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
             shape = RoundedCornerShape(16.dp),
         ) {
             Box(
@@ -180,7 +192,7 @@ private fun RowScope.NavigationDestinationItem(
         }
         Text(
             text = label,
-            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (emphasized || active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
             maxLines = 1,
