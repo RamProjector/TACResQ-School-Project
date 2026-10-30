@@ -63,6 +63,7 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -852,7 +853,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     }
                     when (requestStep) {
                         1 -> {
-                            Text("Emergency type", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Emergency type", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
                             Column(
                                 modifier = Modifier.fillMaxWidth().selectableGroup(),
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -907,7 +908,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             Button(onClick = { requestStep = 2 }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Continue") }
                         }
                         2 -> {
-                            Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
                             Text(
                                 "Your location is not tracked continuously. Share a one-time GPS pin, choose a map pin, or continue without GPS.",
                                 style = MaterialTheme.typography.bodySmall,
@@ -950,7 +951,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             }
                         }
                         else -> {
-                            Text("Review before sending", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Review before sending", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
                             Text("Emergency type: ${selectedType.label}", fontWeight = FontWeight.SemiBold)
                             description.trim().takeIf { it.isNotEmpty() }?.let { Text("Details: $it") }
                             if (freshFix != null) LocationFixCard(freshFix, onClear = { vm.clearLocationFix(); requestStep = 2 })
