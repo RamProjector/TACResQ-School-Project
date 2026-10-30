@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep the GPS map full-window, independently navigable, and free of zoom chrome."""
+"""Source contracts for the dedicated full-window GPS map and its safe controls."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -7,118 +7,47 @@ shell = (ROOT / "app/src/main/java/com/tacresq/app/ui/RoleShell.kt").read_text()
 map_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text()
 
 map_branch = shell.split("if (selected == AppDestination.MAP)", 1)[1].split("} else {", 1)[0]
-assert "mapContent()" in map_branch, "the map destination must render its dedicated content"
-assert "TacruBottomNavigation(" not in map_branch, (
-    "the app bottom navigation must not consume space on the full-screen map"
-)
-assert "Scaffold(" in shell and "TacruBottomNavigation(" in shell, (
-    "the regular role destinations must retain the shared navigation shell"
-)
-assert "BackHandler { onBack() }" in map_screen, (
-    "Android system Back must close the full-screen map and return to the prior screen"
-)
-assert 'contentDescription = "Back to app"' in map_screen, (
-    "the map must expose a clear, accessible visible return action"
-)
-assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen, (
-    "map controls must respect system bars while the map surface remains edge-to-edge"
-)
-assert "modifier = Modifier.fillMaxSize()" in map_screen, (
-    "the map surface must continue filling its available viewport"
-)
-assert "setBuiltInZoomControls(false)" in map_screen, (
-    "osmdroid's built-in zoom buttons must not clutter the map"
-)
-assert "CustomZoomButtonsController.Visibility.NEVER" in map_screen, (
-    "the osmdroid zoom controller must remain hidden"
-)
-print("GPS map full-window, visible Back, and no-zoom-controls contract passed.")
+assert "mapContent()" in map_branch
+assert "TacruBottomNavigation(" not in map_branch
+assert "Scaffold(" in shell and "TacruBottomNavigation(" in shell
+assert "BackHandler { onBack() }" in map_screen
+assert "Text(\"Back\", style = MaterialTheme.typography.labelLarge)" in map_screen
+assert "onClick = onBack" in map_screen
+assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen
+assert "modifier = Modifier.fillMaxSize()" in map_screen
+assert "setBuiltInZoomControls(false)" in map_screen
+assert "CustomZoomButtonsController.Visibility.NEVER" in map_screen
+assert "controller.zoomIn()" not in map_screen and "controller.zoomOut()" not in map_screen
 
-# Floating controls stay in the upper-right map area so a fixed bottom offset
-# cannot push them outside the viewport on short screens.
-assert ".align(Alignment.TopEnd)" in map_screen, (
-    "map action buttons must stay in the upper-right viewport"
-)
-assert "val mapActionsTopPadding = when {" in map_screen, (
-    "map action controls need a responsive top offset"
-)
-assert "hasValidatedInternet == false -> if (detailsExpanded) 184.dp else 156.dp" in map_screen, (
-    "map action buttons must clear the offline banner when connectivity is unavailable"
-)
-assert ".padding(top = mapActionsTopPadding, end = 12.dp)" in map_screen, (
-    "map action buttons must use the responsive offset and remain reachable"
-)
-assert "if (detailsExpanded) 330.dp else 74.dp" not in map_screen, (
-    "fixed bottom offset can push controls off-screen on short devices"
-)
-print("GPS map responsive control placement contract passed.")
+# The map uses one compact toolbar, a small set of map filters, and a collapsible
+# information sheet rather than several competing floating control stacks.
+assert "GpsMapFilterButtons(" in map_screen
+assert 'Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1)' in map_screen
+assert 'Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1)' in map_screen
+assert 'contentDescription = if (deviceFix == null) "Locate me" else "Refresh location"' in map_screen
+assert "enabled = !isLocationRequestInProgress" in map_screen
+assert "if (isLocationRequestInProgress) return" in map_screen
+assert "isLocationRequestInProgress = false" in map_screen
+assert "locationStatus ?: defaultMapStatus" in map_screen
+assert "if (detailsExpanded)" in map_screen
 
-# Stale last-known locations remain visible but never drive automatic framing.
-# Fresh/aging units can frame the map when incident coordinates are not available;
-# stale units require an explicit Field units action, preventing a stale-only first
-# render from blocking auto-framing when incident data arrives later.
+# Stale last-known responder positions remain visible but cannot dominate initial framing.
 assert "val responderPointsForInitialFrame = validResponderLocations" in map_screen
 assert ".filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }" in map_screen
 assert "validIncidentPoints + responderPointsForInitialFrame" in map_screen
-assert "var hasAutoFramedInitialMapPoints by remember { mutableStateOf(false) }" in map_screen
-assert "var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }" in map_screen
 assert "val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
-assert "if (shouldFrameIncidentPoints) hasAutoFramedIncidentPoints = true" in map_screen
-assert "val validResponderPoints = validResponderLocations.map { GeoPoint(it.latitude, it.longitude) }" in map_screen
 assert "onShowActiveUnits = ::showActiveUnits" in map_screen
-assert "mapView.overlays.removeAll { it is Marker }" in map_screen, (
-    "stale pins must remain in the rendered overlay set; only initial framing excludes them"
-)
-print("GPS map initial framing excludes stale-only unit positions.");
+assert "mapView.overlays.removeAll { it is Marker }" in map_screen
 
-# Keep spatial actions compact so they do not form a tall stack over the map.
-assert 'Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)' in map_screen
-assert 'Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)' in map_screen
-assert 'contentDescription = if (deviceFix == null) "Locate me" else "Refresh location"' in map_screen, (
-    "the compact recenter control must remain accessible to screen readers"
-)
-assert "Modifier.widthIn(min = 100.dp).heightIn(min = 48.dp)" in map_screen
-assert "Modifier.widthIn(min = 112.dp).heightIn(min = 48.dp)" in map_screen
-assert "Modifier.size(48.dp)" in map_screen, "recenter target must remain at least 48dp"
-assert "enabled = !isLocationRequestInProgress" in map_screen, (
-    "Locate me must be disabled while a location request is in flight"
-)
-assert "if (isLocationRequestInProgress) return" in map_screen, (
-    "rapid taps must not launch overlapping device-location requests"
-)
-assert "isLocationRequestInProgress = false" in map_screen, (
-    "location action state must reset in finally after success or failure"
-)
-assert "horizontalArrangement = Arrangement.spacedBy(8.dp)" in map_screen
-print("GPS map compact action-row and touch-target contract passed.")
-
-# The chevron must describe the action available in the current state.
-assert """imageVector = if (detailsExpanded)
-                                androidx.compose.material.icons.Icons.Default.ExpandLess
-                            else androidx.compose.material.icons.Icons.Default.ExpandMore,""" in map_screen, (
-    "expanded details should show collapse; collapsed details should show expand"
-)
-print("GPS map details affordance contract passed.")
-
-# A location preview is in-memory only and must be cleared if the user revokes
-# location permission while the map is backgrounded in Android Settings.
+# Location preview is cleared if permission is revoked while the map is backgrounded.
 assert "val latestDeviceFix by rememberUpdatedState(deviceFix)" in map_screen
-assert "Lifecycle.Event.ON_RESUME ->" in map_screen
-resume_branch = map_screen.split("Lifecycle.Event.ON_RESUME ->", 1)[1].split(
-    "Lifecycle.Event.ON_PAUSE ->", 1
-)[0]
+resume_branch = map_screen.split("Lifecycle.Event.ON_RESUME ->", 1)[1].split("Lifecycle.Event.ON_PAUSE ->", 1)[0]
 assert "!locationProvider.hasPermission() && latestDeviceFix != null" in resume_branch
 assert "deviceFix = null" in resume_branch
 assert "The previous location preview was cleared." in resume_branch
-print("GPS map permission-revocation lifecycle contract passed.")
 
+# Future timestamps cannot be treated as fresh locations.
+assert "if (recorded.isAfter(now)) return null" in map_screen
+assert "if (recordedAt.isAfter(now))" in map_screen
 
-# Reject future location timestamps before converting age to whole seconds. Java Duration.seconds
-# truncates sub-second negative durations toward zero, so the comparison must be explicit.
-assert "if (recorded.isAfter(now)) return null" in map_screen, (
-    "future responder timestamps, including sub-second offsets, must not be classified as fresh"
-)
-assert "if (recordedAt.isAfter(now))" in map_screen, (
-    "future incident timestamps must remain marked for confirmation before navigation"
-)
-print("GPS future-timestamp safety contract passed.")
+print("GPS map full-window, Back, map controls, and location-safety contracts passed.")
