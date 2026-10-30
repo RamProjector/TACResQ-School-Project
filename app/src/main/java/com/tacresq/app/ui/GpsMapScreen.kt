@@ -145,6 +145,14 @@ private fun formatLocationAge(ageSeconds: Long): String = when {
 }
 
 /**
+ * Accuracy is a radius in meters, not a point coordinate. Never present malformed
+ * server values (NaN, infinity, or negative numbers) as trustworthy precision.
+ */
+private fun Float?.validAccuracyLabel(prefix: String): String? =
+    this?.takeIf { it.isFinite() && it >= 0f }
+        ?.let { "$prefix${it.roundToInt()} m" }
+
+/**
  * Incident coordinates may be valid but old. Keep the pin visible, while making
  * the recorded age explicit so users can confirm the destination before navigating.
  */
@@ -620,7 +628,7 @@ fun GpsMapScreen(
                         else -> "Location source not reported"
                     }
                     val accuracy = if (incident.locationSource == "gps") {
-                        incident.accuracyM?.let { "GPS accuracy about ${it.roundToInt()} m" }
+                        incident.accuracyM.validAccuracyLabel("GPS accuracy about ")
                     } else null
                     val note = incident.locationNotes?.takeIf { it.isNotBlank() }
                     val locationAgeLabel = incident.locationAgeStatus(mapNow).first
@@ -646,7 +654,7 @@ fun GpsMapScreen(
                         "${freshness.label} field-unit location · Incident #${location.incidentId}"
                     },
                 )
-                val accuracy = location.accuracyM?.let { " · reported accuracy about ${it.roundToInt()} m" } ?: ""
+                val accuracy = location.accuracyM.validAccuracyLabel(" · reported accuracy about ") ?: ""
                 val age = formatLocationAge(ageSeconds)
                 snippet = if (freshness == MapLocationFreshness.STALE) {
                     "STALE — last known position, $age$accuracy. Do not treat this marker as live; confirm with dispatch."
@@ -957,9 +965,7 @@ fun GpsMapScreen(
                                         if (ageSeconds != null) {
                                             append(" · last reported ${formatLocationAge(ageSeconds)}")
                                         }
-                                        location.accuracyM?.let {
-                                            append(" · accuracy about ${it.roundToInt()} m")
-                                        }
+                                        location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let(::append)
                                         if (freshness == MapLocationFreshness.STALE) {
                                             append(" · last known, not live")
                                         }
