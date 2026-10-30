@@ -263,7 +263,6 @@ fun GpsMapScreen(
         Role.DISPATCHER -> incidents.filter { it.status.isActive || it.status.name == "PENDING" }
         Role.ADMIN -> emptyList()
     }
-    val title = "GPS Map"
     val validIncidentPoints = visibleIncidents.mapNotNull { incident ->
         val lat = incident.latitude
         val lng = incident.longitude
