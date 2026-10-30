@@ -145,8 +145,8 @@ checks = {
     "field units are not described as live before a location is confirmed": all(
         text in responder for text in (
             "Waiting for the first confirmed location update.",
-            "the latest update failed",
-            "Responder location is not currently being shared.",
+            "Last location update failed.",
+            "Location sharing is off.",
             "Share location & start",
             "Start without sharing",
         )
