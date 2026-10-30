@@ -36,6 +36,9 @@ jobs:
       - name: Check persistent feedback banner semantics
         run: python3 tools/test_feedback_banner_semantics.py
 
+      - name: Check notification action feedback hierarchy
+        run: python3 tools/test_notification_action_feedback.py
+
       - name: Check Android Supabase auth redirect contract
         run: python3 tools/test_android_auth_redirect_contract.py
 
