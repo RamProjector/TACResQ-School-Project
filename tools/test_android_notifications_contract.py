@@ -108,6 +108,15 @@ assert "GPS Map" in shell, "GPS Map must remain visible in the central navigatio
 assert 'ALERTS("Alerts")' in shell, "notifications must be discoverable from the Alerts destination"
 assert 'ScreenHeader(title = "Alerts & safety"' in screen, "the destination must preserve its safety guidance context"
 
+components = read("app/src/main/java/com/tacresq/app/ui/common/Components.kt")
+assert "fun ScreenHeader(title: String, subtitle: String = \"\")" in components
+assert "Text(\"Sign out\")" not in components, "sign-out must not appear in the shared screen header"
+app_root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
+assert 'Text("Sign out")' in app_root and 'Text("Cancel")' in app_root
+assert 'Text("Your emergency requests will remain active.' in app_root, "logout confirmation must explain active-request behavior"
+assert "showSignOutConfirmation = true" in app_root
+
+
 # Client code must consume the protected RPCs, not read/write the private table directly.
 for path in (
     "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt",
