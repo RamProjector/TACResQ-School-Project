@@ -52,3 +52,12 @@ No live Supabase migration, production message, account change, Render deploymen
 - Requesters retain the existing conversation entry from their role-scoped request list and incident-message notifications.
 - Message access continues to be authorized by the existing caller-scoped RPCs and database policies; the UI action is not an authorization boundary.
 - Automated source-contract coverage verifies that the active request ID is passed to the chat route. Physical-device and live non-production account verification remain separate checks.
+
+
+## Shared header and sign-out placement
+
+- Shared role-screen headers no longer display a sign-out action. This prevents a high-consequence session action from competing with primary screen navigation.
+- Standard role profiles expose **Sign out** as a secondary action, with a confirmation dialog explaining that active emergency requests remain active and are not cancelled by ending the session.
+- The notification destination remains available through the existing Alerts navigation entry until the separate top-right notification affordance is implemented and tested.
+- The dedicated Android admin access screen does not yet have the shared role Profile destination; its account/session exit path needs a role-appropriate follow-up rather than silently dropping administrator sign-out access.
+- No authentication, session invalidation, incident lifecycle, or backend authorization behavior was changed.
