@@ -879,7 +879,7 @@ fun GpsMapScreen(
                 if (detailsExpanded) {
                     if (role == Role.DISPATCHER) {
                         Text(
-                            "Fresh <30s · Aging 30–120s · Stale >120s. Stale pins are last known.",
+                            "Fresh <30s · Aging 30–120s · Stale >120s. Stale markers are last-known positions, not live.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
