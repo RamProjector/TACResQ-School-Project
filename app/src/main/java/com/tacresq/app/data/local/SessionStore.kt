@@ -5,7 +5,6 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
@@ -13,10 +12,11 @@ import com.tacresq.app.data.model.Session
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.onEach
 import java.io.IOException
+import kotlinx.coroutines.delay
 import java.security.KeyStore
 import java.util.UUID
 import kotlinx.coroutines.sync.Mutex
@@ -49,8 +49,15 @@ class SessionStore(
 
     val session: Flow<Session?> = if (persistSessions) {
         context.sessionDataStore.data
-            .catch { e ->
-                if (e is IOException) emit(emptyPreferences()) else throw e
+            // A transient disk read failure is not proof that the user signed out.
+            // Keep the last StateFlow value while DataStore retries the read.
+            .retryWhen { cause, attempt ->
+                if (cause is IOException) {
+                    delay(sessionStoreReadRetryDelayMillis(attempt))
+                    true
+                } else {
+                    false
+                }
             }
             .onEach { prefs ->
                 // Remove pre-encryption credentials as soon as this store is first read,
@@ -209,4 +216,10 @@ class SessionStore(
         const val GCM_IV_LENGTH_BYTES = 12
         const val GCM_TAG_LENGTH_BITS = 128
     }
+}
+
+/** Capped exponential backoff for recoverable DataStore read failures. */
+internal fun sessionStoreReadRetryDelayMillis(attempt: Long): Long {
+    val exponent = attempt.coerceIn(0L, 5L).toInt()
+    return (1_000L shl exponent).coerceAtMost(30_000L)
 }
