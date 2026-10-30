@@ -34,7 +34,7 @@ required = (
     'this?.takeIf { it.isFinite() && it >= 0f }',
     'incident.accuracyM.validAccuracyLabel("GPS accuracy about ")',
     'location.accuracyM.validAccuracyLabel(" · reported accuracy about ")',
-    'location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let(::append)',
+    'location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }',
 )
 missing = [snippet for snippet in required if snippet not in source]
 if missing:
