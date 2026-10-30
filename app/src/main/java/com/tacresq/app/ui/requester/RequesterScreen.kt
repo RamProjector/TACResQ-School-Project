@@ -1271,10 +1271,10 @@ private fun ManualLocationPickerDialog(
                         onClick = onDismiss,
                         modifier = Modifier.size(48.dp),
                     ) {
-                        Text(
-                            text = "×",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                     Card(
