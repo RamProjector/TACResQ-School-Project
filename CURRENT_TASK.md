@@ -288,3 +288,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Regression coverage:** Added source contract assertions for the one-line label and prevention of the old wrapping label.
 - **Scope:** No request payload, validation, SOS submission, location handling, or backend behavior changed.
 - **Validation:** CI must verify this exact PR head. Emulator/narrow-device visual check not run.
+
+
+# Active handoff — 2026-10-31: notification access from every incident-chat role
+
+- **Finding:** Requester incident-chat headers already exposed the notification bell, but responder/driver and dispatcher chat routes did not pass the shared navigation callback.
+- **Implementation:** Wired the existing notification destination callback into both remaining role-specific incident-chat routes. No new screen or notification behavior was introduced.
+- **Research basis:** Android top app bars host core contextual actions, and notification taps/actions should take users to the directly relevant destination. Official guidance: https://developer.android.com/develop/ui/compose/components/app-bars and https://developer.android.com/design/ui/mobile/guides/home-screen/notifications.
+- **Regression coverage:** Static notification contract now requires all three incident-chat route groups to provide the callback.
+- **Validation:** Await exact-head CI. No device visual validation or live notification delivery test performed.
