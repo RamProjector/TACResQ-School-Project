@@ -9,6 +9,7 @@ admin_migration = (ROOT / "supabase/migrations/20261026161500_admin_role_audit_f
 admin_runbook = (ROOT / "docs/ADMIN_PROVISIONING_RUNBOOK.md").read_text()
 location_migration = (ROOT / "supabase/migrations/20261030100000_require_incident_location_fallback.sql").read_text().lower()
 signup_migration = (ROOT / "supabase/migrations/20261030110000_require_requester_signup_contact.sql").read_text().lower()
+signup_bounds_migration = (ROOT / "supabase/migrations/20261030120000_bound_requester_signup_contact_lengths.sql").read_text().lower()
 
 # SOS category must be selected explicitly; Other requires details.
 assert "mutableStateOf<IncidentType?>(null)" in requester
@@ -45,6 +46,49 @@ assert '"role" to "requester"' in supabase_api, "Public Supabase signup must for
 assert "administrator provisioning is operator-only" in admin_migration.lower()
 assert "a full name is required for requester registration" in signup_migration
 assert "a valid mobile number is required for requester registration" in signup_migration
+
+assert "name.trim().length > 120" in auth
+assert "requester names must contain 120 characters or fewer" in signup_bounds_migration
+assert "char_length(full_name) > 120" in signup_bounds_migration
+assert "phone.length > 25" in auth
+assert "char_length(phone_value) > 25" in signup_bounds_migration
+assert "phone.count { it in '0'..'9' }" in auth
+assert 'phone.any { it !in \'0\'..\'9\' && it !in "+- ()" }' in auth
+assert "phone_value !~ '^[0-9+() -]+assert "requester mobile numbers must contain 7 to 15 digits" in signup_migration
+assert "'requester'" in signup_migration
+assert "raw_user_meta_data ->> 'role'" not in signup_migration
+for prerequisite in (
+    "approved out-of-band process",
+    "existing Supabase Auth user UUID",
+    "verified email-backed account",
+    "operator identity and change/ticket reference",
+    "linked to a verified Supabase Auth user",
+):
+    assert prerequisite.lower() in admin_runbook.lower(), f"Missing Admin provisioning prerequisite: {prerequisite}"
+
+# Admin role changes cannot be confirmed without a reason; the UI explains why.
+assert 'label = { Text("Audit reason (required)") }' in admin
+assert "reason.trim().length in 10..500" in admin
+assert "Required: explain why this role change is necessary." in admin
+assert "This explanation is saved in the audit history." in admin
+assert "repository.setAdminUserRole(account.id, targetRole, reason.trim())" in admin
+# High-impact role changes require an explicit target choice and clear identity context.
+assert 'var targetRole by remember { mutableStateOf("") }' in admin
+assert 'targetRole = ""' in admin
+assert 'No role is preselected.' in admin
+assert 'Text("${account.email} · Account ID ${account.id}"' in admin
+assert 'targetRole in adminRoles' in admin
+assert 'Confirm ${targetRole.replaceFirstChar { it.uppercase() }} role' in admin
+assert "onDismissRequest = { if (!loading) selectedUser = null }" in admin
+assert 'enabled = !loading, onClick = { targetRole = role; error = null }' in admin
+assert 'onValueChange = { if (it.length <= 500) { reason = it; error = null } }' in admin
+assert "enabled = !loading," in admin[admin.index("value = reason"):admin.index("modifier = Modifier.fillMaxWidth()", admin.index("value = reason"))]
+assert 'error?.let {' in admin[admin.indexOf('selectedUser?.let'):admin.indexOf('confirmButton = {')]
+assert "Saving role change…" in admin
+assert 'enabled = !loading) { Text("Cancel") }' in admin
+
+print("Required requester, SOS location, and admin audit feedback contracts passed.")
+" in signup_bounds_migration
 assert "requester mobile numbers must contain 7 to 15 digits" in signup_migration
 assert "'requester'" in signup_migration
 assert "raw_user_meta_data ->> 'role'" not in signup_migration
