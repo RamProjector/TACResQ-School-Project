@@ -56,6 +56,9 @@ jobs:
       - name: Check requester SOS stage heading accessibility
         run: python3 tools/test_requester_sos_stage_headings.py
 
+      - name: Check required requester, SOS location, and admin feedback
+        run: python3 tools/test_required_request_and_admin_feedback.py
+
       - name: Check Android Supabase auth redirect contract
         run: python3 tools/test_android_auth_redirect_contract.py
 
