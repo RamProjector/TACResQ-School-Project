@@ -77,6 +77,9 @@ checks = {
             "config.userAgentValue =",
         )
     ),
+    "full-screen requester location picker exposes a named accessibility pane": (
+        'paneTitle = "Choose emergency location"' in requester
+    ),
     "manual pin shows live center coordinates and warns against blank-map selection": all(
         text in requester for text in (
             "import org.osmdroid.events.MapListener",
