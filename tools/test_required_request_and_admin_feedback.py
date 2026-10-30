@@ -6,6 +6,7 @@ auth = (ROOT / "app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt").read_t
 admin = (ROOT / "app/src/main/java/com/tacresq/app/ui/admin/AdminAccessScreen.kt").read_text()
 supabase_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 admin_migration = (ROOT / "supabase/migrations/20261026161500_admin_role_audit_foundation.sql").read_text()
+admin_runbook = (ROOT / "docs/ADMIN_PROVISIONING_RUNBOOK.md").read_text()
 
 # A requester must provide either a fresh location pin or a usable landmark.
 assert "if (!hasFreshPin && locationNotes.isBlank())" in requester
@@ -23,6 +24,14 @@ for label in ("Full name (required)", "Mobile number (required)", "Email address
 assert "Staff and administrator accounts are provisioned separately" in auth
 assert '"role" to "requester"' in supabase_api, "Public Supabase signup must force the requester role."
 assert "administrator provisioning is operator-only" in admin_migration.lower()
+for prerequisite in (
+    "approved out-of-band process",
+    "existing Supabase Auth user UUID",
+    "verified email-backed account",
+    "operator identity and change/ticket reference",
+    "linked to a verified Supabase Auth user",
+):
+    assert prerequisite.lower() in admin_runbook.lower(), f"Missing Admin provisioning prerequisite: {prerequisite}"
 
 # Admin role changes cannot be confirmed without a reason; the UI explains why.
 assert 'label = { Text("Audit reason (required)") }' in admin
