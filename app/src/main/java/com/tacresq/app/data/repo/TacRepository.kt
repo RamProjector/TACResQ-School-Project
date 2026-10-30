@@ -295,8 +295,15 @@ class TacRepository(
             Result.failure(ApiException(errorMessage(e), e.code()))
         } catch (e: IOException) {
             Result.failure(ApiException("No connection. Check your network and try again."))
+        } catch (e: ApiException) {
+            // Preserve deliberate, user-safe validation and feature-availability messages.
+            Result.failure(e)
+        } catch (e: IllegalArgumentException) {
+            // Do not surface arbitrary parser/library exception text to the user.
+            Result.failure(ApiException("Please check the information you entered and try again."))
         } catch (e: Exception) {
-            Result.failure(ApiException(e.message ?: "Something went wrong."))
+            // Unexpected exceptions may contain SQL, provider, or implementation details.
+            Result.failure(ApiException("Something went wrong. Please try again."))
         }
     }
 
