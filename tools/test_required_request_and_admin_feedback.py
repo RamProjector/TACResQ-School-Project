@@ -15,6 +15,7 @@ assert "emergencyTypeError = selectedType == null" in requester
 assert "selectedType == IncidentType.OTHER && description.isBlank()" in requester
 assert "Describe the emergency (required)" in requester
 assert "Emergency type (required)" in requester
+assert "an emergency description is required for the other type" in location_migration
 
 # A requester must provide either a fresh location pin or a usable landmark.
 assert "if (!hasFreshPin && locationNotes.isBlank())" in requester
