@@ -34,7 +34,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Groups
@@ -356,7 +356,6 @@ fun GpsMapScreen(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
-            setBuiltInZoomControls(false)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
             isTilesScaledToDpi = true
             controller.setZoom(12.0)
@@ -712,7 +711,7 @@ fun GpsMapScreen(
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                     ) {
                         androidx.compose.material3.Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
+                            imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
