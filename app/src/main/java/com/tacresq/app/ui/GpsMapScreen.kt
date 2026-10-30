@@ -1067,14 +1067,18 @@ private fun MapIncidentCard(
                 ) {
                     androidx.compose.material3.FilledTonalButton(
                         onClick = { onFocusOnMap(incident) },
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
+                            contentDescription = "Show incident #${incident.id} on map"
+                        },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                     ) {
                         Text("Show on map", maxLines = 1)
                     }
                     OutlinedButton(
                         onClick = { openExternalMaps(context, lat, lng) },
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
+                            contentDescription = "Navigate to incident #${incident.id}"
+                        },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                     ) {
                         Text("Navigate", maxLines = 1)
