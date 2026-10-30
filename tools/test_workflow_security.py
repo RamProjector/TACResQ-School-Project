@@ -21,7 +21,7 @@ def main() -> None:
             f"{relative}: wildcard write permissions are forbidden"
         )
 
-        assert not re.search(r"(?m)^\\s*uses:\\s*[^\\s]+@(latest|main|master)\\b", source), (
+        assert not re.search(r"(?m)^\s*uses:\s*[^\s]+@(latest|main|master)\b", source), (
             f"{relative}: mutable latest/main/master action references are forbidden"
         )
 
@@ -76,7 +76,7 @@ def main() -> None:
         "Manual stress-test input must be passed through an environment variable"
     )
     stress_step = re.search(
-        r"(?ms)- name: Run bounded GET stress test\\n(.*?)(?=\\n      - name:|\\Z)", quality
+        r"(?ms)- name: Run bounded GET stress test\n(.*?)(?=\n      - name:|\Z)", quality
     )
     assert stress_step and '--requests "$STRESS_REQUESTS"' in stress_step.group(1), (
         "Stress-test input must be quoted as an environment variable"
