@@ -42,6 +42,7 @@ required = (
     '.padding(horizontal = 8.dp, vertical = 12.dp)',
     "val mapDetailsMaxHeight = (maxHeight * 0.38f).coerceAtMost(320.dp)",
     "BoxWithConstraints(",
+    "horizontalScroll(rememberScrollState())",
     ".heightIn(max = mapDetailsMaxHeight)",
     'LazyColumn(\n                        modifier = Modifier\n                            .fillMaxWidth()\n                            .heightIn(max = mapDetailsMaxHeight)',
     'var showNavigationConfirmation by remember(incident.id) { mutableStateOf(false) }',
