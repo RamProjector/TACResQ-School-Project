@@ -537,8 +537,13 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     Text("An earlier SOS needs confirmation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("TACResQ saved the original request. Retry it exactly as submitted; do not create a replacement SOS while its outcome is unknown.")
                     Button(onClick = vm::retryPendingSos, enabled = !state.sending, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                        if (state.sending) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else Text("Retry saved SOS")
+                        if (state.sending) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text("Retrying saved SOS…")
+                        } else {
+                            Text("Retry saved SOS")
+                        }
                     }
                 }
             }
