@@ -64,6 +64,7 @@ import com.tacresq.app.ui.common.SyncStatus
 import com.tacresq.app.ui.common.SectionHeading
 import com.tacresq.app.ui.common.StatusPill
 import com.tacresq.app.ui.common.actionLabel
+import com.tacresq.app.ui.common.pillColor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -416,7 +417,8 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                 ) {
                     Text("Your response", style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    StatusPill(incident.statusFor(user.id).label, incident.status.pillColor())
+                    val ownStatus = incident.statusFor(user.id)
+                    StatusPill(ownStatus.label, ownStatus.pillColor())
                 }
                 val contact = listOfNotNull(incident.requesterName, incident.requesterPhone)
                     .joinToString(", ")
