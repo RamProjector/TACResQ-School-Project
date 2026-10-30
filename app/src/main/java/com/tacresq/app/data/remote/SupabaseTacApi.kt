@@ -3,6 +3,10 @@ package com.tacresq.app.data.remote
 import com.google.gson.annotations.SerializedName
 import com.google.gson.GsonBuilder
 import com.tacresq.app.AppConfig
+import com.tacresq.app.data.model.AdminUserPage
+import com.tacresq.app.data.model.AdminUserRecord
+import com.tacresq.app.data.model.AdminAuditEvent
+import com.tacresq.app.data.model.AdminRoleChangeResult
 import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.ResponderLocation
@@ -26,7 +30,7 @@ class SupabaseTacApi private constructor(
     private val auth: SupabaseAuthWire,
     private val rpc: SupabaseRpcWire,
     private val bridgeRpc: SupabaseBridgeRpcWire?,
-) : TacApi, TacNotificationApi, TacChatApi {
+) : TacApi, TacNotificationApi, TacChatApi, TacAdminApi {
     override suspend fun login(body: LoginRequest): AuthResponse = authenticate {
         auth.login(body)
     }
@@ -130,6 +134,26 @@ class SupabaseTacApi private constructor(
         require(limit in 1..100) { "Message page size must be between 1 and 100." }
         require(beforeId == null || beforeId > 0) { "Message cursor must be positive." }
         return rpc.myIncidentMessages(IncidentMessagesRpc(incidentId, limit, beforeId))
+    }
+
+    override suspend fun adminUsersPage(limit: Int, offset: Int, query: String, role: String): AdminUserPage {
+        require(limit in 1..100 && offset >= 0 && offset <= 1_000_000) { "Invalid administrator page bounds." }
+        require(query.length <= 120) { "Search query is too long." }
+        require(role in setOf("all", "requester", "responder", "driver", "dispatcher", "admin")) { "Unsupported role filter." }
+        return rpc.adminUsersPage(AdminUsersPageRpc(limit, offset, query.trim(), role))
+    }
+
+    override suspend fun adminAuditLogs(limit: Int): List<AdminAuditEvent> {
+        require(limit in 1..200) { "Audit page size must be between 1 and 200." }
+        return rpc.adminAuditLogs(AdminAuditLimitRpc(limit))
+    }
+
+    override suspend fun adminSetUserRole(userId: Long, role: String, reason: String): AdminRoleChangeResult {
+        require(userId > 0) { "User ID must be positive." }
+        require(role in setOf("requester", "responder", "driver", "dispatcher")) { "Administrator accounts cannot be provisioned or demoted here." }
+        val normalizedReason = reason.trim()
+        require(normalizedReason.length in 10..500) { "Provide an audit reason between 10 and 500 characters." }
+        return rpc.adminSetUserRole(AdminSetRoleRpc(userId, role, normalizedReason))
     }
 
     override suspend fun sendIncidentMessage(incidentId: Long, message: String, clientMessageId: String): IncidentMessage {
@@ -319,6 +343,15 @@ private interface SupabaseRpcWire {
 
     @POST("rest/v1/rpc/api_send_incident_message")
     suspend fun sendIncidentMessage(@Body body: SendIncidentMessageRpc): IncidentMessage
+
+    @POST("rest/v1/rpc/api_admin_list_users_page")
+    suspend fun adminUsersPage(@Body body: AdminUsersPageRpc): AdminUserPage
+
+    @POST("rest/v1/rpc/api_admin_list_audit_logs")
+    suspend fun adminAuditLogs(@Body body: AdminAuditLimitRpc): List<AdminAuditEvent>
+
+    @POST("rest/v1/rpc/api_admin_set_user_role")
+    suspend fun adminSetUserRole(@Body body: AdminSetRoleRpc): AdminRoleChangeResult
 }
 
 private data class SupabaseSession(@SerializedName("access_token") val accessToken: String?)
@@ -357,6 +390,18 @@ private data class IncidentMessagesRpc(
     @SerializedName("p_incident_id") val incidentId: Long,
     @SerializedName("p_limit") val limit: Int,
     @SerializedName("p_before_id") val beforeId: Long?,
+)
+private data class AdminUsersPageRpc(
+    @SerializedName("p_limit") val limit: Int,
+    @SerializedName("p_offset") val offset: Int,
+    @SerializedName("p_query") val query: String,
+    @SerializedName("p_role") val role: String,
+)
+private data class AdminAuditLimitRpc(@SerializedName("p_limit") val limit: Int)
+private data class AdminSetRoleRpc(
+    @SerializedName("p_user_id") val userId: Long,
+    @SerializedName("p_role") val role: String,
+    @SerializedName("p_reason") val reason: String,
 )
 private data class SendIncidentMessageRpc(
     @SerializedName("p_incident_id") val incidentId: Long,
