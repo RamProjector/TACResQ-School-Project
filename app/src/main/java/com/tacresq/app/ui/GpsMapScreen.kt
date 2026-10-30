@@ -870,92 +870,80 @@ fun GpsMapScreen(
                 }
 
                 if (detailsExpanded) {
-                    // Explain marker categories in text as well as through their artwork.
-                    // Android accessibility guidance recommends never using color alone
-                    // to communicate category or operational state.
-                    Text(
-                        if (role == Role.DISPATCHER) {
-                            "Map key · Incident pin: active emergency · Field-unit pin: responder location"
-                        } else {
-                            "Map key · Incident pin: active emergency"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (role == Role.DISPATCHER) {
-                        Text(
-                            "Fresh under 30s · Aging 30–120s · Stale over 120s. Stale markers are last-known positions, not live.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    if (deviceFix != null) {
-                        Text(
-                            "One-time preview · stays on this device, not uploaded.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    if (visibleIncidents.isNotEmpty()) {
-                        Text(
-                            "Incidents",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.semantics { heading() },
-                        )
-                        LazyColumn(
-                            modifier = Modifier
-                                .height(160.dp)
-                                .semantics {
-                                    collectionInfo = CollectionInfo(
-                                        rowCount = visibleIncidents.size,
-                                        columnCount = 1,
-                                    )
+                    // One vertically scrolling collection keeps incident and field-unit
+                    // content in a single gesture/viewport, including at larger font scales.
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp),
+                        contentPadding = PaddingValues(vertical = 2.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        item(key = "map-key", contentType = "map-info") {
+                            Text(
+                                if (role == Role.DISPATCHER) {
+                                    "Map key · Incident pin: active emergency · Field-unit pin: responder location"
+                                } else {
+                                    "Map key · Incident pin: active emergency"
                                 },
-                            contentPadding = PaddingValues(vertical = 2.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            itemsIndexed(visibleIncidents, key = { _, incident -> incident.id }) { index, incident ->
-                                Box(
-                                    modifier = Modifier.semantics {
-                                        collectionItemInfo = CollectionItemInfo(
-                                            rowIndex = index,
-                                            columnIndex = 0,
-                                            rowSpan = 1,
-                                            columnSpan = 1,
-                                        )
-                                    },
-                                ) {
-                                    MapIncidentCard(
-                                        incident = incident,
-                                        context = context,
-                                        now = mapNow,
-                                        onFocusOnMap = ::focusIncidentOnMap,
-                                    )
-                                }
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (role == Role.DISPATCHER) {
+                            item(key = "unit-freshness-help", contentType = "map-info") {
+                                Text(
+                                    "Fresh under 30s · Aging 30–120s · Stale over 120s. Stale markers are last-known positions, not live.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
-                    }
-                    if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
-                        Text(
-                            "Field-unit locations",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.semantics { heading() },
-                        )
-                        LazyColumn(
-                            modifier = Modifier
-                                .heightIn(max = 120.dp)
-                                .semantics {
-                                    collectionInfo = CollectionInfo(
-                                        rowCount = validResponderLocations.size,
-                                        columnCount = 1,
-                                    )
-                                },
-                            contentPadding = PaddingValues(vertical = 2.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            itemsIndexed(validResponderLocations) { index, location ->
+                        if (deviceFix != null) {
+                            item(key = "local-preview-disclosure", contentType = "map-info") {
+                                Text(
+                                    "One-time preview · stays on this device, not uploaded.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (visibleIncidents.isNotEmpty()) {
+                            item(key = "incidents-heading", contentType = "section-heading") {
+                                Text(
+                                    "Incidents",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.semantics { heading() },
+                                )
+                            }
+                            itemsIndexed(
+                                visibleIncidents,
+                                key = { _, incident -> "incident-${incident.id}" },
+                                contentType = { _, _ -> "incident" },
+                            ) { _, incident ->
+                                MapIncidentCard(
+                                    incident = incident,
+                                    context = context,
+                                    now = mapNow,
+                                    onFocusOnMap = ::focusIncidentOnMap,
+                                )
+                            }
+                        }
+                        if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
+                            item(key = "field-units-heading", contentType = "section-heading") {
+                                Text(
+                                    "Field-unit locations",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.semantics { heading() },
+                                )
+                            }
+                            itemsIndexed(
+                                validResponderLocations,
+                                key = { _, location -> "unit-${location.incidentId}" },
+                                contentType = { _, _ -> "field-unit" },
+                            ) { _, location ->
                                 val ageSeconds = location.mapAgeSeconds(mapNow)
                                 val freshness = location.mapFreshness(mapNow)
                                 Text(
@@ -972,14 +960,6 @@ fun GpsMapScreen(
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .semantics {
-                                            collectionItemInfo = CollectionItemInfo(
-                                                rowIndex = index,
-                                                columnIndex = 0,
-                                                rowSpan = 1,
-                                                columnSpan = 1,
-                                            )
-                                        }
                                         .padding(horizontal = 10.dp, vertical = 7.dp),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
