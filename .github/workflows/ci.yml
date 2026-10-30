@@ -104,6 +104,9 @@ jobs:
       - name: Check GPS permission-denial settings recovery
         run: python3 tools/test_gps_permission_settings_recovery.py
 
+      - name: Check accuracy-aware GPS map preview
+        run: python3 tools/test_gps_accuracy_aware_preview.py
+
       - name: Check Android notification inbox security and lifecycle
         run: python3 tools/test_android_notifications_contract.py
 
