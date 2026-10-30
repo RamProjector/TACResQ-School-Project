@@ -13,6 +13,8 @@ dashboard = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
 location_provider = (ROOT / "app/src/main/java/com/tacresq/app/location/LocationProvider.kt").read_text()
 responder_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 map_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text()
+manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text()
+gradle = (ROOT / "app/build.gradle.kts").read_text()
 write_rpc = current_location_migration.split("create or replace function public.api_record_location_v2(", 1)[1].split("\n$function$;", 1)[0]
 read_rpc = current_location_migration.split("create or replace function public.api_active_responder_locations()", 1)[1].split("\n$function$;", 1)[0]
 read_policy = current_location_migration.split("create policy location_logs_read_dispatcher_or_owner", 1)[1].split(";", 1)[0]
@@ -26,6 +28,21 @@ checks = {
     "current dispatcher RPC filters malformed coordinates and future timestamps": "l.latitude between -90 and 90" in read_rpc and "l.longitude between -180 and 180" in read_rpc and "l.recorded_at <= now() + interval '5 minutes'" in read_rpc,
     "current RLS policy limits location reads to the active assigned unit": "i.status = 'en_route'" in read_policy and "a.user_id = location_logs.user_id" in read_policy and "a.responder_status = 'en_route'" in read_policy,
     "dashboard exposes freshness and missing/configuration states": all(text in dashboard for text in ('ageMs < 30_000', 'ageMs <= 120_000', 'unavailable', 'no live marker is shown')),
+    "API 37 precise one-time location uses the secure AndroidX Location Button": (
+        "targetSdk = 37" in gradle
+        and "androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01" in gradle
+        and 'android:usesPermissionFlags="onlyForLocationButton"' in manifest
+        and 'android:name="android.permission.USE_LOCATION_BUTTON"' in manifest
+        and "LocationButton(" in map_screen
+        and "LocationButtonTextType.None" in map_screen
+        and "onPermissionResult = { granted ->" in map_screen
+    ),
+    "approximate location remains available without granting session precision": (
+        "locationProvider.hasApproximatePermission()" in map_screen
+        and "Precise location wasn't shared" not in map_screen
+        and "locationProvider.hasPrecisePermission()" in map_screen
+        and "Incident pins remain available" in map_screen
+    ),
     "Android requests approximate updates with movement and cadence limits": all(text in location_provider for text in ('responderForegroundUpdates()', 'GRANULARITY_COARSE', 'RESPONDER_INTERVAL_MS = 12_000L', 'RESPONDER_MIN_DISTANCE_M = 20f')),
     "Android unregisters callback on flow cancellation": "awaitClose()" in location_provider and "finally {\n            client.removeLocationUpdates(callback)" in location_provider,
     "responder consent permits start without sharing and requests permission in context": "Share location & start" in responder_screen and "Start without sharing" in responder_screen and "ACCESS_COARSE_LOCATION" in responder_screen,
