@@ -3,7 +3,6 @@ package com.tacresq.app.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -81,32 +80,29 @@ private fun TacruBottomNavigation(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val labels = when (role) {
-            Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")
-            Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Alerts", "Profile")
-            Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")
-            Role.ADMIN -> listOf("Admin", "Audit", "Alerts", "Profile")
-        }
-        val destinations = listOf(
-            AppDestination.PRIMARY to labels[0],
-            AppDestination.SECONDARY to labels[1],
-            AppDestination.ALERTS to labels[2],
-            AppDestination.PROFILE to labels[3],
-        )
-
-        NavigationBar(
-            modifier = Modifier.fillMaxWidth(),
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            tonalElevation = 2.dp,
-        ) {
-            NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected)
-            NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected)
-            GpsMapNavigationItem(selected, onDestinationSelected)
-            NavigationItem(destinations[2].first, destinations[2].second, selected, onDestinationSelected)
-            NavigationItem(destinations[3].first, destinations[3].second, selected, onDestinationSelected)
-        }
+    val labels = when (role) {
+        Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")
+        Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Alerts", "Profile")
+        Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")
+        Role.ADMIN -> listOf("Admin", "Audit", "Alerts", "Profile")
+    }
+    val destinations = listOf(
+        AppDestination.PRIMARY to labels[0],
+        AppDestination.SECONDARY to labels[1],
+        AppDestination.ALERTS to labels[2],
+        AppDestination.PROFILE to labels[3],
+    )
+    NavigationBar(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 1.dp,
+    ) {
+        NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected)
+        NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected)
+        GpsMapNavigationItem(selected, onDestinationSelected)
+        NavigationItem(destinations[2].first, destinations[2].second, selected, onDestinationSelected)
+        NavigationItem(destinations[3].first, destinations[3].second, selected, onDestinationSelected)
     }
 }
 
@@ -139,48 +135,13 @@ private fun RowScope.GpsMapNavigationItem(
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
     val active = currentDestination == AppDestination.MAP
-    Column(
-        modifier = Modifier
-            .weight(1f)
-            .clickable { onDestinationSelected(AppDestination.MAP) }
-            .semantics {
-                contentDescription = "GPS Map"
-                selected = active
-                role = SemanticsRole.Tab
-            }
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 0.dp, vertical = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Surface(
-            color = if (active) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.primaryContainer,
-            contentColor = if (active) MaterialTheme.colorScheme.onPrimary
-                else MaterialTheme.colorScheme.onPrimaryContainer,
-            shape = RoundedCornerShape(18.dp),
-            tonalElevation = if (active) 2.dp else 0.dp,
-        ) {
-            Box(
-                modifier = Modifier.size(width = 54.dp, height = 36.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.LocationOn,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        }
-        Text(
-            text = "GPS Map",
-            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            softWrap = false,
-        )
-    }
+    NavigationDestinationItem(
+        destination = AppDestination.MAP,
+        label = "GPS Map",
+        icon = Icons.Filled.LocationOn,
+        active = active,
+        onClick = { onDestinationSelected(AppDestination.MAP) },
+    )
 }
 
 @Composable
