@@ -256,3 +256,14 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Validation:** Added source-contract assertions for requester callback wiring and active incident ID routing. CI results must be checked on the final PR head before merge. Emulator/device and live Supabase account checks are not run by this source edit.
 - **Branch/PR:** `fix/map-fullscreen-ui-consistency`, PR #215. Keep PR open until exact-head required checks pass; do not claim merge.
 - **Next task:** Inspect requester Notifications/Alerts placement and profile/sign-out behavior, then address the next discrete UI task without changing unrelated role workflows.
+
+
+## Handoff — 2026-10-31: sign-out placement
+
+- **Objective:** Prevent accidental logout by removing Sign out from shared screen headers and moving it to Profile.
+- **Implementation:** Shared ScreenHeader no longer renders Sign out. The Profile section now presents a full-width secondary Sign out action and asks for confirmation. Confirmation explicitly states that signing out does not cancel active emergency requests.
+- **Affected UI:** Shared components, requester/responder/dispatcher/chat headers, notifications header, role profile section, static notification/navigation contract test.
+- **Scope guard:** Existing Alerts navigation remains in place for now. The top-right notification button is the next separate task; do not remove Alerts until notification routing and unread indication are proven.
+- **Admin caveat:** AdminAccessScreen is currently a dedicated screen outside RoleShell/Profile. A role-appropriate admin account/session exit destination remains to be designed; do not silently remove admin sign-out access.
+- **Validation:** Static contract assertions added. Exact-head Android CI and security checks must pass before merge. No emulator/device session-flow test or live backend operation was performed.
+- **Next task:** Add a discoverable top-right notification action that routes to the existing notification inbox, then assess whether the Alerts bottom-navigation destination should be retained or retired.
