@@ -25,7 +25,7 @@ checks = {
     "User directory is bounded and paginated": "pageSize = 25" in admin_screen and "adminUsersPage(pageSize, page * pageSize" in admin_screen,
     "Audit view is bounded": "adminAuditLogs(100)" in admin_screen,
     "Role change requires a 10-500 character reason": "reason.trim().length in 10..500" in admin_screen,
-    "Admin role is excluded from Android-managed target roles": 'listOf("requester", "responder", "driver", "dispatcher")' in api,
+    "Admin role is excluded from Android-managed target roles": 'setOf("requester", "responder", "driver", "dispatcher")' in api,
     "Android uses the protected user-page, audit and role-change RPCs": all(name in api for name in ("api_admin_list_users_page", "api_admin_list_audit_logs", "api_admin_set_user_role")),
     "Admin RPCs are not added to the Render bridge allowlist": "adminUsersPage" not in api[api.find("private interface SupabaseBridgeRpcWire"):api.find("private interface SupabaseRpcWire")],
     "Repository fails closed when admin capability is unavailable": "Administrator tools are unavailable with the configured backend." in repository,
