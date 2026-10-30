@@ -135,13 +135,13 @@ checks = {
     "server response source is verified before claiming location confirmation": (
         "if (incident.locationSource != expectedSource) return false" in requester
     ),
-    "incident cards distinguish manual pins from GPS fixes": all(
+    "incident cards distinguish GPS, manual, and unverified location sources without dumping coordinates": all(
         text in incident_card for text in (
-            '"gps" -> "GPS pin"', '"manual" -> "Manual map pin"',
-            '"Location pin (source unverified)"', 'incident.locationSource == "gps"',
-            '"No location pin was shared"',
+            '"gps" -> "GPS"', '"manual" -> "Map pin"',
+            '"Unverified pin"', 'incident.locationSource == "gps"',
+            '"No location pin"',
         )
-    ),
+    ) and "String.format(Locale.US, \"%.5f, %.5f\", latitude, longitude)" not in incident_card,
     "field units are not described as live before a location is confirmed": all(
         text in responder for text in (
             "Waiting for the first confirmed location update.",
