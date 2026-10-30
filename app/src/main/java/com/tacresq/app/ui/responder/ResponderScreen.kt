@@ -358,7 +358,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                 unavailableMessage = when {
                     state.loading || state.refreshing -> "Checking assignments before allowing duty changes."
                     state.syncError != null -> "Could not verify assignments. Refresh before changing duty status."
-                    else -> "Your status updates automatically as you move the incident forward."
+                    else -> "Status follows your incident progress."
                 },
                 busy = state.busy,
                 onChange = vm::setDuty,
@@ -369,52 +369,35 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             item { Banner(message, isError = true, onDismiss = vm::dismissError) }
         }
 
-        if (active.isEmpty()) {
+        if (active.isEmpty() && (state.loading || state.syncError != null || state.dutyStatus == DutyStatus.AVAILABLE)) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         if (state.loading) {
-                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.padding(end = 12.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text("Checking assignments", style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        "Loading your current calls and duty status.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        } else if (state.syncError != null) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                "Assignments could not be verified",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                            Text(
-                                "Do not assume there are no active calls. Refresh assignments to verify your current duty status and assignments.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else {
-                            Text(
-                                if (state.dutyStatus == DutyStatus.AVAILABLE) "No active assignments"
-                                else "You are off duty",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                if (state.dutyStatus == DutyStatus.AVAILABLE) {
-                                    "You are available. New assignments will appear here when dispatch assigns one."
-                                } else {
-                                    "Set your duty status to Available when you are ready to receive assignments."
+                                when {
+                                    state.loading -> "Checking assignments"
+                                    state.syncError != null -> "Assignments unavailable"
+                                    else -> "No active assignments"
                                 },
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = if (state.syncError != null) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                when {
+                                    state.loading -> "Please wait."
+                                    state.syncError != null -> "Refresh before assuming there are no active calls."
+                                    else -> "You're available for new calls."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -446,14 +429,9 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                     ) {
                         Text("Open navigation app")
                     }
-                    Text(
-                        "Opens an installed maps app for route guidance. Use GPS Map for the incident and field-unit overview.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 } else {
                     Text(
-                        "No valid GPS pin is available. Coordinates are missing or invalid; do not navigate to an assumed location. Use the landmark note and confirm the destination with dispatch.",
+                        "No valid map pin. Use the landmark and confirm the destination with dispatch.",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -484,13 +462,13 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                             val lastLocationSentAt = state.lastLocationSentAt
                             Text(
                                 when {
-                                    !sharing -> "Responder location is not currently being shared."
+                                    !sharing -> "Location sharing is off."
                                     lastLocationSentAt == null && state.trackingError != null ->
                                         "Waiting for the first confirmed location update."
                                     lastLocationSentAt == null ->
-                                        "Waiting for the first location update."
+                                        "Waiting for location…"
                                     state.trackingError != null ->
-                                        "Location sharing is on, but the latest update failed."
+                                        "Last location update failed."
                                     else ->
                                         "Sharing approximate location while this app is open."
                                 },
@@ -536,9 +514,9 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             text = {
                 Text(
                     if (startingResponse) {
-                        "For incident #${incident.id}, approximate device location will be shared with authorized dispatch while you respond. Updates run only while this screen is in the foreground and stop when you leave it or advance the incident. You can start without sharing."
+                        "Share approximate location with authorized dispatch while TACResQ is open. Sharing stops when you leave this screen. You can start without sharing."
                     } else {
-                        "Approximate device location for incident #${incident.id} will be shared with authorized dispatch while this app is in the foreground. Sharing stops when you leave the foreground."
+                        "Share approximate location with authorized dispatch while TACResQ is open. Sharing stops when you leave this screen."
                     },
                 )
             },
