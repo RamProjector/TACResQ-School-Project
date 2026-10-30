@@ -26,7 +26,7 @@ class SupabaseTacApi private constructor(
     private val auth: SupabaseAuthWire,
     private val rpc: SupabaseRpcWire,
     private val bridgeRpc: SupabaseBridgeRpcWire?,
-) : TacApi, TacNotificationApi, TacChatApi {
+) : TacApi, TacNotificationApi, TacChatApi, TacAdminApi {
     override suspend fun login(body: LoginRequest): AuthResponse = authenticate {
         auth.login(body)
     }
@@ -130,6 +130,31 @@ class SupabaseTacApi private constructor(
         require(limit in 1..100) { "Message page size must be between 1 and 100." }
         require(beforeId == null || beforeId > 0) { "Message cursor must be positive." }
         return rpc.myIncidentMessages(IncidentMessagesRpc(incidentId, limit, beforeId))
+    }
+
+    override suspend fun adminUsersPage(limit: Int, offset: Int, query: String, role: String): AdminUsersPage {
+        require(limit in 1..100) { "Admin page size must be between 1 and 100." }
+        require(offset in 0..1_000_000) { "Admin page offset is outside the supported range." }
+        require(query.length <= 120) { "Admin search query must be 120 characters or fewer." }
+        require(role in setOf("all", "requester", "responder", "driver", "dispatcher", "admin")) {
+            "Unsupported Admin role filter."
+        }
+        return rpc.adminUsersPage(AdminUsersPageRpc(limit, offset, query, role))
+    }
+
+    override suspend fun adminAuditLogs(limit: Int): List<AdminAuditEvent> {
+        require(limit in 1..200) { "Admin audit page size must be between 1 and 200." }
+        return rpc.adminAuditLogs(AdminAuditLogsRpc(limit))
+    }
+
+    override suspend fun setAdminUserRole(userId: Long, role: String, reason: String): AdminRoleChangeResult {
+        require(userId > 0) { "A valid target user is required." }
+        require(role in setOf("requester", "responder", "driver", "dispatcher")) {
+            "Only ordinary operational roles can be assigned here."
+        }
+        val normalizedReason = reason.trim()
+        require(normalizedReason.length in 10..500) { "Audit reason must contain 10 to 500 characters." }
+        return rpc.setAdminUserRole(AdminSetUserRoleRpc(userId, role, normalizedReason))
     }
 
     override suspend fun sendIncidentMessage(incidentId: Long, message: String, clientMessageId: String): IncidentMessage {
@@ -266,6 +291,16 @@ private interface SupabaseBridgeRpcWire {
 }
 
 private interface SupabaseRpcWire {
+    @POST("rest/v1/rpc/api_admin_list_users_page")
+    suspend fun adminUsersPage(@Body body: AdminUsersPageRpc): AdminUsersPage
+
+    @POST("rest/v1/rpc/api_admin_list_audit_logs")
+    suspend fun adminAuditLogs(@Body body: AdminAuditLogsRpc): List<AdminAuditEvent>
+
+    @POST("rest/v1/rpc/api_admin_set_user_role")
+    suspend fun setAdminUserRole(@Body body: AdminSetUserRoleRpc): AdminRoleChangeResult
+
+
     @POST("rest/v1/rpc/api_me")
     suspend fun me(@Header("Authorization") authorization: String? = null, @Body body: EmptyRpcBody = EmptyRpcBody()): User
 
@@ -350,6 +385,18 @@ private data class RecordLocationRpc(
     @SerializedName("p_longitude") val longitude: Double,
     @SerializedName("p_accuracy_m") val accuracyM: Float?,
     @SerializedName("p_recorded_at") val recordedAt: String,
+)
+private data class AdminUsersPageRpc(
+    @SerializedName("p_limit") val limit: Int,
+    @SerializedName("p_offset") val offset: Int,
+    @SerializedName("p_query") val query: String,
+    @SerializedName("p_role") val role: String,
+)
+private data class AdminAuditLogsRpc(@SerializedName("p_limit") val limit: Int)
+private data class AdminSetUserRoleRpc(
+    @SerializedName("p_user_id") val userId: Long,
+    @SerializedName("p_role") val role: String,
+    @SerializedName("p_reason") val reason: String,
 )
 private data class NotificationsLimitRpc(@SerializedName("p_limit") val limit: Int)
 private data class MarkNotificationReadRpc(@SerializedName("p_notification_id") val notificationId: Long)
