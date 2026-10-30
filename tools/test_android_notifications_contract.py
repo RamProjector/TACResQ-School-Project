@@ -72,7 +72,7 @@ for required in (
     "Open incident",
     "Open conversation",
     "Notifications unavailable",
-    "You're all caught up",
+    "All caught up",
     "Loading your notifications",
     "$unreadCount unread",
     "Try again",
