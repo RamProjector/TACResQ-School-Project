@@ -69,7 +69,7 @@ fun AdminAccessScreen(
     var reason by remember { mutableStateOf("") }
     val pageSize = 25
 
-    fun refresh() {
+    fun refresh(targetPage: Int = page, targetQuery: String = appliedQuery) {
         scope.launch {
             loading = true
             error = null
@@ -87,7 +87,7 @@ fun AdminAccessScreen(
                 if (current.isSuccess && currentUser?.role != Role.ADMIN) onSignOut()
                 return@launch
             }
-            val directory = repository.adminUsersPage(pageSize, page * pageSize, appliedQuery, "all")
+            val directory = repository.adminUsersPage(pageSize, targetPage * pageSize, targetQuery, "all")
             val logs = repository.adminAuditLogs(100)
             if (directory.isSuccess && logs.isSuccess) {
                 users = directory.getOrThrow().users
@@ -149,7 +149,7 @@ fun AdminAccessScreen(
                     singleLine = true,
                 )
                 Button(
-                    onClick = { appliedQuery = query.trim(); page = 0; refresh() },
+                    onClick = { val nextQuery = query.trim(); appliedQuery = nextQuery; page = 0; refresh(0, nextQuery) },
                     enabled = !loading && !saving,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Search directory") }
@@ -217,8 +217,8 @@ fun AdminAccessScreen(
                     }
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    OutlinedButton(onClick = { page = (page - 1).coerceAtLeast(0); refresh() }, enabled = page > 0 && !loading) { Text("Previous") }
-                    OutlinedButton(onClick = { page += 1; refresh() }, enabled = (page + 1) * pageSize < totalCount && !loading) { Text("Next") }
+                    OutlinedButton(onClick = { val nextPage = (page - 1).coerceAtLeast(0); page = nextPage; refresh(nextPage) }, enabled = page > 0 && !loading) { Text("Previous") }
+                    OutlinedButton(onClick = { val nextPage = page + 1; page = nextPage; refresh(nextPage) }, enabled = (page + 1) * pageSize < totalCount && !loading) { Text("Next") }
                 }
             }
         }
