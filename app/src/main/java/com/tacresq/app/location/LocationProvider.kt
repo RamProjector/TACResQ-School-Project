@@ -5,8 +5,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
-import android.location.LocationManager
-import android.os.Build
 import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
@@ -48,7 +46,6 @@ sealed interface LocationSettingsCheck {
 class LocationProvider(context: Context) {
     private val appContext = context.applicationContext
     private val client = LocationServices.getFusedLocationProviderClient(appContext)
-    private val locationManager = appContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
     companion object {
         private const val FIX_TIMEOUT_MS = 18_000L
@@ -83,6 +80,28 @@ class LocationProvider(context: Context) {
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, REQUEST_DURATION_MS)
             .setDurationMillis(REQUEST_DURATION_MS)
             .build()
+        return checkSettings(request)
+    }
+
+    /**
+     * Responders share approximate foreground locations, so validate the matching balanced-power
+     * request instead of consulting LocationManager's OEM-dependent enabled flag. The settings
+     * client is the same authority used by the one-time requester flow and avoids false
+     * "Location is off" stops on devices whose platform/provider flags are briefly stale.
+     */
+    private suspend fun checkResponderLocationSettings(): LocationSettingsCheck {
+        val request = LocationRequest.Builder(
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            RESPONDER_INTERVAL_MS,
+        )
+            .setMinUpdateIntervalMillis(RESPONDER_MIN_INTERVAL_MS)
+            .setMinUpdateDistanceMeters(RESPONDER_MIN_DISTANCE_M)
+            .setGranularity(Granularity.GRANULARITY_COARSE)
+            .build()
+        return checkSettings(request)
+    }
+
+    private suspend fun checkSettings(request: LocationRequest): LocationSettingsCheck {
         val settings = LocationSettingsRequest.Builder()
             .addLocationRequest(request)
             .build()
@@ -156,10 +175,18 @@ class LocationProvider(context: Context) {
             close()
             return@callbackFlow
         }
-        if (!isLocationEnabled()) {
-            trySend(LocationCaptureResult.ServicesDisabled)
-            close()
-            return@callbackFlow
+        when (checkResponderLocationSettings()) {
+            LocationSettingsCheck.Ready -> Unit
+            is LocationSettingsCheck.NeedsResolution -> {
+                trySend(LocationCaptureResult.ServicesDisabled)
+                close()
+                return@callbackFlow
+            }
+            LocationSettingsCheck.Unavailable -> {
+                trySend(LocationCaptureResult.Unavailable)
+                close()
+                return@callbackFlow
+            }
         }
         val request = LocationRequest.Builder(
             Priority.PRIORITY_BALANCED_POWER_ACCURACY,
@@ -196,26 +223,6 @@ class LocationProvider(context: Context) {
         } finally {
             client.removeLocationUpdates(callback)
         }
-    }
-
-    /**
-     * Check the platform-wide switch and provider state independently. Some OEM builds briefly
-     * report isLocationEnabled=false while a provider is still enabled after a settings change.
-     * Provider checks are isolated because a device may not expose every provider.
-     */
-    private fun isLocationEnabled(): Boolean {
-        val platformEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            runCatching { locationManager.isLocationEnabled }.getOrDefault(false)
-        } else {
-            false
-        }
-        val gpsEnabled = runCatching {
-            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-        }.getOrDefault(false)
-        val networkEnabled = runCatching {
-            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-        }.getOrDefault(false)
-        return platformEnabled || gpsEnabled || networkEnabled
     }
 
     private fun Location.isValidCurrentFix(): Boolean {
