@@ -1196,3 +1196,44 @@ DO $sos_atomicity_retry$
 DECLARE
   response jsonb;
   requester_profile_id bigint;
+BEGIN
+  SELECT id INTO requester_profile_id
+  FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000141';
+
+  IF requester_profile_id IS NULL THEN
+    RAISE EXCEPTION 'Atomicity retry fixture profile was not created';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000141', true);
+  SELECT public.api_create_incident_v4(
+    'medical', 'Atomicity failure injection', 11.244, 125.003, NULL,
+    'Synthetic CI failure location', '2026-10-30T12:00:00Z'::timestamptz,
+    'manual', '00000000-0000-4000-8000-000000000141'::uuid
+  ) INTO response;
+
+  IF response IS NULL THEN
+    RAISE EXCEPTION 'Retry after rolled-back SOS reservation must return the saved incident response';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.incident_submission_keys
+    WHERE requester_id = requester_profile_id
+      AND client_request_id = '00000000-0000-4000-8000-000000000141'::uuid
+      AND response_payload = response
+  ) THEN
+    RAISE EXCEPTION 'Successful retry did not persist its idempotency response';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.incidents
+    WHERE requester_id = requester_profile_id
+      AND description = 'Atomicity failure injection'
+  ) THEN
+    RAISE EXCEPTION 'Successful retry did not create the expected incident';
+  END IF;
+END;
+$sos_atomicity_retry$;
+SQL
