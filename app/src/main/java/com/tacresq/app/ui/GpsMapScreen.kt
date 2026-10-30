@@ -17,7 +17,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -26,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -79,7 +77,6 @@ import com.tacresq.app.data.model.Role
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
 import com.tacresq.app.ui.common.StatusPill
-import com.tacresq.app.ui.common.formatTime
 import com.tacresq.app.ui.common.pillColor
 import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationSettingsCheck
@@ -89,7 +86,6 @@ import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
 import kotlin.math.roundToInt
-import java.util.Locale
 import java.io.File
 
 private const val TACLOBAN_LATITUDE = 11.2443
