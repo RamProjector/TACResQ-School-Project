@@ -36,6 +36,8 @@ jobs:
           sudo apt-get install --no-install-recommends -y shellcheck
           bash -n tools/test_supabase_migration_replay.sh
           shellcheck --severity=error tools/test_supabase_migration_replay.sh
+          # Keep the exact leading-dash command failure from recurring (SC2215).
+          shellcheck --include=SC2215 tools/test_supabase_migration_replay.sh
 
       - name: Test TACResQ automated code reviewer
         run: python3 tools/test_tacresq_code_reviewer.py
