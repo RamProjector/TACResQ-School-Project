@@ -994,13 +994,14 @@ SQL
 psql -v ON_ERROR_STOP=1 <<'SQL'
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES (
-  '00000000-0000-4000-8000-000000000136',
+  '00000000-0000-4000-8000-000000000140',
   'concurrent-sos-regression@example.test',
   '{"name":"Concurrent SOS Regression","phone":"+63917000136","role":"requester"}'::jsonb
 );
 SQL
 
 concurrent_dir="$(mktemp -d)"
+worker_pids=()
 cleanup_concurrent_dir() { rm -rf "$concurrent_dir"; }
 trap cleanup_concurrent_dir EXIT
 
@@ -1008,7 +1009,7 @@ for worker in $(seq 1 8); do
   (
     psql -X -qAt -v ON_ERROR_STOP=1 >"$concurrent_dir/response-${worker}.json" <<'SQL'
 BEGIN;
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000136', true);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000140', true);
 SELECT public.api_create_incident_v4(
   'medical',
   'Concurrent idempotency regression',
@@ -1018,7 +1019,7 @@ SELECT public.api_create_incident_v4(
   'Synthetic concurrent CI location',
   '2026-10-30T12:00:00Z'::timestamptz,
   'manual',
-  '00000000-0000-4000-8000-000000000136'::uuid
+  '00000000-0000-4000-8000-000000000140'::uuid
 )::text;
 COMMIT;
 SQL
@@ -1057,7 +1058,7 @@ DECLARE
 BEGIN
   SELECT id INTO requester_profile_id
   FROM public.profiles
-  WHERE auth_user_id = '00000000-0000-4000-8000-000000000136';
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000140';
 
   SELECT count(*) INTO incident_count
   FROM public.incidents
@@ -1068,7 +1069,7 @@ BEGIN
     INTO saved_key_count, response_count
   FROM public.incident_submission_keys
   WHERE requester_id = requester_profile_id
-    AND client_request_id = '00000000-0000-4000-8000-000000000136';
+    AND client_request_id = '00000000-0000-4000-8000-000000000140';
 
   IF incident_count <> 1 THEN
     RAISE EXCEPTION 'Eight concurrent retries must create exactly one incident; found %', incident_count;
@@ -1089,7 +1090,7 @@ DO $sos_idempotency_negative_test$
 DECLARE
   rejected boolean := false;
 BEGIN
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000136', true);
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000140', true);
   BEGIN
     PERFORM public.api_create_incident_v4(
       'medical',
@@ -1100,7 +1101,7 @@ BEGIN
       'Synthetic concurrent CI location',
       '2026-10-30T12:00:00Z'::timestamptz,
       'manual',
-      '00000000-0000-4000-8000-000000000136'::uuid
+      '00000000-0000-4000-8000-000000000140'::uuid
     );
   EXCEPTION WHEN SQLSTATE '22023' THEN
     rejected := true;
