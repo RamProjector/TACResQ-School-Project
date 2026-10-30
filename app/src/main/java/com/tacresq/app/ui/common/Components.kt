@@ -1,5 +1,6 @@
 package com.tacresq.app.ui.common
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -12,7 +13,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -152,6 +152,7 @@ fun IncidentCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
@@ -236,14 +237,27 @@ fun SyncStatus(lastSyncedAtEpochMs: Long?, error: String?) {
         syncedTime != null -> "Last synced $syncedTime"
         else -> "Waiting for the first successful sync…"
     }
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodySmall,
-        color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        maxLines = 2,
-        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-    )
+        shape = MaterialTheme.shapes.medium,
+        color = if (error != null) MaterialTheme.colorScheme.errorContainer
+        else MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = if (error != null) MaterialTheme.colorScheme.onErrorContainer
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 /**
