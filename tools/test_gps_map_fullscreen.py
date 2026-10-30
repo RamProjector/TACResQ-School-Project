@@ -15,7 +15,8 @@ assert "Text(\"Back\", style = MaterialTheme.typography.labelLarge)" in map_scre
 assert "onClick = onBack" in map_screen
 assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen
 assert "modifier = Modifier.fillMaxSize()" in map_screen
-assert "setBuiltInZoomControls(false)" in map_screen
+# osmdroid custom controller is the supported API for hiding its legacy zoom widgets.
+assert "setBuiltInZoomControls(false)" not in map_screen
 assert "CustomZoomButtonsController.Visibility.NEVER" in map_screen
 assert "controller.zoomIn()" not in map_screen and "controller.zoomOut()" not in map_screen
 
