@@ -59,6 +59,8 @@ import androidx.compose.ui.semantics.CollectionInfo
 import androidx.compose.ui.semantics.CollectionItemInfo
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -676,7 +678,11 @@ fun GpsMapScreen(
 
     var detailsExpanded by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .semantics { paneTitle = "GPS Map" },
+    ) {
         AndroidView(
             factory = { mapView },
             modifier = Modifier.fillMaxSize(),
@@ -858,6 +864,12 @@ fun GpsMapScreen(
                         )
                     }
                     if (visibleIncidents.isNotEmpty()) {
+                        Text(
+                            "Incidents",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.semantics { heading() },
+                        )
                         LazyColumn(
                             modifier = Modifier
                                 .height(160.dp)
@@ -891,6 +903,7 @@ fun GpsMapScreen(
                             "Field-unit locations",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.semantics { heading() },
                         )
                         LazyColumn(
                             modifier = Modifier
