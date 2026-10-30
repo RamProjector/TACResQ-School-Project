@@ -151,13 +151,11 @@ checks = {
             "Start without sharing",
         )
     ),
-    "external routing is distinguished from the in-app incident map": all(
-        text in responder for text in (
-            'Text("Open navigation app")',
-            "Opens an installed maps app for route guidance. Use GPS Map for the incident and field-unit overview.",
-            "Use GPS Map for the incident and field-unit overview.",
-        )
-    ) and "Text(\"Navigate in Google Maps\")" not in responder,
+    "external routing remains a separate action without redundant helper copy": (
+        'Text("Open navigation app")' in responder
+        and 'google.navigation:q=$lat,$lng&mode=d' in responder
+        and "Opens an installed maps app for route guidance." not in responder
+    ),
     "SOS submission lock is set before launching asynchronous work": (
         "Claim the submission synchronously before launching the coroutine." in requester
         and requester.index("_state.update { it.copy(sending = true, notice = null, error = null) }")
