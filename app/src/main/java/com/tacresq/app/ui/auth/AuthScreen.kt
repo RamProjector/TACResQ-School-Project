@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -182,6 +183,14 @@ fun AuthScreen(
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(state.info) {
+        if (state.info != null) {
+            registering = false
+            password = ""
+            passwordVisible = false
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -384,6 +393,7 @@ fun AuthScreen(
 
                 Button(
                     onClick = {
+                        passwordVisible = false
                         if (registering) vm.register(name, email, phone, password) else vm.login(email, password)
                     },
                     enabled = !state.loading,
