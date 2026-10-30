@@ -36,6 +36,7 @@ import com.tacresq.app.data.model.User
 import com.tacresq.app.ui.auth.AuthScreen
 import com.tacresq.app.ui.admin.AdminAccessScreen
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.SectionHeading
 import com.tacresq.app.ui.dispatcher.DispatcherScreen
 import com.tacresq.app.ui.dispatcher.DispatcherViewModel
 import com.tacresq.app.ui.requester.RequesterScreen
@@ -181,6 +182,7 @@ private fun RoleApp(
     contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit) -> Unit,
 ) {
     var destination by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
+    var destinationBeforeMap by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
     var selectedIncidentId by rememberSaveable(role, user.id) { mutableStateOf<Long?>(null) }
     var selectedChatIncidentId by rememberSaveable(role, user.id) { mutableStateOf<Long?>(null) }
     val openIncident: (Long) -> Unit = { incidentId ->
@@ -195,7 +197,12 @@ private fun RoleApp(
     RoleShell(
         role = role,
         selected = destination,
-        onDestinationSelected = { destination = it },
+        onDestinationSelected = {
+            if (it == AppDestination.MAP && destination != AppDestination.MAP) {
+                destinationBeforeMap = destination
+            }
+            destination = it
+        },
         content = { contentFor(destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat) },
         mapContent = {
             GpsMapScreen(
@@ -205,7 +212,7 @@ private fun RoleApp(
                 locationProvider = locationProvider,
                 responderLocations = responderLocations,
                 onRefreshResponderLocations = onMapRefresh,
-                onBack = { destination = AppDestination.PRIMARY },
+                onBack = { destination = destinationBeforeMap },
             )
         },
     )
@@ -248,8 +255,8 @@ private fun RoleSectionScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ScreenHeader(title = title, subtitle = "", onLogout = logout)
 
@@ -343,7 +350,7 @@ private fun RoleSectionScreen(
                         .sortedByDescending { it.createdAt.orEmpty() }
                         .filterNot { focusedIncident?.id == it.id }
                     if (remainingIncidents.isNotEmpty()) {
-                        Text("Other incidents", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        SectionHeading("Other incidents")
                         remainingIncidents.forEach { incident ->
                             com.tacresq.app.ui.common.IncidentCard(incident) {
                                 androidx.compose.material3.TextButton(onClick = { onOpenChat(incident.id) }) {
