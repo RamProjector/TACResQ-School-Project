@@ -988,4 +988,94 @@ END;
 $admin_audit_immutability_test$;
 SQL
 
+
+# Concurrent SOS idempotency regression. Each psql process is an independent
+# database session, exercising unique-key arbitration across sessions.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+INSERT INTO auth.users (id, email, raw_user_meta_data)
+VALUES (
+  '00000000-0000-4000-8000-000000000136',
+  'concurrent-sos-regression@example.test',
+  '{"name":"Concurrent SOS Regression","phone":"+63917000136","role":"requester"}'::jsonb
+);
+SQL
+
+concurrent_dir="$(mktemp -d)"
+cleanup_concurrent_dir() { rm -rf "$concurrent_dir"; }
+trap cleanup_concurrent_dir EXIT
+
+for worker in $(seq 1 8); do
+  (
+    psql -X -qAt -v ON_ERROR_STOP=1 >"$concurrent_dir/response-\${worker}.json" <<'SQL'
+BEGIN;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000136', true);
+SELECT public.api_create_incident_v4(
+  'medical',
+  'Concurrent idempotency regression',
+  11.244,
+  125.003,
+  10,
+  'Synthetic concurrent CI location',
+  '2026-10-30T12:00:00Z'::timestamptz,
+  'manual',
+  '00000000-0000-4000-8000-000000000136'::uuid
+)::text;
+COMMIT;
+SQL
+  ) &
+done
+wait
+
+python3 - "$concurrent_dir" <<'PY'
+from pathlib import Path
+import sys
+
+directory = Path(sys.argv[1])
+responses = [
+    line.strip()
+    for path in sorted(directory.glob("response-*.json"))
+    for line in path.read_text().splitlines()
+    if line.strip().startswith("{")
+]
+if len(responses) != 8:
+    raise SystemExit(f"Expected 8 successful concurrent RPC responses, found {len(responses)}")
+if len(set(responses)) != 1:
+    raise SystemExit("Concurrent SOS retries returned different incident responses")
+print("PASS: all 8 concurrent SOS submissions returned the same saved response")
+PY
+
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $concurrent_sos_assert$
+DECLARE
+  requester_profile_id bigint;
+  incident_count integer;
+  saved_key_count integer;
+  response_count integer;
+BEGIN
+  SELECT id INTO requester_profile_id
+  FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000136';
+
+  SELECT count(*) INTO incident_count
+  FROM public.incidents
+  WHERE requester_id = requester_profile_id
+    AND description = 'Concurrent idempotency regression';
+
+  SELECT count(*), count(response_payload)
+    INTO saved_key_count, response_count
+  FROM public.incident_submission_keys
+  WHERE requester_id = requester_profile_id
+    AND client_request_id = '00000000-0000-4000-8000-000000000136';
+
+  IF incident_count <> 1 THEN
+    RAISE EXCEPTION 'Eight concurrent retries must create exactly one incident; found %', incident_count;
+  END IF;
+  IF saved_key_count <> 1 OR response_count <> 1 THEN
+    RAISE EXCEPTION 'Expected one completed idempotency record; keys %, responses %',
+      saved_key_count, response_count;
+  END IF;
+END;
+$concurrent_sos_assert$;
+SQL
+
 echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed; incident regressions and Admin role/audit authorization tests passed."
