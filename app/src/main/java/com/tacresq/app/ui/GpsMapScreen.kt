@@ -92,27 +92,6 @@ import java.io.File
 private const val TACLOBAN_LATITUDE = 11.2443
 private const val TACLOBAN_LONGITUDE = 125.0030
 
-/**
- * GPS fixes with wider uncertainty must not be shown at street-level zoom.
- * Accuracy is Android's estimated horizontal radius in metres, not a guarantee.
- */
-private fun GeoFix.mapPreviewZoom(): Double = when {
-    accuracyM == null -> 12.0
-    accuracyM <= 50f -> 16.0
-    accuracyM <= 150f -> 15.0
-    accuracyM <= 500f -> 14.0
-    else -> 12.0
-}
-
-private fun GeoFix.accuracyStatus(): String = when {
-    accuracyM == null ->
-        "Accuracy unavailable — confirm the map position before relying on it."
-    accuracyM > 100f ->
-        "Low location accuracy (about ${accuracyM.roundToInt()} m) — confirm the map position before relying on it."
-    else ->
-        "Estimated accuracy about ${accuracyM.roundToInt()} m."
-}
-
 private fun ConnectivityManager.hasValidatedInternet(): Boolean {
     val network = activeNetwork ?: return false
     val capabilities = getNetworkCapabilities(network) ?: return false
@@ -480,12 +459,12 @@ fun GpsMapScreen(
                                 mapView.post {
                                     // Match zoom to the reported uncertainty; avoid implying
                                     // street-level precision when the fix is only approximate.
-                                    mapView.controller.setZoom(fix.mapPreviewZoom())
+                                    mapView.controller.setZoom(gpsMapPreviewZoom(fix.accuracyM))
                                     mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))
                                     mapView.invalidate()
                                 }
                                 val precision = if (fix.hasPrecisePermission) "Precise" else "Approximate"
-                                locationStatus = "One-time $precision location preview on this device only; not uploaded. ${fix.accuracyStatus()}"
+                                locationStatus = "One-time $precision location preview on this device only; not uploaded. ${gpsAccuracyStatus(fix.accuracyM)}"
                             }
                             LocationCaptureResult.PermissionDenied -> {
                                 showAppSettingsAction = true
