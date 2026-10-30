@@ -62,7 +62,7 @@ fun AdminAccessScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var selectedUser by remember { mutableStateOf<AdminUser?>(null) }
-    var targetRole by remember { mutableStateOf("requester") }
+    var targetRole by remember { mutableStateOf("") }
     var reason by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
@@ -178,7 +178,7 @@ fun AdminAccessScreen(
                                 if (account.role != "admin") {
                                     TextButton(onClick = {
                                         selectedUser = account
-                                        targetRole = if (account.role == "requester") "responder" else "requester"
+                                        targetRole = ""
                                         reason = ""
                                     }) { Text("Change role") }
                                 } else {
@@ -227,8 +227,10 @@ fun AdminAccessScreen(
                     modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("${account.name} · currently ${account.role}")
-                    Text("Choose an operational role. Admin promotion and demotion are not available in the app.")
+                    Text("${account.name} · currently ${account.role}", fontWeight = FontWeight.SemiBold)
+                    Text("${account.email} · Account ID ${account.id}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Select the intended operational role. No role is preselected. Admin promotion and demotion are not available in the app.")
                     adminRoles.forEach { role ->
                         FilterChip(selected = targetRole == role, onClick = { targetRole = role },
                             label = { Text(role.replaceFirstChar { it.uppercase() }) })
@@ -267,7 +269,7 @@ fun AdminAccessScreen(
                             loading = false
                         }
                     },
-                ) { Text("Confirm role change") }
+                ) { Text(if (targetRole in adminRoles) "Confirm ${targetRole.replaceFirstChar { it.uppercase() }} role" else "Select a role") }
             },
             dismissButton = { TextButton(onClick = { selectedUser = null }) { Text("Cancel") } },
         )
