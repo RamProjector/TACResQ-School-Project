@@ -28,13 +28,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Groups
@@ -68,6 +70,7 @@ import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import com.tacresq.app.data.model.GeoFix
@@ -277,7 +280,7 @@ fun GpsMapScreen(
         Role.ADMIN -> emptyList()
     }
     val title = "GPS Map"
-    val description = "Confirmed incident pins. Tap Locate me to preview your current location."
+    val description = "Tap a pin for incident details."
     val validIncidentPoints = visibleIncidents.mapNotNull { incident ->
         val lat = incident.latitude
         val lng = incident.longitude
@@ -314,18 +317,18 @@ fun GpsMapScreen(
     } else null
     val defaultMapStatus = when {
         deviceFix != null ->
-            "One-time location preview is active on this device only; it is not uploaded."
+            "Your location preview is on this device only."
         role == Role.DISPATCHER && validResponderLocations.isNotEmpty() ->
             listOfNotNull(
                 validIncidentPoints.size.takeIf { it > 0 }?.let { "$it confirmed incident pin(s)." },
                 responderFreshnessSummary,
             ).joinToString(" ")
         validIncidentPoints.isNotEmpty() ->
-            "Showing ${validIncidentPoints.size} confirmed incident pin(s). Tap Locate me to preview your location."
+            "Showing ${validIncidentPoints.size} incident pin(s)."
         visibleIncidents.isNotEmpty() ->
-            "Active incidents exist, but none has valid coordinates. They cannot appear as map pins."
+            "Active incidents have no mappable coordinates."
         else ->
-            "No active incidents with valid coordinates are available for this role yet. Pins appear when an incident has a valid location."
+            "No incident pins yet."
     }
 
     // Clear stale action text when the incident set changes; the default is derived from current map data.
@@ -371,6 +374,8 @@ fun GpsMapScreen(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            setBuiltInZoomControls(false)
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
             isTilesScaledToDpi = true
             controller.setZoom(12.0)
             controller.setCenter(GeoPoint(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
@@ -705,7 +710,8 @@ fun GpsMapScreen(
         androidx.compose.material3.Surface(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 12.dp, top = 10.dp, end = 12.dp),
+                .statusBarsPadding()
+                .padding(start = 12.dp, top = 8.dp, end = 12.dp),
             shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
             tonalElevation = 3.dp,
@@ -717,24 +723,13 @@ fun GpsMapScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text("GPS MAP", style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Text(
-                        when {
-                            deviceFix != null -> "Location preview active"
-                            role == Role.DISPATCHER && validResponderLocations.isNotEmpty() ->
-                                "$freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale units"
-                            validIncidentPoints.isNotEmpty() -> "${validIncidentPoints.size} confirmed pin(s)"
-                            else -> "No confirmed pins"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text("GPS Map", style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                 }
                 androidx.compose.material3.IconButton(onClick = onBack) {
                     androidx.compose.material3.Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Close,
-                        contentDescription = "Close map",
+                        imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
+                        contentDescription = "Back to app",
                     )
                 }
             }
@@ -818,6 +813,7 @@ fun GpsMapScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
