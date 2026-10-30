@@ -111,7 +111,7 @@ fun AppRoot(
                         val vmState by vm.state.collectAsStateWithLifecycle()
                         RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = openNotifications)
                             } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents,
@@ -234,6 +234,7 @@ private fun RoleSectionScreen(
     onOpenIncident: (Long) -> Unit = {},
     onRefreshIncidents: () -> Unit = {},
     onOpenChat: (Long) -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
     selectedIncidentId: Long? = null,
 ) {
     if (destination == AppDestination.ALERTS) {
@@ -264,7 +265,7 @@ private fun RoleSectionScreen(
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ScreenHeader(title = title, subtitle = "")
+        ScreenHeader(title = title, subtitle = "", onOpenNotifications = onOpenNotifications)
 
         when {
             role == Role.ADMIN -> EmptySectionCard("Administrator access", "Administrative tools are not available in this Android build yet.")
