@@ -14,6 +14,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -620,7 +621,7 @@ fun GpsMapScreen(
             if (incident.hasValidMapCoordinates() && latitude != null && longitude != null) {
                 val marker = Marker(mapView).apply {
                     position = GeoPoint(latitude, longitude)
-                    icon = context.getDrawable(com.tacresq.app.R.drawable.ic_map_incident_pin)
+                    icon = ContextCompat.getDrawable(context, com.tacresq.app.R.drawable.ic_map_incident_pin)
                     setTitle("Incident #${incident.id} · ${incident.type.label}")
                     val source = when (incident.locationSource) {
                         "gps" -> "GPS location"
@@ -645,7 +646,7 @@ fun GpsMapScreen(
             val freshness = location.mapFreshness(mapNow) ?: return@forEach
             val marker = Marker(mapView).apply {
                 position = GeoPoint(location.latitude, location.longitude)
-                icon = context.getDrawable(com.tacresq.app.R.drawable.ic_map_responder_pin)
+                icon = ContextCompat.getDrawable(context, com.tacresq.app.R.drawable.ic_map_responder_pin)
                     ?.mutate()
                     ?.apply { if (freshness == MapLocationFreshness.STALE) alpha = 110 }
                 setTitle(
@@ -669,7 +670,7 @@ fun GpsMapScreen(
         deviceFix?.let { fix ->
             val locationMarker = Marker(mapView).apply {
                 position = GeoPoint(fix.latitude, fix.longitude)
-                icon = context.getDrawable(com.tacresq.app.R.drawable.ic_map_my_location_pin)
+                icon = ContextCompat.getDrawable(context, com.tacresq.app.R.drawable.ic_map_my_location_pin)
                 setTitle("Your location · this device only")
                 snippet = "One-time location preview. Not uploaded or continuously tracked."
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
