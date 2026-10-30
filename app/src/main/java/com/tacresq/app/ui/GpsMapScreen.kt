@@ -899,7 +899,7 @@ private fun MapIncidentCard(incident: Incident, context: Context, now: Instant) 
                 )
                 OutlinedButton(
                     onClick = { openExternalMaps(context, lat, lng) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 42.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     contentPadding = PaddingValues(vertical = 6.dp),
                 ) {
                     Text("Navigate")
