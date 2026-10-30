@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -54,6 +55,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.CollectionInfo
+import androidx.compose.ui.semantics.CollectionItemInfo
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -836,12 +839,30 @@ fun GpsMapScreen(
                     }
                     if (visibleIncidents.isNotEmpty()) {
                         LazyColumn(
-                            modifier = Modifier.height(160.dp),
+                            modifier = Modifier
+                                .height(160.dp)
+                                .semantics {
+                                    collectionInfo = CollectionInfo(
+                                        rowCount = visibleIncidents.size,
+                                        columnCount = 1,
+                                    )
+                                },
                             contentPadding = PaddingValues(vertical = 2.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            items(visibleIncidents, key = { it.id }) { incident ->
-                                MapIncidentCard(incident = incident, context = context, now = mapNow)
+                            itemsIndexed(visibleIncidents, key = { _, incident -> incident.id }) { index, incident ->
+                                Box(
+                                    modifier = Modifier.semantics {
+                                        collectionItemInfo = CollectionItemInfo(
+                                            rowIndex = index,
+                                            columnIndex = 0,
+                                            rowSpan = 1,
+                                            columnSpan = 1,
+                                        )
+                                    },
+                                ) {
+                                    MapIncidentCard(incident = incident, context = context, now = mapNow)
+                                }
                             }
                         }
                     }
