@@ -1,5 +1,6 @@
 package com.tacresq.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,7 +62,7 @@ fun RoleShell(
                 )
             },
         ) { padding ->
-            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(padding)) {
                 content()
             }
         }
@@ -90,7 +91,7 @@ private fun TacruBottomNavigation(
         modifier = Modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = 1.dp,
+        tonalElevation = 0.dp,
     ) {
         NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected)
         NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected)
