@@ -4,7 +4,6 @@ import com.google.gson.annotations.SerializedName
 import com.google.gson.GsonBuilder
 import com.tacresq.app.AppConfig
 import com.tacresq.app.data.model.AdminUserPage
-import com.tacresq.app.data.model.AdminUserRecord
 import com.tacresq.app.data.model.AdminAuditEvent
 import com.tacresq.app.data.model.AdminRoleChangeResult
 import com.tacresq.app.data.model.DutyStatus
