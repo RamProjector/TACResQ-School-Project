@@ -303,6 +303,12 @@ class RequesterViewModel(
             }
             return
         }
+        if (current.pendingSosAvailable) {
+            _state.update {
+                it.copy(error = "An earlier SOS is still awaiting confirmation. Retry that saved request before creating another SOS.")
+            }
+            return
+        }
         val existingActive = current.incidents.firstOrNull { it.status.isActive }
         if (existingActive != null) {
             _state.update {
