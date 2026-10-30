@@ -129,7 +129,7 @@ fun AppRoot(
                         val vmState by vm.state.collectAsStateWithLifecycle()
                         RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = openNotifications)
                             } else if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, logout, onOpenNotifications = openNotifications)
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents,
@@ -155,7 +155,7 @@ fun AppRoot(
                             onMapRefresh = vm::refresh,
                         ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = openNotifications)
                             } else if (destination == AppDestination.PRIMARY) {
                                 DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId, onOpenChat = openChat, onOpenNotifications = openNotifications)
                             } else RoleSectionScreen(
