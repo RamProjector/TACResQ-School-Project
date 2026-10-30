@@ -1132,9 +1132,9 @@ SQL
 psql -v ON_ERROR_STOP=1 <<'SQL'
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES (
-  '00000000-0000-4000-8000-000000000138',
-  'sos-atomicity-regression@example.test',
-  '{"name":"SOS Atomicity Regression","phone":"+63917000138","role":"requester"}'::jsonb
+  '00000000-0000-4000-8000-000000000141',
+  'sos-atomicity-regression-141@example.test',
+  '{"name":"SOS Atomicity Regression","phone":"+63917000141","role":"requester"}'::jsonb
 );
 
 CREATE OR REPLACE FUNCTION public.tacresq_test_fail_sos_insert()
@@ -1162,14 +1162,14 @@ DECLARE
   failure_observed boolean := false;
 BEGIN
   SELECT id INTO requester_profile_id FROM public.profiles
-  WHERE auth_user_id = '00000000-0000-4000-8000-000000000138';
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000141';
 
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000138', true);
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000141', true);
   BEGIN
     PERFORM public.api_create_incident_v4(
       'medical', 'Atomicity failure injection', 11.244, 125.003, NULL,
       'Synthetic CI failure location', '2026-10-30T12:00:00Z'::timestamptz,
-      'manual', '00000000-0000-4000-8000-000000000138'::uuid
+      'manual', '00000000-0000-4000-8000-000000000141'::uuid
     );
   EXCEPTION WHEN SQLSTATE 'P0001' THEN
     failure_observed := true;
@@ -1182,7 +1182,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM public.incident_submission_keys
     WHERE requester_id = requester_profile_id
-      AND client_request_id = '00000000-0000-4000-8000-000000000138'::uuid
+      AND client_request_id = '00000000-0000-4000-8000-000000000141'::uuid
   ) THEN
     RAISE EXCEPTION 'Failed SOS transaction left behind an idempotency reservation';
   END IF;
