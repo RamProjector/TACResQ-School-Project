@@ -28,6 +28,8 @@ required = (
     'Text("Show on map", maxLines = 1)',
     'Text("Navigate", maxLines = 1)',
     "modifier = Modifier.weight(1f).heightIn(min = 48.dp)",
+    'contentDescription = "Show incident #${incident.id} on map"',
+    'contentDescription = "Navigate to incident #${incident.id}"',
 )
 missing = [snippet for snippet in required if snippet not in source]
 if missing:
