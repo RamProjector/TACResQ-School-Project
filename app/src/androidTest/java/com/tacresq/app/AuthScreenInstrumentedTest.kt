@@ -112,7 +112,6 @@ class AuthScreenInstrumentedTest {
         composeRule.onNodeWithText("Emergency type (required)").assertIsDisplayed()
 
         composeRule.onNodeWithText("Medical").performClick()
-        composeRule.onNodeWithText("Medical").performClick()
         composeRule.onNodeWithText("Continue").performScrollTo().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Confirm your location").fetchSemanticsNodes().isNotEmpty()
@@ -150,6 +149,7 @@ class AuthScreenInstrumentedTest {
                 .fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Request emergency help", substring = true).performClick()
+        composeRule.onNodeWithText("Medical").performClick()
         composeRule.onNodeWithText("Continue").performScrollTo().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Confirm your location").fetchSemanticsNodes().isNotEmpty()
