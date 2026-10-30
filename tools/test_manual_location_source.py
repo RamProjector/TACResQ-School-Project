@@ -67,7 +67,7 @@ checks = {
         text in requester for text in (
             "import org.osmdroid.events.MapListener",
             "centerCoordinates.value = point.latitude to point.longitude",
-            '"Selected center: %.5f, %.5f"',
+            '"Selected location: %.5f, %.5f"',
             "Map pin only; it does not measure GPS accuracy.",
             "If the map is blank, cancel and share a landmark.",
         )
