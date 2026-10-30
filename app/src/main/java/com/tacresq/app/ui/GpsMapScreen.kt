@@ -878,24 +878,19 @@ fun GpsMapScreen(
                 }
 
                 if (detailsExpanded) {
-                    Text(description, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (role == Role.DISPATCHER) {
                         Text(
-                            "Field-unit freshness: Fresh under 30 s · Aging 30–120 s · Stale over 120 s. Stale markers are last-known positions, not live.",
+                            "Fresh <30s · Aging 30–120s · Stale >120s. Stale pins are last known.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Text(
-                        "Map tiles need internet. Your one-time location preview stays on this device; continuous tracking is not started.",
+                        "Map needs internet. Location preview stays on this device; no continuous tracking.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (visibleIncidents.isEmpty()) {
-                        Text("No active incidents are available. Pins appear only when the service returns valid coordinates.",
-                            style = MaterialTheme.typography.bodySmall)
-                    } else {
+                    if (visibleIncidents.isNotEmpty()) {
                         LazyColumn(
                             modifier = Modifier.height(132.dp),
                             contentPadding = PaddingValues(vertical = 2.dp),
@@ -943,7 +938,6 @@ private fun MapIncidentCard(incident: Incident, context: Context, now: Instant) 
             Text(incident.type.label, style = MaterialTheme.typography.titleMedium)
             if (lat != null && lng != null && lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0) {
                 Text(String.format(Locale.US, "%.5f, %.5f", lat, lng), style = MaterialTheme.typography.bodySmall)
-                incident.locationRecordedAt?.let { Text("GPS recorded ${formatTime(it)}", style = MaterialTheme.typography.bodySmall) }
                 val (locationAgeLabel, locationNeedsConfirmation) = incident.locationAgeStatus(now)
                 Text(
                     text = locationAgeLabel,
