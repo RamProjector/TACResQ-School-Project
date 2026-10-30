@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -181,8 +182,10 @@ fun AuthScreen(
     var name by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    // Credentials are intentionally transient: never place the password in
+    // the Activity saved-instance-state Bundle.
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.info) {
         if (state.info != null) {
