@@ -124,7 +124,7 @@ fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null) {
         ) {
             Text(text, modifier = Modifier.weight(1f))
             if (onDismiss != null) {
-                TextButton(onClick = onDismiss) { Text("OK") }
+                TextButton(onClick = onDismiss) { Text("Dismiss") }
             }
         }
     }
