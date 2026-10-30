@@ -48,7 +48,7 @@ import kotlin.math.ceil
 fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -57,29 +57,20 @@ fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_tacresq_emergency_launcher),
                 contentDescription = "TACResQ",
-                modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)),
+                modifier = Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)),
                 tint = Color.Unspecified,
             )
             Spacer(modifier = Modifier.width(10.dp))
-            Column(
+            Text(
+                "TACResQ",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    "TACResQ",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    "Emergency assistance, coordinated.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            )
             TextButton(onClick = onLogout) { Text("Sign out") }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
@@ -89,8 +80,10 @@ fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
             if (subtitle.isNotBlank()) {
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
             }
         }
@@ -156,8 +149,16 @@ fun IncidentCard(
     modifier: Modifier = Modifier,
     actions: @Composable ColumnScope.() -> Unit = {},
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     incident.type.label,
@@ -168,45 +169,22 @@ fun IncidentCard(
                 StatusPill(incident.status.label, incident.status.pillColor())
             }
             val time = formatTime(incident.createdAt)
-            if (time.isNotEmpty()) Text(time, style = MaterialTheme.typography.bodySmall)
-            val note = incident.description
-            if (!note.isNullOrBlank()) {
-                Text("Report details", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                Text(note)
+            if (time.isNotEmpty()) {
+                Text(time, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(locationText(incident), style = MaterialTheme.typography.bodySmall)
+            incident.description?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
+                Text(note, style = MaterialTheme.typography.bodyMedium, maxLines = 3,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+            Text(
+                locationText(incident),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             actions()
         }
     }
-}
-
-private fun locationText(incident: Incident): String {
-    val latitude = incident.latitude
-    val longitude = incident.longitude
-    val hasCoordinates = latitude != null && longitude != null
-    val coords = when {
-        latitude != null && longitude != null -> {
-            val label = when (incident.locationSource) {
-                "gps" -> "GPS pin"
-                "manual" -> "Manual map pin"
-                else -> "Location pin (source unverified)"
-            }
-            String.format(Locale.US, "$label: %.5f, %.5f", latitude, longitude)
-        }
-        latitude == null && longitude == null && incident.locationSource in listOf(null, "none") ->
-            "No location pin was shared"
-        else -> "Incomplete location data — do not rely on a map pin"
-    }
-    val accuracy = if (hasCoordinates && incident.locationSource == "gps") {
-        incident.accuracyM?.let { " · reported accuracy ±${ceil(it.toDouble()).toInt()} m" } ?: ""
-    } else ""
-    val captured = if (hasCoordinates) {
-        incident.locationRecordedAt?.let { formatTime(it) }?.takeIf { it.isNotBlank() }
-            ?.let { " · captured $it" } ?: " · capture time unavailable; verify with requester"
-    } else ""
-    val notes = incident.locationNotes?.trim()?.takeIf { it.isNotEmpty() }
-        ?.let { "\nLocation note: $it" } ?: ""
-    return "$coords$accuracy$captured$notes"
 }
 
 private val timeFormatter: DateTimeFormatter =
