@@ -980,8 +980,12 @@ private fun MapIncidentCard(incident: Incident, context: Context, now: Instant) 
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(incident.type.label, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f))
+                Text(
+                    "Incident #${incident.id} · ${incident.type.label}",
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
                 StatusPill(incident.status.label, incident.status.pillColor())
             }
             if (lat != null && lng != null && lat.isFinite() && lng.isFinite() &&
@@ -993,6 +997,21 @@ private fun MapIncidentCard(incident: Incident, context: Context, now: Instant) 
                     style = MaterialTheme.typography.bodySmall,
                     color = if (needsConfirmation) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val locationSourceLabel = when (incident.locationSource) {
+                    "gps" -> "GPS"
+                    "manual" -> "Manual pin"
+                    else -> "Source unavailable"
+                }
+                val accuracyLabel = if (incident.locationSource == "gps") {
+                    incident.accuracyM?.takeIf { it.isFinite() && it >= 0.0 }
+                        ?.let { " · about ${it.roundToInt()} m accuracy" }
+                        .orEmpty()
+                } else ""
+                Text(
+                    locationSourceLabel + accuracyLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedButton(
                     onClick = { openExternalMaps(context, lat, lng) },
