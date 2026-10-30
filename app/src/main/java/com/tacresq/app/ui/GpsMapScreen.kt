@@ -180,7 +180,9 @@ private fun GpsMapFilterButtons(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         androidx.compose.material3.FilledTonalButton(
             onClick = onShowIncidents,
-            modifier = Modifier.heightIn(min = 48.dp),
+            modifier = Modifier.heightIn(min = 48.dp).semantics {
+                contentDescription = "Center map on active incidents"
+            },
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
         ) {
             androidx.compose.material3.Icon(
@@ -194,7 +196,9 @@ private fun GpsMapFilterButtons(
         if (role == Role.DISPATCHER) {
             androidx.compose.material3.FilledTonalButton(
                 onClick = onShowActiveUnits,
-                modifier = Modifier.heightIn(min = 48.dp),
+                modifier = Modifier.heightIn(min = 48.dp).semantics {
+                    contentDescription = "Center map on responder field units"
+                },
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
             ) {
                 androidx.compose.material3.Icon(
