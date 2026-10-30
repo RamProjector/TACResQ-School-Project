@@ -297,15 +297,10 @@ fun GpsMapScreen(
     } else {
         validIncidentPoints
     }
-    val responderFreshnessSummary = if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
-        "Field units · $freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale"
-    } else null
     val incidentPinSummary = validIncidentPoints.size.takeIf { it > 0 }?.let { count ->
         if (count == 1) "1 incident pin on map" else "$count incident pins on map"
     }
     val defaultMapStatus = when {
-        role == Role.DISPATCHER && validResponderLocations.isNotEmpty() ->
-            listOfNotNull(incidentPinSummary, responderFreshnessSummary).joinToString(" · ")
         validIncidentPoints.isNotEmpty() ->
             "$incidentPinSummary."
         visibleIncidents.isNotEmpty() ->
@@ -811,6 +806,19 @@ fun GpsMapScreen(
                             contentDescription = if (detailsExpanded) "Collapse map details" else "Expand map details",
                         )
                     }
+                }
+
+                // Keep operational freshness visible even while an action message
+                // (for example, "Centered on incident") temporarily replaces map status.
+                // This summary updates with the 15-second foreground freshness tick but is
+                // deliberately not a live region, avoiding repetitive TalkBack announcements.
+                if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
+                    Text(
+                        text = "Units: $freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
                 }
 
                 if (showAppSettingsAction) {
