@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# A newer commit on the same PR supersedes the previous validation run.
+# Keep main-branch and manually dispatched runs isolated by ref.
+concurrency:
+  group: tacresq-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   source-checks:
     name: Source checks
