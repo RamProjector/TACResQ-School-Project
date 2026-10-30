@@ -9,9 +9,8 @@ for destination in ('PRIMARY("Home")', 'SECONDARY("Requests")', 'MAP("GPS Map")'
     assert destination in source, f"missing canonical destination: {destination}"
 
 assert 'Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")' in source
-assert 'Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Alerts", "Profile")' in source
+assert 'Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Alerts", "Profile")' in source
 assert 'Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")' in source
-assert "val compact = maxWidth < 400.dp" in source
 assert "NavigationBar(" in source, "use a consistent Material 3 navigation surface"
 assert source.count("NavigationItem(destinations[") == 4, "all four role destinations must remain"
 assert "GpsMapNavigationItem(selected, onDestinationSelected)" in source, "GPS must remain a top-level destination"
