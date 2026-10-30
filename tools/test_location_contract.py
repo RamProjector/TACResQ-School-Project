@@ -27,6 +27,15 @@ checks = {
     "current RLS policy limits location reads to the active assigned unit": "i.status = 'en_route'" in read_policy and "a.user_id = location_logs.user_id" in read_policy and "a.responder_status = 'en_route'" in read_policy,
     "dashboard exposes freshness and missing/configuration states": all(text in dashboard for text in ('ageMs < 30_000', 'ageMs <= 120_000', 'unavailable', 'no live marker is shown')),
     "Android requests approximate updates with movement and cadence limits": all(text in location_provider for text in ('responderForegroundUpdates()', 'GRANULARITY_COARSE', 'RESPONDER_INTERVAL_MS = 12_000L', 'RESPONDER_MIN_DISTANCE_M = 20f')),
+    "Android responder tracking validates the matching coarse request through Play Services rather than OEM LocationManager flags": (
+        "when (checkResponderLocationSettings())" in location_provider
+        and "Priority.PRIORITY_BALANCED_POWER_ACCURACY" in location_provider
+        and "LocationSettingsCheck.NeedsResolution" in location_provider
+        and "LocationSettingsCheck.Unavailable" in location_provider
+        and "checkLocationSettings(settings).await()" in location_provider
+        and "isLocationEnabled()" not in location_provider
+        and "LocationManager" not in location_provider
+    ),
     "Android unregisters callback on flow cancellation": "awaitClose()" in location_provider and "finally {\n            client.removeLocationUpdates(callback)" in location_provider,
     "responder consent permits start without sharing and requests permission in context": "Share location & start" in responder_screen and "Start without sharing" in responder_screen and "ACCESS_COARSE_LOCATION" in responder_screen,
     "Android stops sharing on foreground exit and reports send metadata": "Lifecycle.Event.ON_STOP" in responder_screen and "vm.stopTracking(" in responder_screen and "Last sent $time" in responder_screen and "repo.recordResponderLocation" in responder_screen,
