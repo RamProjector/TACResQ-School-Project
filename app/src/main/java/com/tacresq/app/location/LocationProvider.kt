@@ -85,7 +85,7 @@ class LocationProvider(context: Context) {
 
     /**
      * Responders share approximate foreground locations, so validate the matching balanced-power
-     * request instead of consulting LocationManager's OEM-dependent enabled flag. The settings
+     * request instead of consulting an OEM-dependent platform enabled flag. The settings
      * client is the same authority used by the one-time requester flow and avoids false
      * "Location is off" stops on devices whose platform/provider flags are briefly stale.
      */
