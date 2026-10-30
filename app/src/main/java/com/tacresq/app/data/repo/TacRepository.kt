@@ -87,7 +87,6 @@ class TacRepository(
             }
         }
     }
-    }
 
     suspend fun me(): Result<User> = call { api.me() }
 
