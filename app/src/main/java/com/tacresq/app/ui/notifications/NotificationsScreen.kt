@@ -36,6 +36,7 @@ import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.repo.NotificationRepository
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.SectionHeading
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -189,16 +190,18 @@ fun NotificationsAndSafetyScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            ScreenHeader(title = "Alerts & safety", subtitle = user.role.label, onLogout = onLogout)
+            ScreenHeader(title = "Alerts & safety", onLogout = onLogout)
         }
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape = MaterialTheme.shapes.medium,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(18.dp),
@@ -208,7 +211,7 @@ fun NotificationsAndSafetyScreen(
                         "Notifications",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
                         when {
@@ -217,7 +220,7 @@ fun NotificationsAndSafetyScreen(
                             else -> "$unreadCount unread among the latest ${state.items.size} notifications"
                         },
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -301,12 +304,7 @@ fun NotificationsAndSafetyScreen(
         }
 
         item {
-            Text(
-                "Safety guidance",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            SectionHeading("Safety guidance")
         }
         item {
             GuidanceCard(
