@@ -78,10 +78,10 @@ END;
 $privilege_contract$;
 
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000140', 'gps-contract-requester@example.test', '{"name":"GPS Contract Requester"}'),
-  ('00000000-0000-4000-8000-000000000141', 'gps-contract-dispatcher@example.test', '{"name":"GPS Contract Dispatcher"}'),
-  ('00000000-0000-4000-8000-000000000142', 'gps-contract-responder@example.test', '{"name":"GPS Contract Responder"}'),
-  ('00000000-0000-4000-8000-000000000143', 'gps-contract-outsider@example.test', '{"name":"GPS Contract Outsider"}');
+  ('00000000-0000-4000-8000-000000000140', 'gps-contract-requester@example.test', '{"name":"GPS Contract Requester","phone":"+639170000140"}'),
+  ('00000000-0000-4000-8000-000000000141', 'gps-contract-dispatcher@example.test', '{"name":"GPS Contract Dispatcher","phone":"+639170000141"}'),
+  ('00000000-0000-4000-8000-000000000142', 'gps-contract-responder@example.test', '{"name":"GPS Contract Responder","phone":"+639170000142"}'),
+  ('00000000-0000-4000-8000-000000000143', 'gps-contract-outsider@example.test', '{"name":"GPS Contract Outsider","phone":"+639170000143"}');
 
 DO $fixture_roles$
 BEGIN
