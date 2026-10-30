@@ -10,8 +10,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -52,9 +50,9 @@ class NavigationInstrumentedTest {
         }
 
         composeRule.onNodeWithText("Home destination content").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("GPS Map").performClick()
+        composeRule.onNodeWithText("GPS Map").performClick()
         composeRule.onNodeWithText("Back to app").assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithContentDescription("Home").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Home").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Home destination content").fetchSemanticsNodes().isEmpty())
 
         composeRule.onNodeWithText("Back to app").performClick()
@@ -79,7 +77,7 @@ class NavigationInstrumentedTest {
         // The current requester shell calls this destination "Alerts"; "Safety" was
         // an obsolete label and made the emulator suite fail despite a valid navigation item.
         listOf("Home", "Requests", "GPS Map", "Alerts", "Profile").forEach { label ->
-            composeRule.onNodeWithContentDescription(label).assertIsDisplayed()
+            composeRule.onNodeWithText(label).assertIsDisplayed()
         }
     }
 }
