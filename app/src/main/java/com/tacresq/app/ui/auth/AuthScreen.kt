@@ -190,19 +190,19 @@ fun AuthScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Image(
-                painter = painterResource(id = R.drawable.tacresq_app_icon),
+                painter = painterResource(id = R.drawable.ic_tacresq_emergency_launcher),
                 contentDescription = "TACResQ app icon",
                 modifier = Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)),
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     "TACResQ",
-                    style = MaterialTheme.typography.headlineLarge,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    "Emergency response, connected",
+                    "Emergency GPS and response coordination",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
