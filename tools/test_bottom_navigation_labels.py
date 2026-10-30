@@ -23,7 +23,10 @@ assert "selected = active" in source, "selected destination must be exposed to a
 assert "role = SemanticsRole.Tab" in source, "destinations must expose a consistent semantic role"
 assert "Modifier.size(width = 48.dp, height = 30.dp)" in source, "standard icon container must retain its intended size"
 assert ".heightIn(min = 48.dp)" in source, "navigation items need a minimum touch height"
-assert "if (selected != AppDestination.MAP)" not in source, "navigation must remain visible while the map is open"
+map_branch = source.split("if (selected == AppDestination.MAP)", 1)[1].split("} else {", 1)[0]
+assert "mapContent()" in map_branch, "the map must open as its own destination"
+assert "TacruBottomNavigation(" not in map_branch, "the full-screen map must not show the app bottom navigation"
+assert "TacruBottomNavigation(" in source, "regular app destinations must retain the shared navigation"
 assert "onClick = { onDestinationSelected(destination) }" in source
 assert "onDestinationSelected(AppDestination.MAP)" in source
 assert "RoundedCornerShape(16.dp)" in source, "standard destinations should use consistent rounded selection treatment"
