@@ -78,17 +78,17 @@ END;
 $privilege_contract$;
 
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000140', 'gps-contract-requester@example.test', '{"name":"GPS Contract Requester","phone":"+639170000140"}'),
-  ('00000000-0000-4000-8000-000000000141', 'gps-contract-dispatcher@example.test', '{"name":"GPS Contract Dispatcher","phone":"+639170000141"}'),
-  ('00000000-0000-4000-8000-000000000142', 'gps-contract-responder@example.test', '{"name":"GPS Contract Responder","phone":"+639170000142"}'),
-  ('00000000-0000-4000-8000-000000000143', 'gps-contract-outsider@example.test', '{"name":"GPS Contract Outsider","phone":"+639170000143"}');
+  ('00000000-0000-4000-8000-000000000150', 'gps-contract-requester-153@example.test', '{"name":"GPS Contract Requester","phone":"+639170000150"}'),
+  ('00000000-0000-4000-8000-000000000151', 'gps-contract-dispatcher-153@example.test', '{"name":"GPS Contract Dispatcher","phone":"+639170000151"}'),
+  ('00000000-0000-4000-8000-000000000152', 'gps-contract-responder-153@example.test', '{"name":"GPS Contract Responder","phone":"+639170000152"}'),
+  ('00000000-0000-4000-8000-000000000153', 'gps-contract-outsider-153@example.test', '{"name":"GPS Contract Outsider","phone":"+639170000153"}');
 
 DO $fixture_roles$
 BEGIN
   UPDATE public.profiles SET role = 'dispatcher', duty_status = NULL
-   WHERE auth_user_id = '00000000-0000-4000-8000-000000000141';
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000151';
   UPDATE public.profiles SET role = 'responder', duty_status = 'available'
-   WHERE auth_user_id = '00000000-0000-4000-8000-000000000142';
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000152';
 END;
 $fixture_roles$;
 
@@ -97,14 +97,14 @@ INSERT INTO public.incidents (
 )
 SELECT p.id, 'medical', 'Disposable GPS RPC authorization contract', 11.2443, 125.0030, now(), 'manual'
 FROM public.profiles p
-WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000140';
+WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000150';
 
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000141', false);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000151', false);
 SELECT public.api_assign_incident_team(
   (SELECT max(i.id) FROM public.incidents i WHERE i.description = 'Disposable GPS RPC authorization contract'),
-  ARRAY[(SELECT p.id FROM public.profiles p WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000142')]
+  ARRAY[(SELECT p.id FROM public.profiles p WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000152')]
 );
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000142', false);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000152', false);
 SELECT public.api_update_my_assignment_status(
   (SELECT max(i.id) FROM public.incidents i WHERE i.description = 'Disposable GPS RPC authorization contract'),
   'en_route'
@@ -123,7 +123,7 @@ DECLARE
   denied boolean := false;
 BEGIN
   SELECT id INTO responder_id FROM public.profiles
-   WHERE auth_user_id = '00000000-0000-4000-8000-000000000142';
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000152';
   SELECT max(id) INTO incident_id FROM public.incidents
    WHERE description = 'Disposable GPS RPC authorization contract';
   BEGIN
@@ -138,7 +138,7 @@ BEGIN
 END;
 $direct_insert_denied$;
 
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000141', false);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000151', false);
 DO $dispatcher_reader$
 DECLARE
   location_count integer;
@@ -150,7 +150,7 @@ BEGIN
 END;
 $dispatcher_reader$;
 
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000143', false);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000153', false);
 DO $non_dispatcher_denied$
 DECLARE
   denied boolean := false;
