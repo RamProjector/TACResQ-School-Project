@@ -269,20 +269,7 @@ fun NotificationsAndSafetyScreen(
                     }
                 }
             }
-        } else if (state.items.isEmpty() && state.error == null) {
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("You're all caught up", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Assignment and incident status alerts will appear here when the backend records them.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                }
-            }
-        } else {
+        } else if (state.items.isNotEmpty()) {
             items(state.items, key = { it.id }) { notification ->
                 NotificationCard(
                     notification = notification,
@@ -303,25 +290,25 @@ fun NotificationsAndSafetyScreen(
         item {
             GuidanceCard(
                 title = "If you need urgent help",
-                body = "If someone is in immediate danger, contact the appropriate local emergency service directly when you can. Do not wait for an app status update to seek urgent assistance.",
+                body = "Immediate danger? Contact local emergency services. Don't wait for an app update.",
             )
         }
         item {
             GuidanceCard(
                 title = "Confirm the location",
-                body = "Check the map pin and landmark together. GPS can be inaccurate indoors or near tall buildings; correct a misplaced pin before sending when it is safe to do so.",
+                body = "Check the pin against a landmark. GPS can drift indoors or near tall buildings.",
             )
         }
         item {
             GuidanceCard(
                 title = "Share location deliberately",
-                body = "Field-unit location sharing is visible to authorized dispatch while the app is in use. Stop sharing when the response no longer requires it.",
+                body = "Location sharing is visible to authorized dispatch while the app is open. Stop when no longer needed.",
             )
         }
         item {
             GuidanceCard(
                 title = "Protect personal information",
-                body = "Share only details relevant to the incident. Do not post medical details, phone numbers, or another person's location publicly.",
+                body = "Share only details needed for the response. Keep medical and contact details private.",
             )
         }
     }
