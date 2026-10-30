@@ -72,7 +72,7 @@ def main() -> None:
     )
 
     code_review = (WORKFLOWS / "code-review.yml").read_text(encoding="utf-8")
-    review_permissions = re.search(r"(?m)^permissions:\\n((?:  [^\\n]+\\n)+)", code_review)
+    review_permissions = re.search(r"(?m)^permissions:\n((?:  [^\n]+\n)+)", code_review)
     assert review_permissions and review_permissions.group(1).strip() == "contents: read", (
         "Privileged review workflow must default to contents: read only"
     )
