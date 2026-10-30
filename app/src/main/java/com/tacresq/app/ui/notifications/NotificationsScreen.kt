@@ -36,6 +36,7 @@ import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.repo.NotificationRepository
+import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SectionHeading
 import kotlinx.coroutines.delay
@@ -239,12 +240,11 @@ fun NotificationsAndSafetyScreen(
 
         state.actionError?.let { message ->
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = vm::dismissActionError) { Text("Dismiss") }
-                    }
-                }
+                Banner(
+                    text = message,
+                    isError = true,
+                    onDismiss = vm::dismissActionError,
+                )
             }
         }
 
