@@ -728,7 +728,7 @@ fun GpsMapScreen(
                     androidx.compose.material3.FilledTonalIconButton(
                         onClick = onLocateClick,
                         enabled = !isLocationRequestInProgress,
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(52.dp),
                     ) {
                         if (isLocationRequestInProgress) {
                             androidx.compose.material3.CircularProgressIndicator(
