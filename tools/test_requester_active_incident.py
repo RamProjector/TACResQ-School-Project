@@ -18,7 +18,7 @@ checks = {
     "cancellation only applies to requests owned by requester": "requester_id = profile_row.id" in MIGRATION,
     "cancellation only succeeds while pending": "incident_row.status <> 'pending'" in MIGRATION and "contact dispatch" in MIGRATION,
     "cancellation RPC is not executable by anonymous users": "revoke all on function public.api_cancel_my_incident(bigint) from public, anon" in MIGRATION and "grant execute on function public.api_cancel_my_incident(bigint) to authenticated" in MIGRATION,
-    "Home hides the form until the emergency request action is pressed": "showrequestform && activeincident == null" in SCREEN.lower() and 'text("start emergency request' in SCREEN.lower(),
+    "Home hides the form until the emergency request action is pressed": "showrequestform && activeincident == null" in SCREEN.lower() and 'text("request emergency help' in SCREEN.lower(),
     "Home presents the active request instead of a second submission form": 'text("active emergency"' in SCREEN.lower() and 'if (activeincident != null)' in SCREEN.lower(),
     "requester UI offers cancellation confirmation": 'text("cancel emergency request?"' in SCREEN.lower() and 'text("confirm cancellation")' in SCREEN.lower(),
     "repository exposes cancellation through the API": "suspend fun cancelMyIncident(id: Long): Result<Incident>" in REPO and "api.cancelMyIncident(id)" in REPO,
