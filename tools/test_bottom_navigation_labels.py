@@ -17,16 +17,15 @@ assert "GpsMapNavigationItem(selected, onDestinationSelected)" in source
 assert 'label = "GPS Map"' in source
 assert "icon = Icons.Filled.LocationOn" in source
 assert "NavigationDestinationItem(" in source
-assert "contentDescription = label" in source
+assert "NavigationBarItem(" in source
+assert "alwaysShowLabel = true" in source
+assert "NavigationBarItemDefaults.colors(" in source
+assert "indicatorColor = if (emphasized)" in source
 assert "selected = active" in source
-assert "role = SemanticsRole.Tab" in source
-assert "Modifier.size(width = 48.dp, height = 30.dp)" in source
-assert ".heightIn(min = 48.dp)" in source
 map_branch = source.split("if (selected == AppDestination.MAP)", 1)[1].split("} else {", 1)[0]
 assert "mapContent()" in map_branch
 assert "TacruBottomNavigation(" not in map_branch
 assert "TacruBottomNavigation(" in source
 assert "onDestinationSelected(AppDestination.MAP)" in source
-assert "RoundedCornerShape(16.dp)" in source
 
 print("Role-aware five-destination navigation and unified GPS Map styling passed.")
