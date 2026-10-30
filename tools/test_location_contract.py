@@ -39,7 +39,7 @@ checks = {
     ),
     "approximate location remains available without granting session precision": (
         "locationProvider.hasApproximatePermission()" in map_screen
-        and "Precise location wasn't shared" not in map_screen
+        and "else if (locationProvider.hasApproximatePermission())" in map_screen
         and "locationProvider.hasPrecisePermission()" in map_screen
         and "Incident pins remain available" in map_screen
     ),
