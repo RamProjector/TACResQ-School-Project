@@ -390,6 +390,19 @@ fun GpsMapScreen(
         }
     }
 
+    fun focusIncidentOnMap(incident: Incident) {
+        val latitude = incident.latitude
+        val longitude = incident.longitude
+        if (!incident.hasValidMapCoordinates() || latitude == null || longitude == null) {
+            locationStatus = "Incident #${incident.id} has no usable map coordinates."
+            return
+        }
+        deviceFix = null
+        mapView.controller.setZoom(15.0)
+        mapView.controller.animateTo(GeoPoint(latitude, longitude))
+        locationStatus = "Centered on incident #${incident.id}. Check the recorded location time before navigating."
+    }
+
     fun showActiveUnits() {
         when (validResponderPoints.size) {
             0 -> locationStatus = "No valid field-unit location reports are available. Units must be en route and explicitly sharing foreground location."
@@ -905,7 +918,12 @@ fun GpsMapScreen(
                                         )
                                     },
                                 ) {
-                                    MapIncidentCard(incident = incident, context = context, now = mapNow)
+                                    MapIncidentCard(
+                                        incident = incident,
+                                        context = context,
+                                        now = mapNow,
+                                        onFocusOnMap = ::focusIncidentOnMap,
+                                    )
                                 }
                             }
                         }
@@ -988,7 +1006,12 @@ fun GpsMapScreen(
 }
 
 @Composable
-private fun MapIncidentCard(incident: Incident, context: Context, now: Instant) {
+private fun MapIncidentCard(
+    incident: Incident,
+    context: Context,
+    now: Instant,
+    onFocusOnMap: (Incident) -> Unit,
+) {
     val lat = incident.latitude
     val lng = incident.longitude
     Card(
@@ -1038,12 +1061,24 @@ private fun MapIncidentCard(incident: Incident, context: Context, now: Instant) 
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedButton(
-                    onClick = { openExternalMaps(context, lat, lng) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    contentPadding = PaddingValues(vertical = 6.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Navigate")
+                    androidx.compose.material3.FilledTonalButton(
+                        onClick = { onFocusOnMap(incident) },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                    ) {
+                        Text("Show on map", maxLines = 1)
+                    }
+                    OutlinedButton(
+                        onClick = { openExternalMaps(context, lat, lng) },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                    ) {
+                        Text("Navigate", maxLines = 1)
+                    }
                 }
             } else {
                 Text(
