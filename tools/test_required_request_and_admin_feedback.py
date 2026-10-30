@@ -33,6 +33,10 @@ for field in ("name.isBlank()", "email.isBlank()", "phone.isBlank()", "password.
     assert field in auth, f"Missing required requester registration validation: {field}"
 for label in ("Full name (required)", "Mobile number (required)", "Email address (required)", "Password (required)"):
     assert label in auth, f"Missing required registration label: {label}"
+assert "var passwordVisible by rememberSaveable { mutableStateOf(false) }" in auth
+assert 'Text(if (passwordVisible) "Hide" else "Show")' in auth
+assert "if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation()" in auth
+assert "passwordVisible = false" in auth, "Password must be hidden again when switching login/register mode."
 assert "Staff and administrator accounts are provisioned separately" in auth
 assert '"role" to "requester"' in supabase_api, "Public Supabase signup must force the requester role."
 assert "administrator provisioning is operator-only" in admin_migration.lower()
