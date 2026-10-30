@@ -248,7 +248,6 @@ fun IncidentChatScreen(
             ScreenHeader(
                 title = "Incident chat",
                 subtitle = "Incident #$incidentId",
-                onLogout = onLogout,
             )
         }
         Row(
