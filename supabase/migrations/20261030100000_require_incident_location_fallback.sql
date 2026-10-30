@@ -18,6 +18,12 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  IF NEW.type = 'other'
+     AND NULLIF(pg_catalog.btrim(NEW.description), '') IS NULL THEN
+    RAISE EXCEPTION 'An emergency description is required for the Other type'
+      USING ERRCODE = '22023';
+  END IF;
+
   RETURN NEW;
 END;
 $function$;
