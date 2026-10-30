@@ -43,6 +43,9 @@ interface TacApi {
     @POST("logout")
     suspend fun logout()
 
+    /** Allows local-first sign-out to revoke the captured session after clearing local credentials. */
+    suspend fun logout(token: String?) { logout() }
+
     @GET("me")
     suspend fun me(): User
 
