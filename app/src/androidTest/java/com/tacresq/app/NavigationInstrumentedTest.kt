@@ -1,12 +1,15 @@
 package com.tacresq.app
 
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -41,17 +44,20 @@ class NavigationInstrumentedTest {
                     selected = selected,
                     onDestinationSelected = { selected = it },
                     content = { Text("Home destination content") },
-                    mapContent = { Text("GPS Map destination content") },
+                    mapContent = {
+                        ColumnForMapBack(onBack = { selected = AppDestination.PRIMARY })
+                    },
                 )
             }
         }
 
         composeRule.onNodeWithText("Home destination content").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("GPS Map").performClick()
-        composeRule.onNodeWithText("GPS Map destination content").assertIsDisplayed()
+        composeRule.onNodeWithText("Back to app").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Home").assertDoesNotExist()
         assertTrue(composeRule.onAllNodesWithText("Home destination content").fetchSemanticsNodes().isEmpty())
 
-        composeRule.onNodeWithContentDescription("Home").performClick()
+        composeRule.onNodeWithText("Back to app").performClick()
         composeRule.onNodeWithText("Home destination content").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("GPS Map destination content").fetchSemanticsNodes().isEmpty())
     }
@@ -75,5 +81,13 @@ class NavigationInstrumentedTest {
         listOf("Home", "Requests", "GPS Map", "Alerts", "Profile").forEach { label ->
             composeRule.onNodeWithContentDescription(label).assertIsDisplayed()
         }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun ColumnForMapBack(onBack: () -> Unit) {
+    Column {
+        Text("GPS Map destination content")
+        Button(onClick = onBack) { Text("Back to app") }
     }
 }
