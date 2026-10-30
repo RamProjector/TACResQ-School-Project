@@ -29,7 +29,7 @@ required = (
     'locationStatus = "Centered on incident #${incident.id}. Check the recorded location time before navigating."',
     "onFocusOnMap = ::focusIncidentOnMap",
     'Text("Show on map", maxLines = 1)',
-    'Text("Navigate", maxLines = 1)',
+    'Text(if (needsConfirmation) "Review location" else "Navigate", maxLines = 1)',
     "modifier = Modifier.weight(1f).heightIn(min = 48.dp)",
     'contentDescription = "Show incident #${incident.id} on map"',
     'else {\n                                "Navigate to incident #${incident.id}"\n                            }',
