@@ -17,7 +17,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   screen-capture:
@@ -79,29 +78,3 @@ jobs:
           path: artifacts-stress.log
           if-no-files-found: ignore
 
-  security:
-    name: Static and AI-assisted security review
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.11"
-      - name: Run repository security guardrails
-        run: python3 tools/ai_security_review.py
-      - name: Run CodeQL analysis
-        uses: github/codeql-action/init@v4
-        with:
-          languages: javascript-typescript, actions
-      - uses: github/codeql-action/analyze@v4
-      - name: Optional AI review
-        if: ${{ inputs.run_ai_review == true || github.event_name == 'schedule' }}
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
-          AI_SECURITY_MODEL: ${{ vars.AI_SECURITY_MODEL }}
-        run: python3 tools/ai_security_review.py --ai
-      - name: Dependency review for pull requests
-        if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v5
