@@ -11,8 +11,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
-  pull-requests: read
 
 concurrency:
   group: tacresq-security-${{ github.event.pull_request.number || github.ref }}
@@ -36,12 +34,23 @@ jobs:
         run: python3 tools/ai_security_review.py
 
       - name: Review dependency changes on pull requests
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
         uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: moderate
+
+      - name: Explain dependency review prerequisite
+        if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED != 'true'
+        run: |
+          echo "::warning::Dependency review was skipped because repository variable DEPENDENCY_GRAPH_ENABLED is not set to true."
+          echo "Enable the repository dependency graph in Settings > Security & analysis, then set repository variable DEPENDENCY_GRAPH_ENABLED=true."
 
   codeql-android:
     name: CodeQL Android (Java and Kotlin)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     timeout-minutes: 35
     steps:
       - name: Check out source
@@ -80,6 +89,9 @@ jobs:
   codeql-web-actions:
     name: CodeQL Web and GitHub Actions
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     timeout-minutes: 25
     steps:
       - name: Check out source
