@@ -122,7 +122,7 @@ checks = {
         "SOS sent. Dispatch confirmed the map pin you selected." in requester
         and "SOS sent. Dispatch confirmed the one-time GPS pin you submitted." in requester
         and "TACResQ is not tracking you continuously" not in requester
-        and "Only this pin is included with the SOS; ongoing location updates are not sent." in requester
+        and "This one-time pin is sent; ongoing tracking is not." in requester
     ),
     "expired manual pins are not mislabeled as GPS fixes": all(
         text in requester for text in (
