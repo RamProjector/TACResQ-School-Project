@@ -75,6 +75,17 @@ def main() -> None:
     assert code_review.split("jobs:", 1)[0].split("permissions:", 1)[1].strip() == "contents: read", (
         "Privileged review workflow must default to contents: read only"
     )
+    for workflow_name, workflow_text in (
+        ("code-review.yml", code_review),
+        ("security.yml", security),
+    ):
+        action_refs = re.findall(r"(?m)^\\s*uses:\\s*([^\\s#]+)", workflow_text)
+        assert action_refs, f"{workflow_name}: expected external actions"
+        for action_ref in action_refs:
+            assert re.search(r"@[0-9a-f]{40}$", action_ref), (
+                f"{workflow_name}: action must be pinned to a full commit SHA: {action_ref}"
+            )
+
     reviewer_job = code_review.split("  automated-review:", 1)[1]
     assert "pull-requests: write" in reviewer_job and "issues: write" in reviewer_job, (
         "Only the automated reviewer job should receive comment permissions"
