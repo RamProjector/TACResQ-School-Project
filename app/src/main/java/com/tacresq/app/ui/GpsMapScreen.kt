@@ -33,7 +33,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MyLocation
@@ -1065,7 +1064,7 @@ private fun MapIncidentCard(
                     ) {
                         Text("Show on map", maxLines = 1)
                     }
-                    OutlinedButton(
+                    androidx.compose.material3.TextButton(
                         onClick = {
                             if (needsConfirmation) {
                                 showNavigationConfirmation = true
@@ -1073,14 +1072,14 @@ private fun MapIncidentCard(
                                 openExternalMaps(context, lat!!, lng!!)
                             }
                         },
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
+                        modifier = Modifier.heightIn(min = 48.dp).semantics {
                             contentDescription = if (needsConfirmation) {
                                 "Review location before navigating to incident #${incident.id}"
                             } else {
                                 "Navigate to incident #${incident.id}"
                             }
                         },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                     ) {
                         Text(if (needsConfirmation) "Review location" else "Navigate", maxLines = 1)
                     }
