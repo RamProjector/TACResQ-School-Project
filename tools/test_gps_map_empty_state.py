@@ -56,7 +56,7 @@ required = (
     "Modifier.fillMaxWidth().heightIn(min = 48.dp)",
     "Modifier.weight(1f).heightIn(min = 48.dp)",
     ".heightIn(max = mapDetailsMaxHeight)",
-    'LazyColumn(\n                        modifier = Modifier\n                            .fillMaxWidth()\n                            .heightIn(max = mapDetailsMaxHeight)',
+    "LazyColumn(",
     'var showNavigationConfirmation by remember(incident.id) { mutableStateOf(false) }',
     'showNavigationConfirmation = true',
     'androidx.compose.material3.TextButton(',
