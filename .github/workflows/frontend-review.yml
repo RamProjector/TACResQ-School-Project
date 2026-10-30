@@ -1,8 +1,9 @@
 name: TACResQ Frontend Review
 
-# Temporarily manual-only while release-critical system workflows are completed.
-# Restore pull_request triggers after core functionality and security hardening stabilize.
 on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
   workflow_dispatch:
     inputs:
       base_sha:
