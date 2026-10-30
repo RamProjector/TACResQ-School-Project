@@ -267,3 +267,14 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Admin caveat:** AdminAccessScreen is currently a dedicated screen outside RoleShell/Profile. A role-appropriate admin account/session exit destination remains to be designed; do not silently remove admin sign-out access.
 - **Validation:** Static contract assertions added. Exact-head Android CI and security checks must pass before merge. No emulator/device session-flow test or live backend operation was performed.
 - **Next task:** Add a discoverable top-right notification action that routes to the existing notification inbox, then assess whether the Alerts bottom-navigation destination should be retained or retired.
+
+
+## Handoff — 2026-10-31: top-right notification entry point
+
+- **Research basis:** Android's Jetpack Compose app-bar guidance describes top app bars as the place for core actions, with actions placed at the trailing/right side; icon actions should use IconButton and a meaningful content description. https://developer.android.com/develop/ui/compose/components/app-bars
+- **Implementation:** Shared ScreenHeader now accepts an optional notification callback and displays a trailing bell IconButton labelled **Open notifications**. RoleApp routes that action to the existing Alerts & safety destination. Requester, responder, driver, dispatcher, and incident-chat headers are wired to the route.
+- **Validation added:** Static notification contract checks verify callback propagation; Compose instrumented test checks the action is displayed with its accessibility description and invokes the callback.
+- **Compatibility:** Existing Alerts bottom-navigation entry remains temporarily as a duplicate route to the same inbox. Do not remove it until device testing confirms the header action is discoverable and the navigation change does not strand notification access.
+- **Admin caveat:** AdminAccessScreen is separate from RoleShell and does not yet expose this shared header action.
+- **No backend changes:** Notification RPCs, polling, read state, RLS, push delivery, and notification content are unchanged.
+- **Next:** Run exact-head CI, then inspect the admin role's profile/session UX and consider badge/unread count only after verifying refresh cadence and performance.
