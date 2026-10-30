@@ -8,6 +8,7 @@ import android.view.MotionEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -740,23 +741,41 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 IncidentType.entries.forEach { type ->
                                     Card(
                                         modifier = Modifier.fillMaxWidth(),
+                                        shape = MaterialTheme.shapes.medium,
+                                        border = BorderStroke(
+                                            if (type == selectedType) 1.5.dp else 1.dp,
+                                            if (type == selectedType) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.outlineVariant,
+                                        ),
                                         colors = CardDefaults.cardColors(
                                             containerColor = if (type == selectedType)
-                                                MaterialTheme.colorScheme.secondaryContainer
+                                                MaterialTheme.colorScheme.primaryContainer
                                             else MaterialTheme.colorScheme.surface,
                                         ),
                                         onClick = { selectedType = type },
                                     ) {
                                         Row(
-                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                                            modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp)
+                                                .padding(horizontal = 14.dp, vertical = 8.dp),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                                         ) {
                                             RadioButton(
                                                 selected = type == selectedType,
                                                 onClick = { selectedType = type },
                                             )
-                                            Text(type.label, style = MaterialTheme.typography.bodyLarge)
+                                            Text(
+                                                type.label,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = if (type == selectedType) FontWeight.SemiBold else FontWeight.Normal,
+                                                color = if (type == selectedType) MaterialTheme.colorScheme.onPrimaryContainer
+                                                else MaterialTheme.colorScheme.onSurface,
+                                            )
+                                            Spacer(Modifier.weight(1f))
+                                            if (type == selectedType) {
+                                                Text("Selected", style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.primary)
+                                            }
                                         }
                                     }
                                 }
