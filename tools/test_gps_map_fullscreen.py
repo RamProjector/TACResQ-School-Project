@@ -28,7 +28,10 @@ assert "GpsMapFilterButtons(" in map_screen
 assert 'Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1)' in map_screen
 assert 'Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1)' in map_screen
 assert 'contentDescription = if (deviceFix == null) "Locate me" else "Refresh location"' in map_screen
-assert "enabled = !isLocationRequestInProgress" in map_screen
+assert "if (isLocationRequestInProgress)" in map_screen
+assert "enabled = false" in map_screen
+assert "LocationButton(" in map_screen
+assert "onPermissionResult = { granted ->" in map_screen
 assert "if (isLocationRequestInProgress) return" in map_screen
 assert "isLocationRequestInProgress = false" in map_screen
 assert "locationStatus ?: defaultMapStatus" in map_screen
