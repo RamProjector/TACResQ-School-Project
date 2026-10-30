@@ -409,10 +409,15 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 
         items(active, key = { it.id }) { incident ->
             IncidentCard(incident) {
-                Text(
-                    "Your unit: ${incident.statusFor(user.id).label}",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("Your response", style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    StatusPill(incident.statusFor(user.id).label, incident.status.pillColor())
+                }
                 val contact = listOfNotNull(incident.requesterName, incident.requesterPhone)
                     .joinToString(", ")
                 if (contact.isNotBlank()) Text("Requester: $contact")
@@ -426,9 +431,9 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                 ) {
                     OutlinedButton(
                         onClick = { openNavigation(context, latitude, longitude) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     ) {
-                        Text("Open navigation app")
+                        Text("Navigate to incident")
                     }
                 } else {
                     Text(
@@ -448,7 +453,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                             }
                         },
                         enabled = !state.busy,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     ) {
                         Text(next.actionLabel())
                     }
