@@ -730,7 +730,11 @@ fun GpsMapScreen(
                     ) {
                         if (isLocationRequestInProgress) {
                             androidx.compose.material3.CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .semantics {
+                                        contentDescription = "Getting your location"
+                                    },
                                 strokeWidth = 2.dp,
                             )
                         } else {
