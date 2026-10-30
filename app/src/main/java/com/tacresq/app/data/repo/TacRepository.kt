@@ -69,8 +69,18 @@ class TacRepository(
     }
 
     suspend fun logout() {
-        runCatching { withContext(Dispatchers.IO) { api.logout() } }
+        // Clear local access immediately; remote revocation must never block sign-out UI.
+        val capturedToken = tokenHolder.value
         endSession()
+        if (capturedToken.isNullOrBlank()) return
+        try {
+            withContext(Dispatchers.IO) { api.logout(capturedToken) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Local credentials are already cleared. Server-side token expiry/revocation
+            // remains authoritative even if this best-effort network call cannot complete.
+        }
     }
 
     suspend fun me(): Result<User> = call { api.me() }
