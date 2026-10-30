@@ -22,7 +22,7 @@ jobs:
   security:
     name: Static and dependency security review
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - name: Check out source
         uses: actions/checkout@v7
@@ -35,10 +35,23 @@ jobs:
       - name: Run deterministic repository security guardrails
         run: python3 tools/ai_security_review.py
 
+      - name: Set up Java for Android CodeQL extraction
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin, javascript-typescript, actions
+          build-mode: manual
+
+      - name: Build Android source for CodeQL
+        run: ./gradlew --no-daemon assembleDebug
 
       - name: Analyze with CodeQL
         uses: github/codeql-action/analyze@v4
