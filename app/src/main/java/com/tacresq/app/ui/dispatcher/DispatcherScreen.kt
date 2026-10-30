@@ -177,7 +177,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         item {
             ScreenHeader(
                 title = "Dispatch queue",
-                subtitle = "Oldest emergency requests first · verify availability before assigning.",
+                subtitle = "Oldest requests first.",
                 onLogout = onLogout,
             )
         }
@@ -205,7 +205,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Assignment paused", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                         Text(
-                            "The latest incident queue or field-unit availability could not be confirmed. Refresh successfully before assigning or adding responders; the information currently shown may be out of date.",
+                            "Latest queue or unit availability could not be confirmed. Refresh before assigning responders.",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -277,7 +277,6 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     fontWeight = if (waitSeconds != null && waitSeconds >= 15 * 60)
                         FontWeight.SemiBold else FontWeight.Normal,
                 )
-                Text("Build a response team from available field units.", fontWeight = FontWeight.SemiBold)
                 if (availableUnits.isEmpty()) {
                     Text("No responder or driver is currently marked Available.")
                 } else {
