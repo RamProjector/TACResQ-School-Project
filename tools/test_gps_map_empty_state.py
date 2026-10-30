@@ -35,6 +35,8 @@ required = (
     'incident.accuracyM.validAccuracyLabel("GPS accuracy about ")',
     'location.accuracyM.validAccuracyLabel(" · reported accuracy about ")',
     'location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }',
+    '.heightIn(min = 48.dp)\n                        .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution")',
+    '.padding(horizontal = 8.dp, vertical = 12.dp)',
 )
 missing = [snippet for snippet in required if snippet not in source]
 if missing:
