@@ -269,6 +269,17 @@ jobs:
         if: hashFiles('gradlew') != ''
         run: ./gradlew --no-daemon lintDebug
 
+      - name: Upload Android Lint report for diagnosis
+        if: always() && hashFiles('gradlew') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: tacresq-android-lint-report
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Build Supabase-mode debug APK
         if: hashFiles('gradlew') != ''
         run: |
