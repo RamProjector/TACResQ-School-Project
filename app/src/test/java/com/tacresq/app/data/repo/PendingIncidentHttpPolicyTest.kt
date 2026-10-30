@@ -7,7 +7,7 @@ import org.junit.Test
 class PendingIncidentHttpPolicyTest {
     @Test
     fun authenticationAndRecoverableResponsesPreservePendingSos() {
-        listOf(401, 403, 408, 409, 429).forEach { status ->
+        listOf(401, 403, 408, 409, 425, 429).forEach { status ->
             assertFalse("HTTP $status must preserve the saved SOS", isDefinitiveIncidentRejection(status))
         }
     }
