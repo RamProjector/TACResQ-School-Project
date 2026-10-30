@@ -179,7 +179,6 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             ScreenHeader(
                 title = "Dispatch queue",
                 subtitle = "Oldest requests first.",
-                onLogout = onLogout,
             )
         }
         if (focusedIncidentId != null) {
