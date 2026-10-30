@@ -14,6 +14,7 @@ assert 'Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")' in so
 assert "NavigationBar(" in source
 assert source.count("NavigationItem(destinations[") == 4
 assert "GpsMapNavigationItem(selected, onDestinationSelected)" in source
+assert "emphasized = true" in source.split("private fun RowScope.GpsMapNavigationItem", 1)[1].split("@Composable", 1)[0]
 assert 'label = "GPS Map"' in source
 assert "icon = Icons.Filled.LocationOn" in source
 assert "NavigationDestinationItem(" in source
