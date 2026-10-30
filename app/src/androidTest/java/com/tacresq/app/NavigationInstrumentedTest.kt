@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -50,12 +51,15 @@ class NavigationInstrumentedTest {
         }
 
         composeRule.onNodeWithText("Home destination content").assertIsDisplayed()
+        composeRule.onNodeWithText("Home").assertIsSelected()
         composeRule.onNodeWithText("GPS Map").performClick()
+        composeRule.onNodeWithText("GPS Map").assertIsSelected()
         composeRule.onNodeWithText("Back to app").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("Home").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Home destination content").fetchSemanticsNodes().isEmpty())
 
         composeRule.onNodeWithText("Back to app").performClick()
+        composeRule.onNodeWithText("Home").assertIsSelected()
         composeRule.onNodeWithText("Home destination content").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("GPS Map destination content").fetchSemanticsNodes().isEmpty())
     }
