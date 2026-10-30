@@ -13,7 +13,7 @@ BEGIN
   END IF;
 
   IF NEW.latitude IS NULL
-     AND pg_catalog.nullif(pg_catalog.btrim(NEW.location_notes), '') IS NULL THEN
+     AND NULLIF(pg_catalog.btrim(NEW.location_notes), '') IS NULL THEN
     RAISE EXCEPTION 'A location pin or landmark/access detail is required'
       USING ERRCODE = '22023';
   END IF;
