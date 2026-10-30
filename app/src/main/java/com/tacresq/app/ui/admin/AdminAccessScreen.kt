@@ -104,7 +104,6 @@ fun AdminAccessScreen(
             ScreenHeader(
                 title = "Admin",
                 subtitle = "Manage accounts and review activity.",
-                onLogout = onSignOut,
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
