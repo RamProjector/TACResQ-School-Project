@@ -245,3 +245,14 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Validation:** Workflow syntax and a real model invocation have not yet been run in GitHub Actions. Verify the first manually triggered run and inspect the resulting PR/checks before relying on the agent.
 - **Safety/limits:** The selected model is documented as free, but availability and rate limits may change. Workflow only allows the repository owner to invoke it and has a 20-minute timeout. No automatic merge or production changes are enabled.
 - **Next action:** Open a PR for this workflow, then verify required checks and the first real invocation after confirming the OpenCode GitHub App installation.
+
+
+## Handoff — 2026-10-31: requester incident-message discoverability
+
+- **Objective:** Make requester messaging visible at the active-emergency point without introducing a standalone requester Chats tab.
+- **Implementation:** Requester Home's active-emergency card now receives the existing incident-chat navigation callback and displays a full-width `Open incident messages` action for the active incident. The action passes that incident's ID into the existing chat route; existing request-list and notification entry points remain.
+- **Research basis:** Android navigation guidance reserves bottom navigation for top-level destinations; child/detail actions should be reached contextually. Android recommends 3–5 primary destinations. See https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns.
+- **Security:** No chat RPC, RLS, database schema, sender identity, message content, or notification behavior changed. Existing server-side incident authorization remains authoritative.
+- **Validation:** Added source-contract assertions for requester callback wiring and active incident ID routing. CI results must be checked on the final PR head before merge. Emulator/device and live Supabase account checks are not run by this source edit.
+- **Branch/PR:** `fix/map-fullscreen-ui-consistency`, PR #215. Keep PR open until exact-head required checks pass; do not claim merge.
+- **Next task:** Inspect requester Notifications/Alerts placement and profile/sign-out behavior, then address the next discrete UI task without changing unrelated role workflows.
