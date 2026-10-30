@@ -54,6 +54,7 @@ import kotlinx.coroutines.launch
 data class AuthUiState(
     val loading: Boolean = false,
     val error: String? = null,
+    val info: String? = null,
     val nameError: String? = null,
     val emailError: String? = null,
     val phoneError: String? = null,
@@ -118,6 +119,7 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
     fun clearError() {
         _state.value = _state.value.copy(
             error = null,
+            info = null,
             nameError = null,
             emailError = null,
             phoneError = null,
@@ -127,11 +129,11 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun clearFieldError(field: String) {
         _state.value = when (field) {
-            "name" -> _state.value.copy(error = null, nameError = null)
-            "email" -> _state.value.copy(error = null, emailError = null)
-            "phone" -> _state.value.copy(error = null, phoneError = null)
-            "password" -> _state.value.copy(error = null, passwordError = null)
-            else -> _state.value.copy(error = null)
+            "name" -> _state.value.copy(error = null, info = null, nameError = null)
+            "email" -> _state.value.copy(error = null, info = null, emailError = null)
+            "phone" -> _state.value.copy(error = null, info = null, phoneError = null)
+            "password" -> _state.value.copy(error = null, info = null, passwordError = null)
+            else -> _state.value.copy(error = null, info = null)
         }
     }
 
@@ -150,13 +152,15 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
                 Result.failure(failure)
             }
             val failure = result.exceptionOrNull()
+            val emailConfirmationRequired = failure?.message?.startsWith("Account created.") == true
             _state.value = AuthUiState(
                 error = when {
-                    failure is CompromisedPasswordException -> null
+                    failure is CompromisedPasswordException || emailConfirmationRequired -> null
                     failure != null -> failure.message?.takeIf { it.isNotBlank() }
                         ?: "Something went wrong. Please try again."
                     else -> null
                 },
+                info = if (emailConfirmationRequired) failure?.message else null,
                 passwordError = if (failure is CompromisedPasswordException) {
                     "This password appears in known data breaches. Choose a different password."
                 } else null,
@@ -353,6 +357,22 @@ fun AuthScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
                 )
+
+                state.info?.let { message ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = androidx.compose.material3.CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        ),
+                    ) {
+                        Text(
+                            message,
+                            modifier = Modifier.padding(12.dp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
 
                 state.error?.let { message ->
                     Text(
