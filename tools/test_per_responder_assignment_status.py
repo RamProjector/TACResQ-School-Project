@@ -36,7 +36,7 @@ for source, requirements in (
     (models, ('val assignedUserStatuses: List<ResponderAssignmentStatus>', 'fun Incident.statusFor(userId: Long)')),
     (api, ('api_update_my_assignment_status', 'override suspend fun updateMyAssignmentStatus')),
     (repo, ('api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))',)),
-    (responder, ('incident.statusFor(user.id).nextSteps()', 'Your unit:', 'it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE')),
+    (responder, ('incident.statusFor(user.id).nextSteps()', 'StatusPill(incident.statusFor(user.id).label, incident.status.pillColor())', 'it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE')),
     (dispatcher, ('memberStatus.status.label',)),
     (fake, ('override suspend fun updateMyAssignmentStatus', 'ResponderAssignmentStatus')),
 ):
