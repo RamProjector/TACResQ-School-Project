@@ -1015,7 +1015,7 @@ SELECT public.api_create_incident_v4(
   'Concurrent idempotency regression',
   11.244,
   125.003,
-  10,
+  NULL,
   'Synthetic concurrent CI location',
   '2026-10-30T12:00:00Z'::timestamptz,
   'manual',
@@ -1097,7 +1097,7 @@ BEGIN
       'Changed payload must not reuse key',
       11.244,
       125.003,
-      10,
+      NULL,
       'Synthetic concurrent CI location',
       '2026-10-30T12:00:00Z'::timestamptz,
       'manual',
@@ -1169,7 +1169,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000138', true);
   BEGIN
     PERFORM public.api_create_incident_v4(
-      'medical', 'Atomicity failure injection', 11.244, 125.003, 10,
+      'medical', 'Atomicity failure injection', 11.244, 125.003, NULL,
       'Synthetic CI failure location', '2026-10-30T12:00:00Z'::timestamptz,
       'manual', '00000000-0000-4000-8000-000000000138'::uuid
     );
@@ -1206,7 +1206,7 @@ BEGIN
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000138', true);
   response := public.api_create_incident_v4(
-    'medical', 'Atomicity failure injection', 11.244, 125.003, 10,
+    'medical', 'Atomicity failure injection', 11.244, 125.003, NULL,
     'Synthetic CI failure location', '2026-10-30T12:00:00Z'::timestamptz,
     'manual', '00000000-0000-4000-8000-000000000138'::uuid
   );
