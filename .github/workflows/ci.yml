@@ -50,6 +50,9 @@ jobs:
       - name: Check requester SOS progress accessibility
         run: python3 tools/test_requester_sos_progress_accessibility.py
 
+      - name: Check requester emergency type selection accessibility
+        run: python3 tools/test_requester_emergency_type_selection.py
+
       - name: Check Android Supabase auth redirect contract
         run: python3 tools/test_android_auth_redirect_contract.py
 
