@@ -61,3 +61,13 @@ No live Supabase migration, production message, account change, Render deploymen
 - The notification destination remains available through the existing Alerts navigation entry until the separate top-right notification affordance is implemented and tested.
 - The dedicated Android admin access screen does not yet have the shared role Profile destination; its account/session exit path needs a role-appropriate follow-up rather than silently dropping administrator sign-out access.
 - No authentication, session invalidation, incident lifecycle, or backend authorization behavior was changed.
+
+
+## Notification entry point follow-up
+
+- Shared role-screen headers now expose a top-right notification icon that routes to the existing Alerts & safety inbox.
+- The icon has the accessible content description **Open notifications** and uses the Material 3 app-bar action placement pattern.
+- The existing Alerts destination is intentionally retained as a second route to the same inbox until the revised navigation has been exercised on-device; it is not removed prematurely.
+- The notification inbox continues to own unread/read state, incident deep links, and refresh behavior. This header action does not change notification delivery or mark items read.
+- The dedicated admin access screen remains outside the standard role shell and does not yet use this shared notification action.
+- Compose instrumented coverage verifies that the header action is accessible and invokes its navigation callback.
