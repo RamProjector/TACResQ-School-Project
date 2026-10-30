@@ -304,6 +304,25 @@ class TacRepository(
 
     /** Reads API validation messages without leaking raw PostgreSQL/PostgREST internals to the UI. */
     private fun errorMessage(e: HttpException): String {
+        // Auth endpoints must not reveal whether an email address is registered.
+        // Keep the response generic even when Supabase returns a more specific
+        // provider message such as "User already registered".
+        val authPath = e.response()?.raw()?.request?.url?.encodedPath.orEmpty()
+        if (authPath.endsWith("/auth/v1/token")) {
+            return if (e.code() == 429) {
+                "Too many sign-in attempts. Wait a moment and try again."
+            } else {
+                "Email or password is incorrect."
+            }
+        }
+        if (authPath.endsWith("/auth/v1/signup")) {
+            return if (e.code() == 429) {
+                "Too many sign-up attempts. Wait a moment and try again."
+            } else {
+                "We couldn't complete sign-up. Check your details or try again later."
+            }
+        }
+
         val raw = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
         val body = runCatching { raw?.let { Gson().fromJson(it, ErrorBody::class.java) } }.getOrNull()
         val message = body?.errors?.values?.firstOrNull()?.firstOrNull()
