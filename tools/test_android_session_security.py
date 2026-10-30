@@ -19,7 +19,9 @@ checks = {
     "legacy plaintext session keys are removed on save": 'prefs.remove(stringPreferencesKey("token"))' in store and 'prefs.remove(stringPreferencesKey("user_json"))' in store,
     "legacy plaintext session keys are removed on first session-store read": 'context.sessionDataStore.edit { current ->' in legacy_cleanup and 'current.remove(stringPreferencesKey("token"))' in legacy_cleanup and 'current.remove(stringPreferencesKey("user_json"))' in legacy_cleanup,
     "decryption failure does not fall back to plaintext": "runCatching { decrypt(encrypted) }.getOrNull()" in store and "prefs[tokenKey]" not in store,
-    "bearer token is not retained before encrypted persistence succeeds": start_session.index("store.save(Session(response.token, response.user))") < start_session.index("tokenHolder.value = response.token") ,
+    "bearer token is not retained before encrypted persistence succeeds": start_session.index("store.save(Session(response.token, response.user))") < start_session.index("tokenHolder.value = response.token"),
+    "transient DataStore read failures retry instead of emitting an empty session": ".retryWhen { cause, attempt ->" in store and "if (cause is IOException)" in store and "emit(emptyPreferences())" not in store,
+    "DataStore read retries use bounded exponential backoff": "sessionStoreReadRetryDelayMillis(attempt)" in store and "(1_000L shl exponent).coerceAtMost(30_000L)" in store,
 }
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
