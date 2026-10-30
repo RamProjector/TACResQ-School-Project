@@ -42,7 +42,7 @@ import java.util.Date
 import kotlin.math.ceil
 
 @Composable
-fun ScreenHeader(title: String, subtitle: String = "") {
+fun ScreenHeader(title: String, subtitle: String = "", onOpenNotifications: (() -> Unit)? = null) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp),
@@ -60,6 +60,15 @@ fun ScreenHeader(title: String, subtitle: String = "") {
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
+            if (onOpenNotifications != null) {
+                IconButton(onClick = onOpenNotifications) {
+                    Icon(
+                        imageVector = Icons.Filled.Notifications,
+                        contentDescription = "Open notifications",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
         }
         subtitle.takeIf { it.isNotBlank() }?.let {
             Text(
