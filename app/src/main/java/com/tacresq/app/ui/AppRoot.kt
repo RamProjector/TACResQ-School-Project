@@ -412,26 +412,13 @@ private fun RoleSectionScreen(
             destination == AppDestination.PROFILE -> {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
+                    shape = MaterialTheme.shapes.medium,
                 ) {
-                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("Your account", style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                        Text("Signed in to TACResQ", color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                }
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         ProfileDetail("Full name", user.name)
                         ProfileDetail("Email", user.email)
                         ProfileDetail("Role", role.label)
                         user.phone?.takeIf { it.isNotBlank() }?.let { ProfileDetail("Mobile", it) }
-                        androidx.compose.material3.HorizontalDivider()
-                        androidx.compose.material3.TextButton(
-                            onClick = logout,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Sign out") }
                     }
                 }
             }
