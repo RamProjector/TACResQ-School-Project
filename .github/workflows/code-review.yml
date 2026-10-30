@@ -11,8 +11,6 @@ on:
         type: number
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
 concurrency:
   group: tacresq-review-${{ github.event.pull_request.number || inputs.pull_request_number }}
   cancel-in-progress: true
@@ -21,6 +19,10 @@ jobs:
     name: Static security and correctness review
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     steps:
       - name: Check out trusted base branch only
         uses: actions/checkout@v7
