@@ -39,6 +39,7 @@ PENDING = {
     "20261026161500_admin_role_audit_foundation.sql",
     "20261026170000_admin_server_side_user_pagination.sql",
     "20261030100000_require_incident_location_fallback.sql",
+    "20261030110000_require_requester_signup_contact.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
@@ -172,4 +173,18 @@ for required in (
     assert required in location_fallback, f"Missing required SOS location database guard: {required}"
 assert "security definer" not in location_fallback
 print("PASS: new SOS inserts require a complete pin or a nonblank landmark/access detail.")
+
+signup_validation = (MIGRATIONS / "20261030110000_require_requester_signup_contact.sql").read_text().lower()
+for required in (
+    "create or replace function public.tacresq_profile_on_signup()",
+    "security definer",
+    "set search_path = pg_catalog",
+    "a full name is required for requester registration",
+    "a valid mobile number is required for requester registration",
+    "requester mobile numbers must contain 7 to 15 digits",
+    "'requester'",
+):
+    assert required in signup_validation, f"Missing server-side requester signup requirement: {required}"
+assert "raw_user_meta_data ->> 'role'" not in signup_validation
+print("PASS: public signup enforces name/contact requirements and always provisions requester role.")
 
