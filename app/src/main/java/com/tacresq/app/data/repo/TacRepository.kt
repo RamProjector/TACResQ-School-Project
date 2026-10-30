@@ -51,7 +51,7 @@ class TacRepository(
     private val api: TacApi,
     private val store: SessionStore,
     private val tokenHolder: TokenHolder,
-    appScope: CoroutineScope,
+    private val appScope: CoroutineScope,
 ) : NotificationRepository {
     /** Loading until the saved session is read, then LoggedOut or LoggedIn. */
     val sessionState: StateFlow<SessionState> = store.session
