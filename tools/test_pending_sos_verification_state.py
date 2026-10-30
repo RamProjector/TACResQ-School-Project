@@ -28,7 +28,7 @@ assert "if (current.pendingSosAvailable)" in send
 assert "repo.createIncident" in send
 
 assert 'Text("Checking saved SOS status")' in source
-assert 'Text("Couldn\'t verify saved SOS status")' in source
+assert "Text(\"Couldn't verify saved SOS status\")" in source
 assert "onClick = vm::refreshPendingSos" in source
 assert 'Text("Check again")' in source
 assert "!state.pendingSosCheckInProgress && state.pendingSosCheckError == null" in source
