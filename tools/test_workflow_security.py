@@ -17,7 +17,7 @@ def main() -> None:
         source = path.read_text(encoding="utf-8")
         relative = path.relative_to(ROOT)
 
-        permission_block = re.search(r"(?m)^permissions:\\n((?:  [^\\n]+\\n)+)", source)
+        permission_block = re.search(r"(?m)^permissions:\n((?:  [^\n]+\n)+)", source)
         assert permission_block, (
             f"{relative}: every workflow must declare explicit top-level token permissions"
         )
