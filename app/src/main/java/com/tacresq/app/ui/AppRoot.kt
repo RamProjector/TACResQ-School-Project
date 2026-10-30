@@ -109,15 +109,16 @@ fun AppRoot(
                     Role.REQUESTER -> {
                         val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
                                 IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
-                            } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat)
+                            } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents,
                                 notificationsVm = notificationsVm,
                                 onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
                                 onOpenChat = openChat,
+                                onOpenNotifications = openNotifications,
                                 onRefreshIncidents = vm::refresh,
                                 selectedIncidentId = selectedIncidentId,
                             )
@@ -126,15 +127,16 @@ fun AppRoot(
                     Role.RESPONDER, Role.DRIVER -> {
                         val vm: ResponderViewModel = viewModel(key = "unit-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
                                 IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
-                            } else if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, logout)
+                            } else if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, logout, onOpenNotifications = openNotifications)
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents,
                                 notificationsVm = notificationsVm,
                                 onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
                                 onOpenChat = openChat,
+                                onOpenNotifications = openNotifications,
                                 onRefreshIncidents = vm::refresh,
                                 selectedIncidentId = selectedIncidentId,
                             )
@@ -151,15 +153,16 @@ fun AppRoot(
                             logout = logout,
                             responderLocations = vmState.responderLocations,
                             onMapRefresh = vm::refresh,
-                        ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat ->
+                        ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
                                 IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
                             } else if (destination == AppDestination.PRIMARY) {
-                                DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId, onOpenChat = openChat)
+                                DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId, onOpenChat = openChat, onOpenNotifications = openNotifications)
                             } else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents, vmState.units, notificationsVm,
                                 onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
                                 onOpenChat = openChat,
+                                onOpenNotifications = openNotifications,
                                 onRefreshIncidents = vm::refresh,
                                 selectedIncidentId = selectedIncidentId,
                             )
@@ -180,7 +183,7 @@ private fun RoleApp(
     logout: () -> Unit,
     responderLocations: List<ResponderLocation> = emptyList(),
     onMapRefresh: () -> Unit = {},
-    contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit) -> Unit,
+    contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit, () -> Unit) -> Unit,
 ) {
     var destination by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
     var destinationBeforeMap by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
@@ -195,6 +198,7 @@ private fun RoleApp(
         destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY
     }
     val closeChat: () -> Unit = { selectedChatIncidentId = null }
+    val openNotifications: () -> Unit = { destination = AppDestination.ALERTS }
     RoleShell(
         role = role,
         selected = destination,
@@ -204,7 +208,7 @@ private fun RoleApp(
             }
             destination = it
         },
-        content = { contentFor(destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat) },
+        content = { contentFor(destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications) },
         mapContent = {
             GpsMapScreen(
                 role = role,
