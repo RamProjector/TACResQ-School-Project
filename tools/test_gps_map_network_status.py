@@ -39,15 +39,16 @@ checks = {
             "Handler(Looper.getMainLooper()).post { hasValidatedInternet = connected }",
         )
     ),
-    "offline map banner gives a concise cached-tile warning": all(
+    "compact offline toolbar status preserves the map viewport": all(
         text in source for text in (
-            "if (hasValidatedInternet == false)",
-            "Map tiles may be unavailable offline. Cached areas can still appear.",
-            
-            "MaterialTheme.colorScheme.errorContainer",
+            'if (hasValidatedInternet == false)',
+            '"Offline"',
+            'Internet unavailable. Cached map tiles may still appear.',
+            'MaterialTheme.colorScheme.errorContainer',
+            'MaterialTheme.colorScheme.onErrorContainer',
+            'Modifier.size(52.dp)',
         )
-    ),
-    "Android manifest retains network-state permission": (
+    ),    "Android manifest retains network-state permission": (
         "android.permission.ACCESS_NETWORK_STATE" in manifest
     ),
 }
