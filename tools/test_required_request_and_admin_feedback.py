@@ -63,5 +63,12 @@ assert "reason.trim().length in 10..500" in admin
 assert "Required: explain why this role change is necessary." in admin
 assert "This explanation is saved in the audit history." in admin
 assert "repository.setAdminUserRole(account.id, targetRole, reason.trim())" in admin
+# High-impact role changes require an explicit target choice and clear identity context.
+assert 'var targetRole by remember { mutableStateOf("") }' in admin
+assert 'targetRole = ""' in admin
+assert 'No role is preselected.' in admin
+assert 'Text("${account.email} · Account ID ${account.id}"' in admin
+assert 'targetRole in adminRoles' in admin
+assert 'Confirm ${targetRole.replaceFirstChar { it.uppercase() }} role' in admin
 
 print("Required requester, SOS location, and admin audit feedback contracts passed.")
