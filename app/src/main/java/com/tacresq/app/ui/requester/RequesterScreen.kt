@@ -471,7 +471,12 @@ class RequesterViewModel(
 }
 
 @Composable
-fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
+fun RequesterScreen(
+    vm: RequesterViewModel,
+    user: User,
+    onLogout: () -> Unit,
+    onOpenChat: (Long) -> Unit,
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -681,6 +686,12 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
                         )
+                    }
+                    OutlinedButton(
+                        onClick = { onOpenChat(activeIncident.id) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    ) {
+                        Text("Open incident messages")
                     }
                     if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
