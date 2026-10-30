@@ -45,7 +45,7 @@ assert "val latestDeviceFix by rememberUpdatedState(deviceFix)" in map_screen
 resume_branch = map_screen.split("Lifecycle.Event.ON_RESUME ->", 1)[1].split("Lifecycle.Event.ON_PAUSE ->", 1)[0]
 assert "!locationProvider.hasPermission() && latestDeviceFix != null" in resume_branch
 assert "deviceFix = null" in resume_branch
-assert "The previous location preview was cleared." in resume_branch
+assert "Previous preview cleared." in resume_branch
 
 # Future timestamps cannot be treated as fresh locations.
 assert "if (recorded.isAfter(now)) return null" in map_screen
