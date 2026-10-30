@@ -373,7 +373,9 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             item { Banner(message, isError = true, onDismiss = vm::dismissError) }
         }
 
-        if (active.isEmpty() && (state.loading || state.syncError != null || state.dutyStatus == DutyStatus.AVAILABLE)) {
+        // A failed sync is already explained by SyncStatus and the disabled DutyCard.
+        // Do not render a second "Assignments unavailable" card for the same failure.
+        if (active.isEmpty() && (state.loading || (state.syncError == null && state.dutyStatus == DutyStatus.AVAILABLE))) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -386,21 +388,11 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                when {
-                                    state.loading -> "Checking assignments"
-                                    state.syncError != null -> "Assignments unavailable"
-                                    else -> "No active assignments"
-                                },
+                                if (state.loading) "Checking assignments" else "No active assignments",
                                 style = MaterialTheme.typography.titleSmall,
-                                color = if (state.syncError != null) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                when {
-                                    state.loading -> "Please wait."
-                                    state.syncError != null -> "Refresh before assuming there are no active calls."
-                                    else -> "You're available for new calls."
-                                },
+                                if (state.loading) "Please wait." else "You're available for new calls.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
