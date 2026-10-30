@@ -35,7 +35,7 @@ checks = {
     )),
     "Admin route receives the authenticated repository": "AdminAccessScreen(user = user, repository = container.repository" in root,
     "Admin screen supports paginated user search and audit history": all(name in screen for name in (
-        "loadUsers(reset = false)", "Search name, email, phone, or ID", "Recent administrative actions"
+        "loadUsers(reset = false)", "Search name, email, phone, or ID", "Recent administrative actions", "it.length <= 120", "event.action.replace"
     )),
     "Admin role changes require a reason and exclude Admin promotion": (
         "reason.trim().length in 10..500" in screen and "adminRoles" in screen
