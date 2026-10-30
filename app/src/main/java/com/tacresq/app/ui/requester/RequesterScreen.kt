@@ -867,8 +867,16 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             }
         }
 
-        state.notice?.let { message -> item { Banner(message, isError = false, onDismiss = vm::dismissMessages) } }
-        state.error?.let { message -> item { Banner(message, isError = true, onDismiss = vm::dismissMessages) } }
+        // Show one primary operation message. A safety-critical error takes precedence
+        // over a success notice when the server accepted an SOS but its location is unverified.
+        val feedbackError = state.error
+        if (feedbackError != null) {
+            item { Banner(feedbackError, isError = true, onDismiss = vm::dismissMessages) }
+        } else {
+            state.notice?.let { message ->
+                item { Banner(message, isError = false, onDismiss = vm::dismissMessages) }
+            }
+        }
 
         item { SectionHeading("My requests") }
         if (state.loading && state.incidents.isEmpty()) {
