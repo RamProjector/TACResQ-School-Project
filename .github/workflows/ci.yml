@@ -33,6 +33,9 @@ jobs:
       - name: Check inline authentication validation
         run: python3 tools/test_auth_inline_validation.py
 
+      - name: Check persistent feedback banner semantics
+        run: python3 tools/test_feedback_banner_semantics.py
+
       - name: Check Android Supabase auth redirect contract
         run: python3 tools/test_android_auth_redirect_contract.py
 
