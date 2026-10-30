@@ -85,16 +85,21 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
     }
 
     fun register(name: String, email: String, phone: String, password: String) {
-        val nameError = if (name.isBlank()) "Enter your full name." else null
+        val nameError = when {
+            name.isBlank() -> "Enter your full name."
+            name.trim().length > 120 -> "Keep your name to 120 characters or fewer."
+            else -> null
+        }
         val emailError = when {
             email.isBlank() -> "Enter your email address."
             !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Enter a valid email address."
             else -> null
         }
-        val phoneDigits = phone.count { it.isDigit() }
+        val phoneDigits = phone.count { it in '0'..'9' }
         val phoneError = when {
             phone.isBlank() -> "Enter your mobile number so responders can reach you."
-            phone.any { !it.isDigit() && it !in "+- ()" } ->
+            phone.length > 25 -> "Use at most 25 characters for your mobile number."
+            phone.any { it !in '0'..'9' && it !in "+- ()" } ->
                 "Use digits and optional +, spaces, hyphens, or parentheses."
             phoneDigits !in 7..15 -> "Enter a valid mobile number with 7–15 digits."
             else -> null
