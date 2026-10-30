@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Contract checks for the Android Supabase-only Admin RPC transport."""
+"""Contract checks for the Android Supabase-only Admin RPC transport and console."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt").read_text()
-supabase = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()\nrepository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()\nscreen = (ROOT / "app/src/main/java/com/tacresq/app/ui/admin/AdminAccessScreen.kt").read_text()\nroot = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text()
+supabase = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
+repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
+screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/admin/AdminAccessScreen.kt").read_text()
+root = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text()
 bridge_start = supabase.index("private interface SupabaseBridgeRpcWire")
 bridge_end = supabase.index("private interface SupabaseRpcWire", bridge_start)
 bridge = supabase[bridge_start:bridge_end]
@@ -27,7 +30,18 @@ checks = {
         'setOf("requester", "responder", "driver", "dispatcher")' in supabase
     ),
     "Role mutation requires a bounded audit reason": "normalizedReason.length in 10..500" in supabase,
-    "Repository exposes admin operations through the optional protected capability": all(name in repository for name in (\n        "TacAdminApi", "adminUsersPage", "adminAuditLogs", "setAdminUserRole"\n    )),\n    "Admin route receives the authenticated repository": "AdminAccessScreen(user = user, repository = container.repository" in root,\n    "Admin screen supports paginated user search and audit history": all(name in screen for name in (\n        "loadUsers(reset = false)", "Search name, email, phone, or ID", "Recent administrative actions"\n    )),\n    "Admin role changes require a reason and exclude admin role": (\n        "reason.trim().length in 10..500" in screen and "adminRoles" in screen\n        and "Administrator role is operator-managed" in screen\n    ),\n    "RPC argument names match the database contract": all(name in supabase for name in (
+    "Repository exposes admin operations through the protected capability": all(name in repository for name in (
+        "TacAdminApi", "adminUsersPage", "adminAuditLogs", "setAdminUserRole"
+    )),
+    "Admin route receives the authenticated repository": "AdminAccessScreen(user = user, repository = container.repository" in root,
+    "Admin screen supports paginated user search and audit history": all(name in screen for name in (
+        "loadUsers(reset = false)", "Search name, email, phone, or ID", "Recent administrative actions"
+    )),
+    "Admin role changes require a reason and exclude Admin promotion": (
+        "reason.trim().length in 10..500" in screen and "adminRoles" in screen
+        and "Administrator role is operator-managed" in screen
+    ),
+    "RPC argument names match the database contract": all(name in supabase for name in (
         'SerializedName("p_limit")', 'SerializedName("p_offset")',
         'SerializedName("p_user_id")', 'SerializedName("p_role")', 'SerializedName("p_reason")'
     )),
