@@ -25,7 +25,7 @@ checks = {
     "Supabase client calls the cancellation RPC": "api_cancel_my_incident" in API and "CancelIncidentRpc(id)" in API,
     "fake backend enforces one active request and pending-only cancellation": "requesterof[it.id] == me.id && it.status.isactive" in FAKE.lower() and "override suspend fun cancelMyIncident" in FAKE and "IncidentStatus.PENDING" in FAKE,
     "definitive client rejection clears the pending SOS envelope": "isdefinitiveincidentrejection" in REPO.lower() and "store.clearPendingIncidentRequestId(pending.requestId)" in REPO,
-    "authentication, timeout, conflict, and rate-limit responses preserve the pending SOS envelope": "httpcode !in setof(401, 403, 408, 409, 429)" in REPO.lower(),
+    "authentication, timeout, conflict, and rate-limit responses preserve the pending SOS envelope": "httpcode !in setof(401, 403, 408, 409, 425, 429)" in REPO.lower(),
 }
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
