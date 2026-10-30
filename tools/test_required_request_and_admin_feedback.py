@@ -8,6 +8,7 @@ supabase_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTa
 admin_migration = (ROOT / "supabase/migrations/20261026161500_admin_role_audit_foundation.sql").read_text()
 admin_runbook = (ROOT / "docs/ADMIN_PROVISIONING_RUNBOOK.md").read_text()
 location_migration = (ROOT / "supabase/migrations/20261030100000_require_incident_location_fallback.sql").read_text().lower()
+signup_migration = (ROOT / "supabase/migrations/20261030110000_require_requester_signup_contact.sql").read_text().lower()
 
 # SOS category must be selected explicitly; Other requires details.
 assert "mutableStateOf<IncidentType?>(null)" in requester
@@ -35,6 +36,11 @@ for label in ("Full name (required)", "Mobile number (required)", "Email address
 assert "Staff and administrator accounts are provisioned separately" in auth
 assert '"role" to "requester"' in supabase_api, "Public Supabase signup must force the requester role."
 assert "administrator provisioning is operator-only" in admin_migration.lower()
+assert "a full name is required for requester registration" in signup_migration
+assert "a valid mobile number is required for requester registration" in signup_migration
+assert "requester mobile numbers must contain 7 to 15 digits" in signup_migration
+assert "'requester'" in signup_migration
+assert "raw_user_meta_data ->> 'role'" not in signup_migration
 for prerequisite in (
     "approved out-of-band process",
     "existing Supabase Auth user UUID",
