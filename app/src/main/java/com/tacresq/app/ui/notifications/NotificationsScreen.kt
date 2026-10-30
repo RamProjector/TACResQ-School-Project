@@ -209,6 +209,8 @@ fun NotificationsAndSafetyScreen(
                 ) {
                     Text(
                         when {
+                            state.error != null && state.items.isEmpty() -> "Notifications unavailable"
+                            state.loading && state.items.isEmpty() -> "Loading notifications"
                             state.items.isEmpty() -> "No notifications yet"
                             unreadCount == 0 -> "All caught up"
                             else -> "$unreadCount unread"
