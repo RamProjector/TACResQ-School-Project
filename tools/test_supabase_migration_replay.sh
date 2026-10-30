@@ -1078,4 +1078,49 @@ END;
 $concurrent_sos_assert$;
 SQL
 
+
+-- Reusing a key with changed details must be rejected, and an unauthenticated
+-- caller must not be able to reserve or retrieve another request's idempotency key.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $sos_idempotency_negative_test$
+DECLARE
+  rejected boolean := false;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000136', true);
+  BEGIN
+    PERFORM public.api_create_incident_v4(
+      'medical',
+      'Changed payload must not reuse key',
+      11.244,
+      125.003,
+      10,
+      'Synthetic concurrent CI location',
+      '2026-10-30T12:00:00Z'::timestamptz,
+      'manual',
+      '00000000-0000-4000-8000-000000000136'::uuid
+    );
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Reusing an SOS key with changed details must be rejected';
+  END IF;
+
+  rejected := false;
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  BEGIN
+    PERFORM public.api_create_incident_v4(
+      'medical', 'Unauthenticated SOS attempt', NULL, NULL, NULL, NULL,
+      NULL, 'none', '00000000-0000-4000-8000-000000000137'::uuid
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Unauthenticated callers must not create SOS submissions';
+  END IF;
+END;
+$sos_idempotency_negative_test$;
+SQL
+
 echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed; incident regressions and Admin role/audit authorization tests passed."
