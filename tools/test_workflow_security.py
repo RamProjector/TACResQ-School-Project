@@ -17,6 +17,14 @@ def main() -> None:
         source = path.read_text(encoding="utf-8")
         relative = path.relative_to(ROOT)
 
+        permission_block = re.search(r"(?m)^permissions:\\n((?:  [^\\n]+\\n)+)", source)
+        assert permission_block, (
+            f"{relative}: every workflow must declare explicit top-level token permissions"
+        )
+        assert "secrets: inherit" not in source, (
+            f"{relative}: reusable workflows must not inherit every caller secret"
+        )
+
         assert not re.search(r"(?m)^\s*permissions:\s*write-all\s*$", source), (
             f"{relative}: wildcard write permissions are forbidden"
         )
