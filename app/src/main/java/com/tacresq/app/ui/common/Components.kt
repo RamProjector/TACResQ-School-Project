@@ -187,6 +187,26 @@ fun IncidentCard(
     }
 }
 
+private fun locationText(incident: Incident): String {
+    val latitude = incident.latitude
+    val longitude = incident.longitude
+    if (latitude == null || longitude == null) {
+        return if (incident.locationSource in listOf(null, "none")) "No location shared"
+        else "Location needs verification"
+    }
+    val source = when (incident.locationSource) {
+        "gps" -> "GPS"
+        "manual" -> "Map pin"
+        else -> "Unverified pin"
+    }
+    val coordinates = String.format(Locale.US, "%.5f, %.5f", latitude, longitude)
+    val accuracy = if (incident.locationSource == "gps") {
+        incident.accuracyM?.let { " · ±" + ceil(it.toDouble()).toInt() + " m" }.orEmpty()
+    } else ""
+    val note = incident.locationNotes?.trim()?.takeIf { it.isNotEmpty() }?.let { " · " + it }.orEmpty()
+    return "$source · $coordinates$accuracy$note"
+}
+
 private val timeFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("MMM d, h:mm a").withZone(ZoneId.systemDefault())
 
