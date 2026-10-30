@@ -242,7 +242,7 @@ private interface SupabaseAuthWire {
     ): SupabaseSession
 
     @POST("auth/v1/logout")
-    suspend fun logout(@Header("Authorization") authorization: String? = null)
+    suspend fun logout(@Header("Authorization") authorization: String? = null, @Query("scope") scope: String = "local")
 }
 
 /**
