@@ -295,20 +295,20 @@ fun GpsMapScreen(
         validIncidentPoints
     }
     val responderFreshnessSummary = if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
-        "Field units: $freshResponderCount fresh, $agingResponderCount aging, $staleResponderCount stale. Stale pins are last-known locations, not live."
+        "Field units · $freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale"
     } else null
+    val incidentPinSummary = validIncidentPoints.size.takeIf { it > 0 }?.let { count ->
+        if (count == 1) "1 incident pin on map" else "$count incident pins on map"
+    }
     val defaultMapStatus = when {
         deviceFix != null ->
-            "Your location preview is on this device only."
+            "One-time location preview · stays on this device."
         role == Role.DISPATCHER && validResponderLocations.isNotEmpty() ->
-            listOfNotNull(
-                validIncidentPoints.size.takeIf { it > 0 }?.let { "$it confirmed incident pin(s)." },
-                responderFreshnessSummary,
-            ).joinToString(" ")
+            listOfNotNull(incidentPinSummary, responderFreshnessSummary).joinToString(" · ")
         validIncidentPoints.isNotEmpty() ->
-            "Showing ${validIncidentPoints.size} incident pin(s)."
+            "$incidentPinSummary."
         visibleIncidents.isNotEmpty() ->
-            "Active incidents have no mappable coordinates."
+            "Active incidents have no valid map pins."
         else ->
             "No incident pins yet."
     }
