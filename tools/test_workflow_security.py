@@ -79,6 +79,12 @@ def main() -> None:
         "Skipped dependency review must produce an actionable warning, not silently pass"
     )
 
+    render_smoke = (WORKFLOWS / "render-live-smoke.yml").read_text(encoding="utf-8")
+    live_smoke_job = render_smoke.split("  live-smoke:", 1)[1]
+    assert re.search(r"(?m)^    permissions: \\{\\}$", live_smoke_job), (
+        "Read-only production health probes must receive no repository token permissions"
+    )
+
     code_review = (WORKFLOWS / "code-review.yml").read_text(encoding="utf-8")
     review_permissions = re.search(r"(?m)^permissions:\n((?:  [^\n]+\n)+)", code_review)
     assert review_permissions and review_permissions.group(1).strip() == "contents: read", (
