@@ -16,10 +16,12 @@ import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import com.tacresq.app.data.model.Role
 import com.tacresq.app.ui.AppDestination
 import com.tacresq.app.ui.RoleShell
+import com.tacresq.app.ui.common.ScreenHeader
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -97,6 +99,22 @@ class NavigationInstrumentedTest {
                 heightDp >= 48f,
             )
         }
+    }
+
+    @Test
+    fun screenHeaderNotificationActionIsAccessibleAndInvokesNavigation() {
+        var opened = false
+        composeRule.setContent {
+            MaterialTheme {
+                ScreenHeader(
+                    title = "Home",
+                    onOpenNotifications = { opened = true },
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Open notifications").assertIsDisplayed().performClick()
+        assertTrue("Notification action should open the notification destination", opened)
     }
 
     @Test
