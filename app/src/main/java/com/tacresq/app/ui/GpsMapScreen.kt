@@ -344,7 +344,7 @@ fun GpsMapScreen(
         }
     }
 
-    val mapView = remember(context) {
+    val mapView = remember(context, role) {
         // Keep osmdroid's disk cache in app-private storage. Legacy external-storage
         // defaults can be unavailable on modern Android targets without storage access.
         val osmdroidBase = File(context.cacheDir, "osmdroid").apply { mkdirs() }
@@ -355,6 +355,11 @@ fun GpsMapScreen(
         // Identify this app to public tile servers rather than using a generic library UA.
         osmdroidConfig.userAgentValue = "TACResQ/1.0.0 (" + context.packageName + "; Android)"
         MapView(context).apply {
+            contentDescription = if (role == Role.DISPATCHER) {
+                "Emergency response map centered on Tacloban City. Incident pins mark active emergencies and field-unit pins mark responder locations. Expand map details for a text list and location freshness."
+            } else {
+                "Emergency response map centered on Tacloban City. Incident pins mark active emergencies. Expand map details for the incident list."
+            }
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
