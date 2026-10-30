@@ -1337,7 +1337,7 @@ private fun ManualLocationPickerDialog(
                         )
                         if (startsAtTaclobanDefault && !userAdjustedMap) {
                             Text(
-                                "Starts at Tacloban. Move the map before confirming.",
+                                "Move the map before confirming.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )
