@@ -171,13 +171,15 @@ fun IncidentCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             incident.description?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
-                Text(note, style = MaterialTheme.typography.bodyMedium, maxLines = 3,
+                Text(note, style = MaterialTheme.typography.bodyMedium, maxLines = 2,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
             Text(
                 locationText(incident),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
             actions()
         }
@@ -236,6 +238,8 @@ fun SyncStatus(lastSyncedAtEpochMs: Long?, error: String?) {
         style = MaterialTheme.typography.bodySmall,
         color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.fillMaxWidth(),
+        maxLines = 2,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
     )
 }
 
