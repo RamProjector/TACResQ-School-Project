@@ -30,6 +30,13 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Validate shell scripts before integration tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y shellcheck
+          bash -n tools/test_supabase_migration_replay.sh
+          shellcheck --severity=error tools/test_supabase_migration_replay.sh
+
       - name: Test TACResQ automated code reviewer
         run: python3 tools/test_tacresq_code_reviewer.py
 
