@@ -49,6 +49,10 @@ class SupabaseTacApi private constructor(
     }
 
     override suspend fun logout() { auth.logout() }
+
+    override suspend fun logout(token: String?) {
+        if (!token.isNullOrBlank()) auth.logout("Bearer $token")
+    }
     override suspend fun me(): User =
         if (bridgeRpc != null) bridgeRpc.me(EmptyRpcBody()) else rpc.me()
 
@@ -238,7 +242,7 @@ private interface SupabaseAuthWire {
     ): SupabaseSession
 
     @POST("auth/v1/logout")
-    suspend fun logout()
+    suspend fun logout(@Header("Authorization") authorization: String? = null)
 }
 
 /**
