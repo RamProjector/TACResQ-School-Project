@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,18 +52,25 @@ fun RoleShell(
     content: @Composable () -> Unit,
     mapContent: @Composable () -> Unit,
 ) {
-    androidx.compose.material3.Scaffold(
-        bottomBar = {
-            // Keep all five top-level destinations available, including while viewing the map.
-            TacruBottomNavigation(
-                role = role,
-                selected = selected,
-                onDestinationSelected = onDestinationSelected,
-            )
-        },
-    ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            if (selected == AppDestination.MAP) mapContent() else content()
+    // The map is a focused destination, not a panel inside the role shell.
+    // Let it use the complete app window and provide its own explicit Back action.
+    if (selected == AppDestination.MAP) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            mapContent()
+        }
+    } else {
+        Scaffold(
+            bottomBar = {
+                TacruBottomNavigation(
+                    role = role,
+                    selected = selected,
+                    onDestinationSelected = onDestinationSelected,
+                )
+            },
+        ) { padding ->
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                content()
+            }
         }
     }
 }
@@ -74,7 +83,6 @@ private fun TacruBottomNavigation(
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val compact = maxWidth < 400.dp
-        // Keep all role-specific labels visible; GPS Map remains a stable, prominent center destination.
         val labels = when (role) {
             Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")
             Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Alerts", "Profile")
