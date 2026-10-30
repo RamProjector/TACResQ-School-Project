@@ -1,6 +1,7 @@
 from pathlib import Path
 
 source = Path("app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt").read_text()
+repository = Path("app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 required = (
     "val nameError: String? = null",
     "val emailError: String? = null",
@@ -48,4 +49,18 @@ required = (
 missing = [snippet for snippet in required if snippet not in source]
 if missing:
     raise SystemExit("Inline authentication validation contract failed: " + ", ".join(missing))
-print(f"Inline authentication validation contract passed: {len(required)} checks.")
+
+auth_error_contract = (
+    'val authPath = e.response()?.raw()?.request?.url?.encodedPath.orEmpty()',
+    'if (authPath.endsWith("/auth/v1/token"))',
+    '"Email or password is incorrect."',
+    'if (authPath.endsWith("/auth/v1/signup"))',
+    "We couldn't complete sign-up. Check your details or try again later.",
+    '"Too many sign-in attempts. Wait a moment and try again."',
+    '"Too many sign-up attempts. Wait a moment and try again."',
+)
+missing_auth = [snippet for snippet in auth_error_contract if snippet not in repository]
+if missing_auth:
+    raise SystemExit("Authentication error privacy contract failed: " + ", ".join(missing_auth))
+
+print(f"Inline authentication validation contract passed: {len(required) + len(auth_error_contract)} checks.")
