@@ -280,7 +280,6 @@ fun GpsMapScreen(
         Role.ADMIN -> emptyList()
     }
     val title = "GPS Map"
-    val description = "Tap a pin for incident details."
     val validIncidentPoints = visibleIncidents.mapNotNull { incident ->
         val lat = incident.latitude
         val lng = incident.longitude
