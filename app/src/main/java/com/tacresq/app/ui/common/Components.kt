@@ -1,6 +1,5 @@
 package com.tacresq.app.ui.common
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,10 +54,11 @@ fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.tacresq_app_icon),
+            Icon(
+                painter = painterResource(id = R.drawable.ic_tacresq_emergency_launcher),
                 contentDescription = "TACResQ",
                 modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)),
+                tint = Color.Unspecified,
             )
             Spacer(modifier = Modifier.width(10.dp))
             Column(
