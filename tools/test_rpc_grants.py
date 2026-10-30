@@ -148,7 +148,7 @@ assert not re.search(
 # Runtime SQL contracts share one disposable database with the migration replay.
 # Their auth.users fixtures must therefore use disjoint UUID namespaces; otherwise
 # the second script fails before its authorization assertions execute.
-FIXTURE_UUID_PATTERN = r"00000000-0000-4000-8000-000000000\\d{3}"
+FIXTURE_UUID_PATTERN = r"00000000-0000-4000-8000-000000000\d{3}"
 replay_fixtures = set(
     re.findall(FIXTURE_UUID_PATTERN, Path("tools/test_supabase_migration_replay.sh").read_text())
 )
