@@ -81,7 +81,7 @@ def main() -> None:
 
     render_smoke = (WORKFLOWS / "render-live-smoke.yml").read_text(encoding="utf-8")
     live_smoke_job = render_smoke.split("  live-smoke:", 1)[1]
-    assert re.search(r"(?m)^    permissions: \\{\\}$", live_smoke_job), (
+    assert re.search(r"(?m)^    permissions: \{\}$", live_smoke_job), (
         "Read-only production health probes must receive no repository token permissions"
     )
 
