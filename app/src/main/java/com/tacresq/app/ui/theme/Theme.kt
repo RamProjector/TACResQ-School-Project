@@ -68,8 +68,8 @@ private val TacruDarkColors = darkColorScheme(
 
 private val TacruShapes = Shapes(
     small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(22.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(24.dp),
 )
 
 @Composable
