@@ -1,17 +1,20 @@
 package com.tacresq.app.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
-// Shared palette based on the TACResQ design direction: calm surfaces, strong
-// emergency actions, and consistent status colors across every role.
+// Shared palette: calm surfaces, strong emergency actions, and consistent status
+// colors across every role.
 private val TacruLightColors = lightColorScheme(
     primary = Color(0xFF146C94),
     onPrimary = Color.White,
@@ -66,6 +69,50 @@ private val TacruDarkColors = darkColorScheme(
     outlineVariant = Color(0xFF3B4B5D),
 )
 
+// One restrained type scale for every role. The goal is clearer hierarchy,
+// not larger text or extra decorative labels.
+private val TacruTypography = Typography().let { base ->
+    base.copy(
+        headlineSmall = base.headlineSmall.copy(
+            fontSize = 24.sp,
+            lineHeight = 30.sp,
+            fontWeight = FontWeight.Bold,
+        ),
+        titleLarge = base.titleLarge.copy(
+            fontSize = 20.sp,
+            lineHeight = 26.sp,
+            fontWeight = FontWeight.SemiBold,
+        ),
+        titleMedium = base.titleMedium.copy(
+            fontSize = 16.sp,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.SemiBold,
+        ),
+        bodyLarge = base.bodyLarge.copy(
+            fontSize = 16.sp,
+            lineHeight = 23.sp,
+        ),
+        bodyMedium = base.bodyMedium.copy(
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+        ),
+        bodySmall = base.bodySmall.copy(
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+        ),
+        labelLarge = base.labelLarge.copy(
+            fontSize = 14.sp,
+            lineHeight = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+        ),
+        labelMedium = base.labelMedium.copy(
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.Medium,
+        ),
+    )
+}
+
 private val TacruShapes = Shapes(
     small = RoundedCornerShape(10.dp),
     medium = RoundedCornerShape(16.dp),
@@ -79,6 +126,7 @@ fun TACResQTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) TacruDarkColors else TacruLightColors,
+        typography = TacruTypography,
         shapes = TacruShapes,
         content = content,
     )
