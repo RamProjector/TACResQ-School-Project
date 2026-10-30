@@ -16,7 +16,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -54,7 +54,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -228,11 +227,6 @@ fun GpsMapScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    // Scale the expanded sheet to the available window so it cannot crowd out the map.
-    val mapDetailsMaxHeight = (LocalConfiguration.current.screenHeightDp * 0.38f)
-        .coerceAtMost(320f)
-        .coerceAtLeast(160f)
-        .dp
     // A dedicated map destination must return to the prior app screen on system Back too.
     BackHandler { onBack() }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -712,11 +706,14 @@ fun GpsMapScreen(
 
     var detailsExpanded by remember { mutableStateOf(false) }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .semantics { paneTitle = "GPS Map" },
     ) {
+        // Use this map window's real constraints (not the device's full screen height).
+        // A lower clamp can exceed the available height in landscape or split-screen.
+        val mapDetailsMaxHeight = (maxHeight * 0.38f).coerceAtMost(320.dp)
         AndroidView(
             factory = { mapView },
             modifier = Modifier.fillMaxSize(),
