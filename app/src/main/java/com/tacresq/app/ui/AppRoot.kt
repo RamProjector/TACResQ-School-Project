@@ -450,6 +450,7 @@ private fun IncidentHistoryAdaptiveScaffold(
     val adaptiveInfo = currentWindowAdaptiveInfo(supportLargeAndXLargeWidth = true)
     val windowSizeClass = adaptiveInfo.windowSizeClass
     val compactHeight = windowSizeClass.minHeightDp < 480
+    val expandedWindow = windowSizeClass.minWidthDp >= 840 && !compactHeight
     val baseDirective = calculatePaneScaffoldDirective(adaptiveInfo)
     // A short landscape/split-screen window cannot comfortably host two vertically
     // constrained panes, even when its width would otherwise qualify as expanded.
@@ -543,14 +544,16 @@ private fun IncidentHistoryAdaptiveScaffold(
                         .padding(horizontal = horizontalGutter, vertical = verticalGutter),
                     verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 12.dp),
                 ) {
-                    TextButton(
-                        onClick = {
-                            scope.launch {
-                                navigator.navigateTo(ListDetailPaneScaffoldRole.List, null)
-                            }
-                        },
-                    ) {
-                        Text("Back to incident list")
+                    if (!expandedWindow) {
+                        TextButton(
+                            onClick = {
+                                scope.launch {
+                                    navigator.navigateTo(ListDetailPaneScaffoldRole.List, null)
+                                }
+                            },
+                        ) {
+                            Text("Back to incident list")
+                        }
                     }
                     when {
                         detailId == null -> EmptySectionCard(
