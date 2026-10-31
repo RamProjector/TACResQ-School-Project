@@ -10,6 +10,8 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Handler
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.Looper
 import android.provider.Settings
 import android.widget.Toast
@@ -82,13 +84,15 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.tacresq.app.ui.common.incidentLocationText
-import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.BoundingBox
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.CustomZoomButtonsController
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Marker
+import org.maplibre.android.MapLibre
+import org.maplibre.android.annotations.Icon
+import org.maplibre.android.annotations.IconFactory
+import org.maplibre.android.annotations.MarkerOptions
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapView
 import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.Role
@@ -104,10 +108,26 @@ import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
 import kotlin.math.roundToInt
-import java.io.File
 
 private const val TACLOBAN_LATITUDE = 11.2443
 private const val TACLOBAN_LONGITUDE = 125.0030
+private const val OPENFREEMAP_LIBERTY_STYLE = "https://tiles.openfreemap.org/styles/liberty"
+
+/**
+ * Converts the app's vector pin drawables to MapLibre marker icons. Icons are
+ * created once per map screen and reused for all annotations.
+ */
+private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255): Icon {
+    val drawable = requireNotNull(ContextCompat.getDrawable(this, resourceId)).mutate()
+    val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 48
+    val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 56
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    drawable.alpha = alpha.coerceIn(0, 255)
+    drawable.setBounds(0, 0, width, height)
+    drawable.draw(canvas)
+    return IconFactory.getInstance(this).fromBitmap(bitmap)
+}
 
 private fun ConnectivityManager.hasValidatedInternet(): Boolean {
     val network = activeNetwork ?: return false
@@ -419,29 +439,69 @@ fun GpsMapScreen(
         }
     }
 
+    var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
+    var mapStyleLoaded by remember { mutableStateOf(false) }
     val mapView = remember(context, role) {
-        // Keep osmdroid's disk cache in app-private storage. Legacy external-storage
-        // defaults can be unavailable on modern Android targets without storage access.
-        val osmdroidBase = File(context.cacheDir, "osmdroid").apply { mkdirs() }
-        val tileCache = File(osmdroidBase, "tiles").apply { mkdirs() }
-        val osmdroidConfig = Configuration.getInstance()
-        osmdroidConfig.setOsmdroidBasePath(osmdroidBase)
-        osmdroidConfig.setOsmdroidTileCache(tileCache)
-        // Identify this app to public tile servers rather than using a generic library UA.
-        osmdroidConfig.userAgentValue = "TACResQ/1.0.0 (" + context.packageName + "; Android)"
+        MapLibre.getInstance(context)
         MapView(context).apply {
             contentDescription = if (role == Role.DISPATCHER) {
-                "Emergency response map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review incident locations and responder freshness."
+                "Emergency response vector map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review incident locations and responder freshness."
             } else {
-                "Emergency response map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review active incident locations."
+                "Emergency response vector map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review active incident locations."
             }
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
-            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-            isTilesScaledToDpi = true
-            controller.setZoom(12.0)
-            controller.setCenter(GeoPoint(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
+            onCreate(null)
         }
+    }
+
+    DisposableEffect(mapView) {
+        mapView.getMapAsync { map ->
+            mapLibreMap = map
+            map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
+                mapStyleLoaded = true
+                map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
+                    .target(LatLng(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
+                    .zoom(12.0)
+                    .build()
+            }
+        }
+        onDispose {
+            mapView.onDestroy()
+            mapLibreMap = null
+            mapStyleLoaded = false
+        }
+    }
+
+    val incidentPinIcon = remember(context) {
+        context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_incident_pin)
+    }
+    val responderPinIcon = remember(context) {
+        context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_responder_pin)
+    }
+    val staleResponderPinIcon = remember(context) {
+        context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_responder_pin, alpha = 110)
+    }
+    val myLocationPinIcon = remember(context) {
+        context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_my_location_pin)
+    }
+
+    fun animateToPoint(point: GeoPoint, zoom: Double) {
+        mapLibreMap?.animateCamera(
+            CameraUpdateFactory.newLatLngZoom(LatLng(point.latitude, point.longitude), zoom),
+            420,
+        )
+    }
+
+    fun fitMapPoints(points: List<GeoPoint>) {
+        val map = mapLibreMap ?: return
+        if (points.isEmpty()) return
+        if (points.size == 1) {
+            animateToPoint(points.first(), 15.0)
+            return
+        }
+        val bounds = LatLngBounds.Builder()
+            .includes(points.map { LatLng(it.latitude, it.longitude) })
+            .build()
+        map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 64), 480)
     }
 
     fun showIncidentPins() {
@@ -449,13 +509,12 @@ fun GpsMapScreen(
             0 -> locationStatus = "There are no valid incident coordinates to center on yet."
             1 -> {
                 deviceFix = null
-                mapView.controller.setZoom(15.0)
-                mapView.controller.animateTo(validIncidentPoints.first())
+                animateToPoint(validIncidentPoints.first(), 15.0)
                 locationStatus = "Centered on 1 incident pin."
             }
             else -> {
                 deviceFix = null
-                mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validIncidentPoints), true, 64)
+                fitMapPoints(validIncidentPoints)
                 locationStatus = "Showing ${validIncidentPoints.size} incident pins."
             }
         }
@@ -471,8 +530,7 @@ fun GpsMapScreen(
             return
         }
         deviceFix = null
-        mapView.controller.setZoom(15.0)
-        mapView.controller.animateTo(GeoPoint(latitude, longitude))
+        animateToPoint(GeoPoint(latitude, longitude), 15.0)
         locationStatus = "Centered on incident #${incident.id}. Check the recorded location time before navigating."
     }
 
@@ -481,8 +539,7 @@ fun GpsMapScreen(
             0 -> locationStatus = "No valid field-unit location reports are available. Units must be en route and explicitly sharing foreground location."
             1 -> {
                 deviceFix = null
-                mapView.controller.setZoom(15.0)
-                mapView.controller.animateTo(validResponderPoints.first())
+                animateToPoint(validResponderPoints.first(), 15.0)
                 val freshness = validResponderLocations.first().mapFreshness(mapNow)
                 locationStatus = if (freshness == MapLocationFreshness.STALE) {
                     "Centered on a stale unit pin · confirm with dispatch."
@@ -492,7 +549,7 @@ fun GpsMapScreen(
             }
             else -> {
                 deviceFix = null
-                mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(validResponderPoints), true, 64)
+                fitMapPoints(validResponderPoints)
                 locationStatus = "Showing field-unit locations: $freshResponderCount fresh, $agingResponderCount aging, $staleResponderCount stale. Stale pins are not live."
             }
         }
@@ -541,8 +598,7 @@ fun GpsMapScreen(
                                 mapView.post {
                                     // Match zoom to the reported uncertainty; avoid implying
                                     // street-level precision when the fix is only approximate.
-                                    mapView.controller.setZoom(gpsMapPreviewZoom(fix.accuracyM))
-                                    mapView.controller.animateTo(GeoPoint(fix.latitude, fix.longitude))
+                                    animateToPoint(GeoPoint(fix.latitude, fix.longitude), gpsMapPreviewZoom(fix.accuracyM))
                                     mapView.invalidate()
                                 }
                                 val precision = if (fix.hasPrecisePermission) "Precise" else "Approximate"
@@ -633,16 +689,25 @@ fun GpsMapScreen(
 
     DisposableEffect(mapView, lifecycleOwner) {
         val lifecycle = lifecycleOwner.lifecycle
+        var mapIsStarted = false
         var mapIsResumed = false
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
+                Lifecycle.Event.ON_START -> {
+                    if (!mapIsStarted) {
+                        mapView.onStart()
+                        mapIsStarted = true
+                    }
+                }
                 Lifecycle.Event.ON_RESUME -> {
+                    if (!mapIsStarted) {
+                        mapView.onStart()
+                        mapIsStarted = true
+                    }
                     if (!mapIsResumed) {
                         mapView.onResume()
                         mapIsResumed = true
                     }
-                    // A one-time preview must not remain visible after the user revokes
-                    // location permission in Android Settings while TACResQ is paused.
                     if (!locationProvider.hasPermission() && latestDeviceFix != null) {
                         deviceFix = null
                         locationStatus = "Location permission is off. Previous preview cleared. Grant permission to locate again."
@@ -655,99 +720,115 @@ fun GpsMapScreen(
                         mapIsResumed = false
                     }
                 }
+                Lifecycle.Event.ON_STOP -> {
+                    if (mapIsResumed) {
+                        mapView.onPause()
+                        mapIsResumed = false
+                    }
+                    if (mapIsStarted) {
+                        mapView.onStop()
+                        mapIsStarted = false
+                    }
+                }
                 else -> Unit
             }
         }
         lifecycle.addObserver(observer)
-        // Compose can enter this screen after the host Activity has already resumed.
-        // Lifecycle observers catch up synchronously on registration, but keep this
-        // guard so a resumed map is never left paused if the event was already passed.
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && !mapIsStarted) {
+            mapView.onStart()
+            mapIsStarted = true
+        }
         if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !mapIsResumed) {
             mapView.onResume()
             mapIsResumed = true
         }
         onDispose {
             lifecycle.removeObserver(observer)
-            if (mapIsResumed) {
-                mapView.onPause()
-                mapIsResumed = false
-            }
-            mapView.onDetach()
+            if (mapIsResumed) mapView.onPause()
+            if (mapIsStarted) mapView.onStop()
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(mapView, visibleIncidents, validResponderLocations, deviceFix, freshnessTick) {
-        mapView.overlays.removeAll { it is Marker }
+    androidx.compose.runtime.LaunchedEffect(
+        mapLibreMap,
+        mapStyleLoaded,
+        visibleIncidents,
+        validResponderLocations,
+        deviceFix,
+        freshnessTick,
+    ) {
+        val map = mapLibreMap
+        if (map == null || !mapStyleLoaded) return@LaunchedEffect
+
+        // The map's annotations are a render of current, validated app state.
+        map.clear()
         visibleIncidents.forEach { incident ->
             val latitude = incident.latitude
             val longitude = incident.longitude
             if (incident.hasValidMapCoordinates() && latitude != null && longitude != null) {
-                val marker = Marker(mapView).apply {
-                    position = GeoPoint(latitude, longitude)
-                    icon = ContextCompat.getDrawable(context, com.tacresq.app.R.drawable.ic_map_incident_pin)
-                    setTitle("Incident #${incident.id} · ${incident.type.label}")
-                    val source = when (incident.locationSource) {
-                        "gps" -> "GPS location"
-                        "manual" -> "Manually selected map pin"
-                        "none" -> "No location source"
-                        else -> "Location source not reported"
-                    }
-                    val accuracy = if (incident.locationSource == "gps") {
-                        incident.accuracyM.validAccuracyLabel("GPS accuracy about ")
-                    } else null
-                    val note = incident.locationNotes?.takeIf { it.isNotBlank() }
-                    val locationAgeLabel = incident.locationAgeStatus(mapNow).first
-                    snippet = listOfNotNull(source, accuracy, "Status: ${incident.status.label}", locationAgeLabel, note)
-                        .joinToString(" · ")
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    setOnMarkerClickListener { clickedMarker, map ->
-                        selectedIncidentId = incident.id
-                        map.controller.animateTo(clickedMarker.position)
-                        scope.launch { mapSheetState.bottomSheetState.expand() }
-                        true
-                    }
+                val source = when (incident.locationSource) {
+                    "gps" -> "GPS location"
+                    "manual" -> "Manually selected map pin"
+                    "none" -> "No location source"
+                    else -> "Location source not reported"
                 }
-                mapView.overlays.add(marker)
+                val accuracy = if (incident.locationSource == "gps") {
+                    incident.accuracyM.validAccuracyLabel("GPS accuracy about ")
+                } else null
+                val note = incident.locationNotes?.takeIf { it.isNotBlank() }
+                val locationAgeLabel = incident.locationAgeStatus(mapNow).first
+                map.addMarker(
+                    MarkerOptions()
+                        .position(LatLng(latitude, longitude))
+                        .icon(incidentPinIcon)
+                        .title("Incident #${incident.id} · ${incident.type.label}")
+                        .snippet(
+                            listOfNotNull(
+                                source,
+                                accuracy,
+                                "Status: ${incident.status.label}",
+                                locationAgeLabel,
+                                note,
+                            ).joinToString(" · "),
+                        ),
+                )
             }
         }
         validResponderLocations.forEach { location ->
             val ageSeconds = location.mapAgeSeconds(mapNow) ?: return@forEach
             val freshness = location.mapFreshness(mapNow) ?: return@forEach
-            val marker = Marker(mapView).apply {
-                position = GeoPoint(location.latitude, location.longitude)
-                icon = ContextCompat.getDrawable(context, com.tacresq.app.R.drawable.ic_map_responder_pin)
-                    ?.mutate()
-                    ?.apply { if (freshness == MapLocationFreshness.STALE) alpha = 110 }
-                setTitle(
-                    if (freshness == MapLocationFreshness.STALE) {
-                        "STALE field-unit location · Incident #${location.incidentId}"
-                    } else {
-                        "${freshness.label} field-unit location · Incident #${location.incidentId}"
-                    },
-                )
-                val accuracy = location.accuracyM.validAccuracyLabel(" · reported accuracy about ") ?: ""
-                val age = formatLocationAge(ageSeconds)
-                snippet = if (freshness == MapLocationFreshness.STALE) {
-                    "STALE — last known position, $age$accuracy. Do not treat this marker as live; confirm with dispatch."
-                } else {
-                    "${freshness.label} location · last reported $age$accuracy. Dispatcher-only, consented foreground location."
-                }
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            val icon = if (freshness == MapLocationFreshness.STALE) staleResponderPinIcon else responderPinIcon
+            val accuracy = location.accuracyM.validAccuracyLabel(" · reported accuracy about ") ?: ""
+            val age = formatLocationAge(ageSeconds)
+            val snippet = if (freshness == MapLocationFreshness.STALE) {
+                "STALE — last known position, $age$accuracy. Do not treat this marker as live; confirm with dispatch."
+            } else {
+                "${freshness.label} location · last reported $age$accuracy. Dispatcher-only, consented foreground location."
             }
-            mapView.overlays.add(marker)
+            map.addMarker(
+                MarkerOptions()
+                    .position(LatLng(location.latitude, location.longitude))
+                    .icon(icon)
+                    .title(
+                        if (freshness == MapLocationFreshness.STALE) {
+                            "STALE field-unit location · Incident #${location.incidentId}"
+                        } else {
+                            "${freshness.label} field-unit location · Incident #${location.incidentId}"
+                        },
+                    )
+                    .snippet(snippet),
+            )
         }
         deviceFix?.let { fix ->
-            val locationMarker = Marker(mapView).apply {
-                position = GeoPoint(fix.latitude, fix.longitude)
-                icon = ContextCompat.getDrawable(context, com.tacresq.app.R.drawable.ic_map_my_location_pin)
-                setTitle("Your location · this device only")
-                snippet = "One-time location preview. Not uploaded or continuously tracked."
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-            }
-            mapView.overlays.add(locationMarker)
+            map.addMarker(
+                MarkerOptions()
+                    .position(LatLng(fix.latitude, fix.longitude))
+                    .icon(myLocationPinIcon)
+                    .title("Your location · this device only")
+                    .snippet("One-time location preview. Not uploaded or continuously tracked."),
+            )
         }
-        // Frame eligible units once while incident data is absent, without marking
-        // incident framing complete. If incident coordinates arrive later, frame them once.
+
         val shouldFrameInitialUnits = !hasAutoFramedInitialMapPoints &&
             validIncidentPoints.isEmpty() && responderPointsForInitialFrame.isNotEmpty()
         val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()
@@ -756,28 +837,17 @@ fun GpsMapScreen(
             if (shouldFrameIncidentPoints) hasAutoFramedIncidentPoints = true
             val pointsToFrame = if (shouldFrameIncidentPoints) initialMapPoints else responderPointsForInitialFrame
             mapView.post {
-                when (pointsToFrame.size) {
-                    1 -> {
-                        mapView.controller.setZoom(15.0)
-                        mapView.controller.animateTo(pointsToFrame.first())
-                        locationStatus = if (shouldFrameIncidentPoints) {
-                            "Showing 1 incident location."
-                        } else {
-                            "Map centered on field units; incident pins are pending."
-                        }
-                    }
-                    else -> {
-                        mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(pointsToFrame), true, 64)
-                        locationStatus = if (shouldFrameIncidentPoints) {
-                            "Incident locations and eligible field units are in view. Stale units are last known, not live."
-                        } else {
-                            "Showing eligible field-unit locations while waiting for incident locations. Stale unit markers are labeled as last known, not live."
-                        }
-                    }
+                fitMapPoints(pointsToFrame)
+                locationStatus = if (pointsToFrame.size == 1) {
+                    if (shouldFrameIncidentPoints) "Showing 1 incident location."
+                    else "Map centered on field units; incident pins are pending."
+                } else if (shouldFrameIncidentPoints) {
+                    "Incident locations and eligible field units are in view. Stale units are last known, not live."
+                } else {
+                    "Showing eligible field-unit locations while waiting for incident locations. Stale unit markers are labeled as last known, not live."
                 }
             }
         }
-        mapView.invalidate()
     }
 
 
@@ -1027,16 +1097,16 @@ fun GpsMapScreen(
                     }
 
                     Text(
-                        text = "© OpenStreetMap contributors",
+                        text = "© OpenMapTiles · © OpenStreetMap contributors",
                         modifier = Modifier
                             .align(Alignment.End)
                             .heightIn(min = 48.dp)
-                            .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution") {
+                            .clickable(onClickLabel = "Open OpenFreeMap map data and attribution details") {
                                 runCatching {
                                     context.startActivity(
                                         Intent(
                                             Intent.ACTION_VIEW,
-                                            Uri.parse("https://www.openstreetmap.org/copyright"),
+                                            Uri.parse("https://openfreemap.org/"),
                                         )
                                     )
                                 }
