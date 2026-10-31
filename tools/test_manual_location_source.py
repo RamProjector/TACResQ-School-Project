@@ -30,7 +30,7 @@ checks = {
             "val point = centerCoordinates.value",
             "if (point.first.isFinite() && point.second.isFinite()",
             "onConfirm(point.first, point.second)",
-            "enabled = !startsAtTaclobanDefault || userAdjustedMap",
+            "enabled = mapStyleLoaded && !mapLoadError",
         )
     ) and all(
         text in requester for text in (
@@ -48,7 +48,7 @@ checks = {
             "Map data",
             "REQUESTER_MAP_STYLE_URL",
             "modifier = Modifier.fillMaxSize()",
-            "enabled = !startsAtTaclobanDefault || userAdjustedMap",
+            "enabled = mapStyleLoaded && !mapLoadError",
         )
     ) and "height(320.dp)" not in requester and "controller.zoomIn()" not in requester and "controller.zoomOut()" not in requester,
     "fallback map center is clearly identified when GPS is unavailable": all(
@@ -59,7 +59,7 @@ checks = {
             "Move the map before confirming.",
             "setOnTouchListener { _, event ->",
             "if (event.action == MotionEvent.ACTION_MOVE) userAdjustedMap = true",
-            "enabled = !startsAtTaclobanDefault || userAdjustedMap",
+            "enabled = mapStyleLoaded && !mapLoadError",
             "Move the map before confirming.",
         )
     ),
