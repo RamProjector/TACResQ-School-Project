@@ -162,6 +162,8 @@ BEGIN
   UPDATE public.incidents
      SET latitude = NULL,
          longitude = NULL,
+         accuracy_m = NULL,
+         location_recorded_at = NULL,
          location_notes = 'Beside the public market entrance',
          location_source = 'none'
    WHERE id = incident_id;
