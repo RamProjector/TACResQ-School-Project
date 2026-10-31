@@ -543,7 +543,7 @@ fun IncidentChatScreen(
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text("Photo ready to send", style = MaterialTheme.typography.labelLarge)
                                 Text(
-                                    "${(state.attachmentBytes.size / 1024).coerceAtLeast(1)} KB · Private to this incident",
+                                    "${((state.attachmentBytes?.size ?: 0) / 1024).coerceAtLeast(1)} KB · Private to this incident",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
