@@ -11,7 +11,7 @@ REQUIRED = {
     "drag interaction explicitly enabled": "sheetSwipeEnabled = true",
     "visible drag handle": "BottomSheetDefaults.DragHandle()",
     "map view remains full size": "modifier = Modifier.fillMaxSize(),\n            update = { it.invalidate() }",
-    "incident marker selects and expands details": "setOnMarkerClickListener { clickedMarker, map ->",
+    "incident marker selects and expands details": "setOnMarkerClickListener { marker ->",
     "selected incident detail is shown": "selectedIncident != null",
     "other incidents remain in the sheet list": "visibleIncidents.filterNot { it.id == selectedIncidentId }",
     "selected incident card is rendered": "MapIncidentCard(",
