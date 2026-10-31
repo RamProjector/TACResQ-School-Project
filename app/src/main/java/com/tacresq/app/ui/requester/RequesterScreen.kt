@@ -729,7 +729,10 @@ fun RequesterScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        StatusPill(activeIncident.status)
+                        StatusPill(
+                            activeIncident.status.requesterLabel,
+                            activeIncident.status.pillColor(),
+                        )
                     }
                     Text(
                         "Request #${activeIncident.id}",
@@ -737,10 +740,7 @@ fun RequesterScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING)
-                            "Waiting for dispatch to assign a response unit."
-                        else
-                            "A unit may already be responding. Contact dispatch before requesting changes.",
+                        activeIncident.status.requesterDescription,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )

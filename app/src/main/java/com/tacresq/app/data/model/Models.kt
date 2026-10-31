@@ -44,6 +44,30 @@ enum class IncidentStatus(val label: String) {
 
     val isActive: Boolean
         get() = this != RESOLVED && this != CANCELLED
+
+    /** Plain-language status shown to the person who submitted the emergency request. */
+    val requesterLabel: String
+        get() = when (this) {
+            PENDING -> "Awaiting dispatch"
+            ASSIGNED -> "Responder assigned"
+            EN_ROUTE -> "Responder en route"
+            ON_SCENE -> "Responder on scene"
+            TRANSPORTING -> "Transport in progress"
+            RESOLVED -> "Request resolved"
+            CANCELLED -> "Request cancelled"
+        }
+
+    /** Explains the current request state without implying that GPS or chat confirmed it. */
+    val requesterDescription: String
+        get() = when (this) {
+            PENDING -> "Your request has been received. Dispatch has not assigned a response team yet."
+            ASSIGNED -> "Dispatch has assigned a response team. The team has not started travelling yet."
+            EN_ROUTE -> "Your assigned response team has started travelling to the incident location."
+            ON_SCENE -> "The assigned response team has confirmed that it has reached the incident scene."
+            TRANSPORTING -> "The response team has reported that transportation is in progress."
+            RESOLVED -> "The assigned response team has completed its response."
+            CANCELLED -> "This emergency request has been cancelled."
+        }
 }
 
 /** The statuses a unit may move an incident to next. The server must enforce the same rules. */

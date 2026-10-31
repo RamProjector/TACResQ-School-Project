@@ -12,8 +12,10 @@ end = screen.index('} else if (!showRequestForm && !state.pendingSosAvailable &&
 card = screen[start:end]
 
 assert "surfaceContainerLow" in card
-assert "StatusPill(activeIncident.status)" in card
-assert "activeIncident.status.pillColor()" not in card
+assert "StatusPill(" in card
+assert "activeIncident.status.requesterLabel" in card
+assert "activeIncident.status.pillColor()" in card
+assert "activeIncident.status.requesterDescription" in card
 assert "ButtonDefaults.buttonColors(" in card
 assert "containerColor = MaterialTheme.colorScheme.primary" in card
 assert "contentColor = MaterialTheme.colorScheme.onPrimary" in card

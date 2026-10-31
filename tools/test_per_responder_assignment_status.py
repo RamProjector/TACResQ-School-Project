@@ -9,6 +9,7 @@ api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 responder = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 dispatcher = (ROOT / "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt").read_text()
+requester = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 components = (ROOT / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
 fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").read_text()
 
@@ -50,8 +51,25 @@ print("PASS: Android, dispatcher, and fake-mode clients consume individual unit 
 # Dispatcher overview presents one team summary first and reveals per-member detail on demand.
 assert 'var expandedTeamStatusIds by remember { mutableStateOf(setOf<Long>()) }' in dispatcher
 assert 'Team progress' in dispatcher
-assert 'members with a status update' in dispatcher
-assert "Progress is based on each assigned responder's own check-in." in dispatcher
+assert 'responders have started their response' in dispatcher
+assert 'stillAssignedCount' in dispatcher
+assert 'still marked Assigned' in dispatcher
+assert "The request status reflects the team's combined progress." in dispatcher
+assert 'Your status updates are shared with dispatch and the requester.' in responder
+for required in (
+    'val requesterLabel: String',
+    'val requesterDescription: String',
+    'PENDING -> "Awaiting dispatch"',
+    'ASSIGNED -> "Responder assigned"',
+    'EN_ROUTE -> "Responder en route"',
+    'ON_SCENE -> "Responder on scene"',
+    'TRANSPORTING -> "Transport in progress"',
+    'RESOLVED -> "Request resolved"',
+    'CANCELLED -> "Request cancelled"',
+):
+    assert required in models, f"Missing requester-facing lifecycle mapping: {required}"
+assert 'activeIncident.status.requesterLabel' in requester
+assert 'activeIncident.status.requesterDescription' in requester
 assert 'View member details' in dispatcher
 assert 'Hide member details' in dispatcher
 assert 'Updated ${formatTime(it)}' in dispatcher
