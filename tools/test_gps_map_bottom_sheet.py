@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text(encoding="utf-8")
 
 assert "BottomSheetScaffold(" in SOURCE
-assert "sheetPeekHeight = 112.dp" in SOURCE
+assert "sheetPeekHeight = 128.dp" in SOURCE
 assert "sheetMaxWidth = 680.dp" in SOURCE
 assert "BottomSheetDefaults.DragHandle()" in SOURCE
 assert "ModalBottomSheet(" not in SOURCE
