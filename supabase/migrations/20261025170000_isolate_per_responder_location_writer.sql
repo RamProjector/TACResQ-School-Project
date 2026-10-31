@@ -8,10 +8,6 @@
 -- incident state, coordinate/timestamp bounds, and update rate.
 BEGIN;
 
--- Invoker wrappers need schema visibility to resolve narrowly granted private helpers.
--- This grants name resolution only; function EXECUTE remains explicitly controlled below.
-GRANT USAGE ON SCHEMA private TO authenticated;
-
 -- location_logs has no created_at column. Store server receipt time separately
 -- from the client/device capture timestamp so rate limiting and latest-point
 -- ordering never depend on a client-controlled clock.
@@ -23,6 +19,13 @@ ALTER TABLE public.location_logs
 
 ALTER TABLE public.location_logs
   ALTER COLUMN received_at SET DEFAULT pg_catalog.clock_timestamp();
+
+-- Keep the rate-limit lookup indexed. This migration is transactional, so use
+-- a regular idempotent index rather than CREATE INDEX CONCURRENTLY here.
+CREATE INDEX IF NOT EXISTS location_logs_received_rate_idx
+  ON public.location_logs (
+    user_id, incident_id, (COALESCE(received_at, recorded_at)) DESC
+  );
 
 -- Force authenticated clients through the validated RPC; otherwise the legacy
 -- table grant plus INSERT policy would let responders bypass RPC rate/timestamp checks.
@@ -71,8 +74,7 @@ BEGIN
       ON a.incident_id = i.id AND a.user_id = p.id
    WHERE p.auth_user_id = auth.uid()
      AND p.role IN ('responder', 'driver')
-   FOR UPDATE OF a
-   FOR SHARE OF i;
+   FOR UPDATE OF i, a;
 
   IF actor_id IS NULL
      OR incident_status IS DISTINCT FROM 'en_route'
@@ -80,6 +82,8 @@ BEGIN
     RAISE EXCEPTION 'Location sharing is only available to your assigned unit while you are en route'
       USING ERRCODE = '42501';
   END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(actor_id);
 
   IF EXISTS (
     SELECT 1
