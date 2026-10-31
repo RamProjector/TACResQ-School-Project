@@ -125,6 +125,7 @@ data class ResponderLocation(
 
 sealed interface SessionState {
     data object Loading : SessionState
+    data object RestoreFailed : SessionState
     data object LoggedOut : SessionState
     data class LoggedIn(val session: Session) : SessionState
 }
