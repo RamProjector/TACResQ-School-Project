@@ -316,34 +316,13 @@ private fun RoleSectionScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ScreenHeader(title = title, subtitle = "", onOpenNotifications = onOpenNotifications)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = androidx.compose.material3.CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(5.dp),
-                ) {
-                    Text(
-                        if (role == Role.REQUESTER) "Your emergency requests" else "Your response activity",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Text(
-                        "$activeCount active · $completedCount completed",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-            }
             IncidentHistoryAdaptiveScaffold(
                 modifier = Modifier.weight(1f),
                 incidents = incidents,
                 selectedIncidentId = selectedIncidentId,
                 role = role,
+                activeCount = activeCount,
+                completedCount = completedCount,
                 onRefresh = onRefreshIncidents,
                 onOpenChat = onOpenChat,
             )
@@ -464,6 +443,8 @@ private fun IncidentHistoryAdaptiveScaffold(
     incidents: List<Incident>,
     selectedIncidentId: Long?,
     role: Role,
+    activeCount: Int,
+    completedCount: Int,
     onRefresh: () -> Unit,
     onOpenChat: (Long) -> Unit,
 ) {
@@ -521,7 +502,7 @@ private fun IncidentHistoryAdaptiveScaffold(
                     AdaptivePaneHeader(
                         eyebrow = "INCIDENT HISTORY",
                         title = if (role == Role.REQUESTER) "Your requests" else "Your responses",
-                        supportingText = "Select an incident to review its status and details",
+                        supportingText = "$activeCount active · $completedCount completed",
                         count = sortedIncidents.size,
                     )
                     if (sortedIncidents.isEmpty()) {
