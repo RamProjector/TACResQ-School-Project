@@ -21,7 +21,7 @@ required = (
     "collapsedMapSummary",
     ".semantics {",
     "LiveRegionMode.Polite",
-    "if (locationStatus != null) liveRegion = LiveRegionMode.Polite",
+    "if (locationStatus != null || showAppSettingsAction) liveRegion = LiveRegionMode.Polite",
     "role == Role.DISPATCHER && validResponderLocations.isNotEmpty()",
     'contentDescription = "Center map on active incidents"',
     'contentDescription = "Center map on responder field units"',
