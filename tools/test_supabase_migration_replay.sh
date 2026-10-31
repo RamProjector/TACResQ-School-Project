@@ -146,13 +146,16 @@ BEGIN
     FROM public.profiles
    WHERE auth_user_id = '00000000-0000-4000-8000-000000000123';
 
-  INSERT INTO public.incidents (
-    requester_id, type, description, latitude, longitude, location_notes, location_source
-  ) VALUES (
-    requester_profile_id, 'medical', 'Landmark-only update regression',
-    NULL, NULL, 'Beside the public market entrance', 'none'
-  )
-  RETURNING id INTO incident_id;
+  -- Reuse the fixture incident created above; the one-active-request
+  -- invariant correctly prevents creating a second active request here.
+  SELECT id INTO incident_id
+    FROM public.incidents
+   WHERE requester_id = requester_profile_id
+     AND description = 'Automated SOS audit regression';
+
+  IF incident_id IS NULL THEN
+    RAISE EXCEPTION 'Expected the existing requester fixture incident';
+  END IF;
 
   BEGIN
     UPDATE public.incidents
