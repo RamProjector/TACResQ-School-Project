@@ -54,7 +54,7 @@ class ApiException(message: String, val httpCode: Int? = null) : Exception(messa
  * request envelope so the user can recover without creating a second emergency request.
  */
 internal fun isDefinitiveIncidentRejection(httpCode: Int): Boolean =
-    httpCode in 400..499 && httpCode !in setOf(401, 403, 408, 409, 425, 429)
+    httpCode in 400..499 && httpCode !in setOf(400, 401, 403, 408, 409, 425, 429)
 
 class TacRepository(
     private val api: TacApi,
@@ -189,27 +189,30 @@ class TacRepository(
         )
         val payloadJson = Gson().toJson(candidate)
         val fingerprint = payloadJson
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: return Result.failure(ApiException("Sign in as a requester before submitting an emergency request."))
         val pending = try {
-            store.getOrCreatePendingIncident(fingerprint, payloadJson)
+            store.getOrCreatePendingIncident(fingerprint, payloadJson, ownerUserId)
         } catch (e: SessionStore.PendingIncidentConflictException) {
             return Result.failure(ApiException(e.message ?: "An earlier SOS submission is unresolved."))
         }
         val request = runCatching { Gson().fromJson(pending.payloadJson, CreateIncidentRequest::class.java).copy(clientRequestId = pending.requestId) }
             .getOrElse { return Result.failure(ApiException("Could not restore the pending SOS submission. Please contact support before creating another request.")) }
         val result = call { api.createIncident(request) }
-        val error = result.exceptionOrNull() as? ApiException
-        if (result.isSuccess || error?.httpCode?.let(::isDefinitiveIncidentRejection) == true) {
-            // A definitive 4xx response means the server rejected the request; only
-            // ambiguous network/server failures should keep the exact SOS envelope.
-            store.clearPendingIncidentRequestId(pending.requestId)
+        if (result.isSuccess) {
+            // Only a confirmed server success clears the durable envelope. Rejections and
+            // ambiguous failures remain available for explicit, owner-checked resolution.
+            store.clearPendingIncidentRequestId(pending.requestId, ownerUserId)
         }
         return result
     }
 
     /** Retries the persisted SOS verbatim, including its original location and idempotency key. */
     suspend fun retryPendingIncident(): Result<Incident> {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: return Result.failure(ApiException("Sign in with the original requester account to retry this saved SOS."))
         val pending = try {
-            store.getPendingIncidentSubmission()
+            store.getPendingIncidentSubmission(ownerUserId)
         } catch (e: SessionStore.PendingIncidentConflictException) {
             return Result.failure(ApiException(e.message ?: "The saved SOS could not be restored safely."))
         } catch (e: Exception) {
@@ -222,14 +225,29 @@ class TacRepository(
             return Result.failure(ApiException("The saved SOS payload is invalid. Do not create a replacement request; contact dispatch."))
         }
         val result = call { api.createIncident(request) }
-        val error = result.exceptionOrNull() as? ApiException
-        if (result.isSuccess || error?.httpCode?.let(::isDefinitiveIncidentRejection) == true) {
-            store.clearPendingIncidentRequestId(pending.requestId)
+        if (result.isSuccess) {
+            store.clearPendingIncidentRequestId(pending.requestId, ownerUserId)
         }
         return result
     }
 
-    suspend fun hasPendingIncident(): Boolean = store.getPendingIncidentSubmission() != null
+    suspend fun hasPendingIncident(): Boolean {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in with the original requester account to check saved SOS status.")
+        return try {
+            store.getPendingIncidentSubmission(ownerUserId) != null
+        } catch (e: SessionStore.PendingIncidentConflictException) {
+            throw ApiException(e.message ?: "A saved SOS cannot be used by this requester account.")
+        }
+    }
+
+    suspend fun discardPendingIncident(): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in with the original requester account to discard its saved SOS.")
+        val pending = store.getPendingIncidentSubmission(ownerUserId)
+            ?: return@call Unit
+        store.clearPendingIncidentRequestId(pending.requestId, ownerUserId)
+    }
 
     suspend fun updateIncidentStatus(id: Long, status: IncidentStatus): Result<Incident> = call {
         api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))
