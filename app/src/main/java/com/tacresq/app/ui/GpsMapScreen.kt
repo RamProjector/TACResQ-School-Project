@@ -393,9 +393,9 @@ fun GpsMapScreen(
         osmdroidConfig.userAgentValue = "TACResQ/1.0.0 (" + context.packageName + "; Android)"
         MapView(context).apply {
             contentDescription = if (role == Role.DISPATCHER) {
-                "Emergency response map centered on Tacloban City. Incident pins mark active emergencies and field-unit pins mark responder locations. Expand map details for a text list and location freshness."
+                "Emergency response map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review incident locations and responder freshness."
             } else {
-                "Emergency response map centered on Tacloban City. Incident pins mark active emergencies. Expand map details for the incident list."
+                "Emergency response map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review active incident locations."
             }
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
