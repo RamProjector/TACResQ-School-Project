@@ -13,12 +13,14 @@ class IncidentLocationTextTest {
         longitude: Double? = null,
         source: String? = "none",
         accuracyM: Float? = null,
+        locationNotes: String? = null,
     ) = Incident(
         id = 1L,
         type = IncidentType.MEDICAL,
         latitude = latitude,
         longitude = longitude,
         accuracyM = accuracyM,
+        locationNotes = locationNotes,
         status = IncidentStatus.PENDING,
         locationSource = source,
     )
@@ -26,6 +28,14 @@ class IncidentLocationTextTest {
     @Test
     fun bothMissingCoordinatesAreReportedAsNoPinWhenNoLocationWasSelected() {
         assertEquals("No location pin", incidentLocationText(incident()))
+    }
+
+    @Test
+    fun landmarkNotesRemainVisibleWhenNoCoordinatesWereSelected() {
+        assertEquals(
+            "No location pin · Beside the public market entrance",
+            incidentLocationText(incident(locationNotes = "Beside the public market entrance")),
+        )
     }
 
     @Test
