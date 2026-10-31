@@ -84,7 +84,7 @@ assert "onClick = { onOpenChat(activeIncident.id) }" in requester
 assert 'Text("Open incident messages")' in requester
 assert 'Text("Review", maxLines = 1, softWrap = false)' in requester
 assert 'Text("Review request")' not in requester, "compact request review action must not wrap on narrow layouts"
-assert "RequesterScreen(vm, user, logout, onOpenChat = openChat)" in root
+assert "RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)" in root
 
 dispatcher = read("app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt")
 assert "onOpenChat: (Long) -> Unit" in dispatcher
