@@ -50,6 +50,7 @@ print("PASS: Android, dispatcher, and fake-mode clients consume individual unit 
 assert 'var expandedTeamStatusIds by remember { mutableStateOf(setOf<Long>()) }' in dispatcher
 assert 'Team progress' in dispatcher
 assert 'members with a status update' in dispatcher
+assert "Progress is based on each assigned responder's own check-in." in dispatcher
 assert 'View member details' in dispatcher
 assert 'Hide member details' in dispatcher
 assert 'Updated ${formatTime(it)}' in dispatcher
