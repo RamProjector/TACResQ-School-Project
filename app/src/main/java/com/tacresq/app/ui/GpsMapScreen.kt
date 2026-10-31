@@ -112,6 +112,7 @@ import kotlin.math.roundToInt
 private const val TACLOBAN_LATITUDE = 11.2443
 private const val TACLOBAN_LONGITUDE = 125.0030
 private const val OPENFREEMAP_LIBERTY_STYLE = "https://tiles.openfreemap.org/styles/liberty"
+private const val MAP_DATA_UNAVAILABLE_STATUS = "Map data is temporarily unavailable. Incident details remain available."
 
 /**
  * Converts the app's vector pin drawables to MapLibre marker icons. Icons are
@@ -454,6 +455,12 @@ fun GpsMapScreen(
     }
 
     DisposableEffect(mapView) {
+        mapView.addOnDidFailLoadingMapListener {
+            locationStatus = MAP_DATA_UNAVAILABLE_STATUS
+        }
+        mapView.addOnDidFinishLoadingMapListener {
+            if (locationStatus == MAP_DATA_UNAVAILABLE_STATUS) locationStatus = null
+        }
         mapView.getMapAsync { map ->
             mapLibreMap = map
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
@@ -1184,7 +1191,7 @@ fun GpsMapScreen(
                                 "Offline",
                                 modifier = Modifier
                                     .semantics {
-                                        contentDescription = "Internet unavailable. Cached map tiles may still appear."
+                                        contentDescription = "Internet unavailable. Map tiles may not load; incident details remain available."
                                     }
                                     .padding(horizontal = 9.dp, vertical = 5.dp),
                                 style = MaterialTheme.typography.labelSmall,
