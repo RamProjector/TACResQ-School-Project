@@ -69,8 +69,7 @@ assert '"LOCATION"' in components
 # five destinations compressed into a bottom bar on expanded screens.
 assert "currentWindowAdaptiveInfoV2()" in navigation
 assert "@OptIn(ExperimentalMaterial3AdaptiveApi::class)" in navigation
-assert "minWidthDp >= 840" in navigation
-assert "minHeightDp >= 480" in navigation
+assert "windowSizeClass.minWidthDp >= 840 && windowSizeClass.minHeightDp >= 480" in navigation
 assert "TacruNavigationRail(" in navigation
 assert "NavigationRail(" in navigation
 assert "roleNavigationDestinations(role).take(2)" in navigation
