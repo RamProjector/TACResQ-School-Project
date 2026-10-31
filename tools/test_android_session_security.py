@@ -18,7 +18,7 @@ checks = {
     "encryption generates a fresh IV": "cipher.iv + cipherText" in store and "setRandomizedEncryptionRequired(true)" in store,
     "persisted session is stored as one encrypted value": 'stringPreferencesKey("encrypted_session_v1")' in store and 'prefs[encryptedSessionKey] = encrypted' in store,
     "legacy plaintext session keys are removed on save": 'prefs.remove(stringPreferencesKey("token"))' in store and 'prefs.remove(stringPreferencesKey("user_json"))' in store,
-    "legacy plaintext session keys are removed on first session-store read": 'context.sessionDataStore.edit { current ->' in legacy_cleanup and 'current.remove(stringPreferencesKey("token"))' in legacy_cleanup and 'current.remove(stringPreferencesKey("user_json"))' in legacy_cleanup,
+    "legacy plaintext session keys are removed on first session-store read": 'dataStore.edit { current ->' in legacy_cleanup and 'current.remove(stringPreferencesKey("token"))' in legacy_cleanup and 'current.remove(stringPreferencesKey("user_json"))' in legacy_cleanup,
     "decryption failure does not fall back to plaintext": "runCatching { decrypt(encrypted) }.getOrNull()" in store and "prefs[tokenKey]" not in store,
     "bearer token is not retained before encrypted persistence succeeds": start_session.index("store.save(Session(response.token, response.user))") < start_session.index("tokenHolder.value = response.token"),
     "transient DataStore read failures retry through the explicit policy helper": ".retryWhen { cause, attempt ->" in store and "shouldRetrySessionStoreRead(cause)" in store and "internal fun shouldRetrySessionStoreRead(cause: Throwable)" in store and "emit(emptyPreferences())" not in store,
