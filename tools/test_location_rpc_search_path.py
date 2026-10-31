@@ -36,9 +36,10 @@ writer = (ROOT / "supabase/migrations/20261025170000_isolate_per_responder_locat
 reader = (ROOT / "supabase/migrations/20261026010000_isolate_multi_responder_location_reader.sql").read_text().lower()
 assert "add column if not exists received_at timestamptz" in writer
 assert "alter column received_at set default pg_catalog.clock_timestamp()" in writer
+assert "location_logs_received_rate_idx" in writer
 assert "l.created_at" not in writer and "coalesce(l.received_at, l.recorded_at)" in writer
-assert "for update of a" in writer and "for share of i;" in writer
-assert "pg_advisory_xact_lock(actor_id)" not in writer
+assert "for update of i, a;" in writer
+assert "pg_catalog.pg_advisory_xact_lock(actor_id)" in writer
 assert "revoke insert on table public.location_logs from public, anon, authenticated" in writer
 assert "revoke all on function private.tacresq_record_location_v2(" in writer
 assert "from public, anon" in writer
@@ -62,6 +63,6 @@ assert "revoke all on function private.tacresq_active_responder_locations() from
 assert "grant execute on function private.tacresq_active_responder_locations() to authenticated" in reader
 assert "revoke all on function public.api_active_responder_locations() from public, anon" in reader
 assert "grant execute on function public.api_active_responder_locations() to authenticated" in reader
-assert "coalesce(l.received_at, l.recorded_at) >= pg_catalog.now() - interval '2 minutes'" in reader
-assert "l.recorded_at <= pg_catalog.now() + interval '5 minutes'" in reader
+assert "l.recorded_at >= pg_catalog.now() - interval '2 minutes'" in reader
+assert "l.recorded_at <= pg_catalog.now()" in reader
 print("PASS: isolated GPS writer/reader privilege boundaries and server receipt-time contracts.")
