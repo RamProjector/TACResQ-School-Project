@@ -69,12 +69,14 @@ for required in (
     assert required in screen, f"Chat UI/lifecycle contract missing: {required}"
 
 root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
+components = read("app/src/main/java/com/tacresq/app/ui/common/Components.kt")
+assert 'Text("Open conversation")' in components, "incident detail action label missing from reusable component"
 for required in (
     "IncidentChatScreen(chatVm, selectedChatIncidentId, user",
     "onOpenChat = openChat",
     "selectedChatIncidentId",
     "chatVm.closeConversation()",
-    "Text(\"Open conversation\")",
+    "onOpenConversation = { onOpenChat(detailIncident.id) }",
 ):
     assert required in root, f"Chat navigation wiring missing: {required}"
 
