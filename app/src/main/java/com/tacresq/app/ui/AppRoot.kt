@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -491,30 +493,33 @@ private fun IncidentHistoryAdaptiveScaffold(
                     modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerLow),
                     contentAlignment = Alignment.TopCenter,
                 ) {
-                Column(
+                LazyColumn(
                     modifier = Modifier
                         .widthIn(max = 560.dp)
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = horizontalGutter, vertical = verticalGutter),
                     verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 12.dp),
                 ) {
-                    AdaptivePaneHeader(
-                        eyebrow = "INCIDENT HISTORY",
-                        title = if (role == Role.REQUESTER) "Your requests" else "Your responses",
-                        supportingText = "$activeCount active · $completedCount completed",
-                        count = sortedIncidents.size,
-                    )
-                    if (sortedIncidents.isEmpty()) {
-                        EmptySectionCard(
-                            "Nothing here yet",
-                            if (role == Role.REQUESTER)
-                                "When you submit an emergency request, its status and location details will appear here."
-                            else
-                                "Assignments and completed responses will appear here when they are returned by dispatch.",
+                    item {
+                        AdaptivePaneHeader(
+                            eyebrow = "INCIDENT HISTORY",
+                            title = if (role == Role.REQUESTER) "Your requests" else "Your responses",
+                            supportingText = "$activeCount active · $completedCount completed",
+                            count = sortedIncidents.size,
                         )
+                    }
+                    if (sortedIncidents.isEmpty()) {
+                        item {
+                            EmptySectionCard(
+                                "Nothing here yet",
+                                if (role == Role.REQUESTER)
+                                    "When you submit an emergency request, its status and location details will appear here."
+                                else
+                                    "Assignments and completed responses will appear here when they are returned by dispatch.",
+                            )
+                        }
                     } else {
-                        sortedIncidents.forEach { incident ->
+                        items(sortedIncidents, key = { it.id }) { incident ->
                             com.tacresq.app.ui.common.IncidentHistoryListItem(
                                 incident = incident,
                                 selected = detailId == incident.id,
