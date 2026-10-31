@@ -86,7 +86,7 @@ checks = {
             "centerCoordinates.value = target.latitude to target.longitude",
             '"Selected location: %.5f, %.5f"',
             "Map pin only; it does not measure GPS accuracy.",
-            "If the map is blank, cancel and share a landmark.",
+            "Map data is unavailable. Cancel and share a landmark instead.",
         )
     ),
     "incident creation carries source through the Supabase RPC": all(
