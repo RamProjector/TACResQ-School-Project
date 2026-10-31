@@ -38,6 +38,7 @@ assert "minWidthDp >= 840" in source
 assert "minWidthDp >= 1200" in source
 assert "minWidthDp >= 1600" in source
 assert "minHeightDp < 480" in source
+assert "minWidthDp >= 840 && !compactHeight" in source
 assert "baseDirective.copy(maxHorizontalPartitions = 1)" in source
 assert ".widthIn(max = 560.dp)" in source
 assert ".widthIn(max = 680.dp)" in source
@@ -54,6 +55,7 @@ assert "selected = detailId == incident.id" in source
 assert "IncidentHistoryListItem(" in source
 assert "IncidentHistoryDetail(" in source
 assert "fun IncidentHistoryListItem(" in components
+assert "clickable(role = Role.Button, onClick = onClick)" in components
 assert "fun IncidentHistoryDetail(" in components
 assert '"CURRENT STATUS"' in components
 assert '"EMERGENCY DETAILS"' in components
