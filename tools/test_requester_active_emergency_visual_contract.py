@@ -40,10 +40,10 @@ assert "Banner(message, isError = false, onDismiss = vm::dismissMessages, isSucc
 theme = (ROOT / "app/src/main/java/com/tacresq/app/ui/theme/Theme.kt").read_text()
 def scheme_colors(scheme_name: str) -> dict[str, str]:
     start = theme.index(f"private val {scheme_name} =")
-    end = theme.index("\\n)", start)
+    end = theme.index("\n)", start)
     block = theme[start:end]
     colors = {}
-    for role, value in re.findall(r"(\\w+)\\s*=\\s*Color\\(0xFF([0-9A-Fa-f]{6})\\)", block):
+    for role, value in re.findall(r"(\w+)\s*=\s*Color\(0xFF([0-9A-Fa-f]{6})\)", block):
         colors[role] = value.upper()
     colors["onPrimary"] = "FFFFFF" if "onPrimary = Color.White" in block else colors.get("onPrimary", "")
     return colors
