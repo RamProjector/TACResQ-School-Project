@@ -31,18 +31,22 @@ class SessionStorePendingIncidentPersistenceTest {
     private var testRequestId: String? = null
 
     @Before
-    fun prepareIsolatedStore() = runBlocking {
-        store = SessionStore(context)
-        // Clean up only an interrupted test's namespaced envelope. Never delete a
-        // real/requester SOS while preparing instrumentation tests.
-        store.getPendingIncidentSubmission()
-            ?.takeIf { it.fingerprint.startsWith(TEST_FINGERPRINT_PREFIX) }
-            ?.let { store.clearPendingIncidentRequestId(it.requestId) }
+    fun prepareIsolatedStore(): Unit {
+        runBlocking {
+            store = SessionStore(context)
+            // Clean up only an interrupted test's namespaced envelope. Never delete a
+            // real/requester SOS while preparing instrumentation tests.
+            store.getPendingIncidentSubmission()
+                ?.takeIf { it.fingerprint.startsWith(TEST_FINGERPRINT_PREFIX) }
+                ?.let { store.clearPendingIncidentRequestId(it.requestId) }
+        }
     }
 
     @After
-    fun removeOnlyThisTestsEnvelope() = runBlocking {
-        testRequestId?.let { store.clearPendingIncidentRequestId(it) }
+    fun removeOnlyThisTestsEnvelope(): Unit {
+        runBlocking {
+            testRequestId?.let { store.clearPendingIncidentRequestId(it) }
+        }
     }
 
     @Test
