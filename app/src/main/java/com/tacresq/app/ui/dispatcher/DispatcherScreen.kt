@@ -315,7 +315,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 if (incident.assignedUserStatuses.isEmpty()) {
                     Text("Team: ${teamNames.ifBlank { "Not assigned" }}")
                 } else {
-                    val respondingCount = incident.assignedUserStatuses.count {
+                    val updatedMemberCount = incident.assignedUserStatuses.count {
                         it.status != IncidentStatus.ASSIGNED
                     }
                     val teamCount = incident.assignedUserStatuses.size
@@ -327,7 +327,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("Team progress", style = MaterialTheme.typography.labelLarge)
                             Text(
-                                "$respondingCount of $teamCount members with a status update",
+                                "$updatedMemberCount of $teamCount members with a status update",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
