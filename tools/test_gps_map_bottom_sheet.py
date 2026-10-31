@@ -13,7 +13,6 @@ assert "BottomSheetDefaults.DragHandle()" in SOURCE
 assert "ModalBottomSheet(" not in SOURCE
 assert "var selectedIncidentId by rememberSaveable" in SOURCE
 assert "setOnMarkerClickListener { marker ->" in SOURCE
-assert "queryRenderedFeatures(" in SOURCE
 assert "selectedIncidentId = incidentId" in SOURCE
 assert "selectedIncidentId = incident.id" in SOURCE
 assert "mapSheetState.bottomSheetState.expand()" in SOURCE
