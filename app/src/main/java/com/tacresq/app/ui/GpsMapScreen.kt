@@ -746,7 +746,7 @@ fun GpsMapScreen(
     BottomSheetScaffold(
         modifier = Modifier.fillMaxSize().semantics { paneTitle = "GPS Map" },
         scaffoldState = mapSheetState,
-        sheetPeekHeight = 112.dp,
+        sheetPeekHeight = 128.dp,
         sheetMaxWidth = 680.dp,
         sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         sheetContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
@@ -1099,7 +1099,7 @@ fun GpsMapScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
-                .padding(end = 12.dp, bottom = 120.dp)
+                .padding(end = 12.dp, bottom = 136.dp)
                 .heightIn(min = 48.dp)
                 .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution") {
                     runCatching {
