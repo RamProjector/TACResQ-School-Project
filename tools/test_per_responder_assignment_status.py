@@ -45,3 +45,11 @@ for source, requirements in (
 print("PASS: individual response status is stored per assignment with server-side transition checks.")
 print("PASS: incident summary advances conservatively and retains a per-unit status payload.")
 print("PASS: Android, dispatcher, and fake-mode clients consume individual unit progress.")
+
+# Dispatcher overview presents one team summary first and reveals per-member detail on demand.
+assert 'var expandedTeamStatusIds by remember { mutableStateOf(setOf<Long>()) }' in dispatcher
+assert 'Team progress' in dispatcher
+assert 'members responding' in dispatcher
+assert 'View member details' in dispatcher
+assert 'Hide member details' in dispatcher
+assert 'if (incident.id in expandedTeamStatusIds)' in dispatcher
