@@ -73,6 +73,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.tacresq.app.ui.common.incidentLocationText
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
@@ -1218,8 +1219,10 @@ private fun MapIncidentCard(
                     )
                 }
             } else {
+                // A landmark-only request is still actionable. Reuse the shared
+                // provenance formatter so missing, partial, and invalid pins are distinct.
                 Text(
-                    "No usable location pin",
+                    incidentLocationText(incident),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                 )
