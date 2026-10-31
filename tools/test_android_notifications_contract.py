@@ -94,7 +94,7 @@ for required in (
     "NotificationsViewModel",
     "NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident, onOpenChat)",
     "destination == AppDestination.ALERTS",
-    "destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY",
+    "destination = AppDestination.CHAT",
     "focusedIncidentId = selectedIncidentId",
     "IncidentHistoryAdaptiveScaffold(",
     "LaunchedEffect(selectedIncidentId)",
@@ -112,7 +112,13 @@ assert "GpsMapNavigationItem(selected, onDestinationSelected)" in shell
 assert shell.count("NavigationItem(destinations[") >= 4, "The four non-map destinations must remain"
 assert "GPS Map" in shell, "GPS Map must remain visible in the central navigation item"
 assert 'ALERTS("Notifications")' in shell, "notifications remain available as a dedicated top-app-bar destination"
-assert 'ScreenHeader(title = "Alerts & safety"' in screen, "the destination must preserve its safety guidance context"
+assert 'ScreenHeader(title = "Notifications")' in screen, "notifications must have a focused notification-center title"
+profile = root
+profile_start = profile.index("destination == AppDestination.PROFILE -> {")
+profile_section = profile[profile_start:]
+assert 'Text("Safety & privacy"' in profile_section, "safety guidance must be available under Profile / settings"
+for safety_item in ("Emergency help", "Confirm your location", "Location sharing", "Personal information"):
+    assert safety_item in profile_section, f"Profile safety guidance missing: {safety_item}"
 
 components = read("app/src/main/java/com/tacresq/app/ui/common/Components.kt")
 assert "fun ScreenHeader(title: String, subtitle: String = \"\", onOpenNotifications: (() -> Unit)? = null)" in components
