@@ -192,12 +192,13 @@ fun IncidentCard(
                 Text("Submitted $time", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            // Emergency descriptions may contain critical context. Keep the full text
+            // available in the incident card instead of silently truncating it.
             incident.description?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
-                Text(note, style = MaterialTheme.typography.bodyMedium, maxLines = 2,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(note, style = MaterialTheme.typography.bodyMedium)
             }
             Text(
-                locationText(incident),
+                incidentLocationText(incident),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium,
@@ -209,20 +210,36 @@ fun IncidentCard(
     }
 }
 
-private fun locationText(incident: Incident): String {
+internal fun incidentLocationText(incident: Incident): String {
     val latitude = incident.latitude
     val longitude = incident.longitude
-    if (latitude == null || longitude == null) {
-        return if (incident.locationSource in listOf(null, "none")) "No location pin"
-        else "Location needs verification"
+
+    if (latitude == null && longitude == null) {
+        return if (incident.locationSource == null || incident.locationSource == "none") {
+            "No location pin"
+        } else {
+            "Location needs verification"
+        }
     }
+    if (latitude == null || longitude == null) {
+        return "Location coordinates incomplete — verify pin"
+    }
+    if (!latitude.isFinite() || !longitude.isFinite() ||
+        latitude !in -90.0..90.0 || longitude !in -180.0..180.0
+    ) {
+        return "Location coordinates invalid — verify pin"
+    }
+
     val source = when (incident.locationSource) {
         "gps" -> "GPS"
         "manual" -> "Map pin"
         else -> "Unverified pin"
     }
     val accuracy = if (incident.locationSource == "gps") {
-        incident.accuracyM?.let { " · ±" + ceil(it.toDouble()).toInt() + " m" } ?: " · accuracy unknown"
+        incident.accuracyM
+            ?.takeIf { it.isFinite() && it >= 0f }
+            ?.let { " · ±" + ceil(it.toDouble()).toInt() + " m" }
+            ?: " · accuracy unknown"
     } else ""
     val captured = if (incident.locationSource == "gps") {
         incident.locationRecordedAt?.let { formatTime(it) }?.takeIf { it.isNotBlank() }
