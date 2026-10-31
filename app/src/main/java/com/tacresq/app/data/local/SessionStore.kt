@@ -58,7 +58,7 @@ class SessionStore(
                 // Retry transient storage failures, but bound the retry window so startup can
                 // expose a recoverable error instead of remaining on an endless loading screen.
                 .retryWhen { cause, attempt ->
-                    if (shouldRetrySessionStoreRead(cause) && attempt < MAX_SESSION_STORE_READ_RETRIES) {
+                    if (shouldRetrySessionStoreRead(cause, attempt)) {
                         delay(sessionStoreReadRetryDelayMillis(attempt))
                         true
                     } else {
@@ -242,13 +242,17 @@ class SessionStore(
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val GCM_IV_LENGTH_BYTES = 12
         const val GCM_TAG_LENGTH_BITS = 128
-        const val MAX_SESSION_STORE_READ_RETRIES = 5L
     }
 }
 
 /** Capped exponential backoff for recoverable DataStore read failures. */
+internal const val SESSION_STORE_MAX_READ_RETRIES = 5L
+
 internal fun shouldRetrySessionStoreRead(cause: Throwable): Boolean =
     cause is IOException && cause !is kotlinx.coroutines.CancellationException
+
+internal fun shouldRetrySessionStoreRead(cause: Throwable, attempt: Long): Boolean =
+    shouldRetrySessionStoreRead(cause) && attempt < SESSION_STORE_MAX_READ_RETRIES
 
 internal fun sessionStoreReadRetryDelayMillis(attempt: Long): Long {
     val exponent = attempt.coerceIn(0L, 5L).toInt()
