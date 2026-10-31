@@ -16,6 +16,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,6 +58,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -226,6 +232,7 @@ private fun GpsMapFilterButtons(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpsMapScreen(
     role: Role,
@@ -244,6 +251,8 @@ fun GpsMapScreen(
     // Keep the latest callback without restarting the polling coroutine on recomposition.
     val refreshResponderLocations by rememberUpdatedState(onRefreshResponderLocations)
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
+    var selectedIncidentId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val mapSheetState = rememberBottomSheetScaffoldState()
     val latestDeviceFix by rememberUpdatedState(deviceFix)
     var hasAutoFramedInitialMapPoints by remember { mutableStateOf(false) }
     var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }
@@ -298,6 +307,7 @@ fun GpsMapScreen(
         }
     }
     val mapNow = remember(freshnessTick) { Instant.now() }
+    val selectedIncident = visibleIncidents.firstOrNull { it.id == selectedIncidentId }
     val validResponderLocations = if (role == Role.DISPATCHER) {
         responderLocations.filter { it.mapAgeSeconds(mapNow) != null }
     } else {
@@ -404,6 +414,8 @@ fun GpsMapScreen(
     }
 
     fun focusIncidentOnMap(incident: Incident) {
+        selectedIncidentId = incident.id
+        scope.launch { mapSheetState.bottomSheetState.expand() }
         val latitude = incident.latitude
         val longitude = incident.longitude
         if (!incident.hasValidMapCoordinates() || latitude == null || longitude == null) {
