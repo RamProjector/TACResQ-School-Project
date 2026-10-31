@@ -46,6 +46,7 @@ def scheme_colors(scheme_name: str) -> dict[str, str]:
     for role, value in re.findall(r"(\w+)\s*=\s*Color\(0xFF([0-9A-Fa-f]{6})\)", block):
         colors[role] = value.upper()
     colors["onPrimary"] = "FFFFFF" if "onPrimary = Color.White" in block else colors.get("onPrimary", "")
+    colors["surface"] = "FFFFFF" if "surface = Color.White" in block else colors.get("surface", "")
     return colors
 
 def luminance(value: str) -> float:
