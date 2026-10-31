@@ -170,11 +170,12 @@ for required in (
     "latitude and longitude must be supplied together",
     "a location pin or landmark/access detail is required",
     "an emergency description is required for the other type",
-    "before insert on public.incidents",
+    "create trigger incidents_require_location_before_write",
+    "before insert or update of latitude, longitude, location_notes, type, description on public.incidents",
 ):
     assert required in location_fallback, f"Missing required SOS location database guard: {required}"
 assert "security definer" not in location_fallback
-print("PASS: new SOS inserts require a complete pin or a nonblank landmark/access detail.")
+print("PASS: SOS inserts and location/type edits require a complete pin or a nonblank landmark/access detail.")
 
 signup_validation = (MIGRATIONS / "20261030110000_require_requester_signup_contact.sql").read_text().lower()
 for required in (
