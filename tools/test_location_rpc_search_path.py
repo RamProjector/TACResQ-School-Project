@@ -61,6 +61,8 @@ assert "revoke all on function public.api_record_location_v2(" in current
 assert "grant execute on function public.api_record_location_v2(" in current
 assert "public, pg_temp" not in current
 assert "set search_path = public" not in current
+baseline_security = (ROOT / "supabase/migrations/20261015081107_harden_rpc_exposure.sql").read_text().lower()
+assert "grant usage on schema private to authenticated" in baseline_security
 assert "alter table public.location_logs" in current
 assert "add column if not exists received_at timestamptz" in current
 assert "alter column received_at set default pg_catalog.clock_timestamp()" in current
