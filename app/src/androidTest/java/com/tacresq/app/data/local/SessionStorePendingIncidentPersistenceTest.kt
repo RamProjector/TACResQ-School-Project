@@ -1,8 +1,15 @@
 package com.tacresq.app.data.local
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.coroutineScope
 import org.junit.After
@@ -13,27 +20,38 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.util.UUID
 
 /**
  * Exercises the real Preferences DataStore + Android Keystore path.
  *
- * Device-protected storage isolates this test's DataStore file from the app's
- * credential-protected SOS envelope. Recreating SessionStore simulates rebuilding
- * the data layer; it does not claim to kill/restart the Android process itself.
+ * Each test injects its own file-backed Preferences DataStore. This avoids
+ * touching the production tacresq_session file regardless of Android storage context.
+ * Recreating SessionStore with the same injected DataStore simulates rebuilding the
+ * data layer; it does not claim to kill/restart the Android process itself.
  */
 @RunWith(AndroidJUnit4::class)
 class SessionStorePendingIncidentPersistenceTest {
     private val context
-        get() = InstrumentationRegistry.getInstrumentation()
-            .targetContext.applicationContext.createDeviceProtectedStorageContext()
+        get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
 
     private lateinit var store: SessionStore
+    private lateinit var isolatedDataStore: DataStore<Preferences>
+    private lateinit var dataStoreScope: CoroutineScope
+    private lateinit var testStoreFile: File
     private var testRequestId: String? = null
 
     @Before
     fun prepareIsolatedStore(): Unit {
+        testStoreFile = File(context.cacheDir, "tacresq-session-test-${UUID.randomUUID()}.preferences_pb")
+        dataStoreScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        isolatedDataStore = PreferenceDataStoreFactory.create(
+            scope = dataStoreScope,
+            produceFile = { testStoreFile },
+        )
         runBlocking {
-            store = SessionStore(context)
+            store = SessionStore(context, dataStore = isolatedDataStore)
             // Clean up only an interrupted test's namespaced envelope. Never delete a
             // real/requester SOS while preparing instrumentation tests.
             store.getPendingIncidentSubmission()
@@ -46,6 +64,8 @@ class SessionStorePendingIncidentPersistenceTest {
     fun removeOnlyThisTestsEnvelope(): Unit {
         runBlocking {
             testRequestId?.let { store.clearPendingIncidentRequestId(it) }
+            dataStoreScope.cancel()
+            testStoreFile.delete()
         }
     }
 
@@ -57,7 +77,7 @@ class SessionStorePendingIncidentPersistenceTest {
         // Logout clears credentials, but must preserve an ambiguous emergency submission.
         store.clear()
 
-        val restored = SessionStore(context).getPendingIncidentSubmission()
+        val restored = SessionStore(context, dataStore = isolatedDataStore).getPendingIncidentSubmission()
         assertNotNull("Pending SOS must remain available after logout", restored)
         assertEquals(saved.requestId, restored?.requestId)
         assertEquals(saved.fingerprint, restored?.fingerprint)
@@ -69,7 +89,7 @@ class SessionStorePendingIncidentPersistenceTest {
         val saved = createPending("first", """{"type":"medical"}""")
 
         val conflict = runCatching {
-            SessionStore(context).getOrCreatePendingIncident(
+            SessionStore(context, dataStore = isolatedDataStore).getOrCreatePendingIncident(
                 fingerprint("second"),
                 """{"type":"fire"}""",
             )
@@ -86,8 +106,8 @@ class SessionStorePendingIncidentPersistenceTest {
     fun concurrentSamePayloadSubmissionsShareOneIdempotencyKey() = runBlocking {
         val payload = """{"type":"medical","latitude":11.244,"longitude":125.003}"""
         val fingerprint = fingerprint("concurrent-same")
-        val firstStore = SessionStore(context)
-        val secondStore = SessionStore(context)
+        val firstStore = SessionStore(context, dataStore = isolatedDataStore)
+        val secondStore = SessionStore(context, dataStore = isolatedDataStore)
 
         val results = coroutineScope {
             val first = async { firstStore.getOrCreatePendingIncident(fingerprint, payload) }
