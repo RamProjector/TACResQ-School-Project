@@ -1269,18 +1269,18 @@ fun GpsMapScreen(
 
         // Keep OSM attribution visible on the map even while the sheet is collapsed.
         Text(
-            text = "© OpenStreetMap contributors",
+            text = "© OpenMapTiles · © OpenStreetMap contributors",
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
                 .padding(end = 12.dp, bottom = 136.dp)
                 .heightIn(min = 48.dp)
-                .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution") {
+                .clickable(onClickLabel = "Open OpenFreeMap map data and attribution details") {
                     runCatching {
                         context.startActivity(
                             Intent(
                                 Intent.ACTION_VIEW,
-                                Uri.parse("https://www.openstreetmap.org/copyright"),
+                                Uri.parse("https://openfreemap.org/"),
                             )
                         )
                     }
