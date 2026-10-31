@@ -56,7 +56,7 @@ class SessionStorePendingIncidentPersistenceTest {
             // real/requester SOS while preparing instrumentation tests.
             store.getPendingIncidentSubmission(TEST_OWNER_ID)
                 ?.takeIf { it.fingerprint.startsWith(TEST_FINGERPRINT_PREFIX) }
-                ?.let { store.clearPendingIncidentRequestId(it.requestId) }
+                ?.let { store.clearPendingIncidentRequestId(it.requestId, TEST_OWNER_ID) }
         }
     }
 
@@ -82,6 +82,22 @@ class SessionStorePendingIncidentPersistenceTest {
         assertEquals(saved.requestId, restored?.requestId)
         assertEquals(saved.fingerprint, restored?.fingerprint)
         assertEquals(saved.payloadJson, restored?.payloadJson)
+    }
+
+    @Test
+    fun savedSubmissionCannotBeReadOrDiscardedByAnotherRequester() = runBlocking {
+        val saved = createPending("owner-check", """{"type":"medical"}""")
+
+        val readFailure = runCatching {
+            store.getPendingIncidentSubmission(OTHER_OWNER_ID)
+        }.exceptionOrNull()
+        val discardFailure = runCatching {
+            store.clearPendingIncidentRequestId(saved.requestId, OTHER_OWNER_ID)
+        }.exceptionOrNull()
+
+        assertTrue(readFailure is SessionStore.PendingIncidentConflictException)
+        assertTrue(discardFailure is SessionStore.PendingIncidentConflictException)
+        assertEquals(saved, store.getPendingIncidentSubmission(TEST_OWNER_ID))
     }
 
     @Test
@@ -151,5 +167,6 @@ class SessionStorePendingIncidentPersistenceTest {
     private companion object {
         const val TEST_FINGERPRINT_PREFIX = "tacresq-instrumentation-test:"
         const val TEST_OWNER_ID = 987654321L
+        const val OTHER_OWNER_ID = 987654322L
     }
 }
