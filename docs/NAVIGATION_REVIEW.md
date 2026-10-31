@@ -4,7 +4,7 @@ Date: 2026-10-21
 
 ## Decision
 
-Keep five bottom-navigation positions on compact Android screens, with GPS Map as the emphasized center destination. Do not add a sixth tab. Android guidance recommends 3–5 primary destinations; top app-bar controls are better for global actions. References:
+Keep five bottom-navigation positions on compact Android screens, with GPS Map as the emphasized center destination. Replace the low-value Alerts/Safety tab with Messages. Notifications remain a top-app-bar bell/action; safety guidance and privacy settings belong under Profile. Do not add a sixth tab. Android guidance recommends 3–5 primary destinations; top app-bar controls are better for global actions. References:
 - Android Developers, Layouts and navigation patterns: https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns
 - Material Design, Bottom navigation: https://m1.material.io/components/bottom-navigation.html
 
@@ -12,10 +12,10 @@ Keep five bottom-navigation positions on compact Android screens, with GPS Map a
 
 | Role | Home/primary | Second destination | Center | Fourth | Fifth |
 |---|---|---|---|---|---|
-| Requester | Home | Requests | GPS Map | Safety | Profile |
-| Responder | Current call | History | GPS Map | Safety | Profile |
-| Driver | Current call | History | GPS Map | Safety | Profile |
-| Dispatcher | Queue | Units | GPS Map | Safety | Profile |
+| Requester | Home | Requests | GPS Map | Messages | Profile |
+| Responder | Current call | History | GPS Map | Messages | Profile |
+| Driver | Current call | History | GPS Map | Messages | Profile |
+| Dispatcher | Queue | Units | GPS Map | Messages | Profile |
 
 The labels are role-specific but the destinations remain stable. Dispatcher Profile previously displayed an Activity label while rendering account details; the label and title now both say Profile to match the content. Do not label a screen "Activity log" until it actually shows real activity/audit events.
 
@@ -27,7 +27,8 @@ The labels are role-specific but the destinations remain stable. Dispatcher Prof
 - Dispatcher activity: if built, make it a real, permission-protected timeline sourced from persisted incident/status audit events; do not disguise the profile screen as activity.
 - Create request: a prominent contextual action on requester Home, not a bottom-navigation destination.
 - Incident details: open from request/history rows, map markers, and relevant notifications; it is a child screen, not a primary tab.
-- Safety: retain only if its content remains distinct and useful. If it remains a static informational placeholder after the main screen audit, replace it with a genuinely useful role-specific destination rather than adding more tabs.
+- Safety and privacy: place safety guidance, location-sharing explanation, privacy controls, and app settings under Profile. Keep urgent emergency actions visible in their relevant incident flows; do not hide emergency actions inside settings.
+- Messages: the fourth destination opens an incident conversation inbox, then an incident-specific chat. It must not be a dead-end empty tab.
 
 ## Implementation order
 
