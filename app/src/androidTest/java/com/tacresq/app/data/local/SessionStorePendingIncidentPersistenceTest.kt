@@ -54,7 +54,7 @@ class SessionStorePendingIncidentPersistenceTest {
             store = SessionStore(context, dataStore = isolatedDataStore)
             // Clean up only an interrupted test's namespaced envelope. Never delete a
             // real/requester SOS while preparing instrumentation tests.
-            store.getPendingIncidentSubmission()
+            store.getPendingIncidentSubmission(TEST_OWNER_ID)
                 ?.takeIf { it.fingerprint.startsWith(TEST_FINGERPRINT_PREFIX) }
                 ?.let { store.clearPendingIncidentRequestId(it.requestId) }
         }
@@ -63,7 +63,7 @@ class SessionStorePendingIncidentPersistenceTest {
     @After
     fun removeOnlyThisTestsEnvelope(): Unit {
         runBlocking {
-            testRequestId?.let { store.clearPendingIncidentRequestId(it) }
+            testRequestId?.let { store.clearPendingIncidentRequestId(it, TEST_OWNER_ID) }
             dataStoreScope.cancel()
             testStoreFile.delete()
         }
@@ -77,7 +77,7 @@ class SessionStorePendingIncidentPersistenceTest {
         // Logout clears credentials, but must preserve an ambiguous emergency submission.
         store.clear()
 
-        val restored = SessionStore(context, dataStore = isolatedDataStore).getPendingIncidentSubmission()
+        val restored = SessionStore(context, dataStore = isolatedDataStore).getPendingIncidentSubmission(TEST_OWNER_ID)
         assertNotNull("Pending SOS must remain available after logout", restored)
         assertEquals(saved.requestId, restored?.requestId)
         assertEquals(saved.fingerprint, restored?.fingerprint)
@@ -92,6 +92,7 @@ class SessionStorePendingIncidentPersistenceTest {
             SessionStore(context, dataStore = isolatedDataStore).getOrCreatePendingIncident(
                 fingerprint("second"),
                 """{"type":"fire"}""",
+                TEST_OWNER_ID,
             )
         }.exceptionOrNull()
 
@@ -99,7 +100,7 @@ class SessionStorePendingIncidentPersistenceTest {
             "A different SOS must fail with PendingIncidentConflictException",
             conflict is SessionStore.PendingIncidentConflictException,
         )
-        assertEquals(saved, store.getPendingIncidentSubmission())
+        assertEquals(saved, store.getPendingIncidentSubmission(TEST_OWNER_ID))
     }
 
     @Test
@@ -110,8 +111,8 @@ class SessionStorePendingIncidentPersistenceTest {
         val secondStore = SessionStore(context, dataStore = isolatedDataStore)
 
         val results = coroutineScope {
-            val first = async { firstStore.getOrCreatePendingIncident(fingerprint, payload) }
-            val second = async { secondStore.getOrCreatePendingIncident(fingerprint, payload) }
+            val first = async { firstStore.getOrCreatePendingIncident(fingerprint, payload, TEST_OWNER_ID) }
+            val second = async { secondStore.getOrCreatePendingIncident(fingerprint, payload, TEST_OWNER_ID) }
             first.await() to second.await()
         }
 
@@ -124,23 +125,23 @@ class SessionStorePendingIncidentPersistenceTest {
     fun clearingWithAnotherRequestIdDoesNotDeletePendingSubmission() = runBlocking {
         val saved = createPending("safe-clear", """{"type":"medical"}""")
 
-        store.clearPendingIncidentRequestId("not-the-saved-request-id")
+        store.clearPendingIncidentRequestId("not-the-saved-request-id", TEST_OWNER_ID)
 
-        assertEquals(saved, store.getPendingIncidentSubmission())
+        assertEquals(saved, store.getPendingIncidentSubmission(TEST_OWNER_ID))
     }
 
     @Test
     fun matchingRequestIdClearsOnlyTheSavedEnvelope() = runBlocking {
         val saved = createPending("matching-clear", """{"type":"medical"}""")
 
-        store.clearPendingIncidentRequestId(saved.requestId)
+        store.clearPendingIncidentRequestId(saved.requestId, TEST_OWNER_ID)
         testRequestId = null
 
-        assertNull(store.getPendingIncidentSubmission())
+        assertNull(store.getPendingIncidentSubmission(TEST_OWNER_ID))
     }
 
     private suspend fun createPending(label: String, payload: String): SessionStore.PendingIncidentSubmission {
-        val saved = store.getOrCreatePendingIncident(fingerprint(label), payload)
+        val saved = store.getOrCreatePendingIncident(fingerprint(label), payload, TEST_OWNER_ID)
         testRequestId = saved.requestId
         return saved
     }
@@ -149,5 +150,6 @@ class SessionStorePendingIncidentPersistenceTest {
 
     private companion object {
         const val TEST_FINGERPRINT_PREFIX = "tacresq-instrumentation-test:"
+        const val TEST_OWNER_ID = 987654321L
     }
 }
