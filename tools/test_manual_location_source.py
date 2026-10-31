@@ -19,17 +19,17 @@ laravel_model = (ROOT / "backend/src/app/Models/Incident.php").read_text()
 laravel_migration = (ROOT / "backend/src/database/migrations/2026_10_21_000003_add_incident_location_source.php").read_text()
 
 checks = {
-    "requester can open a real OSM map and select its center coordinate": all(
+    "requester can open a MapLibre vector map and select its center coordinate": all(
         text in requester for text in (
-            "ManualLocationPickerDialog(", "MapView(context)", "TileSourceFactory.MAPNIK",
-            "val point = mapView.mapCenter", 'Text("Use this location")',
+            "ManualLocationPickerDialog(", "MapLibre.getInstance(context)", "MapView(context)",
+            "REQUESTER_MAP_STYLE_URL", "map.setStyle(REQUESTER_MAP_STYLE_URL)", 'Text("Use this location")',
         )
     ),
     "manual pin confirmation submits the live map center only after finite-coordinate validation": all(
         text in requester for text in (
-            "val point = mapView.mapCenter",
-            "if (point.latitude.isFinite() && point.longitude.isFinite())",
-            "onConfirm(point.latitude, point.longitude)",
+            "val point = centerCoordinates.value",
+            "if (point.first.isFinite() && point.second.isFinite()",
+            "onConfirm(point.first, point.second)",
             "enabled = !startsAtTaclobanDefault || userAdjustedMap",
         )
     ) and all(
@@ -46,6 +46,7 @@ checks = {
             "Selected location: %.5f, %.5f",
             "Return to starting location",
             "Map data",
+            "REQUESTER_MAP_STYLE_URL",
             "modifier = Modifier.fillMaxSize()",
             "enabled = !startsAtTaclobanDefault || userAdjustedMap",
         )
@@ -68,13 +69,12 @@ checks = {
             'Coordinates chosen by you on the map · selected',
         )
     ) and "val manuallySelected: Boolean = false" in models,
-    "manual pin map follows Android lifecycle and uses app-private tile cache": all(
+    "manual pin map forwards the MapLibre lifecycle and blocks selection when map data fails": all(
         text in requester for text in (
-            "LifecycleEventObserver", "Lifecycle.Event.ON_RESUME -> {",
-            "Lifecycle.Event.ON_PAUSE -> {", "if (!mapIsResumed)", "if (mapIsResumed) mapView.onPause()",
-            "mapView.onDetach()",
-            "config.setOsmdroidBasePath(osmdroidBase)", "config.setOsmdroidTileCache(tileCache)",
-            "config.userAgentValue =",
+            "LifecycleEventObserver", "Lifecycle.Event.ON_START -> {", "Lifecycle.Event.ON_RESUME -> {",
+            "Lifecycle.Event.ON_PAUSE -> {", "Lifecycle.Event.ON_STOP -> {",
+            "mapView.onStart()", "mapView.onResume()", "mapView.onPause()", "mapView.onStop()",
+            "mapView.onDestroy()", "addOnDidFailLoadingMapListener", "mapLoadError",
         )
     ),
     "full-screen requester location picker exposes a named accessibility pane": (
@@ -82,8 +82,8 @@ checks = {
     ),
     "manual pin shows live center coordinates and warns against blank-map selection": all(
         text in requester for text in (
-            "import org.osmdroid.events.MapListener",
-            "centerCoordinates.value = point.latitude to point.longitude",
+            "            "addOnCameraIdleListener",
+            "centerCoordinates.value = target.latitude to target.longitude",
             '"Selected location: %.5f, %.5f"',
             "Map pin only; it does not measure GPS accuracy.",
             "If the map is blank, cancel and share a landmark.",
