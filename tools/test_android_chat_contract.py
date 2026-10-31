@@ -56,14 +56,14 @@ for required in (
     "class IncidentChatViewModel",
     "repeatOnLifecycle(Lifecycle.State.STARTED)",
     "delay(10_000)",
-    "Load older messages",
+    "Load earlier messages",
     "Message was not confirmed. Retry safely.",
     "pendingClientMessageId",
     "refreshJob?.cancel()",
     "fun closeConversation()",
     "if (activeIncidentId != incidentId) return@onSuccess",
     "2000",
-    "Back to incident list",
+    "Back to conversations",
     "!state.loading && state.error == null",
 ):
     assert required in screen, f"Chat UI/lifecycle contract missing: {required}"
