@@ -55,4 +55,5 @@ assert 'View member details' in dispatcher
 assert 'Hide member details' in dispatcher
 assert 'Updated ${formatTime(it)}' in dispatcher
 assert 'Update time unavailable' in dispatcher
+assert 'GPS sharing reports your location; it does not confirm arrival.' in responder
 assert 'if (incident.id in expandedTeamStatusIds)' in dispatcher
