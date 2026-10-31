@@ -464,7 +464,7 @@ fun IncidentChatScreen(
                         verticalArrangement = Arrangement.spacedBy(3.dp),
                     ) {
                         Text(
-                            if (ownMessage) "You" else "Incident participant",
+                            if (ownMessage) "You" else message.senderName?.takeIf { it.isNotBlank() } ?: "Incident participant",
                             modifier = Modifier.padding(horizontal = 5.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
