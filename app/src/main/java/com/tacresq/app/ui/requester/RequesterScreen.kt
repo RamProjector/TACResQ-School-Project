@@ -1733,24 +1733,20 @@ private fun ManualLocationPickerDialog(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        if (startsAtTaclobanDefault && !userAdjustedMap) {
-                            Text(
-                                "Move the map before confirming.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        } else {
-                            Text(
-                                when {
-                                    mapLoadError -> "Map data is unavailable. Cancel and share a landmark instead."
-                                    !mapStyleLoaded -> "Loading map data…"
-                                    else -> "Map pin only; it does not measure GPS accuracy. Confirm the center pin marks the emergency site."
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (mapLoadError) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        Text(
+                            when {
+                                mapLoadError -> "Map data is unavailable. Cancel and share a landmark instead."
+                                !mapStyleLoaded -> "Loading map data…"
+                                startsAtTaclobanDefault && !userAdjustedMap -> "Move the map before confirming."
+                                else -> "Map pin only; it does not measure GPS accuracy. Confirm the center pin marks the emergency site."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (mapLoadError || (startsAtTaclobanDefault && !userAdjustedMap)) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedButton(
                                 onClick = onDismiss,
