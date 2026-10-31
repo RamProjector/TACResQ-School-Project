@@ -652,6 +652,12 @@ fun GpsMapScreen(
                     snippet = listOfNotNull(source, accuracy, "Status: ${incident.status.label}", locationAgeLabel, note)
                         .joinToString(" · ")
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    setOnMarkerClickListener { clickedMarker, map ->
+                        selectedIncidentId = incident.id
+                        map.controller.animateTo(clickedMarker.position)
+                        scope.launch { mapSheetState.bottomSheetState.expand() }
+                        true
+                    }
                 }
                 mapView.overlays.add(marker)
             }
