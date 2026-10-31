@@ -19,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -875,7 +876,7 @@ fun GpsMapScreen(
         },
     ) {
         // Keep the map full-bleed behind the persistent sheet rather than shrinking it to the peek height.
-        BoxWithConstraints(modifier = Modifier.fillMaxSize().semantics { paneTitle = "GPS Map" }) {
+        Box(modifier = Modifier.fillMaxSize().semantics { paneTitle = "GPS Map" }) {
         AndroidView(
             factory = { mapView },
             modifier = Modifier.fillMaxSize(),
