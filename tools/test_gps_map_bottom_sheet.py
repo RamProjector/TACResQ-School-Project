@@ -16,7 +16,7 @@ assert "selectedIncidentId = incident.id" in SOURCE
 assert "mapSheetState.bottomSheetState.expand()" in SOURCE
 assert "if (mapSheetState.bottomSheetState.currentValue == SheetValue.Expanded)" in SOURCE
 assert "mapSheetState.bottomSheetState.partialExpand()" in SOURCE
-assert "selectedIncident?.let { \"Incident #\u0024{it.id}" in SOURCE
+assert 'selectedIncident?.let { "Incident #${it.id}' in SOURCE
 assert "MapIncidentCard(" in SOURCE
 assert "AndroidView(" in SOURCE
 assert "modifier = Modifier.fillMaxSize()" in SOURCE
