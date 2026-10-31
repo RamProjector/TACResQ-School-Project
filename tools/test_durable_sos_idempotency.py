@@ -31,7 +31,10 @@ checks = {
     "requester UI offers retry for an unresolved saved SOS": "Retry saved SOS" in (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text() and "pendingSosAvailable" in (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text(),
     "Android calls versioned idempotent RPC": "api_create_incident_v4" in API and "body.clientRequestId" in API,
     "HTTP 400 constraint violations do not discard a pending SOS": "httpcode !in setof(400, 401, 403, 408, 409, 425, 429)" in REPO.lower() and REPO.count("if (result.isSuccess)") == 2,
-    "pending SOS is bound to the originating requester": "ownerUserId: Long? = null" in STORE and "saved.ownerUserId != ownerUserId" in STORE and "sessionState.value as? SessionState.LoggedIn" in REPO,\n    "only the original requester can read or discard a pending SOS": "requirePendingOwner(saved, ownerUserId)" in STORE and "clearPendingIncidentRequestId(pending.requestId, ownerUserId)" in REPO,\n    "requester can explicitly discard a definitively rejected SOS": "pendingSosCanBeDiscarded" in (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text() and "Discard rejected SOS" in (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text(),\n    "only confirmed server success clears the durable envelope": REPO.count("if (result.isSuccess)") == 2,
+    "pending SOS is bound to the originating requester": "ownerUserId: Long? = null" in STORE and "saved.ownerUserId != ownerUserId" in STORE and "sessionState.value as? SessionState.LoggedIn" in REPO,
+    "only the original requester can read or discard a pending SOS": "requirePendingOwner(saved, ownerUserId)" in STORE and "clearPendingIncidentRequestId(pending.requestId, ownerUserId)" in REPO,
+    "requester can explicitly discard a definitively rejected SOS": "pendingSosCanBeDiscarded" in (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text() and "Discard rejected SOS" in (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text(),
+    "only confirmed server success clears the durable envelope": REPO.count("if (result.isSuccess)") == 2,
 }
 failed = [name for name, ok in checks.items() if not ok]
 for name, ok in checks.items():
