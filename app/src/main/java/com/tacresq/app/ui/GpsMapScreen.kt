@@ -1119,6 +1119,72 @@ fun GpsMapScreen(
     }
 }
 
+private fun IncidentMapActions(
+    incidentId: Long,
+    needsConfirmation: Boolean,
+    stacked: Boolean,
+    onFocus: () -> Unit,
+    onNavigate: () -> Unit,
+) {
+    val focusPadding = PaddingValues(horizontal = if (stacked) 10.dp else 8.dp, vertical = 6.dp)
+    val navigatePadding = focusPadding
+    if (stacked) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            IncidentMapFocusButton(incidentId, onFocus, Modifier.fillMaxWidth(), focusPadding)
+            IncidentMapNavigateButton(incidentId, needsConfirmation, onNavigate, Modifier.fillMaxWidth(), navigatePadding)
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            IncidentMapFocusButton(incidentId, onFocus, Modifier.weight(1f), focusPadding)
+            IncidentMapNavigateButton(incidentId, needsConfirmation, onNavigate, Modifier.weight(1f), navigatePadding)
+        }
+    }
+}
+
+@Composable
+private fun IncidentMapFocusButton(
+    incidentId: Long,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    padding: PaddingValues,
+) {
+    androidx.compose.material3.FilledTonalButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp).semantics {
+            contentDescription = "Show incident #$incidentId on map"
+        },
+        contentPadding = padding,
+    ) {
+        Text("Show on map")
+    }
+}
+
+@Composable
+private fun IncidentMapNavigateButton(
+    incidentId: Long,
+    needsConfirmation: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    padding: PaddingValues,
+) {
+    androidx.compose.material3.TextButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp).semantics {
+            contentDescription = if (needsConfirmation) {
+                "Review location before navigating to incident #$incidentId"
+            } else {
+                "Navigate to incident #$incidentId"
+            }
+        },
+        contentPadding = padding,
+    ) {
+        Text(if (needsConfirmation) "Review location" else "Navigate")
+    }
+}
+
 @Composable
 private fun MapIncidentCard(
     incident: Incident,
