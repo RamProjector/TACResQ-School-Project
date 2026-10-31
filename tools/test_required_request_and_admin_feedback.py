@@ -27,7 +27,7 @@ assert "if (fix == null && locationNotes.isBlank())" in requester
 assert "Add a location pin or a landmark/access detail before sending." in requester
 assert "Landmark or access detail (required without a pin)" in requester
 assert "a location pin or landmark/access detail is required" in location_migration
-assert "before insert on public.incidents" in location_migration
+assert "before insert or update of latitude, longitude, location_notes, type, description on public.incidents" in location_migration
 
 # Registration requires all requester identity/contact/credential fields.
 for field in ("name.isBlank()", "email.isBlank()", "phone.isBlank()", "password.isBlank()"):
