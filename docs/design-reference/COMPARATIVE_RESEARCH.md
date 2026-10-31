@@ -1,6 +1,6 @@
 # TACResQ UI research — comparative findings before choosing a final direction
 
-Status: **secondary priority. Functionality is the primary priority; visual design remains provisional and can be refined after workflows stabilize. Do not treat the current SVG concept board as the final design decision.** This document deliberately keeps multiple viable patterns open until we compare them against TACResQ's actual requirements, code, device sizes, and screenshots.
+Status: **visual quality and functional correctness are equal requirements.** The original concept board remains provisional; the user-provided Google Maps and Messenger screenshots now establish the interaction references for map and chat composition. This document deliberately keeps multiple viable patterns open until we compare them against TACResQ's actual requirements, code, device sizes, and screenshots.
 
 Research checked: 21 October 2026.
 
@@ -133,3 +133,38 @@ Design research is retained to guide a coherent and testable baseline, not to bl
 
 ### Acceptance rule for a new or revised UI element
 For each element, answer: (1) is its purpose clear, (2) can the user find and operate it, (3) does it execute the intended behavior, (4) is the outcome or failure visible, and (5) is the behavior verified by a suitable test? If any answer is no, mark the element incomplete rather than calling it done.
+
+
+## User-provided interaction references — 31 October 2026
+
+The supplied screenshots establish two concrete reference patterns for the next UI iteration. They are design evidence for interaction hierarchy, not permission to copy branded assets or proprietary visual details.
+
+### C. GPS map — Google Maps place-selection pattern
+
+- Keep the map as the dominant, continuously visible canvas. Do not cover most of it with a permanently expanded information panel.
+- Use a compact floating top control surface for Back/context and a dedicated, easy-to-find recenter control.
+- Use a small, clearly labeled map filter/action chip row. Do not make chips look like primary navigation.
+- Selecting an incident should open a draggable bottom sheet: a short collapsed/peek state for incident identity and status, then an expanded state for location freshness, details, and actions.
+- The sheet should not block map panning when collapsed; its drag handle and expand affordance must be discoverable.
+- Keep marker selection and sheet selection synchronized. A map pin and its details must represent the same incident.
+- Keep external navigation explicit. TACResQ must distinguish its own map display from turn-by-turn routing delegated to an installed maps app.
+- Preserve visible OSM attribution and honest offline/tile-loading feedback. A dark map theme must not be simulated by tinting map tiles or reducing geographic legibility.
+
+### D. Incident chat — familiar Messenger conversation conventions
+
+- Use a compact top app bar with Back, incident identifier/context, and only actions that are actually implemented.
+- Give the message history the majority of the vertical space. Remove large empty-state voids and keep the empty state close to the center of the available conversation area.
+- Differentiate the current user's messages from other participants with alignment and surface treatment, while retaining readable sender identity when multiple responders or dispatchers participate.
+- Put timestamps and delivery/error state in the message context without repeating noisy labels on every line.
+- Anchor the composer to the bottom safe area and keep it visible above the IME. The send action must be visually enabled only when a valid draft can be sent.
+- Support long messages, loading, pagination, offline/failure, retry, and empty states without displacing the composer.
+- Do not add voice, video, reactions, attachments, or presence indicators unless the backend and permissions genuinely support them.
+
+### Evaluation criteria for the implementation
+
+1. Map remains useful and visually dominant at compact phone sizes with both collapsed and expanded sheet states.
+2. The selected incident remains identifiable when the sheet expands and when the user pans the map.
+3. Critical map controls remain reachable and are not covered by system bars, the sheet, or gesture navigation.
+4. Chat history scrolls independently while the composer stays anchored and adjusts for the keyboard.
+5. Text contrast, 48dp touch targets, TalkBack labels, and font scaling remain usable.
+6. Status color is semantic and paired with text/icon; neutral outlines must not make active actions appear disabled.
