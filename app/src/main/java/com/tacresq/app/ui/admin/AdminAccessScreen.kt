@@ -105,6 +105,14 @@ fun AdminAccessScreen(
                 title = "Admin",
                 subtitle = "Manage accounts and review activity.",
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onSignOut, enabled = !loading) {
+                    Text("Sign out")
+                }
+            }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = selectedTab == "Users", onClick = {
