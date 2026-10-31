@@ -1033,10 +1033,10 @@ fun GpsMapScreen(
                     }
                 }
                 Text(
-                    text = "© OpenStreetMap",
+                    text = "© OpenStreetMap contributors",
                     modifier = Modifier
                         .align(Alignment.End)
-                        .heightIn(min = 32.dp)
+                        .heightIn(min = 48.dp)
                         .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution") {
                             runCatching {
                                 context.startActivity(
