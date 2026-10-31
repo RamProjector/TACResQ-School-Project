@@ -351,6 +351,9 @@ fun GpsMapScreen(
     // Clear stale action text when the incident set changes; the default is derived from current map data.
     androidx.compose.runtime.LaunchedEffect(visibleIncidents) {
         locationStatus = null
+        if (selectedIncidentId != null && visibleIncidents.none { it.id == selectedIncidentId }) {
+            selectedIncidentId = null
+        }
     }
 
     // Pause periodic work whenever the app/screen is not STARTED. This avoids
