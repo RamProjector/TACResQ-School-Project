@@ -26,6 +26,37 @@ STABLE
 AS $auth_uid$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $auth_uid$;
+
+-- Minimal Supabase Storage schema for migration replay. This lets the test
+-- exercise real RLS policies without depending on a running Supabase service.
+CREATE SCHEMA storage;
+CREATE TABLE storage.buckets (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  public boolean NOT NULL DEFAULT false,
+  file_size_limit bigint,
+  allowed_mime_types text[]
+);
+CREATE TABLE storage.objects (
+  bucket_id text NOT NULL,
+  name text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+CREATE FUNCTION storage.foldername(object_name text)
+RETURNS text[]
+LANGUAGE sql
+IMMUTABLE
+AS $foldername$
+  SELECT CASE
+    WHEN array_length(parts, 1) > 1 THEN parts[1:array_length(parts, 1) - 1]
+    ELSE ARRAY[]::text[]
+  END
+  FROM (SELECT string_to_array(object_name, '/') AS parts) AS parsed
+$foldername$;
+GRANT USAGE ON SCHEMA storage TO authenticated;
+GRANT SELECT, INSERT ON storage.objects TO authenticated;
+GRANT EXECUTE ON FUNCTION storage.foldername(text) TO authenticated;
 SQL
 
 for migration in supabase/migrations/*.sql; do
@@ -1357,3 +1388,8 @@ BEGIN
 END;
 $location_rpc_boundary_test$;
 SQL
+
+
+# Verify incident-image Storage RLS and the authenticated image-message RPC
+# against the minimal Storage schema created above.
+psql -v ON_ERROR_STOP=1 -f tools/test_incident_chat_storage_policies.sql
