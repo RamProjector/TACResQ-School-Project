@@ -35,7 +35,9 @@ assert "onPermissionResult = { granted ->" in map_screen
 assert "if (isLocationRequestInProgress) return" in map_screen
 assert "isLocationRequestInProgress = false" in map_screen
 assert "locationStatus ?: defaultMapStatus" in map_screen
-assert "if (detailsExpanded)" in map_screen
+assert "BottomSheetScaffold(" in map_screen
+assert "sheetSwipeEnabled = true" in map_screen
+assert "SheetValue.PartiallyExpanded" in map_screen
 
 # Stale last-known responder positions remain visible but cannot dominate initial framing.
 assert "val responderPointsForInitialFrame = validResponderLocations" in map_screen
