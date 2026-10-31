@@ -89,7 +89,7 @@ class AuthScreenInstrumentedTest {
         }
         composeRule.onNodeWithText("Request emergency help", substring = true).assertIsDisplayed()
 
-        composeRule.onNodeWithContentDescription("GPS Map").performClick()
+        composeRule.onNodeWithText("GPS Map").performClick()
         composeRule.onNodeWithText("© OpenStreetMap contributors").assertIsDisplayed()
 
         composeRule.onNodeWithContentDescription("Home").performClick()
@@ -122,9 +122,9 @@ class AuthScreenInstrumentedTest {
         // Avoid coupling this smoke test to explanatory copy. The important contract is that
         // the location step renders, offers a safe route forward, and can return to details.
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText("Review request").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Review").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Review request").assertIsDisplayed()
+        composeRule.onNodeWithText("Review").assertIsDisplayed()
         composeRule.onNodeWithText("Back").performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Emergency type (required)").fetchSemanticsNodes().isNotEmpty()
@@ -156,9 +156,9 @@ class AuthScreenInstrumentedTest {
         }
         composeRule.onNodeWithText("Landmark or access detail (required without a pin)").performTextInput("Near Tacloban City Hall")
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText("Review request").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Review").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Review request").performClick()
+        composeRule.onNodeWithText("Review").performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Review before sending").fetchSemanticsNodes().isNotEmpty()
         }
