@@ -49,7 +49,7 @@ print("PASS: Android, dispatcher, and fake-mode clients consume individual unit 
 # Dispatcher overview presents one team summary first and reveals per-member detail on demand.
 assert 'var expandedTeamStatusIds by remember { mutableStateOf(setOf<Long>()) }' in dispatcher
 assert 'Team progress' in dispatcher
-assert 'members responding' in dispatcher
+assert 'members with a status update' in dispatcher
 assert 'View member details' in dispatcher
 assert 'Hide member details' in dispatcher
 assert 'if (incident.id in expandedTeamStatusIds)' in dispatcher
