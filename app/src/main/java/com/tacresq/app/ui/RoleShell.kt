@@ -222,6 +222,7 @@ private fun RowScope.NavigationItem(
     val icon = when (destination) {
         AppDestination.PRIMARY -> Icons.Filled.Home
         AppDestination.SECONDARY -> Icons.AutoMirrored.Filled.List
+        AppDestination.CHAT -> Icons.Filled.Email
         AppDestination.ALERTS -> Icons.Filled.Warning
         AppDestination.PROFILE -> Icons.Filled.Person
         AppDestination.MAP -> Icons.Filled.LocationOn
