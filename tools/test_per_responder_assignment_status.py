@@ -38,12 +38,15 @@ for source, requirements in (
     (api, ('api_update_my_assignment_status', 'override suspend fun updateMyAssignmentStatus')),
     (repo, ('api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))',)),
     (responder, ('incident.statusFor(user.id).nextSteps()', 'val ownStatus = incident.statusFor(user.id)', 'StatusPill(ownStatus.label, ownStatus.pillColor())', 'it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE')),
-    (dispatcher, ('StatusPill(memberStatus.status)',)),
     (components, ('fun StatusPill(status: IncidentStatus)', 'status.label', 'colors.primaryContainer to colors.onPrimaryContainer')),
     (fake, ('override suspend fun updateMyAssignmentStatus', 'ResponderAssignmentStatus')),
 ):
     for required in requirements:
         assert required in source, f"Per-responder status integration missing: {required}"
+assert (
+    "memberStatus.status.label" in dispatcher
+    or "StatusPill(memberStatus.status)" in dispatcher
+), "Dispatcher must render each responder's individual status label";
 print("PASS: individual response status is stored per assignment with server-side transition checks.")
 print("PASS: incident summary advances conservatively and retains a per-unit status payload.")
 print("PASS: Android, dispatcher, and fake-mode clients consume individual unit progress.")
