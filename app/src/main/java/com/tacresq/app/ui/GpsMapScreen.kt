@@ -38,6 +38,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -244,8 +245,6 @@ fun GpsMapScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    // A dedicated map destination must return to the prior app screen on system Back too.
-    BackHandler { onBack() }
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     // Keep the latest callback without restarting the polling coroutine on recomposition.
@@ -253,6 +252,14 @@ fun GpsMapScreen(
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
     var selectedIncidentId by rememberSaveable { mutableStateOf<Long?>(null) }
     val mapSheetState = rememberBottomSheetScaffoldState()
+    // System Back collapses the selected-place sheet before leaving the map.
+    BackHandler {
+        if (mapSheetState.bottomSheetState.currentValue == SheetValue.Expanded) {
+            scope.launch { mapSheetState.bottomSheetState.partialExpand() }
+        } else {
+            onBack()
+        }
+    }
     val latestDeviceFix by rememberUpdatedState(deviceFix)
     var hasAutoFramedInitialMapPoints by remember { mutableStateOf(false) }
     var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }
@@ -748,7 +755,7 @@ fun GpsMapScreen(
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val mapDetailsMaxHeight = (maxHeight * 0.55f).coerceAtMost(420.dp)
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Row(
