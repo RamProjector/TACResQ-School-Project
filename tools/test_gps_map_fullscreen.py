@@ -38,7 +38,7 @@ assert "if (isLocationRequestInProgress) return" in map_screen
 assert "isLocationRequestInProgress = false" in map_screen
 assert "locationStatus ?: defaultMapStatus" in map_screen
 assert "BottomSheetScaffold(" in map_screen
-assert "sheetPeekHeight = 112.dp" in map_screen
+assert "sheetPeekHeight = 128.dp" in map_screen
 assert "selectedIncidentId" in map_screen
 assert "BottomSheetDefaults.DragHandle()" in map_screen
 
