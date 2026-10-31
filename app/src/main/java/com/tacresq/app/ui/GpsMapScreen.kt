@@ -251,7 +251,11 @@ fun GpsMapScreen(
     val refreshResponderLocations by rememberUpdatedState(onRefreshResponderLocations)
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
     var selectedIncidentId by rememberSaveable { mutableStateOf<Long?>(null) }
-    val mapSheetState = rememberBottomSheetScaffoldState()
+    val mapSheetState = rememberBottomSheetScaffoldState(
+        bottomSheetState = androidx.compose.material3.rememberStandardBottomSheetState(
+            initialValue = SheetValue.PartiallyExpanded,
+        ),
+    )
     // System Back collapses the selected-place sheet before leaving the map.
     BackHandler {
         if (mapSheetState.bottomSheetState.currentValue == SheetValue.Expanded) {
@@ -754,6 +758,7 @@ fun GpsMapScreen(
         sheetTonalElevation = 2.dp,
         sheetShadowElevation = 8.dp,
         sheetDragHandle = { BottomSheetDefaults.DragHandle() },
+        sheetSwipeEnabled = true,
         sheetContent = {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val mapDetailsMaxHeight = (maxHeight * 0.55f).coerceAtMost(420.dp)
