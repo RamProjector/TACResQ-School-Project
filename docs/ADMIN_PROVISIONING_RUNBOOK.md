@@ -10,6 +10,7 @@
 - Verify the person through an approved out-of-band process; do not identify the account by matching a Laravel email address.
 - Locate the existing Supabase Auth user UUID and its linked `public.profiles.auth_user_id`. Do not create credentials or use a shared/default password.
 - Use a verified email-backed account for initial provisioning; the SQL below checks `auth.users.email_confirmed_at`.
+- Create the Auth user through a trusted account-creation flow with nonblank `name` metadata and a valid `phone` metadata value (7–15 digits, with only the documented common separators). The `tacresq_auth_user_created` trigger requires both fields for every new Auth user before a staff or Admin profile can be provisioned.
 - Record the operator identity and change/ticket reference. Run only one procedure at a time in a transaction.
 - Use a dedicated, least-privilege project-owner/operator workflow; never expose a service-role key in the app, browser, repository, logs, or this runbook.
 
