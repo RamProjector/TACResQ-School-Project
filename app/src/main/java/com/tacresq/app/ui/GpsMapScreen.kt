@@ -1117,3 +1117,174 @@ fun GpsMapScreen(
         )
     }
 }
+
+@Composable
+private fun MapIncidentCard(
+    incident: Incident,
+    context: Context,
+    now: Instant,
+    onFocusOnMap: (Incident) -> Unit,
+) {
+    val lat = incident.latitude
+    val lng = incident.longitude
+    val hasUsableCoordinates = lat != null && lng != null &&
+        lat.isFinite() && lng.isFinite() &&
+        lat in -90.0..90.0 && lng in -180.0..180.0
+    val (ageLabel, needsConfirmation) = incident.locationAgeStatus(now)
+    var showNavigationConfirmation by remember(incident.id) { mutableStateOf(false) }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            // Keep the incident title readable beside its status on compact cards.
+            // Wider layouts retain the single-line information hierarchy.
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                if (maxWidth < 360.dp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "Incident #${incident.id} · ${incident.type.label}",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            StatusPill(incident.status.label, incident.status.pillColor())
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Incident #${incident.id} · ${incident.type.label}",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        StatusPill(incident.status.label, incident.status.pillColor())
+                    }
+                }
+            }
+            if (hasUsableCoordinates) {
+                Text(
+                    ageLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (needsConfirmation) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val locationSourceLabel = when (incident.locationSource) {
+                    "gps" -> "GPS"
+                    "manual" -> "Manual pin"
+                    else -> "Source unavailable"
+                }
+                val accuracyLabel = if (incident.locationSource == "gps") {
+                    incident.accuracyM.validAccuracyLabel(" · accuracy about ").orEmpty()
+                } else ""
+                Text(
+                    locationSourceLabel + accuracyLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val navigateToIncident = {
+                    if (needsConfirmation) {
+                        showNavigationConfirmation = true
+                    } else {
+                        openExternalMaps(context, lat!!, lng!!)
+                    }
+                }
+                // Keep the two actions identical across compact and regular widths.
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    IncidentMapActions(
+                        incidentId = incident.id,
+                        needsConfirmation = needsConfirmation,
+                        stacked = maxWidth < 320.dp,
+                        onFocus = { onFocusOnMap(incident) },
+                        onNavigate = navigateToIncident,
+                    )
+                }
+            } else {
+                // A landmark-only request is still actionable. Reuse the shared
+                // provenance formatter so missing, partial, and invalid pins are distinct.
+                val hasLandmarkFallback = lat == null && lng == null &&
+                    (incident.locationSource == null || incident.locationSource == "none") &&
+                    !incident.locationNotes.isNullOrBlank()
+                Text(
+                    incidentLocationText(incident),
+                    color = if (hasLandmarkFallback) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+    if (showNavigationConfirmation && hasUsableCoordinates) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showNavigationConfirmation = false },
+            title = { Text("Confirm incident location") },
+            text = {
+                Text(
+                    "This incident location may be outdated or its timestamp cannot be verified. " +
+                        ageLabel + " Confirm the location with the requester or dispatcher before proceeding."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        showNavigationConfirmation = false
+                        openExternalMaps(context, lat!!, lng!!)
+                    },
+                ) {
+                    Text("Navigate anyway")
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { showNavigationConfirmation = false },
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+}
+
+private fun openExternalMaps(context: Context, latitude: Double, longitude: Double) {
+    val navigation = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$latitude,$longitude&mode=d"))
+        .setPackage("com.google.android.apps.maps")
+    val fallback = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$latitude,$longitude?q=$latitude,$longitude"))
+
+    // Some devices block an explicit package launch or have a broken maps handler.
+    // Try the generic geo intent after either a missing handler or a security denial.
+    val opened = try {
+        context.startActivity(navigation)
+        true
+    } catch (_: ActivityNotFoundException) {
+        false
+    } catch (_: SecurityException) {
+        false
+    }
+    if (opened) return
+
+    val fallbackOpened = try {
+        context.startActivity(fallback)
+        true
+    } catch (_: ActivityNotFoundException) {
+        false
+    } catch (_: SecurityException) {
+        false
+    }
+    if (!fallbackOpened) {
+        Toast.makeText(context, "Unable to open a maps app on this phone.", Toast.LENGTH_SHORT).show()
+    }
+}
