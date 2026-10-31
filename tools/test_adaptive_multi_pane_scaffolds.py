@@ -12,7 +12,7 @@ for artifact in (
     assert artifact in gradle, f"Missing Material 3 adaptive dependency: {artifact}"
 
 assert "IncidentHistoryAdaptiveScaffold(" in source
-assert "rememberListDetailPaneScaffoldNavigator<Long>()" in source
+assert "rememberListDetailPaneScaffoldNavigator<Long>(" in source
 assert "NavigableListDetailPaneScaffold(" in source
 assert "ListDetailPaneScaffoldRole.Detail" in source
 assert "AnimatedPane" in source
