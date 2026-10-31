@@ -47,6 +47,8 @@ required = (
     'contentDescription = "Show incident #$incidentId on map"',
     '"Navigate to incident #$incidentId"',
     'Review location before navigating to incident #$incidentId',
+    "incidentLocationText(incident)",
+    "A landmark-only request is still actionable.",
     "val navigateToIncident = {",
     "Text(\"Show on map\")",
     'Text(if (needsConfirmation) "Review location" else "Navigate")',
