@@ -4,10 +4,6 @@
 -- bypasses location_logs RLS only after checking the caller's dispatcher role.
 BEGIN;
 
--- The public invoker wrapper resolves this private helper as the caller.
--- Schema USAGE does not grant table access or function EXECUTE by itself.
-GRANT USAGE ON SCHEMA private TO authenticated;
-
 CREATE OR REPLACE FUNCTION private.tacresq_active_responder_locations()
 RETURNS TABLE (
   incident_id bigint,
@@ -38,8 +34,8 @@ BEGIN
       AND l.latitude BETWEEN -90 AND 90
       AND l.longitude BETWEEN -180 AND 180
       AND (l.accuracy_m IS NULL OR l.accuracy_m >= 0)
-      AND l.recorded_at <= pg_catalog.now() + interval '5 minutes'
-      AND COALESCE(l.received_at, l.recorded_at) >= pg_catalog.now() - interval '2 minutes'
+      AND l.recorded_at <= pg_catalog.now()
+      AND l.recorded_at >= pg_catalog.now() - interval '2 minutes'
     ORDER BY i.id, l.user_id, COALESCE(l.received_at, l.recorded_at) DESC;
 END;
 $function$;
