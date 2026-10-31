@@ -52,6 +52,6 @@ assert 'Team progress' in dispatcher
 assert 'members with a status update' in dispatcher
 assert 'View member details' in dispatcher
 assert 'Hide member details' in dispatcher
-assert 'Updated {formatTime(it)}' in dispatcher
+assert 'Updated ${formatTime(it)}' in dispatcher
 assert 'Update time unavailable' in dispatcher
 assert 'if (incident.id in expandedTeamStatusIds)' in dispatcher
