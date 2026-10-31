@@ -134,7 +134,7 @@ BEGIN
       created_incident_id, status_log_count;
   END IF;
 END;
-$;
+$$;
 
 -- Location fallback must remain enforced when a requester edits an existing incident.
 DO $incident_location_update_test$
