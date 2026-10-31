@@ -29,7 +29,8 @@ END;
 $function$;
 
 DROP TRIGGER IF EXISTS incidents_require_location_before_insert ON public.incidents;
-CREATE TRIGGER incidents_require_location_before_insert
-BEFORE INSERT ON public.incidents
+DROP TRIGGER IF EXISTS incidents_require_location_before_write ON public.incidents;
+CREATE TRIGGER incidents_require_location_before_write
+BEFORE INSERT OR UPDATE OF latitude, longitude, location_notes, type, description ON public.incidents
 FOR EACH ROW
 EXECUTE FUNCTION public.tacresq_require_incident_location();
