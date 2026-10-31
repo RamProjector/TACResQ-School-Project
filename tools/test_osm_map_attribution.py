@@ -14,7 +14,7 @@ assert len(attributions) >= 2, "attribution must remain visible when the sheet i
 for attribution in attributions:
     assert '.heightIn(min = 48.dp)' in SOURCE[attribution - 100:attribution + 500], 'attribution link must retain a 48dp touch target'
 assert "BottomSheetScaffold(" in SOURCE
-assert "sheetPeekHeight = 112.dp" in SOURCE
+assert "sheetPeekHeight = 128.dp" in SOURCE
 assert "BottomSheetDefaults.DragHandle()" in SOURCE
 assert "Keep OSM attribution visible on the map even while the sheet is collapsed." in SOURCE
 
