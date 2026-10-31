@@ -127,12 +127,17 @@ fun AppRoot(
                     Role.RESPONDER, Role.DRIVER -> {
                         val vm: ResponderViewModel = viewModel(key = "unit-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
+                        // Stop the responder's foreground location flow before ending the account session.
+                        val responderLogout: () -> Unit = {
+                            vm.stopTracking("Location sharing stopped because you signed out.")
+                            logout()
+                        }
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = openNotifications)
-                            } else if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, logout, onOpenNotifications = openNotifications)
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); responderLogout() }, onOpenNotifications = openNotifications)
+                            } else if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, responderLogout, onOpenNotifications = openNotifications)
                             else RoleSectionScreen(
-                                destination, user, logout, vmState.incidents,
+                                destination, user, responderLogout, vmState.incidents,
                                 notificationsVm = notificationsVm,
                                 onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
                                 onOpenChat = openChat,
