@@ -10,7 +10,9 @@ map_branch = shell.split("if (selected == AppDestination.MAP)", 1)[1].split("} e
 assert "mapContent()" in map_branch
 assert "TacruBottomNavigation(" not in map_branch
 assert "Scaffold(" in shell and "TacruBottomNavigation(" in shell
-assert "BackHandler { onBack() }" in map_screen
+assert "BackHandler {" in map_screen
+assert "mapSheetState.bottomSheetState.partialExpand()" in map_screen
+assert "else {\n            onBack()" in map_screen
 assert "Text(\"Back\", style = MaterialTheme.typography.labelLarge)" in map_screen
 assert "onClick = onBack" in map_screen
 assert '"GPS Map",\n                        style = MaterialTheme.typography.titleSmall' in map_screen
@@ -36,8 +38,9 @@ assert "if (isLocationRequestInProgress) return" in map_screen
 assert "isLocationRequestInProgress = false" in map_screen
 assert "locationStatus ?: defaultMapStatus" in map_screen
 assert "BottomSheetScaffold(" in map_screen
-assert "sheetSwipeEnabled = true" in map_screen
-assert "SheetValue.PartiallyExpanded" in map_screen
+assert "sheetPeekHeight = 128.dp" in map_screen
+assert "selectedIncidentId" in map_screen
+assert "BottomSheetDefaults.DragHandle()" in map_screen
 
 # Stale last-known responder positions remain visible but cannot dominate initial framing.
 assert "val responderPointsForInitialFrame = validResponderLocations" in map_screen
