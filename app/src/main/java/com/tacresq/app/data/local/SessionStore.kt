@@ -5,11 +5,14 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
 import com.tacresq.app.data.model.Session
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -41,6 +44,8 @@ class SessionStore(
 ) {
     private val gson = Gson()
     private val inMemorySession = MutableStateFlow<Session?>(null)
+    private val sessionReadRetrySignal = MutableStateFlow(0)
+    val sessionReadError = MutableStateFlow(false)
     private val encryptedSessionKey = stringPreferencesKey("encrypted_session_v1")
     private val pendingIncidentEnvelopeKey = stringPreferencesKey("pending_incident_envelope_v1")
     private val pendingIncidentMutex = Mutex()
@@ -48,36 +53,53 @@ class SessionStore(
     private var inMemoryPendingIncident: PendingIncidentSubmission? = null
 
     val session: Flow<Session?> = if (persistSessions) {
-        context.sessionDataStore.data
-            // A transient disk read failure is not proof that the user signed out.
-            // Keep the last StateFlow value while DataStore retries the read.
-            .retryWhen { cause, attempt ->
-                if (shouldRetrySessionStoreRead(cause)) {
-                    delay(sessionStoreReadRetryDelayMillis(attempt))
-                    true
-                } else {
-                    false
-                }
-            }
-            .onEach { prefs ->
-                // Remove pre-encryption credentials as soon as this store is first read,
-                // not only after the user signs in successfully again.
-                if (prefs.contains(stringPreferencesKey("token")) ||
-                    prefs.contains(stringPreferencesKey("user_json"))
-                ) {
-                    context.sessionDataStore.edit { current ->
-                        current.remove(stringPreferencesKey("token"))
-                        current.remove(stringPreferencesKey("user_json"))
+        sessionReadRetrySignal.flatMapLatest {
+            context.sessionDataStore.data
+                // Retry transient storage failures, but bound the retry window so startup can
+                // expose a recoverable error instead of remaining on an endless loading screen.
+                .retryWhen { cause, attempt ->
+                    if (shouldRetrySessionStoreRead(cause) && attempt < MAX_SESSION_STORE_READ_RETRIES) {
+                        delay(sessionStoreReadRetryDelayMillis(attempt))
+                        true
+                    } else {
+                        false
                     }
                 }
-            }
-            .map { prefs ->
-                prefs[encryptedSessionKey]
-                    ?.let { encrypted -> runCatching { decrypt(encrypted) }.getOrNull() }
-                    ?.let { json -> runCatching { gson.fromJson(json, Session::class.java) }.getOrNull() }
-            }
+                .onEach { sessionReadError.value = false }
+                .catch { cause ->
+                    if (shouldRetrySessionStoreRead(cause)) {
+                        sessionReadError.value = true
+                        emit(emptyPreferences())
+                    } else {
+                        throw cause
+                    }
+                }
+                .onEach { prefs ->
+                    // Remove pre-encryption credentials as soon as this store is first read,
+                    // not only after the user signs in successfully again.
+                    if (prefs.contains(stringPreferencesKey("token")) ||
+                        prefs.contains(stringPreferencesKey("user_json"))
+                    ) {
+                        context.sessionDataStore.edit { current ->
+                            current.remove(stringPreferencesKey("token"))
+                            current.remove(stringPreferencesKey("user_json"))
+                        }
+                    }
+                }
+                .map { prefs ->
+                    prefs[encryptedSessionKey]
+                        ?.let { encrypted -> runCatching { decrypt(encrypted) }.getOrNull() }
+                        ?.let { json -> runCatching { gson.fromJson(json, Session::class.java) }.getOrNull() }
+                }
+        }
     } else {
         inMemorySession
+    }
+
+    /** Retry restoring the saved session after a recoverable DataStore read failure. */
+    fun retrySessionRead() {
+        sessionReadError.value = false
+        sessionReadRetrySignal.value += 1
     }
 
     suspend fun save(session: Session) {
@@ -215,6 +237,7 @@ class SessionStore(
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val GCM_IV_LENGTH_BYTES = 12
         const val GCM_TAG_LENGTH_BITS = 128
+        const val MAX_SESSION_STORE_READ_RETRIES = 5L
     }
 }
 
