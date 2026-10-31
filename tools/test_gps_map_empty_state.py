@@ -51,6 +51,7 @@ required = (
     '"Navigate to incident #$incidentId"',
     'Review location before navigating to incident #$incidentId',
     "incidentLocationText(incident)",
+    '"Landmark: $note"',
     "A landmark-only request is still actionable.",
     "val hasLandmarkFallback = lat == null && lng == null",
     '(incident.locationSource == null || incident.locationSource == "none")',
