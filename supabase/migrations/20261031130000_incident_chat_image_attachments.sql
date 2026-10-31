@@ -103,6 +103,21 @@ $function$;
 REVOKE ALL ON FUNCTION public.api_my_incident_messages(bigint, integer, bigint) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_my_incident_messages(bigint, integer, bigint) TO authenticated;
 
+CREATE OR REPLACE FUNCTION private.tacresq_auth_profile_id()
+RETURNS bigint
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+  SELECT p.id
+    FROM public.profiles p
+   WHERE p.auth_user_id = auth.uid()
+$function$;
+
+REVOKE ALL ON FUNCTION private.tacresq_auth_profile_id() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.tacresq_auth_profile_id() TO authenticated;
+
 CREATE OR REPLACE FUNCTION private.tacresq_auth_can_access_incident_chat(
   p_incident_id bigint
 )
@@ -115,15 +130,10 @@ AS $function$
 DECLARE
   actor_profile_id bigint;
 BEGIN
-  SELECT p.id
-    INTO actor_profile_id
-    FROM public.profiles p
-   WHERE p.auth_user_id = auth.uid();
-
+  actor_profile_id := private.tacresq_auth_profile_id();
   IF actor_profile_id IS NULL THEN
     RETURN false;
   END IF;
-
   RETURN private.tacresq_can_access_incident_chat(p_incident_id, actor_profile_id);
 END;
 $function$;
@@ -319,11 +329,7 @@ BEGIN
       WITH CHECK (
         bucket_id = 'incident-chat-attachments'
         AND name ~ '^[1-9][0-9]*/[1-9][0-9]*/[0-9a-f-]{36}[.](jpg|png|webp)$'
-        AND (storage.foldername(name))[2] = (
-          SELECT p.id::text
-            FROM public.profiles p
-           WHERE p.auth_user_id = auth.uid()
-        )
+        AND (storage.foldername(name))[2] = private.tacresq_auth_profile_id()::text
         AND private.tacresq_auth_can_access_incident_chat(
           ((storage.foldername(name))[1])::bigint
         )
