@@ -46,7 +46,7 @@ checks = {
             'Internet unavailable. Cached map tiles may still appear.',
             'MaterialTheme.colorScheme.errorContainer',
             'MaterialTheme.colorScheme.onErrorContainer',
-            'Modifier.size(52.dp)',
+            'Modifier.size(48.dp)',
         )
     ),    "Android manifest retains network-state permission": (
         "android.permission.ACCESS_NETWORK_STATE" in manifest
