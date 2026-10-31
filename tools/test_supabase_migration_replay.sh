@@ -157,6 +157,15 @@ BEGIN
     RAISE EXCEPTION 'Expected the existing requester fixture incident';
   END IF;
 
+  -- Convert the fixture to a valid landmark-only location before testing
+  -- attempts to remove its final usable location detail.
+  UPDATE public.incidents
+     SET latitude = NULL,
+         longitude = NULL,
+         location_notes = 'Beside the public market entrance',
+         location_source = 'none'
+   WHERE id = incident_id;
+
   BEGIN
     UPDATE public.incidents
        SET location_notes = NULL
