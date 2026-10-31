@@ -1,11 +1,11 @@
 # TACResQ UI design research and reference pack
 
-Status: **secondary priority; visual design is intentionally provisional while functionality is the primary priority.** The SVG is an original, locally stored concept board made for TACResQ. It is not a screenshot of the current app, not an implementation preview, and not proof of current functionality.
+Status: **visual quality and functional correctness are equal product requirements.** The reference pack is being updated to reflect the map-first and conversation-first direction. The SVG is an original, locally stored concept board made for TACResQ. It is not a screenshot of the current app, not an implementation preview, and not proof of current functionality.
 
 ## Project priority
 
-1. **Primary — functional correctness:** revise, add, or remove features where appropriate; ensure every visible control has a real, understandable behavior and the underlying workflow works end-to-end. A control is not considered functional merely because it looks clickable.
-2. **Secondary — visual design and refinement:** keep a coherent, readable baseline so features can be tested. Polish, animation, decorative details, and final styling may change later after workflows stabilize.
+1. **First-class — functional correctness:** every visible control must perform a real, understandable action and the underlying workflow must work end-to-end.
+2. **First-class — visual quality:** screens must have deliberate hierarchy, balanced spacing, consistent typography, accessible contrast, meaningful status colors, and polished interaction states. Do not postpone core UI quality until after features are finished.
 3. **Always required — clear, visible, testable affordances:** a feature may be visually basic, but its purpose, current state, and next action must be understandable. Loading, success, empty, failure, permission-denied, and retry states should be visible where relevant.
 
 ## Read this first
@@ -24,6 +24,9 @@ Functionality comes first, but not at the expense of testability. When a feature
 - Clear emergency task hierarchy, without making every normal state look like an emergency.
 - Stable, readable navigation labels and no unexplained spacing.
 - Adaptive layouts based on actual available window size.
+- Map-first composition: a readable map canvas, compact floating controls, clear location recentering, and a draggable incident details sheet.
+- Conversation-first messaging: compact incident identity header, differentiated message bubbles, readable sender/time context, and a persistent, keyboard-aware composer.
+- Semantic state colors and low-noise surfaces; avoid disabled-looking outlines for active actions.
 - Map controls, incident freshness, and location-permission fallbacks that are explicit and honest.
 - Role-appropriate incident information and location privacy.
 - Consistent typography, icon family, spacing, semantic colors, and accessible touch targets.
