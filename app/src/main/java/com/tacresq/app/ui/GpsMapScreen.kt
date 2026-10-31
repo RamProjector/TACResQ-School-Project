@@ -1119,6 +1119,7 @@ fun GpsMapScreen(
     }
 }
 
+@Composable
 private fun IncidentMapActions(
     incidentId: Long,
     needsConfirmation: Boolean,
