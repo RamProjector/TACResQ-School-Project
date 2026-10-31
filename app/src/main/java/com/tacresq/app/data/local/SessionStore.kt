@@ -90,7 +90,11 @@ class SessionStore(
                     sessionReadLoading.value = false
                 }
                 .catch { cause ->
-                    if (shouldRetrySessionStoreRead(cause)) {
+                    // Cancellation is control flow, not a restore failure. Surface other
+                    // storage exceptions too, so an unexpected provider/security error cannot
+                    // strand the app on the initial loading state.
+                    if (cause is kotlinx.coroutines.CancellationException) throw cause
+                    if (cause is Exception) {
                         sessionReadError.value = true
                         sessionReadLoading.value = false
                         emit(null)
