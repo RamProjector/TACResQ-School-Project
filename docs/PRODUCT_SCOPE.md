@@ -21,6 +21,14 @@ TACResQ is not restricted to one kind of emergency. The product concept covers g
 - **Dispatcher:** Reviews the incident queue and available field units, confirms assignments, and coordinates supported response actions.
 - **Administrator or trusted operator:** Handles only the administration functions explicitly implemented and authorized in the repository. Do not assume a role has privileges merely because its name appears in documentation.
 
+### Response-team and field-leadership boundary
+
+- A dispatch "team" currently means the set of responder/driver assignments attached to one incident (up to the backend-enforced limit); it is not a separately managed standing team roster.
+- Dispatchers may select eligible available responders/drivers as a group. The first selected member may populate the legacy `assigned_to` compatibility field; that field must **not** be presented as proof that the person is a formally appointed team leader.
+- Individual response progress is authoritative per assignment and is updated by the assigned responder/driver through the server-enforced status transition RPC. The incident status is a conservative aggregate, not a substitute for member-level status.
+- Chat is for coordination and situation reports. It must not be used as the source of truth for assignment, arrival, or completion; those states come from authenticated status actions and server records.
+- A formal Team Leader designation, leader-specific permissions, or dispatcher appointment workflow is **not implemented**. Do not add one until TACRU's authorized operating procedure identifies who may designate leaders, required qualifications, and the leader's actual authority. Do not create another login role merely to represent a designation.
+
 These roles define TACResQ's emergency-response workflow and must remain specific to this product.
 
 ## 3. Product boundaries
