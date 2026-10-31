@@ -144,6 +144,9 @@ jobs:
       - name: Check persistent OpenStreetMap attribution
         run: python3 tools/test_osm_map_attribution.py
 
+      - name: Check role-aware GPS map presentation
+        run: python3 tools/test_gps_map_role_presentation.py
+
       - name: Check five-destination navigation labels
         run: python3 tools/test_bottom_navigation_labels.py
 
