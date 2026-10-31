@@ -13,7 +13,7 @@ assert "Scaffold(" in shell and "TacruBottomNavigation(" in shell
 assert "BackHandler { onBack() }" in map_screen
 assert "Text(\"Back\", style = MaterialTheme.typography.labelLarge)" in map_screen
 assert "onClick = onBack" in map_screen
-assert '"GPS Map",\n                        style = MaterialTheme.typography.titleMedium' in map_screen
+assert '"GPS Map",\n                        style = MaterialTheme.typography.titleSmall' in map_screen
 assert "maxLines = 1,\n                        softWrap = false,\n                        overflow = TextOverflow.Ellipsis," in map_screen
 assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen
 assert "modifier = Modifier.fillMaxSize()" in map_screen

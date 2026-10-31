@@ -94,7 +94,7 @@ for required in (
     "NotificationsViewModel",
     "NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident, onOpenChat)",
     "destination == AppDestination.ALERTS",
-    "destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY",
+    "destination = AppDestination.CHAT",
     "focusedIncidentId = selectedIncidentId",
     "IncidentHistoryAdaptiveScaffold(",
     "LaunchedEffect(selectedIncidentId)",
@@ -111,8 +111,14 @@ assert 'MAP("GPS Map")' in shell, "GPS Map must remain a top-level destination"
 assert "GpsMapNavigationItem(selected, onDestinationSelected)" in shell
 assert shell.count("NavigationItem(destinations[") >= 4, "The four non-map destinations must remain"
 assert "GPS Map" in shell, "GPS Map must remain visible in the central navigation item"
-assert 'ALERTS("Alerts")' in shell, "notifications must be discoverable from the Alerts destination"
-assert 'ScreenHeader(title = "Alerts & safety"' in screen, "the destination must preserve its safety guidance context"
+assert 'ALERTS("Notifications")' in shell, "notifications remain available as a dedicated top-app-bar destination"
+assert 'ScreenHeader(title = "Notifications")' in screen, "notifications must have a focused notification-center title"
+profile = root
+profile_start = profile.index("destination == AppDestination.PROFILE -> {")
+profile_section = profile[profile_start:]
+assert 'Text("Safety & privacy"' in profile_section, "safety guidance must be available under Profile / settings"
+for safety_item in ("Emergency help", "Confirm your location", "Location sharing", "Personal information"):
+    assert safety_item in profile_section, f"Profile safety guidance missing: {safety_item}"
 
 components = read("app/src/main/java/com/tacresq/app/ui/common/Components.kt")
 assert "fun ScreenHeader(title: String, subtitle: String = \"\", onOpenNotifications: (() -> Unit)? = null)" in components
@@ -133,7 +139,7 @@ assert "onOpenNotifications = openNotifications" in app_root
 assert "onOpenNotifications = onOpenNotifications" in requester
 assert "onOpenNotifications = onOpenNotifications" in responder
 assert "onOpenNotifications = onOpenNotifications" in dispatcher
-assert "onOpenNotifications = onOpenNotifications" in read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
+assert "IconButton(onClick = onOpenNotifications)" in read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
 assert root.count("onOpenNotifications = openNotifications") >= 3, "requester, responder/driver, and dispatcher incident chats must expose the notification action"
 
 

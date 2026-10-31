@@ -18,6 +18,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -243,26 +250,37 @@ fun IncidentChatScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
-        ) {
-            ScreenHeader(
-                title = "Incident chat",
-                subtitle = "Incident #$incidentId",
-                onOpenNotifications = onOpenNotifications,
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.Start,
-        ) {
-            TextButton(onClick = onBack) { Text("Back to incident list") }
-            Spacer(Modifier.weight(1f))
-            if (state.refreshing) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+        Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to conversations")
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Incident #$incidentId", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("Incident conversation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = onOpenNotifications) {
+                        Icon(Icons.Filled.Notifications, contentDescription = "Open notifications")
+                    }
+                    if (state.refreshing) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                }
+                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium) {
+                    Text(
+                        "Keep messages relevant to this incident. Avoid sharing unrelated personal information.",
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
         state.error?.let { message ->
-            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                     Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
@@ -280,64 +298,79 @@ fun IncidentChatScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 CircularProgressIndicator()
-                Spacer(Modifier.size(8.dp))
-                Text("Loading conversation…")
+                Spacer(Modifier.size(10.dp))
+                Text("Loading messages…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else if (state.items.isEmpty() && state.error == null) {
             Column(
-                modifier = Modifier.weight(1f).fillMaxWidth().padding(24.dp),
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Start the conversation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(24.dp)) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send,
+                        contentDescription = null,
+                        modifier = Modifier.padding(16.dp).size(28.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+                Spacer(Modifier.size(12.dp))
+                Text("No messages yet", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Keep messages relevant to this incident. Do not send unrelated personal or sensitive information.",
+                    "Send an update or ask a question about this incident. Authorized participants can follow the conversation.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
             }
         } else {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (state.hasOlder && state.items.isNotEmpty()) {
                     item {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                            OutlinedButton(onClick = { vm.loadOlder(incidentId) }, enabled = !state.loadingOlder) {
+                            TextButton(onClick = { vm.loadOlder(incidentId) }, enabled = !state.loadingOlder) {
                                 if (state.loadingOlder) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                else Text("Load older messages")
+                                else Text("Load earlier messages")
                             }
                         }
                     }
                 }
                 items(state.items, key = { it.id }) { message ->
                     val ownMessage = message.senderId == user.id
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = if (ownMessage) Arrangement.End else Arrangement.Start,
+                        horizontalAlignment = if (ownMessage) Alignment.End else Alignment.Start,
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
                     ) {
-                        Card(
+                        Text(
+                            if (ownMessage) "You" else "Incident participant",
+                            modifier = Modifier.padding(horizontal = 5.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Surface(
                             modifier = Modifier.widthIn(max = 340.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (ownMessage) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(
+                                topStart = 18.dp,
+                                topEnd = 18.dp,
+                                bottomEnd = if (ownMessage) 5.dp else 18.dp,
+                                bottomStart = if (ownMessage) 18.dp else 5.dp,
                             ),
+                            color = if (ownMessage) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = if (ownMessage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
                         ) {
-                            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(
-                                    if (ownMessage) "You" else "Incident participant",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
+                            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 Text(message.message, style = MaterialTheme.typography.bodyLarge)
                                 Text(
                                     formatChatTime(message.createdAt),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = if (ownMessage) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
@@ -347,39 +380,44 @@ fun IncidentChatScreen(
         }
 
         state.sendError?.let { message ->
-            Text(
-                message,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-            )
+            Surface(color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(message, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { vm.send(incidentId) }, enabled = !state.sending && state.draft.isNotBlank()) { Text("Retry") }
+                }
+            }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            OutlinedTextField(
-                value = state.draft,
-                onValueChange = vm::updateDraft,
-                modifier = Modifier.weight(1f),
-                minLines = 1,
-                label = { Text("Message") },
-                placeholder = { Text("Message about this incident…") },
-                maxLines = 4,
-                supportingText = { Text("${state.draft.length}/2000") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { vm.send(incidentId) }),
-                enabled = !state.sending && !state.loading && state.error == null,
-            )
-            Button(
-                onClick = { vm.send(incidentId) },
-                enabled = !state.sending && !state.loading && state.error == null && state.draft.trim().isNotEmpty() && state.draft.trim().length <= 2000,
-                modifier = Modifier.heightIn(min = 52.dp),
+        Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom,
             ) {
-                if (state.sending) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                else Text("Send")
+                OutlinedTextField(
+                    value = state.draft,
+                    onValueChange = vm::updateDraft,
+                    modifier = Modifier.weight(1f),
+                    minLines = 1,
+                    placeholder = { Text("Message the incident team…") },
+                    maxLines = 4,
+                    supportingText = { Text("${state.draft.length}/2000") },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { vm.send(incidentId) }),
+                    enabled = !state.sending && !state.loading && state.error == null,
+                    shape = RoundedCornerShape(22.dp),
+                )
+                androidx.compose.material3.FilledIconButton(
+                    onClick = { vm.send(incidentId) },
+                    enabled = !state.sending && !state.loading && state.error == null && state.draft.trim().isNotEmpty(),
+                    modifier = Modifier.size(54.dp),
+                ) {
+                    if (state.sending) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
+                }
             }
         }
     }

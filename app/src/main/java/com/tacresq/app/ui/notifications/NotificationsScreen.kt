@@ -196,7 +196,7 @@ fun NotificationsAndSafetyScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            ScreenHeader(title = "Alerts & safety")
+            ScreenHeader(title = "Notifications")
         }
         item {
             Card(
@@ -288,33 +288,7 @@ fun NotificationsAndSafetyScreen(
             }
         }
 
-        item {
-            SectionHeading("Safety guidance")
-        }
-        item {
-            GuidanceCard(
-                title = "If you need urgent help",
-                body = "Immediate danger? Contact local emergency services. Don't wait for an app update.",
-            )
-        }
-        item {
-            GuidanceCard(
-                title = "Confirm the location",
-                body = "Check the pin against a landmark. GPS can drift indoors or near tall buildings.",
-            )
-        }
-        item {
-            GuidanceCard(
-                title = "Share location deliberately",
-                body = "Location sharing is visible to authorized dispatch while the app is open. Stop when no longer needed.",
-            )
-        }
-        item {
-            GuidanceCard(
-                title = "Protect personal information",
-                body = "Share only details needed for the response. Keep medical and contact details private.",
-            )
-        }
+
     }
 }
 

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
@@ -41,7 +42,8 @@ enum class AppDestination(val label: String) {
     PRIMARY("Home"),
     SECONDARY("Requests"),
     MAP("GPS Map"),
-    ALERTS("Alerts"),
+    CHAT("Messages"),
+    ALERTS("Notifications"),
     PROFILE("Profile"),
 }
 
@@ -110,15 +112,15 @@ fun RoleShell(
 
 private fun roleNavigationDestinations(role: Role): List<Pair<AppDestination, String>> {
     val labels = when (role) {
-        Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")
-        Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Alerts", "Profile")
-        Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")
-        Role.ADMIN -> listOf("Admin", "Audit", "Alerts", "Profile")
+        Role.REQUESTER -> listOf("Home", "Requests", "Messages", "Profile")
+        Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Messages", "Profile")
+        Role.DISPATCHER -> listOf("Queue", "Units", "Messages", "Profile")
+        Role.ADMIN -> listOf("Admin", "Audit", "Messages", "Profile")
     }
     return listOf(
         AppDestination.PRIMARY to labels[0],
         AppDestination.SECONDARY to labels[1],
-        AppDestination.ALERTS to labels[2],
+        AppDestination.CHAT to labels[2],
         AppDestination.PROFILE to labels[3],
     )
 }
@@ -160,6 +162,7 @@ private fun ColumnScope.NavigationRailDestinationItem(
     val icon = when (destination) {
         AppDestination.PRIMARY -> Icons.Filled.Home
         AppDestination.SECONDARY -> Icons.AutoMirrored.Filled.List
+        AppDestination.CHAT -> Icons.Filled.Email
         AppDestination.ALERTS -> Icons.Filled.Warning
         AppDestination.PROFILE -> Icons.Filled.Person
         AppDestination.MAP -> Icons.Filled.LocationOn
@@ -219,6 +222,7 @@ private fun RowScope.NavigationItem(
     val icon = when (destination) {
         AppDestination.PRIMARY -> Icons.Filled.Home
         AppDestination.SECONDARY -> Icons.AutoMirrored.Filled.List
+        AppDestination.CHAT -> Icons.Filled.Email
         AppDestination.ALERTS -> Icons.Filled.Warning
         AppDestination.PROFILE -> Icons.Filled.Person
         AppDestination.MAP -> Icons.Filled.LocationOn

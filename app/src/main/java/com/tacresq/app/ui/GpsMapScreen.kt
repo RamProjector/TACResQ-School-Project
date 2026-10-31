@@ -695,7 +695,7 @@ fun GpsMapScreen(
                         mapView.controller.setZoom(15.0)
                         mapView.controller.animateTo(pointsToFrame.first())
                         locationStatus = if (shouldFrameIncidentPoints) {
-                            "Map centered on available pins."
+                            "Showing 1 incident location."
                         } else {
                             "Map centered on field units; incident pins are pending."
                         }
@@ -703,7 +703,7 @@ fun GpsMapScreen(
                     else -> {
                         mapView.zoomToBoundingBox(BoundingBox.fromGeoPoints(pointsToFrame), true, 64)
                         locationStatus = if (shouldFrameIncidentPoints) {
-                            "Incident pins and eligible field units shown. Stale units are marked as last known."
+                            "Incident locations and eligible field units are in view. Stale units are last known, not live."
                         } else {
                             "Showing eligible field-unit locations while waiting for incident locations. Stale unit markers are labeled as last known, not live."
                         }
@@ -740,10 +740,10 @@ fun GpsMapScreen(
         ) {
             androidx.compose.material3.Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                tonalElevation = 3.dp,
-                shadowElevation = 4.dp,
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                tonalElevation = 2.dp,
+                shadowElevation = 2.dp,
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -763,7 +763,7 @@ fun GpsMapScreen(
                     }
                     Text(
                         "GPS Map",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f),
@@ -875,11 +875,11 @@ fun GpsMapScreen(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
-            tonalElevation = 4.dp,
-            shadowElevation = 6.dp,
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            tonalElevation = 2.dp,
+            shadowElevation = 3.dp,
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
