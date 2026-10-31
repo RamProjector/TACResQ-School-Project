@@ -18,7 +18,7 @@ required = (
     '"Offline"',
     'Internet unavailable. Cached map tiles may still appear.',
     'if (hasValidatedInternet == false)',
-    "locationStatus ?: defaultMapStatus",
+    "collapsedMapSummary",
     ".semantics {",
     "LiveRegionMode.Polite",
     "if (locationStatus != null) liveRegion = LiveRegionMode.Polite",
