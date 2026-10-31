@@ -1756,11 +1756,15 @@ private fun ManualLocationPickerDialog(
                                 enabled = mapStyleLoaded && !mapLoadError &&
                                     (!startsAtTaclobanDefault || userAdjustedMap),
                                 onClick = {
-                                    val point = centerCoordinates.value
-                                    if (point.first.isFinite() && point.second.isFinite() &&
-                                        point.first in -90.0..90.0 && point.second in -180.0..180.0
+                                    // Read the live camera target at confirmation time; the
+                                    // idle listener only drives the displayed coordinate label.
+                                    val target = mapLibreMap?.cameraPosition?.target
+                                    val latitude = target?.latitude ?: centerCoordinates.value.first
+                                    val longitude = target?.longitude ?: centerCoordinates.value.second
+                                    if (latitude.isFinite() && longitude.isFinite() &&
+                                        latitude in -90.0..90.0 && longitude in -180.0..180.0
                                     ) {
-                                        onConfirm(point.first, point.second)
+                                        onConfirm(latitude, longitude)
                                     }
                                 },
                                 modifier = Modifier.weight(1.4f).heightIn(min = 52.dp),
