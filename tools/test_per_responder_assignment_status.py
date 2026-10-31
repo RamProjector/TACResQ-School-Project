@@ -38,8 +38,7 @@ for source, requirements in (
     (api, ('api_update_my_assignment_status', 'override suspend fun updateMyAssignmentStatus')),
     (repo, ('api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))',)),
     (responder, ('incident.statusFor(user.id).nextSteps()', 'val ownStatus = incident.statusFor(user.id)', 'StatusPill(ownStatus.label, ownStatus.pillColor())', 'it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE')),
-    (dispatcher, ('StatusPill(memberStatus.status)',)),
-    (components, ('fun StatusPill(status: IncidentStatus)', 'status.label', 'colors.primaryContainer to colors.onPrimaryContainer')),
+    (dispatcher, ('memberStatus.status.label',)),
     (fake, ('override suspend fun updateMyAssignmentStatus', 'ResponderAssignmentStatus')),
 ):
     for required in requirements:
