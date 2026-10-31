@@ -141,7 +141,7 @@ fun AppRoot(
                         val vmState by vm.state.collectAsStateWithLifecycle()
                         RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = openNotifications)
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                             } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents,
@@ -164,7 +164,7 @@ fun AppRoot(
                         }
                         RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); responderLogout() }, onOpenNotifications = openNotifications)
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); responderLogout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                             } else if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, responderLogout, onOpenNotifications = openNotifications)
                             else RoleSectionScreen(
                                 destination, user, responderLogout, vmState.incidents,
@@ -190,7 +190,7 @@ fun AppRoot(
                             onMapRefresh = vm::refresh,
                         ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = openNotifications)
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                             } else if (destination == AppDestination.PRIMARY) {
                                 DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId, onOpenChat = openChat, onOpenNotifications = openNotifications)
                             } else RoleSectionScreen(
@@ -233,7 +233,11 @@ private fun RoleApp(
         destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY
     }
     val closeChat: () -> Unit = { selectedChatIncidentId = null }
-    val openNotifications: () -> Unit = { destination = AppDestination.ALERTS }
+    val openNotifications: () -> Unit = {
+        // Leave the chat route before showing Alerts; contentFor prioritizes an open chat.
+        selectedChatIncidentId = null
+        destination = AppDestination.ALERTS
+    }
     RoleShell(
         role = role,
         selected = destination,
