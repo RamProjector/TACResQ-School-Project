@@ -1,3 +1,17 @@
+# Active handoff — 2026-10-31: clarify dispatch team assignment versus field leadership
+
+- **Objective:** Implement the safe portion of the proposed team-based workflow without inventing TACRU command authority.
+- **Verified existing capabilities:** The repository already supports atomic multi-responder assignment (up to five eligible responders/drivers), independent per-assignment status transitions with timestamps, a conservative incident-level aggregate, dispatcher member-detail disclosure, and incident chat. These are existing capabilities, not new work in this branch.
+- **Implementation:** The dispatcher assignment dialog now explicitly says that selecting responders assigns them to one incident response group and does not appoint a team leader. Product scope now defines that a dispatch team is currently an incident-level grouping, not a standing roster; the legacy `assigned_to` field must not be treated as proof of leadership; individual status RPCs remain authoritative; chat is not the status source of truth.
+- **Leadership boundary:** No new account role, leader flag, leader-specific permission, or dispatcher appointment feature was added. TACRU's authorized SOP and qualification/appointment rules are not present in the repository; adding a leader designation before confirming them would invent chain-of-command authority.
+- **Regression coverage:** Extended `tools/test_dispatch_team_assignment.py` to require the no-leader-appointment explanation.
+- **Branch:** `agent/clarify-dispatch-team-leadership`, based on main commit `c78d6adc226e854cbc20ea2eca41cda8342aaed1`.
+- **Commits:** `413147b7a47b25fbe758023f229577539f3a4107` (dispatcher copy), `cdbcb6991e3f07bda8dba917e61e1c4be3661eaf` (contract), `30cbb06e7ce04b5c9d8a51472c23b36bdcf86cc1` (scope).
+- **Validation:** Not yet run; PR CI must validate the exact head. No local checkout/build, emulator, live Supabase migration, live data mutation, or deployment was performed.
+- **Next:** Open a focused PR, inspect exact-head required checks and review findings, fix failures, and merge only if all required checks pass and GitHub confirms mergeability. Formal team-leader functionality remains blocked on an authoritative TACRU SOP.
+
+---
+
 # Active handoff — 2026-10-31: dispatcher status clarity and PR #215 CI repair
 
 - **PR:** #215, branch `fix/map-fullscreen-ui-consistency`; still open and unmerged.
