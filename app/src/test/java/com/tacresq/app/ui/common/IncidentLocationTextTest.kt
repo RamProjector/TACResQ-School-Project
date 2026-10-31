@@ -39,6 +39,14 @@ class IncidentLocationTextTest {
     }
 
     @Test
+    fun longLandmarkNotesArePreservedInFull() {
+        val note = "Emergency entrance beside the blue gate. ".repeat(12).trim()
+        val rendered = incidentLocationText(incident(locationNotes = note))
+
+        assertTrue(rendered.endsWith(note))
+    }
+
+    @Test
     fun oneMissingCoordinateIsReportedAsIncomplete() {
         assertEquals(
             "Location coordinates incomplete — verify pin",
