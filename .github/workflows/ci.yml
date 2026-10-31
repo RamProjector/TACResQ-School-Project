@@ -100,6 +100,9 @@ jobs:
       - name: Check requester active-incident and cancellation contract
         run: python3 tools/test_requester_active_incident.py
 
+      - name: Check requester active-emergency visual contract
+        run: python3 tools/test_requester_active_emergency_visual_contract.py
+
       - name: Check dispatcher multi-responder assignment
         run: python3 tools/test_dispatch_team_assignment.py
       - name: Check dispatcher assignment freshness safety
