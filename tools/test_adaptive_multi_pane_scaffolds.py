@@ -55,7 +55,7 @@ assert "selected = detailId == incident.id" in source
 assert "IncidentHistoryListItem(" in source
 assert "IncidentHistoryDetail(" in source
 assert "fun IncidentHistoryListItem(" in components
-assert "clickable(role = Role.Button, onClick = onClick)" in components
+assert "selectable(selected = selected, role = Role.Button, onClick = onClick)" in components
 assert "fun IncidentHistoryDetail(" in components
 assert '"CURRENT STATUS"' in components
 assert '"EMERGENCY DETAILS"' in components
