@@ -33,4 +33,14 @@ class SessionStoreRetryPolicyTest {
         assertEquals(false, shouldRetrySessionStoreRead(SecurityException("keystore access denied")))
         assertEquals(false, shouldRetrySessionStoreRead(CancellationException("caller cancelled")))
     }
+
+    @Test
+    fun persistentIoFailureStopsRetryingAfterTheBoundedWindow() {
+        val failure = IOException("persistent disk read failure")
+
+        assertEquals(true, shouldRetrySessionStoreRead(failure, 0L))
+        assertEquals(true, shouldRetrySessionStoreRead(failure, SESSION_STORE_MAX_READ_RETRIES - 1L))
+        assertEquals(false, shouldRetrySessionStoreRead(failure, SESSION_STORE_MAX_READ_RETRIES))
+        assertEquals(false, shouldRetrySessionStoreRead(IllegalStateException("not recoverable"), 0L))
+    }
 }
