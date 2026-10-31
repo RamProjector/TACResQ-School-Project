@@ -65,12 +65,12 @@ def main() -> None:
     )
     for job_name in ("codeql-android", "codeql-web-actions"):
         job_match = re.search(
-            rf"(?ms)^  {re.escape(job_name)}:\\n(.*?)(?=^  [A-Za-z0-9_-]+:\\n|\\Z)",
+            rf"(?ms)^  {re.escape(job_name)}:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
             security,
         )
         assert job_match, f"{job_name} job must exist in the Security workflow"
         permissions_match = re.search(
-            r"(?ms)^    permissions:\\n((?:      [^\\n]+\\n)+)",
+            r"(?ms)^    permissions:\n((?:      [^\n]+\n)+)",
             job_match.group(1),
         )
         assert permissions_match and re.search(
@@ -78,7 +78,7 @@ def main() -> None:
         ), f"{job_name} must declare security-events: write in its own permissions block"
 
     android_codeql = re.search(
-        r"(?ms)^  codeql-android:\\n(.*?)(?=^  [A-Za-z0-9_-]+:\\n|\\Z)",
+        r"(?ms)^  codeql-android:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
         security,
     )
     assert android_codeql and "persist-credentials: false" in android_codeql.group(1), (
