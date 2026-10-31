@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F4F7FB"/><stop offset="1" stop-color="#E9F1F8"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#15243A" flood-opacity=".12"/></filter>
+    <style>
+      .h1{font:700 34px 'Inter',Arial,sans-serif;fill:#15243A}.sub{font:400 16px 'Inter',Arial,sans-serif;fill:#65758B}
+      .phone{fill:#FFFFFF;stroke:#DCE4EE;stroke-width:2}.screenTitle{font:700 20px 'Inter',Arial,sans-serif;fill:#15243A}
+      .body{font:400 12px 'Inter',Arial,sans-serif;fill:#65758B}.label{font:600 11px 'Inter',Arial,sans-serif;fill:#65758B}
+      .cardTitle{font:700 14px 'Inter',Arial,sans-serif;fill:#15243A}.white{fill:#FFFFFF}.smallWhite{font:600 11px 'Inter',Arial,sans-serif;fill:#FFFFFF}
+      .navText{font:600 9px 'Inter',Arial,sans-serif;fill:#65758B}.navSelected{font:700 9px 'Inter',Arial,sans-serif;fill:#146C94}
+    </style>
+  </defs>
+  <rect width="1600" height="1120" rx="28" fill="url(#bg)"/>
+  <text x="64" y="68" class="h1">TACResQ · UI design direction</text>
+  <text x="64" y="98" class="sub">A locally stored concept board: clear emergency actions, map-first tracking, and consistent navigation.</text>
+  <rect x="1270" y="47" width="265" height="38" rx="19" fill="#FFF1D6" stroke="#F0D7A6"/>
+  <text x="1402" y="70" text-anchor="middle" style="font:700 12px Arial,sans-serif;fill:#8A4B00">CONCEPT · NOT APP SCREENSHOTS</text>
+
+  <!-- Phone 1: Home -->
+  <g transform="translate(64 150)" filter="url(#shadow)">
+    <rect width="452" height="888" rx="34" class="phone"/>
+    <rect x="20" y="20" width="412" height="848" rx="24" fill="#F7F9FC"/>
+    <rect x="20" y="20" width="412" height="72" rx="24" fill="#FFFFFF"/>
+    <text x="44" y="52" style="font:700 17px Arial,sans-serif;fill:#15243A">TACResQ</text>
+    <text x="44" y="72" class="body">Emergency assistance, coordinated.</text>
+    <circle cx="393" cy="55" r="18" fill="#DCEFF7"/><path d="M386 55h14M393 48v14" stroke="#146C94" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="44" y="130" class="screenTitle">Good afternoon</text>
+    <text x="44" y="153" class="body">What do you need right now?</text>
+    <rect x="40" y="178" width="372" height="148" rx="22" fill="#146C94"/>
+    <circle cx="82" cy="220" r="22" fill="#FFFFFF" fill-opacity=".15"/>
+    <path d="M82 207v26M69 220h26" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+    <text x="116" y="216" class="white" style="font:700 18px Arial,sans-serif">Request emergency help</text>
+    <text x="116" y="239" style="font:400 12px Arial,sans-serif;fill:#DCEFF7">Share your situation and location</text>
+    <rect x="60" y="270" width="170" height="38" rx="12" fill="#FFFFFF"/>
+    <text x="145" y="294" text-anchor="middle" style="font:700 12px Arial,sans-serif;fill:#146C94">Start a request  →</text>
+    <text x="44" y="370" class="screenTitle">Quick access</text>
+    <g>
+      <rect x="40" y="390" width="176" height="118" rx="18" fill="#FFFFFF" stroke="#DCE4EE"/>
+      <circle cx="67" cy="420" r="15" fill="#DCEFF7"/><path d="M61 420h12M67 414v12" stroke="#146C94" stroke-width="2" stroke-linecap="round"/>
+      <text x="58" y="456" class="cardTitle">Live incidents</text><text x="58" y="475" class="body">See nearby requests</text>
+      <rect x="236" y="390" width="176" height="118" rx="18" fill="#FFFFFF" stroke="#DCE4EE"/>
+      <circle cx="263" cy="420" r="15" fill="#DDF4E8"/><path d="M257 420l4 4 8-9" fill="none" stroke="#18794E" stroke-width="2" stroke-linecap="round"/>
+      <text x="254" y="456" class="cardTitle">My activity</text><text x="254" y="475" class="body">Track updates and history</text>
+    </g>
+    <text x="44" y="548" class="screenTitle">Preparedness</text>
+    <rect x="40" y="566" width="372" height="92" rx="18" fill="#FFFFFF" stroke="#DCE4EE"/>
+    <circle cx="70" cy="612" r="17" fill="#FFF1D6"/><path d="M70 600v14M70 620v1" stroke="#A65A00" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="100" y="601" class="cardTitle">Safety guidance</text>
+    <text x="100" y="622" class="body">Know what to do while help is on the way.</text>
+    <text x="100" y="641" style="font:700 11px Arial,sans-serif;fill:#146C94">View safety tips  →</text>
+    <g transform="translate(20 784)">
+      <rect width="412" height="64" rx="0" fill="#FFFFFF"/>
+      <path d="M0 0H412" stroke="#DCE4EE"/>
+      <g transform="translate(34 12)"><path d="M8 0L16 7V18H1V7Z" fill="none" stroke="#146C94" stroke-width="1.8"/><text x="8" y="35" text-anchor="middle" class="navSelected">Home</text></g>
+      <g transform="translate(112 12)"><circle cx="9" cy="8" r="7" fill="none" stroke="#65758B" stroke-width="1.8"/><path d="M9 3v6l4 2" fill="none" stroke="#65758B" stroke-width="1.5"/><text x="9" y="35" text-anchor="middle" class="navText">Requests</text></g>
+      <g transform="translate(191 12)"><path d="M8 0L16 15H0Z" fill="none" stroke="#146C94" stroke-width="1.8"/><text x="8" y="35" text-anchor="middle" class="navText">Map</text></g>
+      <g transform="translate(270 12)"><path d="M2 2h14v14H2zM5 6h8M5 10h8" fill="none" stroke="#65758B" stroke-width="1.6"/><text x="9" y="35" text-anchor="middle" class="navText">Messages</text></g>
+      <g transform="translate(350 12)"><circle cx="8" cy="5" r="4" fill="none" stroke="#65758B" stroke-width="1.6"/><path d="M0 18c0-6 16-6 16 0" fill="none" stroke="#65758B" stroke-width="1.6"/><text x="8" y="35" text-anchor="middle" class="navText">Profile</text></g>
+    </g>
+  </g>
+
+  <!-- Phone 2: Map -->
+  <g transform="translate(574 150)" filter="url(#shadow)">
+    <rect width="452" height="888" rx="34" class="phone"/>
+    <rect x="20" y="20" width="412" height="848" rx="24" fill="#E6EDE8"/>
+    <path d="M20 160L432 280M20 350L432 430M30 610L432 520M130 20L210 868M350 20L290 868" stroke="#FFFFFF" stroke-width="18" fill="none"/>
+    <path d="M20 160L432 280M20 350L432 430M30 610L432 520M130 20L210 868M350 20L290 868" stroke="#CFDCD4" stroke-width="2" fill="none"/>
+    <path d="M20 250C100 200 150 290 230 250S360 220 432 250M20 700C130 650 200 740 300 700S390 690 432 710" stroke="#D7EAF5" stroke-width="28" fill="none"/>
+    <rect x="38" y="38" width="376" height="70" rx="20" fill="#FFFFFF" stroke="#DCE4EE"/>
+    <circle cx="68" cy="72" r="17" fill="#EAF0F7"/><path d="M73 66l-10 10M64 65h9v9" fill="none" stroke="#15243A" stroke-width="2" stroke-linecap="round"/>
+    <text x="96" y="67" class="cardTitle">Live emergency map</text><text x="96" y="86" class="body">Tacloban City · nearby activity</text>
+    <rect x="38" y="126" width="138" height="32" rx="16" fill="#FFFFFF" stroke="#DCE4EE"/>
+    <circle cx="54" cy="142" r="4" fill="#B42332"/><text x="65" y="146" style="font:700 10px Arial,sans-serif;fill:#15243A">2 active incidents</text>
+    <g>
+      <circle cx="122" cy="308" r="23" fill="#B42332" fill-opacity=".12"/><circle cx="122" cy="308" r="12" fill="#B42332"/><path d="M122 301v8M122 313v1" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="322" cy="408" r="23" fill="#A65A00" fill-opacity=".14"/><circle cx="322" cy="408" r="12" fill="#A65A00"/><path d="M322 401v8M322 413v1" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="250" cy="540" r="24" fill="#146C94" fill-opacity=".15"/><circle cx="250" cy="540" r="13" fill="#146C94" stroke="#FFFFFF" stroke-width="4"/><circle cx="250" cy="540" r="4" fill="#FFFFFF"/>
+      <path d="M250 540L122 308" stroke="#146C94" stroke-width="3" stroke-dasharray="7 7" fill="none" opacity=".75"/>
+    </g>
+    <g transform="translate(362 180)">
+      <rect width="42" height="42" rx="14" fill="#FFFFFF" stroke="#DCE4EE"/><circle cx="21" cy="17" r="8" fill="none" stroke="#15243A" stroke-width="1.8"/><path d="M21 8v18M12 17h18" stroke="#15243A" stroke-width="1.4"/>
+    </g>
+    <g transform="translate(362 234)">
+      <rect width="42" height="42" rx="14" fill="#FFFFFF" stroke="#DCE4EE"/><path d="M21 9v24M9 21h24" stroke="#146C94" stroke-width="2" stroke-linecap="round"/>
+    </g>
+    <rect x="38" y="580" width="376" height="268" rx="24" fill="#FFFFFF" stroke="#DCE4EE"/>
+    <rect x="56" y="598" width="70" height="5" rx="2.5" fill="#DCE4EE"/>
+    <rect x="56" y="619" width="100" height="23" rx="11.5" fill="#FDE8EA"/>
+    <circle cx="69" cy="630" r="4" fill="#B42332"/><text x="80" y="634" style="font:700 10px Arial,sans-serif;fill:#B42332">URGENT</text>
+    <text x="56" y="669" class="screenTitle">Medical assistance needed</text>
+    <text x="56" y="691" class="body">0.8 km away · Updated just now</text>
+    <text x="56" y="721" class="label">STATUS</text>
+    <rect x="56" y="735" width="340" height="8" rx="4" fill="#EAF0F7"/><rect x="56" y="735" width="112" height="8" rx="4" fill="#146C94"/>
+    <text x="56" y="764" class="body">Request received</text><text x="396" y="764" text-anchor="end" class="body">Responder needed</text>
+    <rect x="56" y="787" width="340" height="43" rx="14" fill="#146C94"/>
+    <text x="226" y="813" text-anchor="middle" class="white" style="font:700 13px Arial,sans-serif">View incident details  →</text>
+    <rect x="20" y="804" width="412" height="44" fill="#FFFFFF" fill-opacity=".96"/>
+    <text x="226" y="831" text-anchor="middle" style="font:600 10px Arial,sans-serif;fill:#65758B">Map view can use full screen; app navigation remains one step away.</text>
+  </g>
+
+  <!-- Phone 3: Incident detail -->
+  <g transform="translate(1084 150)" filter="url(#shadow)">
+    <rect width="452" height="888" rx="34" class="phone"/>
+    <rect x="20" y="20" width="412" height="848" rx="24" fill="#F7F9FC"/>
+    <rect x="20" y="20" width="412" height="76" rx="24" fill="#FFFFFF"/>
+    <path d="M49 57l-9 0 9-9M40 57l9 9" stroke="#15243A" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="70" y="55" class="screenTitle">Incident details</text><text x="70" y="75" class="body">Request · TRQ-2048</text>
+    <rect x="40" y="116" width="372" height="116" rx="20" fill="#FFFFFF" stroke="#DCE4EE"/>
+    <rect x="58" y="135" width="94" height="24" rx="12" fill="#FDE8EA"/><circle cx="71" cy="147" r="4" fill="#B42332"/><text x="82" y="151" style="font:700 10px Arial,sans-serif;fill:#B42332">HIGH PRIORITY</text>
+    <text x="58" y="182" class="cardTitle">Medical assistance</text><text x="58" y="203" class="body">Reported 4 minutes ago · Tacloban City</text>
+    <text x="44" y="272" class="screenTitle">Response status</text>
+    <rect x="40" y="290" width="372" height="156" rx="20" fill="#FFFFFF" stroke="#DCE4EE"/>
+    <g transform="translate(60 315)">
+      <circle cx="12" cy="12" r="12" fill="#DDF4E8"/><path d="M6 12l4 4 8-9" fill="none" stroke="#18794E" stroke-width="2" stroke-linecap="round"/>
+      <text x="36" y="10" class="cardTitle">Request verified</text><text x="36" y="28" class="body">Incident details received</text>
+      <path d="M12 26v24" stroke="#DCE4EE" stroke-width="2"/>
+      <circle cx="12" cy="62" r="12" fill="#DCEFF7"/><circle cx="12" cy="62" r="4" fill="#146C94"/>
+      <text x="36" y="60" class="cardTitle">Waiting for a responder</text><text x="36" y="78" class="body">Nearby eligible helpers are being notified</text>
+      <circle cx="12" cy="112" r="12" fill="#EAF0F7"/><circle cx="12" cy="112" r="4" fill="#65758B"/>
+      <text x="36" y="110" class="cardTitle" fill="#65758B">Responder en route</text><text x="36" y="128" class="body">Will update when accepted</text>
+    </g>
+    <text x="44" y="484" class="screenTitle">Location</text>
+    <rect x="40" y="502" width="372" height="126" rx="20" fill="#E6EDE8" stroke="#DCE4EE"/>
+    <path d="M40 535L412 595M70 502L130 628M300 502L250 628M40 610L412 540" stroke="#FFFFFF" stroke-width="12" fill="none"/>
+    <circle cx="222" cy="566" r="17" fill="#B42332" fill-opacity=".14"/><circle cx="222" cy="566" r="8" fill="#B42332"/>
+    <text x="58" y="652" class="body">Exact location shared with authorized responders.</text>
+    <text x="44" y="704" class="screenTitle">Available actions</text>
+    <rect x="40" y="722" width="372" height="54" rx="16" fill="#146C94"/>
+    <text x="226" y="755" text-anchor="middle" class="white" style="font:700 14px Arial,sans-serif">Offer to help</text>
+    <rect x="40" y="790" width="372" height="48" rx="16" fill="#FFFFFF" stroke="#DCE4EE"/>
+    <text x="226" y="819" text-anchor="middle" style="font:700 13px Arial,sans-serif;fill:#146C94">Contact emergency services</text>
+    <text x="44" y="856" class="body">Show only actions permitted for this user's role.</text>
+  </g>
+  <text x="64" y="1080" style="font:400 12px Arial,sans-serif;fill:#65758B">Design principles: stable navigation · clear urgency · readable status · generous touch targets · no fake live data.</text>
+</svg>
