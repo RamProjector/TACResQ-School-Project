@@ -29,7 +29,6 @@ assert "if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.color
 assert '"Open conversation"' in components
 assert "Incident not in the current list" in source
 
-print("Adaptive incident list-detail scaffold contracts passed.")
 
 assert "currentWindowAdaptiveInfoV2()" in source
 assert "currentWindowAdaptiveInfo(" not in source
@@ -64,3 +63,5 @@ assert "fun IncidentHistoryDetail(" in components
 assert '"CURRENT STATUS"' in components
 assert '"EMERGENCY DETAILS"' in components
 assert '"LOCATION"' in components
+
+print("Adaptive incident list-detail scaffold contracts passed.")
