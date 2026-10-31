@@ -305,7 +305,8 @@ private fun RoleSectionScreen(
             Role.DISPATCHER -> "Field units"
             Role.ADMIN -> "Administrator access"
         }
-        AppDestination.ALERTS -> "Alerts & safety"
+        AppDestination.CHAT -> "Messages"
+        AppDestination.ALERTS -> "Notifications"
         AppDestination.PROFILE -> "Profile"
         AppDestination.PRIMARY, AppDestination.MAP -> "TACResQ"
     }
