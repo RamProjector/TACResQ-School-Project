@@ -45,6 +45,7 @@ import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
+import com.tacresq.app.ui.common.formatTime
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SyncStatus
@@ -364,11 +365,22 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    Text(
-                                        unit?.name ?: "Unit #${memberStatus.userId}",
+                                    Column(
                                         modifier = Modifier.weight(1f),
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    ) {
+                                        Text(
+                                            unit?.name ?: "Unit #${memberStatus.userId}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                        Text(
+                                            memberStatus.statusUpdatedAt?.let { "Updated ${formatTime(it)}" }
+                                                ?: "Update time unavailable",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                     StatusPill(
                                         memberStatus.status.label,
                                         MaterialTheme.colorScheme.secondary,
