@@ -2,12 +2,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text()
+requester = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 build = (ROOT / "app/build.gradle.kts").read_text()
 
 # The retired raster renderer must not remain in the Android dependency graph.
 assert 'org.maplibre.gl:android-sdk-opengl:13.7.1' in build
 assert "org.osmdroid:" not in build
 assert "org.osmdroid" not in source
+assert "org.osmdroid" not in requester
 
 # OpenFreeMap Liberty is a public vector style and requires no embedded provider key.
 assert 'OPENFREEMAP_LIBERTY_STYLE = "https://tiles.openfreemap.org/styles/liberty"' in source
@@ -46,4 +48,14 @@ assert "addOnDidFailLoadingMapListener" in source
 assert "Incident details remain available." in source
 assert "No requester identity or incident narrative" not in source
 
-print("MapLibre/OpenFreeMap provider, lifecycle, pin, and fallback contract passed.")
+assert 'REQUESTER_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"' in requester
+assert "MapLibre.getInstance(context)" in requester
+assert "map.setStyle(REQUESTER_MAP_STYLE_URL)" in requester
+assert "map.addOnCameraIdleListener" in requester
+assert "centerCoordinates.value = target.latitude to target.longitude" in requester
+assert "enabled = mapStyleLoaded && !mapLoadError" in requester
+assert "onConfirm(point.first, point.second)" in requester
+assert "Map data © OpenMapTiles · © OpenStreetMap contributors" in requester
+assert "Map data is unavailable. Cancel and share a landmark instead." in requester
+
+print("MapLibre/OpenFreeMap provider, lifecycle, pin, requester-picker, and fallback contract passed.")
