@@ -7,7 +7,7 @@ SOURCE = Path("app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text(
 REQUIRED = {
     "persistent Material 3 sheet": "BottomSheetScaffold(",
     "starts partially expanded": "initialValue = SheetValue.PartiallyExpanded",
-    "compact map-first peek": "sheetPeekHeight = 128.dp",
+    "compact map-first peek": "sheetPeekHeight = 120.dp",
     "drag interaction explicitly enabled": "sheetSwipeEnabled = true",
     "visible drag handle": "BottomSheetDefaults.DragHandle()",
     "map view remains full size": "modifier = Modifier.fillMaxSize(),\n            update = { it.invalidate() }",
