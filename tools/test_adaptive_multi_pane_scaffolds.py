@@ -54,6 +54,9 @@ assert 'eyebrow = "SELECTED INCIDENT"' in source
 assert "surfaceContainerLow" in source
 assert "selected = detailId == incident.id" in source
 assert "IncidentHistoryListItem(" in source
+assert "LazyColumn(" in source
+assert "items(sortedIncidents, key = { it.id })" in source
+assert "sortedIncidents.forEach" not in source
 assert "IncidentHistoryDetail(" in source
 assert "fun IncidentHistoryListItem(" in components
 assert "selectable(selected = selected, role = Role.Button, onClick = onClick)" in components
