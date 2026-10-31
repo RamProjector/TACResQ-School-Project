@@ -81,7 +81,9 @@ import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentType
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.repo.ApiException
 import com.tacresq.app.data.repo.TacRepository
+import com.tacresq.app.data.repo.isDefinitiveIncidentRejection
 import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationProvider
 import com.tacresq.app.location.LocationSettingsCheck
@@ -120,6 +122,7 @@ data class RequesterUiState(
     val loading: Boolean = true,
     val sending: Boolean = false,
     val pendingSosAvailable: Boolean = false,
+    val pendingSosCanBeDiscarded: Boolean = false,
     val pendingSosCheckInProgress: Boolean = true,
     val pendingSosCheckError: String? = null,
     val capturingLocation: Boolean = false,
@@ -151,6 +154,7 @@ class RequesterViewModel(
                 _state.update {
                     it.copy(
                         pendingSosAvailable = pending,
+                        pendingSosCanBeDiscarded = it.pendingSosCanBeDiscarded && pending,
                         pendingSosCheckInProgress = false,
                         pendingSosCheckError = null,
                     )
@@ -170,7 +174,7 @@ class RequesterViewModel(
 
     fun retryPendingSos() {
         if (_state.value.sending) return
-        _state.update { it.copy(sending = true, error = null, notice = null) }
+        _state.update { it.copy(sending = true, error = null, notice = null, pendingSosCanBeDiscarded = false) }
         viewModelScope.launch {
             repo.retryPendingIncident()
                 .onSuccess { created ->
@@ -185,8 +189,39 @@ class RequesterViewModel(
                     refresh()
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(sending = false, error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.") }
+                    val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
+                    _state.update {
+                        it.copy(
+                            sending = false,
+                            pendingSosCanBeDiscarded = canDiscard,
+                            error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.",
+                        )
+                    }
                     refreshPendingSos()
+                }
+        }
+    }
+
+    fun discardRejectedPendingSos() {
+        val current = _state.value
+        if (current.sending || !current.pendingSosCanBeDiscarded) return
+        _state.update { it.copy(sending = true, error = null, notice = null) }
+        viewModelScope.launch {
+            repo.discardPendingIncident()
+                .onSuccess {
+                    _state.update {
+                        it.copy(
+                            sending = false,
+                            pendingSosAvailable = false,
+                            pendingSosCanBeDiscarded = false,
+                            notice = "The rejected saved SOS was discarded. Review the details carefully before sending a new request.",
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(sending = false, error = e.message ?: "The saved SOS could not be discarded.")
+                    }
                 }
         }
     }
@@ -370,7 +405,8 @@ class RequesterViewModel(
                     }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(sending = false, error = e.message) }
+                    val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
+                    _state.update { it.copy(sending = false, pendingSosCanBeDiscarded = canDiscard, error = e.message) }
                     refreshPendingSos()
                 }
         }
@@ -523,6 +559,7 @@ fun RequesterScreen(
     var locationRequirementError by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmingSos by remember { mutableStateOf(false) }
     var showDiscardConfirmation by remember { mutableStateOf(false) }
+    var showPendingSosDiscardConfirmation by remember { mutableStateOf(false) }
     var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
     var incidentToEdit by remember { mutableStateOf<Incident?>(null) }
     var editType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
@@ -649,6 +686,15 @@ fun RequesterScreen(
                             Text("Retrying saved SOS…")
                         } else {
                             Text("Retry saved SOS")
+                        }
+                    }
+                    if (state.pendingSosCanBeDiscarded) {
+                        TextButton(
+                            onClick = { showPendingSosDiscardConfirmation = true },
+                            enabled = !state.sending,
+                            modifier = Modifier.align(Alignment.End),
+                        ) {
+                            Text("Discard rejected SOS")
                         }
                     }
                 }
@@ -1277,6 +1323,32 @@ fun RequesterScreen(
             },
             dismissButton = {
                 TextButton(onClick = { incidentToCancel = null }) { Text("Keep request") }
+            },
+        )
+    }
+
+    if (showPendingSosDiscardConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showPendingSosDiscardConfirmation = false },
+            title = { Text("Discard rejected saved SOS?") },
+            text = {
+                Text(
+                    "The server returned a definitive rejection for this saved request. " +
+                        "Discarding permanently removes its encrypted retry copy from this device. " +
+                        "Do not discard if the server outcome is still uncertain."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !state.sending && state.pendingSosCanBeDiscarded,
+                    onClick = {
+                        showPendingSosDiscardConfirmation = false
+                        vm.discardRejectedPendingSos()
+                    },
+                ) { Text("Discard saved SOS") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPendingSosDiscardConfirmation = false }) { Text("Keep saved SOS") }
             },
         )
     }
