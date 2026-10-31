@@ -46,8 +46,18 @@ class GpsMapLifecyclePollingTests(unittest.TestCase):
         )
         self.assertNotIn("onRefreshResponderLocations()", self.source)
 
-    def test_map_view_still_observes_resume_pause_and_detach(self):
-        for required in ("Lifecycle.Event.ON_RESUME", "Lifecycle.Event.ON_PAUSE", "mapView.onDetach()"):
+    def test_map_view_forwards_the_complete_maplibre_lifecycle(self):
+        for required in (
+            "Lifecycle.Event.ON_START",
+            "Lifecycle.Event.ON_RESUME",
+            "Lifecycle.Event.ON_PAUSE",
+            "Lifecycle.Event.ON_STOP",
+            "mapView.onStart()",
+            "mapView.onResume()",
+            "mapView.onPause()",
+            "mapView.onStop()",
+            "mapView.onDestroy()",
+        ):
             self.assertIn(required, self.source)
 
 

@@ -10,6 +10,7 @@ repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").r
 responder = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 dispatcher = (ROOT / "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt").read_text()
 requester = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
+components = (ROOT / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
 fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").read_text()
 
 for required in (

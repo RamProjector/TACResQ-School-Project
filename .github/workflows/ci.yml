@@ -127,7 +127,7 @@ jobs:
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
 
-      - name: Check osmdroid tile cache configuration
+      - name: Check MapLibre vector map provider and lifecycle
         run: python3 tools/test_osmdroid_tile_cache.py
 
       - name: Check GPS map empty-state messaging
@@ -138,6 +138,17 @@ jobs:
 
       - name: Check full-screen GPS map viewport
         run: python3 tools/test_gps_map_fullscreen.py
+      - name: Check draggable GPS incident detail sheet
+        run: python3 tools/test_gps_map_bottom_sheet.py
+
+      - name: Check persistent OpenStreetMap attribution
+        run: python3 tools/test_osm_map_attribution.py
+
+      - name: Check role-aware GPS map presentation
+        run: python3 tools/test_gps_map_role_presentation.py
+
+      - name: Check requester Messages tab scroll crash regression
+        run: python3 tools/test_messages_list_scroll_contract.py
 
       - name: Check five-destination navigation labels
         run: python3 tools/test_bottom_navigation_labels.py
@@ -288,6 +299,10 @@ jobs:
       - name: Run Android JVM unit tests
         if: hashFiles('gradlew') != ''
         run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Compile Android UI instrumentation tests
+        if: hashFiles('gradlew') != ''
+        run: ./gradlew --no-daemon assembleDebugAndroidTest
 
       - name: Run Android Lint for the debug variant
         if: hashFiles('gradlew') != ''

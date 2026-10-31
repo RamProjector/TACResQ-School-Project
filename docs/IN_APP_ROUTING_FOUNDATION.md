@@ -4,7 +4,7 @@ Status: foundation only; no live routing provider is enabled by this change.
 
 ## Decision
 
-Keep the existing osmdroid/OpenStreetMap renderer. Add a provider-neutral contract so the Android UI can draw an actual road route without binding UI code to one vendor. Evaluate Valhalla first and compare against OSRM using representative Tacloban routes before selecting the production engine.
+Use MapLibre Native as the Android vector renderer with the OpenFreeMap Liberty style. The map renderer and routing engine remain separate provider choices. The map displays OpenStreetMap-derived vector data through OpenFreeMap; route calculation is still disabled until a production routing service is selected and validated. Keep the provider-neutral routing contract so the UI does not bind to one routing vendor.
 
 Valhalla's official route API supports driving (`auto`) and pedestrian (`pedestrian`) costing, route summaries, geometry and maneuvers. References:
 - https://valhalla.github.io/valhalla/api/route/api-reference/
@@ -15,7 +15,7 @@ Valhalla's official route API supports driving (`auto`) and pedestrian (`pedestr
 
 TACResQ is an emergency-response application. A public demo instance is not a production availability guarantee, and a route result does not account for live traffic, flooding, road closures, temporary access restrictions, or whether an emergency vehicle can pass. The app must not silently present a straight-line estimate as a road-route ETA.
 
-OpenStreetMap's standard raster tile service is also best-effort, has no SLA, and has explicit usage requirements. Map rendering and routing should remain separate provider choices. See https://operations.osmfoundation.org/policies/tiles/.
+OpenFreeMap's public style/tile service is free to use without an API key, but it is best-effort and has no SLA or personalized support guarantee. It requires attribution and limits offline downloads to 3,000 tiles or 50 MB per download, with at most four parallel requests and a unique User-Agent. Do not treat it as an emergency-service availability guarantee. See https://openfreemap.org/quick_start/ and https://openfreemap.org/.
 
 ## Foundation added
 
@@ -40,7 +40,7 @@ The adapter now has a bounded client factory in `data/routing/ValhallaRoutingCli
 
 1. Host the routing service behind an authenticated, rate-limited Render API endpoint or choose a provider with documented production terms. Keep API keys server-side.
 2. Wire the adapter through an explicit application configuration and enforce bounded network timeouts and response-size limits.
-3. Draw the route with an osmdroid polyline overlay, clearly label ETA as an estimate, and show route freshness and route failure states.
+3. Draw the route as a MapLibre line layer/GeoJSON source, clearly label ETA as an estimate, and show route freshness and route failure states.
 4. Select mode by role: driving for driver; driving by default for field responder travelling by vehicle. Walking should be an explicit option only where it makes sense.
 5. Retain external navigation as a user-invoked fallback. Never auto-launch another app or claim a route is safe/passable.
 6. Validate location permission, foreground lifecycle, connectivity loss, cancellation, repeated route requests, stale GPS, malformed response, no route, and role/assignment authorization.
@@ -55,3 +55,19 @@ The adapter now has a bounded client factory in `data/routing/ValhallaRoutingCli
 - No sensitive incident details or requester identity sent to a third-party routing service; only the minimum required coordinates.
 - UI remains usable if routing is unavailable and provides a clear manual fallback.
 - No production service is switched until the adapter, CI, and Tacloban route tests pass.
+
+
+## Map renderer migration (2026-10-31)
+
+The Android GPS screen now uses MapLibre Native (OpenGL ES artifact for broad device compatibility) and OpenFreeMap's Liberty vector style:
+- Style URL: `https://tiles.openfreemap.org/styles/liberty`
+- No Google Maps SDK, Google Maps API key, or billing account is required.
+- Incident, responder, stale last-known, and one-time device-location pins remain rendered from validated app state.
+- The requester's full-screen manual SOS pin picker uses the same Liberty style; its center coordinate comes from the live map camera, and confirmation is disabled until the style loads successfully.
+- Existing role-specific visibility, responder freshness rules, and one-time local-only location disclosure remain unchanged.
+- Attribution is shown as OpenMapTiles and OpenStreetMap data attribution in the map UI; MapLibre's own attribution control remains enabled.
+- Map tiles are third-party network data. Do not send requester names, phone numbers, incident narratives, or other personal data to the map provider; only map viewport/tile requests are needed.
+- The public OpenFreeMap endpoint has no SLA. The map must not be treated as an authoritative source for road closures, flooding, emergency vehicle access, or live traffic.
+- Offline map availability is not guaranteed. Incident details and status remain available separately from map rendering.
+
+The previous osmdroid renderer was removed from the Android dependency graph. Road routing remains disabled; the Valhalla adapter is not configured to contact a production host. A separate routing change must add authenticated/rate-limited hosting, Tacloban route validation, and safe failure states before drawing routes or presenting ETAs.

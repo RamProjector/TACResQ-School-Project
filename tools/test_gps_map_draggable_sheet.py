@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Guard the persistent, map-first GPS incident sheet contract."""
+"""Guard the persistent, map-first GPS incident sheet behavior."""
 from pathlib import Path
 
 SOURCE = Path("app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text(encoding="utf-8")
 
 REQUIRED = {
     "persistent Material 3 sheet": "BottomSheetScaffold(",
-    "starts partially expanded": "initialValue = androidx.compose.material3.SheetValue.PartiallyExpanded",
-    "compact map-first peek": "sheetPeekHeight = 148.dp",
-    "drag interaction enabled": "sheetSwipeEnabled = true",
+    "starts partially expanded": "initialValue = SheetValue.PartiallyExpanded",
+    "compact map-first peek": "sheetPeekHeight = 120.dp",
+    "drag interaction explicitly enabled": "sheetSwipeEnabled = true",
     "visible drag handle": "BottomSheetDefaults.DragHandle()",
-    "map remains full-bleed behind sheet": "Keep the map full-bleed behind the persistent sheet",
     "map view remains full size": "modifier = Modifier.fillMaxSize(),\n            update = { it.invalidate() }",
-    "incident selection expands details": "mapSheetState.bottomSheetState.expand()",
-    "selected incident is prioritized": "visibleIncidents.sortedByDescending { it.id == selectedIncidentId }",
+    "incident marker selects and expands details": "setOnMarkerClickListener { marker ->",
+    "selected incident detail is shown": "selectedIncident != null",
+    "other incidents remain in the sheet list": "visibleIncidents.filterNot { it.id == selectedIncidentId }",
+    "selected incident card is rendered": "MapIncidentCard(",
+    "system Back collapses expanded sheet": "mapSheetState.bottomSheetState.partialExpand()",
     "location privacy disclosure retained": "One-time preview · stays on this device, not uploaded.",
     "responder freshness disclosure retained": "Stale markers are last-known positions, not live.",
     "OpenStreetMap attribution retained": "© OpenStreetMap contributors",

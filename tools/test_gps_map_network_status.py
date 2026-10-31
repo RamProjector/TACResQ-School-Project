@@ -43,10 +43,10 @@ checks = {
         text in source for text in (
             'if (hasValidatedInternet == false)',
             '"Offline"',
-            'Internet unavailable. Cached map tiles may still appear.',
+            'Internet unavailable. Map tiles may not load; incident details remain available.',
             'MaterialTheme.colorScheme.errorContainer',
             'MaterialTheme.colorScheme.onErrorContainer',
-            'Modifier.size(52.dp)',
+            'Modifier.size(48.dp)',
         )
     ),    "Android manifest retains network-state permission": (
         "android.permission.ACCESS_NETWORK_STATE" in manifest
