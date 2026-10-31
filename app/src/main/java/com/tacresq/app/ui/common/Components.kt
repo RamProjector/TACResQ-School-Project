@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -231,7 +232,7 @@ fun IncidentHistoryListItem(
 ) {
     val statusColor = incident.status.pillColor()
     Card(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp).clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp).clickable(role = Role.Button, onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         border = BorderStroke(
             if (selected) 2.dp else 1.dp,
