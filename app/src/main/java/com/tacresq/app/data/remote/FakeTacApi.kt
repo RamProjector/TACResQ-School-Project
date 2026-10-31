@@ -235,6 +235,7 @@ class FakeTacApi(
                 senderId = me.id,
                 message = normalized,
                 createdAt = Instant.now().toString(),
+                senderName = me.name,
             )
             messages += StoredMessage(incidentId, me.id, normalizedClientId, created)
             recentTimes += nowMs
@@ -300,6 +301,7 @@ class FakeTacApi(
                 senderId = me.id,
                 message = normalized,
                 createdAt = Instant.now().toString(),
+                senderName = me.name,
                 attachmentPath = path,
                 attachmentMimeType = mimeType,
                 attachmentSizeBytes = imageBytes.size.toLong(),
