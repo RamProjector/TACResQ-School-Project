@@ -54,7 +54,8 @@ assert "map.setStyle(REQUESTER_MAP_STYLE_URL)" in requester
 assert "map.addOnCameraIdleListener" in requester
 assert "centerCoordinates.value = target.latitude to target.longitude" in requester
 assert "enabled = mapStyleLoaded && !mapLoadError" in requester
-assert "onConfirm(point.first, point.second)" in requester
+assert "onConfirm(latitude, longitude)" in requester
+assert "val target = mapLibreMap?.cameraPosition?.target" in requester
 assert "Map data © OpenMapTiles · © OpenStreetMap contributors" in requester
 assert "Map data is unavailable. Cancel and share a landmark instead." in requester
 
