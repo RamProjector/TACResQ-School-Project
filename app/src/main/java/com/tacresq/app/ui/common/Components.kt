@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -232,7 +232,7 @@ fun IncidentHistoryListItem(
 ) {
     val statusColor = incident.status.pillColor()
     Card(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp).clickable(role = Role.Button, onClick = onClick),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp).selectable(selected = selected, role = Role.Button, onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         border = BorderStroke(
             if (selected) 2.dp else 1.dp,
