@@ -47,6 +47,10 @@ class FakeTacApiChatTest {
         assertEquals("image/jpeg", sent.attachmentMimeType)
         assertEquals(imageBytes.size.toLong(), sent.attachmentSizeBytes)
         assertTrue(sent.attachmentPath!!.startsWith("${incident.id}/${responder.user.id}/"))
+        val retry = api.sendIncidentImageMessage(
+            incident.id, responder.user.id, "Entrance photo", messageId, "image/jpeg", imageBytes,
+        )
+        assertEquals(sent.id, retry.id)
 
         currentToken = requester.token
         val visible = api.myIncidentMessages(incident.id, 50, null).single()
