@@ -10,7 +10,7 @@ checks = {
     "settings target is this package": 'Uri.fromParts("package", context.packageName, null)' in source,
     "settings action is visible after permission denial": 'showAppSettingsAction = true' in source,
     "settings action is rendered conditionally": 'if (showAppSettingsAction)' in source,
-    "settings action has an accessible label": 'Text("Open app location settings")' in source,
+    "settings action has an accessible label": 'Text("Open settings")' in source,
     "permission grant clears recovery action": 'showAppSettingsAction = false' in source,
     "permission denial preserves incident map": 'Incident pins remain available' in source,
     "settings launch failure has manual recovery instructions": 'Open Android Settings, choose Apps, then TACResQ' in source,

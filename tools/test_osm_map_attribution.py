@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
-"""Guard visible OpenStreetMap attribution and its official copyright link."""
+"""Guard MapLibre/OpenFreeMap attribution and its provider link."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text()
+BUILD = (ROOT / "app/build.gradle.kts").read_text()
 
-assert '"© OpenStreetMap contributors"' in SOURCE
-assert 'https://www.openstreetmap.org/copyright' in SOURCE
-assert 'TileSourceFactory.MAPNIK' in SOURCE
-# Attribution remains visible in the persistent sheet, whether collapsed or expanded.
-attribution = SOURCE.index('"© OpenStreetMap contributors"')
-sheet = SOURCE.index('sheetContent = {')
-assert attribution > sheet
-assert '.heightIn(min = 48.dp)' in SOURCE[attribution - 180:attribution + 300]
-assert 'BottomSheetScaffold(' in SOURCE
+assert 'OPENFREEMAP_LIBERTY_STYLE = "https://tiles.openfreemap.org/styles/liberty"' in SOURCE
+assert 'text = "© OpenMapTiles · © OpenStreetMap contributors"' in SOURCE
+assert 'https://openfreemap.org/' in SOURCE
+assert 'org.maplibre.gl:android-sdk-opengl:13.7.1' in BUILD
+assert "org.osmdroid:" not in BUILD
+# Keep provider/data attribution visible in both map information surfaces.
+attributions = [index for index in range(len(SOURCE)) if SOURCE.startswith('text = "© OpenMapTiles · © OpenStreetMap contributors"', index)]
+assert len(attributions) >= 2, "attribution must remain visible when the sheet is collapsed and expanded"
+for attribution in attributions:
+    assert '.heightIn(min = 48.dp)' in SOURCE[attribution - 100:attribution + 500], 'attribution link must retain a 48dp touch target'
+assert "BottomSheetScaffold(" in SOURCE
+assert "sheetPeekHeight = 120.dp" in SOURCE
+assert "BottomSheetDefaults.DragHandle()" in SOURCE
+assert "MapLibre.getInstance(context)" in SOURCE
+assert "map.setStyle(OPENFREEMAP_LIBERTY_STYLE)" in SOURCE
 
-print("PASS: persistent GPS sheet retains accessible OpenStreetMap attribution.")
+print("PASS: GPS map uses MapLibre/OpenFreeMap Liberty and preserves visible map-data attribution.")
