@@ -99,8 +99,8 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.3.0")
 
     implementation("com.google.code.gson:gson:2.15.0")
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
     implementation("com.squareup.okhttp3:logging-interceptor:5.5.1")
 
     implementation("com.google.android.gms:play-services-location:21.4.0")
