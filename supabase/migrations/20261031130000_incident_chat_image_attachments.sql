@@ -185,6 +185,7 @@ BEGIN
 
   IF p_client_message_id IS NULL
      OR p_attachment_path IS NULL
+     OR p_attachment_mime_type IS NULL
      OR p_attachment_mime_type NOT IN ('image/jpeg', 'image/png', 'image/webp')
      OR p_attachment_size_bytes IS NULL
      OR p_attachment_size_bytes NOT BETWEEN 1 AND 5242880 THEN
@@ -219,6 +220,8 @@ BEGIN
       FROM storage.objects o
      WHERE o.bucket_id = 'incident-chat-attachments'
        AND o.name = p_attachment_path
+       AND o.metadata->>'mimetype' = p_attachment_mime_type
+       AND (o.metadata->>'size')::bigint = p_attachment_size_bytes
   ) THEN
     RAISE EXCEPTION 'Uploaded image could not be verified'
       USING ERRCODE = '22023';
