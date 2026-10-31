@@ -121,7 +121,11 @@ assert "showSignOutConfirmation = true" in app_root
 
 assert "onOpenNotifications: (() -> Unit)? = null" in components
 assert 'contentDescription = "Open notifications"' in components
-assert "val openNotifications: () -> Unit = { destination = AppDestination.ALERTS }" in app_root
+assert "val openNotifications: () -> Unit = {" in app_root
+assert "selectedChatIncidentId = null" in app_root, "Opening Alerts must clear the selected chat route"
+assert app_root.count("onOpenNotifications = { chatVm.closeConversation(); openNotifications() }") == 3, (
+    "Requester, responder/driver, and dispatcher chats must close their conversation before opening Alerts"
+)
 assert "onOpenNotifications = openNotifications" in app_root
 assert "onOpenNotifications = onOpenNotifications" in requester
 assert "onOpenNotifications = onOpenNotifications" in responder
