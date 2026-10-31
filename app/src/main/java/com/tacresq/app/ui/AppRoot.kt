@@ -1,5 +1,6 @@
 package com.tacresq.app.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,11 +12,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.layout.AnimatedPane
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
+import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
+import androidx.compose.material3.adaptive.navigation.NavigableListDetailPaneScaffold
+import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -297,6 +306,47 @@ private fun RoleSectionScreen(
     val activeCount = incidents.count { it.status.isActive }
     val completedCount = incidents.count { !it.status.isActive }
 
+    if (isHistory) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ScreenHeader(title = title, subtitle = "", onOpenNotifications = onOpenNotifications)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Text(
+                        if (role == Role.REQUESTER) "Your emergency requests" else "Your response activity",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        "$activeCount active · $completedCount completed",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+            IncidentHistoryAdaptiveScaffold(
+                modifier = Modifier.weight(1f),
+                incidents = incidents,
+                selectedIncidentId = selectedIncidentId,
+                role = role,
+                onRefresh = onRefreshIncidents,
+                onOpenChat = onOpenChat,
+            )
+        }
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -308,106 +358,6 @@ private fun RoleSectionScreen(
 
         when {
             role == Role.ADMIN -> EmptySectionCard("Administrator access", "Administrative tools are not available in this Android build yet.")
-            isHistory -> {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
-                        Text(
-                            if (role == Role.REQUESTER) "Your emergency requests" else "Your response activity",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                        Text(
-                            "$activeCount active · $completedCount completed",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
-                }
-                val focusedIncident = selectedIncidentId?.let { targetId ->
-                    incidents.firstOrNull { it.id == targetId }
-                }
-                if (selectedIncidentId != null) {
-                    if (focusedIncident != null) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = androidx.compose.material3.CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
-                        ) {
-                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Opened from alert", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                                Text("Incident #${focusedIncident.id} · ${focusedIncident.status.label}")
-                                Text(
-                                    "This record is shown only because it appears in your current authorized incident list.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                )
-                            }
-                        }
-                        com.tacresq.app.ui.common.IncidentCard(focusedIncident) {
-                            androidx.compose.material3.TextButton(onClick = { onOpenChat(focusedIncident.id) }) {
-                                Text("Open conversation")
-                            }
-                        }
-                    } else {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Incident not in the current list", style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    "Refresh your role-scoped list before acting on this alert. If the incident still does not appear, it may no longer be available to this account.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                androidx.compose.material3.OutlinedButton(onClick = onRefreshIncidents) {
-                                    Text("Refresh list")
-                                }
-                            }
-                        }
-                    }
-                }
-                if (incidents.isEmpty()) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Text("Nothing here yet", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                if (role == Role.REQUESTER)
-                                    "When you submit an emergency request, its current status and location details will appear here."
-                                else
-                                    "Assignments and completed responses will appear here when they are returned by dispatch.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                } else {
-                    val remainingIncidents = incidents
-                        .sortedByDescending { it.createdAt.orEmpty() }
-                        .filterNot { focusedIncident?.id == it.id }
-                    if (remainingIncidents.isNotEmpty()) {
-                        SectionHeading("Other incidents")
-                        remainingIncidents.forEach { incident ->
-                            com.tacresq.app.ui.common.IncidentCard(incident) {
-                                androidx.compose.material3.TextButton(onClick = { onOpenChat(incident.id) }) {
-                                    Text("Open conversation")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             destination == AppDestination.SECONDARY && role == Role.DISPATCHER -> {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -497,6 +447,131 @@ private fun RoleSectionScreen(
             }
         }
     }
+}
+
+/**
+ * Keeps the incident collection and selected incident together on large windows,
+ * while preserving a navigable single-pane flow on phones and narrow split-screen windows.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@Composable
+private fun IncidentHistoryAdaptiveScaffold(
+    modifier: Modifier = Modifier,
+    incidents: List<Incident>,
+    selectedIncidentId: Long?,
+    role: Role,
+    onRefresh: () -> Unit,
+    onOpenChat: (Long) -> Unit,
+) {
+    val navigator = rememberListDetailPaneScaffoldNavigator<Long>()
+    val scope = rememberCoroutineScope()
+    val detailId = navigator.currentDestination?.contentKey
+    val detailIncident = detailId?.let { id -> incidents.firstOrNull { it.id == id } }
+    val sortedIncidents = remember(incidents) { incidents.sortedByDescending { it.createdAt.orEmpty() } }
+
+    LaunchedEffect(selectedIncidentId) {
+        if (selectedIncidentId != null) {
+            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, selectedIncidentId)
+        }
+    }
+
+    NavigableListDetailPaneScaffold(
+        navigator = navigator,
+        modifier = modifier,
+        defaultBackBehavior = BackNavigationBehavior.PopUntilContentChange,
+        listPane = {
+            AnimatedPane {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    SectionHeading(
+                        if (role == Role.REQUESTER) "Your requests" else "Your responses",
+                        "Select an incident to view its details",
+                    )
+                    if (sortedIncidents.isEmpty()) {
+                        EmptySectionCard(
+                            "Nothing here yet",
+                            if (role == Role.REQUESTER)
+                                "When you submit an emergency request, its status and location details will appear here."
+                            else
+                                "Assignments and completed responses will appear here when they are returned by dispatch.",
+                        )
+                    } else {
+                        sortedIncidents.forEach { incident ->
+                            com.tacresq.app.ui.common.IncidentCard(
+                                incident,
+                                modifier = if (detailId == incident.id) {
+                                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large)
+                                } else Modifier,
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, incident.id)
+                                        }
+                                    },
+                                ) {
+                                    Text("View details")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        detailPane = {
+            AnimatedPane {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                navigator.navigateTo(ListDetailPaneScaffoldRole.List, null)
+                            }
+                        },
+                    ) {
+                        Text("Back to incident list")
+                    }
+                    when {
+                        detailId == null -> EmptySectionCard(
+                            "Select an incident",
+                            "Choose an incident from the list to review its current status and details.",
+                        )
+                        detailIncident != null -> {
+                            Text(
+                                "Incident #${detailIncident.id}",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            )
+                            com.tacresq.app.ui.common.IncidentCard(detailIncident) {
+                                TextButton(onClick = { onOpenChat(detailIncident.id) }) {
+                                    Text("Open conversation")
+                                }
+                            }
+                        }
+                        else -> {
+                            EmptySectionCard(
+                                "Incident not in the current list",
+                                "Refresh your role-scoped list before acting on this alert. If the incident still does not appear, it may no longer be available to this account.",
+                            )
+                            androidx.compose.material3.OutlinedButton(onClick = onRefresh) {
+                                Text("Refresh list")
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    )
 }
 
 @Composable
