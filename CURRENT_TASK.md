@@ -1,3 +1,15 @@
+# Active handoff — 2026-10-31: responder sign-out safety and dispatcher team summary
+
+- **PR:** #215, branch `fix/map-fullscreen-ui-consistency`; remains open and unmerged.
+- **Responder sign-out regression fix:** the responder/driver role now wraps the Profile/chat sign-out callback to stop that user's foreground location flow before calling repository logout. Updated `tools/test_location_contract.py` to assert the actual AppRoot wiring rather than expecting a now-removed header callback inside ResponderScreen.
+- **Dispatcher team-status UX:** active incident cards now show an overall team status and a compact count of assigned members who have started responding. Individual member status rows are collapsed behind an explicit “View member details” action and can be hidden again. This preserves individual accountability while reducing the five-row status wall in the default queue view.
+- **Regression coverage:** extended `tools/test_per_responder_assignment_status.py` for the collapsed-by-default team summary and detail disclosure.
+- **Commits:** `f471ee01576c406d092d05cd584904b6c8248237` (sign-out safety); `bf3544b03af0a10fd391cdc6001b338c083d179f` (sign-out contract); `70654357b2c7ecf791d1b04ed5d1b8003d71d0ea` (team summary UI); `dd545995daa597ed08d347962e75c19e5772fa22` (team summary contract).
+- **Validation:** changes were committed through GitHub; no local Android build or emulator run was performed. Previous exact-head CI on `8a9b42f4...` failed in Android build/source checks and CodeQL Android. The new commits trigger fresh CI; do not claim success until the latest head's checks finish.
+- **Next:** inspect exact-head CI failures, resolve them without weakening checks, then continue with a focused responder/dispatcher workflow review. Do not merge until all required checks pass.
+
+---
+
 # Active handoff — 2026-10-30: GPS permission-denial recovery
 
 - **Verified main at task start:** `b6fa737230f7e69de8273ba4652088026e2e9f7a` (PR #206 merged; external map intent recovery).
