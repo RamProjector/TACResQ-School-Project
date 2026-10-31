@@ -192,48 +192,51 @@ private fun Incident.locationAgeStatus(now: Instant = Instant.now()): Pair<Strin
 @Composable
 private fun GpsMapFilterButtons(
     role: Role,
+    hasIncidents: Boolean,
+    hasActiveUnits: Boolean,
     onShowIncidents: () -> Unit,
     onShowActiveUnits: () -> Unit,
 ) {
+    if (!hasIncidents && !(role == Role.DISPATCHER && hasActiveUnits)) return
+
     Row(
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        androidx.compose.material3.FilledTonalButton(
-            onClick = onShowIncidents,
-            modifier = Modifier.heightIn(min = 48.dp).semantics {
-                contentDescription = "Center map on active incidents"
-            },
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-        ) {
-            androidx.compose.material3.Icon(
-                imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
+        if (hasIncidents) {
+            androidx.compose.material3.AssistChip(
+                onClick = onShowIncidents,
+                modifier = Modifier.heightIn(min = 44.dp).semantics {
+                    contentDescription = "Center map on active incidents"
+                },
+                label = { Text("Incidents", maxLines = 1) },
+                leadingIcon = {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
             )
-            androidx.compose.foundation.layout.Spacer(Modifier.size(width = 6.dp, height = 1.dp))
-            Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
-        if (role == Role.DISPATCHER) {
-            androidx.compose.material3.FilledTonalButton(
+        if (role == Role.DISPATCHER && hasActiveUnits) {
+            androidx.compose.material3.AssistChip(
                 onClick = onShowActiveUnits,
-                modifier = Modifier.heightIn(min = 48.dp).semantics {
+                modifier = Modifier.heightIn(min = 44.dp).semantics {
                     contentDescription = "Center map on responder field units"
                 },
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Groups,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                androidx.compose.foundation.layout.Spacer(Modifier.size(width = 6.dp, height = 1.dp))
-                Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1)
-            }
+                label = { Text("Field units", maxLines = 1) },
+                leadingIcon = {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Groups,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
+            )
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpsMapScreen(
@@ -351,6 +354,37 @@ fun GpsMapScreen(
             "Active incidents have no valid map pins."
         else ->
             "No incident pins yet."
+    }
+    val roleMapTitle = selectedIncident?.let { "Incident #${it.id} · ${it.type.label}" } ?: when (role) {
+        Role.REQUESTER -> if (deviceFix != null) "Your location" else "Your map"
+        Role.RESPONDER, Role.DRIVER -> "Response map"
+        Role.DISPATCHER -> "Dispatch overview"
+        Role.ADMIN -> "Operations map"
+    }
+    val roleMapSummary = when (role) {
+        Role.REQUESTER -> when {
+            showAppSettingsAction -> "Location access is off · incident pins remain visible."
+            deviceFix != null -> "One-time location preview · this device only."
+            else -> defaultMapStatus
+        }
+        Role.RESPONDER, Role.DRIVER -> defaultMapStatus
+        Role.DISPATCHER -> if (validResponderLocations.isNotEmpty()) {
+            "$defaultMapStatus $freshResponderCount field units currently fresh."
+        } else {
+            defaultMapStatus
+        }
+        Role.ADMIN -> "Read-only map overview."
+    }
+    val collapsedMapSummary = when {
+        showAppSettingsAction -> "Location access is off · incident pins remain visible."
+        locationStatus != null -> locationStatus!!
+        else -> roleMapSummary
+    }
+    val emptyMapMessage = when (role) {
+        Role.REQUESTER -> "No active incident locations are available right now. You can still explore the map."
+        Role.RESPONDER, Role.DRIVER -> "No active response locations are available right now."
+        Role.DISPATCHER -> "No incident or field-unit locations are available right now."
+        Role.ADMIN -> "The admin map is read-only. Incident and responder locations are not exposed here."
     }
 
     // Clear stale action text when the incident set changes; the default is derived from current map data.
@@ -751,10 +785,9 @@ fun GpsMapScreen(
     BottomSheetScaffold(
         modifier = Modifier.fillMaxSize().semantics { paneTitle = "GPS Map" },
         scaffoldState = mapSheetState,
-        sheetPeekHeight = 128.dp,
-        sheetSwipeEnabled = true,
+        sheetPeekHeight = 120.dp,
         sheetMaxWidth = 680.dp,
-        sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         sheetContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
         sheetContentColor = MaterialTheme.colorScheme.onSurface,
         sheetTonalElevation = 2.dp,
@@ -775,23 +808,24 @@ fun GpsMapScreen(
                     ) {
                         Column(
                             modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             Text(
-                                selectedIncident?.let { "Incident #${it.id} · ${it.type.label}" } ?: "Map overview",
+                                roleMapTitle,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = locationStatus ?: defaultMapStatus,
+                                text = collapsedMapSummary,
                                 modifier = Modifier.semantics {
-                                    if (locationStatus != null) liveRegion = LiveRegionMode.Polite
+                                    if (locationStatus != null || showAppSettingsAction) liveRegion = LiveRegionMode.Polite
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                         if (selectedIncident != null) {
@@ -821,11 +855,43 @@ fun GpsMapScreen(
                     }
 
                     if (showAppSettingsAction) {
-                        androidx.compose.material3.TextButton(
-                            onClick = ::openAppLocationSettings,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        androidx.compose.material3.Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ) {
-                            Text("Open app location settings")
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                androidx.compose.material3.Icon(
+                                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(
+                                        "Location access is off",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        "Incident pins remain available. Enable location to center this map on your device.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                                androidx.compose.material3.TextButton(
+                                    onClick = ::openAppLocationSettings,
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                ) {
+                                    Text("Settings")
+                                }
+                            }
                         }
                     }
 
@@ -887,7 +953,7 @@ fun GpsMapScreen(
                         } else {
                             item(key = "no-incidents", contentType = "map-info") {
                                 Text(
-                                    "No incident locations are available yet. The map remains available for one-time location preview.",
+                                    emptyMapMessage,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -971,30 +1037,31 @@ fun GpsMapScreen(
         ) {
             androidx.compose.material3.Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                tonalElevation = 2.dp,
-                shadowElevation = 2.dp,
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                tonalElevation = 3.dp,
+                shadowElevation = 6.dp,
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    androidx.compose.material3.TextButton(
+                    androidx.compose.material3.IconButton(
                         onClick = onBack,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                        modifier = Modifier.size(48.dp).semantics {
+                            contentDescription = "Back from GPS map"
+                        },
                     ) {
                         androidx.compose.material3.Icon(
                             imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(21.dp),
                         )
-                        androidx.compose.foundation.layout.Spacer(Modifier.size(width = 4.dp, height = 1.dp))
-                        Text("Back", style = MaterialTheme.typography.labelLarge)
                     }
                     Text(
                         "GPS Map",
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f),
@@ -1004,7 +1071,7 @@ fun GpsMapScreen(
                     )
                     if (hasValidatedInternet == false) {
                         androidx.compose.material3.Surface(
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                            shape = RoundedCornerShape(50),
                             color = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ) {
@@ -1024,7 +1091,7 @@ fun GpsMapScreen(
                         androidx.compose.material3.FilledTonalIconButton(
                             onClick = {},
                             enabled = false,
-                            modifier = Modifier.size(52.dp),
+                            modifier = Modifier.size(48.dp),
                         ) {
                             androidx.compose.material3.CircularProgressIndicator(
                                 modifier = Modifier
@@ -1038,7 +1105,7 @@ fun GpsMapScreen(
                     } else if (locationProvider.hasPrecisePermission()) {
                         androidx.compose.material3.FilledTonalIconButton(
                             onClick = ::locateOnce,
-                            modifier = Modifier.size(52.dp),
+                            modifier = Modifier.size(48.dp),
                         ) {
                             androidx.compose.material3.Icon(
                                 imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
@@ -1046,11 +1113,9 @@ fun GpsMapScreen(
                             )
                         }
                     } else if (!locationProvider.hasApproximatePermission()) {
-                        // Coarse permission is requested first so users can use an
-                        // approximate preview without granting session-based precision.
                         androidx.compose.material3.FilledTonalIconButton(
                             onClick = onLocateClick,
-                            modifier = Modifier.size(52.dp),
+                            modifier = Modifier.size(48.dp),
                         ) {
                             androidx.compose.material3.Icon(
                                 imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
@@ -1058,12 +1123,9 @@ fun GpsMapScreen(
                             )
                         }
                     } else {
-                        // API 37 requires the secure system Location Button for
-                        // session-based precise access. The AndroidX component falls
-                        // back to the platform permission flow on older releases.
                         LocationButton(
                             modifier = Modifier
-                                .size(52.dp)
+                                .size(48.dp)
                                 .semantics {
                                     contentDescription = "Use precise location for a one-time map preview"
                                 },
@@ -1071,13 +1133,11 @@ fun GpsMapScreen(
                             iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
                             textColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             textType = LocationButtonTextType.None,
-                            cornerRadius = 26.dp,
+                            cornerRadius = 24.dp,
                             onPermissionResult = { granted ->
                                 if (granted) {
                                     locateOnce()
                                 } else if (locationProvider.hasApproximatePermission()) {
-                                    // Respect the user's precise-location choice while
-                                    // retaining the already-granted approximate fallback.
                                     locateOnce()
                                 } else {
                                     deviceFix = null
@@ -1095,6 +1155,8 @@ fun GpsMapScreen(
 
             GpsMapFilterButtons(
                 role = role,
+                hasIncidents = validIncidentPoints.isNotEmpty(),
+                hasActiveUnits = validResponderLocations.isNotEmpty(),
                 onShowIncidents = ::showIncidentPins,
                 onShowActiveUnits = ::showActiveUnits,
             )
