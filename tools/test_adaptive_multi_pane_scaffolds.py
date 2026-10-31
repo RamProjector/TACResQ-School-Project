@@ -23,7 +23,10 @@ assert "navigator.navigateTo(ListDetailPaneScaffoldRole.List, null)" in source
 assert "modifier = Modifier.weight(1f)" in source
 assert 'Text("View details")' in source
 assert "detailId == incident.id" in source
-assert "Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large)" in source
+components = (root / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
+assert "BorderStroke(" in components
+assert "if (selected) 1.5.dp else 1.dp" in components
+assert "if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant" in components
 assert 'Text("Open conversation")' in source
 assert "Incident not in the current list" in source
 
