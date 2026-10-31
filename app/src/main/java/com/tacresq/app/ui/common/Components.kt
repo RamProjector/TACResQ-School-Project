@@ -213,21 +213,22 @@ fun IncidentCard(
 internal fun incidentLocationText(incident: Incident): String {
     val latitude = incident.latitude
     val longitude = incident.longitude
+    val note = incident.locationNotes?.trim()?.takeIf { it.isNotEmpty() }?.let { " · " + it }.orEmpty()
 
     if (latitude == null && longitude == null) {
         return if (incident.locationSource == null || incident.locationSource == "none") {
-            "No location pin"
+            "No location pin$note"
         } else {
-            "Location needs verification"
+            "Location needs verification$note"
         }
     }
     if (latitude == null || longitude == null) {
-        return "Location coordinates incomplete — verify pin"
+        return "Location coordinates incomplete — verify pin$note"
     }
     if (!latitude.isFinite() || !longitude.isFinite() ||
         latitude !in -90.0..90.0 || longitude !in -180.0..180.0
     ) {
-        return "Location coordinates invalid — verify pin"
+        return "Location coordinates invalid — verify pin$note"
     }
 
     val source = when (incident.locationSource) {
@@ -245,7 +246,6 @@ internal fun incidentLocationText(incident: Incident): String {
         incident.locationRecordedAt?.let { formatTime(it) }?.takeIf { it.isNotBlank() }
             ?.let { " · $it" } ?: " · time unverified"
     } else ""
-    val note = incident.locationNotes?.trim()?.takeIf { it.isNotEmpty() }?.let { " · " + it }.orEmpty()
     return "$source$accuracy$captured$note"
 }
 
