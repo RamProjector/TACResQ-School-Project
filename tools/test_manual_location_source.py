@@ -84,7 +84,7 @@ checks = {
     ),
     "manual pin shows live center coordinates and warns against blank-map selection": all(
         text in requester for text in (
-            "            "addOnCameraIdleListener",
+            "addOnCameraIdleListener",
             "centerCoordinates.value = target.latitude to target.longitude",
             '"Selected location: %.5f, %.5f"',
             "Map pin only; it does not measure GPS accuracy.",
