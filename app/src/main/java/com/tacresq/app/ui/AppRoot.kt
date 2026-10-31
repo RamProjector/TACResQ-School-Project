@@ -278,7 +278,7 @@ private fun RoleApp(
 }
 
 @Composable
-private fun RoleSectionScreen(
+internal fun RoleSectionScreen(
     destination: AppDestination,
     user: User,
     logout: () -> Unit,
@@ -312,6 +312,14 @@ private fun RoleSectionScreen(
     }
     val activeCount = incidents.count { it.status.isActive }
     val completedCount = incidents.count { !it.status.isActive }
+    val sectionScrollState = rememberScrollState()
+    val sectionScrollModifier = if (destination == AppDestination.CHAT) {
+        // A LazyColumn must not be measured inside a vertically scrolling parent.
+        // Keep the conversation list as the single scroll container when requests exist.
+        Modifier
+    } else {
+        Modifier.verticalScroll(sectionScrollState)
+    }
 
     if (isHistory) {
         Column(
@@ -336,7 +344,7 @@ private fun RoleSectionScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .then(sectionScrollModifier)
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -398,7 +406,7 @@ private fun RoleSectionScreen(
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(conversations, key = { it.id }) { incident ->

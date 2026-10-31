@@ -411,6 +411,11 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit, on
                     val ownStatus = incident.statusFor(user.id)
                     StatusPill(ownStatus.label, ownStatus.pillColor())
                 }
+                Text(
+                    "Your status updates are shared with dispatch and the requester. The overall request status reflects the assigned team's progress.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 val contact = listOfNotNull(incident.requesterName, incident.requesterPhone)
                     .joinToString(", ")
                 if (contact.isNotBlank()) Text("Requester: $contact")

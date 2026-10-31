@@ -21,6 +21,14 @@ TACResQ is not restricted to one kind of emergency. The product concept covers g
 - **Dispatcher:** Reviews the incident queue and available field units, confirms assignments, and coordinates supported response actions.
 - **Administrator or trusted operator:** Handles only the administration functions explicitly implemented and authorized in the repository. Do not assume a role has privileges merely because its name appears in documentation.
 
+### Response-team and field-leadership boundary
+
+- A dispatch "team" currently means the set of responder/driver assignments attached to one incident (up to the backend-enforced limit); it is not a separately managed standing team roster.
+- Dispatchers may select eligible available responders/drivers as a group. The first selected member may populate the legacy `assigned_to` compatibility field; that field must **not** be presented as proof that the person is a formally appointed team leader.
+- Individual response progress is authoritative per assignment and is updated by the assigned responder/driver through the server-enforced status transition RPC. The incident status is a conservative aggregate, not a substitute for member-level status.
+- Chat is for coordination and situation reports. It must not be used as the source of truth for assignment, arrival, or completion; those states come from authenticated status actions and server records.
+- A formal Team Leader designation, leader-specific permissions, or dispatcher appointment workflow is **not implemented**. Do not add one until TACRU's authorized operating procedure identifies who may designate leaders, required qualifications, and the leader's actual authority. Do not create another login role merely to represent a designation.
+
 These roles define TACResQ's emergency-response workflow and must remain specific to this product.
 
 ## 3. Product boundaries
@@ -97,3 +105,18 @@ Do not add features merely to increase feature count. Any proposed feature shoul
 
 > **TACResQ is a Tacloban-focused general emergency GPS helper that supports incident location sharing, authorized response coordination, and navigation to reported emergencies.**
 
+
+
+## 9. Research basis and implementation decision — 2026-10-31
+
+Public-source review found:
+
+- Tacloban City's CDRRM Plan 2016–2022 states that the CDRRMO exercises direction and control over emergency operations from city to barangay level. The same plan identifies revision/enhancement of existing TACRU Emergency Response Team guidelines as an action, with an approved TACRU guidelines document as the intended verification. This shows that TACRU-specific operational rules are relevant, but does **not** disclose who appoints a field leader or what that leader may do. The plan period ended in 2022 and must not be treated as the current TACRU SOP. Source: https://storage.googleapis.com/request-attachments/CHVEib8tSDiwuuUSzJIqgxoikqAvhjsGg8ZXEqvALshyCL4lZ3BQmXgMse5KKDKRtIjN2aWOCzTUilaoXOo5RxcFrot04zx7KyKn/Tacloban%20CDRRMP.pdf
+- Republic Act 10121 assigns LDRRMOs responsibility to organize, train, and directly supervise local emergency response teams and accredited community disaster volunteers. Source: https://elibrary.judiciary.gov.ph/thebookshelf/showdocs/2/21121
+- The Philippine ICS Field Operations Guide recognizes Strike Team/Task Force Leaders and Single Resource Boss positions. It describes defined operational leadership: receive assignments through a supervisor, organize/brief subordinates, monitor progress and safety, and report resource/situation status up the chain. ICS emphasizes chain of command and unity of command. A field leader is therefore an operational assignment, not a new login identity or an arbitrary dispatcher label. Source: https://studylib.net/doc/27939895/ics-field-operations-guide
+- Tacloban City's 2023 Annual Report describes a 24/7 CDRRMO monitoring/response team, but does not publish TACRU field-leader appointment rules or a current operational roster. Source: https://new.tacloban.gov.ph/wp-content/uploads/2025/02/2023-ANNUAL-REPORT.pdf
+- Public reporting describes TACRU as established under CDRRMO and operating shifts with organic personnel and volunteers; this is contextual reporting, not an authority document. Source: https://www.sunstar.com.ph/tacloban/local-news/tacloban-rescue-unit-tops-disaster-humanitarian-response
+
+**Implementation decision:** Keep existing Dispatcher and Responder accounts. If TACRU confirms a leadership designation, model it as an incident/resource-scoped designation assigned only by the authority specified in the current TACRU SOP—not as a fifth account role and not by assuming the first selected responder is the leader. Keep leadership separate from assignment membership. Record who designated/changed the leader, timestamp, reason, and authorizing basis. Give the leader only coordination/reporting permissions explicitly confirmed by SOP; do not silently grant authority to change incident priority, dispatch/release resources, override another responder's status, or close incidents.
+
+**Until TACRU confirms the current SOP:** retain multi-responder incident assignment and individual status tracking; do not expose an unrestricted leader picker or automatically designate a leader. If a response requires a leader but no authorized designation exists in system data, show "Field lead not recorded" rather than inventing one. Obtain the current approved TACRU Emergency Response Team guidelines / CDRRMO Manual of Operations and confirm: (1) who appoints the field lead, (2) whether designation is per shift/team or per incident, (3) qualifications, (4) exact authority and reporting line, and (5) whether volunteers or junior rescue members may be assigned.
