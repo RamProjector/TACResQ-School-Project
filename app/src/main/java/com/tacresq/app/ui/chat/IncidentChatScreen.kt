@@ -604,20 +604,23 @@ fun IncidentChatScreen(
 
 @Composable
 private fun IncidentMessageImage(path: String, vm: IncidentChatViewModel) {
-    val image by produceState<ImageBitmap?>(initialValue = null, path) {
+    var retryCount by remember(path) { mutableStateOf(0) }
+    val loadState by produceState<Pair<ImageBitmap?, Boolean>>(initialValue = null to false, path, retryCount) {
         val bytes = vm.downloadImage(path)
-        value = bytes?.let {
+        val decoded = bytes?.let {
             withContext(Dispatchers.Default) {
                 BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
             }
         }
+        value = decoded to (decoded == null)
     }
+    val image = loadState.first
     if (image != null) {
         Image(
-            bitmap = image!!,
+            bitmap = image,
             contentDescription = "Image shared in this incident conversation",
             modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(14.dp)),
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.Fit,
         )
     } else {
         Surface(
@@ -629,8 +632,13 @@ private fun IncidentMessageImage(path: String, vm: IncidentChatViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                Text("Loading shared image…", style = MaterialTheme.typography.labelMedium)
+                if (loadState.second) {
+                    Text("Image unavailable", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
+                    TextButton(onClick = { retryCount++ }) { Text("Retry") }
+                } else {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text("Loading shared image…", style = MaterialTheme.typography.labelMedium)
+                }
             }
         }
     }
