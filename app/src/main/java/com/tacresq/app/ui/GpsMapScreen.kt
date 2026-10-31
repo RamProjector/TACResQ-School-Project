@@ -1222,6 +1222,7 @@ private fun MapIncidentCard(
                 // A landmark-only request is still actionable. Reuse the shared
                 // provenance formatter so missing, partial, and invalid pins are distinct.
                 val hasLandmarkFallback = lat == null && lng == null &&
+                    (incident.locationSource == null || incident.locationSource == "none") &&
                     !incident.locationNotes.isNullOrBlank()
                 Text(
                     incidentLocationText(incident),
