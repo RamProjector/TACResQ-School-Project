@@ -336,7 +336,7 @@ fun GpsMapScreen(
         val lat = incident.latitude
         val lng = incident.longitude
         if (incident.hasValidMapCoordinates() && lat != null && lng != null) {
-            GeoPoint(lat, lng)
+            LatLng(lat, lng)
         } else {
             null
         }
@@ -352,13 +352,13 @@ fun GpsMapScreen(
     val agingResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.AGING }
     val staleResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.STALE }
     val hasConfirmedIncidentCoordinates = visibleIncidents.any { it.hasValidMapCoordinates() }
-    val validResponderPoints = validResponderLocations.map { GeoPoint(it.latitude, it.longitude) }
+    val validResponderPoints = validResponderLocations.map { LatLng(it.latitude, it.longitude) }
     // Keep stale last-known positions visible, but never let them dominate the initial
     // camera bounds. Fresh/aging units can still be framed when no incident pins exist;
     // dispatchers can explicitly center the map on stale units with the Field units action.
     val responderPointsForInitialFrame = validResponderLocations
         .filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }
-        .map { GeoPoint(it.latitude, it.longitude) }
+        .map { LatLng(it.latitude, it.longitude) }
     val initialMapPoints = if (role == Role.DISPATCHER) {
         validIncidentPoints + responderPointsForInitialFrame
     } else {
@@ -484,14 +484,14 @@ fun GpsMapScreen(
         context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_my_location_pin)
     }
 
-    fun animateToPoint(point: GeoPoint, zoom: Double) {
+    fun animateToPoint(point: LatLng, zoom: Double) {
         mapLibreMap?.animateCamera(
             CameraUpdateFactory.newLatLngZoom(LatLng(point.latitude, point.longitude), zoom),
             420,
         )
     }
 
-    fun fitMapPoints(points: List<GeoPoint>) {
+    fun fitMapPoints(points: List<LatLng>) {
         val map = mapLibreMap ?: return
         if (points.isEmpty()) return
         if (points.size == 1) {
@@ -499,7 +499,7 @@ fun GpsMapScreen(
             return
         }
         val bounds = LatLngBounds.Builder()
-            .includes(points.map { LatLng(it.latitude, it.longitude) })
+            .includes(points)
             .build()
         map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 64), 480)
     }
@@ -530,7 +530,7 @@ fun GpsMapScreen(
             return
         }
         deviceFix = null
-        animateToPoint(GeoPoint(latitude, longitude), 15.0)
+        animateToPoint(LatLng(latitude, longitude), 15.0)
         locationStatus = "Centered on incident #${incident.id}. Check the recorded location time before navigating."
     }
 
@@ -598,7 +598,7 @@ fun GpsMapScreen(
                                 mapView.post {
                                     // Match zoom to the reported uncertainty; avoid implying
                                     // street-level precision when the fix is only approximate.
-                                    animateToPoint(GeoPoint(fix.latitude, fix.longitude), gpsMapPreviewZoom(fix.accuracyM))
+                                    animateToPoint(LatLng(fix.latitude, fix.longitude), gpsMapPreviewZoom(fix.accuracyM))
                                     mapView.invalidate()
                                 }
                                 val precision = if (fix.hasPrecisePermission) "Precise" else "Approximate"
