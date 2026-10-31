@@ -157,6 +157,9 @@ jobs:
       - name: Check Android notification inbox security and lifecycle
         run: python3 tools/test_android_notifications_contract.py
 
+      - name: Check Kotlin and Compose compiler version alignment
+        run: python3 tools/test_kotlin_compose_alignment.py
+
       - name: Check Android incident chat security and lifecycle
         run: python3 tools/test_android_chat_contract.py
 

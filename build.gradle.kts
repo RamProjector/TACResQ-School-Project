@@ -1,4 +1,15 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // AGP 9.1.1 defaults to KGP 2.2.10; align the Kotlin compiler with Compose Compiler 2.4.21.
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21")
+    }
+}
+
 plugins {
     id("com.android.application") version "9.1.1" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.2.10" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.4.21" apply false
 }
