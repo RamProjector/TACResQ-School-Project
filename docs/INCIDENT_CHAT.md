@@ -58,7 +58,7 @@ No live Supabase migration, production message, account change, Render deploymen
 
 - Shared role-screen headers no longer display a sign-out action. This prevents a high-consequence session action from competing with primary screen navigation.
 - Standard role profiles expose **Sign out** as a secondary action, with a confirmation dialog explaining that active emergency requests remain active and are not cancelled by ending the session.
-- The notification destination remains available through the existing Alerts navigation entry until the separate top-right notification affordance is implemented and tested.
+- The existing Alerts destination remains available as a second route to the same inbox while the top-right notification action is validated on-device.
 - The dedicated Android admin access screen does not yet have the shared role Profile destination; its account/session exit path needs a role-appropriate follow-up rather than silently dropping administrator sign-out access.
 - No authentication, session invalidation, incident lifecycle, or backend authorization behavior was changed.
 
