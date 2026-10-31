@@ -16,6 +16,7 @@ assert "if (feedbackError != null)" in feedback
 assert "Banner(feedbackError, isError = true" in feedback
 assert "state.notice?.let" in feedback
 assert "Banner(message, isError = false" in feedback
+assert "isSuccess = true" in feedback
 assert feedback.index("if (feedbackError != null)") < feedback.index("state.notice?.let")
 assert feedback.count("Banner(") == 2  # Two mutually exclusive branches, never two visible banners.
 
