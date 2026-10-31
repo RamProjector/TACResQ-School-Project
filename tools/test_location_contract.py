@@ -12,6 +12,7 @@ current_location_migration = (ROOT / "supabase/migrations/20261023103737_per_res
 dashboard = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
 location_provider = (ROOT / "app/src/main/java/com/tacresq/app/location/LocationProvider.kt").read_text()
 responder_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
+app_root = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text()
 map_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text()
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text()
 gradle = (ROOT / "app/build.gradle.kts").read_text()
@@ -65,7 +66,7 @@ checks = {
     ),
     "Android incident pins show recorded location age and warn on missing, invalid, future, or old timestamps": all(text in map_screen for text in ("private fun Incident.locationAgeStatus", "Location time unavailable — confirm before navigating.", "Location timestamp invalid — confirm before navigating.", "Location timestamp is in the future — confirm before navigating.", "ageSeconds > 600L", "confirm before navigating.", "Location recorded ${formatLocationAge(ageSeconds)}", "val locationAgeLabel = incident.locationAgeStatus(mapNow).first", "val (ageLabel, needsConfirmation) = incident.locationAgeStatus(now)", "color = if (needsConfirmation) MaterialTheme.colorScheme.error")),
     "expanded incident cards share the ticking map clock so stale-location warnings keep updating": all(text in map_screen for text in ("MapIncidentCard(", "context = context,", "now = mapNow,", "private fun MapIncidentCard(", "now: Instant,", "incident.locationAgeStatus(now)")),
-    "sign-out stops location sharing before clearing the session": 'Location sharing stopped because you signed out.' in responder_screen and "onLogout()" in responder_screen,
+    "responder sign-out stops location sharing before clearing the session": 'Location sharing stopped because you signed out.' in app_root and "vm.stopTracking(" in app_root and "responderLogout" in app_root,
 }
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
