@@ -11,11 +11,19 @@ import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.model.IncidentMessage
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.ResponseBody
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
+import retrofit2.http.GET
+import retrofit2.http.Headers
+import retrofit2.http.Streaming
+import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Header
 import java.io.IOException
@@ -25,6 +33,7 @@ import java.util.concurrent.TimeUnit
 class SupabaseTacApi private constructor(
     private val auth: SupabaseAuthWire,
     private val rpc: SupabaseRpcWire,
+    private val storage: SupabaseStorageWire,
     private val bridgeRpc: SupabaseBridgeRpcWire?,
 ) : TacApi, TacNotificationApi, TacChatApi, TacAdminApi {
     override suspend fun login(body: LoginRequest): AuthResponse = authenticate {
@@ -169,6 +178,50 @@ class SupabaseTacApi private constructor(
         return rpc.sendIncidentMessage(SendIncidentMessageRpc(incidentId, normalized, clientMessageId))
     }
 
+    override suspend fun sendIncidentImageMessage(
+        incidentId: Long,
+        senderId: Long,
+        message: String,
+        clientMessageId: String,
+        mimeType: String,
+        imageBytes: ByteArray,
+    ): IncidentMessage {
+        require(incidentId > 0 && senderId > 0) { "A valid incident and sender are required." }
+        val normalized = message.trim()
+        require(normalized.length <= 2000) { "Image caption must be 2000 characters or fewer." }
+        require(mimeType in setOf("image/jpeg", "image/png", "image/webp")) { "Unsupported image type." }
+        require(imageBytes.isNotEmpty() && imageBytes.size <= 5 * 1024 * 1024) { "Images must be 5 MB or smaller." }
+        val messageId = java.util.UUID.fromString(clientMessageId).toString()
+        val extension = when (mimeType) {
+            "image/jpeg" -> "jpg"
+            "image/png" -> "png"
+            else -> "webp"
+        }
+        val path = "$incidentId/$senderId/$messageId.$extension"
+        try {
+            storage.upload(
+                bucket = "incident-chat-attachments",
+                path = path,
+                contentType = mimeType,
+                body = imageBytes.toRequestBody(mimeType.toMediaType()),
+            ).close()
+        } catch (failure: retrofit2.HttpException) {
+            // A retry after an ambiguous response reuses the deterministic object path.
+            // HTTP 409 means the first upload already stored it; the idempotent RPC decides.
+            if (failure.code() != 409) throw failure
+        }
+        return rpc.sendIncidentImageMessage(
+            SendIncidentImageMessageRpc(incidentId, normalized, path, mimeType, imageBytes.size.toLong(), messageId)
+        )
+    }
+
+    override suspend fun downloadIncidentImage(path: String): ByteArray {
+        require(path.matches(Regex("^[1-9][0-9]*/[1-9][0-9]*/[0-9a-f-]{36}\\.(jpg|png|webp)$"))) {
+            "Image attachment path is invalid."
+        }
+        return storage.download("incident-chat-attachments", path).use { it.bytes() }
+    }
+
     companion object {
         fun create(tokenProvider: () -> String?, useRenderBridge: Boolean = false): TacApi {
             val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
@@ -211,6 +264,7 @@ class SupabaseTacApi private constructor(
             return SupabaseTacApi(
                 retrofit.create(SupabaseAuthWire::class.java),
                 retrofit.create(SupabaseRpcWire::class.java),
+                retrofit.create(SupabaseStorageWire::class.java),
                 bridgeRpc,
             )
         }
@@ -358,6 +412,27 @@ private interface SupabaseRpcWire {
 
     @POST("rest/v1/rpc/api_send_incident_message")
     suspend fun sendIncidentMessage(@Body body: SendIncidentMessageRpc): IncidentMessage
+
+    @POST("rest/v1/rpc/api_send_incident_image_message")
+    suspend fun sendIncidentImageMessage(@Body body: SendIncidentImageMessageRpc): IncidentMessage
+}
+
+private interface SupabaseStorageWire {
+    @POST("storage/v1/object/{bucket}/{path}")
+    @Headers("x-upsert: false")
+    suspend fun upload(
+        @Path("bucket") bucket: String,
+        @Path(value = "path", encoded = true) path: String,
+        @Header("Content-Type") contentType: String,
+        @Body body: RequestBody,
+    ): ResponseBody
+
+    @GET("storage/v1/object/{bucket}/{path}")
+    @Streaming
+    suspend fun download(
+        @Path("bucket") bucket: String,
+        @Path(value = "path", encoded = true) path: String,
+    ): ResponseBody
 }
 
 private data class SupabaseSession(@SerializedName("access_token") val accessToken: String?)
@@ -412,6 +487,14 @@ private data class IncidentMessagesRpc(
 private data class SendIncidentMessageRpc(
     @SerializedName("p_incident_id") val incidentId: Long,
     @SerializedName("p_message") val message: String,
+    @SerializedName("p_client_message_id") val clientMessageId: String,
+)
+private data class SendIncidentImageMessageRpc(
+    @SerializedName("p_incident_id") val incidentId: Long,
+    @SerializedName("p_message") val message: String,
+    @SerializedName("p_attachment_path") val attachmentPath: String,
+    @SerializedName("p_attachment_mime_type") val attachmentMimeType: String,
+    @SerializedName("p_attachment_size_bytes") val attachmentSizeBytes: Long,
     @SerializedName("p_client_message_id") val clientMessageId: String,
 )
 
