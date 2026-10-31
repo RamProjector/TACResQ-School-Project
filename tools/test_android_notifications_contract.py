@@ -139,7 +139,7 @@ assert "onOpenNotifications = openNotifications" in app_root
 assert "onOpenNotifications = onOpenNotifications" in requester
 assert "onOpenNotifications = onOpenNotifications" in responder
 assert "onOpenNotifications = onOpenNotifications" in dispatcher
-assert "onOpenNotifications = onOpenNotifications" in read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
+assert "IconButton(onClick = onOpenNotifications)" in read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
 assert root.count("onOpenNotifications = openNotifications") >= 3, "requester, responder/driver, and dispatcher incident chats must expose the notification action"
 
 
