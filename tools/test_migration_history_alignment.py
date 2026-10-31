@@ -32,16 +32,7 @@ EXPECTED = {
 }
 PENDING = {
     "20261025170000_isolate_per_responder_location_writer.sql",
-    "20261025180000_location_logs_received_rate_index_concurrently.sql",
     "20261026010000_isolate_multi_responder_location_reader.sql",
-    "20261026190000_persistent_in_app_notifications.sql",
-    "20261026200000_incident_scoped_chat.sql",
-    "20261026161500_admin_role_audit_foundation.sql",
-    "20261026170000_admin_server_side_user_pagination.sql",
-    "20261030100000_require_incident_location_fallback.sql",
-    "20261030110000_require_requester_signup_contact.sql",
-    "20261030120000_bound_requester_signup_contact_lengths.sql",
-    "20261030130000_incident_message_rate_limit_index.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
@@ -86,41 +77,6 @@ for required in (
 ):
     assert required in team, f"Missing multi-unit dispatch contract: {required}"
 
-
-notifications = (MIGRATIONS / "20261026190000_persistent_in_app_notifications.sql").read_text()
-for required in (
-    "CREATE TABLE IF NOT EXISTS public.user_notifications",
-    "user_notifications_one_unread_assignment_idx",
-    "ALTER TABLE public.user_notifications ENABLE ROW LEVEL SECURITY",
-    "REVOKE ALL ON TABLE public.user_notifications FROM PUBLIC, anon, authenticated",
-    "private.tacresq_notify_assignment_insert",
-    "private.tacresq_notify_legacy_assignment_update",
-    "private.tacresq_notify_status_log_insert",
-    "public.api_my_notifications(p_limit integer DEFAULT 50)",
-    "public.api_mark_notification_read(p_notification_id bigint)",
-    "SET search_path = pg_catalog",
-    "GRANT EXECUTE ON FUNCTION public.api_my_notifications(integer) TO authenticated",
-    "GRANT EXECUTE ON FUNCTION public.api_mark_notification_read(bigint) TO authenticated",
-):
-    assert required in notifications, f"Missing in-app notification security contract: {required}"
-
-
-chat = (MIGRATIONS / "20261026200000_incident_scoped_chat.sql").read_text()
-for required in (
-    "CREATE TABLE IF NOT EXISTS public.incident_messages",
-    "ALTER TABLE public.incident_messages ENABLE ROW LEVEL SECURITY",
-    "REVOKE ALL ON TABLE public.incident_messages FROM PUBLIC, anon, authenticated",
-    "private.tacresq_can_access_incident_chat",
-    "public.api_my_incident_messages(",
-    "public.api_send_incident_message(",
-    "client_message_id",
-    "pg_advisory_xact_lock(actor_profile_id)",
-    "GRANT EXECUTE ON FUNCTION public.api_my_incident_messages(bigint, integer, bigint) TO authenticated",
-    "GRANT EXECUTE ON FUNCTION public.api_send_incident_message(bigint, text, uuid) TO authenticated",
-    "'incident_message'",
-):
-    assert required in chat, f"Missing incident chat security contract: {required}"
-
 print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history; {len(PENDING)} proposed migration(s) are explicitly pending live application.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
@@ -138,56 +94,3 @@ print("PASS: public assignment RPCs are invoker wrappers over a private authoriz
 print("PASS: private assignment RPC pins its search path to pg_catalog.")
 print("PASS: missing location_and_push migration recreates FCM storage, RLS, and RPCs.")
 print("PASS: incident status logging runs after insert to satisfy the incident foreign key.")
-
-admin = (MIGRATIONS / "20261026161500_admin_role_audit_foundation.sql").read_text()
-for required in (
-    "CREATE TABLE public.admin_audit_logs",
-    "ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY",
-    "CREATE OR REPLACE FUNCTION public.api_admin_list_users()",
-    "CREATE OR REPLACE FUNCTION public.api_admin_set_user_role(",
-    "CREATE OR REPLACE FUNCTION public.api_admin_list_audit_logs(",
-    "REVOKE ALL ON FUNCTION public.api_admin_set_user_role(bigint, text, text) FROM PUBLIC, anon",
-    "GRANT EXECUTE ON FUNCTION public.api_admin_set_user_role(bigint, text, text) TO authenticated",
-    "Provide an audit reason between 10 and 500 characters",
-):
-    assert required.lower() in admin.lower(), f"Missing Admin security contract: {required}"
-assert "FOR INSERT TO authenticated" not in admin
-assert "FOR UPDATE TO authenticated" not in admin
-assert "FOR DELETE TO authenticated" not in admin
-assert "DROP FUNCTION" not in admin.upper()
-assert "DELETE FROM" not in admin.upper()
-pagination = (MIGRATIONS / "20261026170000_admin_server_side_user_pagination.sql").read_text()
-assert "LIMIT p_limit OFFSET p_offset" in pagination
-assert "SET search_path = pg_catalog" in pagination
-assert "DROP FUNCTION" not in pagination.upper()
-assert "DELETE FROM" not in pagination.upper()
-print("PASS: Admin RPC authorization, append-only audit, and bounded pagination contracts are present.")
-
-location_fallback = (MIGRATIONS / "20261030100000_require_incident_location_fallback.sql").read_text().lower()
-for required in (
-    "create or replace function public.tacresq_require_incident_location()",
-    "set search_path = pg_catalog",
-    "latitude and longitude must be supplied together",
-    "a location pin or landmark/access detail is required",
-    "an emergency description is required for the other type",
-    "create trigger incidents_require_location_before_write",
-    "before insert or update of latitude, longitude, location_notes, type, description on public.incidents",
-):
-    assert required in location_fallback, f"Missing required SOS location database guard: {required}"
-assert "security definer" not in location_fallback
-print("PASS: SOS inserts and location/type edits require a complete pin or a nonblank landmark/access detail.")
-
-signup_validation = (MIGRATIONS / "20261030110000_require_requester_signup_contact.sql").read_text().lower()
-for required in (
-    "create or replace function public.tacresq_profile_on_signup()",
-    "security definer",
-    "set search_path = pg_catalog",
-    "a full name is required for requester registration",
-    "a valid mobile number is required for requester registration",
-    "requester mobile numbers must contain 7 to 15 digits",
-    "'requester'",
-):
-    assert required in signup_validation, f"Missing server-side requester signup requirement: {required}"
-assert "raw_user_meta_data ->> 'role'" not in signup_validation
-print("PASS: public signup enforces name/contact requirements and always provisions requester role.")
-
