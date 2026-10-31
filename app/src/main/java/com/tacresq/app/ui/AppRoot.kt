@@ -88,6 +88,36 @@ fun AppRoot(
                 }
             }
 
+            SessionState.RestoreFailed -> Box(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Card {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            "Couldn't restore your saved session",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            "Your saved sign-in data has not been cleared. Check available device storage, then try again.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        androidx.compose.material3.Button(
+                            onClick = { scope.launch { container.repository.retrySessionRestore() } },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            }
+
             SessionState.LoggedOut -> AuthScreen(
                 vm = viewModel(factory = factory),
                 infoMessage = authReturnMessage,
