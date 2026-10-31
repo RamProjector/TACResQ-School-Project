@@ -63,11 +63,27 @@ def main() -> None:
     assert "security-events: write" not in guardrails, (
         "Repository guardrails and dependency review must not receive CodeQL write permissions"
     )
-    for job in ("codeql-android:", "codeql-web-actions:"):
-        section = security.split(job, 1)[1]
-        assert re.search(r"(?m)^      security-events: write$", section), (
-            f"{job} must receive security-events: write to upload CodeQL results"
+    for job_name in ("codeql-android", "codeql-web-actions"):
+        job_match = re.search(
+            rf"(?ms)^  {re.escape(job_name)}:\\n(.*?)(?=^  [A-Za-z0-9_-]+:\\n|\\Z)",
+            security,
         )
+        assert job_match, f"{job_name} job must exist in the Security workflow"
+        permissions_match = re.search(
+            r"(?ms)^    permissions:\\n((?:      [^\\n]+\\n)+)",
+            job_match.group(1),
+        )
+        assert permissions_match and re.search(
+            r"(?m)^      security-events: write$", permissions_match.group(1)
+        ), f"{job_name} must declare security-events: write in its own permissions block"
+
+    android_codeql = re.search(
+        r"(?ms)^  codeql-android:\\n(.*?)(?=^  [A-Za-z0-9_-]+:\\n|\\Z)",
+        security,
+    )
+    assert android_codeql and "persist-credentials: false" in android_codeql.group(1), (
+        "Android CodeQL build must not retain the token with security-events: write"
+    )
 
     assert "vars.DEPENDENCY_GRAPH_ENABLED == 'true'" in security, (
         "Dependency review must run only after the repository dependency graph is enabled"
@@ -99,8 +115,8 @@ def main() -> None:
             )
 
     reviewer_job = code_review.split("  automated-review:", 1)[1]
-    assert "pull-requests: write" in reviewer_job and "issues: write" in reviewer_job, (
-        "Only the automated reviewer job should receive comment permissions"
+    assert "pull-requests: write" in reviewer_job and "issues: write" not in reviewer_job, (
+        "Automated review should use pull-requests: write without unnecessary issues: write"
     )
     assert "persist-credentials: false" in reviewer_job, (
         "The privileged pull_request_target job must not persist checkout credentials"
