@@ -1,3 +1,16 @@
+# Active handoff — 2026-10-31: dispatcher status clarity and PR #215 CI repair
+
+- **PR:** #215, branch `fix/map-fullscreen-ui-consistency`; still open and unmerged.
+- **Status summary wording:** changed the dispatcher count to “members with a status update.” The count is based on each assigned member's status being different from `ASSIGNED`; it must not be described as a live count of people currently travelling or physically present.
+- **Individual status freshness:** expanded member details now show each assignment's `status_updated_at` in the device's local time zone using the existing `formatTime` helper. Missing timestamps are explicitly labeled “Update time unavailable”; no arbitrary stale threshold or automatic status transition was introduced.
+- **PR #215 compile repair:** inspected the failing Android build log and fixed missing Compose Material3 `Icon`/`IconButton` and Material `Icons.Filled.Notifications` imports in `Components.kt`.
+- **Regression contract repairs:** updated the GPS source check to recognize the responder/driver logout wrapper while still requiring requester, responder/driver, and dispatcher map wiring; updated the notifications contract for the notification-aware `ScreenHeader` signature; extended per-responder status contract for the timestamp UI.
+- **Commits:** `e31c1e37c3b8298da8fc6854fa28f78959b42d31`, `92d82c39832670a88cd479ca67bff5604e65ad34`, `202812cfefd33a172f1abf190eca04ca7c789e1e`, `a7d6beb38434aea35001141e842a2008448d8a76`, `65336d4cbe51fb31dfab27eb35b0a25da3dad4bc`, `b3265fcaffd374d8b8995502a2eec2427aa0ad95`, `007bebac9c076988df73654362e1db9079df4fd9`, `6eb05e619009a03453230f426d8273c6e8825865`, `d8615892fb772d6ff3ff2775bcb0113b09eea394`.
+- **Validation:** inspected previous CI failure logs; Android compilation failed because of the missing notification icon imports. The GPS emulator job also logged an SDK command-line-tools discovery failure, but the shown Android build failure was specifically Kotlin unresolved references. Latest head is `d8615892fb772d6ff3ff2775bcb0113b09eea394`; workflow/status APIs returned no fresh runs/statuses at handoff time. Do not claim latest-head CI passes, do not merge, and do not publish an APK until the exact head builds.
+- **Workflow note:** the NIMS-informed team view remains an overview of individual resource records. Do not invent a team-leader role or change server-side status authority without reviewing authorization, transition logic, and auditability first.
+
+---
+
 # Active handoff — 2026-10-31: responder sign-out safety and dispatcher team summary
 
 - **PR:** #215, branch `fix/map-fullscreen-ui-consistency`; remains open and unmerged.
