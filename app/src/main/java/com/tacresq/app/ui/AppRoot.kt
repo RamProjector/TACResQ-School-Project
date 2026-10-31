@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +37,7 @@ import com.tacresq.app.data.model.User
 import com.tacresq.app.ui.auth.AuthScreen
 import com.tacresq.app.ui.admin.AdminAccessScreen
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.SectionHeading
 import com.tacresq.app.ui.dispatcher.DispatcherScreen
 import com.tacresq.app.ui.dispatcher.DispatcherViewModel
 import com.tacresq.app.ui.requester.RequesterScreen
@@ -86,6 +88,36 @@ fun AppRoot(
                 }
             }
 
+            SessionState.RestoreFailed -> Box(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Card {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            "Couldn't restore your saved session",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            "Your saved sign-in data has not been cleared. Check available device storage, then try again.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        androidx.compose.material3.Button(
+                            onClick = { scope.launch { container.repository.retrySessionRestore() } },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            }
+
             SessionState.LoggedOut -> AuthScreen(
                 vm = viewModel(factory = factory),
                 infoMessage = authReturnMessage,
@@ -107,15 +139,16 @@ fun AppRoot(
                     Role.REQUESTER -> {
                         val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
-                            } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout)
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
+                            } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)
                             else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents,
                                 notificationsVm = notificationsVm,
                                 onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
                                 onOpenChat = openChat,
+                                onOpenNotifications = openNotifications,
                                 onRefreshIncidents = vm::refresh,
                                 selectedIncidentId = selectedIncidentId,
                             )
@@ -124,15 +157,21 @@ fun AppRoot(
                     Role.RESPONDER, Role.DRIVER -> {
                         val vm: ResponderViewModel = viewModel(key = "unit-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat ->
+                        // Stop the responder's foreground location flow before ending the account session.
+                        val responderLogout: () -> Unit = {
+                            vm.stopTracking("Location sharing stopped because you signed out.")
+                            logout()
+                        }
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
-                            } else if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, logout)
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); responderLogout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
+                            } else if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, responderLogout, onOpenNotifications = openNotifications)
                             else RoleSectionScreen(
-                                destination, user, logout, vmState.incidents,
+                                destination, user, responderLogout, vmState.incidents,
                                 notificationsVm = notificationsVm,
                                 onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
                                 onOpenChat = openChat,
+                                onOpenNotifications = openNotifications,
                                 onRefreshIncidents = vm::refresh,
                                 selectedIncidentId = selectedIncidentId,
                             )
@@ -149,15 +188,16 @@ fun AppRoot(
                             logout = logout,
                             responderLocations = vmState.responderLocations,
                             onMapRefresh = vm::refresh,
-                        ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat ->
+                        ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
                             if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() })
+                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                             } else if (destination == AppDestination.PRIMARY) {
-                                DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId, onOpenChat = openChat)
+                                DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId, onOpenChat = openChat, onOpenNotifications = openNotifications)
                             } else RoleSectionScreen(
                                 destination, user, logout, vmState.incidents, vmState.units, notificationsVm,
                                 onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
                                 onOpenChat = openChat,
+                                onOpenNotifications = openNotifications,
                                 onRefreshIncidents = vm::refresh,
                                 selectedIncidentId = selectedIncidentId,
                             )
@@ -178,9 +218,10 @@ private fun RoleApp(
     logout: () -> Unit,
     responderLocations: List<ResponderLocation> = emptyList(),
     onMapRefresh: () -> Unit = {},
-    contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit) -> Unit,
+    contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit, () -> Unit) -> Unit,
 ) {
     var destination by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
+    var destinationBeforeMap by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
     var selectedIncidentId by rememberSaveable(role, user.id) { mutableStateOf<Long?>(null) }
     var selectedChatIncidentId by rememberSaveable(role, user.id) { mutableStateOf<Long?>(null) }
     val openIncident: (Long) -> Unit = { incidentId ->
@@ -192,11 +233,21 @@ private fun RoleApp(
         destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY
     }
     val closeChat: () -> Unit = { selectedChatIncidentId = null }
+    val openNotifications: () -> Unit = {
+        // Leave the chat route before showing Alerts; contentFor prioritizes an open chat.
+        selectedChatIncidentId = null
+        destination = AppDestination.ALERTS
+    }
     RoleShell(
         role = role,
         selected = destination,
-        onDestinationSelected = { destination = it },
-        content = { contentFor(destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat) },
+        onDestinationSelected = {
+            if (it == AppDestination.MAP && destination != AppDestination.MAP) {
+                destinationBeforeMap = destination
+            }
+            destination = it
+        },
+        content = { contentFor(destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications) },
         mapContent = {
             GpsMapScreen(
                 role = role,
@@ -205,7 +256,7 @@ private fun RoleApp(
                 locationProvider = locationProvider,
                 responderLocations = responderLocations,
                 onRefreshResponderLocations = onMapRefresh,
-                onBack = { destination = AppDestination.PRIMARY },
+                onBack = { destination = destinationBeforeMap },
             )
         },
     )
@@ -222,12 +273,14 @@ private fun RoleSectionScreen(
     onOpenIncident: (Long) -> Unit = {},
     onRefreshIncidents: () -> Unit = {},
     onOpenChat: (Long) -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
     selectedIncidentId: Long? = null,
 ) {
     if (destination == AppDestination.ALERTS) {
         NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident, onOpenChat)
         return
     }
+    var showSignOutConfirmation by remember(user.id) { mutableStateOf(false) }
     val role = user.role
     val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER && role != Role.ADMIN
     val title = when (destination) {
@@ -248,10 +301,10 @@ private fun RoleSectionScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ScreenHeader(title = title, subtitle = "", onLogout = logout)
+        ScreenHeader(title = title, subtitle = "", onOpenNotifications = onOpenNotifications)
 
         when {
             role == Role.ADMIN -> EmptySectionCard("Administrator access", "Administrative tools are not available in this Android build yet.")
@@ -343,7 +396,7 @@ private fun RoleSectionScreen(
                         .sortedByDescending { it.createdAt.orEmpty() }
                         .filterNot { focusedIncident?.id == it.id }
                     if (remainingIncidents.isNotEmpty()) {
-                        Text("Other incidents", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        SectionHeading("Other incidents")
                         remainingIncidents.forEach { incident ->
                             com.tacresq.app.ui.common.IncidentCard(incident) {
                                 androidx.compose.material3.TextButton(onClick = { onOpenChat(incident.id) }) {
@@ -405,27 +458,41 @@ private fun RoleSectionScreen(
             destination == AppDestination.PROFILE -> {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    ),
+                    shape = MaterialTheme.shapes.medium,
                 ) {
-                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("Your account", style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                        Text("Signed in to TACResQ", color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                }
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         ProfileDetail("Full name", user.name)
                         ProfileDetail("Email", user.email)
                         ProfileDetail("Role", role.label)
                         user.phone?.takeIf { it.isNotBlank() }?.let { ProfileDetail("Mobile", it) }
                         androidx.compose.material3.HorizontalDivider()
-                        androidx.compose.material3.TextButton(
-                            onClick = logout,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Sign out") }
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { showSignOutConfirmation = true },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                        ) {
+                            Text("Sign out")
+                        }
                     }
+                }
+                if (showSignOutConfirmation) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { showSignOutConfirmation = false },
+                        title = { Text("Sign out of TACResQ?") },
+                        text = { Text("Your emergency requests will remain active. Signing out only ends this account session.") },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    showSignOutConfirmation = false
+                                    logout()
+                                },
+                            ) { Text("Sign out") }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = { showSignOutConfirmation = false },
+                            ) { Text("Cancel") }
+                        },
+                    )
                 }
             }
         }

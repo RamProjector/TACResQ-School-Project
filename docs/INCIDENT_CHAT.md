@@ -43,3 +43,31 @@ The clean-PostgreSQL replay test covers requester/responder/dispatcher access, u
 3. Decide whether to add read receipts or web dispatcher chat only if there is a clear workflow need; do not add attachments or broad dispatcher notifications without a separate privacy review.
 
 No live Supabase migration, production message, account change, Render deployment, or FCM delivery was performed by this change.
+
+
+## Requester discoverability follow-up
+
+- The requester Home screen's active-emergency card exposes a full-width **Open incident messages** action, so communication is available at the point where the active request is being monitored.
+- The action opens the existing incident-scoped conversation for that exact incident; it does not create a global requester inbox or add a bottom-navigation destination.
+- Requesters retain the existing conversation entry from their role-scoped request list and incident-message notifications.
+- Message access continues to be authorized by the existing caller-scoped RPCs and database policies; the UI action is not an authorization boundary.
+- Automated source-contract coverage verifies that the active request ID is passed to the chat route. Physical-device and live non-production account verification remain separate checks.
+
+
+## Shared header and sign-out placement
+
+- Shared role-screen headers no longer display a sign-out action. This prevents a high-consequence session action from competing with primary screen navigation.
+- Standard role profiles expose **Sign out** as a secondary action, with a confirmation dialog explaining that active emergency requests remain active and are not cancelled by ending the session.
+- The existing Alerts destination remains available as a second route to the same inbox; the top-right notification action is implemented, while its physical-device navigation behavior remains part of manual acceptance.
+- The dedicated Android admin access screen does not yet have the shared role Profile destination; its account/session exit path needs a role-appropriate follow-up rather than silently dropping administrator sign-out access.
+- No authentication, session invalidation, incident lifecycle, or backend authorization behavior was changed.
+
+
+## Notification entry point follow-up
+
+- Shared role-screen headers now expose a top-right notification icon that routes to the existing Alerts & safety inbox.
+- The icon has the accessible content description **Open notifications** and uses the Material 3 app-bar action placement pattern.
+- The existing Alerts destination is intentionally retained as a second route to the same inbox until the revised navigation has been exercised on-device; it is not removed prematurely.
+- The notification inbox continues to own unread/read state, incident deep links, and refresh behavior. This header action does not change notification delivery or mark items read.
+- The dedicated admin access screen remains outside the standard role shell and does not yet use this shared notification action.
+- Compose instrumented coverage verifies that the header action is accessible and invokes its navigation callback.

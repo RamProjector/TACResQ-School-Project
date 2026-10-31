@@ -1,18 +1,20 @@
 package com.tacresq.app.ui.common
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,75 +25,81 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.tacresq.app.AppConfig
-import com.tacresq.app.R
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import java.text.DateFormat
 import java.util.Date
 import kotlin.math.ceil
 
 @Composable
-fun ScreenHeader(title: String, subtitle: String = "", onLogout: () -> Unit) {
+fun ScreenHeader(title: String, subtitle: String = "", onOpenNotifications: (() -> Unit)? = null) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.tacresq_app_icon),
-                contentDescription = "TACResQ",
-                modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)),
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    "TACResQ",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    "Emergency assistance, coordinated.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            TextButton(onClick = onLogout) { Text("Sign out") }
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
-            if (subtitle.isNotBlank()) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            if (onOpenNotifications != null) {
+                IconButton(onClick = onOpenNotifications) {
+                    Icon(
+                        imageVector = Icons.Filled.Notifications,
+                        contentDescription = "Open notifications",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
             }
+        }
+        subtitle.takeIf { it.isNotBlank() }?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+fun SectionHeading(title: String, supportingText: String? = null) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 3.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        supportingText?.takeIf { it.isNotBlank() }?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -102,9 +110,13 @@ fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null) {
         if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer
     val content =
         if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        shape = MaterialTheme.shapes.medium,
+        color = container,
+        contentColor = content,
     ) {
         Row(
             modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
@@ -112,7 +124,7 @@ fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null) {
         ) {
             Text(text, modifier = Modifier.weight(1f))
             if (onDismiss != null) {
-                TextButton(onClick = onDismiss) { Text("OK") }
+                TextButton(onClick = onDismiss) { Text("Dismiss") }
             }
         }
     }
@@ -125,7 +137,7 @@ fun StatusPill(text: String, color: Color) {
             text,
             color = color,
             style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
         )
     }
 }
@@ -155,8 +167,17 @@ fun IncidentCard(
     modifier: Modifier = Modifier,
     actions: @Composable ColumnScope.() -> Unit = {},
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     incident.type.label,
@@ -167,45 +188,65 @@ fun IncidentCard(
                 StatusPill(incident.status.label, incident.status.pillColor())
             }
             val time = formatTime(incident.createdAt)
-            if (time.isNotEmpty()) Text(time, style = MaterialTheme.typography.bodySmall)
-            val note = incident.description
-            if (!note.isNullOrBlank()) {
-                Text("Report details", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                Text(note)
+            if (time.isNotEmpty()) {
+                Text("Submitted $time", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(locationText(incident), style = MaterialTheme.typography.bodySmall)
+            // Emergency descriptions may contain critical context. Keep the full text
+            // available in the incident card instead of silently truncating it.
+            incident.description?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
+                Text(note, style = MaterialTheme.typography.bodyMedium)
+            }
+            // Landmark/access details are operational information, not decorative
+            // metadata. Keep the complete note visible instead of silently truncating it.
+            Text(
+                incidentLocationText(incident),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
+            )
             actions()
         }
     }
 }
 
-private fun locationText(incident: Incident): String {
+internal fun incidentLocationText(incident: Incident): String {
     val latitude = incident.latitude
     val longitude = incident.longitude
-    val hasCoordinates = latitude != null && longitude != null
-    val coords = when {
-        latitude != null && longitude != null -> {
-            val label = when (incident.locationSource) {
-                "gps" -> "GPS pin"
-                "manual" -> "Manual map pin"
-                else -> "Location pin (source unverified)"
-            }
-            String.format(Locale.US, "$label: %.5f, %.5f", latitude, longitude)
+    val note = incident.locationNotes?.trim()?.takeIf { it.isNotEmpty() }?.let { " · " + it }.orEmpty()
+
+    if (latitude == null && longitude == null) {
+        return if (incident.locationSource == null || incident.locationSource == "none") {
+            "No location pin$note"
+        } else {
+            "Location needs verification$note"
         }
-        latitude == null && longitude == null && incident.locationSource in listOf(null, "none") ->
-            "No location pin was shared"
-        else -> "Incomplete location data — do not rely on a map pin"
     }
-    val accuracy = if (hasCoordinates && incident.locationSource == "gps") {
-        incident.accuracyM?.let { " · reported accuracy ±${ceil(it.toDouble()).toInt()} m" } ?: ""
+    if (latitude == null || longitude == null) {
+        return "Location coordinates incomplete — verify pin$note"
+    }
+    if (!latitude.isFinite() || !longitude.isFinite() ||
+        latitude !in -90.0..90.0 || longitude !in -180.0..180.0
+    ) {
+        return "Location coordinates invalid — verify pin$note"
+    }
+
+    val source = when (incident.locationSource) {
+        "gps" -> "GPS"
+        "manual" -> "Map pin"
+        else -> "Unverified pin"
+    }
+    val accuracy = if (incident.locationSource == "gps") {
+        incident.accuracyM
+            ?.takeIf { it.isFinite() && it >= 0f }
+            ?.let { " · ±" + ceil(it.toDouble()).toInt() + " m" }
+            ?: " · accuracy unknown"
     } else ""
-    val captured = if (hasCoordinates) {
+    val captured = if (incident.locationSource == "gps") {
         incident.locationRecordedAt?.let { formatTime(it) }?.takeIf { it.isNotBlank() }
-            ?.let { " · captured $it" } ?: " · capture time unavailable; verify with requester"
+            ?.let { " · $it" } ?: " · time unverified"
     } else ""
-    val notes = incident.locationNotes?.trim()?.takeIf { it.isNotEmpty() }
-        ?.let { "\nLocation note: $it" } ?: ""
-    return "$coords$accuracy$captured$notes"
+    return "$source$accuracy$captured$note"
 }
 
 private val timeFormatter: DateTimeFormatter =
@@ -232,12 +273,27 @@ fun SyncStatus(lastSyncedAtEpochMs: Long?, error: String?) {
         syncedTime != null -> "Last synced $syncedTime"
         else -> "Waiting for the first successful sync…"
     }
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodySmall,
-        color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-    )
+        shape = MaterialTheme.shapes.medium,
+        color = if (error != null) MaterialTheme.colorScheme.errorContainer
+        else MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = if (error != null) MaterialTheme.colorScheme.onErrorContainer
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 /**

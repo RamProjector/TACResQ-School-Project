@@ -85,10 +85,12 @@ class FakeTacApi(
         }
     }
 
-    override suspend fun logout() {
+    override suspend fun logout() = logout(tokenProvider())
+
+    override suspend fun logout(token: String?) {
         delay(100)
         synchronized(lock) {
-            tokenProvider()?.let { tokens.remove(it) }
+            token?.takeIf { it.isNotBlank() }?.let { tokens.remove(it) }
         }
     }
 

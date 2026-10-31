@@ -8,6 +8,7 @@ import android.view.MotionEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,9 +24,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -39,6 +41,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -55,9 +58,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.locationbutton.compose.LocationButton
 import androidx.core.locationbutton.compose.LocationButtonTextType
@@ -71,7 +81,9 @@ import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentType
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.repo.ApiException
 import com.tacresq.app.data.repo.TacRepository
+import com.tacresq.app.data.repo.isDefinitiveIncidentRejection
 import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationProvider
 import com.tacresq.app.location.LocationSettingsCheck
@@ -79,6 +91,9 @@ import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.SectionHeading
+import com.tacresq.app.ui.common.StatusPill
+import com.tacresq.app.ui.common.pillColor
 import com.tacresq.app.ui.common.SyncStatus
 import com.tacresq.app.ui.common.formatTime
 import kotlinx.coroutines.CancellationException
@@ -107,6 +122,9 @@ data class RequesterUiState(
     val loading: Boolean = true,
     val sending: Boolean = false,
     val pendingSosAvailable: Boolean = false,
+    val pendingSosCanBeDiscarded: Boolean = false,
+    val pendingSosCheckInProgress: Boolean = true,
+    val pendingSosCheckError: String? = null,
     val capturingLocation: Boolean = false,
     val locationFix: GeoFix? = null,
     val locationError: String? = null,
@@ -123,17 +141,41 @@ class RequesterViewModel(
     private val _state = MutableStateFlow(RequesterUiState())
     val state: StateFlow<RequesterUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
+    private var pendingSosCheckJob: Job? = null
 
     fun refreshPendingSos() {
-        viewModelScope.launch {
-            val pending = runCatching { repo.hasPendingIncident() }.getOrDefault(true)
-            _state.update { it.copy(pendingSosAvailable = pending) }
+        if (pendingSosCheckJob?.isActive == true) return
+        _state.update {
+            it.copy(pendingSosCheckInProgress = true, pendingSosCheckError = null)
+        }
+        pendingSosCheckJob = viewModelScope.launch {
+            try {
+                val pending = repo.hasPendingIncident()
+                _state.update {
+                    it.copy(
+                        pendingSosAvailable = pending,
+                        pendingSosCanBeDiscarded = it.pendingSosCanBeDiscarded && pending,
+                        pendingSosCheckInProgress = false,
+                        pendingSosCheckError = null,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        pendingSosCheckInProgress = false,
+                        pendingSosCheckError = e.message?.takeIf { message -> message.isNotBlank() }
+                            ?: "TACResQ couldn't verify whether an earlier SOS is still awaiting confirmation. Check again before creating another request.",
+                    )
+                }
+            }
         }
     }
 
     fun retryPendingSos() {
         if (_state.value.sending) return
-        _state.update { it.copy(sending = true, error = null, notice = null) }
+        _state.update { it.copy(sending = true, error = null, notice = null, pendingSosCanBeDiscarded = false) }
         viewModelScope.launch {
             repo.retryPendingIncident()
                 .onSuccess { created ->
@@ -148,8 +190,39 @@ class RequesterViewModel(
                     refresh()
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(sending = false, error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.") }
+                    val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
+                    _state.update {
+                        it.copy(
+                            sending = false,
+                            pendingSosCanBeDiscarded = canDiscard,
+                            error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.",
+                        )
+                    }
                     refreshPendingSos()
+                }
+        }
+    }
+
+    fun discardRejectedPendingSos() {
+        val current = _state.value
+        if (current.sending || !current.pendingSosCanBeDiscarded) return
+        _state.update { it.copy(sending = true, error = null, notice = null) }
+        viewModelScope.launch {
+            repo.discardPendingIncident()
+                .onSuccess {
+                    _state.update {
+                        it.copy(
+                            sending = false,
+                            pendingSosAvailable = false,
+                            pendingSosCanBeDiscarded = false,
+                            notice = "The rejected saved SOS was discarded. Review the details carefully before sending a new request.",
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(sending = false, error = e.message ?: "The saved SOS could not be discarded.")
+                    }
                 }
         }
     }
@@ -270,6 +343,18 @@ class RequesterViewModel(
     fun sendSos(type: IncidentType, description: String, locationNotes: String) {
         if (_state.value.sending) return
         val current = _state.value
+        if (current.pendingSosCheckInProgress || current.pendingSosCheckError != null) {
+            _state.update {
+                it.copy(error = "TACResQ hasn't verified whether an earlier SOS is still pending. Check again before sending another request.")
+            }
+            return
+        }
+        if (current.pendingSosAvailable) {
+            _state.update {
+                it.copy(error = "An earlier SOS is still awaiting confirmation. Retry that saved request before creating another SOS.")
+            }
+            return
+        }
         val existingActive = current.incidents.firstOrNull { it.status.isActive }
         if (existingActive != null) {
             _state.update {
@@ -287,6 +372,12 @@ class RequesterViewModel(
             return
         }
         val fix = current.locationFix
+        if (fix == null && locationNotes.isBlank()) {
+            _state.update {
+                it.copy(error = "Add a location pin or a landmark/access detail before sending. Dispatch needs a usable location to coordinate help.")
+            }
+            return
+        }
         // Claim the submission synchronously before launching the coroutine. This closes
         // the small double-tap window where two taps could both observe sending == false.
         _state.update { it.copy(sending = true, notice = null, error = null) }
@@ -315,7 +406,8 @@ class RequesterViewModel(
                     }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(sending = false, error = e.message) }
+                    val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
+                    _state.update { it.copy(sending = false, pendingSosCanBeDiscarded = canDiscard, error = e.message) }
                     refreshPendingSos()
                 }
         }
@@ -416,7 +508,13 @@ class RequesterViewModel(
 }
 
 @Composable
-fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
+fun RequesterScreen(
+    vm: RequesterViewModel,
+    user: User,
+    onLogout: () -> Unit,
+    onOpenChat: (Long) -> Unit,
+    onOpenNotifications: () -> Unit = {},
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -454,11 +552,15 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
     PollWhileStarted { vm.refresh() }
     LaunchedEffect(Unit) { vm.refreshPendingSos() }
 
-    var selectedType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
+    var selectedType by rememberSaveable { mutableStateOf<IncidentType?>(null) }
+    var emergencyTypeError by rememberSaveable { mutableStateOf(false) }
+    var descriptionError by rememberSaveable { mutableStateOf(false) }
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
+    var locationRequirementError by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmingSos by remember { mutableStateOf(false) }
     var showDiscardConfirmation by remember { mutableStateOf(false) }
+    var showPendingSosDiscardConfirmation by remember { mutableStateOf(false) }
     var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
     var incidentToEdit by remember { mutableStateOf<Incident?>(null) }
     var editType by rememberSaveable { mutableStateOf(IncidentType.MEDICAL) }
@@ -500,6 +602,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             message?.startsWith("SOS request was accepted") == true ||
             message?.startsWith("The previously saved SOS was confirmed") == true
         ) {
+            selectedType = null
+            emergencyTypeError = false
+            descriptionError = false
             description = ""
             locationNotes = ""
             requestStep = 1
@@ -509,30 +614,89 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
             ScreenHeader(
                 title = "Home",
                 subtitle = "Request help and track your current response.",
-                onLogout = onLogout,
+                onOpenNotifications = onOpenNotifications,
             )
         }
 
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
 
+        if (state.pendingSosCheckInProgress) item {
+            Card(
+                modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Checking saved SOS status", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text("Verifying whether an earlier request still needs confirmation before another SOS can be sent.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+
+        state.pendingSosCheckError?.let { message ->
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Couldn't verify saved SOS status", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text(message, style = MaterialTheme.typography.bodyMedium)
+                        Button(
+                            onClick = vm::refreshPendingSos,
+                            enabled = !state.pendingSosCheckInProgress,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                        ) { Text("Check again") }
+                    }
+                }
+            }
+        }
+
         if (state.pendingSosAvailable) item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("An earlier SOS needs confirmation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("TACResQ saved the original request. Retry it exactly as submitted; do not create a replacement SOS while its outcome is unknown.")
                     Button(onClick = vm::retryPendingSos, enabled = !state.sending, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                        if (state.sending) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else Text("Retry saved SOS")
+                        if (state.sending) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text("Retrying saved SOS…")
+                        } else {
+                            Text("Retry saved SOS")
+                        }
+                    }
+                    if (state.pendingSosCanBeDiscarded) {
+                        TextButton(
+                            onClick = { showPendingSosDiscardConfirmation = true },
+                            enabled = !state.sending,
+                            modifier = Modifier.align(Alignment.End),
+                        ) {
+                            Text("Discard rejected SOS")
+                        }
                     }
                 }
             }
@@ -541,63 +705,87 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         if (activeIncident != null) item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Active emergency", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text("Request #${activeIncident.id} · ${activeIncident.status.label}", style = MaterialTheme.typography.titleMedium)
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("Active emergency", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(activeIncident.type.label, style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                        }
+                        StatusPill(activeIncident.status.label, activeIncident.status.pillColor())
+                    }
+                    Text("Request #${activeIncident.id}", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f))
                     Text(
                         if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING)
-                            "Dispatch has not assigned a unit yet. If you submitted this accidentally, you can cancel it here."
+                            "Waiting for dispatch to assign a response unit."
                         else
-                            "A unit may already be responding. Contact dispatch directly to cancel or correct this emergency; this app will not silently withdraw it.",
+                            "A unit may already be responding. Contact dispatch before requesting changes.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     if (activeIncidents.size > 1) {
                         Text(
-                            "More than one active request was returned. Do not submit another. Contact dispatch to reconcile the active requests.",
+                            "Multiple active requests found. Contact dispatch before sending another SOS.",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
+                    OutlinedButton(
+                        onClick = { onOpenChat(activeIncident.id) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    ) {
+                        Text("Open incident messages")
+                    }
                     if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING) {
-                        OutlinedButton(
-                            onClick = {
-                                incidentToEdit = activeIncident
-                                editType = activeIncident.type
-                                editDescription = activeIncident.description.orEmpty()
-                                editLocationNotes = activeIncident.locationNotes.orEmpty()
-                                editLatitude = activeIncident.latitude
-                                editLongitude = activeIncident.longitude
-                                editAccuracyM = activeIncident.accuracyM
-                                editLocationRecordedAt = activeIncident.locationRecordedAt
-                                editLocationSource = activeIncident.locationSource ?: if (activeIncident.latitude == null) "none" else "gps"
-                                confirmingEdit = false
-                            },
-                            enabled = !state.sending,
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                        ) { Text("Edit request") }
-                        OutlinedButton(
-                            onClick = { incidentToCancel = activeIncident.id },
-                            enabled = !state.sending,
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                        ) { Text("Cancel request") }
-                    }                }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    incidentToEdit = activeIncident
+                                    editType = activeIncident.type
+                                    editDescription = activeIncident.description.orEmpty()
+                                    editLocationNotes = activeIncident.locationNotes.orEmpty()
+                                    editLatitude = activeIncident.latitude
+                                    editLongitude = activeIncident.longitude
+                                    editAccuracyM = activeIncident.accuracyM
+                                    editLocationRecordedAt = activeIncident.locationRecordedAt
+                                    editLocationSource = activeIncident.locationSource ?: if (activeIncident.latitude == null) "none" else "gps"
+                                    confirmingEdit = false
+                                },
+                                enabled = !state.sending,
+                                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                            ) { Text("Edit") }
+                            OutlinedButton(
+                                onClick = { incidentToCancel = activeIncident.id },
+                                enabled = !state.sending,
+                                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                            ) { Text("Cancel") }
+                        }
+                    }
+                }
             }
-        } else if (!showRequestForm && !state.pendingSosAvailable) item {
+        } else if (!showRequestForm && !state.pendingSosAvailable &&
+            !state.pendingSosCheckInProgress && state.pendingSosCheckError == null
+        ) item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
+                shape = MaterialTheme.shapes.large,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Surface(
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = MaterialTheme.shapes.medium,
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.LocationOn,
@@ -613,7 +801,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                "Share what happened and where you are. You can continue without GPS.",
+                                "Share what happened and where. GPS is optional.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f),
                             )
@@ -623,7 +811,7 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         onClick = { showRequestForm = true },
                         enabled = !state.sending && !state.loading,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = MaterialTheme.shapes.medium,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.surface,
                             contentColor = MaterialTheme.colorScheme.primary,
@@ -637,9 +825,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 strokeWidth = 2.dp,
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("Checking current requests…", fontWeight = FontWeight.Bold)
+                            Text("Checking requests…", fontWeight = FontWeight.Bold)
                         } else {
-                            Text("Start emergency request  →", fontWeight = FontWeight.Bold)
+                            Text("Request emergency help", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -672,11 +860,19 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             }
         }
 
-        if (showRequestForm && activeIncident == null && !state.pendingSosAvailable) item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+        if (showRequestForm && activeIncident == null && !state.pendingSosAvailable &&
+            !state.pendingSosCheckInProgress && state.pendingSosCheckError == null
+        ) item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -686,7 +882,8 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                         TextButton(
                             onClick = {
-                                val hasDraft = description.isNotBlank() ||
+                                val hasDraft = selectedType != null ||
+                                    description.isNotBlank() ||
                                     locationNotes.isNotBlank() ||
                                     requestStep != 1 ||
                                     state.locationFix != null
@@ -709,7 +906,13 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            progressBarRangeInfo = ProgressBarRangeInfo(
+                                current = requestStep.toFloat(),
+                                range = 1f..3f,
+                                steps = 2,
+                            )
+                        },
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         repeat(3) { stepIndex ->
@@ -723,41 +926,103 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     }
                     when (requestStep) {
                         1 -> {
-                            Text("What kind of help do you need?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Emergency type (required)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
                             Column(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().selectableGroup(),
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 IncidentType.entries.forEach { type ->
                                     Card(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth().selectable(
+                                            selected = type == selectedType,
+                                            role = Role.RadioButton,
+                                            onClick = {
+                                                selectedType = type
+                                                emergencyTypeError = false
+                                                if (type != IncidentType.OTHER) descriptionError = false
+                                            },
+                                        ),
+                                        shape = MaterialTheme.shapes.medium,
+                                        border = BorderStroke(
+                                            if (type == selectedType) 1.5.dp else 1.dp,
+                                            if (type == selectedType) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.outlineVariant,
+                                        ),
                                         colors = CardDefaults.cardColors(
                                             containerColor = if (type == selectedType)
-                                                MaterialTheme.colorScheme.secondaryContainer
+                                                MaterialTheme.colorScheme.primaryContainer
                                             else MaterialTheme.colorScheme.surface,
                                         ),
-                                        onClick = { selectedType = type },
                                     ) {
                                         Row(
-                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                                            modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp)
+                                                .padding(horizontal = 14.dp, vertical = 8.dp),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                                         ) {
                                             RadioButton(
                                                 selected = type == selectedType,
-                                                onClick = { selectedType = type },
+                                                onClick = null,
                                             )
-                                            Text(type.label, style = MaterialTheme.typography.bodyLarge)
+                                            Text(
+                                                type.label,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = if (type == selectedType) FontWeight.SemiBold else FontWeight.Normal,
+                                                color = if (type == selectedType) MaterialTheme.colorScheme.onPrimaryContainer
+                                                else MaterialTheme.colorScheme.onSurface,
+                                            )
+                                            Spacer(Modifier.weight(1f))
+                                            if (type == selectedType) {
+                                                Text("Selected", style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.primary)
+                                            }
                                         }
                                     }
                                 }
                             }
-                            OutlinedTextField(value = description, onValueChange = { if (it.length <= 2000) description = it },
-                                label = { Text("What is happening? (optional)") }, minLines = 3, maxLines = 5, modifier = Modifier.fillMaxWidth())
-                            Button(onClick = { requestStep = 2 }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Continue to location") }
+                            if (emergencyTypeError) {
+                                Text(
+                                    "Choose the emergency type before continuing.",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            OutlinedTextField(
+                                value = description,
+                                onValueChange = {
+                                    if (it.length <= 2000) {
+                                        description = it
+                                        if (it.isNotBlank()) descriptionError = false
+                                    }
+                                },
+                                label = {
+                                    Text(if (selectedType == IncidentType.OTHER) "Describe the emergency (required)" else "What is happening? (optional)")
+                                },
+                                isError = descriptionError,
+                                supportingText = {
+                                    if (selectedType == IncidentType.OTHER) {
+                                        Text(if (descriptionError) "Describe what happened so dispatch can identify the emergency." else "Required when the emergency type is Other.")
+                                    } else {
+                                        Text("Optional details help dispatch prepare a response.")
+                                    }
+                                },
+                                minLines = 3,
+                                maxLines = 5,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Button(
+                                onClick = {
+                                    emergencyTypeError = selectedType == null
+                                    descriptionError = selectedType == IncidentType.OTHER && description.isBlank()
+                                    if (selectedType != null && !(selectedType == IncidentType.OTHER && description.isBlank())) {
+                                        requestStep = 2
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                            ) { Text("Continue") }
                         }
                         2 -> {
-                            Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
                             Text(
                                 "Your location is not tracked continuously. Share a one-time GPS pin, choose a map pin, or continue without GPS.",
                                 style = MaterialTheme.typography.bodySmall,
@@ -790,18 +1055,48 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                                 !state.capturingLocation -> LocationNoticeCard("No GPS pin", "Add a landmark or continue without GPS.")
                             }
                             state.locationError?.let { Banner(it, isError = true, onDismiss = vm::dismissMessages) }
-                            OutlinedTextField(value = locationNotes, onValueChange = { if (it.length <= 500) locationNotes = it },
-                                label = { Text("Landmark or access detail (optional)") }, minLines = 2, maxLines = 3,
-                                modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(
+                                value = locationNotes,
+                                onValueChange = {
+                                    if (it.length <= 500) {
+                                        locationNotes = it
+                                        if (it.isNotBlank()) locationRequirementError = null
+                                    }
+                                },
+                                label = { Text(if (freshFix == null) "Landmark or access detail (required without a pin)" else "Landmark or access detail (optional)") },
+                                isError = freshFix == null && locationRequirementError != null,
+                                supportingText = {
+                                    when {
+                                        freshFix != null -> Text("Optional: add a building, entrance, floor, or nearby landmark.")
+                                        locationRequirementError != null -> Text(locationRequirementError!!)
+                                        else -> Text("Required when no GPS or map pin is attached. Add a place dispatch can locate.")
+                                    }
+                                },
+                                minLines = 2,
+                                maxLines = 3,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { requestStep = 1 }, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
-                                Button(onClick = { vm.expireStaleLocation(); requestStep = 3 }, enabled = !state.capturingLocation,
-                                    modifier = Modifier.weight(1f).height(52.dp)) { Text("Review request") }
+                                Button(
+                                    onClick = {
+                                        val hasFreshPin = state.locationFix?.let(vm::isFresh) == true
+                                        if (!hasFreshPin && locationNotes.isBlank()) {
+                                            locationRequirementError = "Add a location pin or a landmark/access detail before continuing."
+                                        } else {
+                                            locationRequirementError = null
+                                            vm.expireStaleLocation()
+                                            requestStep = 3
+                                        }
+                                    },
+                                    enabled = !state.capturingLocation,
+                                    modifier = Modifier.weight(1f).height(52.dp),
+                                ) { Text("Review", maxLines = 1, softWrap = false) }
                             }
                         }
                         else -> {
-                            Text("Review before sending", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Emergency type: ${selectedType.label}", fontWeight = FontWeight.SemiBold)
+                            Text("Review before sending", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
+                            Text("Emergency type: ${selectedType?.label ?: "Not selected"}", fontWeight = FontWeight.SemiBold)
                             description.trim().takeIf { it.isNotEmpty() }?.let { Text("Details: $it") }
                             if (freshFix != null) LocationFixCard(freshFix, onClear = { vm.clearLocationFix(); requestStep = 2 })
                             else LocationNoticeCard("Sending without a GPS pin", "Dispatch may need to call you to confirm the exact location.")
@@ -821,16 +1116,18 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
             }
         }
 
-        state.notice?.let { message -> item { Banner(message, isError = false, onDismiss = vm::dismissMessages) } }
-        state.error?.let { message -> item { Banner(message, isError = true, onDismiss = vm::dismissMessages) } }
-
-        item {
-            Text(
-                "My requests",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
+        // Show one primary operation message. A safety-critical error takes precedence
+        // over a success notice when the server accepted an SOS but its location is unverified.
+        val feedbackError = state.error
+        if (feedbackError != null) {
+            item { Banner(feedbackError, isError = true, onDismiss = vm::dismissMessages) }
+        } else {
+            state.notice?.let { message ->
+                item { Banner(message, isError = false, onDismiss = vm::dismissMessages) }
+            }
         }
+
+        item { SectionHeading("My requests") }
         if (state.loading && state.incidents.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -900,9 +1197,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                 ) {
                     Text(
                         if (editCooldownSeconds > 0 && urgentLocationCorrection)
-                            "This is a location-only correction. Review the pin and confirm to save it now; other changes remain locked until the timer ends."
+                            "Correct the map pin now. Other edits remain locked until the timer ends."
                         else
-                            "Edits are available only before dispatch assigns a unit. Your first correction is immediate. After that, another edit is locked for 60 seconds and requires a review confirmation."
+                            "Before assignment, your first correction is immediate. Further changes wait 60 seconds and require review."
                     )
                     IncidentType.entries.forEach { type ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1031,6 +1328,32 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
         )
     }
 
+    if (showPendingSosDiscardConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showPendingSosDiscardConfirmation = false },
+            title = { Text("Discard rejected saved SOS?") },
+            text = {
+                Text(
+                    "The server returned a definitive rejection for this saved request. " +
+                        "Discarding permanently removes its encrypted retry copy from this device. " +
+                        "Do not discard if the server outcome is still uncertain."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !state.sending && state.pendingSosCanBeDiscarded,
+                    onClick = {
+                        showPendingSosDiscardConfirmation = false
+                        vm.discardRejectedPendingSos()
+                    },
+                ) { Text("Discard saved SOS") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPendingSosDiscardConfirmation = false }) { Text("Keep saved SOS") }
+            },
+        )
+    }
+
     if (showDiscardConfirmation) {
         AlertDialog(
             onDismissRequest = { showDiscardConfirmation = false },
@@ -1043,6 +1366,9 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     showDiscardConfirmation = false
                     confirmingSos = false
                     showManualPinPicker = false
+                    selectedType = null
+                    emergencyTypeError = false
+                    descriptionError = false
                     description = ""
                     locationNotes = ""
                     requestStep = 1
@@ -1065,26 +1391,27 @@ fun RequesterScreen(vm: RequesterViewModel, user: User, onLogout: () -> Unit) {
                     modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("This will notify dispatch of a ${selectedType.label.lowercase()} emergency.")
-                    description.trim().takeIf { it.isNotEmpty() }?.let { Text("Report details: $it") }
+                    Text("Dispatch will receive a ${selectedType?.label?.lowercase() ?: "unselected"} emergency.")
+                    description.trim().takeIf { it.isNotEmpty() }?.let { Text(it) }
                     if (freshFix != null) {
                         Text(locationSummary(freshFix))
-                        Text("Only this pin is included with the SOS; ongoing location updates are not sent.", style = MaterialTheme.typography.bodySmall)
+                        Text("This one-time pin is sent; ongoing tracking is not.", style = MaterialTheme.typography.bodySmall)
                     } else {
-                        Text("No GPS pin. Dispatch may call to confirm your location.")
+                        Text("No GPS pin. Dispatch may call to confirm the location.")
                     }
                     locationNotes.trim().takeIf { it.isNotEmpty() }?.let {
-                        Text("Location note to share: $it")
+                        Text("Landmark: $it")
                     }
-                    Text("Only continue if help is needed now.", style = MaterialTheme.typography.bodySmall)
+                    Text("Only send if help is needed now.", style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = !state.sending && !state.capturingLocation,
+                    enabled = !state.sending && !state.capturingLocation &&
+                        !state.pendingSosCheckInProgress && state.pendingSosCheckError == null,
                     onClick = {
                         confirmingSos = false
-                        vm.sendSos(selectedType, description, locationNotes)
+                        selectedType?.let { vm.sendSos(it, description, locationNotes) }
                     },
                 ) { Text(if (state.sending) "Sending…" else "Send SOS") }
             },
@@ -1241,7 +1568,7 @@ private fun ManualLocationPickerDialog(
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
     ) {
         androidx.compose.material3.Surface(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().semantics { paneTitle = "Choose emergency location" },
             color = MaterialTheme.colorScheme.surface,
         ) {
             androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
@@ -1269,10 +1596,10 @@ private fun ManualLocationPickerDialog(
                         onClick = onDismiss,
                         modifier = Modifier.size(48.dp),
                     ) {
-                        Text(
-                            text = "×",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                     Card(
@@ -1284,13 +1611,13 @@ private fun ManualLocationPickerDialog(
                     ) {
                         Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                             Text(
-                                "Choose emergency location",
+                                "Choose location",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                if (startsAtTaclobanDefault) "The map starts at Tacloban as a reference only—not your phone's location. Move the map to the actual emergency location before confirming."
-                                else "Drag the map until the exact location is under the center pin. This can be different from your phone's GPS location.",
+                                if (startsAtTaclobanDefault) "Starts at Tacloban, not your GPS position. Move the map to the emergency site."
+                                else "Move the map so the center pin marks the emergency site.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (startsAtTaclobanDefault) MaterialTheme.colorScheme.error
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1299,35 +1626,18 @@ private fun ManualLocationPickerDialog(
                     }
                 }
 
-                Column(
-                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                androidx.compose.material3.FilledTonalIconButton(
+                    onClick = {
+                        mapView.controller.animateTo(GeoPoint(initialLatitude, initialLongitude))
+                        mapView.controller.setZoom(16.5)
+                        centerCoordinates.value = initialLatitude to initialLongitude
+                    },
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp).size(48.dp),
                 ) {
-                    androidx.compose.material3.FilledTonalIconButton(
-                        onClick = { mapView.controller.zoomIn() },
-                        modifier = Modifier.size(48.dp),
-                    ) {
-                        Text("+", style = MaterialTheme.typography.titleLarge)
-                    }
-                    androidx.compose.material3.FilledTonalIconButton(
-                        onClick = { mapView.controller.zoomOut() },
-                        modifier = Modifier.size(48.dp),
-                    ) {
-                        Text("−", style = MaterialTheme.typography.titleLarge)
-                    }
-                    androidx.compose.material3.FilledTonalIconButton(
-                        onClick = {
-                            mapView.controller.animateTo(GeoPoint(initialLatitude, initialLongitude))
-                            mapView.controller.setZoom(16.5)
-                            centerCoordinates.value = initialLatitude to initialLongitude
-                        },
-                        modifier = Modifier.size(48.dp),
-                    ) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
-                            contentDescription = "Return to starting location",
-                        )
-                    }
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+                        contentDescription = "Return to starting location",
+                    )
                 }
 
                 Card(
@@ -1342,7 +1652,7 @@ private fun ManualLocationPickerDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text(
-                            "Selected center: %.5f, %.5f".format(
+                            "Selected location: %.5f, %.5f".format(
                                 Locale.US,
                                 centerCoordinates.value.first,
                                 centerCoordinates.value.second,
@@ -1350,33 +1660,17 @@ private fun ManualLocationPickerDialog(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        Text(
-                            String.format(
-                                Locale.US,
-                                "%.5f, %.5f",
-                                centerCoordinates.value.first,
-                                centerCoordinates.value.second,
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
                         if (startsAtTaclobanDefault && !userAdjustedMap) {
                             Text(
-                                "This is only a Tacloban reference view, not your phone's location. Move the map before confirming.",
+                                "Move the map before confirming.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )
                         } else {
                             Text(
-                                "This is a map-selected pin, not a GPS accuracy measurement. Wait until roads and landmarks appear before confirming. If the map stays blank, cancel and use a landmark instead.",
+                                "Map pin only; it does not measure GPS accuracy. If the map is blank, cancel and share a landmark.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        if (startsAtTaclobanDefault && !userAdjustedMap) {
-                            Text(
-                                "Move the map to the real emergency location to enable confirmation.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
                             )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

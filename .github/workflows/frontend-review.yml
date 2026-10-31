@@ -1,8 +1,9 @@
 name: TACResQ Frontend Review
 
-# Temporarily manual-only while release-critical system workflows are completed.
-# Restore pull_request triggers after core functionality and security hardening stabilize.
 on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
   workflow_dispatch:
     inputs:
       base_sha:
@@ -28,13 +29,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.11'
 

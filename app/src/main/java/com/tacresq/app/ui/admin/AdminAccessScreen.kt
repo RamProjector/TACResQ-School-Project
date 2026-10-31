@@ -1,5 +1,6 @@
 package com.tacresq.app.ui.admin
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -37,6 +39,8 @@ import com.tacresq.app.data.remote.AdminAuditEvent
 import com.tacresq.app.data.remote.AdminUser
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
+import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.StatusPill
 import kotlinx.coroutines.launch
 
 private val adminRoles = listOf("requester", "responder", "driver", "dispatcher")
@@ -58,7 +62,7 @@ fun AdminAccessScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var selectedUser by remember { mutableStateOf<AdminUser?>(null) }
-    var targetRole by remember { mutableStateOf("requester") }
+    var targetRole by remember { mutableStateOf("") }
     var reason by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
@@ -94,18 +98,20 @@ fun AdminAccessScreen(
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("TACResQ ADMIN", color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                    Text("Control center", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("Signed in as ${user.name}", style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ScreenHeader(
+                title = "Admin",
+                subtitle = "Manage accounts and review activity.",
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onSignOut, enabled = !loading) {
+                    Text("Sign out")
                 }
-                TextButton(onClick = onSignOut) { Text("Sign out") }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -120,26 +126,31 @@ fun AdminAccessScreen(
             }
 
             if (selectedTab == "Users") {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Card(
+                    shape = MaterialTheme.shapes.large,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("User directory", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                        Text("$totalCount matching accounts · page size 25", style = MaterialTheme.typography.bodySmall,
+                        Text("$totalCount accounts", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(
                             value = query, onValueChange = { if (it.length <= 120) query = it },
                             modifier = Modifier.fillMaxWidth(), singleLine = true,
-                            label = { Text("Search name, email, phone, or ID") },
+                            label = { Text("Search accounts") },
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf("all", "requester", "responder", "driver", "dispatcher", "admin").take(3).forEach { role ->
-                                FilterChip(selected = selectedRole == role, onClick = { selectedRole = role; loadUsers() },
-                                    label = { Text(role.replaceFirstChar { it.uppercase() }) })
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf("driver", "dispatcher", "admin").forEach { role ->
-                                FilterChip(selected = selectedRole == role, onClick = { selectedRole = role; loadUsers() },
-                                    label = { Text(role.replaceFirstChar { it.uppercase() }) })
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            listOf("all", "requester", "responder", "driver", "dispatcher", "admin").forEach { role ->
+                                FilterChip(
+                                    selected = selectedRole == role,
+                                    onClick = { selectedRole = role; loadUsers() },
+                                    label = { Text(role.replaceFirstChar { it.uppercase() }) },
+                                )
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -157,20 +168,29 @@ fun AdminAccessScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(users, key = { it.id }) { account ->
-                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Card(
+                            shape = MaterialTheme.shapes.large,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(account.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(account.email, style = MaterialTheme.typography.bodySmall)
-                                Text("ID ${account.id} · ${account.role} · ${account.dutyStatus ?: "no duty status"}",
-                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("ID ${account.id}", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    StatusPill(account.role.replaceFirstChar { it.uppercase() }, MaterialTheme.colorScheme.primary)
+                                    account.dutyStatus?.let { StatusPill(it.replaceFirstChar { ch -> ch.uppercase() }, MaterialTheme.colorScheme.secondary) }
+                                }
                                 if (account.role != "admin") {
                                     TextButton(onClick = {
                                         selectedUser = account
-                                        targetRole = if (account.role == "requester") "responder" else "requester"
+                                        targetRole = ""
                                         reason = ""
-                                    }) { Text("Change operational role") }
+                                        error = null
+                                    }) { Text("Change role") }
                                 } else {
-                                    Text("Administrator role is operator-managed and cannot be changed here.",
+                                    Text("Admin access is managed outside the app.",
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
@@ -199,7 +219,9 @@ fun AdminAccessScreen(
                 }
             }
 
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            if (selectedUser == null) {
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            }
             notice?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
             if (loading) Text("Refreshing…", style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -208,34 +230,50 @@ fun AdminAccessScreen(
 
     selectedUser?.let { account ->
         AlertDialog(
-            onDismissRequest = { selectedUser = null },
+            onDismissRequest = { if (!loading) selectedUser = null },
             title = { Text("Change account role") },
             text = {
                 Column(
                     modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("${account.name} · currently ${account.role}")
-                    Text("Choose an operational role. Admin promotion and demotion are not available in the app.")
+                    Text("${account.name} · currently ${account.role}", fontWeight = FontWeight.SemiBold)
+                    Text("${account.email} · Account ID ${account.id}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Select the intended operational role. No role is preselected. Admin promotion and demotion are not available in the app.")
                     adminRoles.forEach { role ->
-                        FilterChip(selected = targetRole == role, onClick = { targetRole = role },
+                        FilterChip(selected = targetRole == role, enabled = !loading, onClick = { targetRole = role; error = null },
                             label = { Text(role.replaceFirstChar { it.uppercase() }) })
                     }
                     OutlinedTextField(
-                        value = reason, onValueChange = { if (it.length <= 500) reason = it },
-                        modifier = Modifier.fillMaxWidth(), minLines = 3,
-                        label = { Text("Required audit reason (10–500 characters)") },
+                        value = reason,
+                        onValueChange = { if (it.length <= 500) { reason = it; error = null } },
+                        enabled = !loading,
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        label = { Text("Audit reason (required)") },
+                        isError = reason.isNotBlank() && reason.trim().length < 10,
+                        supportingText = {
+                            when {
+                                reason.isBlank() -> Text("Required: explain why this role change is necessary.")
+                                reason.trim().length < 10 -> Text("Add at least ${10 - reason.trim().length} more characters.")
+                                else -> Text("${reason.trim().length}/500 · This explanation is saved in the audit history.")
+                            }
+                        },
                     )
+                    error?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             },
             confirmButton = {
                 Button(
-                    enabled = targetRole != account.role && reason.trim().length in 10..500 && !loading,
+                    enabled = targetRole in adminRoles && targetRole != account.role && reason.trim().length in 10..500 && !loading,
                     onClick = {
                         scope.launch {
                             loading = true
                             error = null
-                            repository.setAdminUserRole(account.id, targetRole, reason)
+                            repository.setAdminUserRole(account.id, targetRole, reason.trim())
                                 .onSuccess {
                                     notice = "${account.name}'s role was updated and the action was audited."
                                     selectedUser = null
@@ -245,17 +283,30 @@ fun AdminAccessScreen(
                             loading = false
                         }
                     },
-                ) { Text("Confirm role change") }
+                ) {
+                    if (loading) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            CircularProgressIndicator()
+                            Text("Saving role change…")
+                        }
+                    } else {
+                        Text(if (targetRole in adminRoles) "Confirm ${targetRole.replaceFirstChar { it.uppercase() }} role" else "Select a role")
+                    }
+                }
             },
-            dismissButton = { TextButton(onClick = { selectedUser = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { selectedUser = null }, enabled = !loading) { Text("Cancel") } },
         )
     }
 }
 
 @Composable
 private fun AuditEventCard(event: AdminAuditEvent) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Card(
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(event.action.replace("_", " ").replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("Account #${event.targetUserId}: ${event.oldRole} → ${event.newRole}")

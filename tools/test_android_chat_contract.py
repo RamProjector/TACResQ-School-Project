@@ -78,6 +78,14 @@ for required in (
 ):
     assert required in root, f"Chat navigation wiring missing: {required}"
 
+requester = read("app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt")
+assert "onOpenChat: (Long) -> Unit" in requester
+assert "onClick = { onOpenChat(activeIncident.id) }" in requester
+assert 'Text("Open incident messages")' in requester
+assert 'Text("Review", maxLines = 1, softWrap = false)' in requester
+assert 'Text("Review request")' not in requester, "compact request review action must not wrap on narrow layouts"
+assert "RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)" in root
+
 dispatcher = read("app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt")
 assert "onOpenChat: (Long) -> Unit" in dispatcher
 assert 'Text("Open conversation")' in dispatcher
@@ -90,3 +98,20 @@ screen_source = read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScre
 assert "incident_messages" not in screen_source, "UI must not directly access the private chat table"
 
 print("PASS: incident chat uses caller-scoped RPCs, role-scoped navigation, lifecycle-bound polling, bounded text, idempotent retry, and no direct table access.")
+
+
+# The database flood guard counts a sender's messages in a rolling one-minute
+# window. Its query needs a matching composite index so cost remains bounded as
+# the incident-message history grows.
+chat_sql = read("supabase/migrations/20261026200000_incident_scoped_chat.sql")
+index_sql = read("supabase/migrations/20261030130000_incident_message_rate_limit_index.sql")
+for label, passed in {
+    "rate limit filters by sender": "WHERE m.sender_id = actor_profile_id" in chat_sql,
+    "rate limit uses a rolling one-minute window": "m.created_at >= now() - interval '1 minute'" in chat_sql,
+    "concurrent sends are serialized before counting": "pg_advisory_xact_lock(actor_profile_id)" in chat_sql,
+    "index leads with sender and then timestamp": "ON public.incident_messages (sender_id, created_at DESC)" in index_sql,
+    "migration verifies the actual index definition": "actual_index_definition NOT ILIKE '%(sender_id, created_at DESC)%'" in index_sql,
+}.items():
+    assert passed, f"Incident-chat rate-limit index contract failed: {label}"
+
+print("PASS: incident-chat sender rate-limit query has a matching composite index.")

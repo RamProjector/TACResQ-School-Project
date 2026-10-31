@@ -1,6 +1,7 @@
 from pathlib import Path
 
 source = Path("app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt").read_text()
+repository = Path("app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 required = (
     "val nameError: String? = null",
     "val emailError: String? = null",
@@ -10,7 +11,7 @@ required = (
     "repo.login(email.trim(), password)",
     "repo.register(name.trim(), email.trim(), phone.trim(), password)",
     "phoneDigits !in 7..15",
-    'phone.any { !it.isDigit() && it !in "+- ()" }',
+    'phone.any { it !in \'0\'..\'9\' && it !in "+- ()" }',
     'password.isBlank() -> "Enter a password."',
     "catch (cancelled: CancellationException)",
     "catch (failure: Exception)",
@@ -21,11 +22,45 @@ required = (
     "isError = state.passwordError != null",
     "supportingText = { state.emailError?.let { Text(it) } }",
     "supportingText = { state.passwordError?.let { Text(it) } }",
+    "val info: String? = null",
+    'failure?.message?.startsWith("Account created.") == true',
+    "info = if (emailConfirmationRequired) failure?.message else null",
+    "MaterialTheme.colorScheme.secondaryContainer",
+    "if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation()",
+    "LaunchedEffect(state.info)",
+    "registering = false",
+    'password = ""',
+    "passwordVisible = false",
+    "var password by remember { mutableStateOf(\"\") }",
+    "var passwordVisible by remember { mutableStateOf(false) }",
+    "Credentials are intentionally transient",
+    'Text(if (passwordVisible) "Hide" else "Show")',
     "fun clearFieldError(field: String)",
+    "contentType = ContentType.PersonFullName",
+    "contentType = ContentType.PhoneNumberNational",
+    "ContentType.NewUsername + ContentType.EmailAddress",
+    "ContentType.Username + ContentType.EmailAddress",
+    "contentType = if (registering) ContentType.NewPassword else ContentType.Password",
+    "import androidx.compose.ui.autofill.ContentType",
+    "import androidx.compose.ui.semantics.contentType",
     'vm.clearFieldError("email")',
     'vm.clearFieldError("password")',
 )
 missing = [snippet for snippet in required if snippet not in source]
 if missing:
     raise SystemExit("Inline authentication validation contract failed: " + ", ".join(missing))
-print(f"Inline authentication validation contract passed: {len(required)} checks.")
+
+auth_error_contract = (
+    'val authPath = e.response()?.raw()?.request?.url?.encodedPath.orEmpty()',
+    'if (authPath.endsWith("/auth/v1/token"))',
+    '"Email or password is incorrect."',
+    'if (authPath.endsWith("/auth/v1/signup"))',
+    "We couldn't complete sign-up. Check your details or try again later.",
+    '"Too many sign-in attempts. Wait a moment and try again."',
+    '"Too many sign-up attempts. Wait a moment and try again."',
+)
+missing_auth = [snippet for snippet in auth_error_contract if snippet not in repository]
+if missing_auth:
+    raise SystemExit("Authentication error privacy contract failed: " + ", ".join(missing_auth))
+
+print(f"Inline authentication validation contract passed: {len(required) + len(auth_error_contract)} checks.")

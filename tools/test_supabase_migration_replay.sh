@@ -97,7 +97,7 @@ INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES (
   '00000000-0000-4000-8000-000000000123',
   'sos-regression@example.test',
-  '{"name":"SOS Regression","role":"requester"}'::jsonb
+  '{"name":"SOS Regression","phone":"+63917000001","role":"requester"}'::jsonb
 );
 
 DO $$
@@ -136,14 +136,70 @@ BEGIN
 END;
 $$;
 
+-- Location fallback must remain enforced when a requester edits an existing incident.
+DO $incident_location_update_test$
+DECLARE
+  requester_profile_id bigint;
+  incident_id bigint;
+BEGIN
+  SELECT id INTO requester_profile_id
+    FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000123';
+
+  -- Reuse the fixture incident created above; the one-active-request
+  -- invariant correctly prevents creating a second active request here.
+  SELECT id INTO incident_id
+    FROM public.incidents
+   WHERE requester_id = requester_profile_id
+     AND description = 'Automated SOS audit regression';
+
+  IF incident_id IS NULL THEN
+    RAISE EXCEPTION 'Expected the existing requester fixture incident';
+  END IF;
+
+  -- Convert the fixture to a valid landmark-only location before testing
+  -- attempts to remove its final usable location detail.
+  UPDATE public.incidents
+     SET latitude = NULL,
+         longitude = NULL,
+         accuracy_m = NULL,
+         location_recorded_at = NULL,
+         location_notes = 'Beside the public market entrance',
+         location_source = 'none'
+   WHERE id = incident_id;
+
+  BEGIN
+    UPDATE public.incidents
+       SET location_notes = NULL
+     WHERE id = incident_id;
+    RAISE EXCEPTION 'Expected an incident update without pin or landmark to be rejected';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    NULL;
+  END;
+
+  BEGIN
+    UPDATE public.incidents
+       SET longitude = 125.003
+     WHERE id = incident_id;
+    RAISE EXCEPTION 'Expected a partial coordinate update to be rejected';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    NULL;
+  END;
+
+  UPDATE public.incidents
+     SET location_notes = 'Beside the verified public market entrance'
+   WHERE id = incident_id;
+END;
+$incident_location_update_test$;
+
 
 -- End-to-end SQL regression: team members advance independently, the aggregate
 -- stays en_route until all units arrive, and GPS is rejected for an arrived unit.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000124', 'dispatch-regression@example.test', '{"name":"Dispatch Regression"}'),
-  ('00000000-0000-4000-8000-000000000127', 'per-responder-requester@example.test', '{"name":"Per Responder Requester"}'),
-  ('00000000-0000-4000-8000-000000000125', 'responder-one@example.test', '{"name":"Responder One"}'),
-  ('00000000-0000-4000-8000-000000000126', 'responder-two@example.test', '{"name":"Responder Two"}');
+  ('00000000-0000-4000-8000-000000000124', 'dispatch-regression@example.test', '{"name":"Dispatch Regression","phone":"+63917000002"}'),
+  ('00000000-0000-4000-8000-000000000127', 'per-responder-requester@example.test', '{"name":"Per Responder Requester","phone":"+63917000003"}'),
+  ('00000000-0000-4000-8000-000000000125', 'responder-one@example.test', '{"name":"Responder One","phone":"+63917000004"}'),
+  ('00000000-0000-4000-8000-000000000126', 'responder-two@example.test', '{"name":"Responder Two","phone":"+63917000005"}');
 
 DO $per_responder_test$
 DECLARE
@@ -232,11 +288,11 @@ SQL
 psql -v ON_ERROR_STOP=1 <<'SQL'
 -- Notification persistence, event creation, ownership, and RPC grants.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000131', 'notification-dispatcher@example.test', '{"name":"Notification Dispatcher"}'),
-  ('00000000-0000-4000-8000-000000000132', 'notification-requester@example.test', '{"name":"Notification Requester"}'),
-  ('00000000-0000-4000-8000-000000000133', 'notification-responder@example.test', '{"name":"Notification Responder"}'),
-  ('00000000-0000-4000-8000-000000000134', 'notification-legacy-responder@example.test', '{"name":"Notification Legacy Responder"}'),
-  ('00000000-0000-4000-8000-000000000135', 'notification-legacy-requester@example.test', '{"name":"Notification Legacy Requester"}');
+  ('00000000-0000-4000-8000-000000000131', 'notification-dispatcher@example.test', '{"name":"Notification Dispatcher","phone":"+63917000006"}'),
+  ('00000000-0000-4000-8000-000000000132', 'notification-requester@example.test', '{"name":"Notification Requester","phone":"+63917000007"}'),
+  ('00000000-0000-4000-8000-000000000133', 'notification-responder@example.test', '{"name":"Notification Responder","phone":"+63917000008"}'),
+  ('00000000-0000-4000-8000-000000000134', 'notification-legacy-responder@example.test', '{"name":"Notification Legacy Responder","phone":"+63917000009"}'),
+  ('00000000-0000-4000-8000-000000000135', 'notification-legacy-requester@example.test', '{"name":"Notification Legacy Requester","phone":"+63917000010"}');
 
 DO $notification_test$
 DECLARE
@@ -397,8 +453,7 @@ BEGIN
     RAISE EXCEPTION 'Notification list must reject unauthenticated callers';
   END IF;
 
-  denied := false;
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000132', true);
+  denied := false;  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000132', true);
   BEGIN
     PERFORM public.api_my_notifications(101);
   EXCEPTION WHEN invalid_parameter_value THEN
@@ -414,10 +469,10 @@ SQL
 psql -v ON_ERROR_STOP=1 <<'SQL'
 -- Incident chat authorization, idempotency, rate/size bounds, and message alerts.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000136', 'chat-dispatcher@example.test', '{"name":"Chat Dispatcher"}'),
-  ('00000000-0000-4000-8000-000000000137', 'chat-requester@example.test', '{"name":"Chat Requester"}'),
-  ('00000000-0000-4000-8000-000000000138', 'chat-responder@example.test', '{"name":"Chat Responder"}'),
-  ('00000000-0000-4000-8000-000000000139', 'chat-outsider@example.test', '{"name":"Chat Outsider"}');
+  ('00000000-0000-4000-8000-000000000136', 'chat-dispatcher@example.test', '{"name":"Chat Dispatcher","phone":"+63917000011"}'),
+  ('00000000-0000-4000-8000-000000000137', 'chat-requester@example.test', '{"name":"Chat Requester","phone":"+63917000012"}'),
+  ('00000000-0000-4000-8000-000000000138', 'chat-responder@example.test', '{"name":"Chat Responder","phone":"+63917000013"}'),
+  ('00000000-0000-4000-8000-000000000139', 'chat-outsider@example.test', '{"name":"Chat Outsider","phone":"+63917000014"}');
 
 DO $chat_test$
 DECLARE
@@ -641,16 +696,16 @@ END;
 $chat_test$;
 SQL
 
-echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed, and incident chat, notification authorization, and per-responder status regressions passed."
+echo "PASS: migration replay and baseline incident/chat/notification/admin regressions passed; continuing with SOS idempotency stress tests."
 
 
 psql -v ON_ERROR_STOP=1 <<'SQL'
 -- Admin role/audit regression tests run only in this disposable clean database.
 -- Public signup metadata must never grant the privileged role.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000128', 'admin-spoof@example.test', '{"name":"Admin Spoof Attempt","role":"admin"}'),
-  ('00000000-0000-4000-8000-000000000129', 'admin-role-target@example.test', '{"name":"Admin Role Target","role":"requester"}'),
-  ('00000000-0000-4000-8000-000000000130', 'admin-escalation-attempt@example.test', '{"name":"Admin Escalation Attempt","role":"requester"}');
+  ('00000000-0000-4000-8000-000000000128', 'admin-spoof@example.test', '{"name":"Admin Spoof Attempt","phone":"+63917000015","role":"admin"}'),
+  ('00000000-0000-4000-8000-000000000129', 'admin-role-target@example.test', '{"name":"Admin Role Target","phone":"+63917000016","role":"requester"}'),
+  ('00000000-0000-4000-8000-000000000130', 'admin-escalation-attempt@example.test', '{"name":"Admin Escalation Attempt","phone":"+63917000017","role":"requester"}');
 
 DO $admin_provision_fixture$
 DECLARE
@@ -797,8 +852,7 @@ BEGIN
     );
   EXCEPTION WHEN insufficient_privilege THEN
     denied := true;
-  END;
-  IF NOT denied THEN
+  END;  IF NOT denied THEN
     RAISE EXCEPTION 'Ordinary requester must not change another profile role';
   END IF;
 
@@ -988,4 +1042,254 @@ END;
 $admin_audit_immutability_test$;
 SQL
 
-echo "PASS: all $(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l) Supabase migrations replayed; incident regressions and Admin role/audit authorization tests passed."
+
+# Concurrent SOS idempotency regression. Each psql process is an independent
+# database session, exercising unique-key arbitration across sessions.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+INSERT INTO auth.users (id, email, raw_user_meta_data)
+VALUES (
+  '00000000-0000-4000-8000-000000000140',
+  'concurrent-sos-regression@example.test',
+  '{"name":"Concurrent SOS Regression","phone":"+63917000136","role":"requester"}'::jsonb
+);
+SQL
+
+concurrent_dir="$(mktemp -d)"
+worker_pids=()
+cleanup_concurrent_dir() { rm -rf "$concurrent_dir"; }
+trap cleanup_concurrent_dir EXIT
+
+for worker in $(seq 1 8); do
+  (
+    psql -X -qAt -v ON_ERROR_STOP=1 >"$concurrent_dir/response-${worker}.json" <<'SQL'
+BEGIN;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000140', true);
+SELECT public.api_create_incident_v4(
+  'medical',
+  'Concurrent idempotency regression',
+  11.244,
+  125.003,
+  NULL,
+  'Synthetic concurrent CI location',
+  '2026-10-30T12:00:00Z'::timestamptz,
+  'manual',
+  '00000000-0000-4000-8000-000000000140'::uuid
+)::text;
+COMMIT;
+SQL
+  ) &
+  worker_pids+=("$!")
+done
+for worker_pid in "${worker_pids[@]}"; do
+  wait "$worker_pid"
+done
+
+python3 - "$concurrent_dir" <<'PY'
+from pathlib import Path
+import sys
+
+directory = Path(sys.argv[1])
+responses = [
+    line.strip()
+    for path in sorted(directory.glob("response-*.json"))
+    for line in path.read_text().splitlines()
+    if line.strip().startswith("{")
+]
+if len(responses) != 8:
+    raise SystemExit(f"Expected 8 successful concurrent RPC responses, found {len(responses)}")
+if len(set(responses)) != 1:
+    raise SystemExit("Concurrent SOS retries returned different incident responses")
+print("PASS: all 8 concurrent SOS submissions returned the same saved response")
+PY
+
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $concurrent_sos_assert$
+DECLARE
+  requester_profile_id bigint;
+  incident_count integer;
+  saved_key_count integer;
+  response_count integer;
+BEGIN
+  SELECT id INTO requester_profile_id
+  FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000140';
+
+  SELECT count(*) INTO incident_count
+  FROM public.incidents
+  WHERE requester_id = requester_profile_id
+    AND description = 'Concurrent idempotency regression';
+
+  SELECT count(*), count(response_payload)
+    INTO saved_key_count, response_count
+  FROM public.incident_submission_keys
+  WHERE requester_id = requester_profile_id
+    AND client_request_id = '00000000-0000-4000-8000-000000000140';
+
+  IF incident_count <> 1 THEN
+    RAISE EXCEPTION 'Eight concurrent retries must create exactly one incident; found %', incident_count;
+  END IF;
+  IF saved_key_count <> 1 OR response_count <> 1 THEN
+    RAISE EXCEPTION 'Expected one completed idempotency record; keys %, responses %',
+      saved_key_count, response_count;
+  END IF;
+END;
+$concurrent_sos_assert$;
+SQL
+
+
+# Reusing a key with changed details must be rejected, and an unauthenticated
+# caller must not be able to reserve or retrieve another request's idempotency key.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $sos_idempotency_negative_test$
+DECLARE
+  rejected boolean := false;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000140', true);
+  BEGIN
+    PERFORM public.api_create_incident_v4(
+      'medical',
+      'Changed payload must not reuse key',
+      11.244,
+      125.003,
+      NULL,
+      'Synthetic concurrent CI location',
+      '2026-10-30T12:00:00Z'::timestamptz,
+      'manual',
+      '00000000-0000-4000-8000-000000000140'::uuid
+    );
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Reusing an SOS key with changed details must be rejected';
+  END IF;
+
+  rejected := false;
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  BEGIN
+    PERFORM public.api_create_incident_v4(
+      'medical', 'Unauthenticated SOS attempt', NULL, NULL, NULL, NULL,
+      NULL, 'none', '00000000-0000-4000-8000-000000000137'::uuid
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Unauthenticated callers must not create SOS submissions';
+  END IF;
+END;
+$sos_idempotency_negative_test$;
+SQL
+
+
+# Failure-atomicity regression: force the underlying incident insert to fail
+# after the idempotency key has been reserved. The failed RPC must roll back
+# that reservation so the same request ID can be retried successfully.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+INSERT INTO auth.users (id, email, raw_user_meta_data)
+VALUES (
+  '00000000-0000-4000-8000-000000000141',
+  'sos-atomicity-regression-141@example.test',
+  '{"name":"SOS Atomicity Regression","phone":"+63917000141","role":"requester"}'::jsonb
+);
+
+CREATE OR REPLACE FUNCTION public.tacresq_test_fail_sos_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $test$
+BEGIN
+  IF NEW.description = 'Atomicity failure injection' THEN
+    RAISE EXCEPTION 'Intentional CI failure after idempotency reservation'
+      USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$test$;
+
+CREATE TRIGGER tacresq_test_fail_sos_insert
+BEFORE INSERT ON public.incidents
+FOR EACH ROW EXECUTE FUNCTION public.tacresq_test_fail_sos_insert();
+SQL
+
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $sos_atomicity_failure$
+DECLARE
+  requester_profile_id bigint;
+  failure_observed boolean := false;
+BEGIN
+  SELECT id INTO requester_profile_id FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000141';
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000141', true);
+  BEGIN
+    PERFORM public.api_create_incident_v4(
+      'medical', 'Atomicity failure injection', 11.244, 125.003, NULL,
+      'Synthetic CI failure location', '2026-10-30T12:00:00Z'::timestamptz,
+      'manual', '00000000-0000-4000-8000-000000000141'::uuid
+    );
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    failure_observed := true;
+  END;
+
+  IF NOT failure_observed THEN
+    RAISE EXCEPTION 'Expected the injected incident-creation failure';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.incident_submission_keys
+    WHERE requester_id = requester_profile_id
+      AND client_request_id = '00000000-0000-4000-8000-000000000141'::uuid
+  ) THEN
+    RAISE EXCEPTION 'Failed SOS transaction left behind an idempotency reservation';
+  END IF;
+END;
+$sos_atomicity_failure$;
+
+DROP TRIGGER tacresq_test_fail_sos_insert ON public.incidents;
+DROP FUNCTION public.tacresq_test_fail_sos_insert();
+
+DO $sos_atomicity_retry$
+DECLARE
+  response jsonb;
+  requester_profile_id bigint;
+BEGIN
+  SELECT id INTO requester_profile_id
+  FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000141';
+
+  IF requester_profile_id IS NULL THEN
+    RAISE EXCEPTION 'Atomicity retry fixture profile was not created';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000141', true);
+  SELECT public.api_create_incident_v4(
+    'medical', 'Atomicity failure injection', 11.244, 125.003, NULL,
+    'Synthetic CI failure location', '2026-10-30T12:00:00Z'::timestamptz,
+    'manual', '00000000-0000-4000-8000-000000000141'::uuid
+  ) INTO response;
+
+  IF response IS NULL THEN
+    RAISE EXCEPTION 'Retry after rolled-back SOS reservation must return the saved incident response';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.incident_submission_keys
+    WHERE requester_id = requester_profile_id
+      AND client_request_id = '00000000-0000-4000-8000-000000000141'::uuid
+      AND response_payload = response
+  ) THEN
+    RAISE EXCEPTION 'Successful retry did not persist its idempotency response';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.incidents
+    WHERE requester_id = requester_profile_id
+      AND description = 'Atomicity failure injection'
+  ) THEN
+    RAISE EXCEPTION 'Successful retry did not create the expected incident';
+  END IF;
+END;
+$sos_atomicity_retry$;
+SQL

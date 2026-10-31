@@ -72,9 +72,9 @@ for required in (
     "Open incident",
     "Open conversation",
     "Notifications unavailable",
-    "You're all caught up",
+    "All caught up",
     "Loading your notifications",
-    "latest ${state.items.size} notifications",
+    "$unreadCount unread",
     "Try again",
 ):
     assert required in screen, f"Notification UI/lifecycle contract missing: {required}"
@@ -87,6 +87,9 @@ assert screen.count("catch (_: Exception)") >= 2, (
 )
 
 root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
+requester = read("app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt")
+responder = read("app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt")
+dispatcher = read("app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt")
 for required in (
     "NotificationsViewModel",
     "NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident, onOpenChat)",
@@ -107,6 +110,29 @@ assert shell.count("NavigationItem(destinations[") >= 4, "The four non-map desti
 assert "GPS Map" in shell, "GPS Map must remain visible in the central navigation item"
 assert 'ALERTS("Alerts")' in shell, "notifications must be discoverable from the Alerts destination"
 assert 'ScreenHeader(title = "Alerts & safety"' in screen, "the destination must preserve its safety guidance context"
+
+components = read("app/src/main/java/com/tacresq/app/ui/common/Components.kt")
+assert "fun ScreenHeader(title: String, subtitle: String = \"\", onOpenNotifications: (() -> Unit)? = null)" in components
+assert "Text(\"Sign out\")" not in components, "sign-out must not appear in the shared screen header"
+app_root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
+assert 'Text("Sign out")' in app_root and 'Text("Cancel")' in app_root
+assert 'Text("Your emergency requests will remain active.' in app_root, "logout confirmation must explain active-request behavior"
+assert "showSignOutConfirmation = true" in app_root
+
+assert "onOpenNotifications: (() -> Unit)? = null" in components
+assert 'contentDescription = "Open notifications"' in components
+assert "val openNotifications: () -> Unit = {" in app_root
+assert "selectedChatIncidentId = null" in app_root, "Opening Alerts must clear the selected chat route"
+assert app_root.count("onOpenNotifications = { chatVm.closeConversation(); openNotifications() }") == 3, (
+    "Requester, responder/driver, and dispatcher chats must close their conversation before opening Alerts"
+)
+assert "onOpenNotifications = openNotifications" in app_root
+assert "onOpenNotifications = onOpenNotifications" in requester
+assert "onOpenNotifications = onOpenNotifications" in responder
+assert "onOpenNotifications = onOpenNotifications" in dispatcher
+assert "onOpenNotifications = onOpenNotifications" in read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
+assert root.count("onOpenNotifications = openNotifications") >= 3, "requester, responder/driver, and dispatcher incident chats must expose the notification action"
+
 
 # Client code must consume the protected RPCs, not read/write the private table directly.
 for path in (

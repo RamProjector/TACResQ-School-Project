@@ -25,29 +25,41 @@ checks = {
             "val point = mapView.mapCenter", 'Text("Use this location")',
         )
     ),
+    "manual pin confirmation submits the live map center only after finite-coordinate validation": all(
+        text in requester for text in (
+            "val point = mapView.mapCenter",
+            "if (point.latitude.isFinite() && point.longitude.isFinite())",
+            "onConfirm(point.latitude, point.longitude)",
+            "enabled = !startsAtTaclobanDefault || userAdjustedMap",
+        )
+    ) and all(
+        text in requester for text in (
+            "latitude !in -90.0..90.0",
+            "longitude !in -180.0..180.0",
+            "The selected map pin is invalid.",
+        )
+    ),
     "requester manual location picker is a full-screen map with reachable map controls": all(
         text in requester for text in (
             "DialogProperties(usePlatformDefaultWidth = false)",
-            "Choose emergency location",
-            "Selected center: %.5f, %.5f",
-            "controller.zoomIn()",
-            "controller.zoomOut()",
+            "Choose location",
+            "Selected location: %.5f, %.5f",
             "Return to starting location",
             "Map data",
             "modifier = Modifier.fillMaxSize()",
             "enabled = !startsAtTaclobanDefault || userAdjustedMap",
         )
-    ) and "height(320.dp)" not in requester,
+    ) and "height(320.dp)" not in requester and "controller.zoomIn()" not in requester and "controller.zoomOut()" not in requester,
     "fallback map center is clearly identified when GPS is unavailable": all(
         text in requester for text in (
             "startsAtTaclobanDefault = initial == null",
             "startsAtTaclobanDefault: Boolean",
-            "The map starts at Tacloban as a reference only—not your phone's location.",
-            "Move the map to the actual emergency location before confirming.",
+            "Starts at Tacloban, not your GPS position. Move the map to the emergency site.",
+            "Move the map before confirming.",
             "setOnTouchListener { _, event ->",
             "if (event.action == MotionEvent.ACTION_MOVE) userAdjustedMap = true",
             "enabled = !startsAtTaclobanDefault || userAdjustedMap",
-            "Move the map to the real emergency location to enable confirmation.",
+            "Move the map before confirming.",
         )
     ),
     "manual map pin is explicitly represented instead of mislabelled as GPS": all(
@@ -65,13 +77,16 @@ checks = {
             "config.userAgentValue =",
         )
     ),
+    "full-screen requester location picker exposes a named accessibility pane": (
+        'paneTitle = "Choose emergency location"' in requester
+    ),
     "manual pin shows live center coordinates and warns against blank-map selection": all(
         text in requester for text in (
             "import org.osmdroid.events.MapListener",
             "centerCoordinates.value = point.latitude to point.longitude",
-            '"Selected center: %.5f, %.5f"',
-            "Wait until roads and landmarks appear before confirming.",
-            "If the map stays blank, cancel and use a landmark instead.",
+            '"Selected location: %.5f, %.5f"',
+            "Map pin only; it does not measure GPS accuracy.",
+            "If the map is blank, cancel and share a landmark.",
         )
     ),
     "incident creation carries source through the Supabase RPC": all(
@@ -124,7 +139,7 @@ checks = {
         "SOS sent. Dispatch confirmed the map pin you selected." in requester
         and "SOS sent. Dispatch confirmed the one-time GPS pin you submitted." in requester
         and "TACResQ is not tracking you continuously" not in requester
-        and "Only this pin is included with the SOS; ongoing location updates are not sent." in requester
+        and "This one-time pin is sent; ongoing tracking is not." in requester
     ),
     "expired manual pins are not mislabeled as GPS fixes": all(
         text in requester for text in (
@@ -137,29 +152,32 @@ checks = {
     "server response source is verified before claiming location confirmation": (
         "if (incident.locationSource != expectedSource) return false" in requester
     ),
-    "incident cards distinguish manual pins from GPS fixes": all(
+    "incident cards distinguish GPS, manual, and unverified location sources without dumping coordinates": all(
         text in incident_card for text in (
-            '"gps" -> "GPS pin"', '"manual" -> "Manual map pin"',
-            '"Location pin (source unverified)"', 'incident.locationSource == "gps"',
-            '"No location pin was shared"',
+            '"gps" -> "GPS"', '"manual" -> "Map pin"',
+            '"Unverified pin"', 'incident.locationSource == "gps"',
+            '"No location pin$note"', 'val note = incident.locationNotes?.trim()',
         )
+    ) and "String.format(Locale.US, \"%.5f, %.5f\", latitude, longitude)" not in incident_card,
+    "incident landmark and access notes are never silently line-clamped": (
+        "Text(\n                incidentLocationText(incident)," in incident_card
+        and "maxLines" not in incident_card.split("incidentLocationText(incident)", 1)[1].split("\n            )", 1)[0]
+        and "TextOverflow.Ellipsis" not in incident_card.split("incidentLocationText(incident)", 1)[1].split("\n            )", 1)[0]
     ),
     "field units are not described as live before a location is confirmed": all(
         text in responder for text in (
-            "waiting for the first confirmed location update",
-            "the latest update failed",
-            "Responder location is not currently being shared.",
+            "Waiting for the first confirmed location update.",
+            "Last location update failed.",
+            "Location sharing is off.",
             "Share location & start",
             "Start without sharing",
         )
     ),
-    "external routing is distinguished from the in-app incident map": all(
-        text in responder for text in (
-            'Text("Open navigation app")',
-            "Opens an installed maps app for route guidance.",
-            "Use TACResQ GPS Map for the incident and field-unit overview.",
-        )
-    ) and "Text(\"Navigate in Google Maps\")" not in responder,
+    "external routing remains a separate action without redundant helper copy": (
+        'Text("Navigate to incident")' in responder
+        and 'google.navigation:q=$lat,$lng&mode=d' in responder
+        and "Opens an installed maps app for route guidance." not in responder
+    ),
     "SOS submission lock is set before launching asynchronous work": (
         "Claim the submission synchronously before launching the coroutine." in requester
         and requester.index("_state.update { it.copy(sending = true, notice = null, error = null) }")

@@ -144,6 +144,23 @@ assert not re.search(
     re.IGNORECASE,
 ), "Follow-up migration must not revoke authenticated grants"
 
+
+# Runtime SQL contracts share one disposable database with the migration replay.
+# Their auth.users fixtures must therefore use disjoint UUID namespaces; otherwise
+# the second script fails before its authorization assertions execute.
+FIXTURE_UUID_PATTERN = r"00000000-0000-4000-8000-000000000\d{3}"
+replay_fixtures = set(
+    re.findall(FIXTURE_UUID_PATTERN, Path("tools/test_supabase_migration_replay.sh").read_text())
+)
+gps_fixtures = set(
+    re.findall(FIXTURE_UUID_PATTERN, Path("tools/test_location_rpc_security.sql").read_text())
+)
+overlapping_fixtures = replay_fixtures & gps_fixtures
+assert not overlapping_fixtures, (
+    "Migration replay and GPS RPC runtime tests share auth.users fixture UUIDs: "
+    + ", ".join(sorted(overlapping_fixtures))
+)
+
 print(
     f"PASS: least-privilege EXECUTE grants for {len(FUNCTIONS)} RPCs, "
     "restricted advanced table grants, and full anon/PUBLIC table/sequence revokes"

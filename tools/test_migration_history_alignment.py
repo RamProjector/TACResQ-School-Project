@@ -38,6 +38,10 @@ PENDING = {
     "20261026200000_incident_scoped_chat.sql",
     "20261026161500_admin_role_audit_foundation.sql",
     "20261026170000_admin_server_side_user_pagination.sql",
+    "20261030100000_require_incident_location_fallback.sql",
+    "20261030110000_require_requester_signup_contact.sql",
+    "20261030120000_bound_requester_signup_contact_lengths.sql",
+    "20261030130000_incident_message_rate_limit_index.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
@@ -158,4 +162,32 @@ assert "SET search_path = pg_catalog" in pagination
 assert "DROP FUNCTION" not in pagination.upper()
 assert "DELETE FROM" not in pagination.upper()
 print("PASS: Admin RPC authorization, append-only audit, and bounded pagination contracts are present.")
+
+location_fallback = (MIGRATIONS / "20261030100000_require_incident_location_fallback.sql").read_text().lower()
+for required in (
+    "create or replace function public.tacresq_require_incident_location()",
+    "set search_path = pg_catalog",
+    "latitude and longitude must be supplied together",
+    "a location pin or landmark/access detail is required",
+    "an emergency description is required for the other type",
+    "create trigger incidents_require_location_before_write",
+    "before insert or update of latitude, longitude, location_notes, type, description on public.incidents",
+):
+    assert required in location_fallback, f"Missing required SOS location database guard: {required}"
+assert "security definer" not in location_fallback
+print("PASS: SOS inserts and location/type edits require a complete pin or a nonblank landmark/access detail.")
+
+signup_validation = (MIGRATIONS / "20261030110000_require_requester_signup_contact.sql").read_text().lower()
+for required in (
+    "create or replace function public.tacresq_profile_on_signup()",
+    "security definer",
+    "set search_path = pg_catalog",
+    "a full name is required for requester registration",
+    "a valid mobile number is required for requester registration",
+    "requester mobile numbers must contain 7 to 15 digits",
+    "'requester'",
+):
+    assert required in signup_validation, f"Missing server-side requester signup requirement: {required}"
+assert "raw_user_meta_data ->> 'role'" not in signup_validation
+print("PASS: public signup enforces name/contact requirements and always provisions requester role.")
 

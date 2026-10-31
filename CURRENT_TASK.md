@@ -1,3 +1,28 @@
+# Active handoff — 2026-10-31: dispatcher status clarity and PR #215 CI repair
+
+- **PR:** #215, branch `fix/map-fullscreen-ui-consistency`; still open and unmerged.
+- **Status summary wording:** changed the dispatcher count to “members with a status update.” The count is based on each assigned member's status being different from `ASSIGNED`; it must not be described as a live count of people currently travelling or physically present.
+- **Individual status freshness:** expanded member details now show each assignment's `status_updated_at` in the device's local time zone using the existing `formatTime` helper. Missing timestamps are explicitly labeled “Update time unavailable”; no arbitrary stale threshold or automatic status transition was introduced.
+- **PR #215 compile repair:** inspected the failing Android build log and fixed missing Compose Material3 `Icon`/`IconButton` and Material `Icons.Filled.Notifications` imports in `Components.kt`.
+- **Regression contract repairs:** updated the GPS source check to recognize the responder/driver logout wrapper while still requiring requester, responder/driver, and dispatcher map wiring; updated the notifications contract for the notification-aware `ScreenHeader` signature; extended per-responder status contract for the timestamp UI.
+- **Commits:** `e31c1e37c3b8298da8fc6854fa28f78959b42d31`, `92d82c39832670a88cd479ca67bff5604e65ad34`, `202812cfefd33a172f1abf190eca04ca7c789e1e`, `a7d6beb38434aea35001141e842a2008448d8a76`, `65336d4cbe51fb31dfab27eb35b0a25da3dad4bc`, `b3265fcaffd374d8b8995502a2eec2427aa0ad95`, `007bebac9c076988df73654362e1db9079df4fd9`, `6eb05e619009a03453230f426d8273c6e8825865`, `d8615892fb772d6ff3ff2775bcb0113b09eea394`.
+- **Validation:** inspected previous CI failure logs; Android compilation failed because of the missing notification icon imports. The GPS emulator job also logged an SDK command-line-tools discovery failure, but the shown Android build failure was specifically Kotlin unresolved references. Latest head is `d8615892fb772d6ff3ff2775bcb0113b09eea394`; workflow/status APIs returned no fresh runs/statuses at handoff time. Do not claim latest-head CI passes, do not merge, and do not publish an APK until the exact head builds.
+- **Workflow note:** the NIMS-informed team view remains an overview of individual resource records. Do not invent a team-leader role or change server-side status authority without reviewing authorization, transition logic, and auditability first.
+
+---
+
+# Active handoff — 2026-10-31: responder sign-out safety and dispatcher team summary
+
+- **PR:** #215, branch `fix/map-fullscreen-ui-consistency`; remains open and unmerged.
+- **Responder sign-out regression fix:** the responder/driver role now wraps the Profile/chat sign-out callback to stop that user's foreground location flow before calling repository logout. Updated `tools/test_location_contract.py` to assert the actual AppRoot wiring rather than expecting a now-removed header callback inside ResponderScreen.
+- **Dispatcher team-status UX:** active incident cards now show an overall team status and a compact count of assigned members who have started responding. Individual member status rows are collapsed behind an explicit “View member details” action and can be hidden again. This preserves individual accountability while reducing the five-row status wall in the default queue view.
+- **Regression coverage:** extended `tools/test_per_responder_assignment_status.py` for the collapsed-by-default team summary and detail disclosure.
+- **Commits:** `f471ee01576c406d092d05cd584904b6c8248237` (sign-out safety); `bf3544b03af0a10fd391cdc6001b338c083d179f` (sign-out contract); `70654357b2c7ecf791d1b04ed5d1b8003d71d0ea` (team summary UI); `dd545995daa597ed08d347962e75c19e5772fa22` (team summary contract).
+- **Validation:** changes were committed through GitHub; no local Android build or emulator run was performed. Previous exact-head CI on `8a9b42f4...` failed in Android build/source checks and CodeQL Android. The new commits trigger fresh CI; do not claim success until the latest head's checks finish.
+- **Next:** inspect exact-head CI failures, resolve them without weakening checks, then continue with a focused responder/dispatcher workflow review. Do not merge until all required checks pass.
+
+---
+
 # Active handoff — 2026-10-30: GPS permission-denial recovery
 
 - **Verified main at task start:** `b6fa737230f7e69de8273ba4652088026e2e9f7a` (PR #206 merged; external map intent recovery).
@@ -245,3 +270,55 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Validation:** Workflow syntax and a real model invocation have not yet been run in GitHub Actions. Verify the first manually triggered run and inspect the resulting PR/checks before relying on the agent.
 - **Safety/limits:** The selected model is documented as free, but availability and rate limits may change. Workflow only allows the repository owner to invoke it and has a 20-minute timeout. No automatic merge or production changes are enabled.
 - **Next action:** Open a PR for this workflow, then verify required checks and the first real invocation after confirming the OpenCode GitHub App installation.
+
+
+## Handoff — 2026-10-31: requester incident-message discoverability
+
+- **Objective:** Make requester messaging visible at the active-emergency point without introducing a standalone requester Chats tab.
+- **Implementation:** Requester Home's active-emergency card now receives the existing incident-chat navigation callback and displays a full-width `Open incident messages` action for the active incident. The action passes that incident's ID into the existing chat route; existing request-list and notification entry points remain.
+- **Research basis:** Android navigation guidance reserves bottom navigation for top-level destinations; child/detail actions should be reached contextually. Android recommends 3–5 primary destinations. See https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns.
+- **Security:** No chat RPC, RLS, database schema, sender identity, message content, or notification behavior changed. Existing server-side incident authorization remains authoritative.
+- **Validation:** Added source-contract assertions for requester callback wiring and active incident ID routing. CI results must be checked on the final PR head before merge. Emulator/device and live Supabase account checks are not run by this source edit.
+- **Branch/PR:** `fix/map-fullscreen-ui-consistency`, PR #215. Keep PR open until exact-head required checks pass; do not claim merge.
+- **Next task:** Inspect requester Notifications/Alerts placement and profile/sign-out behavior, then address the next discrete UI task without changing unrelated role workflows.
+
+
+## Handoff — 2026-10-31: sign-out placement
+
+- **Objective:** Prevent accidental logout by removing Sign out from shared screen headers and moving it to Profile.
+- **Implementation:** Shared ScreenHeader no longer renders Sign out. The Profile section now presents a full-width secondary Sign out action and asks for confirmation. Confirmation explicitly states that signing out does not cancel active emergency requests.
+- **Affected UI:** Shared components, requester/responder/dispatcher/chat headers, notifications header, role profile section, static notification/navigation contract test.
+- **Scope guard:** Existing Alerts navigation remains in place for now. The top-right notification button is the next separate task; do not remove Alerts until notification routing and unread indication are proven.
+- **Admin caveat:** AdminAccessScreen is currently a dedicated screen outside RoleShell/Profile. A role-appropriate admin account/session exit destination remains to be designed; do not silently remove admin sign-out access.
+- **Validation:** Static contract assertions added. Exact-head Android CI and security checks must pass before merge. No emulator/device session-flow test or live backend operation was performed.
+- **Next task:** Add a discoverable top-right notification action that routes to the existing notification inbox, then assess whether the Alerts bottom-navigation destination should be retained or retired.
+
+
+## Handoff — 2026-10-31: top-right notification entry point
+
+- **Research basis:** Android's Jetpack Compose app-bar guidance describes top app bars as the place for core actions, with actions placed at the trailing/right side; icon actions should use IconButton and a meaningful content description. https://developer.android.com/develop/ui/compose/components/app-bars
+- **Implementation:** Shared ScreenHeader now accepts an optional notification callback and displays a trailing bell IconButton labelled **Open notifications**. RoleApp routes that action to the existing Alerts & safety destination. Requester, responder, driver, dispatcher, and incident-chat headers are wired to the route.
+- **Validation added:** Static notification contract checks verify callback propagation; Compose instrumented test checks the action is displayed with its accessibility description and invokes the callback.
+- **Compatibility:** Existing Alerts bottom-navigation entry remains temporarily as a duplicate route to the same inbox. Do not remove it until device testing confirms the header action is discoverable and the navigation change does not strand notification access.
+- **Admin caveat:** AdminAccessScreen is separate from RoleShell and does not yet expose this shared header action.
+- **No backend changes:** Notification RPCs, polling, read state, RLS, push delivery, and notification content are unchanged.
+- **Next:** Run exact-head CI, then inspect the admin role's profile/session UX and consider badge/unread count only after verifying refresh cadence and performance.
+
+
+# Active handoff — 2026-10-31: compact requester review action
+
+- **Task:** Prevent the requester location-step primary action from wrapping/clipping on narrow displays.
+- **Research basis:** Android navigation/layout guidance supports keeping actions concise and accessible; Android touch-target guidance recommends at least 48dp. Official sources: https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns and https://developer.android.com/guide/topics/ui/accessibility/views/apps-views.
+- **Implementation:** Shortened the step action label from `Review request` to `Review`, forced a single line, and preserved the existing 52dp button height, weighted layout, validation behavior, and step transition.
+- **Regression coverage:** Added source contract assertions for the one-line label and prevention of the old wrapping label.
+- **Scope:** No request payload, validation, SOS submission, location handling, or backend behavior changed.
+- **Validation:** CI must verify this exact PR head. Emulator/narrow-device visual check not run.
+
+
+# Active handoff — 2026-10-31: notification access from every incident-chat role
+
+- **Finding:** Requester incident-chat headers already exposed the notification bell, but responder/driver and dispatcher chat routes did not pass the shared navigation callback.
+- **Implementation:** Wired the existing notification destination callback into both remaining role-specific incident-chat routes. No new screen or notification behavior was introduced.
+- **Research basis:** Android top app bars host core contextual actions, and notification taps/actions should take users to the directly relevant destination. Official guidance: https://developer.android.com/develop/ui/compose/components/app-bars and https://developer.android.com/design/ui/mobile/guides/home-screen/notifications.
+- **Regression coverage:** Static notification contract now requires all three incident-chat route groups to provide the callback.
+- **Validation:** Await exact-head CI. No device visual validation or live notification delivery test performed.

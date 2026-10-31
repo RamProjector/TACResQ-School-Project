@@ -7,14 +7,16 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -36,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -60,7 +63,10 @@ import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SyncStatus
+import com.tacresq.app.ui.common.SectionHeading
+import com.tacresq.app.ui.common.StatusPill
 import com.tacresq.app.ui.common.actionLabel
+import com.tacresq.app.ui.common.pillColor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -264,7 +270,7 @@ class ResponderViewModel(
 }
 
 @Composable
-fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
+fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit, onOpenNotifications: () -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
     val context = LocalContext.current
@@ -317,18 +323,15 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
     val history = state.incidents.filterNot { it.status.isActive }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().safeDrawingPadding(),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
             ScreenHeader(
                 title = "Current call",
                 subtitle = "",
-                onLogout = {
-                    vm.stopTracking("Location sharing stopped because you signed out.")
-                    onLogout()
-                },
+                onOpenNotifications = onOpenNotifications,
             )
         }
 
@@ -338,7 +341,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             OutlinedButton(
                 onClick = vm::refresh,
                 enabled = !state.refreshing && !state.loading,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             ) {
                 if (state.refreshing || state.loading) {
                     CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
@@ -356,7 +359,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                 unavailableMessage = when {
                     state.loading || state.refreshing -> "Checking assignments before allowing duty changes."
                     state.syncError != null -> "Could not verify assignments. Refresh before changing duty status."
-                    else -> "Your status updates automatically as you move the incident forward."
+                    else -> "Status follows your incident progress."
                 },
                 busy = state.busy,
                 onChange = vm::setDuty,
@@ -367,52 +370,27 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             item { Banner(message, isError = true, onDismiss = vm::dismissError) }
         }
 
-        if (active.isEmpty()) {
+        // A failed sync is already explained by SyncStatus and the disabled DutyCard.
+        // Do not render a second "Assignments unavailable" card for the same failure.
+        if (active.isEmpty() && (state.loading || (state.syncError == null && state.dutyStatus == DutyStatus.AVAILABLE))) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         if (state.loading) {
-                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.padding(end = 12.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text("Checking assignments", style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        "Loading your current calls and duty status.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        } else if (state.syncError != null) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                "Assignments could not be verified",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.error,
+                                if (state.loading) "Checking assignments" else "No active assignments",
+                                style = MaterialTheme.typography.titleSmall,
                             )
                             Text(
-                                "Do not assume there are no active calls. Refresh assignments to verify your current duty status and assignments.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else {
-                            Text(
-                                if (state.dutyStatus == DutyStatus.AVAILABLE) "No active assignments"
-                                else "You are off duty",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                if (state.dutyStatus == DutyStatus.AVAILABLE) {
-                                    "You are available. New assignments will appear here when dispatch assigns one."
-                                } else {
-                                    "Set your duty status to Available when you are ready to receive assignments."
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
+                                if (state.loading) "Please wait." else "You're available for new calls.",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -423,10 +401,16 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
 
         items(active, key = { it.id }) { incident ->
             IncidentCard(incident) {
-                Text(
-                    "Your unit: ${incident.statusFor(user.id).label}",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("Your response", style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val ownStatus = incident.statusFor(user.id)
+                    StatusPill(ownStatus.label, ownStatus.pillColor())
+                }
                 val contact = listOfNotNull(incident.requesterName, incident.requesterPhone)
                     .joinToString(", ")
                 if (contact.isNotBlank()) Text("Requester: $contact")
@@ -440,18 +424,13 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                 ) {
                     OutlinedButton(
                         onClick = { openNavigation(context, latitude, longitude) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     ) {
-                        Text("Open navigation app")
+                        Text("Navigate to incident")
                     }
-                    Text(
-                        "Opens an installed maps app for route guidance. Use TACResQ GPS Map for the incident and field-unit overview.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 } else {
                     Text(
-                        "No valid GPS pin is available. Coordinates are missing or invalid; do not navigate to an assumed location. Use the landmark note and confirm the destination with dispatch.",
+                        "No valid map pin. Use the landmark and confirm the destination with dispatch.",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -467,7 +446,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                             }
                         },
                         enabled = !state.busy,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     ) {
                         Text(next.actionLabel())
                     }
@@ -481,16 +460,21 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                         ) {
                             val lastLocationSentAt = state.lastLocationSentAt
                             Text(
+                                "GPS sharing reports your location; it does not confirm arrival. Update your response status when you reach the scene.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
                                 when {
-                                    !sharing -> "Responder location is not currently being shared."
+                                    !sharing -> "Location sharing is off."
                                     lastLocationSentAt == null && state.trackingError != null ->
-                                        "Location sharing was requested, but the first location update has not been confirmed."
+                                        "Waiting for the first confirmed location update."
                                     lastLocationSentAt == null ->
-                                        "Location sharing is enabled; waiting for the first confirmed location update."
+                                        "Waiting for location…"
                                     state.trackingError != null ->
-                                        "Location sharing is enabled, but the latest update failed."
+                                        "Last location update failed."
                                     else ->
-                                        "Approximate location sharing is active while this app is in the foreground."
+                                        "Sharing approximate location while this app is open."
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                             )
@@ -504,11 +488,11 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
                             }
                             state.trackingError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                             if (sharing) {
-                                OutlinedButton(onClick = { vm.stopTracking("Location sharing stopped by you.") }, enabled = !state.busy) {
+                                OutlinedButton(onClick = { vm.stopTracking("Location sharing stopped by you.") }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                                     Text("Stop location sharing")
                                 }
                             } else {
-                                Button(onClick = { responseToStart = incident }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                                Button(onClick = { responseToStart = incident }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                                     Text("Resume location sharing")
                                 }
                             }
@@ -519,7 +503,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
         }
 
         if (history.isNotEmpty()) {
-            item { Text("Completed", style = MaterialTheme.typography.titleMedium) }
+            item { SectionHeading("Completed") }
             items(history, key = { it.id }) { incident ->
                 IncidentCard(incident)
             }
@@ -534,9 +518,9 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit) {
             text = {
                 Text(
                     if (startingResponse) {
-                        "For incident #${incident.id}, approximate device location will be shared with authorized dispatch while you respond. Updates run only while this screen is in the foreground and stop when you leave it or advance the incident. You can start without sharing."
+                        "Share approximate location with authorized dispatch while TACResQ is open. Sharing stops when you leave this screen. You can start without sharing."
                     } else {
-                        "Approximate device location for incident #${incident.id} will be shared with authorized dispatch while this app is in the foreground. Sharing stops when you leave the foreground."
+                        "Share approximate location with authorized dispatch while TACResQ is open. Sharing stops when you leave this screen."
                     },
                 )
             },
@@ -575,13 +559,31 @@ private fun DutyCard(
     busy: Boolean,
     onChange: (DutyStatus) -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Duty status", style = MaterialTheme.typography.titleMedium)
-            Text(current.label, style = MaterialTheme.typography.headlineSmall)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Duty status", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                StatusPill(
+                    current.label,
+                    if (current == DutyStatus.AVAILABLE) MaterialTheme.colorScheme.secondary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (canChange) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
@@ -598,7 +600,8 @@ private fun DutyCard(
                     )
                 }
             } else {
-                Text(unavailableMessage)
+                Text(unavailableMessage, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

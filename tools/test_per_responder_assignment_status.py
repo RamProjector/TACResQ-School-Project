@@ -36,7 +36,7 @@ for source, requirements in (
     (models, ('val assignedUserStatuses: List<ResponderAssignmentStatus>', 'fun Incident.statusFor(userId: Long)')),
     (api, ('api_update_my_assignment_status', 'override suspend fun updateMyAssignmentStatus')),
     (repo, ('api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))',)),
-    (responder, ('incident.statusFor(user.id).nextSteps()', 'Your unit:', 'it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE')),
+    (responder, ('incident.statusFor(user.id).nextSteps()', 'val ownStatus = incident.statusFor(user.id)', 'StatusPill(ownStatus.label, ownStatus.pillColor())', 'it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE')),
     (dispatcher, ('memberStatus.status.label',)),
     (fake, ('override suspend fun updateMyAssignmentStatus', 'ResponderAssignmentStatus')),
 ):
@@ -45,3 +45,15 @@ for source, requirements in (
 print("PASS: individual response status is stored per assignment with server-side transition checks.")
 print("PASS: incident summary advances conservatively and retains a per-unit status payload.")
 print("PASS: Android, dispatcher, and fake-mode clients consume individual unit progress.")
+
+# Dispatcher overview presents one team summary first and reveals per-member detail on demand.
+assert 'var expandedTeamStatusIds by remember { mutableStateOf(setOf<Long>()) }' in dispatcher
+assert 'Team progress' in dispatcher
+assert 'members with a status update' in dispatcher
+assert "Progress is based on each assigned responder's own check-in." in dispatcher
+assert 'View member details' in dispatcher
+assert 'Hide member details' in dispatcher
+assert 'Updated ${formatTime(it)}' in dispatcher
+assert 'Update time unavailable' in dispatcher
+assert 'GPS sharing reports your location; it does not confirm arrival.' in responder
+assert 'if (incident.id in expandedTeamStatusIds)' in dispatcher

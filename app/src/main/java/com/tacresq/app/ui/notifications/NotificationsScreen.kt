@@ -1,5 +1,6 @@
 package com.tacresq.app.ui.notifications
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -35,7 +36,9 @@ import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.repo.NotificationRepository
+import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.SectionHeading
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -189,35 +192,34 @@ fun NotificationsAndSafetyScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            ScreenHeader(title = "Alerts & safety", subtitle = user.role.label, onLogout = onLogout)
+            ScreenHeader(title = "Alerts & safety")
         }
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape = MaterialTheme.shapes.large,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        "Notifications",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Text(
                         when {
+                            state.error != null && state.items.isEmpty() -> "Notifications unavailable"
+                            state.loading && state.items.isEmpty() -> "Loading notifications"
                             state.items.isEmpty() -> "No notifications yet"
-                            unreadCount == 0 -> "No unread among the latest ${state.items.size} notifications"
-                            else -> "$unreadCount unread among the latest ${state.items.size} notifications"
+                            unreadCount == 0 -> "All caught up"
+                            else -> "$unreadCount unread"
                         },
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -238,12 +240,11 @@ fun NotificationsAndSafetyScreen(
 
         state.actionError?.let { message ->
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = vm::dismissActionError) { Text("Dismiss") }
-                    }
-                }
+                Banner(
+                    text = message,
+                    isError = true,
+                    onDismiss = vm::dismissActionError,
+                )
             }
         }
 
@@ -272,20 +273,7 @@ fun NotificationsAndSafetyScreen(
                     }
                 }
             }
-        } else if (state.items.isEmpty() && state.error == null) {
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("You're all caught up", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Assignment and incident status alerts will appear here when the backend records them.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                }
-            }
-        } else {
+        } else if (state.items.isNotEmpty()) {
             items(state.items, key = { it.id }) { notification ->
                 NotificationCard(
                     notification = notification,
@@ -301,35 +289,30 @@ fun NotificationsAndSafetyScreen(
         }
 
         item {
-            Text(
-                "Safety guidance",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            SectionHeading("Safety guidance")
         }
         item {
             GuidanceCard(
                 title = "If you need urgent help",
-                body = "If someone is in immediate danger, contact the appropriate local emergency service directly when you can. Do not wait for an app status update to seek urgent assistance.",
+                body = "Immediate danger? Contact local emergency services. Don't wait for an app update.",
             )
         }
         item {
             GuidanceCard(
                 title = "Confirm the location",
-                body = "Check the map pin and landmark together. GPS can be inaccurate indoors or near tall buildings; correct a misplaced pin before sending when it is safe to do so.",
+                body = "Check the pin against a landmark. GPS can drift indoors or near tall buildings.",
             )
         }
         item {
             GuidanceCard(
                 title = "Share location deliberately",
-                body = "Field-unit location sharing is visible to authorized dispatch while the app is in use. Stop sharing when the response no longer requires it.",
+                body = "Location sharing is visible to authorized dispatch while the app is open. Stop when no longer needed.",
             )
         }
         item {
             GuidanceCard(
                 title = "Protect personal information",
-                body = "Share only details relevant to the incident. Do not post medical details, phone numbers, or another person's location publicly.",
+                body = "Share only details needed for the response. Keep medical and contact details private.",
             )
         }
     }
@@ -346,9 +329,16 @@ private fun NotificationCard(
     val incidentId = notification.incidentId
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(
+            1.dp,
+            if (unread) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+            else MaterialTheme.colorScheme.outlineVariant,
+        ),
         colors = CardDefaults.cardColors(
             containerColor = if (unread) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
         ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -400,7 +390,12 @@ private fun NotificationCard(
 
 @Composable
 private fun GuidanceCard(title: String, body: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

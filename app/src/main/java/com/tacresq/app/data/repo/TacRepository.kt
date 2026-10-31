@@ -29,11 +29,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.io.IOException
 import java.time.Instant
@@ -46,19 +48,48 @@ class TokenHolder {
 
 class ApiException(message: String, val httpCode: Int? = null) : Exception(message)
 
+/**
+ * Only discard a saved SOS after a response that definitively rejects the operation.
+ * Authentication, throttling, timeout, and conflict responses must retain the exact
+ * request envelope so the user can recover without creating a second emergency request.
+ */
+internal fun isDefinitiveIncidentRejection(httpCode: Int): Boolean =
+    httpCode in 400..499 && httpCode !in setOf(400, 401, 403, 408, 409, 425, 429)
+
+/** User-safe sign-in messages that distinguish credentials, throttling, and service outages. */
+internal fun signInHttpErrorMessage(httpCode: Int): String = when {
+    httpCode == 429 -> "Too many sign-in attempts. Wait a moment and try again."
+    httpCode >= 500 -> "The sign-in service is temporarily unavailable. Please try again."
+    httpCode in 400..401 -> "Email or password is incorrect."
+    else -> "Sign-in couldn't be completed. Check your email confirmation or try again."
+}
+
 class TacRepository(
     private val api: TacApi,
     private val store: SessionStore,
     private val tokenHolder: TokenHolder,
-    appScope: CoroutineScope,
+    private val appScope: CoroutineScope,
 ) : NotificationRepository {
-    /** Loading until the saved session is read, then LoggedOut or LoggedIn. */
-    val sessionState: StateFlow<SessionState> = store.session
-        .onEach { session -> tokenHolder.value = session?.token }
-        .map<Session?, SessionState> { session ->
-            if (session == null) SessionState.LoggedOut else SessionState.LoggedIn(session)
+    /** Loading until the saved session is read, with a recoverable state on persistent I/O failure. */
+    val sessionState: StateFlow<SessionState> = combine(
+        store.session,
+        store.sessionReadError,
+        store.sessionReadLoading,
+    ) { session, readError, readLoading ->
+        when {
+            readLoading -> SessionState.Loading
+            readError -> SessionState.RestoreFailed
+            session == null -> SessionState.LoggedOut
+            else -> SessionState.LoggedIn(session)
+        }
+    }
+        .onEach { state ->
+            tokenHolder.value = (state as? SessionState.LoggedIn)?.session?.token
         }
         .stateIn(appScope, SharingStarted.Eagerly, SessionState.Loading)
+
+    /** Re-run the bounded DataStore restore attempt after a visible storage error. */
+    fun retrySessionRestore() = store.retrySessionRead()
 
     suspend fun login(email: String, password: String): Result<Unit> = call {
         startSession(api.login(LoginRequest(email.trim(), password)))
@@ -69,8 +100,22 @@ class TacRepository(
     }
 
     suspend fun logout() {
-        runCatching { withContext(Dispatchers.IO) { api.logout() } }
+        // Clear local access immediately; remote revocation must never block sign-out UI.
+        val capturedToken = tokenHolder.value
         endSession()
+        if (capturedToken.isNullOrBlank()) return
+        // The injected application scope outlives this screen, so network revocation
+        // cannot delay navigation away from the signed-in UI or be cancelled with it.
+        appScope.launch(Dispatchers.IO) {
+            try {
+                api.logout(capturedToken)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Local credentials are already cleared. Server-side token expiry/revocation
+                // remains authoritative even if this best-effort network call cannot complete.
+            }
+        }
     }
 
     suspend fun me(): Result<User> = call { api.me() }
@@ -152,27 +197,30 @@ class TacRepository(
         )
         val payloadJson = Gson().toJson(candidate)
         val fingerprint = payloadJson
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: return Result.failure(ApiException("Sign in as a requester before submitting an emergency request."))
         val pending = try {
-            store.getOrCreatePendingIncident(fingerprint, payloadJson)
+            store.getOrCreatePendingIncident(fingerprint, payloadJson, ownerUserId)
         } catch (e: SessionStore.PendingIncidentConflictException) {
             return Result.failure(ApiException(e.message ?: "An earlier SOS submission is unresolved."))
         }
         val request = runCatching { Gson().fromJson(pending.payloadJson, CreateIncidentRequest::class.java).copy(clientRequestId = pending.requestId) }
             .getOrElse { return Result.failure(ApiException("Could not restore the pending SOS submission. Please contact support before creating another request.")) }
         val result = call { api.createIncident(request) }
-        val error = result.exceptionOrNull() as? ApiException
-        if (result.isSuccess || error?.httpCode?.let { it in 400..499 && it != 408 && it != 429 } == true) {
-            // A definitive 4xx response means the server rejected the request; only
-            // ambiguous network/server failures should keep the exact SOS envelope.
-            store.clearPendingIncidentRequestId(pending.requestId)
+        if (result.isSuccess) {
+            // Only a confirmed server success clears the durable envelope. Rejections and
+            // ambiguous failures remain available for explicit, owner-checked resolution.
+            store.clearPendingIncidentRequestId(pending.requestId, ownerUserId)
         }
         return result
     }
 
     /** Retries the persisted SOS verbatim, including its original location and idempotency key. */
     suspend fun retryPendingIncident(): Result<Incident> {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: return Result.failure(ApiException("Sign in with the original requester account to retry this saved SOS."))
         val pending = try {
-            store.getPendingIncidentSubmission()
+            store.getPendingIncidentSubmission(ownerUserId)
         } catch (e: SessionStore.PendingIncidentConflictException) {
             return Result.failure(ApiException(e.message ?: "The saved SOS could not be restored safely."))
         } catch (e: Exception) {
@@ -185,14 +233,29 @@ class TacRepository(
             return Result.failure(ApiException("The saved SOS payload is invalid. Do not create a replacement request; contact dispatch."))
         }
         val result = call { api.createIncident(request) }
-        val error = result.exceptionOrNull() as? ApiException
-        if (result.isSuccess || error?.httpCode?.let { it in 400..499 && it != 408 && it != 429 } == true) {
-            store.clearPendingIncidentRequestId(pending.requestId)
+        if (result.isSuccess) {
+            store.clearPendingIncidentRequestId(pending.requestId, ownerUserId)
         }
         return result
     }
 
-    suspend fun hasPendingIncident(): Boolean = store.getPendingIncidentSubmission() != null
+    suspend fun hasPendingIncident(): Boolean {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in with the original requester account to check saved SOS status.")
+        return try {
+            store.getPendingIncidentSubmission(ownerUserId) != null
+        } catch (e: SessionStore.PendingIncidentConflictException) {
+            throw ApiException(e.message ?: "A saved SOS cannot be used by this requester account.")
+        }
+    }
+
+    suspend fun discardPendingIncident(): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in with the original requester account to discard its saved SOS.")
+        val pending = store.getPendingIncidentSubmission(ownerUserId)
+            ?: return@call Unit
+        store.clearPendingIncidentRequestId(pending.requestId, ownerUserId)
+    }
 
     suspend fun updateIncidentStatus(id: Long, status: IncidentStatus): Result<Incident> = call {
         api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))
@@ -295,8 +358,15 @@ class TacRepository(
             Result.failure(ApiException(errorMessage(e), e.code()))
         } catch (e: IOException) {
             Result.failure(ApiException("No connection. Check your network and try again."))
+        } catch (e: ApiException) {
+            // Preserve deliberate, user-safe validation and feature-availability messages.
+            Result.failure(e)
+        } catch (e: IllegalArgumentException) {
+            // Do not surface arbitrary parser/library exception text to the user.
+            Result.failure(ApiException("Please check the information you entered and try again."))
         } catch (e: Exception) {
-            Result.failure(ApiException(e.message ?: "Something went wrong."))
+            // Unexpected exceptions may contain SQL, provider, or implementation details.
+            Result.failure(ApiException("Something went wrong. Please try again."))
         }
     }
 
@@ -304,6 +374,21 @@ class TacRepository(
 
     /** Reads API validation messages without leaking raw PostgreSQL/PostgREST internals to the UI. */
     private fun errorMessage(e: HttpException): String {
+        // Auth endpoints must not reveal whether an email address is registered.
+        // Keep the response generic even when Supabase returns a more specific
+        // provider message such as "User already registered".
+        val authPath = e.response()?.raw()?.request?.url?.encodedPath.orEmpty()
+        if (authPath.endsWith("/auth/v1/token")) {
+            return signInHttpErrorMessage(e.code())
+        }
+        if (authPath.endsWith("/auth/v1/signup")) {
+            return if (e.code() == 429) {
+                "Too many sign-up attempts. Wait a moment and try again."
+            } else {
+                "We couldn't complete sign-up. Check your details or try again later."
+            }
+        }
+
         val raw = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
         val body = runCatching { raw?.let { Gson().fromJson(it, ErrorBody::class.java) } }.getOrNull()
         val message = body?.errors?.values?.firstOrNull()?.firstOrNull()

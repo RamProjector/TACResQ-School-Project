@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -26,7 +27,7 @@ class AuthScreenInstrumentedTest {
         // The Activity and demo session may survive between test methods. Normalize whichever
         // auth/home state is present instead of assuming every test starts at the role chooser.
         val homeVisible = composeRule.onAllNodesWithText(
-            "Start emergency request",
+            "Request emergency help",
             substring = true,
         ).fetchSemanticsNodes().isNotEmpty()
         if (homeVisible) return
@@ -45,7 +46,7 @@ class AuthScreenInstrumentedTest {
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText(
-                "Start emergency request",
+                "Request emergency help",
                 substring = true,
             ).fetchSemanticsNodes().isNotEmpty()
         }
@@ -83,16 +84,16 @@ class AuthScreenInstrumentedTest {
         signInAsDemoRequester()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Start emergency request", substring = true)
+            composeRule.onAllNodesWithText("Request emergency help", substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Start emergency request", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Request emergency help", substring = true).assertIsDisplayed()
 
-        composeRule.onNodeWithContentDescription("GPS Map").performClick()
+        composeRule.onNodeWithText("GPS Map").performClick()
         composeRule.onNodeWithText("© OpenStreetMap contributors").assertIsDisplayed()
 
         composeRule.onNodeWithContentDescription("Home").performClick()
-        composeRule.onNodeWithText("Start emergency request", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Request emergency help", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -100,39 +101,43 @@ class AuthScreenInstrumentedTest {
         signInAsDemoRequester()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Start emergency request", substring = true)
+            composeRule.onAllNodesWithText("Request emergency help", substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(composeRule.onAllNodesWithText("Emergency request").fetchSemanticsNodes().isEmpty())
 
-        composeRule.onNodeWithText("Start emergency request", substring = true).performClick()
+        composeRule.onNodeWithText("Request emergency help", substring = true).performClick()
         composeRule.onNodeWithText("Emergency request").assertIsDisplayed()
         composeRule.onNodeWithText("Step 1 of 3 · Details").assertIsDisplayed()
-        composeRule.onNodeWithText("What kind of help do you need?").assertIsDisplayed()
+        composeRule.onNodeWithText("Emergency type (required)").assertIsDisplayed()
 
-        composeRule.onNodeWithText("Continue to location").performScrollTo().performClick()
+        composeRule.onNodeWithText("Medical").performClick()
+        composeRule.onNodeWithText("Continue").performScrollTo().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Confirm your location").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Confirm your location").assertIsDisplayed()
+        composeRule.onNodeWithText("Landmark or access detail (required without a pin)").performTextInput("Near Tacloban City Hall")
 
         // Avoid coupling this smoke test to explanatory copy. The important contract is that
         // the location step renders, offers a safe route forward, and can return to details.
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText("Review request").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Review").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Review request").assertIsDisplayed()
+        composeRule.onNodeWithText("Review").assertIsDisplayed()
         composeRule.onNodeWithText("Back").performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText("What kind of help do you need?").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Emergency type (required)").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("What kind of help do you need?").assertIsDisplayed()
+        composeRule.onNodeWithText("Emergency type (required)").assertIsDisplayed()
         composeRule.onNodeWithText("Close").performClick()
+        composeRule.onNodeWithText("Discard this request draft?").assertIsDisplayed()
+        composeRule.onNodeWithText("Discard draft").performClick()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Emergency request").fetchSemanticsNodes().isEmpty()
         }
-        composeRule.onNodeWithText("Start emergency request", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Request emergency help", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -140,25 +145,27 @@ class AuthScreenInstrumentedTest {
         signInAsDemoRequester()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Start emergency request", substring = true)
+            composeRule.onAllNodesWithText("Request emergency help", substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Start emergency request", substring = true).performClick()
-        composeRule.onNodeWithText("Continue to location").performScrollTo().performClick()
+        composeRule.onNodeWithText("Request emergency help", substring = true).performClick()
+        composeRule.onNodeWithText("Medical").performClick()
+        composeRule.onNodeWithText("Continue").performScrollTo().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Confirm your location").fetchSemanticsNodes().isNotEmpty()
         }
+        composeRule.onNodeWithText("Landmark or access detail (required without a pin)").performTextInput("Near Tacloban City Hall")
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText("Review request").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Review").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Review request").performClick()
+        composeRule.onNodeWithText("Review").performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("Review before sending").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Review before sending").assertIsDisplayed()
         composeRule.onNodeWithText("Confirm SOS").performClick()
         composeRule.onNodeWithText("Send emergency request?").assertIsDisplayed()
-        composeRule.onNodeWithText("No GPS pin. Dispatch may call to confirm your location.").assertIsDisplayed()
+        composeRule.onNodeWithText("No GPS pin. Dispatch may call to confirm the location.").assertIsDisplayed()
         composeRule.onNodeWithText("Send SOS").performClick()
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
@@ -166,6 +173,6 @@ class AuthScreenInstrumentedTest {
         }
         composeRule.onNodeWithText("Active emergency").assertIsDisplayed()
         composeRule.onNodeWithText("Request #", substring = true).assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithText("Start emergency request", substring = true).fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Request emergency help", substring = true).fetchSemanticsNodes().isEmpty())
     }
 }

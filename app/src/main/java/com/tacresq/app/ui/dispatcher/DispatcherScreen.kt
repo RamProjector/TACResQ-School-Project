@@ -1,9 +1,11 @@
 package com.tacresq.app.ui.dispatcher
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Checkbox
@@ -44,9 +45,12 @@ import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
+import com.tacresq.app.ui.common.formatTime
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SyncStatus
+import com.tacresq.app.ui.common.SectionHeading
+import com.tacresq.app.ui.common.StatusPill
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -123,11 +127,13 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 }
 
 @Composable
-fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, focusedIncidentId: Long? = null, onOpenChat: (Long) -> Unit = {}) {
+fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, focusedIncidentId: Long? = null, onOpenChat: (Long) -> Unit = {}, onOpenNotifications: () -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
     var selectedUnitIds by remember { mutableStateOf(setOf<Long>()) }
+    // Keep the dispatcher overview concise; individual check-ins are available on demand.
+    var expandedTeamStatusIds by remember { mutableStateOf(setOf<Long>()) }
     var queueClock by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -168,15 +174,15 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
     val maxTeamSelection = (5 - existingTeamCount).coerceAtLeast(0)
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().safeDrawingPadding(),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
             ScreenHeader(
                 title = "Dispatch queue",
-                subtitle = "Oldest emergency requests first · verify availability before assigning.",
-                onLogout = onLogout,
+                subtitle = "Oldest requests first.",
+                onOpenNotifications = onOpenNotifications,
             )
         }
         if (focusedIncidentId != null) {
@@ -199,11 +205,19 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
         if (!state.loading && !state.assignmentDataFresh) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Assignment paused", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f)),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                    elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Assignment paused", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.SemiBold)
                         Text(
-                            "The latest incident queue or field-unit availability could not be confirmed. Refresh successfully before assigning or adding responders; the information currently shown may be out of date.",
+                            "Latest queue or unit availability could not be confirmed. Refresh before assigning responders.",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -214,7 +228,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             OutlinedButton(
                 onClick = vm::refresh,
                 enabled = !state.busy && !state.loading,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             ) {
                 if (state.loading) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -236,7 +250,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         state.notice?.let { item { Banner(it, isError = false, onDismiss = vm::dismissMessages) } }
         state.error?.let { item { Banner(it, isError = true, onDismiss = vm::dismissMessages) } }
 
-        item { Text("Pending incidents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        item { SectionHeading("Pending incidents", "Oldest requests first") }
         if (state.loading && state.incidents.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -275,7 +289,6 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     fontWeight = if (waitSeconds != null && waitSeconds >= 15 * 60)
                         FontWeight.SemiBold else FontWeight.Normal,
                 )
-                Text("Build a response team from available field units.", fontWeight = FontWeight.SemiBold)
                 if (availableUnits.isEmpty()) {
                     Text("No responder or driver is currently marked Available.")
                 } else {
@@ -285,7 +298,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                             assignmentCandidate = incident
                         },
                         enabled = !state.busy && state.assignmentDataFresh,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     ) {
                         Text("Select response team")
                     }
@@ -294,19 +307,93 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             }
         }
 
-        item { Text("All incidents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        item { SectionHeading("Active incidents") }
         items(state.incidents.filter { it.status != IncidentStatus.PENDING }, key = { it.id }) { incident ->
             IncidentCard(incident) {
                 val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
                 val teamNames = state.units.filter { it.id in teamIds }.joinToString(", ") { it.name }
                 val remainingTeamSlots = (5 - teamIds.distinct().size).coerceAtLeast(0)
-                Text("Assigned team: ${teamNames.ifBlank { "Not assigned" }}")
-                incident.assignedUserStatuses.forEach { memberStatus ->
-                    val unit = state.units.firstOrNull { it.id == memberStatus.userId }
-                    Text(
-                        "${unit?.name ?: "Unit #${memberStatus.userId}"} · ${memberStatus.status.label}",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                if (incident.assignedUserStatuses.isEmpty()) {
+                    Text("Team: ${teamNames.ifBlank { "Not assigned" }}")
+                } else {
+                    val updatedMemberCount = incident.assignedUserStatuses.count {
+                        it.status != IncidentStatus.ASSIGNED
+                    }
+                    val teamCount = incident.assignedUserStatuses.size
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Team progress", style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                "$updatedMemberCount of $teamCount members with a status update",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "Progress is based on each assigned responder's own check-in.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        StatusPill(
+                            incident.status.label,
+                            MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            expandedTeamStatusIds = if (incident.id in expandedTeamStatusIds) {
+                                expandedTeamStatusIds - incident.id
+                            } else {
+                                expandedTeamStatusIds + incident.id
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    ) {
+                        Text(
+                            if (incident.id in expandedTeamStatusIds) {
+                                "Hide member details"
+                            } else {
+                                "View member details"
+                            }
+                        )
+                    }
+                    if (incident.id in expandedTeamStatusIds) {
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            incident.assignedUserStatuses.forEach { memberStatus ->
+                                val unit = state.units.firstOrNull { it.id == memberStatus.userId }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    ) {
+                                        Text(
+                                            unit?.name ?: "Unit #${memberStatus.userId}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                        Text(
+                                            memberStatus.statusUpdatedAt?.let { "Updated ${formatTime(it)}" }
+                                                ?: "Update time unavailable",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    StatusPill(
+                                        memberStatus.status.label,
+                                        MaterialTheme.colorScheme.secondary,
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
                 if (incident.status == IncidentStatus.ASSIGNED || incident.status == IncidentStatus.EN_ROUTE) {
                     if (remainingTeamSlots == 0) {
@@ -318,7 +405,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                 assignmentCandidate = incident
                             },
                             enabled = !state.busy && state.assignmentDataFresh,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         ) { Text("Add responders") }
                     }
                 }
@@ -326,7 +413,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             }
         }
 
-        item { Text("Field units", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        item { SectionHeading("Field units", "Current availability") }
         if (state.loading && state.units.isEmpty()) {
             item { Text("Loading field-unit availability…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else if (state.units.isEmpty()) {
@@ -397,33 +484,92 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
 
 @Composable
 private fun SummaryCard(total: Int, pending: Int, active: Int, available: Int) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Operational summary", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Incidents: $total")
-                Text("Pending: $pending")
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Live overview", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                DispatchMetric(total, "Total")
+                DispatchMetric(pending, "Pending")
             }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Active: $active")
-                Text("Available units: $available")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                DispatchMetric(active, "Active")
+                DispatchMetric(available, "Available")
             }
         }
     }
 }
 
 @Composable
-private fun UnitCard(unit: User) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(unit.name, fontWeight = FontWeight.SemiBold)
-            Text(unit.role.label)
-            Text("Status: ${unit.dutyStatus?.label ?: "Not applicable"}")
-            unit.phone?.let { Text("Phone: $it") }
+private fun RowScope.DispatchMetric(value: Int, label: String) {
+    androidx.compose.material3.Surface(
+        modifier = Modifier.weight(1f),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                value.toString(),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
         }
     }
 }
 
+@Composable
+private fun UnitCard(unit: User) {
+    val available = unit.dutyStatus == DutyStatus.AVAILABLE
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(unit.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    unit.role.label + (unit.phone?.let { " · $it" } ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            StatusPill(
+                unit.dutyStatus?.label ?: "Unknown",
+                if (available) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
 
 private fun waitingAgeSeconds(createdAt: String?, now: Instant): Long? {
     val submittedAt = createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: return null

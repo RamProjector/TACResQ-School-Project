@@ -35,11 +35,11 @@ checks = {
     )),
     "Admin route receives the authenticated repository": "AdminAccessScreen(user = user, repository = container.repository" in root,
     "Admin screen supports paginated user search and audit history": all(name in screen for name in (
-        "loadUsers(reset = false)", "Search name, email, phone, or ID", "Recent administrative actions", "it.length <= 120", "event.action.replace"
+        "loadUsers(reset = false)", "Search accounts", "Recent administrative actions", "it.length <= 120", "event.action.replace"
     )),
     "Admin role changes require a reason and exclude Admin promotion": (
         "reason.trim().length in 10..500" in screen and "adminRoles" in screen
-        and "Administrator role is operator-managed" in screen
+        and "Admin promotion and demotion are not available in the app." in screen
     ),
     "RPC argument names match the database contract": all(name in supabase for name in (
         'SerializedName("p_limit")', 'SerializedName("p_offset")',

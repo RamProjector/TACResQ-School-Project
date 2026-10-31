@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,7 +43,7 @@ map_contract = {
         "incident.hasValidMapCoordinates() && latitude != null && longitude != null",
         "BoundingBox.fromGeoPoints(validIncidentPoints)",
         "mapView.zoomToBoundingBox(",
-        "Text(\"Incidents\", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)",
+        "Text(\"Incidents\", style = MaterialTheme.typography.labelLarge, maxLines = 1)",
         "There are no valid incident coordinates to center on yet.",
         "var hasAutoFramedInitialMapPoints by remember { mutableStateOf(false) }",
         "var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }",
@@ -65,11 +66,12 @@ map_contract = {
         "age <= 120L -> MapLocationFreshness.AGING",
         "else -> MapLocationFreshness.STALE",
         "Do not treat this marker as live",
-        "Text(\"Field units\", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)",
-        "BoxWithConstraints(",
-        "if (maxWidth < 360.dp)",
-        "A vertical stack avoids clipping labels or hiding Locate me on narrow phones.",
-        "GpsMapActionButtons(",
+        "Text(\"Field units\", style = MaterialTheme.typography.labelLarge, maxLines = 1)",
+        "GpsMapFilterButtons(",
+        "Text(\"Back\", style = MaterialTheme.typography.labelLarge)",
+        "contentDescription = if (deviceFix == null) \"Locate me\" else \"Refresh location\"",
+        ".statusBarsPadding()",
+        ".navigationBarsPadding()",
     ),
 }
 for relative_path, required_text in map_contract.items():
@@ -166,11 +168,12 @@ gps_map_location_contract = {
         "if (locationStatus != null) liveRegion = LiveRegionMode.Polite",
         "var isLocationRequestInProgress by remember { mutableStateOf(false) }",
         "if (isLocationRequestInProgress) return",
-        "enabled = !isLocationRequestInProgress",
+        "LocationButton(",
+        "onPermissionResult = { granted ->",
         "isLocationRequestInProgress = false",
         "val latestDeviceFix by rememberUpdatedState(deviceFix)",
         "!locationProvider.hasPermission() && latestDeviceFix != null",
-        "The previous location preview was cleared.",
+        "Previous preview cleared.",
     ),
     "app/src/main/java/com/tacresq/app/ui/AppRoot.kt": (
         "locationProvider = locationProvider",
@@ -196,9 +199,30 @@ for relative_path, required_text in gps_map_location_contract.items():
             f"GPS map local-location contract failed for {relative_path}: missing "
             + ", ".join(missing)
         )
+
+gps_map_source = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text(encoding="utf-8")
+progress_button = re.search(
+    r"if \(isLocationRequestInProgress\) \{\s*(.*?)\n\s*\}\s*else \{",
+    gps_map_source,
+    re.DOTALL,
+)
+if not progress_button or not all(
+    marker in progress_button.group(1)
+    for marker in ("FilledTonalIconButton(", "enabled = false")
+):
+    raise SystemExit(
+        "GPS map local-location contract failed: the in-progress state must render a disabled location action."
+    )
 app_root_source = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text(encoding="utf-8")
-if app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout)") != 2 or "responderLocations = vmState.responderLocations" not in app_root_source or "onMapRefresh = vm::refresh" not in app_root_source:
-    raise SystemExit("GPS map local-location contract failed: all role maps must receive the location provider and dispatcher map data must be wired.")
+role_app_calls_are_wired = (
+    app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout)") == 1
+    and app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout)") == 1
+    and "locationProvider = container.locationProvider" in app_root_source
+    and "responderLocations = vmState.responderLocations" in app_root_source
+    and "onMapRefresh = vm::refresh" in app_root_source
+)
+if not role_app_calls_are_wired:
+    raise SystemExit("GPS map local-location contract failed: requester, responder/driver, and dispatcher map wiring must remain intact.")
 
 map_source = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text(encoding="utf-8")
 if "recordResponderLocation" in map_source or "createIncident(" in map_source:
@@ -273,7 +297,7 @@ print("Password breach-check contract OK: live signup uses HIBP k-anonymity rang
 navigation_contract = {
     "app/src/main/java/com/tacresq/app/ui/RoleShell.kt": (
         'Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")',
-        'Role.RESPONDER, Role.DRIVER -> listOf(if (compact) "Call" else "Current call", "History", "Alerts", "Profile")',
+        'Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Alerts", "Profile")',
         'Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")',
         "GpsMapNavigationItem(selected, onDestinationSelected)",
     ),

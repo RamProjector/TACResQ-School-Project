@@ -1,6 +1,7 @@
 package com.tacresq.app.ui.auth
 
 import android.util.Patterns
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,17 +24,23 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,6 +59,7 @@ import kotlinx.coroutines.launch
 data class AuthUiState(
     val loading: Boolean = false,
     val error: String? = null,
+    val info: String? = null,
     val nameError: String? = null,
     val emailError: String? = null,
     val phoneError: String? = null,
@@ -77,16 +85,21 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
     }
 
     fun register(name: String, email: String, phone: String, password: String) {
-        val nameError = if (name.isBlank()) "Enter your full name." else null
+        val nameError = when {
+            name.isBlank() -> "Enter your full name."
+            name.trim().length > 120 -> "Keep your name to 120 characters or fewer."
+            else -> null
+        }
         val emailError = when {
             email.isBlank() -> "Enter your email address."
             !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Enter a valid email address."
             else -> null
         }
-        val phoneDigits = phone.count { it.isDigit() }
+        val phoneDigits = phone.count { it in '0'..'9' }
         val phoneError = when {
             phone.isBlank() -> "Enter your mobile number so responders can reach you."
-            phone.any { !it.isDigit() && it !in "+- ()" } ->
+            phone.length > 25 -> "Use at most 25 characters for your mobile number."
+            phone.any { it !in '0'..'9' && it !in "+- ()" } ->
                 "Use digits and optional +, spaces, hyphens, or parentheses."
             phoneDigits !in 7..15 -> "Enter a valid mobile number with 7–15 digits."
             else -> null
@@ -116,6 +129,7 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
     fun clearError() {
         _state.value = _state.value.copy(
             error = null,
+            info = null,
             nameError = null,
             emailError = null,
             phoneError = null,
@@ -125,11 +139,11 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun clearFieldError(field: String) {
         _state.value = when (field) {
-            "name" -> _state.value.copy(error = null, nameError = null)
-            "email" -> _state.value.copy(error = null, emailError = null)
-            "phone" -> _state.value.copy(error = null, phoneError = null)
-            "password" -> _state.value.copy(error = null, passwordError = null)
-            else -> _state.value.copy(error = null)
+            "name" -> _state.value.copy(error = null, info = null, nameError = null)
+            "email" -> _state.value.copy(error = null, info = null, emailError = null)
+            "phone" -> _state.value.copy(error = null, info = null, phoneError = null)
+            "password" -> _state.value.copy(error = null, info = null, passwordError = null)
+            else -> _state.value.copy(error = null, info = null)
         }
     }
 
@@ -148,13 +162,15 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
                 Result.failure(failure)
             }
             val failure = result.exceptionOrNull()
+            val emailConfirmationRequired = failure?.message?.startsWith("Account created.") == true
             _state.value = AuthUiState(
                 error = when {
-                    failure is CompromisedPasswordException -> null
+                    failure is CompromisedPasswordException || emailConfirmationRequired -> null
                     failure != null -> failure.message?.takeIf { it.isNotBlank() }
                         ?: "Something went wrong. Please try again."
                     else -> null
                 },
+                info = if (emailConfirmationRequired) failure?.message else null,
                 passwordError = if (failure is CompromisedPasswordException) {
                     "This password appears in known data breaches. Choose a different password."
                 } else null,
@@ -174,7 +190,18 @@ fun AuthScreen(
     var name by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
+    // Credentials are intentionally transient: never place the password in
+    // the Activity saved-instance-state Bundle.
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.info) {
+        if (state.info != null) {
+            registering = false
+            password = ""
+            passwordVisible = false
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -190,26 +217,34 @@ fun AuthScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Image(
-                painter = painterResource(id = R.drawable.tacresq_app_icon),
+                painter = painterResource(id = R.drawable.ic_tacresq_emergency_launcher),
                 contentDescription = "TACResQ app icon",
                 modifier = Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)),
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     "TACResQ",
-                    style = MaterialTheme.typography.headlineLarge,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    "Emergency response, connected",
+                    "Emergency GPS and response coordination",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            colors = androidx.compose.material3.CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
+            elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+        ) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -291,47 +326,85 @@ fun AuthScreen(
                 }
 
                 if (registering) {
+                    Text(
+                        "All four fields are required. Staff and administrator accounts are provisioned separately; public sign-up creates requester accounts only.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it; vm.clearFieldError("name") },
-                        label = { Text("Full name") },
+                        label = { Text("Full name (required)") },
                         singleLine = true,
                         isError = state.nameError != null,
                         supportingText = { state.nameError?.let { Text(it) } },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            contentType = ContentType.PersonFullName
+                        },
                     )
                     OutlinedTextField(
                         value = phone,
                         onValueChange = { phone = it; vm.clearFieldError("phone") },
-                        label = { Text("Mobile number") },
+                        label = { Text("Mobile number (required)") },
                         singleLine = true,
                         isError = state.phoneError != null,
                         supportingText = { state.phoneError?.let { Text(it) } },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            contentType = ContentType.PhoneNumberNational
+                        },
                     )
                 }
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it; vm.clearFieldError("email") },
-                    label = { Text("Email address") },
+                    label = { Text("Email address (required)") },
                     singleLine = true,
                     isError = state.emailError != null,
                     supportingText = { state.emailError?.let { Text(it) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        contentType = if (registering) {
+                            ContentType.NewUsername + ContentType.EmailAddress
+                        } else {
+                            ContentType.Username + ContentType.EmailAddress
+                        }
+                    },
                 )
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it; vm.clearFieldError("password") },
-                    label = { Text("Password") },
+                    label = { Text("Password (required)") },
                     singleLine = true,
                     isError = state.passwordError != null,
                     supportingText = { state.passwordError?.let { Text(it) } },
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        TextButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Text(if (passwordVisible) "Hide" else "Show")
+                        }
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        contentType = if (registering) ContentType.NewPassword else ContentType.Password
+                    },
                 )
+
+                state.info?.let { message ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = androidx.compose.material3.CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        ),
+                    ) {
+                        Text(
+                            message,
+                            modifier = Modifier.padding(12.dp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
 
                 state.error?.let { message ->
                     Text(
@@ -343,6 +416,7 @@ fun AuthScreen(
 
                 Button(
                     onClick = {
+                        passwordVisible = false
                         if (registering) vm.register(name, email, phone, password) else vm.login(email, password)
                     },
                     enabled = !state.loading,
@@ -363,6 +437,7 @@ fun AuthScreen(
                 TextButton(
                     onClick = {
                         registering = !registering
+                        passwordVisible = false
                         vm.clearError()
                     },
                     modifier = Modifier.fillMaxWidth(),

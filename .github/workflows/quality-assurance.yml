@@ -7,17 +7,11 @@ on:
         description: Total safe GET requests for the local stack
         required: false
         default: "120"
-      run_ai_review:
-        description: Run the optional AI review when OPENAI_API_KEY is configured
-        required: false
-        type: boolean
-        default: false
   schedule:
     - cron: "17 2 * * 1"
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   screen-capture:
@@ -25,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.11"
       - name: Install Playwright and Chromium
@@ -37,7 +31,7 @@ jobs:
         run: python3 tools/capture_wireframe_screenshots.py --output artifacts/screenshots
       - name: Upload screenshot gallery
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: tacresq-screen-gallery
           path: artifacts/screenshots
@@ -48,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Generate disposable Laravel key
         run: echo "APP_KEY=base64:$(openssl rand -base64 32 | tr -d '\n')" >> "$GITHUB_ENV"
       - name: Start local API and dashboard
@@ -63,7 +57,9 @@ jobs:
           docker compose logs api db
           exit 1
       - name: Run bounded GET stress test
-        run: python3 tools/stress_test.py --base-url http://127.0.0.1:8000 --allow-localhost --requests "${{ inputs.stress_requests || '120' }}" --concurrency 8
+        env:
+          STRESS_REQUESTS: ${{ inputs.stress_requests || '120' }}
+        run: python3 tools/stress_test.py --base-url http://127.0.0.1:8000 --allow-localhost --requests "$STRESS_REQUESTS" --concurrency 8
       - name: Collect logs and stop stack
         if: always()
         working-directory: backend
@@ -73,35 +69,8 @@ jobs:
           rm -f .env
       - name: Upload stress logs
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: tacresq-stress-logs
           path: artifacts-stress.log
           if-no-files-found: ignore
-
-  security:
-    name: Static and AI-assisted security review
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.11"
-      - name: Run repository security guardrails
-        run: python3 tools/ai_security_review.py
-      - name: Run CodeQL analysis
-        uses: github/codeql-action/init@v4
-        with:
-          languages: javascript-typescript, actions
-      - uses: github/codeql-action/analyze@v4
-      - name: Optional AI review
-        if: ${{ inputs.run_ai_review == true || github.event_name == 'schedule' }}
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
-          AI_SECURITY_MODEL: ${{ vars.AI_SECURITY_MODEL }}
-        run: python3 tools/ai_security_review.py --ai
-      - name: Dependency review for pull requests
-        if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v5

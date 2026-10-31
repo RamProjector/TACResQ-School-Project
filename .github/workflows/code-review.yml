@@ -11,8 +11,6 @@ on:
         type: number
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
 concurrency:
   group: tacresq-review-${{ github.event.pull_request.number || inputs.pull_request_number }}
   cancel-in-progress: true
@@ -21,14 +19,17 @@ jobs:
     name: Static security and correctness review
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Check out trusted base branch only
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.base.sha || github.sha }}
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.11'
       - name: Review pull request diff and publish findings

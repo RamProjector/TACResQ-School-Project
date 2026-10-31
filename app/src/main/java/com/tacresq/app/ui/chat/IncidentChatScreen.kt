@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -217,6 +218,7 @@ fun IncidentChatScreen(
     user: User,
     onBack: () -> Unit,
     onLogout: () -> Unit,
+    onOpenNotifications: () -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -241,13 +243,17 @@ fun IncidentChatScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ScreenHeader(
-            title = "Incident chat",
-            subtitle = "Incident #$incidentId",
-            onLogout = onLogout,
-        )
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
+        ) {
+            ScreenHeader(
+                title = "Incident chat",
+                subtitle = "Incident #$incidentId",
+                onOpenNotifications = onOpenNotifications,
+            )
+        }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.Start,
         ) {
             TextButton(onClick = onBack) { Text("Back to incident list") }
@@ -256,7 +262,7 @@ fun IncidentChatScreen(
         }
 
         state.error?.let { message ->
-            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                     Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
@@ -294,8 +300,8 @@ fun IncidentChatScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (state.hasOlder && state.items.isNotEmpty()) {
                     item {
@@ -350,7 +356,7 @@ fun IncidentChatScreen(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
@@ -358,6 +364,7 @@ fun IncidentChatScreen(
                 value = state.draft,
                 onValueChange = vm::updateDraft,
                 modifier = Modifier.weight(1f),
+                minLines = 1,
                 label = { Text("Message") },
                 placeholder = { Text("Message about this incident…") },
                 maxLines = 4,
@@ -369,6 +376,7 @@ fun IncidentChatScreen(
             Button(
                 onClick = { vm.send(incidentId) },
                 enabled = !state.sending && !state.loading && state.error == null && state.draft.trim().isNotEmpty() && state.draft.trim().length <= 2000,
+                modifier = Modifier.heightIn(min = 52.dp),
             ) {
                 if (state.sending) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 else Text("Send")
