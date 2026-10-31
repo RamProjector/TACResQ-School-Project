@@ -101,7 +101,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.15.0")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:5.5.1")
 
     implementation("com.google.android.gms:play-services-location:21.4.0")
     implementation("org.osmdroid:osmdroid-android:6.1.20")
@@ -112,7 +112,7 @@ dependencies {
     implementation("androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.5.1")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
