@@ -40,6 +40,7 @@ import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -751,6 +752,7 @@ fun GpsMapScreen(
         modifier = Modifier.fillMaxSize().semantics { paneTitle = "GPS Map" },
         scaffoldState = mapSheetState,
         sheetPeekHeight = 128.dp,
+        sheetSwipeEnabled = true,
         sheetMaxWidth = 680.dp,
         sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         sheetContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
