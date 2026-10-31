@@ -24,6 +24,7 @@ ALTER TABLE public.location_logs
 ALTER TABLE public.location_logs
   ALTER COLUMN received_at SET DEFAULT pg_catalog.clock_timestamp();
 
+
 -- Force authenticated clients through the validated RPC; otherwise the legacy
 -- table grant plus INSERT policy would let responders bypass RPC rate/timestamp checks.
 REVOKE INSERT ON TABLE public.location_logs FROM PUBLIC, anon, authenticated;
@@ -71,8 +72,7 @@ BEGIN
       ON a.incident_id = i.id AND a.user_id = p.id
    WHERE p.auth_user_id = auth.uid()
      AND p.role IN ('responder', 'driver')
-   FOR UPDATE OF a
-   FOR SHARE OF i;
+   FOR UPDATE OF i, a;
 
   IF actor_id IS NULL
      OR incident_status IS DISTINCT FROM 'en_route'
@@ -80,6 +80,9 @@ BEGIN
     RAISE EXCEPTION 'Location sharing is only available to your assigned unit while you are en route'
       USING ERRCODE = '42501';
   END IF;
+
+  -- Serialize concurrent writes by this responder before applying the interval limit.
+  PERFORM pg_catalog.pg_advisory_xact_lock(actor_id);
 
   IF EXISTS (
     SELECT 1

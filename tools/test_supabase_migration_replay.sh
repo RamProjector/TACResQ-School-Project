@@ -1293,3 +1293,67 @@ BEGIN
 END;
 $sos_atomicity_retry$;
 SQL
+
+# Verify the isolated GPS RPC privilege boundary after all migrations replay.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $location_rpc_boundary_test$
+DECLARE
+  public_writer regprocedure := to_regprocedure(
+    'public.api_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)'
+  );
+  private_writer regprocedure := to_regprocedure(
+    'private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)'
+  );
+  public_reader regprocedure := to_regprocedure('public.api_active_responder_locations()');
+  private_reader regprocedure := to_regprocedure('private.tacresq_active_responder_locations()');
+  function_settings text[];
+BEGIN
+  IF public_writer IS NULL OR private_writer IS NULL OR public_reader IS NULL OR private_reader IS NULL THEN
+    RAISE EXCEPTION 'Expected public GPS wrappers and private implementations to exist';
+  END IF;
+  IF (SELECT prosecdef FROM pg_proc WHERE oid = public_writer) IS DISTINCT FROM false
+     OR (SELECT prosecdef FROM pg_proc WHERE oid = private_writer) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'GPS write boundary must be public SECURITY INVOKER and private SECURITY DEFINER';
+  END IF;
+  IF (SELECT prosecdef FROM pg_proc WHERE oid = public_reader) IS DISTINCT FROM false
+     OR (SELECT prosecdef FROM pg_proc WHERE oid = private_reader) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'GPS read boundary must be public SECURITY INVOKER and private SECURITY DEFINER';
+  END IF;
+  SELECT proconfig INTO function_settings FROM pg_proc WHERE oid = private_writer;
+  IF NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'Private GPS writer must pin search_path to pg_catalog';
+  END IF;
+  SELECT proconfig INTO function_settings FROM pg_proc WHERE oid = private_reader;
+  IF NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'Private GPS reader must pin search_path to pg_catalog';
+  END IF;
+  IF NOT has_schema_privilege('authenticated', 'private', 'USAGE')
+     OR NOT has_function_privilege('authenticated', public_writer, 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', private_writer, 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', public_reader, 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', private_reader, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Authenticated role is missing the required private GPS RPC privileges';
+  END IF;
+  IF has_function_privilege('anon', public_writer, 'EXECUTE')
+     OR has_function_privilege('anon', private_writer, 'EXECUTE')
+     OR has_function_privilege('anon', public_reader, 'EXECUTE')
+     OR has_function_privilege('anon', private_reader, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Anonymous role must not execute GPS RPCs';
+  END IF;
+  IF has_table_privilege('authenticated', 'public.location_logs', 'INSERT')
+     OR has_table_privilege('anon', 'public.location_logs', 'INSERT') THEN
+    RAISE EXCEPTION 'Client roles must not bypass the validated GPS writer with direct inserts';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'location_logs'
+      AND column_name = 'received_at' AND column_default LIKE '%clock_timestamp%'
+  ) THEN
+    RAISE EXCEPTION 'location_logs.received_at must have a server-generated default';
+  END IF;
+  IF to_regclass('public.location_logs_received_rate_idx') IS NULL THEN
+    RAISE EXCEPTION 'Concurrent receipt-time rate index is missing';
+  END IF;
+END;
+$location_rpc_boundary_test$;
+SQL
