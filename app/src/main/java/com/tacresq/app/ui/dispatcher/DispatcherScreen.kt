@@ -444,6 +444,11 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         else
                             "Choose up to ${maxTeamSelection} additional available responders or drivers. New members can be added only before the incident reaches the scene."
                     )
+                    Text(
+                        "This assigns responders to the incident as one response group. It does not appoint a team leader; field leadership must follow the authorized team roster and local operating procedure.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     availableUnits.forEach { unit ->
                         Row(modifier = Modifier.fillMaxWidth()) {
                             Checkbox(
