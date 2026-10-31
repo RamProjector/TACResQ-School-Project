@@ -8,11 +8,14 @@ SOURCE = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_te
 assert 'text = "© OpenStreetMap contributors"' in SOURCE
 assert 'https://www.openstreetmap.org/copyright' in SOURCE
 assert 'TileSourceFactory.MAPNIK' in SOURCE
-# Attribution must be outside the expanded-only details block so it remains visible.
-attribution = SOURCE.index('text = "© OpenStreetMap contributors"')
-assert '.heightIn(min = 48.dp)' in SOURCE[attribution - 100:attribution + 400], 'attribution link must retain a 48dp touch target'
-details = SOURCE.index('if (detailsExpanded) {', SOURCE.index('var detailsExpanded'))
-assert attribution > details
-assert 'modifier = Modifier\n                        .align(Alignment.End)' in SOURCE[attribution - 100:attribution + 400]
+# Keep attribution both on the map canvas and in the expanded sheet.
+attributions = [index for index in range(len(SOURCE)) if SOURCE.startswith('text = "© OpenStreetMap contributors"', index)]
+assert len(attributions) >= 2, "attribution must remain visible when the sheet is collapsed and expanded"
+for attribution in attributions:
+    assert '.heightIn(min = 48.dp)' in SOURCE[attribution - 100:attribution + 500], 'attribution link must retain a 48dp touch target'
+assert "BottomSheetScaffold(" in SOURCE
+assert "sheetPeekHeight = 112.dp" in SOURCE
+assert "BottomSheetDefaults.DragHandle()" in SOURCE
+assert "Keep OSM attribution visible on the map even while the sheet is collapsed." in SOURCE
 
 print("PASS: GPS map displays persistent OpenStreetMap attribution and links to its copyright page.")
