@@ -31,7 +31,8 @@ assert "Incident not in the current list" in source
 
 print("Adaptive incident list-detail scaffold contracts passed.")
 
-assert "currentWindowAdaptiveInfo(supportLargeAndXLargeWidth = true)" in source
+assert "currentWindowAdaptiveInfoV2()" in source
+assert "currentWindowAdaptiveInfo(" not in source
 assert "calculatePaneScaffoldDirective(adaptiveInfo)" in source
 assert "minWidthDp >= 600" in source
 assert "minWidthDp >= 840" in source
