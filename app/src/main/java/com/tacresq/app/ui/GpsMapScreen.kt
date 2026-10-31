@@ -796,6 +796,7 @@ fun GpsMapScreen(
         sheetContent = {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val mapDetailsMaxHeight = (maxHeight * 0.55f).coerceAtMost(420.dp)
+                val compactMapPane = maxWidth < 360.dp
                 Column(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -860,7 +861,7 @@ fun GpsMapScreen(
                             color = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ) {
-                            if (maxWidth < 360.dp) {
+                            if (compactMapPane) {
                                 Column(
                                     modifier = Modifier.fillMaxWidth().padding(12.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
