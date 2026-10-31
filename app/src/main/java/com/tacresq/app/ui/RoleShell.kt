@@ -63,34 +63,45 @@ fun RoleShell(
         Box(modifier = Modifier.fillMaxSize()) {
             mapContent()
         }
-    } else if (useNavigationRail) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            TacruNavigationRail(
-                role = role,
-                selected = selected,
-                onDestinationSelected = onDestinationSelected,
-            )
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-            ) {
-                content()
-            }
-        }
     } else {
+        // Keep Scaffold in both modes so system-bar insets and content padding
+        // remain consistent when the window crosses the rail breakpoint.
         Scaffold(
             bottomBar = {
-                TacruBottomNavigation(
-                    role = role,
-                    selected = selected,
-                    onDestinationSelected = onDestinationSelected,
-                )
+                if (!useNavigationRail) {
+                    TacruBottomNavigation(
+                        role = role,
+                        selected = selected,
+                        onDestinationSelected = onDestinationSelected,
+                    )
+                }
             },
         ) { padding ->
-            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(padding)) {
-                content()
+            if (useNavigationRail) {
+                Row(modifier = Modifier.fillMaxSize().padding(padding)) {
+                    TacruNavigationRail(
+                        role = role,
+                        selected = selected,
+                        onDestinationSelected = onDestinationSelected,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background),
+                    ) {
+                        content()
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(padding),
+                ) {
+                    content()
+                }
             }
         }
     }
