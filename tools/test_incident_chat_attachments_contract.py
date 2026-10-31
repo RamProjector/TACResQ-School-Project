@@ -59,4 +59,15 @@ for required in (
 ):
     assert required in screen, f"Image messaging UI contract missing: {required}"
 
+replay = read("tools/test_supabase_migration_replay.sh")
+storage_tests = read("tools/test_incident_chat_storage_policies.sql")
+assert "tools/test_incident_chat_storage_policies.sql" in replay, "Migration replay must execute Storage RLS tests"
+for required in (
+    "api_send_incident_image_message",
+    "The incident requester must be able to download an assigned responder image",
+    "An unrelated account must not read incident image objects",
+    "An unrelated account must not upload into another incident conversation",
+):
+    assert required in storage_tests, f"Storage authorization regression test missing: {required}"
+
 print("PASS: incident chat images use private, incident-authorized storage and bounded Android image attachments.")
