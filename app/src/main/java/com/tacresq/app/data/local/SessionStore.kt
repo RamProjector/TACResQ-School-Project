@@ -5,7 +5,6 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
@@ -46,6 +45,7 @@ class SessionStore(
     private val inMemorySession = MutableStateFlow<Session?>(null)
     private val sessionReadRetrySignal = MutableStateFlow(0)
     val sessionReadError = MutableStateFlow(false)
+    val sessionReadLoading = MutableStateFlow(persistSessions)
     private val encryptedSessionKey = stringPreferencesKey("encrypted_session_v1")
     private val pendingIncidentEnvelopeKey = stringPreferencesKey("pending_incident_envelope_v1")
     private val pendingIncidentMutex = Mutex()
@@ -65,15 +65,6 @@ class SessionStore(
                         false
                     }
                 }
-                .onEach { sessionReadError.value = false }
-                .catch { cause ->
-                    if (shouldRetrySessionStoreRead(cause)) {
-                        sessionReadError.value = true
-                        emit(emptyPreferences())
-                    } else {
-                        throw cause
-                    }
-                }
                 .onEach { prefs ->
                     // Remove pre-encryption credentials as soon as this store is first read,
                     // not only after the user signs in successfully again.
@@ -91,6 +82,19 @@ class SessionStore(
                         ?.let { encrypted -> runCatching { decrypt(encrypted) }.getOrNull() }
                         ?.let { json -> runCatching { gson.fromJson(json, Session::class.java) }.getOrNull() }
                 }
+                .onEach {
+                    sessionReadError.value = false
+                    sessionReadLoading.value = false
+                }
+                .catch { cause ->
+                    if (shouldRetrySessionStoreRead(cause)) {
+                        sessionReadError.value = true
+                        sessionReadLoading.value = false
+                        emit(null)
+                    } else {
+                        throw cause
+                    }
+                }
         }
     } else {
         inMemorySession
@@ -99,6 +103,7 @@ class SessionStore(
     /** Retry restoring the saved session after a recoverable DataStore read failure. */
     fun retrySessionRead() {
         sessionReadError.value = false
+        sessionReadLoading.value = true
         sessionReadRetrySignal.value += 1
     }
 
