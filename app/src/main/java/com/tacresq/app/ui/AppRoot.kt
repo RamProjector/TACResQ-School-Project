@@ -1,5 +1,6 @@
 package com.tacresq.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -506,7 +507,7 @@ private fun IncidentHistoryAdaptiveScaffold(
         listPane = {
             AnimatedPane {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerLow),
                     contentAlignment = Alignment.TopCenter,
                 ) {
                 Column(
@@ -517,9 +518,11 @@ private fun IncidentHistoryAdaptiveScaffold(
                         .padding(horizontal = horizontalGutter, vertical = verticalGutter),
                     verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 12.dp),
                 ) {
-                    SectionHeading(
-                        if (role == Role.REQUESTER) "Your requests" else "Your responses",
-                        "Select an incident to view its details",
+                    AdaptivePaneHeader(
+                        eyebrow = "INCIDENT HISTORY",
+                        title = if (role == Role.REQUESTER) "Your requests" else "Your responses",
+                        supportingText = "Select an incident to review its status and details",
+                        count = sortedIncidents.size,
                     )
                     if (sortedIncidents.isEmpty()) {
                         EmptySectionCard(
@@ -532,10 +535,8 @@ private fun IncidentHistoryAdaptiveScaffold(
                     } else {
                         sortedIncidents.forEach { incident ->
                             com.tacresq.app.ui.common.IncidentCard(
-                                incident,
-                                modifier = if (detailId == incident.id) {
-                                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large)
-                                } else Modifier,
+                                incident = incident,
+                                selected = detailId == incident.id,
                             ) {
                                 TextButton(
                                     onClick = {
@@ -582,10 +583,10 @@ private fun IncidentHistoryAdaptiveScaffold(
                             "Choose an incident from the list to review its current status and details.",
                         )
                         detailIncident != null -> {
-                            Text(
-                                "Incident #${detailIncident.id}",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            AdaptivePaneHeader(
+                                eyebrow = "SELECTED INCIDENT",
+                                title = "Incident #${detailIncident.id}",
+                                supportingText = "Review the latest incident information and available actions",
                             )
                             com.tacresq.app.ui.common.IncidentCard(detailIncident) {
                                 TextButton(onClick = { onOpenChat(detailIncident.id) }) {
@@ -608,6 +609,53 @@ private fun IncidentHistoryAdaptiveScaffold(
             }
         },
     )
+}
+
+@Composable
+private fun AdaptivePaneHeader(
+    eyebrow: String,
+    title: String,
+    supportingText: String,
+    count: Int? = null,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                eyebrow,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            if (count != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    shape = MaterialTheme.shapes.extraLarge,
+                ) {
+                    Text(
+                        "$count ${if (count == 1) "incident" else "incidents"}",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
+            }
+        }
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+        )
+        Text(
+            supportingText,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable

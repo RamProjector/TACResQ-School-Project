@@ -41,3 +41,11 @@ assert ".widthIn(max = 560.dp)" in source
 assert ".widthIn(max = 680.dp)" in source
 assert "horizontalGutter" in source
 assert "verticalGutter" in source
+
+assert "selected: Boolean = false" in (root / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
+assert "MaterialTheme.colorScheme.primaryContainer" in (root / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
+assert "AdaptivePaneHeader(" in source
+assert 'eyebrow = "INCIDENT HISTORY"' in source
+assert 'eyebrow = "SELECTED INCIDENT"' in source
+assert "surfaceContainerLow" in source
+assert "selected = detailId == incident.id" in source
