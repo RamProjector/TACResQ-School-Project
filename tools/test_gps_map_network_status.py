@@ -43,7 +43,7 @@ checks = {
         text in source for text in (
             'if (hasValidatedInternet == false)',
             '"Offline"',
-            'Internet unavailable. Cached map tiles may still appear.',
+            'Internet unavailable. Map tiles may not load; incident details remain available.',
             'MaterialTheme.colorScheme.errorContainer',
             'MaterialTheme.colorScheme.onErrorContainer',
             'Modifier.size(48.dp)',
