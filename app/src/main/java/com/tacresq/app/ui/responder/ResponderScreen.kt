@@ -460,6 +460,11 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit, on
                         ) {
                             val lastLocationSentAt = state.lastLocationSentAt
                             Text(
+                                "GPS sharing reports your location; it does not confirm arrival. Update your response status when you reach the scene.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
                                 when {
                                     !sharing -> "Location sharing is off."
                                     lastLocationSentAt == null && state.trackingError != null ->
