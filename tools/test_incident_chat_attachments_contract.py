@@ -9,7 +9,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-migration = read("supabase/migrations/20261031150000_incident_chat_image_attachments.sql")
+migration = read("supabase/migrations/20261031130000_incident_chat_image_attachments.sql")
 for label, passed in {
     "attachment metadata is stored with the message": "ADD COLUMN IF NOT EXISTS attachment_path text" in migration,
     "image-only messages remain bounded": "attachment_size_bytes BETWEEN 1 AND 5242880" in migration,
