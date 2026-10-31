@@ -55,6 +55,7 @@ class SessionStore(
     // Fake/test API mode must never write pending SOS state into the real app's DataStore.
     private var inMemoryPendingIncident: PendingIncidentSubmission? = null
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val session: Flow<Session?> = if (persistSessions) {
         sessionReadRetrySignal.flatMapLatest {
             dataStore.data
