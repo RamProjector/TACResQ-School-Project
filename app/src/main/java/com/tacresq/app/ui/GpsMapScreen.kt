@@ -1115,7 +1115,7 @@ fun GpsMapScreen(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.primary,
         )
-    }
+      }
     }
 }
 
