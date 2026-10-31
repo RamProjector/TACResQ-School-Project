@@ -56,6 +56,14 @@ class ApiException(message: String, val httpCode: Int? = null) : Exception(messa
 internal fun isDefinitiveIncidentRejection(httpCode: Int): Boolean =
     httpCode in 400..499 && httpCode !in setOf(400, 401, 403, 408, 409, 425, 429)
 
+/** User-safe sign-in messages that distinguish credentials, throttling, and service outages. */
+internal fun signInHttpErrorMessage(httpCode: Int): String = when {
+    httpCode == 429 -> "Too many sign-in attempts. Wait a moment and try again."
+    httpCode >= 500 -> "The sign-in service is temporarily unavailable. Please try again."
+    httpCode in 400..401 -> "Email or password is incorrect."
+    else -> "Sign-in couldn't be completed. Check your email confirmation or try again."
+}
+
 class TacRepository(
     private val api: TacApi,
     private val store: SessionStore,
@@ -371,11 +379,7 @@ class TacRepository(
         // provider message such as "User already registered".
         val authPath = e.response()?.raw()?.request?.url?.encodedPath.orEmpty()
         if (authPath.endsWith("/auth/v1/token")) {
-            return if (e.code() == 429) {
-                "Too many sign-in attempts. Wait a moment and try again."
-            } else {
-                "Email or password is incorrect."
-            }
+            return signInHttpErrorMessage(e.code())
         }
         if (authPath.endsWith("/auth/v1/signup")) {
             return if (e.code() == 429) {
