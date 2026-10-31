@@ -18,10 +18,19 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import com.tacresq.app.data.model.Role
+import com.tacresq.app.data.model.User
+import com.tacresq.app.data.model.Incident
+import com.tacresq.app.data.model.IncidentStatus
+import com.tacresq.app.data.model.IncidentType
+import com.tacresq.app.data.model.UserNotification
+import com.tacresq.app.data.repo.NotificationRepository
+import com.tacresq.app.ui.RoleSectionScreen
+import com.tacresq.app.ui.notifications.NotificationsViewModel
 import com.tacresq.app.ui.AppDestination
 import com.tacresq.app.ui.RoleShell
 import com.tacresq.app.ui.common.ScreenHeader
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -115,6 +124,50 @@ class NavigationInstrumentedTest {
 
         composeRule.onNodeWithContentDescription("Open notifications").assertIsDisplayed().performClick()
         assertTrue("Notification action should open the notification destination", opened)
+    }
+
+    @Test
+    fun requesterMessagesWithAnActiveRequestDoesNotCrashAndOpensConversation() {
+        val user = User(
+            id = 10L,
+            name = "Test requester",
+            email = "requester@example.test",
+            role = Role.REQUESTER,
+        )
+        val incident = Incident(
+            id = 2468L,
+            type = IncidentType.MEDICAL,
+            status = IncidentStatus.PENDING,
+        )
+        var openedIncidentId: Long? = null
+        val notifications = NotificationsViewModel(object : NotificationRepository {
+            override suspend fun myNotifications(limit: Int): Result<List<UserNotification>> =
+                Result.success(emptyList())
+
+            override suspend fun markNotificationRead(notificationId: Long): Result<Boolean> =
+                Result.success(true)
+        })
+
+        composeRule.setContent {
+            MaterialTheme {
+                RoleSectionScreen(
+                    destination = AppDestination.CHAT,
+                    user = user,
+                    logout = {},
+                    incidents = listOf(incident),
+                    notificationsVm = notifications,
+                    onOpenChat = { openedIncidentId = it },
+                )
+            }
+        }
+
+        // This is the exact state reached after a requester submits an SOS.
+        // A LazyColumn nested inside RoleSectionScreen's verticalScroll used to
+        // throw an infinite-height measurement exception as soon as this list appeared.
+        composeRule.onNodeWithText("Messages").assertIsDisplayed()
+        composeRule.onNodeWithText("Incident #2468").assertIsDisplayed()
+        composeRule.onNodeWithText("Open conversation").performClick()
+        assertEquals(2468L, openedIncidentId)
     }
 
     @Test
