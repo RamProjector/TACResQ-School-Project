@@ -1004,14 +1004,14 @@ fun GpsMapScreen(
                             }
                             itemsIndexed(
                                 validResponderLocations,
-                                key = { _, location -> "unit-${location.incidentId}" },
+                                key = { _, location -> "unit-${location.incidentId}-${location.userId}" },
                                 contentType = { _, _ -> "field-unit" },
                             ) { _, location ->
                                 val ageSeconds = location.mapAgeSeconds(mapNow)
                                 val freshness = location.mapFreshness(mapNow)
                                 Text(
                                     text = buildString {
-                                        append("Incident #${location.incidentId} · ")
+                                        append("Responder #${location.userId} · Incident #${location.incidentId} · ")
                                         append(freshness?.label ?: "Freshness unavailable")
                                         if (ageSeconds != null) {
                                             append(" · last reported ${formatLocationAge(ageSeconds)}")
@@ -1126,9 +1126,7 @@ private fun MapIncidentCard(
                     else -> "Source unavailable"
                 }
                 val accuracyLabel = if (incident.locationSource == "gps") {
-                    incident.accuracyM?.takeIf { it.isFinite() && it >= 0.0 }
-                        ?.let { " · about ${it.roundToInt()} m accuracy" }
-                        .orEmpty()
+                    incident.accuracyM.validAccuracyLabel(" · accuracy about ").orEmpty()
                 } else ""
                 Text(
                     locationSourceLabel + accuracyLabel,
