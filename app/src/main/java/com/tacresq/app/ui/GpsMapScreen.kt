@@ -1056,6 +1056,73 @@ fun GpsMapScreen(
 }
 
 @Composable
+private fun IncidentMapActions(
+    incidentId: Long,
+    needsConfirmation: Boolean,
+    stacked: Boolean,
+    onFocus: () -> Unit,
+    onNavigate: () -> Unit,
+) {
+    val focusPadding = PaddingValues(horizontal = if (stacked) 10.dp else 8.dp, vertical = 6.dp)
+    val navigatePadding = focusPadding
+    if (stacked) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            IncidentMapFocusButton(incidentId, onFocus, Modifier.fillMaxWidth(), focusPadding)
+            IncidentMapNavigateButton(incidentId, needsConfirmation, onNavigate, Modifier.fillMaxWidth(), navigatePadding)
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            IncidentMapFocusButton(incidentId, onFocus, Modifier.weight(1f), focusPadding)
+            IncidentMapNavigateButton(incidentId, needsConfirmation, onNavigate, Modifier.weight(1f), navigatePadding)
+        }
+    }
+}
+
+@Composable
+private fun IncidentMapFocusButton(
+    incidentId: Long,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    padding: PaddingValues,
+) {
+    androidx.compose.material3.FilledTonalButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp).semantics {
+            contentDescription = "Show incident #$incidentId on map"
+        },
+        contentPadding = padding,
+    ) {
+        Text("Show on map")
+    }
+}
+
+@Composable
+private fun IncidentMapNavigateButton(
+    incidentId: Long,
+    needsConfirmation: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    padding: PaddingValues,
+) {
+    androidx.compose.material3.TextButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp).semantics {
+            contentDescription = if (needsConfirmation) {
+                "Review location before navigating to incident #$incidentId"
+            } else {
+                "Navigate to incident #$incidentId"
+            }
+        },
+        contentPadding = padding,
+    ) {
+        Text(if (needsConfirmation) "Review location" else "Navigate")
+    }
+}
+
+@Composable
 private fun MapIncidentCard(
     incident: Incident,
     context: Context,
@@ -1140,64 +1207,15 @@ private fun MapIncidentCard(
                         openExternalMaps(context, lat!!, lng!!)
                     }
                 }
-                // Reflow actions on compact cards; on wider cards keep the primary and
-                // secondary actions side by side. Labels may wrap at large font scales.
+                // Keep the two actions identical across compact and regular widths.
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val stackActions = maxWidth < 320.dp
-                    if (stackActions) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            androidx.compose.material3.FilledTonalButton(
-                                onClick = { onFocusOnMap(incident) },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics {
-                                    contentDescription = "Show incident #${incident.id} on map"
-                                },
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                            ) {
-                                Text("Show on map")
-                            }
-                            androidx.compose.material3.TextButton(
-                                onClick = navigateToIncident,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics {
-                                    contentDescription = if (needsConfirmation) {
-                                        "Review location before navigating to incident #${incident.id}"
-                                    } else {
-                                        "Navigate to incident #${incident.id}"
-                                    }
-                                },
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                            ) {
-                                Text(if (needsConfirmation) "Review location" else "Navigate")
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            androidx.compose.material3.FilledTonalButton(
-                                onClick = { onFocusOnMap(incident) },
-                                modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
-                                    contentDescription = "Show incident #${incident.id} on map"
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                            ) {
-                                Text("Show on map")
-                            }
-                            androidx.compose.material3.TextButton(
-                                onClick = navigateToIncident,
-                                modifier = Modifier.weight(1f).heightIn(min = 48.dp).semantics {
-                                    contentDescription = if (needsConfirmation) {
-                                        "Review location before navigating to incident #${incident.id}"
-                                    } else {
-                                        "Navigate to incident #${incident.id}"
-                                    }
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                            ) {
-                                Text(if (needsConfirmation) "Review location" else "Navigate")
-                            }
-                        }
-                    }
+                    IncidentMapActions(
+                        incidentId = incident.id,
+                        needsConfirmation = needsConfirmation,
+                        stacked = maxWidth < 320.dp,
+                        onFocus = { onFocusOnMap(incident) },
+                        onNavigate = navigateToIncident,
+                    )
                 }
             } else {
                 Text(
