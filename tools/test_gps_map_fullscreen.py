@@ -19,10 +19,10 @@ assert '"GPS Map",\n                        style = MaterialTheme.typography.tit
 assert "maxLines = 1,\n                        softWrap = false,\n                        overflow = TextOverflow.Ellipsis," in map_screen
 assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen
 assert "modifier = Modifier.fillMaxSize()" in map_screen
-# osmdroid custom controller is the supported API for hiding its legacy zoom widgets.
-assert "setBuiltInZoomControls(false)" not in map_screen
-assert "CustomZoomButtonsController.Visibility.NEVER" in map_screen
-assert "controller.zoomIn()" not in map_screen and "controller.zoomOut()" not in map_screen
+# MapLibre supplies gesture-based zoom without legacy on-map zoom widgets.
+assert 'implementation("org.maplibre.gl:android-sdk-opengl:13.7.1")' in (ROOT / "app/build.gradle.kts").read_text()
+assert 'OPENFREEMAP_LIBERTY_STYLE = "https://tiles.openfreemap.org/styles/liberty"' in map_screen
+assert "CameraUpdateFactory.newLatLngZoom" in map_screen
 
 # The map uses one compact toolbar, a small set of map filters, and a collapsible
 # information sheet rather than several competing floating control stacks.
@@ -50,7 +50,7 @@ assert ".filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }" in ma
 assert "validIncidentPoints + responderPointsForInitialFrame" in map_screen
 assert "val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
 assert "onShowActiveUnits = ::showActiveUnits" in map_screen
-assert "mapView.overlays.removeAll { it is Marker }" in map_screen
+assert "map.clear()" in map_screen and "map.addMarker(" in map_screen
 
 # Location preview is cleared if permission is revoked while the map is backgrounded.
 assert "val latestDeviceFix by rememberUpdatedState(deviceFix)" in map_screen
