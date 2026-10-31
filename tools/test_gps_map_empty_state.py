@@ -50,6 +50,7 @@ required = (
     "incidentLocationText(incident)",
     "A landmark-only request is still actionable.",
     "val hasLandmarkFallback = lat == null && lng == null",
+    '(incident.locationSource == null || incident.locationSource == "none")',
     "!incident.locationNotes.isNullOrBlank()",
     "if (hasLandmarkFallback) MaterialTheme.colorScheme.onSurfaceVariant",
     "val navigateToIncident = {",
