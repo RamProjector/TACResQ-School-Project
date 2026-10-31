@@ -1221,9 +1221,12 @@ private fun MapIncidentCard(
             } else {
                 // A landmark-only request is still actionable. Reuse the shared
                 // provenance formatter so missing, partial, and invalid pins are distinct.
+                val hasLandmarkFallback = lat == null && lng == null &&
+                    !incident.locationNotes.isNullOrBlank()
                 Text(
                     incidentLocationText(incident),
-                    color = MaterialTheme.colorScheme.error,
+                    color = if (hasLandmarkFallback) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
