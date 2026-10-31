@@ -137,9 +137,12 @@ class SessionStore(
 
     private fun requirePendingOwner(saved: PendingIncidentSubmission, ownerUserId: Long) {
         if (saved.ownerUserId != ownerUserId) {
-            throw PendingIncidentConflictException(
-                "A saved SOS belongs to a different or older requester session on this device. Sign in with the original requester account to resolve it; this account cannot send or discard that request."
-            )
+            val message = if (saved.ownerUserId == null) {
+                "An older saved SOS has no verified requester owner. Contact dispatch before creating another request; this account cannot safely retry or discard it."
+            } else {
+                "A saved SOS belongs to a different requester account on this device. Sign in with the original requester account to resolve it; this account cannot send or discard that request."
+            }
+            throw PendingIncidentConflictException(message)
         }
     }
 
