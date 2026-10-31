@@ -131,6 +131,8 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
     PollWhileStarted { vm.refresh() }
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
     var selectedUnitIds by remember { mutableStateOf(setOf<Long>()) }
+    // Keep the dispatcher overview concise; individual check-ins are available on demand.
+    var expandedTeamStatusIds by remember { mutableStateOf(setOf<Long>()) }
     var queueClock by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -313,23 +315,65 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 if (incident.assignedUserStatuses.isEmpty()) {
                     Text("Team: ${teamNames.ifBlank { "Not assigned" }}")
                 } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        incident.assignedUserStatuses.forEach { memberStatus ->
-                            val unit = state.units.firstOrNull { it.id == memberStatus.userId }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    unit?.name ?: "Unit #${memberStatus.userId}",
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                                StatusPill(
-                                    memberStatus.status.label,
-                                    MaterialTheme.colorScheme.secondary,
-                                )
+                    val respondingCount = incident.assignedUserStatuses.count {
+                        it.status != IncidentStatus.ASSIGNED
+                    }
+                    val teamCount = incident.assignedUserStatuses.size
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Team progress", style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                "$respondingCount of $teamCount members responding",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        StatusPill(
+                            incident.status.label,
+                            MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            expandedTeamStatusIds = if (incident.id in expandedTeamStatusIds) {
+                                expandedTeamStatusIds - incident.id
+                            } else {
+                                expandedTeamStatusIds + incident.id
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    ) {
+                        Text(
+                            if (incident.id in expandedTeamStatusIds) {
+                                "Hide member details"
+                            } else {
+                                "View member details"
+                            }
+                        )
+                    }
+                    if (incident.id in expandedTeamStatusIds) {
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            incident.assignedUserStatuses.forEach { memberStatus ->
+                                val unit = state.units.firstOrNull { it.id == memberStatus.userId }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        unit?.name ?: "Unit #${memberStatus.userId}",
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                    StatusPill(
+                                        memberStatus.status.label,
+                                        MaterialTheme.colorScheme.secondary,
+                                    )
+                                }
                             }
                         }
                     }
