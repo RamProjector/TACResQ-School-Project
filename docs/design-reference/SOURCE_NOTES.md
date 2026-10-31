@@ -34,3 +34,20 @@ Source: https://developer.android.com/design/ui/mobile/guides/layout-and-content
 
 ## Research implication
 A good result is not “labels must never be hidden.” It is “labels should not be hidden casually to conceal a layout defect.” Prototype a labeled five-slot baseline, measure text and available width, then compare the standard Material behavior and TACResQ's custom centered Map treatment on actual narrow phones. Select the option that remains clear, balanced, and accessible.
+
+
+## 6. Android Developers — Partial bottom sheet in Jetpack Compose
+Why selected: documents a partially expanded sheet that users can drag to full-screen, matching the map's collapsed/expanded incident detail pattern. Use a persistent/non-modal sheet where the map must remain interactive, and verify behavior against the app's Material 3 version.
+Source: https://developer.android.com/develop/ui/compose/components/bottom-sheets-partial
+
+## 7. Android Developers — Bottom sheets
+Why selected: official Compose guidance for sheet state and programmatic expansion/collapse.
+Source: https://developer.android.com/develop/ui/compose/components/bottom-sheets
+
+## 8. Supabase — Database functions and security
+Why selected: security guidance for invoker/definer functions, pinned search paths, and explicit execute grants; relevant to the separate responder-location RPC PR.
+Source: https://supabase.com/docs/guides/database/functions
+
+## 9. Supabase — Row Level Security
+Why selected: documents the implications of SECURITY DEFINER bypassing RLS and the need for explicit caller/row authorization.
+Source: https://supabase.com/docs/guides/database/postgres/row-level-security
