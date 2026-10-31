@@ -161,11 +161,12 @@ class RequesterViewModel(
                 }
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 _state.update {
                     it.copy(
                         pendingSosCheckInProgress = false,
-                        pendingSosCheckError = "TACResQ couldn't verify whether an earlier SOS is still awaiting confirmation. Check again before creating another request.",
+                        pendingSosCheckError = e.message?.takeIf { message -> message.isNotBlank() }
+                            ?: "TACResQ couldn't verify whether an earlier SOS is still awaiting confirmation. Check again before creating another request.",
                     )
                 }
             }
