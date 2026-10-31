@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -392,7 +393,7 @@ fun GpsMapScreen(
         Role.DISPATCHER -> if (validResponderLocations.isNotEmpty()) {
             "$defaultMapStatus $freshResponderCount field units currently fresh."
         } else {
-            defaultMapStatus
+            "$defaultMapStatus No field-unit location reports; units share locations only while en route."
         }
         Role.ADMIN -> "Read-only map overview."
     }
@@ -1136,13 +1137,9 @@ fun GpsMapScreen(
             }
         },
     ) {
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .semantics { paneTitle = "GPS Map" },
+    Box(
+        modifier = Modifier.fillMaxSize(),
     ) {
-        // Use this map window's real constraints (not the device's full screen height).
-        // A lower clamp can exceed the available height in landscape or split-screen.
         AndroidView(
             factory = { mapView },
             modifier = Modifier.fillMaxSize(),
@@ -1455,6 +1452,13 @@ private fun MapIncidentCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                incident.locationNotes?.takeIf { it.isNotBlank() }?.let { note ->
+                    Text(
+                        "Landmark: $note",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 val navigateToIncident = {
                     if (needsConfirmation) {
                         showNavigationConfirmation = true
