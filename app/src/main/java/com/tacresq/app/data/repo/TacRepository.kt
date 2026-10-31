@@ -29,6 +29,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -61,13 +62,21 @@ class TacRepository(
     private val tokenHolder: TokenHolder,
     private val appScope: CoroutineScope,
 ) : NotificationRepository {
-    /** Loading until the saved session is read, then LoggedOut or LoggedIn. */
-    val sessionState: StateFlow<SessionState> = store.session
-        .onEach { session -> tokenHolder.value = session?.token }
-        .map<Session?, SessionState> { session ->
-            if (session == null) SessionState.LoggedOut else SessionState.LoggedIn(session)
+    /** Loading until the saved session is read, with a recoverable state on persistent I/O failure. */
+    val sessionState: StateFlow<SessionState> = combine(store.session, store.sessionReadError) { session, readError ->
+        when {
+            readError -> SessionState.RestoreFailed
+            session == null -> SessionState.LoggedOut
+            else -> SessionState.LoggedIn(session)
+        }
+    }
+        .onEach { state ->
+            tokenHolder.value = (state as? SessionState.LoggedIn)?.session?.token
         }
         .stateIn(appScope, SharingStarted.Eagerly, SessionState.Loading)
+
+    /** Re-run the bounded DataStore restore attempt after a visible storage error. */
+    fun retrySessionRestore() = store.retrySessionRead()
 
     suspend fun login(email: String, password: String): Result<Unit> = call {
         startSession(api.login(LoginRequest(email.trim(), password)))
