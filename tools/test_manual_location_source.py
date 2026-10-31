@@ -156,7 +156,7 @@ checks = {
         text in incident_card for text in (
             '"gps" -> "GPS"', '"manual" -> "Map pin"',
             '"Unverified pin"', 'incident.locationSource == "gps"',
-            '"No location pin"',
+            '"No location pin$note"', 'val note = incident.locationNotes?.trim()',
         )
     ) and "String.format(Locale.US, \"%.5f, %.5f\", latitude, longitude)" not in incident_card,
     "field units are not described as live before a location is confirmed": all(
