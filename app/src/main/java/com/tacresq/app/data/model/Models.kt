@@ -134,6 +134,7 @@ data class IncidentMessage(
     val id: Long,
     @SerializedName("incident_id") val incidentId: Long,
     @SerializedName("sender_id") val senderId: Long,
+    @SerializedName("sender_name") val senderName: String? = null,
     val message: String,
     @SerializedName("created_at") val createdAt: String?,
     @SerializedName("attachment_path") val attachmentPath: String? = null,
