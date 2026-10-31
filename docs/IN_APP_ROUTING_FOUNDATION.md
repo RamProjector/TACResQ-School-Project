@@ -63,6 +63,7 @@ The Android GPS screen now uses MapLibre Native (OpenGL ES artifact for broad de
 - Style URL: `https://tiles.openfreemap.org/styles/liberty`
 - No Google Maps SDK, Google Maps API key, or billing account is required.
 - Incident, responder, stale last-known, and one-time device-location pins remain rendered from validated app state.
+- The requester's full-screen manual SOS pin picker uses the same Liberty style; its center coordinate comes from the live map camera, and confirmation is disabled until the style loads successfully.
 - Existing role-specific visibility, responder freshness rules, and one-time local-only location disclosure remain unchanged.
 - Attribution is shown as OpenMapTiles and OpenStreetMap data attribution in the map UI; MapLibre's own attribution control remains enabled.
 - Map tiles are third-party network data. Do not send requester names, phone numbers, incident narratives, or other personal data to the map provider; only map viewport/tile requests are needed.
