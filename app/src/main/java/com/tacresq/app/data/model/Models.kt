@@ -136,6 +136,9 @@ data class IncidentMessage(
     @SerializedName("sender_id") val senderId: Long,
     val message: String,
     @SerializedName("created_at") val createdAt: String?,
+    @SerializedName("attachment_path") val attachmentPath: String? = null,
+    @SerializedName("attachment_mime_type") val attachmentMimeType: String? = null,
+    @SerializedName("attachment_size_bytes") val attachmentSizeBytes: Long? = null,
 )
 
 data class ResponderLocation(
