@@ -338,10 +338,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        StatusPill(
-                            incident.status.label,
-                            MaterialTheme.colorScheme.secondary,
-                        )
+                        StatusPill(incident.status)
                     }
                     TextButton(
                         onClick = {
@@ -386,10 +383,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
-                                    StatusPill(
-                                        memberStatus.status.label,
-                                        MaterialTheme.colorScheme.secondary,
-                                    )
+                                    StatusPill(memberStatus.status)
                                 }
                             }
                         }
