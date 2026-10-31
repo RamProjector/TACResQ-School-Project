@@ -332,6 +332,11 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            Text(
+                                "Progress is based on each assigned responder's own check-in.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         StatusPill(
                             incident.status.label,
