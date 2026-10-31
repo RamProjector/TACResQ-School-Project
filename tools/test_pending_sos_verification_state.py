@@ -18,7 +18,8 @@ assert "pendingSosCheckInProgress = false" in refresh
 assert "pendingSosCheckError = null" in refresh
 assert "catch (e: CancellationException)" in refresh
 assert "throw e" in refresh
-assert "pendingSosCheckError = \"TACResQ couldn't verify" in refresh
+assert "pendingSosCheckError = e.message?.takeIf" in refresh
+assert "TACResQ couldn't verify whether an earlier SOS is still awaiting confirmation" in refresh
 
 send_start = source.index("fun sendSos(")
 send_end = source.index("\n    private fun locationResponseMatches", send_start)
