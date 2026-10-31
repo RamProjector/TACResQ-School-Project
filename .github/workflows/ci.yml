@@ -147,6 +147,9 @@ jobs:
       - name: Check role-aware GPS map presentation
         run: python3 tools/test_gps_map_role_presentation.py
 
+      - name: Check requester Messages tab scroll crash regression
+        run: python3 tools/test_messages_list_scroll_contract.py
+
       - name: Check five-destination navigation labels
         run: python3 tools/test_bottom_navigation_labels.py
 
@@ -296,6 +299,10 @@ jobs:
       - name: Run Android JVM unit tests
         if: hashFiles('gradlew') != ''
         run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Compile Android UI instrumentation tests
+        if: hashFiles('gradlew') != ''
+        run: ./gradlew --no-daemon assembleDebugAndroidTest
 
       - name: Run Android Lint for the debug variant
         if: hashFiles('gradlew') != ''
