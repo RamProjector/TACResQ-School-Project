@@ -172,7 +172,7 @@ gps_map_location_contract = {
         "Refresh location",
         "import androidx.compose.ui.semantics.LiveRegionMode",
         "liveRegion = LiveRegionMode.Polite",
-        "if (locationStatus != null) liveRegion = LiveRegionMode.Polite",
+        "if (locationStatus != null || showAppSettingsAction) liveRegion = LiveRegionMode.Polite",
         "var isLocationRequestInProgress by remember { mutableStateOf(false) }",
         "if (isLocationRequestInProgress) return",
         "LocationButton(",
