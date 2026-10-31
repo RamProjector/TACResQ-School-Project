@@ -4,6 +4,8 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -40,6 +42,7 @@ private val Context.sessionDataStore by preferencesDataStore(name = "tacresq_ses
 class SessionStore(
     private val context: Context,
     private val persistSessions: Boolean = true,
+    private val dataStore: DataStore<Preferences> = context.sessionDataStore,
 ) {
     private val gson = Gson()
     private val inMemorySession = MutableStateFlow<Session?>(null)
@@ -54,7 +57,7 @@ class SessionStore(
 
     val session: Flow<Session?> = if (persistSessions) {
         sessionReadRetrySignal.flatMapLatest {
-            context.sessionDataStore.data
+            dataStore.data
                 // Retry transient storage failures, but bound the retry window so startup can
                 // expose a recoverable error instead of remaining on an endless loading screen.
                 .retryWhen { cause, attempt ->
@@ -71,7 +74,7 @@ class SessionStore(
                     if (prefs.contains(stringPreferencesKey("token")) ||
                         prefs.contains(stringPreferencesKey("user_json"))
                     ) {
-                        context.sessionDataStore.edit { current ->
+                        dataStore.edit { current ->
                             current.remove(stringPreferencesKey("token"))
                             current.remove(stringPreferencesKey("user_json"))
                         }
