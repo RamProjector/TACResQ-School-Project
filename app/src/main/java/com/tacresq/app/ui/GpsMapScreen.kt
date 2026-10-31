@@ -860,35 +860,70 @@ fun GpsMapScreen(
                             color = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                androidx.compose.material3.Icon(
-                                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                )
+                            if (maxWidth < 360.dp) {
                                 Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    Text(
-                                        "Location access is off",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Text(
-                                        "Incident pins remain available. Enable location to center this map on your device.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    ) {
+                                        androidx.compose.material3.Icon(
+                                            imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Text(
+                                                "Location access is off",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.SemiBold,
+                                            )
+                                            Text(
+                                                "Incident pins remain available. Enable location to center this map on your device.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                        }
+                                    }
+                                    androidx.compose.material3.TextButton(
+                                        onClick = ::openAppLocationSettings,
+                                        modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp),
+                                    ) {
+                                        Text("Open settings")
+                                    }
                                 }
-                                androidx.compose.material3.TextButton(
-                                    onClick = ::openAppLocationSettings,
-                                    modifier = Modifier.heightIn(min = 48.dp),
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 ) {
-                                    Text("Settings")
+                                    androidx.compose.material3.Icon(
+                                        imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    ) {
+                                        Text(
+                                            "Location access is off",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        Text(
+                                            "Incident pins remain available. Enable location to center this map on your device.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                    androidx.compose.material3.TextButton(
+                                        onClick = ::openAppLocationSettings,
+                                        modifier = Modifier.heightIn(min = 48.dp),
+                                    ) {
+                                        Text("Open settings")
+                                    }
                                 }
                             }
                         }
