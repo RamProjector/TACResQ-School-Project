@@ -36,7 +36,9 @@ writer = (ROOT / "supabase/migrations/20261025170000_isolate_per_responder_locat
 reader = (ROOT / "supabase/migrations/20261026010000_isolate_multi_responder_location_reader.sql").read_text().lower()
 assert "add column if not exists received_at timestamptz" in writer
 assert "alter column received_at set default pg_catalog.clock_timestamp()" in writer
-assert "location_logs_received_rate_idx" in writer
+rate_index = (ROOT / "supabase/migrations/20261025180000_location_logs_received_rate_index_concurrently.sql").read_text().lower()
+assert "location_logs_received_rate_idx" in rate_index
+assert "create index concurrently" in rate_index
 assert "l.created_at" not in writer and "coalesce(l.received_at, l.recorded_at)" in writer
 assert "for update of i, a;" in writer
 assert "pg_catalog.pg_advisory_xact_lock(actor_id)" in writer
