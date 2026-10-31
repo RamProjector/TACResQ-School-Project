@@ -14,6 +14,7 @@ for label in (
     assert label in SOURCE, f"Missing role-specific map title: {label}"
 
 assert "collapsedMapSummary" in SOURCE
+assert "val compactMapPane = maxWidth < 360.dp" in SOURCE
 assert 'showAppSettingsAction -> "Location access is off · incident pins remain visible."' in SOURCE
 assert '"Location access is off"' in SOURCE
 assert 'Text("Open settings")' in SOURCE
