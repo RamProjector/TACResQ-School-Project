@@ -160,9 +160,9 @@ checks = {
         )
     ) and "String.format(Locale.US, \"%.5f, %.5f\", latitude, longitude)" not in incident_card,
     "incident landmark and access notes are never silently line-clamped": (
-        "Text(\\n                incidentLocationText(incident)," in incident_card
-        and "maxLines" not in incident_card.split("incidentLocationText(incident)", 1)[1].split("\\n            )", 1)[0]
-        and "TextOverflow.Ellipsis" not in incident_card.split("incidentLocationText(incident)", 1)[1].split("\\n            )", 1)[0]
+        "Text(\n                incidentLocationText(incident)," in incident_card
+        and "maxLines" not in incident_card.split("incidentLocationText(incident)", 1)[1].split("\n            )", 1)[0]
+        and "TextOverflow.Ellipsis" not in incident_card.split("incidentLocationText(incident)", 1)[1].split("\n            )", 1)[0]
     ),
     "field units are not described as live before a location is confirmed": all(
         text in responder for text in (
