@@ -136,6 +136,9 @@ jobs:
       - name: Check five-destination navigation labels
         run: python3 tools/test_bottom_navigation_labels.py
 
+      - name: Check adaptive multi-pane incident history scaffold
+        run: python3 tools/test_adaptive_multi_pane_scaffolds.py
+
       - name: Check map network-state permission
         run: python3 tools/test_map_network_permissions.py
 
