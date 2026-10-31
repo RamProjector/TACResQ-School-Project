@@ -68,10 +68,13 @@ assert '"LOCATION"' in components
 # Top-level navigation adapts with the actual app window instead of keeping
 # five destinations compressed into a bottom bar on expanded screens.
 assert "currentWindowAdaptiveInfoV2()" in navigation
+assert "@OptIn(ExperimentalMaterial3AdaptiveApi::class)" in navigation
 assert "minWidthDp >= 840" in navigation
 assert "minHeightDp >= 480" in navigation
 assert "TacruNavigationRail(" in navigation
 assert "NavigationRail(" in navigation
+assert "roleNavigationDestinations(role).take(2)" in navigation
+assert "roleNavigationDestinations(role).drop(2)" in navigation
 assert "NavigationRailItem(" in navigation
 assert "TacruBottomNavigation(" in navigation
 assert "Scaffold(" in navigation
