@@ -1116,6 +1116,7 @@ fun GpsMapScreen(
             color = MaterialTheme.colorScheme.primary,
         )
     }
+    }
 }
 
 @Composable
