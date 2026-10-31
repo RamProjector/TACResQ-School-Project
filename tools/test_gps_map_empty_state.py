@@ -33,7 +33,7 @@ required = (
     'incident.accuracyM.validAccuracyLabel("GPS accuracy about ")',
     'location.accuracyM.validAccuracyLabel(" · reported accuracy about ")',
     'location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }',
-    '.clickable(onClickLabel = "Open OpenStreetMap copyright and attribution")',
+    '.clickable(onClickLabel = "Open OpenFreeMap map data and attribution details")',
     '.padding(horizontal = 8.dp, vertical = 12.dp)',
     "val mapDetailsMaxHeight = (maxHeight * 0.55f).coerceAtMost(420.dp)",
     "BoxWithConstraints(",
