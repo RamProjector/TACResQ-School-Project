@@ -133,6 +133,9 @@ jobs:
       - name: Check GPS map empty-state messaging
         run: python3 tools/test_gps_map_empty_state.py
 
+      - name: Check draggable GPS incident sheet
+        run: python3 tools/test_gps_map_draggable_sheet.py
+
       - name: Check full-screen GPS map viewport
         run: python3 tools/test_gps_map_fullscreen.py
 
