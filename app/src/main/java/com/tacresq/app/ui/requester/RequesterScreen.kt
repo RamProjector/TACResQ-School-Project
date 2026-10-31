@@ -1555,8 +1555,9 @@ private fun ManualLocationPickerDialog(
         mapView.getMapAsync { map ->
             mapLibreMap = map
             map.addOnCameraIdleListener {
-                val target = map.cameraPosition.target
-                centerCoordinates.value = target.latitude to target.longitude
+                map.cameraPosition.target?.let { target ->
+                    centerCoordinates.value = target.latitude to target.longitude
+                }
             }
             map.setStyle(REQUESTER_MAP_STYLE_URL) {
                 map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
