@@ -83,7 +83,7 @@ jobs:
           build-mode: manual
 
       - name: Build Android source for CodeQL
-        run: ./gradlew --no-daemon assembleDebug
+        run: ./gradlew --no-daemon clean assembleDebug
 
       - name: Analyze Android source with CodeQL
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
