@@ -16,7 +16,7 @@ for label in (
 assert "collapsedMapSummary" in SOURCE
 assert 'showAppSettingsAction -> "Location access is off · incident pins remain visible."' in SOURCE
 assert '"Location access is off"' in SOURCE
-assert 'Text("Settings")' in SOURCE
+assert 'Text("Open settings")' in SOURCE
 assert "AssistChip(" in SOURCE
 assert "hasIncidents = validIncidentPoints.isNotEmpty()" in SOURCE
 assert "hasActiveUnits = validResponderLocations.isNotEmpty()" in SOURCE
