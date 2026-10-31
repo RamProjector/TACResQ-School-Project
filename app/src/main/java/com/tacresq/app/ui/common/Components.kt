@@ -197,13 +197,13 @@ fun IncidentCard(
             incident.description?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
                 Text(note, style = MaterialTheme.typography.bodyMedium)
             }
+            // Landmark/access details are operational information, not decorative
+            // metadata. Keep the complete note visible instead of silently truncating it.
             Text(
                 incidentLocationText(incident),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium,
-                maxLines = 3,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
             actions()
         }
