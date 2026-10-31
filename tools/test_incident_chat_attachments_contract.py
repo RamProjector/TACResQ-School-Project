@@ -20,6 +20,8 @@ for label, passed in {
     "sender profile is derived from auth.uid": "WHERE p.auth_user_id = auth.uid()" in migration,
     "image RPC rechecks chat access": "private.tacresq_can_access_incident_chat(p_incident_id, actor_profile_id)" in migration,
     "image RPC verifies uploaded object": "FROM storage.objects o" in migration,
+    "image RPC verifies stored MIME type": "o.metadata->>'mimetype' = p_attachment_mime_type" in migration,
+    "image RPC verifies stored byte size": "(o.metadata->>'size')::bigint = p_attachment_size_bytes" in migration,
     "image RPC has authenticated-only grant": "GRANT EXECUTE ON FUNCTION public.api_send_incident_image_message" in migration,
     "message history includes attachment metadata": "'attachment_path', page.attachment_path" in migration,
 }.items():
