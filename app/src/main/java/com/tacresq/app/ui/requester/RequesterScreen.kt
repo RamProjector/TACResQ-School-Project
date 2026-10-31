@@ -1771,7 +1771,7 @@ private fun ManualLocationPickerDialog(
                             ) { Text("Use this location") }
                         }
                         Text(
-                            "Map data © OpenStreetMap contributors",
+                            "Map data © OpenMapTiles · © OpenStreetMap contributors",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
