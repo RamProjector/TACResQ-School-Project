@@ -1,6 +1,7 @@
 package com.tacresq.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -154,7 +155,7 @@ fun AppRoot(
                         val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
                         RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
-                            if (selectedChatIncidentId != null) {
+                            if (selectedChatIncidentId != null && destination == AppDestination.CHAT) {
                                 IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                             } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)
                             else RoleSectionScreen(
@@ -244,7 +245,7 @@ private fun RoleApp(
     }
     val openChat: (Long) -> Unit = { incidentId ->
         selectedChatIncidentId = incidentId
-        destination = if (role == Role.DISPATCHER) AppDestination.PRIMARY else AppDestination.SECONDARY
+        destination = AppDestination.CHAT
     }
     val closeChat: () -> Unit = { selectedChatIncidentId = null }
     val openNotifications: () -> Unit = {
@@ -387,6 +388,50 @@ private fun RoleSectionScreen(
                 }
             }
 
+            destination == AppDestination.CHAT -> {
+                val conversations = incidents.filter { it.status.isActive }
+                if (conversations.isEmpty()) {
+                    EmptySectionCard(
+                        "No active conversations",
+                        "When an incident is active, its conversation will appear here.",
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(conversations, key = { it.id }) { incident ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onOpenChat(incident.id) },
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text(
+                                        "Incident #${incident.id}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        "${incident.type.label} · ${incident.status.label}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        "Open conversation",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             destination == AppDestination.ALERTS -> Unit
 
             destination == AppDestination.PROFILE -> {
@@ -400,6 +445,11 @@ private fun RoleSectionScreen(
                         ProfileDetail("Role", role.label)
                         user.phone?.takeIf { it.isNotBlank() }?.let { ProfileDetail("Mobile", it) }
                         androidx.compose.material3.HorizontalDivider()
+                        Text("Safety & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        ProfileDetail("Emergency help", "For immediate danger, contact local emergency services. Do not wait for an app update.")
+                        ProfileDetail("Confirm your location", "Check the map pin against a landmark. GPS can drift indoors or near tall buildings.")
+                        ProfileDetail("Location sharing", "Sharing is visible to authorized dispatch while the app is open. Stop sharing when it is no longer needed.")
+                        ProfileDetail("Personal information", "Share only details needed for the response. Keep medical and contact details private.")
                         androidx.compose.material3.OutlinedButton(
                             onClick = { showSignOutConfirmation = true },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
