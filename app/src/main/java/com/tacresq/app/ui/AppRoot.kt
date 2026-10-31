@@ -557,7 +557,7 @@ private fun IncidentHistoryAdaptiveScaffold(
         detailPane = {
             AnimatedPane {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerLow),
                     contentAlignment = Alignment.TopCenter,
                 ) {
                 Column(
