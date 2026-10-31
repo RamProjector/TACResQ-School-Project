@@ -440,8 +440,8 @@ fun GpsMapScreen(
         }
     }
 
-    var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
-    var mapStyleLoaded by remember { mutableStateOf(false) }
+    var mapLibreMap by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
+    var mapStyleLoaded by remember(context, role) { mutableStateOf(false) }
     val mapView = remember(context, role) {
         MapLibre.getInstance(context)
         MapView(context).apply {
@@ -463,6 +463,16 @@ fun GpsMapScreen(
         }
         mapView.getMapAsync { map ->
             mapLibreMap = map
+            map.setOnMarkerClickListener { marker ->
+                val incidentId = marker.title.removePrefix("Incident #").substringBefore(" ·").toLongOrNull()
+                if (incidentId != null) {
+                    selectedIncidentId = incidentId
+                    scope.launch { mapSheetState.bottomSheetState.expand() }
+                    true
+                } else {
+                    false
+                }
+            }
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
                 mapStyleLoaded = true
                 map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
