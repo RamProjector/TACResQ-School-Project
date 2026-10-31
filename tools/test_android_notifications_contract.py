@@ -111,7 +111,7 @@ assert 'MAP("GPS Map")' in shell, "GPS Map must remain a top-level destination"
 assert "GpsMapNavigationItem(selected, onDestinationSelected)" in shell
 assert shell.count("NavigationItem(destinations[") >= 4, "The four non-map destinations must remain"
 assert "GPS Map" in shell, "GPS Map must remain visible in the central navigation item"
-assert 'ALERTS("Alerts")' in shell, "notifications must be discoverable from the Alerts destination"
+assert 'ALERTS("Notifications")' in shell, "notifications remain available as a dedicated top-app-bar destination"
 assert 'ScreenHeader(title = "Alerts & safety"' in screen, "the destination must preserve its safety guidance context"
 
 components = read("app/src/main/java/com/tacresq/app/ui/common/Components.kt")
