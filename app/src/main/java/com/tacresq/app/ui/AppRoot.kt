@@ -534,20 +534,15 @@ private fun IncidentHistoryAdaptiveScaffold(
                         )
                     } else {
                         sortedIncidents.forEach { incident ->
-                            com.tacresq.app.ui.common.IncidentCard(
+                            com.tacresq.app.ui.common.IncidentHistoryListItem(
                                 incident = incident,
                                 selected = detailId == incident.id,
-                            ) {
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, incident.id)
-                                        }
-                                    },
-                                ) {
-                                    Text("View details")
-                                }
-                            }
+                                onClick = {
+                                    scope.launch {
+                                        navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, incident.id)
+                                    }
+                                },
+                            )
                         }
                     }
                 }
@@ -588,11 +583,10 @@ private fun IncidentHistoryAdaptiveScaffold(
                                 title = "Incident #${detailIncident.id}",
                                 supportingText = "Review the latest incident information and available actions",
                             )
-                            com.tacresq.app.ui.common.IncidentCard(detailIncident) {
-                                TextButton(onClick = { onOpenChat(detailIncident.id) }) {
-                                    Text("Open conversation")
-                                }
-                            }
+                            com.tacresq.app.ui.common.IncidentHistoryDetail(
+                                incident = detailIncident,
+                                onOpenConversation = { onOpenChat(detailIncident.id) },
+                            )
                         }
                         else -> {
                             EmptySectionCard(
