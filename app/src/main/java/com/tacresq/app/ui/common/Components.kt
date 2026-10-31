@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -109,11 +110,17 @@ fun SectionHeading(title: String, supportingText: String? = null) {
 }
 
 @Composable
-fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null) {
-    val container =
-        if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer
-    val content =
-        if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer
+fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null, isSuccess: Boolean = false) {
+    val container = when {
+        isError -> MaterialTheme.colorScheme.errorContainer
+        isSuccess -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.tertiaryContainer
+    }
+    val content = when {
+        isError -> MaterialTheme.colorScheme.onErrorContainer
+        isSuccess -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onTertiaryContainer
+    }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -128,9 +135,33 @@ fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null) {
         ) {
             Text(text, modifier = Modifier.weight(1f))
             if (onDismiss != null) {
-                TextButton(onClick = onDismiss) { Text("Dismiss") }
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = content),
+                ) { Text("Dismiss") }
             }
         }
+    }
+}
+
+@Composable
+fun StatusPill(status: IncidentStatus) {
+    val colors = MaterialTheme.colorScheme
+    val (container, content) = when (status) {
+        IncidentStatus.PENDING -> colors.tertiaryContainer to colors.onTertiaryContainer
+        IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE -> colors.primaryContainer to colors.onPrimaryContainer
+        IncidentStatus.ON_SCENE, IncidentStatus.TRANSPORTING, IncidentStatus.RESOLVED ->
+            colors.secondaryContainer to colors.onSecondaryContainer
+        IncidentStatus.CANCELLED -> colors.surfaceVariant to colors.onSurfaceVariant
+    }
+    Surface(color = container, contentColor = content, shape = RoundedCornerShape(50)) {
+        Text(
+            status.label,
+            color = content,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+        )
     }
 }
 

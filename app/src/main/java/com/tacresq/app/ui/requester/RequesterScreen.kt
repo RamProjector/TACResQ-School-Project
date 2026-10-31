@@ -706,27 +706,44 @@ fun RequesterScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
                             Text("Active emergency", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text(activeIncident.type.label, style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                            Text(
+                                activeIncident.type.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
-                        StatusPill(activeIncident.status.label, activeIncident.status.pillColor())
+                        StatusPill(activeIncident.status)
                     }
-                    Text("Request #${activeIncident.id}", style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f))
+                    Text(
+                        "Request #${activeIncident.id}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Text(
                         if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING)
                             "Waiting for dispatch to assign a response unit."
                         else
                             "A unit may already be responding. Contact dispatch before requesting changes.",
                         style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     if (activeIncidents.size > 1) {
                         Text(
@@ -735,14 +752,18 @@ fun RequesterScreen(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    OutlinedButton(
+                    Button(
                         onClick = { onOpenChat(activeIncident.id) },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
                     ) {
                         Text("Open incident messages")
                     }
                     if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedButton(
                                 onClick = {
                                     incidentToEdit = activeIncident
@@ -758,17 +779,26 @@ fun RequesterScreen(
                                 },
                                 enabled = !state.sending,
                                 modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.primary,
+                                ),
                             ) { Text("Edit") }
                             OutlinedButton(
                                 onClick = { incidentToCancel = activeIncident.id },
                                 enabled = !state.sending,
                                 modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error,
+                                ),
                             ) { Text("Cancel") }
                         }
                     }
                 }
             }
         } else if (!showRequestForm && !state.pendingSosAvailable &&
+
             !state.pendingSosCheckInProgress && state.pendingSosCheckError == null
         ) item {
             Card(
@@ -1123,7 +1153,7 @@ fun RequesterScreen(
             item { Banner(feedbackError, isError = true, onDismiss = vm::dismissMessages) }
         } else {
             state.notice?.let { message ->
-                item { Banner(message, isError = false, onDismiss = vm::dismissMessages) }
+                item { Banner(message, isError = false, onDismiss = vm::dismissMessages, isSuccess = true) }
             }
         }
 
