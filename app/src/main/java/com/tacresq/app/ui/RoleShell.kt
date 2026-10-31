@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,9 +23,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.style.TextAlign
@@ -39,6 +45,7 @@ enum class AppDestination(val label: String) {
     PROFILE("Profile"),
 }
 
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun RoleShell(
     role: Role,
@@ -47,27 +54,138 @@ fun RoleShell(
     content: @Composable () -> Unit,
     mapContent: @Composable () -> Unit,
 ) {
-    // The map is a focused destination, not a panel inside the role shell.
-    // Let it use the complete app window and provide its own explicit Back action.
+    // The map remains a dedicated, full-window destination on every form factor.
+    // Other destinations switch to a rail only when the window has enough width
+    // and height; short landscape and split-screen windows keep the bottom bar.
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    val useNavigationRail = windowSizeClass.minWidthDp >= 840 && windowSizeClass.minHeightDp >= 480
+
     if (selected == AppDestination.MAP) {
         Box(modifier = Modifier.fillMaxSize()) {
             mapContent()
         }
     } else {
+        // Keep Scaffold in both modes so system-bar insets and content padding
+        // remain consistent when the window crosses the rail breakpoint.
         Scaffold(
             bottomBar = {
-                TacruBottomNavigation(
-                    role = role,
-                    selected = selected,
-                    onDestinationSelected = onDestinationSelected,
-                )
+                if (!useNavigationRail) {
+                    TacruBottomNavigation(
+                        role = role,
+                        selected = selected,
+                        onDestinationSelected = onDestinationSelected,
+                    )
+                }
             },
         ) { padding ->
-            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(padding)) {
-                content()
+            if (useNavigationRail) {
+                Row(modifier = Modifier.fillMaxSize().padding(padding)) {
+                    TacruNavigationRail(
+                        role = role,
+                        selected = selected,
+                        onDestinationSelected = onDestinationSelected,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background),
+                    ) {
+                        content()
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(padding),
+                ) {
+                    content()
+                }
             }
         }
     }
+}
+
+private fun roleNavigationDestinations(role: Role): List<Pair<AppDestination, String>> {
+    val labels = when (role) {
+        Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")
+        Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Alerts", "Profile")
+        Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")
+        Role.ADMIN -> listOf("Admin", "Audit", "Alerts", "Profile")
+    }
+    return listOf(
+        AppDestination.PRIMARY to labels[0],
+        AppDestination.SECONDARY to labels[1],
+        AppDestination.ALERTS to labels[2],
+        AppDestination.PROFILE to labels[3],
+    )
+}
+
+@Composable
+private fun TacruNavigationRail(
+    role: Role,
+    selected: AppDestination,
+    onDestinationSelected: (AppDestination) -> Unit,
+) {
+    NavigationRail(
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        roleNavigationDestinations(role).take(2).forEach { (destination, label) ->
+            NavigationRailDestinationItem(destination, label, selected, onDestinationSelected)
+        }
+        NavigationRailDestinationItem(
+            destination = AppDestination.MAP,
+            label = "GPS Map",
+            selected = selected,
+            onDestinationSelected = onDestinationSelected,
+            emphasized = true,
+        )
+        roleNavigationDestinations(role).drop(2).forEach { (destination, label) ->
+            NavigationRailDestinationItem(destination, label, selected, onDestinationSelected)
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.NavigationRailDestinationItem(
+    destination: AppDestination,
+    label: String,
+    selected: AppDestination,
+    onDestinationSelected: (AppDestination) -> Unit,
+    emphasized: Boolean = false,
+) {
+    val icon = when (destination) {
+        AppDestination.PRIMARY -> Icons.Filled.Home
+        AppDestination.SECONDARY -> Icons.AutoMirrored.Filled.List
+        AppDestination.ALERTS -> Icons.Filled.Warning
+        AppDestination.PROFILE -> Icons.Filled.Person
+        AppDestination.MAP -> Icons.Filled.LocationOn
+    }
+    NavigationRailItem(
+        selected = selected == destination,
+        onClick = { onDestinationSelected(destination) },
+        icon = {
+            if (emphasized) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp))
+                    }
+                }
+            } else {
+                Icon(icon, contentDescription = label, modifier = Modifier.size(22.dp))
+            }
+        },
+        label = { Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 2, textAlign = TextAlign.Center) },
+        alwaysShowLabel = true,
+    )
 }
 
 @Composable
@@ -76,18 +194,7 @@ private fun TacruBottomNavigation(
     selected: AppDestination,
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
-    val labels = when (role) {
-        Role.REQUESTER -> listOf("Home", "Requests", "Alerts", "Profile")
-        Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Alerts", "Profile")
-        Role.DISPATCHER -> listOf("Queue", "Units", "Alerts", "Profile")
-        Role.ADMIN -> listOf("Admin", "Audit", "Alerts", "Profile")
-    }
-    val destinations = listOf(
-        AppDestination.PRIMARY to labels[0],
-        AppDestination.SECONDARY to labels[1],
-        AppDestination.ALERTS to labels[2],
-        AppDestination.PROFILE to labels[3],
-    )
+    val destinations = roleNavigationDestinations(role)
     NavigationBar(
         modifier = Modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surface,
