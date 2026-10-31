@@ -77,6 +77,8 @@ data class IncidentChatUiState(
     val hasOlder: Boolean = true,
     val error: String? = null,
     val sendError: String? = null,
+    val attachmentBytes: ByteArray? = null,
+    val attachmentMimeType: String? = null,
 )
 
 class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
@@ -87,6 +89,8 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     private var olderJob: Job? = null
     private var sendJob: Job? = null
     private var pendingClientMessageId: String? = null
+    private var pendingImageClientMessageId: String? = null
+    private var pendingImageSignature: String? = null
 
     fun open(incidentId: Long) {
         if (activeIncidentId != incidentId) {
@@ -95,6 +99,8 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             sendJob = null
             activeIncidentId = incidentId
             pendingClientMessageId = null
+            pendingImageClientMessageId = null
+            pendingImageSignature = null
             _state.value = IncidentChatUiState()
         }
         refresh(incidentId)
@@ -169,7 +175,11 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun updateDraft(value: String) {
         val next = value.take(2000)
-        if (next != _state.value.draft) pendingClientMessageId = null
+        if (next != _state.value.draft) {
+            pendingClientMessageId = null
+            pendingImageClientMessageId = null
+            pendingImageSignature = null
+        }
         _state.update { it.copy(draft = next, sendError = null) }
     }
 
@@ -206,6 +216,78 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         }
     }
 
+    fun setImageAttachment(bytes: ByteArray, mimeType: String) {
+        if (mimeType !in setOf("image/jpeg", "image/png", "image/webp") ||
+            bytes.isEmpty() || bytes.size > 5 * 1024 * 1024
+        ) {
+            _state.update { it.copy(sendError = "Choose a JPG, PNG, or WebP image up to 5 MB.") }
+            return
+        }
+        pendingImageClientMessageId = null
+        pendingImageSignature = null
+        _state.update {
+            it.copy(attachmentBytes = bytes.copyOf(), attachmentMimeType = mimeType, sendError = null)
+        }
+    }
+
+    fun clearImageAttachment() {
+        pendingImageClientMessageId = null
+        pendingImageSignature = null
+        _state.update { it.copy(attachmentBytes = null, attachmentMimeType = null, sendError = null) }
+    }
+
+    fun sendImage(incidentId: Long, senderId: Long) {
+        val current = _state.value
+        val bytes = current.attachmentBytes ?: return
+        val mimeType = current.attachmentMimeType ?: return
+        val caption = current.draft.trim()
+        if (activeIncidentId != incidentId || senderId < 1 || sendJob?.isActive == true || caption.length > 2000) return
+        val signature = "$mimeType:${bytes.contentHashCode()}:$caption"
+        val clientMessageId = if (pendingImageSignature == signature) {
+            pendingImageClientMessageId ?: UUID.randomUUID().toString().also {
+                pendingImageClientMessageId = it
+                pendingImageSignature = signature
+            }
+        } else {
+            UUID.randomUUID().toString().also {
+                pendingImageClientMessageId = it
+                pendingImageSignature = signature
+            }
+        }
+        sendJob = viewModelScope.launch {
+            _state.update { it.copy(sending = true, sendError = null, error = null) }
+            repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes)
+                .onSuccess { sent ->
+                    if (activeIncidentId != incidentId) return@onSuccess
+                    pendingImageClientMessageId = null
+                    pendingImageSignature = null
+                    pendingClientMessageId = null
+                    _state.update { state ->
+                        state.copy(
+                            items = (state.items + sent).distinctBy { it.id }.sortedBy { it.id },
+                            draft = "",
+                            attachmentBytes = null,
+                            attachmentMimeType = null,
+                            sending = false,
+                            sendError = null,
+                        )
+                    }
+                }
+                .onFailure { failure ->
+                    if (activeIncidentId != incidentId) return@onFailure
+                    _state.update {
+                        it.copy(
+                            sending = false,
+                            sendError = failure.message ?: "Image was not confirmed. Retry safely.",
+                        )
+                    }
+                }
+        }
+    }
+
+    suspend fun downloadImage(path: String): ByteArray? =
+        repo.downloadIncidentImage(path).getOrNull()
+
     fun dismissError() = _state.update { it.copy(error = null, sendError = null) }
 
     fun closeConversation() {
@@ -214,6 +296,8 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         sendJob = null
         activeIncidentId = null
         pendingClientMessageId = null
+        pendingImageClientMessageId = null
+        pendingImageSignature = null
         _state.value = IncidentChatUiState()
     }
 }
