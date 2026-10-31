@@ -27,9 +27,11 @@ checks = {
     ),
     "manual pin confirmation submits the live map center only after finite-coordinate validation": all(
         text in requester for text in (
-            "val point = centerCoordinates.value",
-            "if (point.first.isFinite() && point.second.isFinite()",
-            "onConfirm(point.first, point.second)",
+            "val target = mapLibreMap?.cameraPosition?.target",
+            "val latitude = target?.latitude ?: centerCoordinates.value.first",
+            "val longitude = target?.longitude ?: centerCoordinates.value.second",
+            "if (latitude.isFinite() && longitude.isFinite()",
+            "onConfirm(latitude, longitude)",
             "enabled = mapStyleLoaded && !mapLoadError",
         )
     ) and all(
