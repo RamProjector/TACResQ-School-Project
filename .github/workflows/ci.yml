@@ -138,6 +138,11 @@ jobs:
 
       - name: Check full-screen GPS map viewport
         run: python3 tools/test_gps_map_fullscreen.py
+      - name: Check draggable GPS incident detail sheet
+        run: python3 tools/test_gps_map_bottom_sheet.py
+
+      - name: Check persistent OpenStreetMap attribution
+        run: python3 tools/test_osm_map_attribution.py
 
       - name: Check five-destination navigation labels
         run: python3 tools/test_bottom_navigation_labels.py
