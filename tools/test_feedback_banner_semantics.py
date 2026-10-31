@@ -13,5 +13,10 @@ assert "Card(" not in banner, "Feedback banner must not inherit card containment
 assert "LiveRegionMode.Polite" in banner, "Feedback should be exposed as a polite live region."
 assert "fillMaxWidth()" in banner, "Feedback banner should retain its full-width layout."
 assert "onDismiss" in banner, "Dismissible feedback must retain its explicit dismiss action."
+assert "isSuccess: Boolean = false" in banner
+assert "isSuccess -> MaterialTheme.colorScheme.secondaryContainer" in banner
+assert "isSuccess -> MaterialTheme.colorScheme.onSecondaryContainer" in banner
+assert "isError -> MaterialTheme.colorScheme.errorContainer" in banner
+assert "modifier = Modifier.heightIn(min = 48.dp)" in banner
 
 print("Persistent feedback banner semantics contract passed.")
