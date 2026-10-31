@@ -54,7 +54,7 @@
       <g transform="translate(34 12)"><path d="M8 0L16 7V18H1V7Z" fill="none" stroke="#146C94" stroke-width="1.8"/><text x="8" y="35" text-anchor="middle" class="navSelected">Home</text></g>
       <g transform="translate(112 12)"><circle cx="9" cy="8" r="7" fill="none" stroke="#65758B" stroke-width="1.8"/><path d="M9 3v6l4 2" fill="none" stroke="#65758B" stroke-width="1.5"/><text x="9" y="35" text-anchor="middle" class="navText">Requests</text></g>
       <g transform="translate(191 12)"><path d="M8 0L16 15H0Z" fill="none" stroke="#146C94" stroke-width="1.8"/><text x="8" y="35" text-anchor="middle" class="navText">Map</text></g>
-      <g transform="translate(270 12)"><path d="M2 2h14v14H2zM5 6h8M5 10h8" fill="none" stroke="#65758B" stroke-width="1.6"/><text x="9" y="35" text-anchor="middle" class="navText">Safety</text></g>
+      <g transform="translate(270 12)"><path d="M2 2h14v14H2zM5 6h8M5 10h8" fill="none" stroke="#65758B" stroke-width="1.6"/><text x="9" y="35" text-anchor="middle" class="navText">Messages</text></g>
       <g transform="translate(350 12)"><circle cx="8" cy="5" r="4" fill="none" stroke="#65758B" stroke-width="1.6"/><path d="M0 18c0-6 16-6 16 0" fill="none" stroke="#65758B" stroke-width="1.6"/><text x="8" y="35" text-anchor="middle" class="navText">Profile</text></g>
     </g>
   </g>
