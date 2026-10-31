@@ -87,6 +87,9 @@ assert screen.count("catch (_: Exception)") >= 2, (
 )
 
 root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
+requester = read("app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt")
+responder = read("app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt")
+dispatcher = read("app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt")
 for required in (
     "NotificationsViewModel",
     "NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident, onOpenChat)",
