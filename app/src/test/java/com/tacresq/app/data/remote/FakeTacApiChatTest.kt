@@ -3,6 +3,7 @@ package com.tacresq.app.data.remote
 import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.IncidentType
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -11,6 +12,54 @@ import retrofit2.HttpException
 import java.util.UUID
 
 class FakeTacApiChatTest {
+    @Test
+    fun imageMessagesArePrivateToIncidentParticipantsAndDownloadable() = runBlocking {
+        var currentToken: String? = null
+        val api = FakeTacApi(tokenProvider = { currentToken })
+
+        val requester = api.login(LoginRequest("requester@demo.com", "demo123"))
+        currentToken = requester.token
+        val incident = api.createIncident(
+            CreateIncidentRequest(
+                type = IncidentType.MEDICAL,
+                description = "Synthetic image chat test",
+                latitude = 11.247,
+                longitude = 125.006,
+                accuracyM = 8f,
+                clientRequestId = UUID.randomUUID().toString(),
+            ),
+        )
+
+        val responder = api.login(LoginRequest("responder@demo.com", "demo123"))
+        currentToken = responder.token
+        api.setDutyStatus(DutyStatusRequest(DutyStatus.AVAILABLE))
+
+        val dispatcher = api.login(LoginRequest("dispatcher@demo.com", "demo123"))
+        currentToken = dispatcher.token
+        api.assignIncidentTeam(incident.id, AssignIncidentTeamRequest(listOf(responder.user.id)))
+
+        val imageBytes = byteArrayOf(1, 2, 3, 4, 5)
+        val messageId = UUID.randomUUID().toString()
+        currentToken = responder.token
+        val sent = api.sendIncidentImageMessage(
+            incident.id, responder.user.id, "Entrance photo", messageId, "image/jpeg", imageBytes,
+        )
+        assertEquals("image/jpeg", sent.attachmentMimeType)
+        assertEquals(imageBytes.size.toLong(), sent.attachmentSizeBytes)
+        assertTrue(sent.attachmentPath!!.startsWith("${incident.id}/${responder.user.id}/"))
+
+        currentToken = requester.token
+        val visible = api.myIncidentMessages(incident.id, 50, null).single()
+        assertEquals(sent.id, visible.id)
+        assertArrayEquals(imageBytes, api.downloadIncidentImage(visible.attachmentPath!!))
+
+        val driver = api.login(LoginRequest("driver@demo.com", "demo123"))
+        currentToken = driver.token
+        val denied = runCatching { api.downloadIncidentImage(sent.attachmentPath!!) }.exceptionOrNull()
+        assertTrue(denied is HttpException)
+        assertEquals(403, (denied as HttpException).code())
+    }
+
     @Test
     fun incidentChatIsScopedAndClientRetriesAreIdempotent() = runBlocking {
         var currentToken: String? = null
