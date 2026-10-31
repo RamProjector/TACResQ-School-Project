@@ -105,17 +105,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
-import java.io.File
 import java.util.Locale
-import org.osmdroid.config.Configuration
-import org.osmdroid.events.MapListener
-import org.osmdroid.events.ScrollEvent
-import org.osmdroid.events.ZoomEvent
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
+import org.maplibre.android.MapLibre
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapView
 import kotlin.math.abs
 import kotlin.math.ceil
+
+private const val REQUESTER_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
 
 data class RequesterUiState(
     val incidents: List<Incident> = emptyList(),
@@ -1532,43 +1531,64 @@ private fun ManualLocationPickerDialog(
         mutableStateOf(initialLatitude to initialLongitude)
     }
     var userAdjustedMap by androidx.compose.runtime.remember { mutableStateOf(false) }
-    val mapView = androidx.compose.runtime.remember {
-        val osmdroidBase = File(context.cacheDir, "osmdroid").apply { mkdirs() }
-        val tileCache = File(osmdroidBase, "tiles").apply { mkdirs() }
-        val config = Configuration.getInstance()
-        config.setOsmdroidBasePath(osmdroidBase)
-        config.setOsmdroidTileCache(tileCache)
-        config.userAgentValue = "TACResQ/1.0.0 (" + context.packageName + "; Android)"
+    var mapLibreMap by remember(context) { mutableStateOf<MapLibreMap?>(null) }
+    var mapStyleLoaded by remember(context) { mutableStateOf(false) }
+    var mapLoadError by remember(context) { mutableStateOf(false) }
+    val mapView = remember(context) {
+        MapLibre.getInstance(context)
         MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
+            contentDescription = "Emergency location picker. Move the map beneath the fixed center pin to select the incident location."
+            onCreate(null)
             setOnTouchListener { _, event ->
                 if (event.action == MotionEvent.ACTION_MOVE) userAdjustedMap = true
                 false
             }
-            isTilesScaledToDpi = true
-            controller.setZoom(16.5)
-            controller.setCenter(GeoPoint(initialLatitude, initialLongitude))
-            addMapListener(object : MapListener {
-                override fun onScroll(event: ScrollEvent?): Boolean {
-                    val point = mapCenter
-                    centerCoordinates.value = point.latitude to point.longitude
-                    return true
-                }
-                override fun onZoom(event: ZoomEvent?): Boolean {
-                    val point = mapCenter
-                    centerCoordinates.value = point.latitude to point.longitude
-                    return true
-                }
-            })
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(mapView) {
+        mapView.addOnDidFailLoadingMapListener {
+            mapLoadError = true
+        }
+        mapView.addOnDidFinishLoadingMapListener {
+            mapLoadError = false
+        }
+        mapView.getMapAsync { map ->
+            mapLibreMap = map
+            map.addOnCameraIdleListener {
+                val target = map.cameraPosition.target
+                centerCoordinates.value = target.latitude to target.longitude
+            }
+            map.setStyle(REQUESTER_MAP_STYLE_URL) {
+                map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
+                    .target(LatLng(initialLatitude, initialLongitude))
+                    .zoom(16.5)
+                    .build()
+                mapStyleLoaded = true
+            }
+        }
+        onDispose {
+            mapView.onDestroy()
+            mapLibreMap = null
+            mapStyleLoaded = false
         }
     }
     val lifecycleOwner = LocalLifecycleOwner.current
     androidx.compose.runtime.DisposableEffect(mapView, lifecycleOwner) {
+        var mapIsStarted = false
         var mapIsResumed = false
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
+                Lifecycle.Event.ON_START -> {
+                    if (!mapIsStarted) {
+                        mapView.onStart()
+                        mapIsStarted = true
+                    }
+                }
                 Lifecycle.Event.ON_RESUME -> {
+                    if (!mapIsStarted) {
+                        mapView.onStart()
+                        mapIsStarted = true
+                    }
                     if (!mapIsResumed) {
                         mapView.onResume()
                         mapIsResumed = true
@@ -1580,14 +1600,32 @@ private fun ManualLocationPickerDialog(
                         mapIsResumed = false
                     }
                 }
+                Lifecycle.Event.ON_STOP -> {
+                    if (mapIsResumed) {
+                        mapView.onPause()
+                        mapIsResumed = false
+                    }
+                    if (mapIsStarted) {
+                        mapView.onStop()
+                        mapIsStarted = false
+                    }
+                }
                 else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            mapView.onStart()
+            mapIsStarted = true
+        }
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            mapView.onResume()
+            mapIsResumed = true
+        }
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             if (mapIsResumed) mapView.onPause()
-            mapView.onDetach()
+            if (mapIsStarted) mapView.onStop()
         }
     }
 
@@ -1658,8 +1696,13 @@ private fun ManualLocationPickerDialog(
 
                 androidx.compose.material3.FilledTonalIconButton(
                     onClick = {
-                        mapView.controller.animateTo(GeoPoint(initialLatitude, initialLongitude))
-                        mapView.controller.setZoom(16.5)
+                        mapLibreMap?.animateCamera(
+                            CameraUpdateFactory.newLatLngZoom(
+                                LatLng(initialLatitude, initialLongitude),
+                                16.5,
+                            ),
+                            350,
+                        )
                         centerCoordinates.value = initialLatitude to initialLongitude
                     },
                     modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp).size(48.dp),
@@ -1698,9 +1741,14 @@ private fun ManualLocationPickerDialog(
                             )
                         } else {
                             Text(
-                                "Map pin only; it does not measure GPS accuracy. If the map is blank, cancel and share a landmark.",
+                                when {
+                                    mapLoadError -> "Map data is unavailable. Cancel and share a landmark instead."
+                                    !mapStyleLoaded -> "Loading map data…"
+                                    else -> "Map pin only; it does not measure GPS accuracy. Confirm the center pin marks the emergency site."
+                                },
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (mapLoadError) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1709,11 +1757,14 @@ private fun ManualLocationPickerDialog(
                                 modifier = Modifier.weight(1f).heightIn(min = 52.dp),
                             ) { Text("Cancel") }
                             Button(
-                                enabled = !startsAtTaclobanDefault || userAdjustedMap,
+                                enabled = mapStyleLoaded && !mapLoadError &&
+                                    (!startsAtTaclobanDefault || userAdjustedMap),
                                 onClick = {
-                                    val point = mapView.mapCenter
-                                    if (point.latitude.isFinite() && point.longitude.isFinite()) {
-                                        onConfirm(point.latitude, point.longitude)
+                                    val point = centerCoordinates.value
+                                    if (point.first.isFinite() && point.second.isFinite() &&
+                                        point.first in -90.0..90.0 && point.second in -180.0..180.0
+                                    ) {
+                                        onConfirm(point.first, point.second)
                                     }
                                 },
                                 modifier = Modifier.weight(1.4f).heightIn(min = 52.dp),
