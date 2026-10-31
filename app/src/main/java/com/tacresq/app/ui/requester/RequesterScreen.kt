@@ -1153,7 +1153,7 @@ fun RequesterScreen(
             item { Banner(feedbackError, isError = true, onDismiss = vm::dismissMessages) }
         } else {
             state.notice?.let { message ->
-                item { Banner(message, isError = false, onDismiss = vm::dismissMessages) }
+                item { Banner(message, isError = false, onDismiss = vm::dismissMessages, isSuccess = true) }
             }
         }
 
