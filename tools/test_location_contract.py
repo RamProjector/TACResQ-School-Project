@@ -77,6 +77,23 @@ checks = {
     "expanded incident cards share the ticking map clock so stale-location warnings keep updating": all(text in map_screen for text in ("MapIncidentCard(", "context = context,", "now = mapNow,", "private fun MapIncidentCard(", "now: Instant,", "incident.locationAgeStatus(now)")),
     "responder sign-out stops location sharing before clearing the session": 'Location sharing stopped because you signed out.' in app_root and "vm.stopTracking(" in app_root and "responderLogout" in app_root,
 }
+location_hardening_migration = (ROOT / "supabase/migrations/20261025170000_isolate_per_responder_location_writer.sql").read_text().lower()
+location_reader_migration = (ROOT / "supabase/migrations/20261026010000_isolate_multi_responder_location_reader.sql").read_text().lower()
+checks.update({
+    "private GPS writer locks incident and assignment rows and serializes responder writes": (
+        "for update of i, a;" in location_hardening_migration
+        and "pg_catalog.pg_advisory_xact_lock(actor_id)" in location_hardening_migration
+    ),
+    "private GPS writer has a server receipt-time rate-limit index": (
+        "location_logs_received_rate_idx" in location_hardening_migration
+        and "coalesce(received_at, recorded_at)" in location_hardening_migration
+    ),
+    "dispatcher reader rejects future and stale device timestamps": (
+        "l.recorded_at <= pg_catalog.now()" in location_reader_migration
+        and "l.recorded_at >= pg_catalog.now() - interval '2 minutes'" in location_reader_migration
+        and "coalesce(l.received_at, l.recorded_at) desc" in location_reader_migration
+    ),
+})
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
     print(f"{'PASS' if passed else 'FAIL'} {name}")
