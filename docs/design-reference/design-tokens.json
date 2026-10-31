@@ -1,0 +1,53 @@
+{
+  "name": "TACResQ Design Direction",
+  "status": "inspiration-only",
+  "colors": {
+    "canvas": "#F4F7FB",
+    "surface": "#FFFFFF",
+    "surfaceSubtle": "#EAF0F7",
+    "ink": "#15243A",
+    "mutedInk": "#65758B",
+    "primary": "#146C94",
+    "primaryStrong": "#0B4F71",
+    "primarySoft": "#DCEFF7",
+    "teal": "#0F8B8D",
+    "success": "#18794E",
+    "warning": "#A65A00",
+    "warningSoft": "#FFF1D6",
+    "danger": "#B42332",
+    "dangerSoft": "#FDE8EA",
+    "border": "#DCE4EE",
+    "mapLand": "#E6EDE8",
+    "mapRoad": "#FFFFFF",
+    "mapWater": "#D7EAF5"
+  },
+  "radiiDp": {
+    "small": 10,
+    "medium": 16,
+    "large": 22,
+    "pill": 999
+  },
+  "spacingDp": {
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "xxl": 32
+  },
+  "touchTargetMinimumDp": 48,
+  "typography": {
+    "screenTitle": "24sp, semibold",
+    "sectionTitle": "17sp, semibold",
+    "body": "14-16sp, normal",
+    "supporting": "12-13sp, medium",
+    "status": "12sp, semibold"
+  },
+  "rules": [
+    "Use color plus text/icon for severity; never color alone.",
+    "Keep the five primary destinations stable and recognizable.",
+    "Use a consistent icon family and baseline alignment.",
+    "Avoid tiny labels, arbitrary blank gaps, excessive borders, and decorative gradients.",
+    "Treat these as design tokens for review; do not claim the app uses them until implementation is wired."
+  ]
+}
