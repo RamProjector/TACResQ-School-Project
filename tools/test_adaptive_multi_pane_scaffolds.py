@@ -28,3 +28,16 @@ assert 'Text("Open conversation")' in source
 assert "Incident not in the current list" in source
 
 print("Adaptive incident list-detail scaffold contracts passed.")
+
+assert "currentWindowAdaptiveInfo(supportLargeAndXLargeWidth = true)" in source
+assert "calculatePaneScaffoldDirective(adaptiveInfo)" in source
+assert "minWidthDp >= 600" in source
+assert "minWidthDp >= 840" in source
+assert "minWidthDp >= 1200" in source
+assert "minWidthDp >= 1600" in source
+assert "minHeightDp < 480" in source
+assert "baseDirective.copy(maxHorizontalPartitions = 1)" in source
+assert ".widthIn(max = 560.dp)" in source
+assert ".widthIn(max = 680.dp)" in source
+assert "horizontalGutter" in source
+assert "verticalGutter" in source

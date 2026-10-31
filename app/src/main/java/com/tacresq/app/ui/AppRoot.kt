@@ -8,12 +8,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
@@ -463,7 +466,28 @@ private fun IncidentHistoryAdaptiveScaffold(
     onRefresh: () -> Unit,
     onOpenChat: (Long) -> Unit,
 ) {
-    val navigator = rememberListDetailPaneScaffoldNavigator<Long>()
+    val adaptiveInfo = currentWindowAdaptiveInfo(supportLargeAndXLargeWidth = true)
+    val windowSizeClass = adaptiveInfo.windowSizeClass
+    val compactHeight = windowSizeClass.minHeightDp < 480
+    val baseDirective = calculatePaneScaffoldDirective(adaptiveInfo)
+    // A short landscape/split-screen window cannot comfortably host two vertically
+    // constrained panes, even when its width would otherwise qualify as expanded.
+    val paneDirective = if (compactHeight) {
+        baseDirective.copy(maxHorizontalPartitions = 1)
+    } else {
+        baseDirective
+    }
+    val navigator = rememberListDetailPaneScaffoldNavigator<Long>(
+        scaffoldDirective = paneDirective,
+    )
+    val horizontalGutter = when {
+        windowSizeClass.minWidthDp >= 1600 -> 32.dp
+        windowSizeClass.minWidthDp >= 1200 -> 28.dp
+        windowSizeClass.minWidthDp >= 840 -> 22.dp
+        windowSizeClass.minWidthDp >= 600 -> 18.dp
+        else -> 14.dp
+    }
+    val verticalGutter = if (compactHeight) 8.dp else 12.dp
     val scope = rememberCoroutineScope()
     val detailId = navigator.currentDestination?.contentKey
     val detailIncident = detailId?.let { id -> incidents.firstOrNull { it.id == id } }
@@ -481,12 +505,17 @@ private fun IncidentHistoryAdaptiveScaffold(
         defaultBackBehavior = BackNavigationBehavior.PopUntilContentChange,
         listPane = {
             AnimatedPane {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
                 Column(
                     modifier = Modifier
+                        .widthIn(max = 560.dp)
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 18.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(horizontal = horizontalGutter, vertical = verticalGutter),
+                    verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 12.dp),
                 ) {
                     SectionHeading(
                         if (role == Role.REQUESTER) "Your requests" else "Your responses",
@@ -521,16 +550,22 @@ private fun IncidentHistoryAdaptiveScaffold(
                         }
                     }
                 }
+                }
             }
         },
         detailPane = {
             AnimatedPane {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
                 Column(
                     modifier = Modifier
+                        .widthIn(max = 680.dp)
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 18.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(horizontal = horizontalGutter, vertical = verticalGutter),
+                    verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 12.dp),
                 ) {
                     TextButton(
                         onClick = {
@@ -568,6 +603,7 @@ private fun IncidentHistoryAdaptiveScaffold(
                             }
                         }
                     }
+                }
                 }
             }
         },
