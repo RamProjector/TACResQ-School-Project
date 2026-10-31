@@ -16,6 +16,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,6 +59,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -226,6 +233,7 @@ private fun GpsMapFilterButtons(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpsMapScreen(
     role: Role,
@@ -237,13 +245,21 @@ fun GpsMapScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    // A dedicated map destination must return to the prior app screen on system Back too.
-    BackHandler { onBack() }
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     // Keep the latest callback without restarting the polling coroutine on recomposition.
     val refreshResponderLocations by rememberUpdatedState(onRefreshResponderLocations)
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
+    var selectedIncidentId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val mapSheetState = rememberBottomSheetScaffoldState()
+    // System Back collapses the selected-place sheet before leaving the map.
+    BackHandler {
+        if (mapSheetState.bottomSheetState.currentValue == SheetValue.Expanded) {
+            scope.launch { mapSheetState.bottomSheetState.partialExpand() }
+        } else {
+            onBack()
+        }
+    }
     val latestDeviceFix by rememberUpdatedState(deviceFix)
     var hasAutoFramedInitialMapPoints by remember { mutableStateOf(false) }
     var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }
@@ -298,6 +314,7 @@ fun GpsMapScreen(
         }
     }
     val mapNow = remember(freshnessTick) { Instant.now() }
+    val selectedIncident = visibleIncidents.firstOrNull { it.id == selectedIncidentId }
     val validResponderLocations = if (role == Role.DISPATCHER) {
         responderLocations.filter { it.mapAgeSeconds(mapNow) != null }
     } else {
@@ -334,6 +351,9 @@ fun GpsMapScreen(
     // Clear stale action text when the incident set changes; the default is derived from current map data.
     androidx.compose.runtime.LaunchedEffect(visibleIncidents) {
         locationStatus = null
+        if (selectedIncidentId != null && visibleIncidents.none { it.id == selectedIncidentId }) {
+            selectedIncidentId = null
+        }
     }
 
     // Pause periodic work whenever the app/screen is not STARTED. This avoids
@@ -373,9 +393,9 @@ fun GpsMapScreen(
         osmdroidConfig.userAgentValue = "TACResQ/1.0.0 (" + context.packageName + "; Android)"
         MapView(context).apply {
             contentDescription = if (role == Role.DISPATCHER) {
-                "Emergency response map centered on Tacloban City. Incident pins mark active emergencies and field-unit pins mark responder locations. Expand map details for a text list and location freshness."
+                "Emergency response map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review incident locations and responder freshness."
             } else {
-                "Emergency response map centered on Tacloban City. Incident pins mark active emergencies. Expand map details for the incident list."
+                "Emergency response map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review active incident locations."
             }
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
@@ -404,6 +424,8 @@ fun GpsMapScreen(
     }
 
     fun focusIncidentOnMap(incident: Incident) {
+        selectedIncidentId = incident.id
+        scope.launch { mapSheetState.bottomSheetState.expand() }
         val latitude = incident.latitude
         val longitude = incident.longitude
         if (!incident.hasValidMapCoordinates() || latitude == null || longitude == null) {
@@ -640,6 +662,12 @@ fun GpsMapScreen(
                     snippet = listOfNotNull(source, accuracy, "Status: ${incident.status.label}", locationAgeLabel, note)
                         .joinToString(" · ")
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    setOnMarkerClickListener { clickedMarker, map ->
+                        selectedIncidentId = incident.id
+                        map.controller.animateTo(clickedMarker.position)
+                        scope.launch { mapSheetState.bottomSheetState.expand() }
+                        true
+                    }
                 }
                 mapView.overlays.add(marker)
             }
@@ -714,8 +742,205 @@ fun GpsMapScreen(
         mapView.invalidate()
     }
 
-    var detailsExpanded by remember { mutableStateOf(false) }
 
+    BottomSheetScaffold(
+        modifier = Modifier.fillMaxSize().semantics { paneTitle = "GPS Map" },
+        scaffoldState = mapSheetState,
+        sheetPeekHeight = 112.dp,
+        sheetMaxWidth = 680.dp,
+        sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        sheetContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+        sheetContentColor = MaterialTheme.colorScheme.onSurface,
+        sheetTonalElevation = 2.dp,
+        sheetShadowElevation = 8.dp,
+        sheetDragHandle = { BottomSheetDefaults.DragHandle() },
+        sheetContent = {
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val mapDetailsMaxHeight = (maxHeight * 0.55f).coerceAtMost(420.dp)
+                Column(
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                        ) {
+                            Text(
+                                selectedIncident?.let { "Incident #${it.id} · ${it.type.label}" } ?: "Map overview",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = locationStatus ?: defaultMapStatus,
+                                modifier = Modifier.semantics {
+                                    if (locationStatus != null) liveRegion = LiveRegionMode.Polite
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                            )
+                        }
+                        if (selectedIncident != null) {
+                            androidx.compose.material3.TextButton(
+                                onClick = { selectedIncidentId = null },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) { Text("Clear") }
+                        }
+                    }
+
+                    if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
+                        Text(
+                            text = "Units: $freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+
+                    if (selectedIncident != null) {
+                        MapIncidentCard(
+                            incident = selectedIncident,
+                            context = context,
+                            now = mapNow,
+                            onFocusOnMap = ::focusIncidentOnMap,
+                        )
+                    }
+
+                    if (showAppSettingsAction) {
+                        androidx.compose.material3.TextButton(
+                            onClick = ::openAppLocationSettings,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Text("Open app location settings")
+                        }
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = mapDetailsMaxHeight),
+                        contentPadding = PaddingValues(vertical = 2.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        item(key = "map-key", contentType = "map-info") {
+                            Text(
+                                if (role == Role.DISPATCHER) {
+                                    "Map key · Incident pin: active emergency · Field-unit pin: responder location"
+                                } else {
+                                    "Map key · Incident pin: active emergency"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (role == Role.DISPATCHER) {
+                            item(key = "unit-freshness-help", contentType = "map-info") {
+                                Text(
+                                    "Fresh under 30s · Aging 30–120s · Stale over 120s. Stale markers are last-known positions, not live.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (deviceFix != null) {
+                            item(key = "local-preview-disclosure", contentType = "map-info") {
+                                Text(
+                                    "One-time preview · stays on this device, not uploaded.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (visibleIncidents.isNotEmpty()) {
+                            item(key = "incidents-heading", contentType = "section-heading") {
+                                Text(
+                                    if (selectedIncident == null) "Incidents" else "Other incidents",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.semantics { heading() },
+                                )
+                            }
+                            itemsIndexed(
+                                visibleIncidents.filterNot { it.id == selectedIncidentId },
+                                key = { _, incident -> "incident-${incident.id}" },
+                                contentType = { _, _ -> "incident" },
+                            ) { _, incident ->
+                                MapIncidentCard(
+                                    incident = incident,
+                                    context = context,
+                                    now = mapNow,
+                                    onFocusOnMap = ::focusIncidentOnMap,
+                                )
+                            }
+                        } else {
+                            item(key = "no-incidents", contentType = "map-info") {
+                                Text(
+                                    "No incident locations are available yet. The map remains available for one-time location preview.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
+                            item(key = "field-units-heading", contentType = "section-heading") {
+                                Text(
+                                    "Field-unit locations",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.semantics { heading() },
+                                )
+                            }
+                            itemsIndexed(
+                                validResponderLocations,
+                                key = { _, location -> "unit-${location.incidentId}-${location.userId}" },
+                                contentType = { _, _ -> "field-unit" },
+                            ) { _, location ->
+                                val ageSeconds = location.mapAgeSeconds(mapNow)
+                                val freshness = location.mapFreshness(mapNow)
+                                Text(
+                                    text = buildString {
+                                        append("Responder #${location.userId} · Incident #${location.incidentId} · ")
+                                        append(freshness?.label ?: "Freshness unavailable")
+                                        if (ageSeconds != null) append(" · last reported ${formatLocationAge(ageSeconds)}")
+                                        location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }
+                                        if (freshness == MapLocationFreshness.STALE) append(" · last known, not live")
+                                    },
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = "© OpenStreetMap contributors",
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .heightIn(min = 48.dp)
+                            .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution") {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            Uri.parse("https://www.openstreetmap.org/copyright"),
+                                        )
+                                    )
+                                }
+                            }
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        },
+    ) {
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -723,7 +948,6 @@ fun GpsMapScreen(
     ) {
         // Use this map window's real constraints (not the device's full screen height).
         // A lower clamp can exceed the available height in landscape or split-screen.
-        val mapDetailsMaxHeight = (maxHeight * 0.38f).coerceAtMost(320.dp)
         AndroidView(
             factory = { mapView },
             modifier = Modifier.fillMaxSize(),
@@ -867,429 +1091,29 @@ fun GpsMapScreen(
                 onShowIncidents = ::showIncidentPins,
                 onShowActiveUnits = ::showActiveUnits,
             )
-
         }
 
-        androidx.compose.material3.Surface(
+        // Keep OSM attribution visible on the map even while the sheet is collapsed.
+        Text(
+            text = "© OpenStreetMap contributors",
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
+                .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-            tonalElevation = 2.dp,
-            shadowElevation = 3.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = locationStatus ?: defaultMapStatus,
-                        modifier = Modifier
-                            .weight(1f)
-                            .semantics {
-                                if (locationStatus != null) liveRegion = LiveRegionMode.Polite
-                            },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = if (detailsExpanded) 3 else 2,
-                    )
-                    androidx.compose.material3.IconButton(onClick = { detailsExpanded = !detailsExpanded }) {
-                        androidx.compose.material3.Icon(
-                            imageVector = if (detailsExpanded)
-                                androidx.compose.material.icons.Icons.Default.ExpandLess
-                            else androidx.compose.material.icons.Icons.Default.ExpandMore,
-                            contentDescription = if (detailsExpanded) "Collapse map details" else "Expand map details",
-                        )
-                    }
-                }
-
-                // Keep operational freshness visible even while an action message
-                // (for example, "Centered on incident") temporarily replaces map status.
-                // This summary updates with the 15-second foreground freshness tick but is
-                // deliberately not a live region, avoiding repetitive TalkBack announcements.
-                if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
-                    Text(
-                        text = "Units: $freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
-
-                if (showAppSettingsAction) {
-                    androidx.compose.material3.TextButton(
-                        onClick = ::openAppLocationSettings,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    ) {
-                        Text("Open app location settings")
-                    }
-                }
-
-                if (detailsExpanded) {
-                    // One vertically scrolling collection keeps incident and field-unit
-                    // content in a single gesture/viewport, including at larger font scales.
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = mapDetailsMaxHeight),
-                        contentPadding = PaddingValues(vertical = 2.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        item(key = "map-key", contentType = "map-info") {
-                            Text(
-                                if (role == Role.DISPATCHER) {
-                                    "Map key · Incident pin: active emergency · Field-unit pin: responder location"
-                                } else {
-                                    "Map key · Incident pin: active emergency"
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                .padding(end = 12.dp, bottom = 120.dp)
+                .heightIn(min = 48.dp)
+                .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution") {
+                    runCatching {
+                        context.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://www.openstreetmap.org/copyright"),
                             )
-                        }
-                        if (role == Role.DISPATCHER) {
-                            item(key = "unit-freshness-help", contentType = "map-info") {
-                                Text(
-                                    "Fresh under 30s · Aging 30–120s · Stale over 120s. Stale markers are last-known positions, not live.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        if (deviceFix != null) {
-                            item(key = "local-preview-disclosure", contentType = "map-info") {
-                                Text(
-                                    "One-time preview · stays on this device, not uploaded.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        if (visibleIncidents.isNotEmpty()) {
-                            item(key = "incidents-heading", contentType = "section-heading") {
-                                Text(
-                                    "Incidents",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.semantics { heading() },
-                                )
-                            }
-                            itemsIndexed(
-                                visibleIncidents,
-                                key = { _, incident -> "incident-${incident.id}" },
-                                contentType = { _, _ -> "incident" },
-                            ) { _, incident ->
-                                MapIncidentCard(
-                                    incident = incident,
-                                    context = context,
-                                    now = mapNow,
-                                    onFocusOnMap = ::focusIncidentOnMap,
-                                )
-                            }
-                        }
-                        if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
-                            item(key = "field-units-heading", contentType = "section-heading") {
-                                Text(
-                                    "Field-unit locations",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.semantics { heading() },
-                                )
-                            }
-                            itemsIndexed(
-                                validResponderLocations,
-                                key = { _, location -> "unit-${location.incidentId}-${location.userId}" },
-                                contentType = { _, _ -> "field-unit" },
-                            ) { _, location ->
-                                val ageSeconds = location.mapAgeSeconds(mapNow)
-                                val freshness = location.mapFreshness(mapNow)
-                                Text(
-                                    text = buildString {
-                                        append("Responder #${location.userId} · Incident #${location.incidentId} · ")
-                                        append(freshness?.label ?: "Freshness unavailable")
-                                        if (ageSeconds != null) {
-                                            append(" · last reported ${formatLocationAge(ageSeconds)}")
-                                        }
-                                        location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }
-                                        if (freshness == MapLocationFreshness.STALE) {
-                                            append(" · last known, not live")
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 10.dp, vertical = 7.dp),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
-                Text(
-                    text = "© OpenStreetMap contributors",
-                    modifier = Modifier
-                        .align(Alignment.End)
-                        .heightIn(min = 48.dp)
-                        .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution") {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(
-                                        Intent.ACTION_VIEW,
-                                        Uri.parse("https://www.openstreetmap.org/copyright"),
-                                    )
-                                )
-                            }
-                        }
-                        .padding(horizontal = 8.dp, vertical = 12.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun IncidentMapActions(
-    incidentId: Long,
-    needsConfirmation: Boolean,
-    stacked: Boolean,
-    onFocus: () -> Unit,
-    onNavigate: () -> Unit,
-) {
-    val focusPadding = PaddingValues(horizontal = if (stacked) 10.dp else 8.dp, vertical = 6.dp)
-    val navigatePadding = focusPadding
-    if (stacked) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            IncidentMapFocusButton(incidentId, onFocus, Modifier.fillMaxWidth(), focusPadding)
-            IncidentMapNavigateButton(incidentId, needsConfirmation, onNavigate, Modifier.fillMaxWidth(), navigatePadding)
-        }
-    } else {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            IncidentMapFocusButton(incidentId, onFocus, Modifier.weight(1f), focusPadding)
-            IncidentMapNavigateButton(incidentId, needsConfirmation, onNavigate, Modifier.weight(1f), navigatePadding)
-        }
-    }
-}
-
-@Composable
-private fun IncidentMapFocusButton(
-    incidentId: Long,
-    onClick: () -> Unit,
-    modifier: Modifier,
-    padding: PaddingValues,
-) {
-    androidx.compose.material3.FilledTonalButton(
-        onClick = onClick,
-        modifier = modifier.heightIn(min = 48.dp).semantics {
-            contentDescription = "Show incident #$incidentId on map"
-        },
-        contentPadding = padding,
-    ) {
-        Text("Show on map")
-    }
-}
-
-@Composable
-private fun IncidentMapNavigateButton(
-    incidentId: Long,
-    needsConfirmation: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier,
-    padding: PaddingValues,
-) {
-    androidx.compose.material3.TextButton(
-        onClick = onClick,
-        modifier = modifier.heightIn(min = 48.dp).semantics {
-            contentDescription = if (needsConfirmation) {
-                "Review location before navigating to incident #$incidentId"
-            } else {
-                "Navigate to incident #$incidentId"
-            }
-        },
-        contentPadding = padding,
-    ) {
-        Text(if (needsConfirmation) "Review location" else "Navigate")
-    }
-}
-
-@Composable
-private fun MapIncidentCard(
-    incident: Incident,
-    context: Context,
-    now: Instant,
-    onFocusOnMap: (Incident) -> Unit,
-) {
-    val lat = incident.latitude
-    val lng = incident.longitude
-    val hasUsableCoordinates = lat != null && lng != null &&
-        lat.isFinite() && lng.isFinite() &&
-        lat in -90.0..90.0 && lng in -180.0..180.0
-    val (ageLabel, needsConfirmation) = incident.locationAgeStatus(now)
-    var showNavigationConfirmation by remember(incident.id) { mutableStateOf(false) }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 1.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            // Keep the incident title readable beside its status on compact cards.
-            // Wider layouts retain the single-line information hierarchy.
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                if (maxWidth < 360.dp) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            "Incident #${incident.id} · ${incident.type.label}",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.fillMaxWidth(),
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            StatusPill(incident.status.label, incident.status.pillColor())
-                        }
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            "Incident #${incident.id} · ${incident.type.label}",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.weight(1f),
-                        )
-                        StatusPill(incident.status.label, incident.status.pillColor())
                     }
                 }
-            }
-            if (hasUsableCoordinates) {
-                Text(
-                    ageLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (needsConfirmation) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                val locationSourceLabel = when (incident.locationSource) {
-                    "gps" -> "GPS"
-                    "manual" -> "Manual pin"
-                    else -> "Source unavailable"
-                }
-                val accuracyLabel = if (incident.locationSource == "gps") {
-                    incident.accuracyM.validAccuracyLabel(" · accuracy about ").orEmpty()
-                } else ""
-                Text(
-                    locationSourceLabel + accuracyLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                val navigateToIncident = {
-                    if (needsConfirmation) {
-                        showNavigationConfirmation = true
-                    } else {
-                        openExternalMaps(context, lat!!, lng!!)
-                    }
-                }
-                // Keep the two actions identical across compact and regular widths.
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    IncidentMapActions(
-                        incidentId = incident.id,
-                        needsConfirmation = needsConfirmation,
-                        stacked = maxWidth < 320.dp,
-                        onFocus = { onFocusOnMap(incident) },
-                        onNavigate = navigateToIncident,
-                    )
-                }
-            } else {
-                // A landmark-only request is still actionable. Reuse the shared
-                // provenance formatter so missing, partial, and invalid pins are distinct.
-                val hasLandmarkFallback = lat == null && lng == null &&
-                    (incident.locationSource == null || incident.locationSource == "none") &&
-                    !incident.locationNotes.isNullOrBlank()
-                Text(
-                    incidentLocationText(incident),
-                    color = if (hasLandmarkFallback) MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
-    }
-    if (showNavigationConfirmation && hasUsableCoordinates) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showNavigationConfirmation = false },
-            title = { Text("Confirm incident location") },
-            text = {
-                Text(
-                    "This incident location may be outdated or its timestamp cannot be verified. " +
-                        ageLabel + " Confirm the location with the requester or dispatcher before proceeding."
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(
-                    onClick = {
-                        showNavigationConfirmation = false
-                        openExternalMaps(context, lat!!, lng!!)
-                    },
-                ) {
-                    Text("Navigate anyway")
-                }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(
-                    onClick = { showNavigationConfirmation = false },
-                ) {
-                    Text("Cancel")
-                }
-            },
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
         )
-    }
-}
-
-private fun openExternalMaps(context: Context, latitude: Double, longitude: Double) {
-    val navigation = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$latitude,$longitude&mode=d"))
-        .setPackage("com.google.android.apps.maps")
-    val fallback = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$latitude,$longitude?q=$latitude,$longitude"))
-
-    // Some devices block an explicit package launch or have a broken maps handler.
-    // Try the generic geo intent after either a missing handler or a security denial.
-    val opened = try {
-        context.startActivity(navigation)
-        true
-    } catch (_: ActivityNotFoundException) {
-        false
-    } catch (_: SecurityException) {
-        false
-    }
-    if (opened) return
-
-    val fallbackOpened = try {
-        context.startActivity(fallback)
-        true
-    } catch (_: ActivityNotFoundException) {
-        false
-    } catch (_: SecurityException) {
-        false
-    }
-    if (!fallbackOpened) {
-        Toast.makeText(context, "Unable to open a maps app on this phone.", Toast.LENGTH_SHORT).show()
     }
 }
