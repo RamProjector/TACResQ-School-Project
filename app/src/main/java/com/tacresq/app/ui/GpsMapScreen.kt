@@ -1088,10 +1088,29 @@ fun GpsMapScreen(
                 onShowIncidents = ::showIncidentPins,
                 onShowActiveUnits = ::showActiveUnits,
             )
-
         }
 
-
-      }
+        // Keep OSM attribution visible on the map even while the sheet is collapsed.
+        Text(
+            text = "© OpenStreetMap contributors",
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(end = 12.dp, bottom = 120.dp)
+                .heightIn(min = 48.dp)
+                .clickable(onClickLabel = "Open OpenStreetMap copyright and attribution") {
+                    runCatching {
+                        context.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://www.openstreetmap.org/copyright"),
+                            )
+                        )
+                    }
+                }
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
