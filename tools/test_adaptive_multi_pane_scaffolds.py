@@ -74,6 +74,9 @@ assert "TacruNavigationRail(" in navigation
 assert "NavigationRail(" in navigation
 assert "NavigationRailItem(" in navigation
 assert "TacruBottomNavigation(" in navigation
+assert "Scaffold(" in navigation
+assert "if (useNavigationRail)" in navigation
+assert ".padding(padding)" in navigation
 assert "AppDestination.MAP" in navigation
 assert 'label = "GPS Map"' in navigation
 assert "emphasized = true" in navigation
