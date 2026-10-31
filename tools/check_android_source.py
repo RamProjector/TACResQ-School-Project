@@ -167,8 +167,6 @@ gps_map_location_contract = {
         "if (locationStatus != null) liveRegion = LiveRegionMode.Polite",
         "var isLocationRequestInProgress by remember { mutableStateOf(false) }",
         "if (isLocationRequestInProgress) return",
-        "if (isLocationRequestInProgress)",
-        "enabled = false",
         "LocationButton(",
         "onPermissionResult = { granted ->",
         "isLocationRequestInProgress = false",
@@ -200,6 +198,20 @@ for relative_path, required_text in gps_map_location_contract.items():
             f"GPS map local-location contract failed for {relative_path}: missing "
             + ", ".join(missing)
         )
+
+gps_map_source = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text(encoding="utf-8")
+progress_button = re.search(
+    r"if \\(isLocationRequestInProgress\\) \\{\\s*(.*?)\\n\\s*\\}\\s*else \\{",
+    gps_map_source,
+    re.DOTALL,
+)
+if not progress_button or not all(
+    marker in progress_button.group(1)
+    for marker in ("FilledTonalIconButton(", "enabled = false")
+):
+    raise SystemExit(
+        "GPS map local-location contract failed: the in-progress state must render a disabled location action."
+    )
 app_root_source = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text(encoding="utf-8")
 role_app_calls_are_wired = (
     app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout)") == 1
