@@ -327,7 +327,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("Team progress", style = MaterialTheme.typography.labelLarge)
                             Text(
-                                "$respondingCount of $teamCount members responding",
+                                "$respondingCount of $teamCount members with a status update",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
