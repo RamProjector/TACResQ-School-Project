@@ -9,6 +9,7 @@ api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 responder = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 dispatcher = (ROOT / "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt").read_text()
+components = (ROOT / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
 fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").read_text()
 
 for required in (
@@ -37,7 +38,8 @@ for source, requirements in (
     (api, ('api_update_my_assignment_status', 'override suspend fun updateMyAssignmentStatus')),
     (repo, ('api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))',)),
     (responder, ('incident.statusFor(user.id).nextSteps()', 'val ownStatus = incident.statusFor(user.id)', 'StatusPill(ownStatus.label, ownStatus.pillColor())', 'it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE')),
-    (dispatcher, ('memberStatus.status.label',)),
+    (dispatcher, ('StatusPill(memberStatus.status)',)),
+    (components, ('fun StatusPill(status: IncidentStatus)', 'status.label', 'colors.primaryContainer to colors.onPrimaryContainer')),
     (fake, ('override suspend fun updateMyAssignmentStatus', 'ResponderAssignmentStatus')),
 ):
     for required in requirements:
