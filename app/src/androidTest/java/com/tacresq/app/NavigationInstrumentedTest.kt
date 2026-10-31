@@ -12,7 +12,6 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -27,6 +26,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 
 /**
  * Navigation regression tests for the five-destination role shell.
@@ -84,7 +84,7 @@ class NavigationInstrumentedTest {
             }
         }
 
-        val density = composeRule.activity.resources.displayMetrics.density
+        val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
         listOf("Home", "Requests", "GPS Map", "Alerts", "Profile").forEach { label ->
             val item = composeRule.onNode(hasText(label) and hasClickAction())
                 .fetchSemanticsNode()
