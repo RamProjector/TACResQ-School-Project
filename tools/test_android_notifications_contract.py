@@ -109,7 +109,7 @@ assert 'ALERTS("Alerts")' in shell, "notifications must be discoverable from the
 assert 'ScreenHeader(title = "Alerts & safety"' in screen, "the destination must preserve its safety guidance context"
 
 components = read("app/src/main/java/com/tacresq/app/ui/common/Components.kt")
-assert "fun ScreenHeader(title: String, subtitle: String = \"\")" in components
+assert "fun ScreenHeader(title: String, subtitle: String = \"\", onOpenNotifications: (() -> Unit)? = null)" in components
 assert "Text(\"Sign out\")" not in components, "sign-out must not appear in the shared screen header"
 app_root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
 assert 'Text("Sign out")' in app_root and 'Text("Cancel")' in app_root
