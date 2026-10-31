@@ -63,8 +63,13 @@ class TacRepository(
     private val appScope: CoroutineScope,
 ) : NotificationRepository {
     /** Loading until the saved session is read, with a recoverable state on persistent I/O failure. */
-    val sessionState: StateFlow<SessionState> = combine(store.session, store.sessionReadError) { session, readError ->
+    val sessionState: StateFlow<SessionState> = combine(
+        store.session,
+        store.sessionReadError,
+        store.sessionReadLoading,
+    ) { session, readError, readLoading ->
         when {
+            readLoading -> SessionState.Loading
             readError -> SessionState.RestoreFailed
             session == null -> SessionState.LoggedOut
             else -> SessionState.LoggedIn(session)
