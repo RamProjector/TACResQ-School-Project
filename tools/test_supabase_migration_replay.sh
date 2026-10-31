@@ -134,7 +134,49 @@ BEGIN
       created_incident_id, status_log_count;
   END IF;
 END;
-$$;
+$;
+
+-- Location fallback must remain enforced when a requester edits an existing incident.
+DO $incident_location_update_test$
+DECLARE
+  requester_profile_id bigint;
+  incident_id bigint;
+BEGIN
+  SELECT id INTO requester_profile_id
+    FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000123';
+
+  INSERT INTO public.incidents (
+    requester_id, type, description, latitude, longitude, location_notes, location_source
+  ) VALUES (
+    requester_profile_id, 'medical', 'Landmark-only update regression',
+    NULL, NULL, 'Beside the public market entrance', 'none'
+  )
+  RETURNING id INTO incident_id;
+
+  BEGIN
+    UPDATE public.incidents
+       SET location_notes = NULL
+     WHERE id = incident_id;
+    RAISE EXCEPTION 'Expected an incident update without pin or landmark to be rejected';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    NULL;
+  END;
+
+  BEGIN
+    UPDATE public.incidents
+       SET longitude = 125.003
+     WHERE id = incident_id;
+    RAISE EXCEPTION 'Expected a partial coordinate update to be rejected';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    NULL;
+  END;
+
+  UPDATE public.incidents
+     SET location_notes = 'Beside the verified public market entrance'
+   WHERE id = incident_id;
+END;
+$incident_location_update_test$;
 
 
 -- End-to-end SQL regression: team members advance independently, the aggregate
