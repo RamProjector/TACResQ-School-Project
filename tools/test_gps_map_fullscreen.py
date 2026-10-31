@@ -13,9 +13,9 @@ assert "Scaffold(" in shell and "TacruBottomNavigation(" in shell
 assert "BackHandler {" in map_screen
 assert "mapSheetState.bottomSheetState.partialExpand()" in map_screen
 assert "else {\n            onBack()" in map_screen
-assert "Text(\"Back\", style = MaterialTheme.typography.labelLarge)" in map_screen
+assert "contentDescription = \"Back from GPS map\"" in map_screen
 assert "onClick = onBack" in map_screen
-assert '"GPS Map",\n                        style = MaterialTheme.typography.titleSmall' in map_screen
+assert '"GPS Map",\n                        style = MaterialTheme.typography.titleMedium' in map_screen
 assert "maxLines = 1,\n                        softWrap = false,\n                        overflow = TextOverflow.Ellipsis," in map_screen
 assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen
 assert "modifier = Modifier.fillMaxSize()" in map_screen
@@ -27,8 +27,10 @@ assert "controller.zoomIn()" not in map_screen and "controller.zoomOut()" not in
 # The map uses one compact toolbar, a small set of map filters, and a collapsible
 # information sheet rather than several competing floating control stacks.
 assert "GpsMapFilterButtons(" in map_screen
-assert 'Text("Incidents", style = MaterialTheme.typography.labelLarge, maxLines = 1)' in map_screen
-assert 'Text("Field units", style = MaterialTheme.typography.labelLarge, maxLines = 1)' in map_screen
+assert "heightIn(min = 60.dp)" in map_screen
+assert "AssistChip(" in map_screen
+assert 'Text("Incidents", maxLines = 1)' in map_screen
+assert 'Text("Field units", maxLines = 1)' in map_screen
 assert 'contentDescription = if (deviceFix == null) "Locate me" else "Refresh location"' in map_screen
 assert "if (isLocationRequestInProgress)" in map_screen
 assert "enabled = false" in map_screen
@@ -36,9 +38,9 @@ assert "LocationButton(" in map_screen
 assert "onPermissionResult = { granted ->" in map_screen
 assert "if (isLocationRequestInProgress) return" in map_screen
 assert "isLocationRequestInProgress = false" in map_screen
-assert "locationStatus ?: defaultMapStatus" in map_screen
+assert "collapsedMapSummary" in map_screen
 assert "BottomSheetScaffold(" in map_screen
-assert "sheetPeekHeight = 128.dp" in map_screen
+assert "sheetPeekHeight = 120.dp" in map_screen
 assert "selectedIncidentId" in map_screen
 assert "BottomSheetDefaults.DragHandle()" in map_screen
 
