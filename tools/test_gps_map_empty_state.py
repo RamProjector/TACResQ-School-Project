@@ -35,7 +35,7 @@ required = (
     'location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }',
     '.clickable(onClickLabel = "Open OpenStreetMap copyright and attribution")',
     '.padding(horizontal = 8.dp, vertical = 12.dp)',
-    "val mapDetailsMaxHeight = (maxHeight * 0.38f).coerceAtMost(320.dp)",
+    "val mapDetailsMaxHeight = (maxHeight * 0.55f).coerceAtMost(420.dp)",
     "BoxWithConstraints(",
     "horizontalScroll(rememberScrollState())",
     "IncidentMapActions(",
