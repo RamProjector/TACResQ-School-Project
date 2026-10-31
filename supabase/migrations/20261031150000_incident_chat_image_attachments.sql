@@ -32,6 +32,77 @@ ALTER TABLE public.incident_messages
     (attachment_path IS NOT NULL AND attachment_mime_type IS NOT NULL AND attachment_size_bytes IS NOT NULL)
   );
 
+CREATE OR REPLACE FUNCTION public.api_my_incident_messages(
+  p_incident_id bigint,
+  p_limit integer DEFAULT 50,
+  p_before_id bigint DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  actor_profile_id bigint;
+BEGIN
+  SELECT p.id
+    INTO actor_profile_id
+    FROM public.profiles p
+   WHERE p.auth_user_id = auth.uid();
+
+  IF actor_profile_id IS NULL THEN
+    RAISE EXCEPTION 'Authenticated profile is required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_incident_id IS NULL OR p_incident_id < 1
+     OR p_limit IS NULL OR p_limit < 1 OR p_limit > 100
+     OR (p_before_id IS NOT NULL AND p_before_id < 1) THEN
+    RAISE EXCEPTION 'Message page parameters are invalid'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF NOT private.tacresq_can_access_incident_chat(p_incident_id, actor_profile_id) THEN
+    RAISE EXCEPTION 'Incident chat is not available to this account'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN (
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'id', page.id,
+          'incident_id', page.incident_id,
+          'sender_id', page.sender_id,
+          'sender_name', page.sender_name,
+          'message', page.message,
+          'created_at', page.created_at,
+          'attachment_path', page.attachment_path,
+          'attachment_mime_type', page.attachment_mime_type,
+          'attachment_size_bytes', page.attachment_size_bytes
+        ) ORDER BY page.id ASC
+      ),
+      '[]'::jsonb
+    )
+    FROM (
+      SELECT m.id, m.incident_id, m.sender_id, p.name AS sender_name,
+             m.message, m.created_at, m.attachment_path,
+             m.attachment_mime_type, m.attachment_size_bytes
+        FROM public.incident_messages m
+        JOIN public.profiles p ON p.id = m.sender_id
+       WHERE m.incident_id = p_incident_id
+         AND (p_before_id IS NULL OR m.id < p_before_id)
+       ORDER BY m.id DESC
+       LIMIT p_limit
+    ) AS page
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.api_my_incident_messages(bigint, integer, bigint) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.api_my_incident_messages(bigint, integer, bigint) TO authenticated;
+
 CREATE OR REPLACE FUNCTION private.tacresq_auth_can_access_incident_chat(
   p_incident_id bigint
 )
