@@ -33,6 +33,8 @@ for required in (
     "ic_map_my_location_pin",
     "alpha = 110",
     "map.addMarker(",
+    "iconHeight * 2",
+    "pin tip at the geographic coordinate",
     "map.clear()",
     "setOnMarkerClickListener",
     "mapSheetState.bottomSheetState.expand()",
