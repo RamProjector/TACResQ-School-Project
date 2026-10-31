@@ -377,8 +377,7 @@ fun GpsMapScreen(
     }
     val collapsedMapSummary = when {
         showAppSettingsAction -> "Location access is off · incident pins remain visible."
-        locationStatus != null -> locationStatus!!
-        else -> roleMapSummary
+        else -> locationStatus ?: roleMapSummary
     }
     val emptyMapMessage = when (role) {
         Role.REQUESTER -> "No active incident locations are available right now. You can still explore the map."
