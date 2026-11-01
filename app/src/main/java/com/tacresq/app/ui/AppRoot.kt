@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tacresq.app.AppContainer
+import com.tacresq.app.data.routing.RoutingProvider
 import com.tacresq.app.location.LocationProvider
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.Role
@@ -74,7 +75,10 @@ fun AppRoot(
     val factory = remember(container) { VmFactory(container) }
     val sessionState by container.repository.sessionState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val logout: () -> Unit = { scope.launch { container.repository.logout() } }
+    val logout: () -> Unit = {
+        container.responderLocationTracking.stop("Location sharing stopped because you signed out.")
+        scope.launch { container.repository.logout() }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         when (val state = sessionState) {
@@ -154,7 +158,7 @@ fun AppRoot(
                     Role.REQUESTER -> {
                         val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout, routingProvider = container.routingProvider) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
                             if (selectedChatIncidentId != null && destination == AppDestination.CHAT) {
                                 IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                             } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)
@@ -172,15 +176,21 @@ fun AppRoot(
                     Role.RESPONDER, Role.DRIVER -> {
                         val vm: ResponderViewModel = viewModel(key = "unit-${user.id}", factory = factory)
                         val vmState by vm.state.collectAsStateWithLifecycle()
-                        // Stop the responder's foreground location flow before ending the account session.
+                        // Stop the responder's foreground location service before ending the session.
                         val responderLogout: () -> Unit = {
                             vm.stopTracking("Location sharing stopped because you signed out.")
                             logout()
                         }
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, openMapIncident ->
                             if (selectedChatIncidentId != null) {
                                 IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); responderLogout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
-                            } else if (destination == AppDestination.PRIMARY) ResponderScreen(vm, user, responderLogout, onOpenNotifications = openNotifications)
+                            } else if (destination == AppDestination.PRIMARY) ResponderScreen(
+                                vm,
+                                user,
+                                responderLogout,
+                                onOpenNotifications = openNotifications,
+                                onOpenMap = openMapIncident,
+                            )
                             else RoleSectionScreen(
                                 destination, user, responderLogout, vmState.incidents,
                                 notificationsVm = notificationsVm,
@@ -201,9 +211,10 @@ fun AppRoot(
                             user = user,
                             locationProvider = container.locationProvider,
                             logout = logout,
+                            routingProvider = container.routingProvider,
                             responderLocations = vmState.responderLocations,
                             onMapRefresh = vm::refresh,
-                        ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications ->
+                        ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
                             if (selectedChatIncidentId != null) {
                                 IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                             } else if (destination == AppDestination.PRIMARY) {
@@ -231,9 +242,10 @@ private fun RoleApp(
     user: User,
     locationProvider: LocationProvider,
     logout: () -> Unit,
+    routingProvider: RoutingProvider? = null,
     responderLocations: List<ResponderLocation> = emptyList(),
     onMapRefresh: () -> Unit = {},
-    contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit, () -> Unit) -> Unit,
+    contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit, () -> Unit, (Long) -> Unit) -> Unit,
 ) {
     var destination by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
     var destinationBeforeMap by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
@@ -253,6 +265,11 @@ private fun RoleApp(
         selectedChatIncidentId = null
         destination = AppDestination.ALERTS
     }
+    val openMapIncident: (Long) -> Unit = { incidentId ->
+        selectedIncidentId = incidentId
+        destinationBeforeMap = AppDestination.PRIMARY
+        destination = AppDestination.MAP
+    }
     RoleShell(
         role = role,
         selected = destination,
@@ -262,13 +279,15 @@ private fun RoleApp(
             }
             destination = it
         },
-        content = { contentFor(destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications) },
+        content = { contentFor(destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, openMapIncident) },
         mapContent = {
             GpsMapScreen(
                 role = role,
                 user = user,
                 incidents = incidents,
                 locationProvider = locationProvider,
+                routingProvider = routingProvider,
+                initialSelectedIncidentId = selectedIncidentId,
                 responderLocations = responderLocations,
                 onRefreshResponderLocations = onMapRefresh,
                 onBack = { destination = destinationBeforeMap },

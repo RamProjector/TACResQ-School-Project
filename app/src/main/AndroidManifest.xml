@@ -5,6 +5,9 @@
     <!-- Used to distinguish validated connectivity from a local-only network for map status. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission
         android:name="android.permission.ACCESS_FINE_LOCATION"
         android:usesPermissionFlags="onlyForLocationButton" />
@@ -32,5 +35,10 @@
                 <data android:scheme="${authRedirectScheme}" android:host="auth" android:path="/callback" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".location.ResponderLocationTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location"
+            android:stopWithTask="false" />
     </application>
 </manifest>

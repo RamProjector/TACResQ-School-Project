@@ -32,19 +32,16 @@ Unit tests cover invalid coordinates, malformed route metrics, stale/future resu
 
 The first adapter increment now exists in `data/routing/ValhallaRoutingProvider.kt`. It accepts an injected Retrofit service, sends only origin/destination coordinates plus explicit costing/units, converts Valhalla polyline6 legs and maneuvers into provider-neutral models, and rejects invalid coordinates, unsuccessful HTTP responses, missing route data, malformed geometry, and unusable metrics. Unit tests cover successful conversion, explicit driving costing, invalid-coordinate short-circuiting, and HTTP failure handling.
 
-This is **not yet live app routing**: no Retrofit base URL is configured, no production routing service is selected, and the map screen does not yet request or draw routes. The adapter intentionally has no default host. The caller must configure connection/read/call timeouts and response-size limits; no provider credentials belong in the APK.
+The GPS map now has a bounded route-preview flow that requests one route for the responder/driver's own assigned incident, obtains a fresh current origin after the user asks, and draws returned geometry only after result validity/freshness checks. This is a static in-app route preview, not turn-by-turn guidance or automatic rerouting. The adapter intentionally has no default host; without an explicitly configured HTTPS endpoint the route feature remains disabled. No provider credentials belong in the APK.
 
-The adapter now has a bounded client factory in `data/routing/ValhallaRoutingClientFactory.kt`. It stays disabled when no endpoint is configured, requires an explicit HTTPS base URL without embedded credentials/query/fragment, and applies 5-second connect, 10-second read/write, and 15-second overall call timeouts. Unit tests cover disabled configuration and rejected unsafe URLs. This still does not choose a provider host or enable routing in the GPS screen. The client now enforces a 2 MiB maximum routing response size, including chunked responses without a trustworthy `Content-Length`. Oversized bodies fail as network errors before Retrofit parses them. Server-side authorization/rate limiting remain required before a production integration.
+The adapter has a bounded client factory in `data/routing/ValhallaRoutingClientFactory.kt`. It stays disabled when no endpoint is configured, requires an explicit HTTPS base URL without embedded credentials/query/fragment, and applies 5-second connect, 10-second read/write, and 15-second overall call timeouts. Unit tests cover disabled configuration and rejected unsafe URLs. The client enforces a 2 MiB maximum routing response size, including chunked responses without a trustworthy `Content-Length`. Oversized bodies fail as network errors before Retrofit parses them. Configure only a maintained, operator-approved endpoint; server-side authorization/rate limiting remain required before production use.
 
-## Required next integration steps
-
-1. Host the routing service behind an authenticated, rate-limited Render API endpoint or choose a provider with documented production terms. Keep API keys server-side.
-2. Wire the adapter through an explicit application configuration and enforce bounded network timeouts and response-size limits.
-3. Draw the route as a MapLibre line layer/GeoJSON source, clearly label ETA as an estimate, and show route freshness and route failure states.
-4. Select mode by role: driving for driver; driving by default for field responder travelling by vehicle. Walking should be an explicit option only where it makes sense.
-5. Retain external navigation as a user-invoked fallback. Never auto-launch another app or claim a route is safe/passable.
-6. Validate location permission, foreground lifecycle, connectivity loss, cancellation, repeated route requests, stale GPS, malformed response, no route, and role/assignment authorization.
-7. Benchmark a fixed Tacloban test set against OSRM before finalizing Valhalla. Record route availability, distance/ETA differences, and implausible detours. Confirm local road access and flood/closure limitations with dispatch staff.
+## Remaining integration and verification steps
+1. Host the routing service behind an authenticated, rate-limited endpoint or use a provider with documented operational terms. Keep API keys server-side and leave the endpoint unset until configured.
+2. Validate a fixed synthetic Tacloban route test set and confirm local road access/flood/closure limitations with dispatch staff before relying on results operationally.
+3. Add continuous off-route detection/recalculation and maneuver-by-maneuver voice or visual guidance only as a separate, explicitly scoped feature. Do not call the current preview navigation.
+4. Retain external navigation as a user-invoked fallback. Never auto-launch another app or claim a route is safe/passable.
+5. Validate location permission, service/background lifecycle, connectivity loss, cancellation, repeated route requests, stale GPS, malformed response, no route, and role/assignment authorization on automated tests and physical devices.
 
 ## Safety acceptance criteria
 
@@ -55,6 +52,10 @@ The adapter now has a bounded client factory in `data/routing/ValhallaRoutingCli
 - No sensitive incident details or requester identity sent to a third-party routing service; only the minimum required coordinates.
 - UI remains usable if routing is unavailable and provides a clear manual fallback.
 - No production service is switched until the adapter, CI, and Tacloban route tests pass.
+
+## Responder location continuity
+
+Responder location sharing is owned by a user-started Android location foreground service, not by the current-call screen. The responder must opt in while the app is visible; the service uses coarse updates, a persistent stop control, and the existing assignment-checked location RPC. It checks that the responder's own assignment remains en route, stops on sign-out or permission withdrawal, and does not claim a send succeeded until the backend RPC succeeds. This improves continuity when the responder returns to TACResQ after checking the route preview or another app; it is not a guarantee of uninterrupted GPS, network, or dispatcher visibility. Device/background restrictions and live Supabase behavior remain unverified.
 
 
 ## Map renderer migration (2026-10-31)
@@ -70,4 +71,4 @@ The Android GPS screen now uses MapLibre Native (OpenGL ES artifact for broad de
 - The public OpenFreeMap endpoint has no SLA. The map must not be treated as an authoritative source for road closures, flooding, emergency vehicle access, or live traffic.
 - Offline map availability is not guaranteed. Incident details and status remain available separately from map rendering.
 
-The previous osmdroid renderer was removed from the Android dependency graph. Road routing remains disabled; the Valhalla adapter is not configured to contact a production host. A separate routing change must add authenticated/rate-limited hosting, Tacloban route validation, and safe failure states before drawing routes or presenting ETAs.
+The previous osmdroid renderer was removed from the Android dependency graph. Route previews are wired into the GPS map but remain disabled unless an HTTPS Valhalla base URL is explicitly supplied at build time with `-PtacresqRoutingBaseUrl=https://your-approved-host/` or `TACRESQ_ROUTING_BASE_URL`. No production host is selected by default. Deployments must provide authenticated/rate-limited hosting and validate local routes; a preview/ETA is not a turn-by-turn or road-condition guarantee.

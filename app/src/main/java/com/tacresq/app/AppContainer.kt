@@ -8,7 +8,10 @@ import com.tacresq.app.data.remote.SupabaseTacApi
 import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.data.repo.TokenHolder
+import com.tacresq.app.data.routing.RoutingProvider
+import com.tacresq.app.data.routing.ValhallaRoutingClientFactory
 import com.tacresq.app.location.LocationProvider
+import com.tacresq.app.location.ResponderLocationTrackingController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,4 +38,9 @@ class AppContainer(context: Context) {
         appScope,
     )
     val locationProvider = LocationProvider(appContext)
+    val responderLocationTracking = ResponderLocationTrackingController(appContext)
+    /** Null unless deployment configuration provides a maintained HTTPS Valhalla endpoint. */
+    val routingProvider: RoutingProvider? = runCatching {
+        ValhallaRoutingClientFactory.createOrNull(AppConfig.ROUTING_BASE_URL)
+    }.getOrNull()
 }

@@ -68,8 +68,9 @@ This document defines product identity and direction; it does not claim every pl
 
 Before describing a feature as complete, inspect the current source and tests. In particular:
 - The current Android map uses OpenStreetMap/osmdroid and displays supported incident/device-location information.
-- Current responder navigation opens external turn-by-turn navigation; do not claim that full in-app turn-by-turn routing or a guaranteed ETA exists unless implemented and verified.
-- Background responder tracking and FCM push notifications are not implemented according to the current README status table.
+- Responders/drivers can request an in-app static route preview to their own assigned incident when an operator-configured HTTPS Valhalla endpoint is available; it is not turn-by-turn navigation, continuous rerouting, or a guaranteed ETA. External Maps remains an explicit fallback.
+- Responder location sharing is an explicit, consent-gated Android location foreground service scoped to the responder's own en-route assignment. It can continue when TACResQ is backgrounded, subject to Android, GPS, network, and backend availability; a persistent notification offers a stop control. Do not describe it as guaranteed live tracking.
+- FCM push notifications are not implemented.
 - Physical-device GPS, network, tile-loading, and real-backend behavior must not be called verified solely because CI builds pass.
 - A passing build or test does not establish live service readiness, official operational approval, or guaranteed emergency delivery.
 

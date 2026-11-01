@@ -9,6 +9,12 @@ val releaseSigningConfigured = listOf(
     System.getenv("ANDROID_SIGNING_KEY_ALIAS"),
     System.getenv("ANDROID_SIGNING_KEY_PASSWORD"),
 ).all { !it.isNullOrBlank() } && System.getenv("ANDROID_RELEASE_SIGNING_CONFIGURED") == "true"
+val configuredRoutingBaseUrl = providers.gradleProperty("tacresqRoutingBaseUrl")
+    .orElse(providers.environmentVariable("TACRESQ_ROUTING_BASE_URL"))
+    .getOrElse("")
+val escapedRoutingBaseUrl = configuredRoutingBaseUrl
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
 
 android {
     namespace = "com.tacresq.app"
@@ -64,12 +70,14 @@ android {
                 if (useSupabaseInDebug) "tacresq" else "tacresq-demo"
             buildConfigField("boolean", "USE_FAKE_API", (!useSupabaseInDebug).toString())
             buildConfigField("boolean", "USE_RENDER_BRIDGE", useRenderBridgeInDebug.toString())
+            buildConfigField("String", "ROUTING_BASE_URL", "\"$escapedRoutingBaseUrl\"")
         }
         release {
             manifestPlaceholders["authRedirectScheme"] = "tacresq"
             buildConfigField("boolean", "USE_FAKE_API", "false")
             // Keep production on the existing direct-Supabase route until canary QA is signed off.
             buildConfigField("boolean", "USE_RENDER_BRIDGE", "false")
+            buildConfigField("String", "ROUTING_BASE_URL", "\"$escapedRoutingBaseUrl\"")
             isMinifyEnabled = false
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("release")

@@ -42,7 +42,7 @@ sealed interface LocationSettingsCheck {
     data object Unavailable : LocationSettingsCheck
 }
 
-/** One-time requester fixes and an explicitly collected foreground responder stream. */
+/** One-time requester fixes and a coarse responder stream owned by the location foreground service. */
 class LocationProvider(context: Context) {
     private val appContext = context.applicationContext
     private val client = LocationServices.getFusedLocationProviderClient(appContext)
@@ -162,8 +162,8 @@ class LocationProvider(context: Context) {
     /**
      * Emit in-use approximate fixes only. Explicit COARSE granularity avoids using the fine
      * permission reserved by this source pack's Android Location Button flow. Collection
-     * cancellation unregisters the fused-location callback; callers must bind collection to
-     * the visible responder lifecycle and never collect from an application/background scope.
+     * cancellation unregisters the fused-location callback. Only the explicit location
+     * foreground service may collect this stream; start it from a visible activity after consent.
     */
     @OptIn(ExperimentalCoroutinesApi::class)
     @SuppressLint("MissingPermission")

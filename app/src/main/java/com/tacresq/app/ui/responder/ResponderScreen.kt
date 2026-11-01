@@ -1,12 +1,8 @@
 package com.tacresq.app.ui.responder
 
 import android.Manifest
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
-import android.widget.Toast
+import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,23 +27,17 @@ import androidx.compose.material3.TextButton
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.Incident
@@ -56,8 +46,8 @@ import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.nextSteps
 import com.tacresq.app.data.model.statusFor
 import com.tacresq.app.data.repo.TacRepository
-import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationProvider
+import com.tacresq.app.location.ResponderLocationTrackingController
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
@@ -94,11 +84,27 @@ data class ResponderUiState(
 class ResponderViewModel(
     private val repo: TacRepository,
     private val location: LocationProvider,
+    private val tracking: ResponderLocationTrackingController,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ResponderUiState())
     val state: StateFlow<ResponderUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
     private var refreshRequested = false
+
+    init {
+        viewModelScope.launch {
+            tracking.status.collect { status ->
+                _state.update {
+                    it.copy(
+                        trackingIncidentId = status.incidentId,
+                        trackingError = status.message,
+                        lastLocationSentAt = status.lastSentAtEpochMillis,
+                        lastLocationAccuracyM = status.lastAccuracyMeters,
+                    )
+                }
+            }
+        }
+    }
 
     fun refresh() {
         if (refreshJob?.isActive == true) {
@@ -114,14 +120,18 @@ class ResponderViewModel(
                 val mine = repo.myIncidents()
                 val refreshError = me.exceptionOrNull() ?: mine.exceptionOrNull()
                 val currentUserId = me.getOrNull()?.id
+                val serverIncidents = mine.getOrNull()
+                val trackingId = tracking.status.value.incidentId
+                val trackingEnded = trackingId != null && serverIncidents != null &&
+                    (currentUserId == null || serverIncidents.none {
+                        it.id == trackingId && it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE
+                    })
+                if (trackingEnded) {
+                    tracking.stop("Location sharing stopped because this incident is no longer assigned en route.")
+                }
                 _state.update { s ->
-                    val serverIncidents = mine.getOrNull()
                     // The aggregate can stay en-route while another unit is still travelling.
-                    // Stop this device's GPS stream when this responder's own assignment advances.
-                    val trackingEnded = s.trackingIncidentId != null && serverIncidents != null &&
-                        (currentUserId == null || serverIncidents.none {
-                            it.id == s.trackingIncidentId && it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE
-                        })
+                    // Stop only when this device's own assignment is no longer en route.
                     s.copy(
                         loading = false,
                         refreshing = false,
@@ -161,12 +171,18 @@ class ResponderViewModel(
         act {
             val result = repo.updateIncidentStatus(incident.id, IncidentStatus.EN_ROUTE)
             if (result.isSuccess) {
-                _state.update { it.copy(
-                    trackingIncidentId = incident.id.takeIf { shareLocation },
-                    trackingError = if (shareLocation) null else "Response started without sharing responder location.",
-                    lastLocationSentAt = null,
-                    lastLocationAccuracyM = null,
-                ) }
+                if (shareLocation) {
+                    tracking.start(incident.id).onFailure { failure ->
+                        _state.update {
+                            it.copy(
+                                trackingIncidentId = null,
+                                trackingError = failure.message ?: "Location sharing could not start. Resume it explicitly.",
+                            )
+                        }
+                    }
+                } else {
+                    tracking.stop("Response started without sharing responder location.")
+                }
             }
             result
         }
@@ -198,9 +214,18 @@ class ResponderViewModel(
             }
             _state.update { it.copy(
                 busy = false,
-                trackingIncidentId = if (failure == null) incidentId else null,
                 trackingError = failure,
             ) }
+            if (failure == null) {
+                tracking.start(incidentId).onFailure { startFailure ->
+                    _state.update {
+                        it.copy(
+                            trackingIncidentId = null,
+                            trackingError = startFailure.message ?: "Location sharing could not start. Resume it explicitly.",
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -209,31 +234,8 @@ class ResponderViewModel(
         act { repo.updateIncidentStatus(incident.id, to) }
     }
 
-    suspend fun collectForegroundLocation(incidentId: Long) {
-        location.responderForegroundUpdates().collect { capture ->
-            if (_state.value.trackingIncidentId != incidentId) return@collect
-            when (capture) {
-                is LocationCaptureResult.Success -> {
-                    if (!location.isFresh(capture.fix)) {
-                        _state.update { it.copy(trackingError = "The location fix expired before sending; waiting for another current fix.") }
-                    } else {
-                        val result = repo.recordResponderLocation(incidentId, capture.fix)
-                        _state.update { it.copy(
-                            lastLocationSentAt = if (result.isSuccess) System.currentTimeMillis() else it.lastLocationSentAt,
-                            lastLocationAccuracyM = if (result.isSuccess) capture.fix.accuracyM else it.lastLocationAccuracyM,
-                            trackingError = result.exceptionOrNull()?.message,
-                        ) }
-                    }
-                }
-                LocationCaptureResult.PermissionDenied -> stopTracking("Approximate location permission was denied or withdrawn; no further location will be sent.")
-                LocationCaptureResult.ServicesDisabled -> stopTracking("Location services are off. Enable them and resume location sharing.")
-                LocationCaptureResult.InvalidFix, LocationCaptureResult.TimedOut, LocationCaptureResult.Unavailable ->
-                    stopTracking("A current location is unavailable; no location was sent. Retry location sharing when a fresh fix is available.")
-            }
-        }
-    }
-
     fun stopTracking(message: String = "Location sharing stopped.") {
+        tracking.stop(message)
         _state.update { it.copy(trackingIncidentId = null, trackingError = message) }
     }
 
@@ -270,11 +272,16 @@ class ResponderViewModel(
 }
 
 @Composable
-fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit, onOpenNotifications: () -> Unit = {}) {
+fun ResponderScreen(
+    vm: ResponderViewModel,
+    user: User,
+    onLogout: () -> Unit,
+    onOpenNotifications: () -> Unit = {},
+    onOpenMap: (Long) -> Unit = {},
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     var responseToStart by remember { mutableStateOf<Incident?>(null) }
     var permissionActionIncident by remember { mutableStateOf<Incident?>(null) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -288,33 +295,36 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit, on
             else vm.stopTracking("Approximate location permission was denied; location sharing remains off.")
         }
     }
-    DisposableEffect(vm, lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
-                vm.stopTracking("Location sharing stopped because the app left the foreground. Resume it explicitly when ready.")
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val incident = permissionActionIncident
+        if (incident != null && granted) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                permissionActionIncident = null
+                if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = true)
+                else vm.resumeTracking(incident.id)
+            } else {
+                locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
             }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            vm.stopTracking("Location sharing stopped because the responder screen closed.")
-        }
-    }
-    val trackingIncidentId = state.trackingIncidentId
-    LaunchedEffect(vm, lifecycleOwner, trackingIncidentId) {
-        if (trackingIncidentId != null) {
-            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                vm.collectForegroundLocation(trackingIncidentId)
-            }
+        } else if (incident != null) {
+            permissionActionIncident = null
+            if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = false)
+            else vm.stopTracking("Notifications are required to show the active location-sharing service.")
         }
     }
 
     fun beginOrResumeWithPermission(incident: Incident) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        permissionActionIncident = incident
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            permissionActionIncident = null
             if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = true)
             else vm.resumeTracking(incident.id)
         } else {
-            permissionActionIncident = incident
             locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
     }
@@ -428,10 +438,10 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit, on
                     latitude in -90.0..90.0 && longitude in -180.0..180.0
                 ) {
                     OutlinedButton(
-                        onClick = { openNavigation(context, latitude, longitude) },
+                        onClick = { onOpenMap(incident.id) },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     ) {
-                        Text("Navigate to incident")
+                        Text("Open in-app route preview")
                     }
                 } else {
                     Text(
@@ -479,7 +489,7 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit, on
                                     state.trackingError != null ->
                                         "Last location update failed."
                                     else ->
-                                        "Sharing approximate location while this app is open."
+                                        "Sharing approximate location for this en-route response, including when TACResQ is in the background."
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                             )
@@ -523,9 +533,9 @@ fun ResponderScreen(vm: ResponderViewModel, user: User, onLogout: () -> Unit, on
             text = {
                 Text(
                     if (startingResponse) {
-                        "Share approximate location with authorized dispatch while TACResQ is open. Sharing stops when you leave this screen. You can start without sharing."
+                        "With your permission, TACResQ will share approximate location with authorized dispatch for this assignment while your response is en route, including when you switch apps or lock your screen. A persistent notification shows sharing is active and lets you stop it. Updates can be delayed or unavailable; sharing stops when the assignment advances or you sign out. You can start without sharing."
                     } else {
-                        "Share approximate location with authorized dispatch while TACResQ is open. Sharing stops when you leave this screen."
+                        "With your permission, TACResQ will resume sharing approximate location with authorized dispatch for this en-route assignment, including when you switch apps or lock your screen. A persistent notification shows sharing is active and lets you stop it. Updates can be delayed or unavailable; sharing stops when the assignment advances or you sign out."
                     },
                 )
             },
@@ -608,31 +618,6 @@ private fun DutyCard(
                 Text(unavailableMessage, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-    }
-}
-
-/** Opens turn-by-turn navigation only for a valid coordinate pair. */
-private fun openNavigation(context: Context, lat: Double, lng: Double) {
-    // Defense in depth: do not launch an external maps app with malformed API data.
-    if (!lat.isFinite() || !lng.isFinite() || lat !in -90.0..90.0 || lng !in -180.0..180.0) {
-        Toast.makeText(
-            context,
-            "Incident coordinates are invalid. Confirm the destination with dispatch before navigating.",
-            Toast.LENGTH_LONG,
-        ).show()
-        return
-    }
-    val navigate = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$lat,$lng&mode=d"))
-        .setPackage("com.google.android.apps.maps")
-    val fallback = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng"))
-    try {
-        context.startActivity(navigate)
-    } catch (e: ActivityNotFoundException) {
-        try {
-            context.startActivity(fallback)
-        } catch (e2: ActivityNotFoundException) {
-            Toast.makeText(context, "No maps app found on this phone.", Toast.LENGTH_SHORT).show()
         }
     }
 }

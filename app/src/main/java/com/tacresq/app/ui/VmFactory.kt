@@ -19,7 +19,11 @@ class VmFactory(private val container: AppContainer) : ViewModelProvider.Factory
             modelClass.isAssignableFrom(RequesterViewModel::class.java) ->
                 RequesterViewModel(container.repository, container.locationProvider)
             modelClass.isAssignableFrom(ResponderViewModel::class.java) ->
-                ResponderViewModel(container.repository, container.locationProvider)
+                ResponderViewModel(
+                    container.repository,
+                    container.locationProvider,
+                    container.responderLocationTracking,
+                )
             modelClass.isAssignableFrom(DispatcherViewModel::class.java) ->
                 DispatcherViewModel(container.repository)
             modelClass.isAssignableFrom(NotificationsViewModel::class.java) ->

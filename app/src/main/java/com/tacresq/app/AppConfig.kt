@@ -20,6 +20,9 @@ object AppConfig {
      */
     const val BASE_URL = "https://tacresq-school-project.onrender.com/api/"
 
+    /** Optional operator-configured Valhalla HTTPS endpoint; empty disables in-app routes. */
+    val ROUTING_BASE_URL = BuildConfig.ROUTING_BASE_URL
+
     /** Supabase project URL and publishable key. Never put a service-role key in an app. */
     const val SUPABASE_URL = "https://kttguamhznoflzagfutr.supabase.co"
     /** Supabase email confirmation returns to the installed Android app, not a local web dev server. */

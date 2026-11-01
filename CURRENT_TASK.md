@@ -1,3 +1,16 @@
+# Active handoff — 2026-11-01: in-app route preview and responder GPS continuity
+
+- **Objective:** Let a responder/driver preview a route in TACResQ without abandoning the GPS/dispatcher visibility workflow; keep consented location reporting active across app backgrounding for the responder's own en-route assignment.
+- **Branch:** `agent/in-app-routing-live-tracking`, based on latest fetched main `d23ff2b` (PR #237 merge). Existing map controls PR #241 remains separate and open; this branch does not contain its unmerged work.
+- **Implementation:** Wired optional Valhalla route provider configuration (unset by default; HTTPS-only), responder-assignment-gated route preview drawn on the map, freshness and error handling, user-invoked external Maps fallback, and explicit stale-location confirmation. Added a non-exported location foreground service using coarse GPS, persistent stop notification, session/own-assignment checks, and existing server-authorized RPC writes; stops on logout, assignment end, permission withdrawal, and service errors. No `ACCESS_BACKGROUND_LOCATION`, public demo routing endpoint, server key, database migration, live service setup, or turn-by-turn/continuous rerouting feature was added.
+- **Docs/contracts:** Updated README, product scope, route foundation, map UI recommendation, source checker, map empty-state, manual-location, and location-contract tests.
+- **Validation passed:** `python3 tools/check_android_source.py`; focused GPS/location source contracts (`test_location_contract.py`, `test_gps_map_empty_state.py`, `test_manual_location_source.py`, `test_external_map_intent_recovery.py`, `test_gps_map_lifecycle_polling.py`, `test_gps_permission_settings_recovery.py`); adjacent responder assignment/map/location contracts (`test_per_responder_assignment_status.py`, `test_dispatch_team_assignment.py`, `test_map_network_permissions.py`, `test_location_disabled_regression.py`, `test_gps_accuracy_aware_preview.py`, `test_location_rpc_search_path.py`); `git diff --check`.
+- **Validation blocked:** Local `./gradlew testDebugUnitTest assembleDebug --no-daemon` and subsequent test task could not configure because the sandbox has no Android SDK (`ANDROID_HOME`/`sdk.dir` missing). No Android compile/unit test, emulator, physical-device, live Supabase, or route-provider verification was performed. PR CI must validate the exact head before merge.
+- **Safety limits:** Route preview is not turn-by-turn, rerouting, guaranteed ETA, or evidence of closures/flooding/passability/emergency vehicle access. Route feature is disabled without explicit endpoint configuration. Location continuity depends on Android/GPS/network/backend availability and does not promise uninterrupted live visibility. No production configuration changed.
+- **Next action:** Commit and push this focused branch, open a PR, then inspect exact-head Android debug/release and all other required CI checks; fix failures. Do not merge unless required checks pass and GitHub reports mergeability.
+
+---
+
 # Active handoff — 2026-10-31: clarify dispatch team assignment versus field leadership
 
 - **Objective:** Implement the safe portion of the proposed team-based workflow without inventing TACRU command authority.
