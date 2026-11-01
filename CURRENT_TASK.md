@@ -8,8 +8,9 @@
 - **Validation blocked:** Local `./gradlew testDebugUnitTest assembleDebug --no-daemon` and subsequent test task could not configure because the sandbox has no Android SDK (`ANDROID_HOME`/`sdk.dir` missing). No Android compile/unit test, emulator, physical-device, live Supabase, or route-provider verification was performed. PR CI must validate the exact head before merge.
 - **Safety limits:** Route preview is not turn-by-turn, rerouting, guaranteed ETA, or evidence of closures/flooding/passability/emergency vehicle access. Route feature is disabled without explicit endpoint configuration. Location continuity depends on Android/GPS/network/backend availability and does not promise uninterrupted live visibility. No production configuration changed.
 - **PR:** [#243](https://github.com/RamProjector/TACResQ-School-Project/pull/243), open against `main`; initial head `ceb38a31f1a727161055ccaa8170c4266f65a41e`.
-- **CI at handoff:** exact-head checks had started; Source checks were queued and RPC grant, static security/correctness, static UI/workflow review, repository guardrails, Android debug/release builds, CodeQL Android, prototype checks, and CodeQL Web/Actions were in progress. Merge state reported `UNSTABLE` while checks ran. No reviews yet.
-- **Next action:** Inspect PR #243's exact-head CI and review findings; fix failures and wait for required checks. Do not merge unless required checks pass and GitHub reports mergeability.
+- **CI diagnosis:** PR #243 head `319f3bc1127ba090e87fb9ec3fc7de076cd17c64` passed source checks, RPC grant contract, static reviews, guardrails, prototype, backend, and migration checks. Android debug/release and CodeQL Android failed at Kotlin compilation because the service referenced a nonexistent `ApiException`; the repository uses Retrofit `HttpException`.
+- **Fix:** Replaced those invalid references with `HttpException.code()` checks and strengthened the location contract to guard the precise auth-status branch. This correction is being pushed as a follow-up; exact-head CI must rerun.
+- **Next action:** Confirm the follow-up CI build and CodeQL checks, fix any further failures, and do not merge unless required checks pass and GitHub reports mergeability.
 
 ---
 

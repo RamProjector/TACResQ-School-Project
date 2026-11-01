@@ -19,7 +19,6 @@ import com.tacresq.app.R
 import com.tacresq.app.TacResqApp
 import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.statusFor
-import com.tacresq.app.data.remote.ApiException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 /** Observable status for the user-facing responder screen; the service remains the tracking owner. */
 data class ResponderTrackingStatus(
@@ -209,7 +209,7 @@ class ResponderLocationTrackingService : Service() {
                 val user = userResult.getOrNull()
                 if (user == null) {
                     val failure = userResult.exceptionOrNull()
-                    if (failure is ApiException && failure.httpCode in setOf(401, 403)) {
+                    if (failure is HttpException && failure.code() in setOf(401, 403)) {
                         stopActiveSharing("Location sharing stopped because the responder session is no longer authorized.")
                         stopSelf()
                         return
@@ -222,7 +222,7 @@ class ResponderLocationTrackingService : Service() {
                 val assignments = assignmentsResult.getOrNull()
                 if (assignments == null) {
                     val failure = assignmentsResult.exceptionOrNull()
-                    if (failure is ApiException && failure.httpCode in setOf(401, 403)) {
+                    if (failure is HttpException && failure.code() in setOf(401, 403)) {
                         stopActiveSharing("Location sharing stopped because this responder session is no longer authorized.")
                         stopSelf()
                         return
@@ -261,7 +261,7 @@ class ResponderLocationTrackingService : Service() {
                                         System.currentTimeMillis(),
                                         capture.fix.accuracyM,
                                     )
-                                } else if (failure is ApiException && failure.httpCode in setOf(401, 403, 404, 422)) {
+                                } else if (failure is HttpException && failure.code() in setOf(401, 403, 404, 422)) {
                                     stopActiveSharing("Location sharing stopped because the session or assignment is no longer authorized.")
                                     stopSelf()
                                     return@collect
@@ -318,7 +318,7 @@ class ResponderLocationTrackingService : Service() {
                 val user = userResult.getOrNull()
                 if (user == null) {
                     val failure = userResult.exceptionOrNull()
-                    if (failure is ApiException && failure.httpCode in setOf(401, 403)) {
+                    if (failure is HttpException && failure.code() in setOf(401, 403)) {
                         stopActiveSharing("Location sharing stopped because the responder session is no longer authorized.")
                         stopSelf()
                         return
@@ -330,7 +330,7 @@ class ResponderLocationTrackingService : Service() {
                 val assignments = assignmentsResult.getOrNull()
                 if (assignments == null) {
                     val failure = assignmentsResult.exceptionOrNull()
-                    if (failure is ApiException && failure.httpCode in setOf(401, 403)) {
+                    if (failure is HttpException && failure.code() in setOf(401, 403)) {
                         stopActiveSharing("Location sharing stopped because this responder session is no longer authorized.")
                         stopSelf()
                         return
