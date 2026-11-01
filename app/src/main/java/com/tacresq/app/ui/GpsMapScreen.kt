@@ -1105,7 +1105,7 @@ fun GpsMapScreen(
                                         fontWeight = FontWeight.SemiBold,
                                     )
                                     routeResult?.let { route ->
-                                        val distance = String.format(java.util.Locale.getDefault(), "%.1f km", route.distanceMeters / 1_000.0)
+                                        val distance = String.format(java.util.Locale.US, "%.1f km", route.distanceMeters / 1_000.0)
                                         val minutes = (route.durationSeconds / 60.0).roundToInt().coerceAtLeast(1)
                                         Text("$distance · estimated $minutes min", style = MaterialTheme.typography.bodyMedium)
                                         if (route.instructions.isNotEmpty()) {
