@@ -9,8 +9,10 @@
 - **Safety limits:** Route preview is not turn-by-turn, rerouting, guaranteed ETA, or evidence of closures/flooding/passability/emergency vehicle access. Route feature is disabled without explicit endpoint configuration. Location continuity depends on Android/GPS/network/backend availability and does not promise uninterrupted live visibility. No production configuration changed.
 - **PR:** [#243](https://github.com/RamProjector/TACResQ-School-Project/pull/243), open against `main`; initial head `ceb38a31f1a727161055ccaa8170c4266f65a41e`.
 - **CI diagnosis:** PR #243 head `319f3bc1127ba090e87fb9ec3fc7de076cd17c64` passed source checks, RPC grant contract, static reviews, guardrails, prototype, backend, and migration checks. Android debug/release and CodeQL Android failed at Kotlin compilation because the service referenced a nonexistent `ApiException`; the repository uses Retrofit `HttpException`.
-- **Fixes:** The Retrofit exception references were changed to `HttpException.code()`, clearing CodeQL and compilation. The next run then passed CodeQL Android but Android lint failed on `Locale.getDefault()` inside a composable; switched route distance formatting to explicit `Locale.US` and extended its regression contract.
-- **Next action:** Push the Compose lint fix, confirm exact-head debug/release build and CodeQL checks, fix any further failures, and do not merge unless required checks pass and GitHub reports mergeability.
+- **Fixes:** The Retrofit exception references were changed to `HttpException.code()`, clearing CodeQL and compilation. Android lint then flagged `Locale.getDefault()` inside a composable; route distance formatting now uses explicit `Locale.US` with a regression contract.
+- **Latest verified head:** `c3bfd320bee5212b40b7c8614f7b97320027e51b`.
+- **CI:** All 11 checks succeeded on the exact PR head, including source contracts, Android debug/release builds, Android/Web CodeQL, security/static reviews, backend integration, and clean PostgreSQL migration replay. CodeRabbit was skipped; generic CodeQL was neutral. `gh pr view` reports PR #243 open and merge state CLEAN; no reviews are recorded.
+- **Next action:** Keep PR #243 open for review. No merge, production routing endpoint, live Supabase change, or device testing was performed.
 
 ---
 
