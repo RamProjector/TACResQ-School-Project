@@ -1,0 +1,7 @@
+# OSM source extracts and generated OSRM graphs are local deployment artifacts.
+*.osm.pbf
+*.pbf
+*.osrm*
+.graph-build/
+graph/*
+!graph/.gitkeep
