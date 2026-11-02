@@ -22,19 +22,19 @@ A center-docked FAB is a recognized mobile pattern, but it should not obscure co
 Keep the same center control and adapt the surrounding destinations to the user's role:
 
 - **Requester:** Home | My Requests | **GPS Map** | Profile. The map should focus on the requester's current location when permission is granted, show the active incident and response status when available, and make location-sharing state and its last update explicit. Do not imply continuous sharing until that feature is implemented.
-- **Responder/driver:** Current Call | History | **GPS Map** | Profile. The map should focus on the assigned incident and responder location only when each coordinate is actually available. The assigned responder may preview an in-app road route when the deployment configures a routing provider; external Maps remains an explicit fallback. Clearly mark unavailable or stale responder GPS rather than showing a fabricated live position.
+- **Responder/driver:** Current Call | History | **GPS Map** | Profile. The map should focus on the assigned incident and responder location only when each coordinate is actually available. An assigned responder may request a static driving preview through the authenticated Render proxy to a private OSRM service; the Android feature is disabled by default and external Maps remains an explicit fallback. Clearly mark unavailable or stale responder GPS rather than showing a fabricated live position.
 - **Dispatcher:** Queue | Field Units | **GPS Map** | Activity. Show incident markers from available incident coordinates, unit markers only when live unit coordinates exist, and visible freshness/offline indicators. Retain assignment confirmation in the queue rather than moving that action onto the map button.
 
 On narrow screens, the center control can overlap the bar's top edge, but labels for the surrounding destinations must remain visible and tappable. On wider layouts, keep “GPS Map” as a normal, clearly selected navigation item or a center-docked control aligned with the navigation rail/content; avoid a floating center button detached from the navigation structure.
 
 ## Implementation boundary in this repository
 
-The checked-in project now contains a Gradle Android application, shared role-aware full-screen map destination, and OpenFreeMap/MapLibre map surface. It supports permission-gated one-time requester previews, dispatcher unit markers from consented en-route reports, a configured-provider route preview for the responder's own assignment, and an explicitly user-started location foreground service. Physical-device behavior and provider availability remain unverified.
+The checked-in project now contains a Gradle Android application, shared role-aware full-screen map destination, and OpenFreeMap/MapLibre map surface. It supports permission-gated one-time requester previews, dispatcher unit markers from consented en-route reports, an assignment-verified but default-disabled Render-to-private-OSRM driving preview for responder/driver accounts, and an explicitly user-started location foreground service. Physical-device behavior, private-service provisioning, graph fit, and live route availability remain unverified.
 
 The shared center-docked navigation shell and role-aware full-screen GPS Map destination are implemented. The map deliberately distinguishes confirmed incident coordinates, a device-only one-time fix, and timestamped responder reports. Responder sharing is separately consented and controlled through an ongoing Android location-service notification; route-preview availability depends on deployment configuration. Remaining production stages include:
 
 1. Validate map tile and location-service behavior on supported physical Android devices, including app backgrounding, permission revocation, notification stop, and process death.
-2. Configure a maintained, authorized/rate-limited routing endpoint and validate synthetic local routes before treating route estimates as operationally useful.
+2. If approved, provision a private OSRM service and persistent area graph, opt in at build time, and validate synthetic local routes before treating route estimates as operationally useful.
 3. Keep static route preview distinct from turn-by-turn directions, off-route updates, and verified road accessibility; those capabilities require separate implementation and testing.
 
 ## Research references

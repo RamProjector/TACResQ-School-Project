@@ -9,13 +9,6 @@ val releaseSigningConfigured = listOf(
     System.getenv("ANDROID_SIGNING_KEY_ALIAS"),
     System.getenv("ANDROID_SIGNING_KEY_PASSWORD"),
 ).all { !it.isNullOrBlank() } && System.getenv("ANDROID_RELEASE_SIGNING_CONFIGURED") == "true"
-val configuredRoutingBaseUrl = providers.gradleProperty("tacresqRoutingBaseUrl")
-    .orElse(providers.environmentVariable("TACRESQ_ROUTING_BASE_URL"))
-    .getOrElse("")
-val escapedRoutingBaseUrl = configuredRoutingBaseUrl
-    .replace("\\", "\\\\")
-    .replace("\"", "\\\"")
-
 android {
     namespace = "com.tacresq.app"
     compileSdk {
@@ -57,6 +50,7 @@ android {
 
     val useSupabaseInDebug = providers.gradleProperty("useSupabase").orNull == "true"
     val useRenderBridgeInDebug = providers.gradleProperty("useRenderBridge").orNull == "true"
+    val routePreviewRequested = providers.gradleProperty("tacresqRoutePreviewEnabled").orNull == "true"
     if (useRenderBridgeInDebug && !useSupabaseInDebug) {
         error("The Render bridge canary requires -PuseSupabase=true; demo mode must never call live services.")
     }
@@ -70,14 +64,15 @@ android {
                 if (useSupabaseInDebug) "tacresq" else "tacresq-demo"
             buildConfigField("boolean", "USE_FAKE_API", (!useSupabaseInDebug).toString())
             buildConfigField("boolean", "USE_RENDER_BRIDGE", useRenderBridgeInDebug.toString())
-            buildConfigField("String", "ROUTING_BASE_URL", "\"$escapedRoutingBaseUrl\"")
+            buildConfigField("boolean", "ROUTE_PREVIEW_ENABLED", (routePreviewRequested && useSupabaseInDebug).toString())
         }
         release {
             manifestPlaceholders["authRedirectScheme"] = "tacresq"
             buildConfigField("boolean", "USE_FAKE_API", "false")
             // Keep production on the existing direct-Supabase route until canary QA is signed off.
             buildConfigField("boolean", "USE_RENDER_BRIDGE", "false")
-            buildConfigField("String", "ROUTING_BASE_URL", "\"$escapedRoutingBaseUrl\"")
+            // A release must explicitly opt in after the private OSRM service is configured.
+            buildConfigField("boolean", "ROUTE_PREVIEW_ENABLED", routePreviewRequested.toString())
             isMinifyEnabled = false
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("release")

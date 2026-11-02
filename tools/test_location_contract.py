@@ -17,6 +17,13 @@ map_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").rea
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text()
 gradle = (ROOT / "app/build.gradle.kts").read_text()
 tracking_service = (ROOT / "app/src/main/java/com/tacresq/app/location/ResponderLocationTrackingService.kt").read_text()
+app_container = (ROOT / "app/src/main/java/com/tacresq/app/AppContainer.kt").read_text()
+render_routing = (ROOT / "app/src/main/java/com/tacresq/app/data/routing/RenderRoutingProvider.kt").read_text()
+render_api = (ROOT / "backend/src/routes/api.php").read_text()
+render_config = (ROOT / "backend/src/config/tacru.php").read_text()
+osrm_docker = (ROOT / "backend/routing/osrm/Dockerfile").read_text()
+osrm_start = (ROOT / "backend/routing/osrm/start-osrm.sh").read_text()
+osrm_docs = (ROOT / "backend/routing/README.md").read_text()
 write_rpc = current_location_migration.split("create or replace function public.api_record_location_v2(", 1)[1].split("\n$function$;", 1)[0]
 read_rpc = current_location_migration.split("create or replace function public.api_active_responder_locations()", 1)[1].split("\n$function$;", 1)[0]
 read_policy = current_location_migration.split("create policy location_logs_read_dispatcher_or_owner", 1)[1].split(";", 1)[0]
@@ -66,7 +73,9 @@ checks = {
     "responder primary route action opens the assigned incident in the in-app map": 'Text("Open in-app route preview")' in responder_screen and "onOpenMap = openMapIncident" in (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text() and "initialSelectedIncidentId = selectedIncidentId" in (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text(),
     "route request fails closed on role, assignment, assignment status, and invalid destination": all(text in map_screen for text in ("role != Role.RESPONDER && role != Role.DRIVER", "incident.assignedTo != user.id", "IncidentStatus.ASSIGNED", "IncidentStatus.EN_ROUTE", "incident.hasValidMapCoordinates()")),
     "route preview uses a fresh current origin, configured provider, freshness gate, and explicit fallback": all(text in map_screen for text in ("provider.route(", "locationProvider.currentFix()", "route.isUsable(System.currentTimeMillis())", "PolylineOptions()", "Locale.US", "not live turn-by-turn", "Open external Maps instead", "No live traffic, flooding, road closures")),
-    "routing remains disabled without an explicit HTTPS endpoint": "ValhallaRoutingClientFactory.createOrNull(AppConfig.ROUTING_BASE_URL)" in (ROOT / "app/src/main/java/com/tacresq/app/AppContainer.kt").read_text() and "providers.gradleProperty(\"tacresqRoutingBaseUrl\")" in gradle and "Routing endpoint must use HTTPS." in (ROOT / "app/src/main/java/com/tacresq/app/data/routing/ValhallaRoutingClientFactory.kt").read_text(),
+    "routing uses the authenticated Render proxy and stays disabled unless an Android build explicitly opts in": all(text in app_container for text in ("RenderRoutingClientFactory.create(AppConfig.BASE_URL)", "if (AppConfig.USE_FAKE_API || !AppConfig.ROUTE_PREVIEW_ENABLED) null")) and all(text in render_routing for text in ('@POST("route-preview")', '@Header("Authorization")', '"Bearer $token"', 'incidentId = incidentId', 'mode != RouteMode.DRIVING')) and all(text in gradle for text in ("tacresqRoutePreviewEnabled", '"ROUTE_PREVIEW_ENABLED"')) and "ORS_API_KEY" not in render_routing,
+    "Render route proxy validates assignment and sends coordinates only to a private OSRM host": all(text in render_api for text in ("/route-preview", "getUser($token)", "api_me", "api_my_incidents", "['assigned_user_ids']", "['assigned_user_statuses']", "route-preview-user:", "config('tacru.osrm_base_url'", "route/v1/driving", "->post($routerBaseUrl", "'coordinates' =>")) and "env('OSRM_BASE_URL'" in render_config and "api.openrouteservice.org" not in render_api,
+    "OSRM service is pinned, requires an external graph volume, and suppresses coordinate-bearing access logs": all(text in osrm_docker for text in ("ghcr.io/project-osrm/osrm-backend:v26.10.0", "DISABLE_ACCESS_LOGGING=1")) and all(text in osrm_start for text in ("${GRAPH_PREFIX}.osrm", "osrm-routed --algorithm mld")) and "Coordinates are sent in OSRM's JSON POST body, not in the URL" in osrm_docs,
     "Android dispatcher map distinguishes fresh, aging, and stale locations": all(text in map_screen for text in ("MapLocationFreshness.FRESH", "MapLocationFreshness.AGING", "MapLocationFreshness.STALE", "age <= 120L", "else -> MapLocationFreshness.STALE")),
     "Android map rejects future timestamps and warns stale pins are not live": all(text in map_screen for text in ("if (recorded.isAfter(now)) return null", "if (recordedAt.isAfter(now))", "STALE — last known position", "Do not treat this marker as live", "Stale markers are last-known positions, not live.")),
     "Android map refreshes incident-location ages for every role without polling responder locations for non-dispatchers": (

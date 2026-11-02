@@ -1,74 +1,48 @@
-# TACResQ in-app routing implementation notes
+# TACResQ in-app routing foundation
 
-Status: foundation only; no live routing provider is enabled by this change.
+Status: the authenticated Android-to-Laravel route-preview adapter and optional OSRM service wrapper are implemented in source. The route feature is disabled by default. No OSRM graph, private service, Render environment setting, paid plan, persistent disk, or deployment has been created. Live routing remains unavailable until the service and graph are separately provisioned and the Android build explicitly opts in.
 
-## Decision
+## Architecture and authorization
 
-Use MapLibre Native as the Android vector renderer with the OpenFreeMap Liberty style. The map renderer and routing engine remain separate provider choices. The map displays OpenStreetMap-derived vector data through OpenFreeMap; route calculation is still disabled until a production routing service is selected and validated. Keep the provider-neutral routing contract so the UI does not bind to one routing vendor.
+MapLibre Native renders the map; OSRM calculates routes in a separate, self-hosted service. A responder/driver can request a static driving preview only for their own active assigned incident. The Android app obtains a fresh location fix and sends the incident ID, origin, and the user's Supabase bearer token to TACResQ's authenticated Render API.
 
-Valhalla's official route API supports driving (`auto`) and pedestrian (`pedestrian`) costing, route summaries, geometry and maneuvers. References:
-- https://valhalla.github.io/valhalla/api/route/api-reference/
-- https://valhalla.github.io/valhalla/api/turn-by-turn/overview/
-- https://project-osrm.org/docs/v5.24.0/api/
+Laravel validates the Supabase session, permits only responder/driver roles, confirms the caller's individual assignment and own assignment/incident status (`assigned` or `en_route`), and derives the destination from caller-authorized incident data. The client cannot supply a destination. The server posts only origin and destination coordinates to a configured OSRM private host. The upstream JSON body contains no bearer token, incident ID, incident narrative, requester identity, or profile data. The host is restricted to an internal single-label hostname; dotted domains, public IPs, loopback literals, and IPv6 literals are rejected. Per-user rate limiting is 10 route requests per minute.
 
-## Why this change does not call a public demo server
+Coordinates are in OSRM's POST JSON body rather than the URL. The optional OSRM container sets `DISABLE_ACCESS_LOGGING=1` so OSRM does not write request lines to stdout. Application code does not log route request/response bodies. This is a mitigation, not a guarantee about host-level network, platform, crash, backup, or administrative retention; review those policies before routing actual responder locations.
 
-TACResQ is an emergency-response application. A public demo instance is not a production availability guarantee, and a route result does not account for live traffic, flooding, road closures, temporary access restrictions, or whether an emergency vehicle can pass. The app must not silently present a straight-line estimate as a road-route ETA.
+## Engine and mode limits
 
-OpenFreeMap's public style/tile service is free to use without an API key, but it is best-effort and has no SLA or personalized support guarantee. It requires attribution and limits offline downloads to 3,000 tiles or 50 MB per download, with at most four parallel requests and a unique User-Agent. Do not treat it as an emergency-service availability guarantee. See https://openfreemap.org/quick_start/ and https://openfreemap.org/.
+The optional server wrapper pins `ghcr.io/project-osrm/osrm-backend:v26.10.0`, runs the MLD algorithm, and fails at startup if the mounted graph is missing. The separate graph must be prepared from a deliberately bounded OSM extract with the OSRM car profile and the matching OSRM release. Graph files are large generated artifacts and must not be committed to Git. The first implementation supports driving only; walking, turn-by-turn voice guidance, live rerouting, live traffic, closures, flood data, emergency-vehicle access restrictions, and dispatch-approved road-condition overlays are not provided.
 
-## Foundation added
+The backend normalizes GeoJSON route geometry, distance, duration, and bounded maneuver text. Android validates route geometry and timestamps again, applies a two-minute freshness limit, draws a map line, and shows a static route-preview card. Routes are guidance only; they are not evidence of current road passability or a guaranteed ETA. The explicit external Maps fallback remains available.
 
-`data/routing/RoutingModels.kt` defines:
-- Validated latitude/longitude values.
-- Provider-neutral route result, distance, duration, geometry, and instructions.
-- A provider interface for driving and walking.
-- Valhalla costing names and response DTOs for a future adapter.
-- A freshness/validity gate that rejects malformed, future-dated, stale, or non-positive route results.
+## Enablement and infrastructure boundary
 
-Unit tests cover invalid coordinates, malformed route metrics, stale/future results, and explicit costing-mode mapping.
+The Laravel service remains compatible when `OSRM_BASE_URL` is blank; the endpoint returns a generic unavailable response and sends no coordinates upstream. If a private OSRM service is later provisioned, set the Laravel environment value to its private internal single-label hostname, such as `http://tacresq-osrm:5000` (use the actual host and port). Do not point this variable at a public routing API.
 
-## Implementation status
+Android `ROUTE_PREVIEW_ENABLED` defaults to false. A debug build requires both `-PuseSupabase=true` and `-PtacresqRoutePreviewEnabled=true`; a release build requires the explicit `-PtacresqRoutePreviewEnabled=true` flag. Only enable after the private endpoint is configured and synthetic route checks pass. Enabling the client flag alone does not create a service or make routing available.
 
-The first adapter increment now exists in `data/routing/ValhallaRoutingProvider.kt`. It accepts an injected Retrofit service, sends only origin/destination coordinates plus explicit costing/units, converts Valhalla polyline6 legs and maneuvers into provider-neutral models, and rejects invalid coordinates, unsuccessful HTTP responses, missing route data, malformed geometry, and unusable metrics. Unit tests cover successful conversion, explicit driving costing, invalid-coordinate short-circuiting, and HTTP failure handling.
+Self-hosting requires operating-area graph selection, pre-processing, persistent storage, sufficient memory/CPU, updates/rollback, monitoring, and access/retention review. A separate private service and disk may require paid hosting. No such paid resources or live service configuration have been authorized or changed in this work. See [`backend/routing/README.md`](../backend/routing/README.md) for the optional container and graph workflow.
 
-The GPS map now has a bounded route-preview flow that requests one route for the responder/driver's own assigned incident, obtains a fresh current origin after the user asks, and draws returned geometry only after result validity/freshness checks. This is a static in-app route preview, not turn-by-turn guidance or automatic rerouting. The adapter intentionally has no default host; without an explicitly configured HTTPS endpoint the route feature remains disabled. No provider credentials belong in the APK.
+## Validation and remaining gaps
 
-The adapter has a bounded client factory in `data/routing/ValhallaRoutingClientFactory.kt`. It stays disabled when no endpoint is configured, requires an explicit HTTPS base URL without embedded credentials/query/fragment, and applies 5-second connect, 10-second read/write, and 15-second overall call timeouts. Unit tests cover disabled configuration and rejected unsafe URLs. The client enforces a 2 MiB maximum routing response size, including chunked responses without a trustworthy `Content-Length`. Oversized bodies fail as network errors before Retrofit parses them. Configure only a maintained, operator-approved endpoint; server-side authorization/rate limiting remain required before production use.
+Automated Android unit tests and Laravel feature tests cover authenticated requests, prohibited roles, foreign/unassigned/inactive incidents, absent router configuration, rejection of public router hosts, coordinates-only OSRM POST data, response normalization, malformed/oversized geometry, provider errors, and user rate limits. These tests use synthetic inputs and fake HTTP responses.
 
-## Remaining integration and verification steps
-1. Host the routing service behind an authenticated, rate-limited endpoint or use a provider with documented operational terms. Keep API keys server-side and leave the endpoint unset until configured.
-2. Validate a fixed synthetic Tacloban route test set and confirm local road access/flood/closure limitations with dispatch staff before relying on results operationally.
-3. Add continuous off-route detection/recalculation and maneuver-by-maneuver voice or visual guidance only as a separate, explicitly scoped feature. Do not call the current preview navigation.
-4. Retain external navigation as a user-invoked fallback. Never auto-launch another app or claim a route is safe/passable.
-5. Validate location permission, service/background lifecycle, connectivity loss, cancellation, repeated route requests, stale GPS, malformed response, no route, and role/assignment authorization on automated tests and physical devices.
+Not validated: compiling Android locally (the sandbox has no Android SDK), starting the OSRM image, preparing a real TACRU-area graph, sizing memory/disk, connecting a live private service, live Supabase/Render behavior, a route on local roads, device GPS/network behavior, or dispatcher operational acceptance. A PR CI pass is not evidence for those live properties. Never treat this prototype as an operational emergency-service navigation system.
 
-## Safety acceptance criteria
+## Map renderer and tile source
 
-- No fabricated route line or ETA when routing fails.
-- Invalid, future-dated, or stale location cannot be silently treated as live.
-- Destination coordinates must be validated before any request.
-- Route requests must be cancellable and must not block the main thread.
-- No sensitive incident details or requester identity sent to a third-party routing service; only the minimum required coordinates.
-- UI remains usable if routing is unavailable and provides a clear manual fallback.
-- No production service is switched until the adapter, CI, and Tacloban route tests pass.
-
-## Responder location continuity
-
-Responder location sharing is owned by a user-started Android location foreground service, not by the current-call screen. The responder must opt in while the app is visible; the service uses coarse updates, a persistent stop control, and the existing assignment-checked location RPC. It checks that the responder's own assignment remains en route, stops on sign-out or permission withdrawal, and does not claim a send succeeded until the backend RPC succeeds. This improves continuity when the responder returns to TACResQ after checking the route preview or another app; it is not a guarantee of uninterrupted GPS, network, or dispatcher visibility. Device/background restrictions and live Supabase behavior remain unverified.
-
-
-## Map renderer migration (2026-10-31)
-
-The Android GPS screen now uses MapLibre Native (OpenGL ES artifact for broad device compatibility) and OpenFreeMap's Liberty vector style:
-- Style URL: `https://tiles.openfreemap.org/styles/liberty`
-- No Google Maps SDK, Google Maps API key, or billing account is required.
+The Android GPS screen uses MapLibre Native and OpenFreeMap's Liberty vector style:
+- Style URL: `https://tiles.openfreemap.org/styles/liberty`.
+- No Google Maps SDK, Google Maps API key, or billing account is required for map rendering.
 - Incident, responder, stale last-known, and one-time device-location pins remain rendered from validated app state.
-- The requester's full-screen manual SOS pin picker uses the same Liberty style; its center coordinate comes from the live map camera, and confirmation is disabled until the style loads successfully.
-- Existing role-specific visibility, responder freshness rules, and one-time local-only location disclosure remain unchanged.
-- Attribution is shown as OpenMapTiles and OpenStreetMap data attribution in the map UI; MapLibre's own attribution control remains enabled.
-- Map tiles are third-party network data. Do not send requester names, phone numbers, incident narratives, or other personal data to the map provider; only map viewport/tile requests are needed.
-- The public OpenFreeMap endpoint has no SLA. The map must not be treated as an authoritative source for road closures, flooding, emergency vehicle access, or live traffic.
-- Offline map availability is not guaranteed. Incident details and status remain available separately from map rendering.
+- Attribution for OpenStreetMap-derived map data remains visible through the map UI's attribution control.
+- Do not send requester names, phone numbers, incident narratives, or other personal data to map tile providers; only map viewport/tile requests are needed.
+- Public map tiles have no SLA. Offline availability is not guaranteed. Incident details and status remain separately available from map rendering.
 
-The previous osmdroid renderer was removed from the Android dependency graph. Route previews are wired into the GPS map but remain disabled unless an HTTPS Valhalla base URL is explicitly supplied at build time with `-PtacresqRoutingBaseUrl=https://your-approved-host/` or `TACRESQ_ROUTING_BASE_URL`. No production host is selected by default. Deployments must provide authenticated/rate-limited hosting and validate local routes; a preview/ETA is not a turn-by-turn or road-condition guarantee.
+## References
+
+- [OSRM HTTP API v26.10.0](https://project-osrm.org/docs/v26.10.0/http) — route requests accept JSON POST bodies with coordinates and options.
+- [OSRM self-hosting guide](https://github.com/Project-OSRM/osrm-backend) — official Docker image and recommended MLD preprocessing steps.
+- [OSRM server options](https://github.com/Project-OSRM/osrm-backend/blob/master/docs/routed.md) — `DISABLE_ACCESS_LOGGING` disables request-line output.
+- [OpenStreetMap copyright and attribution](https://www.openstreetmap.org/copyright).

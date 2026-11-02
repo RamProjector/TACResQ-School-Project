@@ -305,3 +305,210 @@ Route::post('/bridge/rpc/{function}', function (
 });
 
 });
+
+
+// Authenticated route preview. The request goes only to a configured private OSRM service;
+// incident text, profile data, and upstream response details are never forwarded or logged.
+Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $bridge) {
+    $token = $request->bearerToken();
+    abort_if (!$token, 401, 'A valid Supabase access token is required.');
+
+    try {
+        $authUser = $bridge->getUser($token);
+        if (!$authUser) {
+            return response()->json(['message' => 'The Supabase session is invalid or expired.'], 401);
+        }
+    } catch (\RuntimeException) {
+        return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+
+    $userRateKey = 'route-preview-user:'.hash('sha256', (string) $authUser['id']);
+    if (RateLimiter::tooManyAttempts($userRateKey, 10)) {
+        return response()->json(['message' => 'Too many route requests. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
+    }
+    RateLimiter::hit($userRateKey, 60);
+
+    $data = $request->validate([
+        'incident_id' => ['required', 'integer', 'min:1'],
+        'latitude' => ['required', 'numeric', 'between:-90,90'],
+        'longitude' => ['required', 'numeric', 'between:-180,180'],
+    ]);
+    $originLat = (float) $data['latitude'];
+    $originLon = (float) $data['longitude'];
+    abort_unless (is_finite($originLat) && is_finite($originLon), 422, 'Valid coordinates are required.');
+
+    $profileResult = $bridge->callRpc($token, 'api_me', []);
+    if ($profileResult['status'] >= 500) {
+        return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+    $profile = $profileResult['body'];
+    if ($profileResult['status'] >= 400 || !is_array($profile) || !in_array($profile['role'] ?? null, ['responder', 'driver'], true)) {
+        return response()->json(['message' => 'This account cannot request a route preview.'], 403);
+    }
+    $profileId = $profile['id'] ?? null;
+    if (!is_int($profileId) && !(is_string($profileId) && ctype_digit($profileId))) {
+        return response()->json(['message' => 'The account profile is unavailable.'], 403);
+    }
+    $profileId = (int) $profileId;
+
+    $incidentsResult = $bridge->callRpc($token, 'api_my_incidents', []);
+    if ($incidentsResult['status'] >= 500) {
+        return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+    if ($incidentsResult['status'] >= 400 || !is_array($incidentsResult['body'])) {
+        return response()->json(['message' => 'Unable to verify incident assignment.'], 502);
+    }
+    $incident = null;
+    foreach ($incidentsResult['body'] as $candidate) {
+        if (is_array($candidate) && (string) ($candidate['id'] ?? '') === (string) $data['incident_id']) {
+            $incident = $candidate;
+            break;
+        }
+    }
+    $assignedIds = is_array($incident['assigned_user_ids'] ?? null) ? $incident['assigned_user_ids'] : [];
+    $assigned = in_array($profileId, array_map('intval', $assignedIds), true);
+    $ownStatus = null;
+    $assignments = is_array($incident['assigned_user_statuses'] ?? null) ? $incident['assigned_user_statuses'] : [];
+    foreach ($assignments as $assignment) {
+        if (is_array($assignment) && (string) ($assignment['user_id'] ?? '') === (string) $profileId) {
+            $ownStatus = $assignment['status'] ?? null;
+            break;
+        }
+    }
+    if (!$incident || !$assigned
+        || !in_array($incident['status'] ?? null, ['assigned', 'en_route'], true)
+        || !in_array($ownStatus, ['assigned', 'en_route'], true)) {
+        return response()->json(['message' => 'Incident not found or not available for route preview.'], 404);
+    }
+
+    $destinationLat = $incident['latitude'] ?? null;
+    $destinationLon = $incident['longitude'] ?? null;
+    if (!is_numeric($destinationLat) || !is_numeric($destinationLon)
+        || !is_finite((float) $destinationLat) || !is_finite((float) $destinationLon)
+        || (float) $destinationLat < -90 || (float) $destinationLat > 90
+        || (float) $destinationLon < -180 || (float) $destinationLon > 180) {
+        return response()->json(['message' => 'Incident location is unavailable for route preview.'], 422);
+    }
+
+    // Accept only a single-label internal hostname. Reject dotted public/loopback/IP
+    // targets so coordinates cannot be sent to an unintended network service.
+    $routerBaseUrl = rtrim(trim((string) config('tacru.osrm_base_url', '')), '/');
+    $routerParts = $routerBaseUrl !== '' ? parse_url($routerBaseUrl) : false;
+    $routerHost = is_array($routerParts) ? strtolower(trim((string) ($routerParts['host'] ?? ''), '[]')) : '';
+    $isPrivateHostname = $routerHost !== ''
+        && !str_contains($routerHost, '.')
+        && filter_var($routerHost, FILTER_VALIDATE_IP) === false;
+    $hasNoUrlCredentialsOrOptions = is_array($routerParts)
+        && !array_key_exists('user', $routerParts)
+        && !array_key_exists('pass', $routerParts)
+        && !array_key_exists('query', $routerParts)
+        && !array_key_exists('fragment', $routerParts)
+        && in_array($routerParts['path'] ?? '', ['', '/'], true);
+    if (!is_array($routerParts) || ($routerParts['scheme'] ?? null) !== 'http'
+        || !$isPrivateHostname || !$hasNoUrlCredentialsOrOptions) {
+        return response()->json(['message' => 'In-app routing is not configured.'], 503);
+    }
+
+    try {
+        // POST keeps precise coordinates out of the request URL. No bearer token,
+        // incident ID, narrative, or personal information is sent to OSRM.
+        $upstream = \Illuminate\Support\Facades\Http::acceptJson()
+            ->asJson()
+            ->timeout(12)
+            ->post($routerBaseUrl.'/route/v1/driving', [
+                'coordinates' => [[$originLon, $originLat], [(float) $destinationLon, (float) $destinationLat]],
+                'steps' => true,
+                'overview' => 'full',
+                'geometries' => 'geojson',
+                'alternatives' => false,
+            ]);
+    } catch (\Throwable) {
+        return response()->json(['message' => 'Private route service is temporarily unavailable.'], 502);
+    }
+    $body = $upstream->json();
+    if (is_array($body) && in_array($body['code'] ?? null, ['NoRoute', 'NoSegment'], true)) {
+        return response()->json(['message' => 'No route could be calculated. Confirm the destination with dispatch or use external Maps.'], 422);
+    }
+    if ($upstream->status() === 429) {
+        return response()->json(['message' => 'Private route service is busy. Please retry shortly.'], 503);
+    }
+    if (!$upstream->successful()) {
+        return response()->json(['message' => 'Private route service could not calculate this route.'], 502);
+    }
+
+    $route = is_array($body) && ($body['code'] ?? null) === 'Ok' ? ($body['routes'][0] ?? null) : null;
+    $coordinates = is_array($route) ? ($route['geometry']['coordinates'] ?? null) : null;
+    $distance = is_array($route) ? ($route['distance'] ?? null) : null;
+    $duration = is_array($route) ? ($route['duration'] ?? null) : null;
+    if (!is_array($route) || ($route['geometry']['type'] ?? null) !== 'LineString'
+        || !is_array($coordinates) || count($coordinates) < 2 || count($coordinates) > 5000
+        || !is_numeric($distance) || !is_numeric($duration)
+        || !is_finite((float) $distance) || (float) $distance <= 0
+        || !is_finite((float) $duration) || (float) $duration <= 0) {
+        return response()->json(['message' => 'Private route service returned an invalid route.'], 502);
+    }
+
+    $geometry = [];
+    foreach ($coordinates as $coordinate) {
+        if (!is_array($coordinate) || count($coordinate) < 2 || !is_numeric($coordinate[0] ?? null)
+            || !is_numeric($coordinate[1] ?? null) || !is_finite((float) $coordinate[0])
+            || !is_finite((float) $coordinate[1]) || (float) $coordinate[0] < -180
+            || (float) $coordinate[0] > 180 || (float) $coordinate[1] < -90 || (float) $coordinate[1] > 90) {
+            return response()->json(['message' => 'Private route service returned an invalid route.'], 502);
+        }
+        $geometry[] = ['latitude' => (float) $coordinate[1], 'longitude' => (float) $coordinate[0]];
+    }
+
+    $legs = $route['legs'] ?? null;
+    if (!is_array($legs) || count($legs) > 10) {
+        return response()->json(['message' => 'Private route service returned an invalid route.'], 502);
+    }
+    $instructions = [];
+    foreach ($legs as $leg) {
+        $steps = is_array($leg) ? ($leg['steps'] ?? null) : null;
+        if (!is_array($steps) || count($steps) + count($instructions) > 200) {
+            return response()->json(['message' => 'Private route service returned an invalid route.'], 502);
+        }
+        foreach ($steps as $step) {
+            $maneuver = is_array($step) ? ($step['maneuver'] ?? []) : [];
+            $type = is_array($maneuver) ? (string) ($maneuver['type'] ?? '') : '';
+            $modifier = is_array($maneuver) ? trim((string) ($maneuver['modifier'] ?? '')) : '';
+            $name = is_array($step) ? trim((string) ($step['name'] ?? '')) : '';
+            $distanceMeters = is_array($step) ? ($step['distance'] ?? null) : null;
+            $durationSeconds = is_array($step) ? ($step['duration'] ?? null) : null;
+            if (!is_numeric($distanceMeters) || !is_numeric($durationSeconds)
+                || !is_finite((float) $distanceMeters) || (float) $distanceMeters < 0
+                || !is_finite((float) $durationSeconds) || (float) $durationSeconds < 0) {
+                return response()->json(['message' => 'Private route service returned an invalid route.'], 502);
+            }
+            $action = match ($type) {
+                'depart' => 'Start',
+                'arrive' => 'Arrive at destination',
+                'turn' => 'Turn'.($modifier !== '' ? ' '.$modifier : ''),
+                'fork' => 'Keep'.($modifier !== '' ? ' '.$modifier : ''),
+                'merge' => 'Merge',
+                'roundabout', 'rotary' => 'At the roundabout',
+                'on ramp' => 'Take the ramp',
+                'off ramp' => 'Take the exit',
+                default => 'Continue',
+            };
+            $text = $type === 'arrive' || $name === '' ? $action : $action.' onto '.$name;
+            if (mb_strlen($text) > 300) {
+                return response()->json(['message' => 'Private route service returned an invalid route.'], 502);
+            }
+            $instructions[] = [
+                'text' => $text,
+                'distance_meters' => (float) $distanceMeters,
+                'duration_seconds' => (float) $durationSeconds,
+            ];
+        }
+    }
+
+    return response()->json([
+        'geometry' => $geometry,
+        'distance_meters' => (float) $distance,
+        'duration_seconds' => (float) $duration,
+        'instructions' => $instructions,
+    ]);
+})->middleware('throttle:600,1');

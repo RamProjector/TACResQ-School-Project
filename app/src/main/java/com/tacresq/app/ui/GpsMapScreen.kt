@@ -773,7 +773,7 @@ fun GpsMapScreen(
                 routeStatus = "In-app routing is available only while your assigned unit is assigned or en route."
             }
             provider == null -> {
-                routeStatus = "In-app routing is not configured. No route or ETA was generated; a maintained HTTPS routing service must be configured."
+                routeStatus = "In-app routing is disabled or not configured. No route or ETA was generated; a private driving service must be configured and enabled."
             }
             !incident.hasValidMapCoordinates() || destinationLatitude == null || destinationLongitude == null -> {
                 routeStatus = "This incident has no valid destination coordinate. Confirm the location with dispatch."
@@ -825,6 +825,7 @@ fun GpsMapScreen(
                             RouteCoordinate(fix.latitude, fix.longitude),
                             RouteCoordinate(destinationLatitude, destinationLongitude),
                             RouteMode.DRIVING,
+                            incident.id,
                         )
                         val route = result.getOrNull()
                         if (route == null || !route.isUsable(System.currentTimeMillis())) {

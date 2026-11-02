@@ -30,7 +30,7 @@ Review the incident queue, inspect available field units, confirm assignments, a
 
 Every authenticated role has a centered **GPS Map** destination in the mobile navigation shell. Selecting it hides the bottom navigation so the map fills the app viewport. The map automatically frames valid incident pins when they first become available, and **Show incident pins** lets users reframe one pin or all available pins on demand. **Locate me** requests permission only after a tap, centers on one fresh device fix, and shows a device-only marker; that preview is not uploaded or continuously tracked. The dispatcher view can also show fresh (at most two minutes old) foreground location reports from assigned en-route field units. Physical-device tile loading and GPS behavior remain unverified.
 
-The [in-app routing foundation](docs/IN_APP_ROUTING_FOUNDATION.md) defines validated route results and a bounded Valhalla adapter. The GPS map can preview a route when an operator-configured HTTPS Valhalla endpoint is present; routing stays disabled when it is absent. This is not turn-by-turn guidance, and route output is not proof of road passability, closures, flooding, emergency-vehicle access, or current traffic.
+The [in-app routing foundation](docs/IN_APP_ROUTING_FOUNDATION.md) describes the authenticated Render proxy to an optional, private, self-hosted OSRM service. Render verifies the responder's assignment and derives the destination; only the origin and trusted destination coordinates are sent to OSRM in a JSON body. Routing is disabled by default in Android builds and unavailable until a private OSRM service with an area-specific driving graph is configured. No Render service, paid plan, disk, environment variable, or deployment was created. This is a static route preview, not turn-by-turn guidance or proof of road passability, closures, flooding, emergency-vehicle access, or current traffic.
 
 ## Screens and wireframes
 
@@ -51,7 +51,7 @@ The [GPS map UI recommendation](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) explai
 | TACRU web dispatcher dashboard | Implemented |
 | Centered role-aware GPS Map destination | Implemented |
 | Responder location sharing | Implemented in source as an explicit, consent-gated location foreground service for the responder's own en-route assignment; persistent notification provides a stop action; not device-validated |
-| In-app route preview | Implemented in source for the responder/driver's assigned incident when a maintained HTTPS Valhalla endpoint is explicitly configured; otherwise disabled; not turn-by-turn and not device-validated |
+| In-app route preview | Authenticated Render proxy and optional private OSRM client implemented in source for the responder/driver's own active assignment; disabled by default and requires a private OSRM service plus a build opt-in; driving-only; not turn-by-turn or device/route validated |
 | In-app map tiles and live fleet markers | OpenStreetMap tiles and incident pins implemented; dispatcher map can show fresh (≤2 min) consented en-route unit reports from the existing Supabase RPC. Physical-device/network behavior remains unverified |
 | FCM push notifications | Not yet implemented |
 | Offline write synchronization | Not yet implemented |

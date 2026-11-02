@@ -14,14 +14,10 @@ object AppConfig {
     /** Optional demo behavior. Keep off for the normal dispatcher-controlled workflow. */
     const val FAKE_AUTO_DISPATCH = false
 
-    /**
-     * Render API root for the opt-in Supabase RPC bridge and legacy Laravel adapter.
-     * The bridge forwards caller-authenticated RPCs; it does not use a Render database.
-     */
+    /** Render API root for caller-authenticated RPC bridge and assignment-checked route previews. */
     const val BASE_URL = "https://tacresq-school-project.onrender.com/api/"
-
-    /** Optional operator-configured Valhalla HTTPS endpoint; empty disables in-app routes. */
-    val ROUTING_BASE_URL = BuildConfig.ROUTING_BASE_URL
+    /** Route preview stays disabled unless a build explicitly opts in after private OSRM setup. */
+    val ROUTE_PREVIEW_ENABLED = BuildConfig.ROUTE_PREVIEW_ENABLED
 
     /** Supabase project URL and publishable key. Never put a service-role key in an app. */
     const val SUPABASE_URL = "https://kttguamhznoflzagfutr.supabase.co"

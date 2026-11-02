@@ -1,6 +1,8 @@
 <?php
 
 return [
+    // Optional private OSRM HTTP service. Must be an internal hostname or private IP.
+    'osrm_base_url' => env('OSRM_BASE_URL', ''),
     // These are browser-safe client settings. A Render environment variable can
     // override them, but the dashboard must not depend on the temporary database
     // or on Laravel's runtime environment lookup.

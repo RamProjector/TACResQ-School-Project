@@ -9,7 +9,7 @@ import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.data.repo.TokenHolder
 import com.tacresq.app.data.routing.RoutingProvider
-import com.tacresq.app.data.routing.ValhallaRoutingClientFactory
+import com.tacresq.app.data.routing.RenderRoutingClientFactory
 import com.tacresq.app.location.LocationProvider
 import com.tacresq.app.location.ResponderLocationTrackingController
 import kotlinx.coroutines.CoroutineScope
@@ -39,8 +39,9 @@ class AppContainer(context: Context) {
     )
     val locationProvider = LocationProvider(appContext)
     val responderLocationTracking = ResponderLocationTrackingController(appContext)
-    /** Null unless deployment configuration provides a maintained HTTPS Valhalla endpoint. */
+    /** Fake/demo sessions and builds without an explicit route opt-in never contact live routing. */
     val routingProvider: RoutingProvider? = runCatching {
-        ValhallaRoutingClientFactory.createOrNull(AppConfig.ROUTING_BASE_URL)
+        if (AppConfig.USE_FAKE_API || !AppConfig.ROUTE_PREVIEW_ENABLED) null
+        else RenderRoutingClientFactory.create(AppConfig.BASE_URL) { tokenHolder.value }
     }.getOrNull()
 }
