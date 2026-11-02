@@ -9,6 +9,7 @@ compose = (ROUTING / "docker-compose.yml").read_text()
 dockerfile = (ROUTING / "osrm/Dockerfile").read_text()
 prepare = (ROUTING / "prepare-graph.sh").read_text()
 smoke = (ROUTING / "smoke-test.sh").read_text()
+verify = (ROUTING / "verify-local.sh").read_text()
 readme = (ROUTING / "README.md").read_text()
 gitignore = (ROUTING / ".gitignore").read_text()
 
@@ -25,6 +26,11 @@ required = {
     "pinned preparation default": 'OSRM_IMAGE:-ghcr.io/project-osrm/osrm-backend:v26.10.0' in prepare,
     "local smoke default": 'OSRM_BASE_URL:-http://127.0.0.1:${OSRM_PORT:-5000}' in smoke,
     "positive route checks": 'route.get(field)' in smoke and 'value <= 0' in smoke,
+    "verifier requires a prepared graph": 'tacresq.osrm' in verify and 'prepare an approved graph first' in verify,
+    "verifier validates Compose configuration": 'config --quiet' in verify,
+    "verifier starts and tears down Compose": 'up --build --detach' in verify and 'down --volumes --remove-orphans' in verify,
+    "verifier checks coordinate-bearing route logs": "'/route/v1/driving/'" in verify and "coordinate-like data" in verify,
+    "verifier documentation": "./verify-local.sh" in readme and "automatic teardown" in readme,
     "PBF ignored": "*.osm.pbf" in gitignore and "*.osrm*" in gitignore,
     "ODbL documented": "Open Database License (ODbL)" in readme,
     "public router prohibited": "Do not use a public OSRM demo endpoint" in readme,
