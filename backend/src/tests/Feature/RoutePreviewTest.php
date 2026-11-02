@@ -147,15 +147,20 @@ class RoutePreviewTest extends TestCase
         }
     }
 
-    public function test_upstream_errors_do_not_leak_response_details(): void
+    public function test_upstream_rate_limit_is_sanitized_as_service_unavailable(): void
     {
-        foreach ([429 => 503, 503 => 502] as $upstreamStatus => $expectedStatus) {
-            Cache::flush();
-            $this->fakeServices(['message' => 'synthetic private router diagnostics'], $upstreamStatus);
-            $response = $this->withToken(self::TOKEN)->postJson('/api/route-preview', $this->input());
-            $response->assertStatus($expectedStatus);
-            $this->assertStringNotContainsString('synthetic private router diagnostics', $response->getContent());
-        }
+        $this->fakeServices(['message' => 'synthetic private router diagnostics'], 429);
+        $response = $this->withToken(self::TOKEN)->postJson('/api/route-preview', $this->input());
+        $response->assertStatus(503);
+        $this->assertStringNotContainsString('synthetic private router diagnostics', $response->getContent());
+    }
+
+    public function test_other_upstream_errors_are_sanitized_as_bad_gateway(): void
+    {
+        $this->fakeServices(['message' => 'synthetic private router diagnostics'], 503);
+        $response = $this->withToken(self::TOKEN)->postJson('/api/route-preview', $this->input());
+        $response->assertStatus(502);
+        $this->assertStringNotContainsString('synthetic private router diagnostics', $response->getContent());
     }
 
     public function test_route_calculation_is_limited_per_authenticated_user(): void
