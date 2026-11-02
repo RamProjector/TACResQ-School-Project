@@ -1,3 +1,20 @@
+# Active handoff — 2026-11-02: private OSRM route preview and GPS continuity
+
+- **Objective:** Let responders/drivers preview a route in TACResQ without abandoning dispatcher visibility; keep consented location reporting active while the app is backgrounded or a responder checks directions.
+- **Branch/PR:** `agent/in-app-routing-live-tracking`, PR [#243](https://github.com/RamProjector/TACResQ-School-Project/pull/243), open against `main`. The branch includes the foreground location service and the route-preview follow-up; do not merge without exact-head CI and maintainer review.
+- **Implementation:** Android posts the incident ID and current origin to the authenticated Laravel API; Laravel authorizes the caller's active assignment, derives the destination, then posts only coordinates to an opt-in private OSRM service. Router hosts are restricted to single-label internal hostnames; public domains and IP literals are rejected. OSRM is pinned, suppresses request access logs, and its optional container runs non-root. Route preview remains disabled by default; no OSRM graph, service, Render environment setting, paid plan, or deployment has been created.
+- **Location continuity:** The responder location foreground service uses explicit consent, coarse location, a persistent stop notification, session/assignment revalidation, and the existing authorized RPC. It stops on sign-out, assignment end, permission withdrawal, or service errors. No background-location permission, public routing endpoint, turn-by-turn navigation, or continuous rerouting was added.
+- **Validation passed:** `python3 tools/test_location_contract.py` (35 source contracts), the adjacent GPS/location source checks, and `git diff --check`. Exact-head PR CI passed on implementation commit `38ebaa3dd7362d685c0516edd1af947cfe1a901d`: 12 checks succeeded and two optional checks were skipped, including Android debug/release builds, Laravel integration, source checks, CodeQL, and migration replay.
+- **Validation limits:** PHP CLI and Android SDK are unavailable in this sandbox, so Laravel/PHP and Android compile/unit tests were not run locally. No emulator, physical-device, live Supabase/Render, real road-route, or dispatcher acceptance testing was performed.
+- **Safety limits:** A route preview is guidance only, not turn-by-turn navigation, a guaranteed ETA, or evidence of current passability, closures, flooding, traffic, or emergency-vehicle access. Location sharing cannot guarantee uninterrupted visibility across Android, GPS, network, or backend outages. No live deployment or paid resource was changed.
+- **Next:** Keep PR #243 open for maintainer review and confirm checks on the latest head before merge. No merge, service provisioning, paid plan, or live deployment is authorized. Physical-device foreground-service testing, private-service provisioning, synthetic road-route validation, and dispatcher acceptance remain future work.
+
+---
+
+# Previous handoff — 2026-11-01: in-app route preview and responder GPS continuity
+
+---
+
 # Active handoff — 2026-10-31: clarify dispatch team assignment versus field leadership
 
 - **Objective:** Implement the safe portion of the proposed team-based workflow without inventing TACRU command authority.

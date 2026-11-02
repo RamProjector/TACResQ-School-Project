@@ -30,8 +30,9 @@ internal class ValhallaRoutingProvider(
         origin: RouteCoordinate,
         destination: RouteCoordinate,
         mode: RouteMode,
+        incidentId: Long,
     ): Result<RouteResult> {
-        if (!origin.isValid() || !destination.isValid()) {
+        if (incidentId <= 0L || !origin.isValid() || !destination.isValid()) {
             return Result.failure(IllegalArgumentException("Origin and destination must be valid coordinates."))
         }
 

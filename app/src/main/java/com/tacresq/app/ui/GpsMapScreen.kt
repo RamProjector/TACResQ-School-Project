@@ -9,6 +9,7 @@ import android.net.Uri
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.graphics.Color
 import android.os.Handler
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -92,6 +93,7 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.annotations.Icon
 import org.maplibre.android.annotations.IconFactory
 import org.maplibre.android.annotations.MarkerOptions
+import org.maplibre.android.annotations.PolylineOptions
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -99,15 +101,22 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
+import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.Role
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.model.statusFor
+import com.tacresq.app.data.routing.RouteCoordinate
+import com.tacresq.app.data.routing.RouteMode
+import com.tacresq.app.data.routing.RouteResult
+import com.tacresq.app.data.routing.RoutingProvider
 import com.tacresq.app.ui.common.StatusPill
 import com.tacresq.app.ui.common.pillColor
 import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationSettingsCheck
 import com.tacresq.app.location.LocationProvider
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
@@ -339,6 +348,8 @@ fun GpsMapScreen(
     user: User,
     incidents: List<Incident>,
     locationProvider: LocationProvider,
+    routingProvider: RoutingProvider? = null,
+    initialSelectedIncidentId: Long? = null,
     responderLocations: List<ResponderLocation> = emptyList(),
     onRefreshResponderLocations: () -> Unit = {},
     onBack: () -> Unit,
@@ -350,11 +361,20 @@ fun GpsMapScreen(
     val refreshResponderLocations by rememberUpdatedState(onRefreshResponderLocations)
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
     var selectedIncidentId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var appliedInitialSelectionId by rememberSaveable { mutableStateOf<Long?>(null) }
     val mapSheetState = rememberBottomSheetScaffoldState(
         bottomSheetState = androidx.compose.material3.rememberStandardBottomSheetState(
             initialValue = SheetValue.PartiallyExpanded,
         ),
     )
+    androidx.compose.runtime.LaunchedEffect(initialSelectedIncidentId) {
+        val requestedId = initialSelectedIncidentId
+        if (requestedId != null && requestedId != appliedInitialSelectionId) {
+            selectedIncidentId = requestedId
+            appliedInitialSelectionId = requestedId
+            mapSheetState.bottomSheetState.expand()
+        }
+    }
     // System Back collapses the selected-place sheet before leaving the map.
     BackHandler {
         if (mapSheetState.bottomSheetState.currentValue == SheetValue.Expanded) {
@@ -371,6 +391,14 @@ fun GpsMapScreen(
     var isLocationRequestInProgress by remember { mutableStateOf(false) }
     var retryLocationAfterSettings by remember { mutableStateOf(false) }
     var showAppSettingsAction by remember { mutableStateOf(false) }
+    var routeResult by remember { mutableStateOf<RouteResult?>(null) }
+    var routeIncidentId by remember { mutableStateOf<Long?>(null) }
+    var routeStatus by remember { mutableStateOf<String?>(null) }
+    var isRouteLoading by remember { mutableStateOf(false) }
+    var pendingRouteIncident by remember { mutableStateOf<Incident?>(null) }
+    var routeJob by remember { mutableStateOf<Job?>(null) }
+    var routeRequestGeneration by remember { mutableStateOf(0) }
+    var requestRoute: (Incident) -> Unit = {}
     var hasValidatedInternet by remember { mutableStateOf<Boolean?>(null) }
     val connectivityManager = remember(context) {
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
@@ -486,6 +514,14 @@ fun GpsMapScreen(
         locationStatus = null
         if (selectedIncidentId != null && visibleIncidents.none { it.id == selectedIncidentId }) {
             selectedIncidentId = null
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(freshnessTick, routeResult) {
+        val route = routeResult ?: return@LaunchedEffect
+        if (!route.isUsable(System.currentTimeMillis())) {
+            routeResult = null
+            routeStatus = "This route preview expired. Request a fresh route before proceeding."
         }
     }
 
@@ -704,7 +740,13 @@ fun GpsMapScreen(
         ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            retryLocationAfterSettings = true
+            val pending = pendingRouteIncident
+            if (pending != null) {
+                pendingRouteIncident = null
+                requestRoute(pending)
+            } else {
+                retryLocationAfterSettings = true
+            }
         } else {
             locationStatus = "Location services remain off. Incident pins remain available; enable Location in Quick Settings or try again."
         }
@@ -817,11 +859,119 @@ fun GpsMapScreen(
     ) { granted ->
         if (granted) {
             showAppSettingsAction = false
-            locateOnce()
+            val pending = pendingRouteIncident
+            if (pending != null) {
+                pendingRouteIncident = null
+                requestRoute(pending)
+            } else {
+                locateOnce()
+            }
         } else {
             deviceFix = null
             showAppSettingsAction = true
+            routeStatus = if (pendingRouteIncident != null) {
+                "Location permission denied. No route was requested; allow approximate location and try again."
+            } else routeStatus
+            pendingRouteIncident = null
             locationStatus = "Location permission denied. Incident pins remain available; allow Location in TACResQ app settings to use Locate me"
+        }
+    }
+    requestRoute = { incident ->
+        routeJob?.cancel()
+        routeRequestGeneration += 1
+        val generation = routeRequestGeneration
+        routeResult = null
+        routeIncidentId = incident.id
+        isRouteLoading = false
+        val provider = routingProvider
+        val destinationLatitude = incident.latitude
+        val destinationLongitude = incident.longitude
+        when {
+            role != Role.RESPONDER && role != Role.DRIVER -> {
+                routeStatus = "In-app route previews are available to assigned field responders and drivers."
+            }
+            incident.assignedTo != user.id && user.id !in incident.assignedUserIds -> {
+                routeStatus = "Only the assigned responder or driver can request an in-app route for this incident."
+            }
+            incident.statusFor(user.id) != IncidentStatus.ASSIGNED &&
+                incident.statusFor(user.id) != IncidentStatus.EN_ROUTE -> {
+                routeStatus = "In-app routing is available only while your assigned unit is assigned or en route."
+            }
+            provider == null -> {
+                routeStatus = "In-app routing is disabled or not configured. No route or ETA was generated; a private driving service must be configured and enabled."
+            }
+            !incident.hasValidMapCoordinates() || destinationLatitude == null || destinationLongitude == null -> {
+                routeStatus = "This incident has no valid destination coordinate. Confirm the location with dispatch."
+            }
+            !locationProvider.hasApproximatePermission() -> {
+                pendingRouteIncident = incident
+                routeStatus = "Allow approximate location to get a fresh route origin."
+                locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+            else -> {
+                isRouteLoading = true
+                routeStatus = "Getting a fresh location and calculating a road-route estimate…"
+                routeJob = scope.launch {
+                    try {
+                        when (val settings = locationProvider.checkLocationSettings()) {
+                            LocationSettingsCheck.Ready -> Unit
+                            is LocationSettingsCheck.NeedsResolution -> {
+                                pendingRouteIncident = incident
+                                routeStatus = "Enable device location to calculate a route."
+                                locationSettingsLauncher.launch(
+                                    IntentSenderRequest.Builder(settings.exception.resolution).build(),
+                                )
+                                return@launch
+                            }
+                            LocationSettingsCheck.Unavailable -> {
+                                routeStatus = "Device location settings are unavailable. No route was requested."
+                                return@launch
+                            }
+                        }
+                        val fix = when (val capture = locationProvider.currentFix()) {
+                            is LocationCaptureResult.Success -> capture.fix
+                            LocationCaptureResult.PermissionDenied -> {
+                                routeStatus = "Approximate location permission is required for a current route origin."
+                                return@launch
+                            }
+                            LocationCaptureResult.ServicesDisabled -> {
+                                routeStatus = "Device location is off. Enable it before requesting a route."
+                                return@launch
+                            }
+                            LocationCaptureResult.TimedOut,
+                            LocationCaptureResult.InvalidFix,
+                            LocationCaptureResult.Unavailable,
+                            -> {
+                                routeStatus = "A fresh current location is unavailable. No route was requested."
+                                return@launch
+                            }
+                        }
+                        val result = provider.route(
+                            RouteCoordinate(fix.latitude, fix.longitude),
+                            RouteCoordinate(destinationLatitude, destinationLongitude),
+                            RouteMode.DRIVING,
+                            incident.id,
+                        )
+                        val route = result.getOrNull()
+                        if (route == null || !route.isUsable(System.currentTimeMillis())) {
+                            routeStatus = result.exceptionOrNull()?.message
+                                ?: "The routing service returned no current usable route."
+                            return@launch
+                        }
+                        routeResult = route
+                        routeIncidentId = incident.id
+                        routeStatus = "Route preview only. No live traffic, flooding, road closures, or emergency-vehicle access is verified."
+                        val routePoints = route.geometry.map { LatLng(it.latitude, it.longitude) }
+                        mapView.post { fitMapPoints(routePoints) }
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        routeStatus = "Could not calculate a route. Check connectivity and confirm the destination with dispatch."
+                    } finally {
+                        if (generation == routeRequestGeneration) isRouteLoading = false
+                    }
+                }
+            }
         }
     }
     val onLocateClick: () -> Unit = {
@@ -900,6 +1050,7 @@ fun GpsMapScreen(
         visibleIncidents,
         validResponderLocations,
         deviceFix,
+        routeResult,
         freshnessTick,
     ) {
         val map = mapLibreMap
@@ -971,6 +1122,14 @@ fun GpsMapScreen(
                     .icon(myLocationPinIcon)
                     .title("Your location · this device only")
                     .snippet("One-time location preview. Not uploaded or continuously tracked."),
+            )
+        }
+        routeResult?.takeIf { it.isUsable(System.currentTimeMillis()) }?.let { route ->
+            map.addPolyline(
+                PolylineOptions()
+                    .addAll(route.geometry.map { LatLng(it.latitude, it.longitude) })
+                    .color(Color.rgb(0, 119, 182))
+                    .width(6f),
             )
         }
 
@@ -1088,12 +1247,56 @@ fun GpsMapScreen(
                         )
                     }
 
+                    if (isRouteLoading || routeResult != null || routeStatus != null) {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text(
+                                        if (isRouteLoading) "Calculating in-app route…" else "In-app route preview",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    routeResult?.let { route ->
+                                        val distance = String.format(java.util.Locale.US, "%.1f km", route.distanceMeters / 1_000.0)
+                                        val minutes = (route.durationSeconds / 60.0).roundToInt().coerceAtLeast(1)
+                                        Text("$distance · estimated $minutes min", style = MaterialTheme.typography.bodyMedium)
+                                        if (route.instructions.isNotEmpty()) {
+                                            Text("Suggested maneuvers · not live turn-by-turn", style = MaterialTheme.typography.labelMedium)
+                                            route.instructions.take(5).forEachIndexed { index, instruction ->
+                                                Text("${index + 1}. ${instruction.text}", style = MaterialTheme.typography.bodySmall)
+                                            }
+                                        }
+                                    }
+                                    routeStatus?.let { message ->
+                                        Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    if (routeResult != null) {
+                                        androidx.compose.material3.TextButton(
+                                            onClick = {
+                                                routeJob?.cancel()
+                                                routeRequestGeneration += 1
+                                                isRouteLoading = false
+                                                pendingRouteIncident = null
+                                                routeResult = null
+                                                routeIncidentId = null
+                                                routeStatus = null
+                                            },
+                                            modifier = Modifier.heightIn(min = 48.dp),
+                                        ) { Text("Clear route preview") }
+                                    }
+                                }
+                        }
+                    }
+
                     if (selectedIncident != null) {
                         MapIncidentCard(
                             incident = selectedIncident,
                             context = context,
                             now = mapNow,
                             onFocusOnMap = ::focusIncidentOnMap,
+                            onNavigate = requestRoute,
                         )
                     }
 
@@ -1226,6 +1429,7 @@ fun GpsMapScreen(
                                     context = context,
                                     now = mapNow,
                                     onFocusOnMap = ::focusIncidentOnMap,
+                                    onNavigate = requestRoute,
                                 )
                             }
                         } else {
@@ -1529,14 +1733,14 @@ private fun IncidentMapNavigateButton(
         onClick = onClick,
         modifier = modifier.heightIn(min = 48.dp).semantics {
             contentDescription = if (needsConfirmation) {
-                "Review location before navigating to incident #$incidentId"
+                "Review location before previewing a route to incident #$incidentId"
             } else {
-                "Navigate to incident #$incidentId"
+                "Preview an in-app route to incident #$incidentId"
             }
         },
         contentPadding = padding,
     ) {
-        Text(if (needsConfirmation) "Review location" else "Navigate")
+        Text(if (needsConfirmation) "Review location" else "Route in TACResQ")
     }
 }
 
@@ -1546,6 +1750,7 @@ private fun MapIncidentCard(
     context: Context,
     now: Instant,
     onFocusOnMap: (Incident) -> Unit,
+    onNavigate: (Incident) -> Unit,
 ) {
     val lat = incident.latitude
     val lng = incident.longitude
@@ -1554,6 +1759,7 @@ private fun MapIncidentCard(
         lat in -90.0..90.0 && lng in -180.0..180.0
     val (ageLabel, needsConfirmation) = incident.locationAgeStatus(now)
     var showNavigationConfirmation by remember(incident.id) { mutableStateOf(false) }
+    var externalNavigationPending by remember(incident.id) { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -1625,11 +1831,14 @@ private fun MapIncidentCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                val navigateToIncident = {
+                val navigateToIncident: (Boolean) -> Unit = { useExternalMaps ->
                     if (needsConfirmation) {
+                        externalNavigationPending = useExternalMaps
                         showNavigationConfirmation = true
-                    } else {
+                    } else if (useExternalMaps) {
                         openExternalMaps(context, lat!!, lng!!)
+                    } else {
+                        onNavigate(incident)
                     }
                 }
                 // Keep the two actions identical across compact and regular widths.
@@ -1639,8 +1848,14 @@ private fun MapIncidentCard(
                         needsConfirmation = needsConfirmation,
                         stacked = maxWidth < 320.dp,
                         onFocus = { onFocusOnMap(incident) },
-                        onNavigate = navigateToIncident,
+                        onNavigate = { navigateToIncident(false) },
                     )
+                }
+                androidx.compose.material3.TextButton(
+                    onClick = { navigateToIncident(true) },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text("Open external Maps instead")
                 }
             } else {
                 // A landmark-only request is still actionable. Reuse the shared
@@ -1671,10 +1886,11 @@ private fun MapIncidentCard(
                 androidx.compose.material3.TextButton(
                     onClick = {
                         showNavigationConfirmation = false
-                        openExternalMaps(context, lat!!, lng!!)
+                        if (externalNavigationPending) openExternalMaps(context, lat!!, lng!!)
+                        else onNavigate(incident)
                     },
                 ) {
-                    Text("Navigate anyway")
+                    Text(if (externalNavigationPending) "Open external Maps anyway" else "Preview route anyway")
                 }
             },
             dismissButton = {

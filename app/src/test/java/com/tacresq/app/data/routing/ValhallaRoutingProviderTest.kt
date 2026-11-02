@@ -39,6 +39,7 @@ class ValhallaRoutingProviderTest {
             RouteCoordinate(11.2443, 125.0030),
             RouteCoordinate(11.25, 125.01),
             RouteMode.DRIVING,
+            42L,
         )
 
         assertTrue(result.isSuccess)
@@ -68,6 +69,7 @@ class ValhallaRoutingProviderTest {
             RouteCoordinate(Double.NaN, 125.0),
             RouteCoordinate(11.25, 125.01),
             RouteMode.DRIVING,
+            42L,
         )
 
         assertFalse(result.isSuccess)
@@ -84,6 +86,7 @@ class ValhallaRoutingProviderTest {
             RouteCoordinate(11.2443, 125.0030),
             RouteCoordinate(11.25, 125.01),
             RouteMode.WALKING,
+            42L,
         )
 
         assertFalse(result.isSuccess)

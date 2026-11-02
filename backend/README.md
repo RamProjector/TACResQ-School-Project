@@ -12,12 +12,15 @@ Laravel 13 hosts the TACRU dispatcher console on Render. Supabase is the source 
    - `APP_DEBUG=false`
    - `LOG_CHANNEL=stderr`
    - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: the browser-safe settings for the TACRU dashboard at `/dispatch/`. Never use a service-role key.
+   - Optional `OSRM_BASE_URL`: the internal URL of a separately hosted private OSRM service (for example, `http://tacresq-osrm:5000`). Do not set this to a public routing API. Route preview stays unavailable if the variable is blank or points to a public host. See [`routing/README.md`](routing/README.md) for the optional service; provisioning requires separate authorization and is not part of this deployment.
 4. Deploy. The container clears Laravel's config cache and serves HTTP on Render's assigned `$PORT`; it does not connect to or migrate a Render database.
 5. Check `https://<your-service>.onrender.com/up`; expected response is `200`.
 6. Open `https://<your-service>.onrender.com/dispatch/` for the TACRU dashboard. Its `/runtime-config.json` endpoint returns only the configured Supabase URL and publishable key, with caching disabled. `/dispatch/config.json` remains an alias.
 7. Configure the Android app for direct Supabase mode: `USE_FAKE_API = false` and `USE_SUPABASE_API = true`.
 
 Render free instances may spin down when idle; first request after inactivity can take a while. Supabase remains independent of Render instance lifecycle.
+
+The mobile route-preview proxy validates the caller's Supabase session and responder/driver assignment using `api_me` and `api_my_incidents`, then derives the destination from the authorized incident. It posts only the current origin and trusted destination coordinates to a private OSRM service; the body excludes the bearer token, incident ID, narrative, and profile data. Coordinates are not placed in the OSRM URL, and the optional router container disables access logging. With `OSRM_BASE_URL` unset, route previews return an unavailable response; Android routing is also disabled by default and requires an explicit build flag. External Maps remains a user-invoked fallback. No live Render environment variable, private service, graph volume, or deployment was changed.
 
 ## Seed demo users (optional; demo password is not production-safe)
 

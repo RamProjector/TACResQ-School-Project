@@ -67,9 +67,10 @@ These roles define TACResQ's emergency-response workflow and must remain specifi
 This document defines product identity and direction; it does not claim every planned capability is implemented or operationally validated.
 
 Before describing a feature as complete, inspect the current source and tests. In particular:
-- The current Android map uses OpenStreetMap/osmdroid and displays supported incident/device-location information.
-- Current responder navigation opens external turn-by-turn navigation; do not claim that full in-app turn-by-turn routing or a guaranteed ETA exists unless implemented and verified.
-- Background responder tracking and FCM push notifications are not implemented according to the current README status table.
+- The current Android map uses MapLibre Native with OpenFreeMap's OpenStreetMap-derived style and displays supported incident/device-location information.
+- Responders/drivers can request a static driving preview to their own active assignment through TACResQ's authenticated Render proxy to an optional private OSRM service. Render verifies the caller's identity and per-responder assignment and derives the destination from the caller-visible incident. Only origin and trusted destination coordinates are sent in an OSRM JSON body; Android routing is disabled by default and the backend rejects public router hosts. Enabling it requires an area-specific graph, private service configuration, and explicit Android build opt-in; no live Render configuration or paid resource was changed. It is not turn-by-turn navigation, continuous rerouting, or a guaranteed ETA. External Maps remains an explicit fallback.
+- Responder location sharing is an explicit, consent-gated Android location foreground service scoped to the responder's own en-route assignment. It can continue when TACResQ is backgrounded, subject to Android, GPS, network, and backend availability; a persistent notification offers a stop control. Do not describe it as guaranteed live tracking.
+- FCM push notifications are not implemented.
 - Physical-device GPS, network, tile-loading, and real-backend behavior must not be called verified solely because CI builds pass.
 - A passing build or test does not establish live service readiness, official operational approval, or guaranteed emergency delivery.
 

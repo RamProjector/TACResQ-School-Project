@@ -6,7 +6,7 @@ import com.google.gson.annotations.SerializedName
  * Routing-provider-neutral models for in-app road routing.
  *
  * Route geometry is expressed as latitude/longitude points for direct rendering
- * by osmdroid. Providers must validate coordinates and timestamps before returning
+ * by MapLibre. Providers must validate coordinates and timestamps before returning
  * a RouteResult. A route result is guidance, not proof that a road is currently
  * passable or safe for emergency vehicles.
  */
@@ -60,6 +60,7 @@ interface RoutingProvider {
         origin: RouteCoordinate,
         destination: RouteCoordinate,
         mode: RouteMode,
+        incidentId: Long,
     ): Result<RouteResult>
 }
 

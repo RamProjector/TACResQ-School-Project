@@ -175,10 +175,10 @@ checks = {
             "Start without sharing",
         )
     ),
-    "external routing remains a separate action without redundant helper copy": (
-        'Text("Navigate to incident")' in responder
-        and 'google.navigation:q=$lat,$lng&mode=d' in responder
-        and "Opens an installed maps app for route guidance." not in responder
+    "responder opens in-app route guidance while location tracking remains consented and trip-scoped": (
+        'Text("Open in-app route preview")' in responder
+        and "including when you switch apps or lock your screen" in responder
+        and "persistent notification shows sharing is active and lets you stop it" in responder
     ),
     "SOS submission lock is set before launching asynchronous work": (
         "Claim the submission synchronously before launching the coroutine." in requester
