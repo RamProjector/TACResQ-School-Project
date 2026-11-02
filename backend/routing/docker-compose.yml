@@ -1,0 +1,17 @@
+services:
+  tacresq-osrm:
+    build:
+      context: ./osrm
+    image: tacresq-osrm:v26.10.0
+    environment:
+      OSRM_GRAPH_PREFIX: /var/data/tacresq
+    ports:
+      - "127.0.0.1:${OSRM_PORT:-5000}:5000"
+    volumes:
+      - "${OSRM_GRAPH_DIR:-./graph}:/var/data:ro"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    restart: "no"
