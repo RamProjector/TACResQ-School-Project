@@ -174,6 +174,33 @@ class TacRepository(
         chatApi.sendIncidentMessage(incidentId, normalized, clientMessageId)
     }
 
+    suspend fun sendIncidentImageMessage(
+        incidentId: Long,
+        senderId: Long,
+        message: String,
+        clientMessageId: String,
+        mimeType: String,
+        imageBytes: ByteArray,
+    ): Result<IncidentMessage> = call {
+        val chatApi = api as? TacChatApi
+            ?: throw ApiException("Incident chat is not available with the configured backend.")
+        val normalized = message.trim()
+        require(incidentId > 0 && senderId > 0) { "A valid incident and sender are required." }
+        require(normalized.length <= 2000) { "Image caption must be 2000 characters or fewer." }
+        require(mimeType in setOf("image/jpeg", "image/png", "image/webp")) { "Choose a JPG, PNG, or WebP image." }
+        require(imageBytes.isNotEmpty() && imageBytes.size <= 5 * 1024 * 1024) { "Images must be 5 MB or smaller." }
+        chatApi.sendIncidentImageMessage(incidentId, senderId, normalized, clientMessageId, mimeType, imageBytes)
+    }
+
+    suspend fun downloadIncidentImage(path: String): Result<ByteArray> = call {
+        val chatApi = api as? TacChatApi
+            ?: throw ApiException("Incident chat is not available with the configured backend.")
+        require(path.matches(Regex("^[1-9][0-9]*/[1-9][0-9]*/[0-9a-f-]{36}\\.(jpg|png|webp)$"))) {
+            "Image attachment path is invalid."
+        }
+        chatApi.downloadIncidentImage(path)
+    }
+
     suspend fun createIncident(
         type: IncidentType,
         description: String?,

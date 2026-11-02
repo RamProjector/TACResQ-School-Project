@@ -54,6 +54,7 @@ class FakeTacApi(
     private data class StoredMessage(val incidentId: Long, val senderId: Long, val clientMessageId: String, val value: IncidentMessage)
     private val notifications = mutableListOf<StoredNotification>()
     private val messages = mutableListOf<StoredMessage>()
+    private val messageImages = mutableMapOf<String, ByteArray>()
     private val messageSendTimes = mutableMapOf<Long, MutableList<Long>>()
     private var nextNotificationId = 1L
     private var nextMessageId = 1L
@@ -234,6 +235,7 @@ class FakeTacApi(
                 senderId = me.id,
                 message = normalized,
                 createdAt = Instant.now().toString(),
+                senderName = me.name,
             )
             messages += StoredMessage(incidentId, me.id, normalizedClientId, created)
             recentTimes += nowMs
@@ -250,6 +252,83 @@ class FakeTacApi(
                 )
             }
             created
+        }
+    }
+
+    override suspend fun sendIncidentImageMessage(
+        incidentId: Long,
+        senderId: Long,
+        message: String,
+        clientMessageId: String,
+        mimeType: String,
+        imageBytes: ByteArray,
+    ): IncidentMessage {
+        delay(160)
+        val normalized = message.trim()
+        if (incidentId < 1 || normalized.length > 2000 || senderId < 1) {
+            throw httpError(422, "Image message details are invalid.")
+        }
+        if (mimeType !in setOf("image/jpeg", "image/png", "image/webp") ||
+            imageBytes.isEmpty() || imageBytes.size > 5 * 1024 * 1024
+        ) throw httpError(422, "Choose a JPG, PNG, or WebP image up to 5 MB.")
+        val idempotencyKey = try { UUID.fromString(clientMessageId).toString() }
+        catch (_: IllegalArgumentException) { throw httpError(422, "A valid client message ID is required.") }
+        val extension = when (mimeType) { "image/jpeg" -> "jpg"; "image/png" -> "png"; else -> "webp" }
+
+        return synchronized(lock) {
+            val me = current()
+            if (me.id != senderId) throw httpError(403, "The signed-in account does not match the message sender.")
+            val incident = ensureChatAccess(incidentId, me)
+            val path = "$incidentId/$senderId/$idempotencyKey.$extension"
+            val existing = messages.firstOrNull { it.senderId == me.id && it.clientMessageId == idempotencyKey }
+            if (existing != null) {
+                val prior = existing.value
+                if (existing.incidentId != incidentId || prior.message != normalized ||
+                    prior.attachmentPath != path || prior.attachmentMimeType != mimeType ||
+                    prior.attachmentSizeBytes != imageBytes.size.toLong()
+                ) throw httpError(409, "Client message ID was already used for different content.")
+                return@synchronized prior
+            }
+
+            val nowMs = System.currentTimeMillis()
+            val recentTimes = messageSendTimes.getOrPut(me.id) { mutableListOf() }
+            recentTimes.removeAll { it < nowMs - 60_000 }
+            if (recentTimes.size >= 20) throw httpError(429, "Message rate limit reached. Wait before sending again.")
+
+            val created = IncidentMessage(
+                id = nextMessageId++,
+                incidentId = incidentId,
+                senderId = me.id,
+                message = normalized,
+                createdAt = Instant.now().toString(),
+                senderName = me.name,
+                attachmentPath = path,
+                attachmentMimeType = mimeType,
+                attachmentSizeBytes = imageBytes.size.toLong(),
+            )
+            messages += StoredMessage(incidentId, me.id, idempotencyKey, created)
+            messageImages[path] = imageBytes.copyOf()
+            recentTimes += nowMs
+
+            val recipients = (
+                listOfNotNull(requesterOf[incidentId]) +
+                    incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+                ).distinct().filterNot { it == me.id }
+            recipients.forEach { recipientId ->
+                addNotification(recipientId, incidentId, "incident_message", "New incident message",
+                    "A participant sent a new message in an incident conversation.")
+            }
+            created
+        }
+    }
+
+    override suspend fun downloadIncidentImage(path: String): ByteArray {
+        delay(80)
+        val incidentId = path.substringBefore('/').toLongOrNull()
+            ?: throw httpError(422, "Image attachment path is invalid.")
+        return synchronized(lock) {
+            ensureChatAccess(incidentId, current())
+            messageImages[path]?.copyOf() ?: throw httpError(404, "Image attachment is unavailable.")
         }
     }
 

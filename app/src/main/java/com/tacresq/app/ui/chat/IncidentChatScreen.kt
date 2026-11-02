@@ -1,5 +1,10 @@
 package com.tacresq.app.ui.chat
 
+import android.graphics.BitmapFactory
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,6 +30,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,8 +46,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -54,8 +67,10 @@ import com.tacresq.app.data.model.IncidentMessage
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.ui.common.ScreenHeader
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,6 +92,8 @@ data class IncidentChatUiState(
     val hasOlder: Boolean = true,
     val error: String? = null,
     val sendError: String? = null,
+    val attachmentBytes: ByteArray? = null,
+    val attachmentMimeType: String? = null,
 )
 
 class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
@@ -87,6 +104,8 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     private var olderJob: Job? = null
     private var sendJob: Job? = null
     private var pendingClientMessageId: String? = null
+    private var pendingImageClientMessageId: String? = null
+    private var pendingImageSignature: String? = null
 
     fun open(incidentId: Long) {
         if (activeIncidentId != incidentId) {
@@ -95,6 +114,8 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             sendJob = null
             activeIncidentId = incidentId
             pendingClientMessageId = null
+            pendingImageClientMessageId = null
+            pendingImageSignature = null
             _state.value = IncidentChatUiState()
         }
         refresh(incidentId)
@@ -169,7 +190,11 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun updateDraft(value: String) {
         val next = value.take(2000)
-        if (next != _state.value.draft) pendingClientMessageId = null
+        if (next != _state.value.draft) {
+            pendingClientMessageId = null
+            pendingImageClientMessageId = null
+            pendingImageSignature = null
+        }
         _state.update { it.copy(draft = next, sendError = null) }
     }
 
@@ -206,6 +231,78 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         }
     }
 
+    fun setImageAttachment(bytes: ByteArray, mimeType: String) {
+        if (mimeType !in setOf("image/jpeg", "image/png", "image/webp") ||
+            bytes.isEmpty() || bytes.size > 5 * 1024 * 1024
+        ) {
+            _state.update { it.copy(sendError = "Choose a JPG, PNG, or WebP image up to 5 MB.") }
+            return
+        }
+        pendingImageClientMessageId = null
+        pendingImageSignature = null
+        _state.update {
+            it.copy(attachmentBytes = bytes.copyOf(), attachmentMimeType = mimeType, sendError = null)
+        }
+    }
+
+    fun clearImageAttachment() {
+        pendingImageClientMessageId = null
+        pendingImageSignature = null
+        _state.update { it.copy(attachmentBytes = null, attachmentMimeType = null, sendError = null) }
+    }
+
+    fun sendImage(incidentId: Long, senderId: Long) {
+        val current = _state.value
+        val bytes = current.attachmentBytes ?: return
+        val mimeType = current.attachmentMimeType ?: return
+        val caption = current.draft.trim()
+        if (activeIncidentId != incidentId || senderId < 1 || sendJob?.isActive == true || caption.length > 2000) return
+        val signature = "$mimeType:${bytes.contentHashCode()}:$caption"
+        val clientMessageId = if (pendingImageSignature == signature) {
+            pendingImageClientMessageId ?: UUID.randomUUID().toString().also {
+                pendingImageClientMessageId = it
+                pendingImageSignature = signature
+            }
+        } else {
+            UUID.randomUUID().toString().also {
+                pendingImageClientMessageId = it
+                pendingImageSignature = signature
+            }
+        }
+        sendJob = viewModelScope.launch {
+            _state.update { it.copy(sending = true, sendError = null, error = null) }
+            repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes)
+                .onSuccess { sent ->
+                    if (activeIncidentId != incidentId) return@onSuccess
+                    pendingImageClientMessageId = null
+                    pendingImageSignature = null
+                    pendingClientMessageId = null
+                    _state.update { state ->
+                        state.copy(
+                            items = (state.items + sent).distinctBy { it.id }.sortedBy { it.id },
+                            draft = "",
+                            attachmentBytes = null,
+                            attachmentMimeType = null,
+                            sending = false,
+                            sendError = null,
+                        )
+                    }
+                }
+                .onFailure { failure ->
+                    if (activeIncidentId != incidentId) return@onFailure
+                    _state.update {
+                        it.copy(
+                            sending = false,
+                            sendError = failure.message ?: "Image was not confirmed. Retry safely.",
+                        )
+                    }
+                }
+        }
+    }
+
+    suspend fun downloadImage(path: String): ByteArray? =
+        repo.downloadIncidentImage(path).getOrNull()
+
     fun dismissError() = _state.update { it.copy(error = null, sendError = null) }
 
     fun closeConversation() {
@@ -214,6 +311,8 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         sendJob = null
         activeIncidentId = null
         pendingClientMessageId = null
+        pendingImageClientMessageId = null
+        pendingImageSignature = null
         _state.value = IncidentChatUiState()
     }
 }
@@ -229,7 +328,23 @@ fun IncidentChatScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
     val listState = rememberLazyListState()
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) {
+            val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+            val bytes = runCatching {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            }.getOrNull()
+            if (bytes == null) vm.setImageAttachment(byteArrayOf(), mimeType)
+            else vm.setImageAttachment(bytes, mimeType)
+        }
+    }
+    val selectedImageBitmap = remember(state.attachmentBytes) {
+        state.attachmentBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+    }
     var didInitialScroll by remember(incidentId) { mutableStateOf(false) }
 
     LaunchedEffect(vm, incidentId, lifecycleOwner) {
@@ -349,7 +464,7 @@ fun IncidentChatScreen(
                         verticalArrangement = Arrangement.spacedBy(3.dp),
                     ) {
                         Text(
-                            if (ownMessage) "You" else "Incident participant",
+                            if (ownMessage) "You" else message.senderName?.takeIf { it.isNotBlank() } ?: "Incident participant",
                             modifier = Modifier.padding(horizontal = 5.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -365,8 +480,13 @@ fun IncidentChatScreen(
                             color = if (ownMessage) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                             contentColor = if (ownMessage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
                         ) {
-                            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Text(message.message, style = MaterialTheme.typography.bodyLarge)
+                            Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                message.attachmentPath?.let { path ->
+                                    IncidentMessageImage(path = path, vm = vm)
+                                }
+                                if (message.message.isNotBlank()) {
+                                    Text(message.message, modifier = Modifier.padding(horizontal = 6.dp), style = MaterialTheme.typography.bodyLarge)
+                                }
                                 Text(
                                     formatChatTime(message.createdAt),
                                     style = MaterialTheme.typography.labelSmall,
@@ -386,17 +506,68 @@ fun IncidentChatScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(message, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = { vm.send(incidentId) }, enabled = !state.sending && state.draft.isNotBlank()) { Text("Retry") }
+                    TextButton(
+                        onClick = {
+                            if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
+                            else vm.send(incidentId)
+                        },
+                        enabled = !state.sending && (state.draft.isNotBlank() || state.attachmentBytes != null),
+                    ) { Text("Retry") }
                 }
             }
         }
 
         Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (state.attachmentBytes != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            if (selectedImageBitmap != null) {
+                                Image(
+                                    bitmap = selectedImageBitmap,
+                                    contentDescription = "Selected image preview",
+                                    modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("Photo ready to send", style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    "${((state.attachmentBytes?.size ?: 0) / 1024).coerceAtLeast(1)} KB · Private to this incident",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            IconButton(onClick = vm::clearImageAttachment, enabled = !state.sending) {
+                                Icon(Icons.Filled.Close, contentDescription = "Remove selected image")
+                            }
+                        }
+                    }
+                }
+                Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
+                IconButton(
+                    onClick = {
+                        imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    enabled = !state.sending && !state.loading && state.error == null,
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "Attach image")
+                }
                 OutlinedTextField(
                     value = state.draft,
                     onValueChange = vm::updateDraft,
@@ -406,17 +577,67 @@ fun IncidentChatScreen(
                     maxLines = 4,
                     supportingText = { Text("${state.draft.length}/2000") },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { vm.send(incidentId) }),
+                    keyboardActions = KeyboardActions(onSend = {
+                        if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
+                        else vm.send(incidentId)
+                    }),
                     enabled = !state.sending && !state.loading && state.error == null,
                     shape = RoundedCornerShape(22.dp),
                 )
                 androidx.compose.material3.FilledIconButton(
-                    onClick = { vm.send(incidentId) },
-                    enabled = !state.sending && !state.loading && state.error == null && state.draft.trim().isNotEmpty(),
+                    onClick = {
+                        if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
+                        else vm.send(incidentId)
+                    },
+                    enabled = !state.sending && !state.loading && state.error == null &&
+                        (state.draft.trim().isNotEmpty() || state.attachmentBytes != null),
                     modifier = Modifier.size(54.dp),
                 ) {
                     if (state.sending) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     else Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
+                }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IncidentMessageImage(path: String, vm: IncidentChatViewModel) {
+    var retryCount by remember(path) { mutableStateOf(0) }
+    val loadState by produceState<Pair<ImageBitmap?, Boolean>>(initialValue = null to false, path, retryCount) {
+        val bytes = vm.downloadImage(path)
+        val decoded = bytes?.let {
+            withContext(Dispatchers.Default) {
+                BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
+            }
+        }
+        value = decoded to (decoded == null)
+    }
+    val image = loadState.first
+    if (image != null) {
+        Image(
+            bitmap = image,
+            contentDescription = "Image shared in this incident conversation",
+            modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(14.dp)),
+            contentScale = ContentScale.Fit,
+        )
+    } else {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (loadState.second) {
+                    Text("Image unavailable", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
+                    TextButton(onClick = { retryCount++ }) { Text("Retry") }
+                } else {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text("Loading shared image…", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }

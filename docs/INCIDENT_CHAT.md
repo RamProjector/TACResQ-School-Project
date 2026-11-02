@@ -71,3 +71,18 @@ No live Supabase migration, production message, account change, Render deploymen
 - The notification inbox continues to own unread/read state, incident deep links, and refresh behavior. This header action does not change notification delivery or mark items read.
 - The dedicated admin access screen remains outside the standard role shell and does not yet use this shared notification action.
 - Compose instrumented coverage verifies that the header action is accessible and invokes its navigation callback.
+
+
+## Private image attachments and Messenger-style composer
+
+- The Android incident conversation supports one image per message, with an optional caption. The system Photo Picker is used so the app receives access only to the selected image rather than requesting broad media-library permission.
+- Supported image formats are JPEG, PNG, and WebP. Each image is limited to 5 MB; captions remain limited to 2,000 characters.
+- Images are stored in the private `incident-chat-attachments` Supabase Storage bucket. They are never served from a public bucket or exposed through a public URL.
+- Object paths are deterministic per incident, authenticated profile, and client message UUID. This makes upload retries safe when the upload succeeded but its response was lost.
+- Storage insert/read policies require the authenticated profile to have access to the incident conversation. The image-message RPC independently verifies the caller, incident access, object path, supported MIME type, and size before creating the message record.
+- The message history RPC returns attachment metadata and sender display names. Android fetches image bytes through the authenticated Storage endpoint; it does not expose a service-role key or bypass Storage RLS.
+- Existing text-message behavior, idempotency, the sender flood guard, and generic participant notifications remain in place. Images are not copied into notification payloads.
+- Attachments are append-only in this increment. There is no message deletion, editing, read receipt, typing indicator, or public/global media feed.
+- A failed message send retains the selected image and reuses the same client message UUID when retried. A duplicate object upload response is treated as a retry, then the idempotent message RPC determines whether the message already exists.
+- No live Supabase migration or bucket mutation is performed by the PR. The migration must be applied through the normal reviewed deployment process before real-backend image sending is available.
+- Required acceptance includes migration replay, storage-policy review on Supabase, authenticated requester/dispatcher/assigned-responder access tests, unrelated-account denial, upload/download tests, retry after ambiguous network failure, 5 MB and MIME rejection, and Android device testing on both current and fallback Photo Picker paths.

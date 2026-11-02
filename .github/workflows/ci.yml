@@ -186,6 +186,9 @@ jobs:
       - name: Check Android incident chat security and lifecycle
         run: python3 tools/test_android_chat_contract.py
 
+      - name: Check incident chat image attachment security and UI contract
+        run: python3 tools/test_incident_chat_attachments_contract.py
+
       - name: Check Android Admin RPC transport contract
         run: python3 tools/test_android_admin_rpc_contract.py
 

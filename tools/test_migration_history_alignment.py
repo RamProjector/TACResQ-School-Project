@@ -42,6 +42,7 @@ PENDING = {
     "20261030110000_require_requester_signup_contact.sql",
     "20261030120000_bound_requester_signup_contact_lengths.sql",
     "20261030130000_incident_message_rate_limit_index.sql",
+    "20261031130000_incident_chat_image_attachments.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
@@ -120,6 +121,19 @@ for required in (
     "'incident_message'",
 ):
     assert required in chat, f"Missing incident chat security contract: {required}"
+
+attachments = (MIGRATIONS / "20261031130000_incident_chat_image_attachments.sql").read_text()
+for required in (
+    "ADD COLUMN IF NOT EXISTS attachment_path text",
+    "public.api_send_incident_image_message(",
+    "private.tacresq_auth_profile_id()",
+    "tacresq_incident_chat_attachment_insert",
+    "tacresq_incident_chat_attachment_read",
+    "o.metadata->>'mimetype' = p_attachment_mime_type",
+    "(o.metadata->>'size')::bigint = p_attachment_size_bytes",
+):
+    assert required in attachments, f"Missing private incident-image attachment contract: {required}"
+print("PASS: incident chat image attachments use private Storage policies and server-verified object metadata.")
 
 print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history; {len(PENDING)} proposed migration(s) are explicitly pending live application.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()

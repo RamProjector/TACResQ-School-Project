@@ -31,6 +31,15 @@ interface TacNotificationApi {
 interface TacChatApi {
     suspend fun myIncidentMessages(incidentId: Long, limit: Int, beforeId: Long?): List<IncidentMessage>
     suspend fun sendIncidentMessage(incidentId: Long, message: String, clientMessageId: String): IncidentMessage
+    suspend fun sendIncidentImageMessage(
+        incidentId: Long,
+        senderId: Long,
+        message: String,
+        clientMessageId: String,
+        mimeType: String,
+        imageBytes: ByteArray,
+    ): IncidentMessage
+    suspend fun downloadIncidentImage(path: String): ByteArray
 }
 
 interface TacApi {
