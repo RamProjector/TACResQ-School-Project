@@ -53,6 +53,9 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Explore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -261,6 +264,74 @@ private fun GpsMapFilterButtons(
         }
     }
 }
+
+@Composable
+private fun GpsMapCameraControls(
+    modifier: Modifier = Modifier,
+    onZoomIn: () -> Unit,
+    onZoomOut: () -> Unit,
+    onShowAll: () -> Unit,
+    onResetNorth: () -> Unit,
+) {
+    androidx.compose.material3.Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        tonalElevation = 3.dp,
+        shadowElevation = 6.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            androidx.compose.material3.IconButton(
+                onClick = onZoomIn,
+                modifier = Modifier.size(48.dp).semantics {
+                    contentDescription = "Zoom in on map"
+                },
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Add,
+                    contentDescription = null,
+                )
+            }
+            androidx.compose.material3.IconButton(
+                onClick = onZoomOut,
+                modifier = Modifier.size(48.dp).semantics {
+                    contentDescription = "Zoom out on map"
+                },
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Remove,
+                    contentDescription = null,
+                )
+            }
+            androidx.compose.material3.IconButton(
+                onClick = onShowAll,
+                modifier = Modifier.size(48.dp).semantics {
+                    contentDescription = "Show all available map locations"
+                },
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                    contentDescription = null,
+                )
+            }
+            androidx.compose.material3.IconButton(
+                onClick = onResetNorth,
+                modifier = Modifier.size(48.dp).semantics {
+                    contentDescription = "Reset map orientation to north"
+                },
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Explore,
+                    contentDescription = null,
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpsMapScreen(
@@ -575,6 +646,60 @@ fun GpsMapScreen(
         }
     }
 
+    fun zoomMapIn() {
+        if (mapLibreMap == null || !mapStyleLoaded) {
+            locationStatus = "Map is still loading. Try again in a moment."
+            return
+        }
+        mapLibreMap?.animateCamera(CameraUpdateFactory.zoomIn(), 180)
+        locationStatus = "Map zoomed in."
+    }
+
+    fun zoomMapOut() {
+        if (mapLibreMap == null || !mapStyleLoaded) {
+            locationStatus = "Map is still loading. Try again in a moment."
+            return
+        }
+        mapLibreMap?.animateCamera(CameraUpdateFactory.zoomOut(), 180)
+        locationStatus = "Map zoomed out."
+    }
+
+    fun showAllVisiblePoints() {
+        val mapPoints = if (role == Role.DISPATCHER) {
+            validIncidentPoints + validResponderPoints
+        } else {
+            validIncidentPoints
+        }
+        val points = mapPoints + listOfNotNull(deviceFix?.let { LatLng(it.latitude, it.longitude) })
+        if (points.isEmpty()) {
+            locationStatus = "No valid map locations are available to show yet."
+            return
+        }
+        if (mapLibreMap == null || !mapStyleLoaded) {
+            locationStatus = "Map is still loading. Try again in a moment."
+            return
+        }
+        fitMapPoints(points)
+        locationStatus = if (role == Role.DISPATCHER && validResponderPoints.isNotEmpty()) {
+            "Showing all incident and field-unit locations. Stale unit pins are last known, not live."
+        } else if (deviceFix != null && mapPoints.isNotEmpty()) {
+            "Showing incident locations and your one-time device preview."
+        } else if (points.size == 1) {
+            "Showing the available map location."
+        } else {
+            "Showing all available incident locations."
+        }
+    }
+
+    fun resetMapNorth() {
+        if (mapLibreMap == null || !mapStyleLoaded) {
+            locationStatus = "Map is still loading. Try again in a moment."
+            return
+        }
+        mapLibreMap?.animateCamera(CameraUpdateFactory.bearingTo(0.0), 260)
+        locationStatus = "Map orientation reset to north."
+    }
+
     val locationSettingsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
@@ -887,6 +1012,7 @@ fun GpsMapScreen(
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val mapDetailsMaxHeight = (maxHeight * 0.55f).coerceAtMost(420.dp)
                 val compactMapPane = maxWidth < 360.dp
+                val sheetExpanded = mapSheetState.bottomSheetState.currentValue == SheetValue.Expanded
                 Column(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -916,6 +1042,33 @@ fun GpsMapScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        androidx.compose.material3.IconButton(
+                            onClick = {
+                                scope.launch {
+                                    if (sheetExpanded) {
+                                        mapSheetState.bottomSheetState.partialExpand()
+                                    } else {
+                                        mapSheetState.bottomSheetState.expand()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.size(48.dp).semantics {
+                                contentDescription = if (sheetExpanded) {
+                                    "Collapse map details"
+                                } else {
+                                    "Expand map details"
+                                }
+                            },
+                        ) {
+                            androidx.compose.material3.Icon(
+                                imageVector = if (sheetExpanded) {
+                                    androidx.compose.material.icons.Icons.Default.ExpandLess
+                                } else {
+                                    androidx.compose.material.icons.Icons.Default.ExpandMore
+                                },
+                                contentDescription = null,
                             )
                         }
                         if (selectedIncident != null) {
@@ -1282,6 +1435,17 @@ fun GpsMapScreen(
                 onShowActiveUnits = ::showActiveUnits,
             )
         }
+
+        GpsMapCameraControls(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .navigationBarsPadding()
+                .padding(start = 12.dp, bottom = 136.dp),
+            onZoomIn = ::zoomMapIn,
+            onZoomOut = ::zoomMapOut,
+            onShowAll = ::showAllVisiblePoints,
+            onResetNorth = ::resetMapNorth,
+        )
 
         // Keep OSM attribution visible on the map even while the sheet is collapsed.
         Text(
