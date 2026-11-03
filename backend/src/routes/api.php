@@ -306,6 +306,75 @@ Route::post('/bridge/rpc/{function}', function (
 
 });
 
+// One-off deployment diagnostic. It accepts no caller-supplied coordinates or payload;
+// use only the synthetic in-area points from backend/routing/smoke-test.sh. Keep the
+// independent token unset except during an explicitly authorized smoke test.
+Route::post('/geoapify-smoke-test', function (Request $request) {
+    $json = static fn (array $body, int $status) => response()->json($body, $status)
+        ->header('Cache-Control', 'no-store, private');
+    $expectedToken = (string) config('tacru.geoapify_smoke_test_token', '');
+    $providedToken = (string) $request->header('X-TACResQ-Smoke-Token', '');
+    if (strlen($expectedToken) < 32 || $providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
+        return $json(['message' => 'Not found.'], 404);
+    }
+    if ($request->query->count() > 0 || $request->getContent() !== '') {
+        return $json(['message' => 'This smoke test accepts no caller-supplied data.'], 422);
+    }
+
+    $apiKey = trim((string) config('tacru.geoapify_api_key', ''));
+    if ($apiKey === '') {
+        return $json(['message' => 'Geoapify is not configured on this service.'], 503);
+    }
+
+    // Geoapify requires apiKey in its query string. This URL is fixed to the EU
+    // endpoint; redirects are disabled and the request/exception URL is never logged.
+    // Waypoints are the same synthetic points used by the local OSRM smoke test,
+    // expressed in Geoapify's latitude,longitude order.
+    try {
+        $upstream = \Illuminate\Support\Facades\Http::acceptJson()
+            ->connectTimeout(5)
+            ->timeout(12)
+            ->withOptions(['allow_redirects' => false])
+            ->get('https://api-eu.geoapify.com/v1/routing', [
+                'waypoints' => '11.2443,125.0030|11.2500,125.0200',
+                'mode' => 'drive',
+                'format' => 'json',
+                'apiKey' => $apiKey,
+            ]);
+    } catch (\Throwable) {
+        // Do not serialize the exception: HTTP client exception messages can contain the URL.
+        return $json(['message' => 'Geoapify test request failed.'], 502);
+    }
+
+    if ($upstream->status() === 429) {
+        return $json(['message' => 'Geoapify is rate-limited or out of credits.'], 503);
+    }
+    if (in_array($upstream->status(), [400, 401, 403], true)) {
+        return $json(['message' => 'Geoapify did not accept the configured server key.'], 502);
+    }
+    if (!$upstream->successful()) {
+        return $json(['message' => 'Geoapify test request failed.'], 502);
+    }
+
+    $body = $upstream->json();
+    $route = is_array($body) && is_array($body['results'] ?? null) ? ($body['results'][0] ?? null) : null;
+    $distance = is_array($route) ? ($route['distance'] ?? null) : null;
+    $duration = is_array($route) ? ($route['time'] ?? null) : null;
+    if (!is_numeric($distance) || !is_numeric($duration)
+        || !is_finite((float) $distance) || (float) $distance <= 0
+        || !is_finite((float) $duration) || (float) $duration <= 0) {
+        return $json(['message' => 'Geoapify returned an invalid smoke-test route.'], 502);
+    }
+
+    return $json([
+        'status' => 'passed',
+        'provider' => 'Geoapify EU',
+        'coordinates' => 'synthetic test points only',
+        'distance_meters' => (float) $distance,
+        'duration_seconds' => (float) $duration,
+    ], 200);
+})->middleware('throttle:5,1');
+
 
 // Authenticated route preview. The request goes only to a configured private OSRM service;
 // incident text, profile data, and upstream response details are never forwarded or logged.
