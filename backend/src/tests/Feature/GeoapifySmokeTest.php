@@ -28,7 +28,7 @@ class GeoapifySmokeTest extends TestCase
         Http::preventStrayRequests();
         config(['tacru.geoapify_smoke_test_token' => '']);
 
-        $this->postJson('/api/geoapify-smoke-test')->assertNotFound();
+        $this->post('/api/geoapify-smoke-test')->assertNotFound();
         Http::assertNothingSent();
     }
 
@@ -37,7 +37,7 @@ class GeoapifySmokeTest extends TestCase
         Http::preventStrayRequests();
 
         $this->withHeader(self::HEADER, 'wrong-token')
-            ->postJson('/api/geoapify-smoke-test')
+            ->post('/api/geoapify-smoke-test')
             ->assertNotFound();
         Http::assertNothingSent();
     }
@@ -47,7 +47,7 @@ class GeoapifySmokeTest extends TestCase
         Http::preventStrayRequests();
 
         $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
-            ->postJson('/api/geoapify-smoke-test?latitude=10.0&longitude=20.0')
+            ->post('/api/geoapify-smoke-test?latitude=10.0&longitude=20.0')
             ->assertStatus(422)
             ->assertExactJson(['message' => 'This smoke test accepts no caller-supplied data.']);
         $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
@@ -63,7 +63,7 @@ class GeoapifySmokeTest extends TestCase
         config(['tacru.geoapify_api_key' => '']);
 
         $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
-            ->postJson('/api/geoapify-smoke-test')
+            ->post('/api/geoapify-smoke-test')
             ->assertStatus(503)
             ->assertExactJson(['message' => 'Geoapify is not configured on this service.']);
         Http::assertNothingSent();
@@ -79,7 +79,7 @@ class GeoapifySmokeTest extends TestCase
         ]);
 
         $response = $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
-            ->postJson('/api/geoapify-smoke-test');
+            ->post('/api/geoapify-smoke-test');
 
         $response->assertOk()->assertExactJson([
             'status' => 'passed',
@@ -114,7 +114,7 @@ class GeoapifySmokeTest extends TestCase
         ]);
 
         $response = $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
-            ->postJson('/api/geoapify-smoke-test');
+            ->post('/api/geoapify-smoke-test');
 
         $response->assertStatus(502)->assertExactJson([
             'message' => 'Geoapify did not accept the configured server key.',
@@ -130,7 +130,7 @@ class GeoapifySmokeTest extends TestCase
         });
 
         $response = $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
-            ->postJson('/api/geoapify-smoke-test');
+            ->post('/api/geoapify-smoke-test');
 
         $response->assertStatus(502)->assertExactJson(['message' => 'Geoapify test request failed.']);
         $this->assertStringNotContainsString(self::API_KEY, $response->getContent());
@@ -146,7 +146,7 @@ class GeoapifySmokeTest extends TestCase
             Cache::flush();
             Http::fake([self::URL.'*' => $fakeResponse]);
             $response = $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
-                ->postJson('/api/geoapify-smoke-test');
+                ->post('/api/geoapify-smoke-test');
             $response->assertStatus($expectedStatus)->assertExactJson(['message' => $expectedMessage]);
             $this->assertStringNotContainsString('synthetic quota detail', $response->getContent());
         }
@@ -161,7 +161,7 @@ class GeoapifySmokeTest extends TestCase
         $response = null;
         for ($attempt = 0; $attempt < 6; $attempt++) {
             $response = $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
-                ->postJson('/api/geoapify-smoke-test');
+                ->post('/api/geoapify-smoke-test');
         }
 
         $response->assertTooManyRequests();
