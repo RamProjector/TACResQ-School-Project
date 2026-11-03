@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -445,9 +446,20 @@ fun formatTime(iso: String?): String {
  * The timestamp only advances after successful refreshes.
  */
 @Composable
-fun SyncStatus(lastSyncedAtEpochMs: Long?, error: String?) {
+fun SyncStatus(
+    lastSyncedAtEpochMs: Long?,
+    error: String?,
+    actionLabel: String? = null,
+    actionEnabled: Boolean = true,
+    onAction: (() -> Unit)? = null,
+) {
     val syncedTime = lastSyncedAtEpochMs?.let {
         DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))
+    }
+    val statusTint = when {
+        error != null -> MaterialTheme.colorScheme.error
+        lastSyncedAtEpochMs != null -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.outline
     }
     val message = when {
         error != null && syncedTime != null -> "Updates unavailable. Showing data last synced $syncedTime. $error"
@@ -464,16 +476,31 @@ fun SyncStatus(lastSyncedAtEpochMs: Long?, error: String?) {
         else MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            Surface(
+                modifier = Modifier.size(8.dp),
+                shape = RoundedCornerShape(50),
+                color = statusTint,
+            ) {}
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.weight(1f),
-                maxLines = 2,
+                maxLines = if (onAction != null) 2 else 3,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
+            if (onAction != null && actionLabel != null) {
+                TextButton(
+                    onClick = onAction,
+                    enabled = actionEnabled,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(actionLabel)
+                }
+            }
         }
     }
 }

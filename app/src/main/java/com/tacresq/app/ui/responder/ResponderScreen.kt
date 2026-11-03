@@ -468,11 +468,53 @@ fun ResponderScreen(
                 }
                 if (incident.statusFor(user.id) == IncidentStatus.EN_ROUTE) {
                     val sharing = state.trackingIncidentId == incident.id
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    val trackingStatusLabel = when {
+                        state.trackingError != null -> "Needs attention"
+                        sharing && state.lastLocationSentAt == null -> "Starting"
+                        sharing -> "Enabled"
+                        else -> "Off"
+                    }
+                    val trackingTint = when {
+                        state.trackingError != null -> MaterialTheme.colorScheme.error
+                        sharing -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        border = BorderStroke(
+                            1.dp,
+                            when {
+                                state.trackingError != null -> MaterialTheme.colorScheme.error.copy(alpha = 0.45f)
+                                sharing -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                                else -> MaterialTheme.colorScheme.outlineVariant
+                            },
+                        ),
+                        colors = androidx.compose.material3.CardDefaults.cardColors(
+                            containerColor = when {
+                                state.trackingError != null -> MaterialTheme.colorScheme.errorContainer
+                                sharing -> MaterialTheme.colorScheme.primaryContainer
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            },
+                        ),
+                        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    ) {
                         Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(9.dp),
                         ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    "Location sharing",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                StatusPill(trackingStatusLabel, trackingTint)
+                            }
                             val lastLocationSentAt = state.lastLocationSentAt
                             Text(
                                 "GPS sharing reports your location; it does not confirm arrival. Update your response status when you reach the scene.",
@@ -499,9 +541,12 @@ fun ResponderScreen(
                                 Text(
                                     "Last sent $time${state.lastLocationAccuracyM?.let { " · reported accuracy ±${it.toInt()} m" } ?: " · accuracy unavailable"}",
                                     style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            state.trackingError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                            state.trackingError?.let {
+                                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            }
                             if (sharing) {
                                 OutlinedButton(onClick = { vm.stopTracking("Location sharing stopped by you.") }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                                     Text("Stop location sharing")

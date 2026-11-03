@@ -263,7 +263,11 @@ sync_contract = {
         "syncError = refreshError?.message",
     ),
     "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt": (
-        "SyncStatus(state.lastSyncedAtEpochMs, state.syncError)",
+        "SyncStatus(",
+        "lastSyncedAtEpochMs = state.lastSyncedAtEpochMs",
+        'actionLabel = if (state.loading) "Refreshing…" else "Refresh"',
+        "actionEnabled = !state.busy && !state.loading",
+        "onAction = vm::refresh",
         "lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis()",
         "syncError = refreshError?.message",
     ),
