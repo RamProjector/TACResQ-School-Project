@@ -30,7 +30,7 @@ Review the incident queue, inspect available field units, confirm assignments, a
 
 Every authenticated role has a centered **GPS Map** destination in the mobile navigation shell. Selecting it hides the bottom navigation so the map fills the app viewport. The map automatically frames valid incident pins when they first become available, and **Show incident pins** lets users reframe one pin or all available pins on demand. **Locate me** requests permission only after a tap, centers on one fresh device fix, and shows a device-only marker; that preview is not uploaded or continuously tracked. The dispatcher view can also show fresh (at most two minutes old) foreground location reports from assigned en-route field units. Physical-device tile loading and GPS behavior remain unverified.
 
-The [in-app routing foundation](docs/IN_APP_ROUTING_FOUNDATION.md) describes the authenticated Render proxy to an optional, private, self-hosted OSRM service. Render verifies the responder's assignment and derives the destination; only the origin and trusted destination coordinates are sent to OSRM in a JSON body. Routing is disabled by default in Android builds and unavailable until a private OSRM service with an area-specific driving graph is configured. No Render service, paid plan, disk, environment variable, or deployment was created. This is a static route preview, not turn-by-turn guidance or proof of road passability, closures, flooding, emergency-vehicle access, or current traffic.
+The [in-app routing foundation](docs/IN_APP_ROUTING_FOUNDATION.md) describes the authenticated Render proxy to an optional, private, self-hosted OSRM service. Render verifies the responder's assignment and derives the destination; only the origin and trusted destination coordinates are sent to OSRM in a JSON body. Routing is disabled by default in Android builds and unavailable until a private OSRM service with an area-specific driving graph is configured. No Render service, paid plan, disk, environment variable, or deployment was created. This is a static route preview, not turn-by-turn guidance or proof of road passability, closures, flooding, emergency-vehicle access, or current traffic. The [Render OSRM deployment runbook](docs/RENDER_OSRM_DEPLOYMENT.md) and non-applied [`render-osrm.example.yaml`](render-osrm.example.yaml) describe the paid private-service setup without changing infrastructure.
 
 ## Screens and wireframes
 
@@ -156,6 +156,7 @@ For the complete operator runbook covering debug/release builds, web navigation,
 - [`docs/SUPABASE_BACKEND.md`](docs/SUPABASE_BACKEND.md) — Supabase setup and provisioning
 - [`docs/GPS_LOCATION_NOTES.md`](docs/GPS_LOCATION_NOTES.md) — location privacy and Android behavior
 - [`docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md`](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) — centered GPS Map navigation
+- [`docs/RENDER_OSRM_DEPLOYMENT.md`](docs/RENDER_OSRM_DEPLOYMENT.md) — optional paid private OSRM deployment runbook
 - [`PROJECT_ANALYSIS.md`](PROJECT_ANALYSIS.md) — project analysis and implementation context
 - [`docs/QA_WORKFLOWS.md`](docs/QA_WORKFLOWS.md) — actionable build, browser, screenshot, stress, and security workflows
 - [`CURRENT_TASK.md`](CURRENT_TASK.md) — current cross-chat task handoff and resume state
