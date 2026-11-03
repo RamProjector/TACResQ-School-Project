@@ -137,19 +137,33 @@ class GeoapifySmokeTest extends TestCase
         $this->assertStringNotContainsString('synthetic failing URL', $response->getContent());
     }
 
-    public function test_provider_rate_limit_and_malformed_success_are_sanitized(): void
+    public function test_provider_rate_limit_is_sanitized(): void
     {
-        foreach ([
-            [Http::response(['message' => 'synthetic quota detail'], 429), 503, 'Geoapify is rate-limited or out of credits.'],
-            [Http::response(['results' => []], 200), 502, 'Geoapify returned an invalid smoke-test route.'],
-        ] as [$fakeResponse, $expectedStatus, $expectedMessage]) {
-            Cache::flush();
-            Http::fake([self::URL.'*' => $fakeResponse]);
-            $response = $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
-                ->post('/api/geoapify-smoke-test');
-            $response->assertStatus($expectedStatus)->assertExactJson(['message' => $expectedMessage]);
-            $this->assertStringNotContainsString('synthetic quota detail', $response->getContent());
-        }
+        Http::fake([
+            self::URL.'*' => Http::response(['message' => 'synthetic quota detail'], 429),
+        ]);
+
+        $response = $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
+            ->post('/api/geoapify-smoke-test');
+
+        $response->assertStatus(503)->assertExactJson([
+            'message' => 'Geoapify is rate-limited or out of credits.',
+        ]);
+        $this->assertStringNotContainsString('synthetic quota detail', $response->getContent());
+    }
+
+    public function test_malformed_success_response_is_sanitized(): void
+    {
+        Http::fake([
+            self::URL.'*' => Http::response(['results' => []], 200),
+        ]);
+
+        $response = $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
+            ->post('/api/geoapify-smoke-test');
+
+        $response->assertStatus(502)->assertExactJson([
+            'message' => 'Geoapify returned an invalid smoke-test route.',
+        ]);
     }
 
     public function test_smoke_endpoint_limits_provider_calls_per_minute(): void
