@@ -35,6 +35,14 @@ The software and data may be free, but a reliable always-on private host, persis
 
 The smoke test defaults to two synthetic Tacloban-area points. Override `ROUTE_ORIGIN` and `ROUTE_DESTINATION` when a reviewer has approved a different in-area test pair. The values use OSRM's `longitude,latitude` order.
 
+For complete local verification, including image build, graph mount, startup readiness, route response, coordinate-bearing log detection, and automatic teardown, run:
+
+```sh
+./verify-local.sh
+```
+
+This helper requires `graph/tacresq.osrm` and Docker. It runs only against the local Compose service and removes the containers and network when it exits. It does not configure Laravel or any production service.
+
 ## Connecting Laravel privately
 
 The authenticated Laravel `/api/route-preview` handler verifies the caller's Supabase session and own active assignment, derives the destination from caller-authorized incident data, and sends only origin/destination coordinates to OSRM. It does not send a bearer token, incident ID, description, profile data, or requester information. Coordinates are sent in OSRM's JSON POST body, not in the URL; application/OSRM access logging must not record request bodies.
