@@ -49,6 +49,12 @@ The authenticated Laravel `/api/route-preview` handler verifies the caller's Sup
 
 For a private container network, configure Laravel with `OSRM_BASE_URL=http://tacresq-osrm:5000`. Do not point it at a public routing API. The backend intentionally rejects dotted domains, public IPs, loopback literals, and IPv6 literals so a production deployment cannot silently route precise responder locations to an arbitrary public host. The Laravel service and OSRM service must therefore share a private network or an approved internal service-discovery path.
 
+## Authorized Geoapify key smoke test (not production routing)
+
+The separate `POST /api/geoapify-smoke-test` endpoint is only a one-off credential/connectivity diagnostic. It is disabled unless `GEOAPIFY_SMOKE_TEST_TOKEN` is set to a random value of at least 32 characters. It accepts no query string or request body, is rate limited, calls only `https://api-eu.geoapify.com/v1/routing`, and uses the two synthetic Tacloban-area points declared in `smoke-test.sh`. One successful test consumes one route credit. The response contains only a pass/fail summary and route distance/duration; it does not return route geometry, provider response details, or credentials. Geoapify requires its API key in the outbound query string, so application code intentionally suppresses exception details and never logs that URL.
+
+Set `GEOAPIFY_API_KEY` only as a Render backend environment secret. For an explicitly approved smoke test, set a separate strong temporary `GEOAPIFY_SMOKE_TEST_TOKEN`, POST to the endpoint with that token in `X-TACResQ-Smoke-Token`, and then clear the smoke-test token. Never put either value in source control, Android, a client-supplied URL/body, a PR, or logs. Geoapify requires the API key in the backend's outbound request query; this fixed-host call is the only place the key is sent. A missing key, invalid key, rate limit, malformed response, or network error produces a sanitized response. This diagnostic does not change `/api/route-preview`, which continues to use the private OSRM configuration; no operational responder or incident coordinates are accepted or sent.
+
 ## Graph preparation and updates
 
 `prepare-graph.sh` runs the pinned MLD sequence from the official OSRM image:

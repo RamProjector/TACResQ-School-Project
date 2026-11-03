@@ -3,6 +3,9 @@
 return [
     // Optional private OSRM HTTP service. Must be an internal hostname or private IP.
     'osrm_base_url' => env('OSRM_BASE_URL', ''),
+    // Server-only Geoapify settings. The smoke-test token is temporary and must be cleared after verification.
+    'geoapify_api_key' => env('GEOAPIFY_API_KEY', ''),
+    'geoapify_smoke_test_token' => env('GEOAPIFY_SMOKE_TEST_TOKEN', ''),
     // These are browser-safe client settings. A Render environment variable can
     // override them, but the dashboard must not depend on the temporary database
     // or on Laravel's runtime environment lookup.
