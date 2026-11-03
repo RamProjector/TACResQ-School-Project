@@ -1,0 +1,23 @@
+# Render Blueprint template for the optional private TACResQ OSRM router.
+#
+# This file is intentionally not named render.yaml. Do not apply it until the
+# operating-area graph, compute plan, disk size, privacy review, and rollback
+# plan are approved.
+services:
+  - name: tacresq-osrm
+    type: pserv
+    runtime: docker
+    plan: starter
+    region: singapore
+    repo: https://github.com/RamProjector/TACResQ-School-Project
+    branch: main
+    dockerfilePath: ./backend/routing/osrm/Dockerfile
+    dockerContext: ./backend/routing/osrm
+    numInstances: 1
+    envVars:
+      - key: OSRM_GRAPH_PREFIX
+        value: /var/data/tacresq
+    disk:
+      name: osrm-graph
+      mountPath: /var/data
+      sizeGB: 10
