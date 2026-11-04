@@ -28,6 +28,12 @@ interface TacNotificationApi {
     suspend fun markNotificationRead(notificationId: Long): Boolean
 }
 
+/** Supabase-only device-token lifecycle; FCM credentials never enter the app. */
+interface TacPushApi {
+    suspend fun registerFcmToken(token: String)
+    suspend fun unregisterFcmToken(token: String)
+}
+
 interface TacChatApi {
     suspend fun myIncidentMessages(incidentId: Long, limit: Int, beforeId: Long?): List<IncidentMessage>
     suspend fun sendIncidentMessage(incidentId: Long, message: String, clientMessageId: String): IncidentMessage

@@ -378,3 +378,11 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Research basis:** Android top app bars host core contextual actions, and notification taps/actions should take users to the directly relevant destination. Official guidance: https://developer.android.com/develop/ui/compose/components/app-bars and https://developer.android.com/design/ui/mobile/guides/home-screen/notifications.
 - **Regression coverage:** Static notification contract now requires all three incident-chat route groups to provide the callback.
 - **Validation:** Await exact-head CI. No device visual validation or live notification delivery test performed.
+
+# Active handoff — 2026-11-05: FCM client registration foundation
+- **Objective:** Connect the existing authenticated Supabase FCM-token RPCs to Android system-notification plumbing without committing Firebase credentials or sensitive notification content.
+- **Implementation:** Added the Firebase Messaging dependency, `TacPushApi`/Supabase RPC calls, repository registration methods, `PushTokenCoordinator`, token-refresh service, Android notification channel, `POST_NOTIFICATIONS` guard, manifest service registration, and explicit sign-out token removal.
+- **Privacy/security:** Tokens remain in app-private preferences and are never logged. Push alerts are generic; incident details are fetched only after the user opens the authenticated app. Existing RLS/authenticated RPC ownership remains authoritative.
+- **Configuration:** Added `docs/FCM_SETUP.md`. Firebase project configuration and a trusted server-side FCM sender are intentionally deployment work; no service account or production credential is in source.
+- **Validation:** `python3 tools/test_fcm_registration_contract.py` is the offline source contract. Android compilation was attempted but this sandbox has no Android SDK (`ANDROID_HOME`/`sdk.dir` unavailable); no device or end-to-end FCM delivery test was performed.
+- **Next action:** CI/device-test registration, Android 13 permission grant/denial, token rotation, and sign-out removal. Then implement the server-side sender against the existing notification event path with minimal, non-sensitive data payloads.

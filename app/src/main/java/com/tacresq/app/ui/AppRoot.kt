@@ -77,7 +77,16 @@ fun AppRoot(
     val scope = rememberCoroutineScope()
     val logout: () -> Unit = {
         container.responderLocationTracking.stop("Location sharing stopped because you signed out.")
-        scope.launch { container.repository.logout() }
+        scope.launch {
+            container.pushTokenCoordinator.unregister(container.repository)
+            container.repository.logout()
+        }
+    }
+
+    LaunchedEffect(sessionState) {
+        if (sessionState is SessionState.LoggedIn) {
+            container.pushTokenCoordinator.sync(container.repository)
+        }
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
