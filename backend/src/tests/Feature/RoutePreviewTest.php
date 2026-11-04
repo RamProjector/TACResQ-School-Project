@@ -365,6 +365,6 @@ class RoutePreviewTest extends TestCase
                 'time' => 3.2,
                 'instruction' => ['text' => 'Turn right onto Synthetic Road'],
             ]]],
-        ]]];
+        ]]]];
     }
 }
