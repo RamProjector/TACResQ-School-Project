@@ -11,6 +11,7 @@ class RoutePreviewTest extends TestCase
     private const BASE = 'https://tacresq-route.example.test';
     private const OSRM_BASE = 'http://osrm-router:5000';
     private const TOKEN = 'synthetic-test-access-token';
+    private const GEOAPIFY_KEY = 'synthetic-test-geoapify-key';
     private const PROFILE_ID = 17;
     private const INCIDENT_ID = 81;
 
@@ -21,7 +22,9 @@ class RoutePreviewTest extends TestCase
         config([
             'tacru.supabase_url' => self::BASE,
             'tacru.supabase_publishable_key' => 'test-publishable-key',
+            'tacru.route_provider' => 'osrm',
             'tacru.osrm_base_url' => self::OSRM_BASE,
+            'tacru.geoapify_api_key' => self::GEOAPIFY_KEY,
         ]);
     }
 
@@ -125,6 +128,116 @@ class RoutePreviewTest extends TestCase
             && !str_contains($request->body(), (string) self::INCIDENT_ID));
     }
 
+    public function test_geoapify_provider_uses_eu_endpoint_and_normalizes_route_without_leaking_key_or_context(): void
+    {
+        config(['tacru.route_provider' => 'geoapify']);
+        $this->fakeGeoapify($this->geoapifyBody());
+
+        $response = $this->withToken(self::TOKEN)->postJson('/api/route-preview', $this->input());
+
+        $response->assertOk()->assertExactJson([
+            'geometry' => [
+                ['latitude' => 14.5, 'longitude' => 121.0],
+                ['latitude' => 14.51, 'longitude' => 121.01],
+            ],
+            'distance_meters' => 1400.5,
+            'duration_seconds' => 125.25,
+            'instructions' => [[
+                'text' => 'Turn right onto Synthetic Road',
+                'distance_meters' => 15.5,
+                'duration_seconds' => 3.2,
+            ]],
+        ]);
+        $this->assertStringNotContainsString(self::GEOAPIFY_KEY, $response->getContent());
+        Http::assertSent(fn ($request) => $request->method() === 'GET'
+            && parse_url($request->url(), PHP_URL_SCHEME) === 'https'
+            && parse_url($request->url(), PHP_URL_HOST) === 'api-eu.geoapify.com'
+            && parse_url($request->url(), PHP_URL_PATH) === '/v1/routing'
+            && (function () use ($request): bool {
+                $query = [];
+                parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+                return ($query['waypoints'] ?? null) === '14.2500000,121.2500000|14.7500000,120.7500000'
+                    && ($query['mode'] ?? null) === 'drive'
+                    && ($query['format'] ?? null) === 'json'
+                    && ($query['units'] ?? null) === 'metric'
+                    && ($query['apiKey'] ?? null) === self::GEOAPIFY_KEY;
+            })()
+            && !$request->hasHeader('Authorization')
+            && !str_contains($request->url(), (string) self::INCIDENT_ID)
+            && !str_contains($request->url(), 'incident narrative'));
+        Http::assertNotSent(fn ($request) => str_starts_with($request->url(), self::OSRM_BASE.'/'));
+    }
+
+    public function test_geoapify_key_errors_are_sanitized_and_do_not_silently_retry_osrm(): void
+    {
+        config(['tacru.route_provider' => 'geoapify']);
+        $this->fakeGeoapify(['message' => 'synthetic provider diagnostic '.self::GEOAPIFY_KEY], 403);
+
+        $response = $this->withToken(self::TOKEN)->postJson('/api/route-preview', $this->input());
+
+        $response->assertStatus(502)->assertExactJson([
+            'message' => 'Geoapify did not accept the configured server key.',
+        ]);
+        $this->assertStringNotContainsString(self::GEOAPIFY_KEY, $response->getContent());
+        $this->assertStringNotContainsString('synthetic provider diagnostic', $response->getContent());
+        Http::assertSentCount(4);
+        Http::assertNotSent(fn ($request) => str_starts_with($request->url(), self::OSRM_BASE.'/'));
+    }
+
+    public function test_geoapify_routing_fails_closed_when_server_key_is_missing(): void
+    {
+        config(['tacru.route_provider' => 'geoapify', 'tacru.geoapify_api_key' => '']);
+        $this->fakeSupabase();
+
+        $this->withToken(self::TOKEN)->postJson('/api/route-preview', $this->input())
+            ->assertStatus(503)
+            ->assertExactJson(['message' => 'Geoapify routing is not configured.']);
+        Http::assertSentCount(3);
+        Http::assertNotSent(fn ($request) => str_starts_with($request->url(), 'https://api-eu.geoapify.com/'));
+        Http::assertNotSent(fn ($request) => str_starts_with($request->url(), self::OSRM_BASE.'/'));
+    }
+
+    public function test_geoapify_quota_and_network_errors_are_sanitized_without_osrm_retry(): void
+    {
+        config(['tacru.route_provider' => 'geoapify']);
+        $this->fakeGeoapify(['message' => 'synthetic private quota detail'], 429);
+
+        $quotaResponse = $this->withToken(self::TOKEN)->postJson('/api/route-preview', $this->input());
+        $quotaResponse->assertStatus(503)->assertExactJson([
+            'message' => 'Geoapify routing is busy or out of credits. Use external Maps instead.',
+        ]);
+        $this->assertStringNotContainsString('synthetic private quota detail', $quotaResponse->getContent());
+        Http::assertNotSent(fn ($request) => str_starts_with($request->url(), self::OSRM_BASE.'/'));
+
+        Cache::flush();
+        Http::fake(array_merge($this->supabaseFakes(), [
+            'https://api-eu.geoapify.com/v1/routing*' => static function () {
+                throw new \Illuminate\Http\Client\ConnectionException('synthetic URL must not be exposed');
+            },
+        ]));
+        $networkResponse = $this->withToken(self::TOKEN)->postJson('/api/route-preview', $this->input());
+        $networkResponse->assertStatus(502)->assertExactJson([
+            'message' => 'Geoapify routing is temporarily unavailable.',
+        ]);
+        $this->assertStringNotContainsString('synthetic URL must not be exposed', $networkResponse->getContent());
+        Http::assertNotSent(fn ($request) => str_starts_with($request->url(), self::OSRM_BASE.'/'));
+    }
+
+    public function test_geoapify_malformed_route_geometry_fails_closed(): void
+    {
+        config(['tacru.route_provider' => 'geoapify']);
+        $body = $this->geoapifyBody();
+        $body['results'][0]['geometry'] = [[['lon' => 999, 'lat' => 14.5], ['lon' => 121.0, 'lat' => 14.51]]];
+        $this->fakeGeoapify($body);
+
+        $response = $this->withToken(self::TOKEN)->postJson('/api/route-preview', $this->input());
+
+        $response->assertStatus(502)->assertExactJson([
+            'message' => 'Geoapify returned an invalid route. Use external Maps instead.',
+        ]);
+        Http::assertNotSent(fn ($request) => str_starts_with($request->url(), self::OSRM_BASE.'/'));
+    }
+
     public function test_no_route_returns_safe_client_error_without_provider_details(): void
     {
         $this->fakeServices(['code' => 'NoRoute', 'message' => 'Synthetic internal error details'], 400);
@@ -207,6 +320,13 @@ class RoutePreviewTest extends TestCase
         ]));
     }
 
+    private function fakeGeoapify(array $geoapifyBody, int $geoapifyStatus = 200): void
+    {
+        Http::fake(array_merge($this->supabaseFakes(), [
+            'https://api-eu.geoapify.com/v1/routing*' => Http::response($geoapifyBody, $geoapifyStatus),
+        ]));
+    }
+
     private function supabaseFakes(array $profileOverrides = [], ?array $incidents = null): array
     {
         return [
@@ -228,6 +348,23 @@ class RoutePreviewTest extends TestCase
                 'name' => 'Synthetic Road',
                 'maneuver' => ['type' => 'turn', 'modifier' => 'right'],
             ]]]],
+        ]]];
+    }
+
+    private function geoapifyBody(): array
+    {
+        return ['results' => [[
+            'geometry' => [[
+                ['lon' => 121.0, 'lat' => 14.5],
+                ['lon' => 121.01, 'lat' => 14.51],
+            ]],
+            'distance' => 1400.5,
+            'time' => 125.25,
+            'legs' => [['steps' => [[
+                'distance' => 15.5,
+                'time' => 3.2,
+                'instruction' => ['text' => 'Turn right onto Synthetic Road'],
+            ]]],
         ]]];
     }
 }

@@ -1,4 +1,14 @@
-# Active handoff — 2026-11-04: Route Planner smoke-test result
+# Current handoff — 2026-11-05: Geoapify Routing API for free Render
+
+- **Decision:** Use Geoapify's regular Routing API for point-to-point drive previews. Do not use Route Planner for this workflow. Free Render is not a practical host for an always-on OSRM service and regional graph, so Geoapify is now the backend provider default; private OSRM remains an opt-in alternative.
+- **Implementation:** Work is on `agent/geoapify-routing-api`, based on latest `origin/main` (`e0cee1e7`, PR #259 merged). The backend default is now Geoapify and sends authorized origin/destination coordinates to fixed EU `GET /v1/routing`; `GEOAPIFY_API_KEY` stays server-side. GeoJSON geometry and instructions are normalized and upstream failures sanitized. Private OSRM remains selectable with `ROUTE_PROVIDER=osrm`; no fallback to a second provider is automatic. Android routing remains separately disabled by default pending its build flag.
+- **Privacy and deployment boundary:** Deploying this provider means responder-origin and incident-destination coordinates are processed by Geoapify. The user has asked to implement the change but no Render variable was edited, no secret was read, no live route request was made, and no deployment/merge occurred in this work. Do not switch on Android routes for real users until the location processing disclosure and key configuration are confirmed.
+- **Validation:** Passed `tools/test_location_contract.py` (36 contracts), `tools/check_android_source.py`, `tools/test_workflow.py`, `tools/test_prototype.py`, `tools/test_stress_test.py`, and `git diff --check`. PHP/Composer/Docker are unavailable locally; Laravel feature/integration tests require exact-head CI. Android Gradle compile/unit tests were not run. No production test with real coordinates.
+- **Next:** finish test/documentation updates, run available checks, open or update a PR and wait for CI. Do not deploy or send real coordinates without the appropriate production authorization.
+
+---
+
+# Previous handoff — 2026-11-04: Route Planner smoke-test result
 
 - **Objective and outcome:** Correct the gated Geoapify diagnostic to exercise the Route Planner API, then make exactly one approved synthetic request (maximum 4 credits). PR #258, [Fix Geoapify Route Planner smoke test](https://github.com/RamProjector/TACResQ-School-Project/pull/258), merged at `5cb4385f7f01ce2328bce9ed69c0b2ae92fe511d`; feature head was `08b1897100e9d911802f8faa1858dc70b40e5967`.
 - **Implementation:** The smoke endpoint now sends `POST https://api.geoapify.com/v1/routeplanner` with a fixed JSON plan containing one synthetic agent start and one synthetic job location in GeoJSON `[longitude, latitude]` order. It accepts no caller data, requires a separate temporary token, suppresses upstream details, and returns only sanitized status/counts. Operational `/api/route-preview` remains private-OSRM-only.

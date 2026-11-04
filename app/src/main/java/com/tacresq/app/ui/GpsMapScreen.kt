@@ -940,7 +940,7 @@ fun GpsMapScreen(
                 routeStatus = "In-app routing is available only while your assigned unit is assigned or en route."
             }
             provider == null -> {
-                routeStatus = "In-app routing is disabled or not configured. No route or ETA was generated; a private driving service must be configured and enabled."
+                routeStatus = "In-app routing is disabled or not configured. No route or ETA was generated; a server-side driving service must be configured and enabled."
             }
             !incident.hasValidMapCoordinates() || destinationLatitude == null || destinationLongitude == null -> {
                 routeStatus = "This incident has no valid destination coordinate. Confirm the location with dispatch."

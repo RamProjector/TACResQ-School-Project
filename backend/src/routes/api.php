@@ -405,7 +405,7 @@ Route::post('/geoapify-smoke-test', function (Request $request) {
 })->middleware('throttle:5,1');
 
 
-// Authenticated route preview. The request goes only to a configured private OSRM service;
+// Authenticated route preview. The request goes only to the explicitly configured provider;
 // incident text, profile data, and upstream response details are never forwarded or logged.
 Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $bridge) {
     $token = $request->bearerToken();
@@ -487,6 +487,125 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
         || (float) $destinationLat < -90 || (float) $destinationLat > 90
         || (float) $destinationLon < -180 || (float) $destinationLon > 180) {
         return response()->json(['message' => 'Incident location is unavailable for route preview.'], 422);
+    }
+
+    $provider = strtolower(trim((string) config('tacru.route_provider', 'osrm')));
+    if ($provider === 'geoapify') {
+        $apiKey = trim((string) config('tacru.geoapify_api_key', ''));
+        if ($apiKey === '') {
+            return response()->json(['message' => 'Geoapify routing is not configured.'], 503);
+        }
+
+        // Geoapify requires the API key in the query string. This fixed EU endpoint
+        // receives the two route coordinates; never log the URL or exception details.
+        try {
+            $upstream = \Illuminate\Support\Facades\Http::acceptJson()
+                ->connectTimeout(5)
+                ->timeout(12)
+                ->withOptions(['allow_redirects' => false])
+                ->get('https://api-eu.geoapify.com/v1/routing', [
+                    'waypoints' => number_format($originLat, 7, '.', '').','.number_format($originLon, 7, '.', '')
+                        .'|'.number_format((float) $destinationLat, 7, '.', '').','.number_format((float) $destinationLon, 7, '.', ''),
+                    'mode' => 'drive',
+                    'format' => 'json',
+                    'units' => 'metric',
+                    'lang' => 'en',
+                    'apiKey' => $apiKey,
+                ]);
+        } catch (\Throwable) {
+            return response()->json(['message' => 'Geoapify routing is temporarily unavailable.'], 502);
+        }
+
+        if ($upstream->status() === 429) {
+            return response()->json(['message' => 'Geoapify routing is busy or out of credits. Use external Maps instead.'], 503);
+        }
+        if (in_array($upstream->status(), [401, 403], true)) {
+            return response()->json(['message' => 'Geoapify did not accept the configured server key.'], 502);
+        }
+        if (!$upstream->successful()) {
+            return response()->json(['message' => 'Geoapify could not calculate this route. Use external Maps instead.'], 502);
+        }
+
+        $body = $upstream->json();
+        $route = is_array($body) && is_array($body['results'] ?? null) ? ($body['results'][0] ?? null) : null;
+        $distance = is_array($route) ? ($route['distance'] ?? null) : null;
+        $duration = is_array($route) ? ($route['time'] ?? null) : null;
+        $segments = is_array($route) ? ($route['geometry'] ?? null) : null;
+        if (!is_numeric($distance) || !is_numeric($duration)
+            || !is_finite((float) $distance) || (float) $distance <= 0
+            || !is_finite((float) $duration) || (float) $duration <= 0
+            || !is_array($segments) || count($segments) < 1 || count($segments) > 10) {
+            return response()->json(['message' => 'Geoapify returned an invalid route. Use external Maps instead.'], 502);
+        }
+
+        $geometry = [];
+        foreach ($segments as $segment) {
+            if (!is_array($segment) || count($segment) < 2) {
+                return response()->json(['message' => 'Geoapify returned an invalid route. Use external Maps instead.'], 502);
+            }
+            foreach ($segment as $point) {
+                $longitude = is_array($point) ? ($point['lon'] ?? null) : null;
+                $latitude = is_array($point) ? ($point['lat'] ?? null) : null;
+                if (!is_numeric($longitude) || !is_numeric($latitude)
+                    || !is_finite((float) $longitude) || !is_finite((float) $latitude)
+                    || (float) $longitude < -180 || (float) $longitude > 180
+                    || (float) $latitude < -90 || (float) $latitude > 90) {
+                    return response()->json(['message' => 'Geoapify returned an invalid route. Use external Maps instead.'], 502);
+                }
+                $last = count($geometry) > 0 ? $geometry[count($geometry) - 1] : null;
+                if ($last !== null && $last['longitude'] === (float) $longitude && $last['latitude'] === (float) $latitude) {
+                    continue;
+                }
+                $geometry[] = ['latitude' => (float) $latitude, 'longitude' => (float) $longitude];
+                if (count($geometry) > 5000) {
+                    return response()->json(['message' => 'Geoapify returned an invalid route. Use external Maps instead.'], 502);
+                }
+            }
+        }
+        if (count($geometry) < 2) {
+            return response()->json(['message' => 'Geoapify returned an invalid route. Use external Maps instead.'], 502);
+        }
+
+        $legs = $route['legs'] ?? null;
+        if (!is_array($legs) || count($legs) > 10) {
+            return response()->json(['message' => 'Geoapify returned an invalid route. Use external Maps instead.'], 502);
+        }
+        $instructions = [];
+        foreach ($legs as $leg) {
+            $steps = is_array($leg) ? ($leg['steps'] ?? null) : null;
+            if (!is_array($steps) || count($steps) + count($instructions) > 200) {
+                return response()->json(['message' => 'Geoapify returned an invalid route. Use external Maps instead.'], 502);
+            }
+            foreach ($steps as $step) {
+                $instruction = is_array($step) ? ($step['instruction'] ?? null) : null;
+                $text = is_array($instruction) ? trim((string) ($instruction['text'] ?? '')) : '';
+                $stepDistance = is_array($step) ? ($step['distance'] ?? null) : null;
+                $stepDuration = is_array($step) ? ($step['time'] ?? null) : null;
+                if (!is_numeric($stepDistance) || !is_numeric($stepDuration)
+                    || !is_finite((float) $stepDistance) || (float) $stepDistance < 0
+                    || !is_finite((float) $stepDuration) || (float) $stepDuration < 0
+                    || mb_strlen($text) > 300) {
+                    return response()->json(['message' => 'Geoapify returned an invalid route. Use external Maps instead.'], 502);
+                }
+                if ($text !== '') {
+                    $instructions[] = [
+                        'text' => $text,
+                        'distance_meters' => (float) $stepDistance,
+                        'duration_seconds' => (float) $stepDuration,
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'geometry' => $geometry,
+            'distance_meters' => (float) $distance,
+            'duration_seconds' => (float) $duration,
+            'instructions' => $instructions,
+        ]);
+    }
+    if ($provider !== 'osrm') {
+        return response()->json(['message' => 'In-app routing is not configured.'], 503);
     }
 
     // Accept only a single-label internal hostname. Reject dotted public/loopback/IP
