@@ -56,6 +56,8 @@ The [GPS map UI recommendation](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) explai
 | FCM push notifications | Not yet implemented |
 | Offline write synchronization | Not yet implemented |
 
+See the [research-backed app feature-gap roadmap](docs/APP_FEATURE_GAPS_AND_ROADMAP.md) for the implemented baseline, prioritized missing capabilities, acceptance criteria, and official technical references. This is planning documentation; it does not mean the listed work has been implemented or live-validated.
+
 ## Android setup
 
 The repository includes a complete Gradle project and the Gradle Wrapper. Use JDK 17 and install Android SDK Platform 37.0 plus Android SDK Build-Tools 36.0.0. Android Studio can open the repository root directly.
