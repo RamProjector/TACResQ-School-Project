@@ -1,0 +1,64 @@
+# TACResQ app gaps and implementation roadmap
+
+**Reviewed:** 2026-11-05
+**Scope:** Android app and its supporting backend/database behavior. This is a planning document only; no features are implemented by this change.
+
+## What already exists
+
+TACResQ already has a useful foundation that should be extended rather than replaced. Requesters can submit an SOS and see an active-incident status card. The requester screen refreshes incident state at an eight-second interval while it is started. Status labels distinguish awaiting dispatch, responder assigned, en route, on scene, transport, resolved, and cancelled. The SOS workflow also has local pending-request reconciliation and a deliberate retry path for an uncertain submission; this is not general offline synchronization. See [`RequesterScreen.kt`](../app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt), [`AppConfig.kt`](../app/src/main/java/com/tacresq/app/AppConfig.kt), and [`Models.kt`](../app/src/main/java/com/tacresq/app/data/model/Models.kt).
+
+The database has persistent in-app notifications. Its assignment triggers create a “Response unit assigned” notification for the requester, and later status changes create in-app alerts for incident participants. The Android inbox reads and marks these records as read, refreshing every 30 seconds while that screen is active. These are inbox records, not phone push delivery. The README and product scope explicitly identify Firebase Cloud Messaging (FCM) push delivery as not implemented. See [`NotificationsScreen.kt`](../app/src/main/java/com/tacresq/app/ui/notifications/NotificationsScreen.kt) and [`20261026190000_persistent_in_app_notifications.sql`](../supabase/migrations/20261026190000_persistent_in_app_notifications.sql).
+
+The repository also marks offline write synchronization as not implemented. Existing uncertain-SOS safeguards should be preserved: an unconfirmed SOS must never be presented as received by dispatch, and a second SOS must not be created blindly. In-app route preview is opt-in in Android builds. The backend integration exists, but a successful real provider route response and end-to-end device navigation have not been established in the reviewed handoff. See [`README.md`](../README.md), [`AppConfig.kt`](../app/src/main/java/com/tacresq/app/AppConfig.kt), and [`CURRENT_TASK.md`](../CURRENT_TASK.md).
+
+## Prioritized gaps
+
+### 1. Complete requester and responder push alerts
+
+**Gap.** A requester can see assignment/status changes in the in-app inbox and through refreshed incident state, but receives no system notification when TACResQ is in the background or closed. An in-app inbox is still the durable place to review alerts; push should prompt a return to the app, not replace that record or become a second source of truth.
+
+**Recommended implementation.** Add FCM client registration and a trusted-server send path. Keep FCM authorization credentials and device-token administration on the server, never in the Android package. Associate tokens with the authenticated app installation and account; refresh and revoke them on token change, sign-out, and invalid-token responses. Trigger sends from the existing persisted assignment/status notification event so database state and notification creation remain authoritative. Use a durable, deduplicated delivery/outbox record or equivalent retry-safe mechanism so a transient FCM failure does not lose the in-app alert or create duplicate pushes. Keep payloads minimal: event type and incident identifier are sufficient to open TACResQ; fetch current authorized incident details after the user opens it. Do not include precise coordinates or sensitive incident descriptions in lock-screen text. These are design recommendations for TACResQ, not capabilities claimed by the Firebase SDK. Firebase documents that sending occurs from a trusted server environment and that registration tokens and credentials must be securely stored.[1]
+
+Android 13 and later require user-granted `POST_NOTIFICATIONS` permission for ordinary app notifications. TACResQ already declares this permission in its manifest for its current foreground-service notification, but no FCM client/service dependency or push-registration flow was found in the reviewed Android module. Add an in-context, optional permission prompt and keep the in-app inbox usable when permission is denied. Add channels with clear importance and avoid treating permission denial as a failure of the emergency-request workflow.[2] [3]
+
+**Acceptance criteria before calling this complete:** an assigned requester and each intended responder receive one appropriate push when the app is backgrounded; opening the push leads to the correct incident after server-side authorization; duplicate database events do not produce repeated alerts; expired tokens are removed or disabled; sign-out stops account-specific delivery; denied notification permission leaves the inbox/status screen functional; no credential or sensitive location appears in the client, push payload, or logs; delivery failures remain visible to operators and do not erase the persistent in-app notification.
+
+### 2. Make requester behavior resilient to weak or missing connectivity
+
+**Gap.** The current app has targeted SOS uncertainty handling, but no general offline cache/write synchronization. It is important not to label this as a missing feature in the sense that every SOS should silently queue and later submit: delayed background submission can be unsafe if the user has moved, circumstances changed, or they believe help has already been dispatched.
+
+**Recommended implementation.** First add a clear local draft and last-confirmed-status experience. Show distinct states for “saved on this phone,” “sending,” “confirmed by server,” and “could not confirm.” Preserve the existing idempotent reconciliation for uncertain submissions and require an explicit, informed user action to retry or submit when connectivity returns. Do not say “SOS sent” until the server confirms it. Do not automatically send a stale emergency draft in the background. Cache only the minimum requester data needed to recover the draft and last known incident status, protect it on-device, and provide a clear deletion/expiry policy.
+
+If later research establishes a safe background-sync use case, use durable constrained work for deferrable synchronization, with idempotency keys and server reconciliation. Android recommends a local source of truth for offline-first reads and describes WorkManager as persistent work that can retry under constraints; its run time remains subject to system scheduling. Therefore WorkManager should not be represented as guaranteed immediate emergency delivery.[4] [5]
+
+**Acceptance criteria before calling this complete:** airplane-mode submission never claims dispatch received the SOS; process death/restart does not erase a confirmed local draft; reconnecting reconciles against the server before offering a new request; repeated retry cannot create duplicate incidents; stale location is labeled with its capture time and accuracy; a user can edit or discard an unsent draft safely; backend rejection and timeout remain distinguishable; tests cover offline, timeout-after-server-commit, restart, sign-out, and retry races.
+
+### 3. Validate route preview and provide a safe fallback
+
+**Gap.** Route-preview code is present, but Android builds keep it opt-in, and the reviewed history does not establish a successful Geoapify route response or a full on-device navigation test. A backend integration or green build alone does not prove that routing works for the actual operating area, request parameters, account configuration, and device network.
+
+**Recommended implementation.** Before enabling route preview in a release build, complete an authorized synthetic backend test and a controlled device test using non-emergency test accounts/coordinates. Verify route geometry, distance, duration, malformed/empty responses, timeouts, rate limits, and provider rejection. Show the route as a preview with a clear timestamp and provider/source disclosure; do not present a preview as turn-by-turn guidance or a guaranteed ETA. Keep an explicit external-maps fallback and ensure it opens only after the user chooses it. Test that assignment/role validation remains enforced and that failed routing never silently sends coordinates to a second provider. The provider's official docs describe the Routing API as a waypoint-based HTTP GET that returns route/direction data; integration validation should check the actual schema rather than merely the HTTP status.[6]
+
+**Acceptance criteria before calling this complete:** release configuration keeps routing off until a successful supported-provider test is recorded; valid test route renders and invalid/failed responses show a truthful unavailable state; stale or missing origin is rejected; external Maps remains an explicit user choice; no route or ETA is implied when the request failed; no real responder location is used for provider smoke tests.
+
+### 4. Establish a controlled device and release-readiness test pass
+
+**Gap.** CI builds and source contracts are valuable but cannot establish physical GPS accuracy, permission behavior, device notification delivery, background/relaunch handling, poor-network behavior, or live-backend behavior. The project scope already warns against treating these as verified by CI alone.
+
+**Recommended implementation.** Add a repeatable QA matrix for at least one supported Android 13+ phone and the app's minimum supported OS range. Cover fresh install, notification permission allow/deny, foreground/background/resume, location permission approximate/precise/denied, location disabled, weak/no network, token refresh, sign-out, and requester-to-dispatcher-to-responder test flow. Use synthetic accounts and locations; do not create or expose real emergency incidents. Record app version, OS/device, backend environment, expected result, observed result, and defects. Automate stable permission/state cases with instrumented tests where practical; reserve real-device runs for GPS, OEM background behavior, notification presentation, and network conditions. Android's testing guidance distinguishes local unit and device/instrumented testing, supporting a layered validation plan rather than relying on a single build check.[7]
+
+**Acceptance criteria before release:** every critical journey has a deterministic automated regression test where feasible; a documented test record covers notification permission and background behavior on a real device; SOS success is checked against backend confirmation; route failure/fallback and GPS-unavailable cases are exercised; all unresolved high-risk findings are explicitly accepted or fixed; no test uses real operational responder data.
+
+## Suggested implementation order
+
+Implement and review these as separate, end-to-end changes rather than a combined app-wide refactor. Start with the push-notification delivery path because persistent in-app notification events already exist. In parallel, strengthen offline SOS draft/confirmation states without silently queueing dispatch-critical submissions. Validate routing independently before changing its build flag. Keep a device test matrix as a release gate across all three features. The app must continue to state that it assists emergency coordination and does not guarantee a response or replace local emergency services.
+
+## References
+
+[1]: https://firebase.google.com/docs/cloud-messaging/server-environment "Firebase Cloud Messaging server environment"
+[2]: https://firebase.google.com/docs/cloud-messaging/android/get-started "Get started with Firebase Cloud Messaging in Android apps"
+[3]: https://developer.android.com/develop/ui/compose/notifications/notification-permission "Android notification runtime permission"
+[4]: https://developer.android.com/topic/architecture/data-layer/offline-first "Build an offline-first app"
+[5]: https://developer.android.com/develop/background-work/background-tasks/persistent "Android persistent background work and task scheduling"
+[6]: https://apidocs.geoapify.com/docs/routing/ "Geoapify Routing API documentation"
+[7]: https://developer.android.com/training/testing "Test your app on Android"

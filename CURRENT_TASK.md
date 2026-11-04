@@ -1,4 +1,15 @@
-# Current handoff — 2026-11-05: failed one-off Geoapify Routing API test and cleanup
+# Current handoff — 2026-11-05: research-backed app feature-gap documentation
+
+- **Objective:** Document which important app capabilities remain incomplete before implementing any feature, using repository evidence and official Android/Firebase/provider documentation.
+- **Documentation:** Added [`docs/APP_FEATURE_GAPS_AND_ROADMAP.md`](docs/APP_FEATURE_GAPS_AND_ROADMAP.md) and linked it from README. It distinguishes existing persistent in-app assignment/status alerts from absent FCM push; targeted uncertain-SOS protection from absent general offline synchronization; opt-in route preview code from unverified provider/device readiness; and automated CI from real-device release validation. Includes prioritized acceptance criteria and seven official references.
+- **Scope:** Documentation only. No Android, backend, database, Render, or Supabase implementation/configuration changes. Do not implement roadmap features until this documentation PR is reviewed/accepted or the user requests implementation.
+- **Branch:** `agent/app-feature-gap-roadmap`, based on `origin/main` `0789991d` (PR #262 cleanup merge). No open PRs were present when work began.
+- **Validation:** Research claims checked against current repository files, official Firebase and Android docs, and Geoapify Routing API docs. Citation/reference IDs were checked for resolution. Source-contract tests and final diff checks remain to run after all edits.
+- **Next:** Run relevant documentation-safe checks and `git diff --check`, commit, push, open a documentation-only PR, then report its exact link/head/check state. Do not implement features or merge this PR unless asked.
+
+---
+
+# Previous handoff — 2026-11-05: failed one-off Geoapify Routing API test and cleanup
 
 - **Authorization:** User explicitly approved one live regular-Routing API call with fixed synthetic coordinates and temporary diagnostic deployment, followed by cleanup. No real responder/incident coordinates were used; no second Geoapify request is authorized or made.
 - **Diagnostic:** PR #261 passed exact-head CI (12 passed, 2 skipped) and merged as `c838789bae48480f4fd41c2019debd8d04c2b224`. Render deployed it. The gate used a fresh temporary `GEOAPIFY_SMOKE_TEST_TOKEN`, no caller data, fixed waypoints, and the regular EU `GET /v1/routing` endpoint.
