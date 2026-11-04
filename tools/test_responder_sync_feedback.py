@@ -14,4 +14,13 @@ assert "state.syncError == null && state.dutyStatus == DutyStatus.AVAILABLE" in 
 assert 'Text("Assignments unavailable")' not in empty_state
 assert 'Text("Refresh before assuming there are no active calls.")' not in empty_state
 
+assert '"Location sharing",' in source
+assert 'state.trackingError != null -> "Needs attention"' in source
+assert 'sharing && state.lastLocationSentAt == null -> "Starting"' in source
+assert 'sharing -> "Enabled"' in source
+assert 'else -> "Off"' in source
+assert "GPS sharing reports your location; it does not confirm arrival." in source
+assert '"Last sent $time' in source
+assert 'Text("Stop location sharing")' in source
+
 print("Responder sync feedback hierarchy contract passed.")

@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -47,6 +48,7 @@ import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MyLocation
@@ -162,6 +164,46 @@ private enum class MapLocationFreshness(val label: String) {
     FRESH("Fresh"),
     AGING("Aging"),
     STALE("Stale"),
+}
+
+@Composable
+private fun RowScope.MapFreshnessChip(
+    freshness: MapLocationFreshness,
+    count: Int,
+    ageDescription: String,
+) {
+    val colors = MaterialTheme.colorScheme
+    val (container, content, marker) = when (freshness) {
+        MapLocationFreshness.FRESH -> Triple(colors.secondaryContainer, colors.onSecondaryContainer, colors.secondary)
+        MapLocationFreshness.AGING -> Triple(colors.tertiaryContainer, colors.onTertiaryContainer, colors.tertiary)
+        MapLocationFreshness.STALE -> Triple(colors.surfaceVariant, colors.onSurfaceVariant, colors.outline)
+    }
+    Surface(
+        modifier = Modifier.weight(1f).semantics(mergeDescendants = true) {
+            contentDescription = "${freshness.label} field-unit locations: $count. $ageDescription."
+        },
+        shape = RoundedCornerShape(50),
+        color = container,
+        contentColor = content,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Surface(
+                modifier = Modifier.size(7.dp),
+                shape = RoundedCornerShape(50),
+                color = marker,
+            ) {}
+            Text(
+                "${freshness.label} $count",
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 private fun ResponderLocation.mapAgeSeconds(now: Instant = Instant.now()): Long? {
@@ -1239,12 +1281,33 @@ fun GpsMapScreen(
                     }
 
                     if (role == Role.DISPATCHER && validResponderLocations.isNotEmpty()) {
-                        Text(
-                            text = "Units: $freshResponderCount fresh · $agingResponderCount aging · $staleResponderCount stale",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                "Field-unit location freshness",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                MapFreshnessChip(
+                                    MapLocationFreshness.FRESH,
+                                    freshResponderCount,
+                                    "updated under 30 seconds ago",
+                                )
+                                MapFreshnessChip(
+                                    MapLocationFreshness.AGING,
+                                    agingResponderCount,
+                                    "updated 30 to 120 seconds ago",
+                                )
+                                MapFreshnessChip(
+                                    MapLocationFreshness.STALE,
+                                    staleResponderCount,
+                                    "older than 120 seconds and not live",
+                                )
+                            }
+                        }
                     }
 
                     if (isRouteLoading || routeResult != null || routeStatus != null) {
