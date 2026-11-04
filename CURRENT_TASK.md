@@ -1,9 +1,14 @@
-# Current handoff — 2026-11-05: one approved Geoapify Routing API smoke test
+# Current handoff — 2026-11-05: failed one-off Geoapify Routing API test and cleanup
 
-- **Approval:** User explicitly approved exactly one real Geoapify Routing API request using fixed synthetic coordinates, temporary gated Render diagnostic deployment, and cleanup. Do not inspect/change `GEOAPIFY_API_KEY`, send real responder/incident coordinates, make additional provider requests, or enable operational Android route traffic.
-- **Current implementation:** Branch `agent/geoapify-routing-live-smoke` is based on merged PR #260 (`ae2e421f`). It temporarily changes the existing token-gated `/api/geoapify-smoke-test` endpoint from Route Planner to regular `GET /v1/routing`, with two fixed synthetic waypoints and sanitized summary only. Tests and runbook are being updated for the temporary API change. The Render service auto-deploys main; no temporary token has been set and no live call has happened yet.
-- **Required sequence:** Finish mock tests and CI; merge the temporary diagnostic PR; set a random `GEOAPIFY_SMOKE_TEST_TOKEN` only (merge-only env update; never touch the Geoapify API key); wait for Render live; verify the gate is 404 before token and make exactly one bodyless POST with the token; clear the temporary token and wait for cleanup deploy; verify gate is 404; remove the temporary diagnostic code/runbook changes with a cleanup PR and let Render auto-deploy. Report only sanitized status and route summary.
-- **Current validation:** `tools/test_location_contract.py` (36 source contracts) passes on the temporary branch. Laravel tests require exact-head CI; local PHP/Composer/Docker are not available. `git diff --check` passed before the current docs edit and must be rerun.
+- **Authorization:** User explicitly approved one live regular-Routing API call with fixed synthetic coordinates and temporary diagnostic deployment, followed by cleanup. No real responder/incident coordinates were used; no second Geoapify request is authorized or made.
+- **Diagnostic:** PR #261 passed exact-head CI (12 passed, 2 skipped) and merged as `c838789bae48480f4fd41c2019debd8d04c2b224`. Render deployed it. The gate used a fresh temporary `GEOAPIFY_SMOKE_TEST_TOKEN`, no caller data, fixed waypoints, and the regular EU `GET /v1/routing` endpoint.
+- **Live result:** Exactly one bodyless POST was made. Render returned sanitized HTTP 502: `Geoapify rejected the Routing API request or configured key.` This means the upstream response was in the 400/401/403 class; it does not prove whether the key itself is invalid or some request parameter was rejected. No raw response, key, or URL was inspected. No retry was made.
+- **Cleanup in progress:** `GEOAPIFY_SMOKE_TEST_TOKEN` was set to empty only (the existing `GEOAPIFY_API_KEY` was neither read nor changed). Token-clear deploy `dep-dblmi7oae00c73cbtkq0` was in progress at last status check. Local temporary token/curl config were deleted. Branch `agent/cleanup-geoapify-routing-smoke` reverts the temporary diagnostic changes; next: verify token-clear deploy is live and endpoint returns 404, open cleanup PR, pass CI, merge, and confirm Render auto-deploy removed the temporary Routing API diagnostic. No Render deploy after cleanup will test Geoapify.
+- **Operational status:** PR #260 remains merged and Render's regular-route provider integration is live, but Geoapify Routing API success is unverified. Do not enable Android routing or claim working route calculation until a separately approved and corrected test succeeds. Do not inspect or change `GEOAPIFY_API_KEY`.
+
+---
+
+# Previous handoff — 2026-11-03: Geoapify provider selection
 
 ---
 

@@ -8,20 +8,35 @@ use Tests\TestCase;
 
 class GeoapifySmokeTest extends TestCase
 {
-    private const URL = 'https://api-eu.geoapify.com/v1/routing';
+    private const URL = 'https://api.geoapify.com/v1/routeplanner';
     private const SMOKE_TOKEN = 'synthetic-geoapify-smoke-token-0123456789abcdef';
     private const API_KEY = 'synthetic-geoapify-api-key-never-real';
     private const HEADER = 'X-TACResQ-Smoke-Token';
-    private const WAYPOINTS = '11.2443000,125.0030000|11.2500000,125.0200000';
+    private const PLANNER_PAYLOAD = [
+        'mode' => 'drive',
+        'agents' => [[
+            'id' => 'tacresq-smoke-agent',
+            'start_location' => [125.0030, 11.2443],
+            'pickup_capacity' => 1,
+        ]],
+        'jobs' => [[
+            'id' => 'tacresq-smoke-job',
+            'location' => [125.0200, 11.2500],
+            'duration' => 60,
+            'pickup_amount' => 1,
+        ]],
+    ];
     private const SUCCESS_RESPONSE = [
-        'results' => [[
-            'distance' => 2310.5,
-            'time' => 245.25,
-            'geometry' => [[
-                ['lon' => 125.0030, 'lat' => 11.2443],
-                ['lon' => 125.0120, 'lat' => 11.2470],
-                ['lon' => 125.0200, 'lat' => 11.2500],
-            ]],
+        'type' => 'FeatureCollection',
+        'features' => [[
+            'type' => 'Feature',
+            'properties' => [
+                'actions' => [
+                    ['type' => 'start'],
+                    ['type' => 'job'],
+                    ['type' => 'end'],
+                ],
+            ],
         ]],
     ];
 
@@ -81,7 +96,7 @@ class GeoapifySmokeTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_success_gets_only_the_fixed_synthetic_route_and_returns_a_sanitized_summary(): void
+    public function test_success_posts_only_the_fixed_synthetic_plan_and_returns_a_sanitized_summary(): void
     {
         Http::fake([
             self::URL.'*' => Http::response(self::SUCCESS_RESPONSE, 200),
@@ -92,33 +107,32 @@ class GeoapifySmokeTest extends TestCase
 
         $response->assertOk()->assertExactJson([
             'status' => 'passed',
-            'provider' => 'Geoapify Routing API',
+            'provider' => 'Geoapify Route Planner',
             'coordinates' => 'synthetic test points only',
-            'distance_meters' => 2310.5,
-            'duration_seconds' => 245.3,
-            'geometry_points' => 3,
+            'agents_requested' => 1,
+            'jobs_requested' => 1,
+            'routes_returned' => 1,
+            'jobs_planned' => 1,
         ]);
         $this->assertStringNotContainsString(self::API_KEY, $response->getContent());
-        $this->assertStringNotContainsString('125.0030', $response->getContent());
-        Http::assertSent(fn ($request) => $request->method() === 'GET'
+        Http::assertSent(fn ($request) => $request->method() === 'POST'
             && parse_url($request->url(), PHP_URL_SCHEME) === 'https'
-            && parse_url($request->url(), PHP_URL_HOST) === 'api-eu.geoapify.com'
-            && parse_url($request->url(), PHP_URL_PATH) === '/v1/routing'
+            && parse_url($request->url(), PHP_URL_HOST) === 'api.geoapify.com'
+            && parse_url($request->url(), PHP_URL_PATH) === '/v1/routeplanner'
+            && $request->hasHeader('Content-Type')
             && (function () use ($request): bool {
                 $query = [];
                 parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+                $body = json_decode($request->body(), true);
                 return ($query['apiKey'] ?? null) === self::API_KEY
-                    && ($query['waypoints'] ?? null) === self::WAYPOINTS
-                    && ($query['mode'] ?? null) === 'drive'
-                    && ($query['format'] ?? null) === 'json'
-                    && ($query['units'] ?? null) === 'metric'
-                    && count($query) === 5;
+                    && $body === self::PLANNER_PAYLOAD
+                    && !str_contains($request->body(), self::API_KEY);
             })()
             && !$request->hasHeader('Authorization'));
         Http::assertSentCount(1);
     }
 
-    public function test_provider_rejection_is_sanitized(): void
+    public function test_planner_rejection_and_upstream_diagnostics_are_sanitized(): void
     {
         Http::fake([
             self::URL.'*' => Http::response([
@@ -130,7 +144,7 @@ class GeoapifySmokeTest extends TestCase
             ->post('/api/geoapify-smoke-test');
 
         $response->assertStatus(502)->assertExactJson([
-            'message' => 'Geoapify rejected the Routing API request or configured key.',
+            'message' => 'Geoapify rejected the Route Planner request or configured key.',
         ]);
         $this->assertStringNotContainsString(self::API_KEY, $response->getContent());
         $this->assertStringNotContainsString('synthetic provider diagnostic', $response->getContent());
@@ -146,7 +160,7 @@ class GeoapifySmokeTest extends TestCase
             ->post('/api/geoapify-smoke-test');
 
         $response->assertStatus(502)->assertExactJson([
-            'message' => 'Geoapify Routing API test request failed.',
+            'message' => 'Geoapify Route Planner test request failed.',
         ]);
         $this->assertStringNotContainsString(self::API_KEY, $response->getContent());
         $this->assertStringNotContainsString('synthetic failing URL', $response->getContent());
@@ -162,7 +176,7 @@ class GeoapifySmokeTest extends TestCase
             ->post('/api/geoapify-smoke-test');
 
         $response->assertStatus(503)->assertExactJson([
-            'message' => 'Geoapify Routing API is rate-limited or out of credits.',
+            'message' => 'Geoapify Route Planner is rate-limited or out of credits.',
         ]);
         $this->assertStringNotContainsString('synthetic quota detail', $response->getContent());
     }
@@ -170,14 +184,14 @@ class GeoapifySmokeTest extends TestCase
     public function test_malformed_success_response_is_sanitized(): void
     {
         Http::fake([
-            self::URL.'*' => Http::response(['results' => []], 200),
+            self::URL.'*' => Http::response(['type' => 'FeatureCollection', 'features' => []], 200),
         ]);
 
         $response = $this->withHeader(self::HEADER, self::SMOKE_TOKEN)
             ->post('/api/geoapify-smoke-test');
 
         $response->assertStatus(502)->assertExactJson([
-            'message' => 'Geoapify returned an invalid Routing API result.',
+            'message' => 'Geoapify returned an invalid Route Planner result.',
         ]);
     }
 
