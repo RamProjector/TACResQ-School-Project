@@ -306,8 +306,9 @@ Route::post('/bridge/rpc/{function}', function (
 
 });
 
-// Temporary one-off diagnostic for the regular Routing API. It accepts no caller
-// coordinates or payload. Keep its independent token unset outside the approved test.
+// One-off deployment diagnostic. It accepts no caller-supplied coordinates or payload;
+// use only the synthetic in-area points from backend/routing/smoke-test.sh. Keep the
+// independent token unset except during an explicitly authorized smoke test.
 Route::post('/geoapify-smoke-test', function (Request $request) {
     $json = static fn (array $body, int $status) => response()->json($body, $status)
         ->header('Cache-Control', 'no-store, private');
@@ -325,79 +326,81 @@ Route::post('/geoapify-smoke-test', function (Request $request) {
         return $json(['message' => 'Geoapify is not configured on this service.'], 503);
     }
 
-    // Fixed synthetic waypoints only. Never log or return the URL because Geoapify
-    // requires its API key in the query string. The URL and exception are sanitized.
-    $routingUrl = 'https://api-eu.geoapify.com/v1/routing?'.http_build_query([
-        'waypoints' => '11.2443000,125.0030000|11.2500000,125.0200000',
+    // Match the Route Planner API's JSON POST format. This minimal plan has only two
+    // fixed synthetic locations: one agent start and one job. Coordinates use
+    // GeoJSON [longitude, latitude] order. The key is required in the query string;
+    // the fixed-host URL and exception are never logged or returned to the caller.
+    $plannerPayload = [
         'mode' => 'drive',
-        'format' => 'json',
-        'units' => 'metric',
-        'apiKey' => $apiKey,
-    ], '', '&', PHP_QUERY_RFC3986);
+        'agents' => [[
+            'id' => 'tacresq-smoke-agent',
+            'start_location' => [125.0030, 11.2443],
+            'pickup_capacity' => 1,
+        ]],
+        'jobs' => [[
+            'id' => 'tacresq-smoke-job',
+            'location' => [125.0200, 11.2500],
+            'duration' => 60,
+            'pickup_amount' => 1,
+        ]],
+    ];
+    $plannerUrl = 'https://api.geoapify.com/v1/routeplanner?'.http_build_query(
+        ['apiKey' => $apiKey],
+        '',
+        '&',
+        PHP_QUERY_RFC3986
+    );
 
     try {
         $upstream = \Illuminate\Support\Facades\Http::acceptJson()
+            ->asJson()
             ->connectTimeout(5)
             ->timeout(12)
             ->withOptions(['allow_redirects' => false])
-            ->get($routingUrl);
+            ->post($plannerUrl, $plannerPayload);
     } catch (\Throwable) {
-        return $json(['message' => 'Geoapify Routing API test request failed.'], 502);
+        // Do not serialize the exception: HTTP client exception messages can contain the URL.
+        return $json(['message' => 'Geoapify Route Planner test request failed.'], 502);
     }
 
     if ($upstream->status() === 429) {
-        return $json(['message' => 'Geoapify Routing API is rate-limited or out of credits.'], 503);
+        return $json(['message' => 'Geoapify Route Planner is rate-limited or out of credits.'], 503);
     }
     if (in_array($upstream->status(), [400, 401, 403], true)) {
-        return $json(['message' => 'Geoapify rejected the Routing API request or configured key.'], 502);
+        return $json(['message' => 'Geoapify rejected the Route Planner request or configured key.'], 502);
     }
     if (!$upstream->successful()) {
-        return $json(['message' => 'Geoapify Routing API test request failed.'], 502);
+        return $json(['message' => 'Geoapify Route Planner test request failed.'], 502);
     }
 
     $body = $upstream->json();
-    $route = is_array($body) && is_array($body['results'] ?? null) ? ($body['results'][0] ?? null) : null;
-    $distance = is_array($route) ? ($route['distance'] ?? null) : null;
-    $duration = is_array($route) ? ($route['time'] ?? null) : null;
-    $segments = is_array($route) ? ($route['geometry'] ?? null) : null;
-    if (!is_numeric($distance) || !is_numeric($duration)
-        || !is_finite((float) $distance) || (float) $distance <= 0
-        || !is_finite((float) $duration) || (float) $duration <= 0
-        || !is_array($segments) || count($segments) < 1 || count($segments) > 10) {
-        return $json(['message' => 'Geoapify returned an invalid Routing API result.'], 502);
-    }
-
-    $pointCount = 0;
-    foreach ($segments as $segment) {
-        if (!is_array($segment) || count($segment) < 2) {
-            return $json(['message' => 'Geoapify returned an invalid Routing API result.'], 502);
+    $features = is_array($body) && ($body['type'] ?? null) === 'FeatureCollection'
+        && is_array($body['features'] ?? null) ? $body['features'] : null;
+    $jobsPlanned = 0;
+    foreach ($features ?? [] as $feature) {
+        if (!is_array($feature)) {
+            continue;
         }
-        foreach ($segment as $point) {
-            $longitude = is_array($point) ? ($point['lon'] ?? null) : null;
-            $latitude = is_array($point) ? ($point['lat'] ?? null) : null;
-            if (!is_numeric($longitude) || !is_numeric($latitude)
-                || !is_finite((float) $longitude) || !is_finite((float) $latitude)
-                || (float) $longitude < -180 || (float) $longitude > 180
-                || (float) $latitude < -90 || (float) $latitude > 90) {
-                return $json(['message' => 'Geoapify returned an invalid Routing API result.'], 502);
-            }
-            $pointCount++;
-            if ($pointCount > 5000) {
-                return $json(['message' => 'Geoapify returned an invalid Routing API result.'], 502);
+        $properties = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
+        $actions = is_array($properties['actions'] ?? null) ? $properties['actions'] : [];
+        foreach ($actions as $action) {
+            if (is_array($action) && ($action['type'] ?? null) === 'job') {
+                $jobsPlanned++;
             }
         }
     }
-    if ($pointCount < 2) {
-        return $json(['message' => 'Geoapify returned an invalid Routing API result.'], 502);
+    if ($features === null || $features === [] || $jobsPlanned < 1) {
+        return $json(['message' => 'Geoapify returned an invalid Route Planner result.'], 502);
     }
 
     return $json([
         'status' => 'passed',
-        'provider' => 'Geoapify Routing API',
+        'provider' => 'Geoapify Route Planner',
         'coordinates' => 'synthetic test points only',
-        'distance_meters' => round((float) $distance, 1),
-        'duration_seconds' => round((float) $duration, 1),
-        'geometry_points' => $pointCount,
+        'agents_requested' => 1,
+        'jobs_requested' => 1,
+        'routes_returned' => count($features),
+        'jobs_planned' => $jobsPlanned,
     ], 200);
 })->middleware('throttle:5,1');
 
