@@ -1,6 +1,9 @@
 <?php
 
 return [
+    // Provider selection is server-side. Geoapify avoids hosting a router on Render;
+    // private OSRM remains available when explicitly selected.
+    'route_provider' => env('ROUTE_PROVIDER', 'geoapify'),
     // Optional private OSRM HTTP service. Must be an internal hostname or private IP.
     'osrm_base_url' => env('OSRM_BASE_URL', ''),
     // Server-only Geoapify settings. The smoke-test token is temporary and must be cleared after verification.

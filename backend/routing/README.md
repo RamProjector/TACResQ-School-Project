@@ -1,6 +1,6 @@
 # Optional private OSRM route service
 
-This directory contains a reproducible local runner for the private OSRM service used by TACResQ's authenticated route-preview proxy. It does not deploy a router, apply a Laravel environment value, enable Android routing, or create a production graph. The Android app never calls OSRM directly.
+This directory contains a reproducible local runner for the optional private OSRM alternative supported by TACResQ's authenticated route-preview proxy. The backend defaults to Geoapify for the free Render deployment and can use OSRM when `ROUTE_PROVIDER=osrm` and a private service is available. This directory does not deploy a router, apply a Laravel environment value, enable Android routing, or create a production graph. The Android app never calls OSRM or Geoapify directly. See [`docs/ROUTING_PROVIDER_SELECTION.md`](../../docs/ROUTING_PROVIDER_SELECTION.md) for location-data, pricing, and fallback guidance.
 
 ## Free and legal operating model
 
@@ -45,7 +45,7 @@ This helper requires `graph/tacresq.osrm` and Docker. It runs only against the l
 
 ## Connecting Laravel privately
 
-The authenticated Laravel `/api/route-preview` handler verifies the caller's Supabase session and own active assignment, derives the destination from caller-authorized incident data, and sends only origin/destination coordinates to OSRM. It does not send a bearer token, incident ID, description, profile data, or requester information. Coordinates are sent in OSRM's JSON POST body, not in the URL; application/OSRM access logging must not record request bodies.
+The authenticated Laravel `/api/route-preview` handler verifies the caller's Supabase session and own active assignment, derives the destination from caller-authorized incident data, and sends only origin/destination coordinates to the selected provider. It does not send a bearer token, incident ID, description, profile data, or requester information. Coordinates are sent in OSRM's JSON POST body, not in the URL. Geoapify receives them in the fixed EU endpoint's query string, and its API key is also a query parameter; do not log that URL. TACResQ does not automatically retry another provider on failure, avoiding silent additional location disclosure.
 
 For a private container network, configure Laravel with `OSRM_BASE_URL=http://tacresq-osrm:5000`. Do not point it at a public routing API. The backend intentionally rejects dotted domains, public IPs, loopback literals, and IPv6 literals so a production deployment cannot silently route precise responder locations to an arbitrary public host. The Laravel service and OSRM service must therefore share a private network or an approved internal service-discovery path.
 
@@ -55,7 +55,7 @@ The separate `POST /api/geoapify-smoke-test` endpoint is only a gated credential
 
 Geoapify's published Route Planner formula charges `locations × locations` for requests with fewer than 10 locations; this minimal two-location test therefore costs 4 credits per request. Confirm current account pricing before any additional calls. The response contains only a pass/fail summary and route/job counts; it does not return route geometry, provider response details, or credentials. Geoapify requires its API key in the outbound query string, so application code intentionally suppresses exception details and never logs that URL.
 
-Set `GEOAPIFY_API_KEY` only as a Render backend environment secret. For an explicitly approved smoke test, set a separate strong temporary `GEOAPIFY_SMOKE_TEST_TOKEN`, POST to the endpoint with that token in `X-TACResQ-Smoke-Token`, and then clear the smoke-test token. Never put either value in source control, Android, a client-supplied URL/body, a PR, or logs. Geoapify requires the API key in the backend's outbound request query; this fixed-host call is the only place the key is sent. A missing key, invalid key, rate limit, malformed response, or network error produces a sanitized response. This diagnostic does not change `/api/route-preview`, which continues to use the private OSRM configuration; no operational responder or incident coordinates are accepted or sent.
+Set `GEOAPIFY_API_KEY` only as a Render backend environment secret. For an explicitly approved smoke test, set a separate strong temporary `GEOAPIFY_SMOKE_TEST_TOKEN`, POST to the endpoint with that token in `X-TACResQ-Smoke-Token`, and then clear the smoke-test token. Never put either value in source control, Android, a client-supplied URL/body, a PR, or logs. Geoapify requires the API key in the backend's outbound request query; this fixed-host call is the only place the key is sent. A missing key, invalid key, rate limit, malformed response, or network error produces a sanitized response. The diagnostic uses fixed synthetic points and does not change the operational `/api/route-preview` provider selection.
 
 ## Graph preparation and updates
 

@@ -437,6 +437,11 @@ fun ResponderScreen(
                     latitude.isFinite() && longitude.isFinite() &&
                     latitude in -90.0..90.0 && longitude in -180.0..180.0
                 ) {
+                    Text(
+                        "This preview sends your approximate current location and this incident's location to TACResQ's configured routing service (Geoapify when enabled). If it fails, no second provider is contacted; you can choose external Maps.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     OutlinedButton(
                         onClick = { onOpenMap(incident.id) },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
