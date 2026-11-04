@@ -368,7 +368,7 @@ if (ROOT / "gradlew").is_file():
     properties = (ROOT / "gradle/wrapper/gradle-wrapper.properties").read_text(
         encoding="utf-8"
     )
-    if "gradle-9.3.1-bin.zip" not in properties:
+    if "gradle-9.8.2-bin.zip" not in properties:
         raise SystemExit("Unexpected Gradle distribution; review wrapper version and checksum.")
     print(
         f"Android Gradle project OK: {len(kotlin_files)} Kotlin files; "
