@@ -1,8 +1,8 @@
 package com.tacresq.app.notifications
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
-import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -17,8 +17,8 @@ class TacResqFirebaseMessagingService : FirebaseMessagingService() {
         app.container.pushTokenCoordinator.onTokenRefreshed(token, app.container.repository)
     }
 
+    @SuppressLint("MissingPermission")
     override fun onMessageReceived(message: RemoteMessage) {
-        val app = application as? TacResqApp ?: return
         PushNotificationChannels.ensure(this)
         if (!PushTokenCoordinator.notificationsAllowed(this)) return
 

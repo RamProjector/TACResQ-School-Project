@@ -24,6 +24,8 @@ assert "com.google.firebase.MESSAGING_EVENT" in manifest
 assert "POST_NOTIFICATIONS" in manifest
 assert "pushTokenCoordinator.sync" in app_root
 assert "pushTokenCoordinator.unregister" in app_root
+assert "RequestPermission()" in app_root
+assert "POST_NOTIFICATIONS" in app_root
 # Alert content must remain generic; incident details are fetched after authentication.
 assert '"Open TACResQ to review a new incident update."' in service
 assert 'message.data["description"]' not in service
