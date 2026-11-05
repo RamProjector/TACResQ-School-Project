@@ -1,11 +1,11 @@
-# Current handoff — 2026-11-05: research-backed app feature-gap documentation
+# Current handoff — 2026-11-05: repair latest TACResQ PR source-contract check
 
-- **Objective:** Document which important app capabilities remain incomplete before implementing any feature, using repository evidence and official Android/Firebase/provider documentation.
-- **Documentation:** Added [`docs/APP_FEATURE_GAPS_AND_ROADMAP.md`](docs/APP_FEATURE_GAPS_AND_ROADMAP.md) and linked it from README. It distinguishes existing persistent in-app assignment/status alerts from absent FCM push; targeted uncertain-SOS protection from absent general offline synchronization; opt-in route preview code from unverified provider/device readiness; and automated CI from real-device release validation. Includes prioritized acceptance criteria and seven official references.
-- **Scope:** Documentation only. No Android, backend, database, Render, or Supabase implementation/configuration changes. Do not implement roadmap features until this documentation PR is reviewed/accepted or the user requests implementation.
-- **Branch:** `agent/app-feature-gap-roadmap`, based on `origin/main` `0789991d` (PR #262 cleanup merge). No open PRs were present when work began.
-- **Validation:** Research claims checked against current repository files, official Firebase and Android docs, and Geoapify Routing API docs. Citation/reference IDs were checked for resolution. Source-contract tests and final diff checks remain to run after all edits.
-- **Next:** Run relevant documentation-safe checks and `git diff --check`, commit, push, open a documentation-only PR, then report its exact link/head/check state. Do not implement features or merge this PR unless asked.
+- **Objective:** Continue the latest open PR updates in `RamProjector/TACResQ-School-Project`.
+- **PR inventory:** #265 (`feat(android): add continuous responder navigation rerouting`, head `ec821ac`) was clean with 11 checks successful and 2 skipped; no update indicated. #264 (`feat(android): add FCM token registration lifecycle`, prior head `204a375`) had one failing `TACResQ CI/Source checks` job and was merge-state `UNSTABLE`.
+- **Diagnosis/change:** The failing Admin RPC source-contract assertion searched for one exact interface ordering. `SupabaseTacApi` already implements `TacAdminApi`, but an additional `TacPushApi` in the declaration made that assertion fail. Updated the assertion to check required interfaces independently within the client declaration; no production implementation was changed.
+- **Branch/PR:** Working on PR #264's `feat/fcm-client-registration` branch (local checkout `pr-264`). PR #264 compares as 3 commits ahead and 0 behind `main`.
+- **Local validation:** `tools/test_android_admin_rpc_contract.py`, `tools/test_fcm_registration_contract.py`, `tools/check_android_source.py`, and `git diff --check` all passed after the change. Android Gradle/device validation was not run locally.
+- **Next:** Commit and push the source-contract repair to PR #264, then inspect CI on its exact new head. Leave #265 unchanged unless new evidence identifies an issue; merge #264 only if required checks pass, GitHub reports it mergeable, and no unresolved critical security/privacy issue remains.
 
 ---
 
