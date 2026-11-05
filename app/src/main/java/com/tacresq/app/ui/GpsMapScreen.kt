@@ -929,12 +929,14 @@ fun GpsMapScreen(
             showAppSettingsAction = false
             if (pendingNavigationIncident != null) {
                 navigationPermissionStep = "check"
-            } else if (pendingRouteIncident != null) {
-                val pending = pendingRouteIncident
-                pendingRouteIncident = null
-                requestRoute(pending)
             } else {
-                locateOnce()
+                val pending = pendingRouteIncident
+                if (pending != null) {
+                    pendingRouteIncident = null
+                    requestRoute(pending)
+                } else {
+                    locateOnce()
+                }
             }
         } else {
             deviceFix = null
