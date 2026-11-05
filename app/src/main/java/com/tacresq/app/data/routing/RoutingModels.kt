@@ -51,6 +51,16 @@ data class RouteResult(
     }
 }
 
+data class RouteProviderDisclosure(
+    @SerializedName("provider_id") val providerId: String,
+) {
+    fun consentRecipient(): String? = when (providerId) {
+        "geoapify" -> "Geoapify, an external routing provider"
+        "private_osrm" -> "TACResQ's privately operated OSRM routing service"
+        else -> null
+    }
+}
+
 /**
  * Implementations must call a configured, maintained routing service.
  * Do not hard-code a community demo endpoint into the production app.
@@ -62,6 +72,10 @@ interface RoutingProvider {
         mode: RouteMode,
         incidentId: Long,
     ): Result<RouteResult>
+
+    /** Identifies the exact route recipient without sending any location coordinates. */
+    suspend fun providerDisclosure(): Result<RouteProviderDisclosure> =
+        Result.failure(IllegalStateException("The active routing provider could not be verified."))
 }
 
 enum class RouteMode {

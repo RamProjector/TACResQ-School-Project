@@ -405,6 +405,43 @@ Route::post('/geoapify-smoke-test', function (Request $request) {
 })->middleware('throttle:5,1');
 
 
+// Reports only the server-selected routing recipient so the app can name it before consent.
+// This endpoint accepts no incident identifier or coordinates and is restricted to field roles.
+Route::get('/route-preview/provider', function (Request $request, \App\SupabaseBridge $bridge) {
+    $token = $request->bearerToken();
+    abort_if (!$token, 401, 'A valid Supabase access token is required.');
+
+    try {
+        $authUser = $bridge->getUser($token);
+        if (!$authUser) {
+            return response()->json(['message' => 'The Supabase session is invalid or expired.'], 401);
+        }
+    } catch (\RuntimeException) {
+        return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+
+    $profileResult = $bridge->callRpc($token, 'api_me', []);
+    if ($profileResult['status'] >= 500) {
+        return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+    $profile = $profileResult['body'];
+    if ($profileResult['status'] >= 400 || !is_array($profile)
+        || !in_array($profile['role'] ?? null, ['responder', 'driver'], true)) {
+        return response()->json(['message' => 'This account cannot request a route preview.'], 403);
+    }
+
+    $providerId = match (strtolower(trim((string) config('tacru.route_provider', 'osrm')))) {
+        'geoapify' => 'geoapify',
+        'osrm' => 'private_osrm',
+        default => null,
+    };
+    if ($providerId === null) {
+        return response()->json(['message' => 'The configured routing provider is unavailable.'], 503);
+    }
+
+    return response()->json(['provider_id' => $providerId]);
+});
+
 // Authenticated route preview. The request goes only to the explicitly configured provider;
 // incident text, profile data, and upstream response details are never forwarded or logged.
 Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $bridge) {
@@ -431,6 +468,7 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
         'incident_id' => ['required', 'integer', 'min:1'],
         'latitude' => ['required', 'numeric', 'between:-90,90'],
         'longitude' => ['required', 'numeric', 'between:-180,180'],
+        'expected_provider_id' => ['sometimes', 'nullable', 'string', 'in:geoapify,private_osrm'],
     ]);
     $originLat = (float) $data['latitude'];
     $originLon = (float) $data['longitude'];
@@ -490,6 +528,17 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
     }
 
     $provider = strtolower(trim((string) config('tacru.route_provider', 'osrm')));
+    $providerId = match ($provider) {
+        'geoapify' => 'geoapify',
+        'osrm' => 'private_osrm',
+        default => null,
+    };
+    if (($data['expected_provider_id'] ?? null) !== null
+        && $data['expected_provider_id'] !== $providerId) {
+        return response()->json([
+            'message' => 'The routing provider changed. Verify the recipient again before requesting a route.',
+        ], 409);
+    }
     if ($provider === 'geoapify') {
         $apiKey = trim((string) config('tacru.geoapify_api_key', ''));
         if ($apiKey === '') {

@@ -223,7 +223,7 @@ if not progress_button or not all(
 app_root_source = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text(encoding="utf-8")
 role_app_calls_are_wired = (
     app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout, routingProvider = container.routingProvider)") == 1
-    and app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider)") == 1
+    and app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider, trackingController = container.responderLocationTracking)") == 1
     and "onOpenMap = openMapIncident" in app_root_source
     and "initialSelectedIncidentId = selectedIncidentId" in app_root_source
     and "locationProvider = container.locationProvider" in app_root_source

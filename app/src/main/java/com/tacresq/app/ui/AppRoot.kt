@@ -50,6 +50,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tacresq.app.AppContainer
 import com.tacresq.app.data.routing.RoutingProvider
 import com.tacresq.app.location.LocationProvider
+import com.tacresq.app.location.ResponderLocationTrackingController
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.Role
 import com.tacresq.app.data.model.ResponderLocation
@@ -209,7 +210,7 @@ fun AppRoot(
                             vm.stopTracking("Location sharing stopped because you signed out.")
                             logout()
                         }
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, openMapIncident ->
+                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider, trackingController = container.responderLocationTracking) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, openMapIncident ->
                             if (selectedChatIncidentId != null) {
                                 IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); responderLogout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                             } else if (destination == AppDestination.PRIMARY) ResponderScreen(
@@ -271,6 +272,7 @@ private fun RoleApp(
     locationProvider: LocationProvider,
     logout: () -> Unit,
     routingProvider: RoutingProvider? = null,
+    trackingController: ResponderLocationTrackingController? = null,
     responderLocations: List<ResponderLocation> = emptyList(),
     onMapRefresh: () -> Unit = {},
     contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit, () -> Unit, (Long) -> Unit) -> Unit,
@@ -315,6 +317,7 @@ private fun RoleApp(
                 incidents = incidents,
                 locationProvider = locationProvider,
                 routingProvider = routingProvider,
+                trackingController = trackingController,
                 initialSelectedIncidentId = selectedIncidentId,
                 responderLocations = responderLocations,
                 onRefreshResponderLocations = onMapRefresh,

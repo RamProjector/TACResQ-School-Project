@@ -5,6 +5,7 @@ import kotlinx.coroutines.CancellationException
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.Header
+import retrofit2.http.GET
 import retrofit2.http.POST
 
 internal interface RenderRoutingService {
@@ -13,12 +14,18 @@ internal interface RenderRoutingService {
         @Body request: RenderRouteRequest,
         @Header("Authorization") authorization: String,
     ): Response<RenderRouteResponse>
+
+    @GET("route-preview/provider")
+    suspend fun routeProviderDisclosure(
+        @Header("Authorization") authorization: String,
+    ): Response<RenderRouteProviderDisclosureResponse>
 }
 
 internal data class RenderRouteRequest(
     @SerializedName("incident_id") val incidentId: Long,
     val latitude: Double,
     val longitude: Double,
+    @SerializedName("expected_provider_id") val expectedProviderId: String? = null,
 )
 
 internal data class RenderRoutePoint(
@@ -43,12 +50,19 @@ internal data class RenderRouteError(
     val message: String?,
 )
 
+internal data class RenderRouteProviderDisclosureResponse(
+    @SerializedName("provider_id") val providerId: String?,
+)
+
 /** Calls TACResQ's authenticated API; private OSRM routing is never called directly by Android. */
 internal class RenderRoutingProvider(
     private val service: RenderRoutingService,
     private val tokenProvider: () -> String?,
     private val clockMillis: () -> Long = System::currentTimeMillis,
 ) : RoutingProvider {
+    @Volatile
+    private var disclosedProviderId: String? = null
+
     override suspend fun route(
         origin: RouteCoordinate,
         destination: RouteCoordinate,
@@ -72,6 +86,7 @@ internal class RenderRoutingProvider(
                     incidentId = incidentId,
                     latitude = origin.latitude,
                     longitude = origin.longitude,
+                    expectedProviderId = disclosedProviderId,
                 ),
                 authorization = "Bearer $token",
             )
@@ -115,6 +130,37 @@ internal class RenderRoutingProvider(
             throw cancelled
         } catch (failure: Exception) {
             Result.failure(failure)
+        }
+    }
+
+    override suspend fun providerDisclosure(): Result<RouteProviderDisclosure> {
+        disclosedProviderId = null
+        val token = tokenProvider()?.trim()?.takeIf(String::isNotEmpty)
+            ?: return Result.failure(IllegalStateException("Sign in to verify the routing provider."))
+        return try {
+            val response = service.routeProviderDisclosure("Bearer $token")
+            if (!response.isSuccessful) {
+                val message = when (response.code()) {
+                    401 -> "Sign in again before starting live navigation."
+                    403 -> "This account cannot request live navigation."
+                    503 -> "The routing provider is not configured or could not be identified."
+                    else -> "The active routing provider could not be verified."
+                }
+                return Result.failure(IllegalStateException(message))
+            }
+            val body = response.body()
+                ?: return Result.failure(IllegalStateException("The active routing provider could not be verified."))
+            val providerId = body.providerId
+            if (providerId == null || providerId !in setOf("geoapify", "private_osrm")) {
+                Result.failure(IllegalStateException("The active routing provider could not be verified."))
+            } else {
+                disclosedProviderId = providerId
+                Result.success(RouteProviderDisclosure(providerId))
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            Result.failure(IllegalStateException("The active routing provider could not be verified."))
         }
     }
 

@@ -1,11 +1,13 @@
-# Current handoff — 2026-11-05: repair latest TACResQ PR source-contract check
+# Current handoff — 2026-11-05: review and repair PR #265 navigation authorization
 
-- **Objective:** Continue the latest open PR updates in `RamProjector/TACResQ-School-Project`.
-- **PR inventory:** #265 (`feat(android): add continuous responder navigation rerouting`, head `ec821ac`) was clean with 11 checks successful and 2 skipped; no update indicated. #264 (`feat(android): add FCM token registration lifecycle`, prior head `204a375`) had one failing `TACResQ CI/Source checks` job and was merge-state `UNSTABLE`.
-- **Diagnosis/change:** The failing Admin RPC source-contract assertion searched for one exact interface ordering. `SupabaseTacApi` already implements `TacAdminApi`, but an additional `TacPushApi` in the declaration made that assertion fail. Updated the assertion to check required interfaces independently within the client declaration; no production implementation was changed.
-- **Branch/PR:** Working on PR #264's `feat/fcm-client-registration` branch (local checkout `pr-264`). PR #264 compares as 3 commits ahead and 0 behind `main`.
-- **Local validation:** `tools/test_android_admin_rpc_contract.py`, `tools/test_fcm_registration_contract.py`, `tools/check_android_source.py`, and `git diff --check` all passed after the change. Android Gradle/device validation was not run locally.
-- **Next:** Commit and push the source-contract repair to PR #264, then inspect CI on its exact new head. Leave #265 unchanged unless new evidence identifies an issue; merge #264 only if required checks pass, GitHub reports it mergeable, and no unresolved critical security/privacy issue remains.
+- **Objective:** Review, repair, and merge PR #265 after its exact-head CI and safety review.
+- **Current main:** PR #264’s FCM lifecycle and the order-independent Admin RPC source-contract fix were squash-merged to `main` as `8fbe6c0aadc521873f56ffa809438fa555f7cb62`; that mainline commit is merged into the local PR branch, preserving both FCM and tracking wiring.
+- **PR #265:** `feat(android): add continuous responder navigation rerouting`, prior head `ec821ac46c3865d2a9ac0a73441cda8342aaed1`. Review found four issues: repository-wrapped HTTP failures were missed; destination changes could leave old route geometry visible; consent did not identify private OSRM; and a sharing-to-navigation upgrade kept stale notification text. Fixes and focused tests are now in the working tree.
+- **Existing evidence:** Prior PR #265 head had 11 checks successful, 2 skipped, 0 failing; no human reviews or inline review comments were recorded, and its deterministic automated review reported 0 findings. Those results are for the prior head only.
+- **Safety boundary:** Server route-preview checks identity, role, current assignment/status, validates incident coordinates, applies a per-user rate limit, and sends only coordinates to the configured provider. Android routing remains disabled unless a build opts in. Provider identity is now fetched through an authenticated endpoint that receives no coordinates before consent; no live responder coordinates, provider request, or device/emulator validation has occurred.
+- **Previous PR #264 handoff:** Fixed the brittle Admin RPC interface-order assertion; local source checks passed; exact-head PR CI was 11 successful, 2 skipped; #264 merged as `8fbe6c0aadc521873f56ffa809438fa555f7cb62`.
+- **Validation:** All relevant Python source-contract checks passed, including 36 responder-location checks and the added navigation, FCM, Admin, chat, and Android-source checks; `git diff --check` passed. Android unit tests could not run because this sandbox has no Android SDK (`SDK location not found`); PHP/Composer and backend vendor dependencies are absent, so Laravel feature tests must run in CI. No device/emulator or live provider request was used.
+- **Next:** Commit and push the mainline merge plus fixes to #265; inspect CI on the exact new head and merge only if all required checks pass and GitHub reports the PR mergeable. Keep the opt-in route flag and provider configuration unchanged.
 
 ---
 

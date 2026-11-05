@@ -122,6 +122,9 @@ jobs:
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
+      - name: Check continuous navigation lifecycle contract
+        run: python3 tools/test_continuous_navigation_contract.py
+
       - name: Check private OSRM local deployment contract
         run: python3 tools/test_osrm_local_deployment_contract.py
 
