@@ -36,12 +36,7 @@ class RouteReroutePolicy(
         nowMillis: Long,
     ): RouteRequestReason? {
         if (!origin.isValid()) return null
-        val retryNotBefore = retryNotBeforeMillis
-        if (retryNotBefore != null && nowMillis < retryNotBefore) return null
         val lastRequest = lastRequestAtMillis
-        if (lastRequest != null && nowMillis >= lastRequest && nowMillis - lastRequest < minRequestIntervalMillis) {
-            return null
-        }
         if (lastRequest != null && nowMillis < lastRequest) return null
 
         val accuracy = accuracyMeters?.toDouble()
@@ -51,6 +46,7 @@ class RouteReroutePolicy(
         }
         if (route == null) {
             consecutiveOffRouteFixes = 0
+            if (!isRequestAllowed(nowMillis, lastRequest)) return null
             lastRequestAtMillis = nowMillis
             return RouteRequestReason.INITIAL
         }
@@ -61,11 +57,18 @@ class RouteReroutePolicy(
             return null
         }
 
-        consecutiveOffRouteFixes += 1
+        consecutiveOffRouteFixes = (consecutiveOffRouteFixes + 1).coerceAtMost(requiredOffRouteFixes)
         if (consecutiveOffRouteFixes < requiredOffRouteFixes) return null
+        if (!isRequestAllowed(nowMillis, lastRequest)) return null
         consecutiveOffRouteFixes = 0
         lastRequestAtMillis = nowMillis
         return RouteRequestReason.OFF_ROUTE
+    }
+
+    private fun isRequestAllowed(nowMillis: Long, lastRequestAtMillis: Long?): Boolean {
+        val retryNotBefore = retryNotBeforeMillis
+        if (retryNotBefore != null && nowMillis < retryNotBefore) return false
+        return lastRequestAtMillis == null || nowMillis - lastRequestAtMillis >= minRequestIntervalMillis
     }
 
     @Synchronized
