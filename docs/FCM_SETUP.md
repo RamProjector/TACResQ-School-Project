@@ -24,6 +24,22 @@ The backend now contains `php artisan tacresq:dispatch-fcm`. It reads unread `us
 
 Configure the worker environment privately with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `FCM_PROJECT_ID`, and an ADC mechanism. On a non-Google host, Firebase documents using `GOOGLE_APPLICATION_CREDENTIALS` to point to a protected service-account JSON file. The file must be mounted or injected by the deployment secret manager, outside the repository and outside the Android artifact. Run the command from a scheduler or worker at a short interval, for example `php artisan tacresq:dispatch-fcm --limit=100`. Do not expose this command as a public HTTP route.
 
+### Render placement
+
+For Render, add the Firebase service-account JSON under the worker service's **Environment → Secret Files**, for example with the filename `firebase-service-account.json`. Render mounts Docker secret files at `/etc/secrets/<filename>`, so set this environment variable on the same worker service:
+
+```env
+GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
+```
+
+Add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (or the current Supabase server secret supplied through that compatibility variable), `FCM_PROJECT_ID`, `FCM_BATCH_LIMIT`, and `FCM_HTTP_TIMEOUT` under that service's private **Environment Variables**. The file must be a Google service-account JSON containing `type: service_account`; the Android `google-services.json` is not an ADC credential. Attach the secret file and variables to the Render Cron Job or worker that runs the command, not only to the public dispatcher web service. A Cron Job command can be:
+
+```sh
+php artisan tacresq:dispatch-fcm --limit=100
+```
+
+Render's [environment and secret-file guide](https://render.com/docs/configure-environment-variables) documents the `/etc/secrets/` path, and its [Cron Job guide](https://render.com/docs/cronjobs) documents the scheduled command and service-specific environment variables.
+
 The Android service intentionally renders a generic message and opens TACResQ, where the authenticated app fetches the notification inbox. Do not add a Firebase service-account key to the Android app or repository. A server sender must use FCM HTTP v1 with server-side credentials or application-default credentials; Firebase documents the `firebase.messaging` OAuth scope and the `Authorization: Bearer` request pattern in its [HTTP v1 sending guide](https://firebase.google.com/docs/cloud-messaging/send/v1-api).
 
 The Render web service currently has only browser-safe Supabase configuration and does not run this worker automatically. Adding the private service-role key, Firebase project ID, ADC secret, or a scheduler is a separate deployment change and has not been performed by this implementation task.
