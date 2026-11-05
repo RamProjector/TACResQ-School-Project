@@ -6,7 +6,8 @@
 - **Privacy/provider:** No API key is added to Android; requests use the existing authenticated TACResQ backend route proxy. Live responder/incident coordinates were not sent to Geoapify or any external test service. Geoapify route success remains unverified; do not enable the opt-in Android routing build flag for operational use until the account/provider is validated and controlled-device checks pass.
 - **Validation:** Python continuous-navigation/location source contracts, requester→dispatcher→responder lifecycle checks, and workflow security checks pass. `git diff --check` passes. Android Gradle tests/compile could not run here because no Android SDK is installed; the exact branch must pass GitHub CI. No physical/emulator navigation session or live provider request was performed.
 - **Related PR state:** Open PR #264 is a separate FCM lifecycle change and also touches `AppRoot.kt`; this branch was created from main and reviewed for overlap. Do not merge this feature until exact-head CI passes and the PR is reviewed.
-- **Next:** Finalize the branch, open a focused PR, await Android/build/source CI, resolve failures without weakening checks, then perform a separately authorized controlled-device/provider validation. Do not merge or deploy without explicit approval.
+- **PR:** [#265 — continuous responder navigation rerouting](https://github.com/RamProjector/TACResQ-School-Project/pull/265) is open; exact-head CI is pending.
+- **Next:** Review exact-head Android/build/source CI, resolve failures without weakening checks, then perform a separately authorized controlled-device/provider validation. Do not merge or deploy without explicit approval.
 
 ---
 
