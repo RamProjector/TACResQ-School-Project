@@ -35,7 +35,7 @@ class SupabaseTacApi private constructor(
     private val rpc: SupabaseRpcWire,
     private val storage: SupabaseStorageWire,
     private val bridgeRpc: SupabaseBridgeRpcWire?,
-) : TacApi, TacNotificationApi, TacChatApi, TacAdminApi {
+) : TacApi, TacNotificationApi, TacPushApi, TacChatApi, TacAdminApi {
     override suspend fun login(body: LoginRequest): AuthResponse = authenticate {
         auth.login(body)
     }
@@ -136,6 +136,14 @@ class SupabaseTacApi private constructor(
     override suspend fun markNotificationRead(notificationId: Long): Boolean {
         require(notificationId > 0) { "Notification ID must be positive." }
         return rpc.markNotificationRead(MarkNotificationReadRpc(notificationId))
+    }
+    override suspend fun registerFcmToken(token: String) {
+        require(token.length in 20..4096) { "FCM token is invalid." }
+        rpc.registerFcmToken(FcmTokenRpc(token))
+    }
+    override suspend fun unregisterFcmToken(token: String) {
+        require(token.length in 20..4096) { "FCM token is invalid." }
+        rpc.unregisterFcmToken(FcmTokenRpc(token))
     }
 
     override suspend fun myIncidentMessages(incidentId: Long, limit: Int, beforeId: Long?): List<IncidentMessage> {
@@ -407,6 +415,12 @@ private interface SupabaseRpcWire {
     @POST("rest/v1/rpc/api_mark_notification_read")
     suspend fun markNotificationRead(@Body body: MarkNotificationReadRpc): Boolean
 
+    @POST("rest/v1/rpc/api_register_fcm_token")
+    suspend fun registerFcmToken(@Body body: FcmTokenRpc)
+
+    @POST("rest/v1/rpc/api_unregister_fcm_token")
+    suspend fun unregisterFcmToken(@Body body: FcmTokenRpc)
+
     @POST("rest/v1/rpc/api_my_incident_messages")
     suspend fun myIncidentMessages(@Body body: IncidentMessagesRpc): List<IncidentMessage>
 
@@ -479,6 +493,7 @@ private data class AdminSetUserRoleRpc(
 )
 private data class NotificationsLimitRpc(@SerializedName("p_limit") val limit: Int)
 private data class MarkNotificationReadRpc(@SerializedName("p_notification_id") val notificationId: Long)
+private data class FcmTokenRpc(@SerializedName("p_token") val token: String)
 private data class IncidentMessagesRpc(
     @SerializedName("p_incident_id") val incidentId: Long,
     @SerializedName("p_limit") val limit: Int,

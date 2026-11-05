@@ -1,11 +1,11 @@
-# Current handoff — 2026-11-05: research-backed app feature-gap documentation
+# Current handoff — 2026-11-05: repair latest TACResQ PR source-contract check
 
-- **Objective:** Document which important app capabilities remain incomplete before implementing any feature, using repository evidence and official Android/Firebase/provider documentation.
-- **Documentation:** Added [`docs/APP_FEATURE_GAPS_AND_ROADMAP.md`](docs/APP_FEATURE_GAPS_AND_ROADMAP.md) and linked it from README. It distinguishes existing persistent in-app assignment/status alerts from absent FCM push; targeted uncertain-SOS protection from absent general offline synchronization; opt-in route preview code from unverified provider/device readiness; and automated CI from real-device release validation. Includes prioritized acceptance criteria and seven official references.
-- **Scope:** Documentation only. No Android, backend, database, Render, or Supabase implementation/configuration changes. Do not implement roadmap features until this documentation PR is reviewed/accepted or the user requests implementation.
-- **Branch:** `agent/app-feature-gap-roadmap`, based on `origin/main` `0789991d` (PR #262 cleanup merge). No open PRs were present when work began.
-- **Validation:** Research claims checked against current repository files, official Firebase and Android docs, and Geoapify Routing API docs. Citation/reference IDs were checked for resolution. Source-contract tests and final diff checks remain to run after all edits.
-- **Next:** Run relevant documentation-safe checks and `git diff --check`, commit, push, open a documentation-only PR, then report its exact link/head/check state. Do not implement features or merge this PR unless asked.
+- **Objective:** Continue the latest open PR updates in `RamProjector/TACResQ-School-Project`.
+- **PR inventory:** #265 (`feat(android): add continuous responder navigation rerouting`, head `ec821ac`) was clean with 11 checks successful and 2 skipped; no update indicated. #264 (`feat(android): add FCM token registration lifecycle`, prior head `204a375`) had one failing `TACResQ CI/Source checks` job and was merge-state `UNSTABLE`.
+- **Diagnosis/change:** The failing Admin RPC source-contract assertion searched for one exact interface ordering. `SupabaseTacApi` already implements `TacAdminApi`, but an additional `TacPushApi` in the declaration made that assertion fail. Updated the assertion to check required interfaces independently within the client declaration; no production implementation was changed.
+- **Branch/PR:** Working on PR #264's `feat/fcm-client-registration` branch (local checkout `pr-264`). PR #264 compares as 3 commits ahead and 0 behind `main`.
+- **Local validation:** `tools/test_android_admin_rpc_contract.py`, `tools/test_fcm_registration_contract.py`, `tools/check_android_source.py`, and `git diff --check` all passed after the change. Android Gradle/device validation was not run locally.
+- **Next:** Commit and push the source-contract repair to PR #264, then inspect CI on its exact new head. Leave #265 unchanged unless new evidence identifies an issue; merge #264 only if required checks pass, GitHub reports it mergeable, and no unresolved critical security/privacy issue remains.
 
 ---
 
@@ -378,3 +378,17 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Research basis:** Android top app bars host core contextual actions, and notification taps/actions should take users to the directly relevant destination. Official guidance: https://developer.android.com/develop/ui/compose/components/app-bars and https://developer.android.com/design/ui/mobile/guides/home-screen/notifications.
 - **Regression coverage:** Static notification contract now requires all three incident-chat route groups to provide the callback.
 - **Validation:** Await exact-head CI. No device visual validation or live notification delivery test performed.
+
+# Active handoff — 2026-11-05: FCM client registration foundation
+- **Objective:** Connect the existing authenticated Supabase FCM-token RPCs to Android system-notification plumbing without committing Firebase credentials or sensitive notification content.
+- **Implementation:** Added the Firebase Messaging dependency, `TacPushApi`/Supabase RPC calls, repository registration methods, `PushTokenCoordinator`, token-refresh service, Android notification channel, `POST_NOTIFICATIONS` guard, manifest service registration, and explicit sign-out token removal.
+- **Privacy/security:** Tokens remain in app-private preferences and are never logged. Push alerts are generic; incident details are fetched only after the user opens the authenticated app. Existing RLS/authenticated RPC ownership remains authoritative.
+- **Configuration:** Added `docs/FCM_SETUP.md`. Firebase project configuration and a trusted server-side FCM sender are intentionally deployment work; no service account or production credential is in source.
+- **Validation:** `python3 tools/test_fcm_registration_contract.py` is the offline source contract. Android compilation was attempted but this sandbox has no Android SDK (`ANDROID_HOME`/`sdk.dir` unavailable); no device or end-to-end FCM delivery test was performed.
+- **Next action:** CI/device-test registration, Android 13 permission grant/denial, token rotation, and sign-out removal. Then implement the server-side sender against the existing notification event path with minimal, non-sensitive data payloads.
+
+# Active handoff — 2026-11-05: FCM research-backed CI and permission follow-up
+- **Research findings:** Firebase's Android guidance requires a runtime `POST_NOTIFICATIONS` grant on Android 13+ and recommends handling token changes because tokens can rotate after restore, reinstall, app-data clearing, or security events. Firebase HTTP v1 delivery requires trusted server-side credentials/application-default credentials and the `firebase.messaging` scope; these must never be placed in the Android app.
+- **Implementation follow-up:** AppRoot now requests notification permission once after an authenticated session is available. The FCM service has a narrowly scoped lint suppression after its explicit permission check. The pre-existing incident-chat source contract was made robust to the new `TacPushApi` interface instead of relying on a contiguous interface-string assertion.
+- **Validation:** All local source, FCM, Android-source, RPC-grant, and diff checks pass. PR #264's first run had only the brittle chat assertion and notification lint failure; fixes are pushed in `e39916354915e18bd5b1f615a9caa511dd704f23`.
+- **Next:** Verify the new exact-head PR checks. Do not merge until source/build checks pass. After merge, the next implementation slice is the trusted server-side sender, contingent on an approved Firebase project credential/ADC deployment path; no live push test is authorized from this sandbox.

@@ -20,7 +20,9 @@ for required in (
 
 api = read("app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 for required in (
-    "TacApi, TacNotificationApi, TacChatApi",
+    "TacApi",
+    "TacNotificationApi",
+    "TacChatApi",
     'rest/v1/rpc/api_my_incident_messages',
     'rest/v1/rpc/api_send_incident_message',
     "IncidentMessagesRpc(incidentId, limit, beforeId)",

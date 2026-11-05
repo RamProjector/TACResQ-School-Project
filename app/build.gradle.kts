@@ -110,6 +110,8 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:5.5.1")
 
     implementation("com.google.android.gms:play-services-location:21.4.0")
+    // Firebase project configuration is supplied per environment; no credentials are committed.
+    implementation("com.google.firebase:firebase-messaging:26.0.1")
     // Open-source vector renderer; OpenFreeMap supplies the Liberty style without an API key.
     implementation("org.maplibre.gl:android-sdk-opengl:13.7.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
