@@ -42,6 +42,55 @@ class RoutePreviewTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_provider_disclosure_requires_bearer_authentication(): void
+    {
+        Http::preventStrayRequests();
+        $this->getJson('/api/route-preview/provider')->assertUnauthorized();
+        Http::assertNothingSent();
+    }
+
+    public function test_provider_disclosure_names_the_configured_recipient_without_sending_coordinates(): void
+    {
+        foreach ([
+            'geoapify' => 'geoapify',
+            'osrm' => 'private_osrm',
+        ] as $configuredProvider => $expectedProviderId) {
+            Cache::flush();
+            config(['tacru.route_provider' => $configuredProvider]);
+            $this->fakeSupabase();
+            $this->withToken(self::TOKEN)->getJson('/api/route-preview/provider')
+                ->assertOk()
+                ->assertExactJson(['provider_id' => $expectedProviderId]);
+        }
+
+        Http::assertNotSent(fn ($request) => str_starts_with($request->url(), self::OSRM_BASE.'/')
+            || str_starts_with($request->url(), 'https://api-eu.geoapify.com/'));
+    }
+
+    public function test_non_field_role_cannot_read_provider_disclosure(): void
+    {
+        $this->fakeSupabase(['role' => 'dispatcher']);
+        $this->withToken(self::TOKEN)->getJson('/api/route-preview/provider')->assertForbidden();
+        Http::assertNotSent(fn ($request) => str_starts_with($request->url(), self::OSRM_BASE.'/')
+            || str_starts_with($request->url(), 'https://api-eu.geoapify.com/'));
+    }
+
+    public function test_route_preview_rejects_provider_change_since_consent_before_forwarding_coordinates(): void
+    {
+        config(['tacru.route_provider' => 'geoapify']);
+        $this->fakeSupabase();
+
+        $this->withToken(self::TOKEN)
+            ->postJson('/api/route-preview', $this->input(['expected_provider_id' => 'private_osrm']))
+            ->assertStatus(409)
+            ->assertExactJson([
+                'message' => 'The routing provider changed. Verify the recipient again before requesting a route.',
+            ]);
+
+        Http::assertNotSent(fn ($request) => str_starts_with($request->url(), self::OSRM_BASE.'/')
+            || str_starts_with($request->url(), 'https://api-eu.geoapify.com/'));
+    }
+
     public function test_requester_or_dispatcher_profile_cannot_preview_routes(): void
     {
         foreach (['requester', 'dispatcher'] as $role) {

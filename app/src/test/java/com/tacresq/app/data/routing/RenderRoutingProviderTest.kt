@@ -13,7 +13,7 @@ class RenderRoutingProviderTest {
     fun sendsOnlyIncidentAndFreshOriginWithBearerAndConvertsRoute() = runBlocking {
         var capturedRequest: RenderRouteRequest? = null
         var capturedAuthorization: String? = null
-        val service = object : RenderRoutingService {
+        val service = object : TestRenderRoutingService() {
             override suspend fun routePreview(
                 request: RenderRouteRequest,
                 authorization: String,
@@ -59,7 +59,7 @@ class RenderRoutingProviderTest {
     @Test
     fun doesNotCallServiceWithoutSessionToken() = runBlocking {
         var called = false
-        val service = object : RenderRoutingService {
+        val service = object : TestRenderRoutingService() {
             override suspend fun routePreview(
                 request: RenderRouteRequest,
                 authorization: String,
@@ -84,7 +84,7 @@ class RenderRoutingProviderTest {
     @Test
     fun rejectsInvalidCoordinatesAndIncidentBeforeCallingService() = runBlocking {
         var called = false
-        val service = object : RenderRoutingService {
+        val service = object : TestRenderRoutingService() {
             override suspend fun routePreview(
                 request: RenderRouteRequest,
                 authorization: String,
@@ -115,7 +115,7 @@ class RenderRoutingProviderTest {
 
     @Test
     fun rejectsUnsupportedOrMalformedProviderResponse() = runBlocking {
-        val noGeometry = object : RenderRoutingService {
+        val noGeometry = object : TestRenderRoutingService() {
             override suspend fun routePreview(
                 request: RenderRouteRequest,
                 authorization: String,
@@ -137,7 +137,7 @@ class RenderRoutingProviderTest {
             incidentId = 42L,
         )
         var walkingCalled = false
-        val walkingService = object : RenderRoutingService {
+        val walkingService = object : TestRenderRoutingService() {
             override suspend fun routePreview(
                 request: RenderRouteRequest,
                 authorization: String,
@@ -161,7 +161,7 @@ class RenderRoutingProviderTest {
 
     @Test
     fun returnsSafeServerErrorMessage() = runBlocking {
-        val service = object : RenderRoutingService {
+        val service = object : TestRenderRoutingService() {
             override suspend fun routePreview(
                 request: RenderRouteRequest,
                 authorization: String,
@@ -180,6 +180,54 @@ class RenderRoutingProviderTest {
 
         assertFalse(result.isSuccess)
         assertEquals("In-app routing is not configured.", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun providerDisclosureNamesRecipientWithoutSendingCoordinates() = runBlocking {
+        var capturedAuthorization: String? = null
+        var routeCalled = false
+        var capturedRouteRequest: RenderRouteRequest? = null
+        val service = object : TestRenderRoutingService() {
+            override suspend fun routeProviderDisclosure(
+                authorization: String,
+            ): Response<RenderRouteProviderDisclosureResponse> {
+                capturedAuthorization = authorization
+                return Response.success(RenderRouteProviderDisclosureResponse("private_osrm"))
+            }
+
+            override suspend fun routePreview(
+                request: RenderRouteRequest,
+                authorization: String,
+            ): Response<RenderRouteResponse> {
+                routeCalled = true
+                capturedRouteRequest = request
+                return Response.success(emptyRoute())
+            }
+        }
+
+        val provider = RenderRoutingProvider(service, { "session-token" })
+        val disclosure = provider.providerDisclosure()
+
+        assertTrue(disclosure.isSuccess)
+        assertEquals("private_osrm", disclosure.getOrThrow().providerId)
+        assertEquals("Bearer session-token", capturedAuthorization)
+        assertFalse(routeCalled)
+
+        val route = provider.route(
+            RouteCoordinate(11.0, 125.0),
+            RouteCoordinate(11.1, 125.1),
+            RouteMode.DRIVING,
+            incidentId = 42L,
+        )
+        assertTrue(route.isSuccess)
+        assertEquals("private_osrm", capturedRouteRequest?.expectedProviderId)
+    }
+
+    private abstract class TestRenderRoutingService : RenderRoutingService {
+        override suspend fun routeProviderDisclosure(
+            authorization: String,
+        ): Response<RenderRouteProviderDisclosureResponse> =
+            Response.success(RenderRouteProviderDisclosureResponse("geoapify"))
     }
 
     private fun emptyRoute() = RenderRouteResponse(

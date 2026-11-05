@@ -123,6 +123,7 @@ import com.tacresq.app.ui.common.pillColor
 import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationSettingsCheck
 import com.tacresq.app.location.LocationProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -452,6 +453,9 @@ fun GpsMapScreen(
     var pendingRouteIncident by remember { mutableStateOf<Incident?>(null) }
     var pendingNavigationIncident by remember { mutableStateOf<Incident?>(null) }
     var navigationPermissionStep by remember { mutableStateOf<String?>(null) }
+    var routeProviderRecipient by remember(routingProvider) { mutableStateOf<String?>(null) }
+    var isCheckingRouteProvider by remember(routingProvider) { mutableStateOf(false) }
+    var routeProviderDisclosureUnavailable by remember(routingProvider) { mutableStateOf(false) }
     var routeJob by remember { mutableStateOf<Job?>(null) }
     var routeRequestGeneration by remember { mutableStateOf(0) }
     var requestRoute: (Incident) -> Unit = {}
@@ -571,6 +575,28 @@ fun GpsMapScreen(
         if (selectedIncidentId != null && visibleIncidents.none { it.id == selectedIncidentId }) {
             selectedIncidentId = null
         }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(routingProvider, role, user.id) {
+        routeProviderRecipient = null
+        routeProviderDisclosureUnavailable = false
+        val provider = routingProvider
+        if ((role != Role.RESPONDER && role != Role.DRIVER) || provider == null) {
+            isCheckingRouteProvider = false
+            return@LaunchedEffect
+        }
+        isCheckingRouteProvider = true
+        val disclosure = try {
+            provider.providerDisclosure().getOrNull()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+        val recipient = disclosure?.consentRecipient()
+        routeProviderRecipient = recipient
+        routeProviderDisclosureUnavailable = recipient == null
+        isCheckingRouteProvider = false
     }
 
     androidx.compose.runtime.LaunchedEffect(freshnessTick, routeResult) {
@@ -1096,9 +1122,25 @@ fun GpsMapScreen(
             incident.statusFor(user.id) == IncidentStatus.EN_ROUTE &&
             incident.hasValidMapCoordinates()
 
+    fun liveNavigationUnavailableMessage(incident: Incident): String? {
+        if (!canStartLiveNavigation(incident) ||
+            (trackingStatus.navigationActive && trackingStatus.incidentId == incident.id) ||
+            routeProviderRecipient != null
+        ) return null
+        return if (isCheckingRouteProvider) {
+            "Checking the active routing provider before enabling live navigation. This check sends no location coordinates."
+        } else if (routeProviderDisclosureUnavailable) {
+            "The active routing provider could not be verified. This check shared no coordinates; live navigation is unavailable."
+        } else null
+    }
+
     fun beginLiveNavigation(incident: Incident) {
         if (!canStartLiveNavigation(incident)) {
             routeStatus = "Live navigation is available only to your assigned en-route unit with a configured route provider."
+            return
+        }
+        if (routeProviderRecipient == null) {
+            routeStatus = "The active routing provider could not be verified. No live navigation or location sharing was started."
             return
         }
         pendingNavigationIncident = incident
@@ -1179,10 +1221,14 @@ fun GpsMapScreen(
 
     val liveNavigationForSelection = trackingStatus.navigationActive &&
         trackingStatus.incidentId == selectedIncidentId
-    val displayedRoute = trackingStatus.navigationRoute?.takeIf {
-        liveNavigationForSelection && it.isUsable(System.currentTimeMillis(), maxAgeMillis = Long.MAX_VALUE)
-    } ?: routeResult?.takeIf {
-        routeIncidentId == selectedIncidentId && it.isUsable(System.currentTimeMillis())
+    val displayedRoute = if (liveNavigationForSelection) {
+        trackingStatus.navigationRoute?.takeIf {
+            it.isUsable(System.currentTimeMillis(), maxAgeMillis = Long.MAX_VALUE)
+        }
+    } else {
+        routeResult?.takeIf {
+            routeIncidentId == selectedIncidentId && it.isUsable(System.currentTimeMillis())
+        }
     }
 
     androidx.compose.runtime.LaunchedEffect(
@@ -1477,9 +1523,11 @@ fun GpsMapScreen(
                             onFocusOnMap = ::focusIncidentOnMap,
                             onNavigate = requestRoute,
                             onStartNavigation = if (
-                                canStartLiveNavigation(selectedIncident) &&
+                                canStartLiveNavigation(selectedIncident) && routeProviderRecipient != null &&
                                 !(trackingStatus.navigationActive && trackingStatus.incidentId == selectedIncident.id)
                             ) ({ incident -> beginLiveNavigation(incident) }) else null,
+                            liveNavigationProviderRecipient = routeProviderRecipient,
+                            liveNavigationUnavailableMessage = liveNavigationUnavailableMessage(selectedIncident),
                         )
                     }
 
@@ -1614,9 +1662,11 @@ fun GpsMapScreen(
                                     onFocusOnMap = ::focusIncidentOnMap,
                                     onNavigate = requestRoute,
                                     onStartNavigation = if (
-                                        canStartLiveNavigation(incident) &&
+                                        canStartLiveNavigation(incident) && routeProviderRecipient != null &&
                                         !(trackingStatus.navigationActive && trackingStatus.incidentId == incident.id)
                                     ) ({ selected -> beginLiveNavigation(selected) }) else null,
+                                    liveNavigationProviderRecipient = routeProviderRecipient,
+                                    liveNavigationUnavailableMessage = liveNavigationUnavailableMessage(incident),
                                 )
                             }
                         } else {
@@ -1939,6 +1989,8 @@ private fun MapIncidentCard(
     onFocusOnMap: (Incident) -> Unit,
     onNavigate: (Incident) -> Unit,
     onStartNavigation: ((Incident) -> Unit)? = null,
+    liveNavigationProviderRecipient: String? = null,
+    liveNavigationUnavailableMessage: String? = null,
 ) {
     val lat = incident.latitude
     val lng = incident.longitude
@@ -2061,6 +2113,10 @@ private fun MapIncidentCard(
                         },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     ) { Text("Start live navigation & share location") }
+                } else {
+                    liveNavigationUnavailableMessage?.let { message ->
+                        Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             } else {
                 // A landmark-only request is still actionable. Reuse the shared
@@ -2133,7 +2189,7 @@ private fun MapIncidentCard(
             title = { Text("Start live navigation and location sharing?") },
             text = {
                 Text(
-                    "TACResQ will start a visible location-sharing service. Fresh approximate locations will be shared with authorized dispatch and used to monitor this route. Route requests go to TACResQ's server and its configured routing provider (Geoapify when enabled); the provider receives the current route origin and this incident destination for the initial route and qualifying reroutes. Recalculation requires sustained off-route fixes and is limited to at most one request every 30 seconds. This is route guidance, not live traffic, hazard, flooding, road-closure, or emergency-vehicle access verification. A persistent notification lets you stop navigation and location sharing at any time."
+                    "TACResQ will start a visible location-sharing service. Fresh approximate locations will be shared with authorized dispatch and used to monitor this route. The active route recipient was verified from TACResQ's server before this prompt: $liveNavigationProviderRecipient. Route requests go to TACResQ's server, which forwards the current route origin and this incident destination to that named recipient for the initial route and qualifying reroutes. Recalculation requires sustained off-route fixes and is limited to at most one request every 30 seconds. This is route guidance, not live traffic, hazard, flooding, road-closure, or emergency-vehicle access verification. A persistent notification lets you stop navigation and location sharing at any time."
                 )
             },
             confirmButton = {

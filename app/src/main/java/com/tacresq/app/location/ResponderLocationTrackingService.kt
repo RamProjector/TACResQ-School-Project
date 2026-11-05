@@ -24,6 +24,7 @@ import com.tacresq.app.data.routing.RouteResult
 import com.tacresq.app.data.routing.RouteReroutePolicy
 import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.statusFor
+import com.tacresq.app.data.repo.ApiException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +38,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+
+internal fun Throwable?.hasHttpStatus(vararg expectedCodes: Int): Boolean {
+    val statusCode = when (this) {
+        is ApiException -> httpCode
+        is HttpException -> code()
+        else -> null
+    } ?: return false
+    return statusCode in expectedCodes
+}
 
 /** Observable status for the user-facing responder screen; the service remains the tracking owner. */
 data class ResponderTrackingStatus(
@@ -137,6 +147,7 @@ class ResponderLocationTrackingController(context: Context) {
                 active = true,
                 navigationActive = true,
                 navigationCalculating = false,
+                navigationRoute = null,
                 navigationMessage = message,
             )
         }
@@ -275,12 +286,7 @@ class ResponderLocationTrackingService : Service() {
                 activeDestination = null
                 reroutePolicy.reset()
                 try {
-                    ServiceCompat.startForeground(
-                        this,
-                        NOTIFICATION_ID,
-                        createNotification(startNavigation),
-                        if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0,
-                    )
+                    updateForegroundNotification(startNavigation)
                 } catch (failure: Exception) {
                     controller.serviceStopped("Location sharing could not start. Return to TACResQ and resume sharing.")
                     stopSelf(startId)
@@ -310,7 +316,7 @@ class ResponderLocationTrackingService : Service() {
                 val user = userResult.getOrNull()
                 if (user == null) {
                     val failure = userResult.exceptionOrNull()
-                    if (failure is HttpException && failure.code() in setOf(401, 403)) {
+                    if (failure.hasHttpStatus(401, 403)) {
                         stopActiveSharing("Location sharing stopped because the responder session is no longer authorized.")
                         stopSelf()
                         return
@@ -323,7 +329,7 @@ class ResponderLocationTrackingService : Service() {
                 val assignments = assignmentsResult.getOrNull()
                 if (assignments == null) {
                     val failure = assignmentsResult.exceptionOrNull()
-                    if (failure is HttpException && failure.code() in setOf(401, 403)) {
+                    if (failure.hasHttpStatus(401, 403)) {
                         stopActiveSharing("Location sharing stopped because this responder session is no longer authorized.")
                         stopSelf()
                         return
@@ -363,7 +369,7 @@ class ResponderLocationTrackingService : Service() {
                                         System.currentTimeMillis(),
                                         capture.fix.accuracyM,
                                     )
-                                } else if (failure is HttpException && failure.code() in setOf(401, 403, 404, 422)) {
+                                } else if (failure.hasHttpStatus(401, 403, 404, 422)) {
                                     stopActiveSharing("Location sharing stopped because the session or assignment is no longer authorized.")
                                     stopSelf()
                                     return@collect
@@ -410,10 +416,19 @@ class ResponderLocationTrackingService : Service() {
     private fun enableNavigation(incidentId: Long) {
         val routingProvider = (application as TacResqApp).container.routingProvider
         if (routingProvider == null) {
-            controller.navigationFailed(incidentId, "In-app routing is not enabled or configured. Location sharing remains active.")
+            controller.serviceMessage(incidentId, "In-app routing is not enabled or configured. Location sharing remains active.")
             return
         }
         if (!navigationEnabled) {
+            try {
+                updateForegroundNotification(navigationEnabled = true)
+            } catch (_: Exception) {
+                controller.serviceMessage(
+                    incidentId,
+                    "Live navigation could not update its persistent notification. Location sharing remains active.",
+                )
+                return
+            }
             navigationEnabled = true
             currentNavigationRoute = null
             reroutePolicy.reset()
@@ -499,7 +514,7 @@ class ResponderLocationTrackingService : Service() {
                 val user = userResult.getOrNull()
                 if (user == null) {
                     val failure = userResult.exceptionOrNull()
-                    if (failure is HttpException && failure.code() in setOf(401, 403)) {
+                    if (failure.hasHttpStatus(401, 403)) {
                         stopActiveSharing("Location sharing stopped because the responder session is no longer authorized.")
                         stopSelf()
                         return
@@ -511,7 +526,7 @@ class ResponderLocationTrackingService : Service() {
                 val assignments = assignmentsResult.getOrNull()
                 if (assignments == null) {
                     val failure = assignmentsResult.exceptionOrNull()
-                    if (failure is HttpException && failure.code() in setOf(401, 403)) {
+                    if (failure.hasHttpStatus(401, 403)) {
                         stopActiveSharing("Location sharing stopped because this responder session is no longer authorized.")
                         stopSelf()
                         return
@@ -569,6 +584,15 @@ class ResponderLocationTrackingService : Service() {
                 },
             )
         }
+    }
+
+    private fun updateForegroundNotification(navigationEnabled: Boolean) {
+        ServiceCompat.startForeground(
+            this,
+            NOTIFICATION_ID,
+            createNotification(navigationEnabled),
+            if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0,
+        )
     }
 
     private fun createNotification(navigationEnabled: Boolean): Notification {
