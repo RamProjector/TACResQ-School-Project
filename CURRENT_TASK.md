@@ -7,8 +7,8 @@
 - **Preserved:** Protected Supabase Admin RPCs/grants, web Admin console, and server role model. No backend, web, live-data, or production-configuration changes.
 - **Validation passed locally:** Admin role-safety (12 checks), Admin mobile/server/web preservation (8 checks), FCM, navigation, GPS map role presentation/coordinates, requester/provisioning, Android source integrity, build-mode, Render bridge contracts, and `git diff HEAD --check`.
 - **Build/device status:** Android Gradle compilation is not available in this sandbox because its Android SDK is missing (previous `SDK location not found`). Current follow-up CI must run Android debug/release builds and unit tests. No device/emulator test has been run.
-- **Branch/PR:** `agent/remove-admin-mobile-ui`; changes are validated locally but not yet committed or opened as a PR.
-- **Next:** Review the final diff, commit and push, open a focused PR, inspect all checks on its exact head, and merge only after required workflows pass and GitHub reports it mergeable.
+- **Branch/PR:** `agent/remove-admin-mobile-ui`; implementation commit `767f44511ff34c1b03c2ea975f52477ab3ec5a94`; PR [#267](https://github.com/RamProjector/TACResQ-School-Project/pull/267) is open.
+- **Next:** Refresh PR #267, inspect every workflow on its current exact head, and merge only if required checks pass and GitHub reports it mergeable.
 ---
 
 # Previous handoff — 2026-11-05: failed one-off Geoapify Routing API test and cleanup
