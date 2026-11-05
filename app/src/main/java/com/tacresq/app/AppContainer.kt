@@ -12,6 +12,7 @@ import com.tacresq.app.data.routing.RoutingProvider
 import com.tacresq.app.data.routing.RenderRoutingClientFactory
 import com.tacresq.app.location.LocationProvider
 import com.tacresq.app.location.ResponderLocationTrackingController
+import com.tacresq.app.notifications.PushTokenCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,6 +38,7 @@ class AppContainer(context: Context) {
         tokenHolder,
         appScope,
     )
+    val pushTokenCoordinator = PushTokenCoordinator(appContext, appScope)
     val locationProvider = LocationProvider(appContext)
     val responderLocationTracking = ResponderLocationTrackingController(appContext)
     /** Fake/demo sessions and builds without an explicit route opt-in never contact live routing. */

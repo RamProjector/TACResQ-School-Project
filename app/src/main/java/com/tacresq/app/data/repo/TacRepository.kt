@@ -22,6 +22,7 @@ import com.tacresq.app.data.remote.RegisterRequest
 import com.tacresq.app.data.remote.ResponderLocationRequest
 import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.remote.TacNotificationApi
+import com.tacresq.app.data.remote.TacPushApi
 import com.tacresq.app.data.remote.TacChatApi
 import com.tacresq.app.data.remote.UpdateStatusRequest
 import com.tacresq.app.data.remote.UpdateMyIncidentRequest
@@ -146,6 +147,20 @@ class TacRepository(
             ?: throw ApiException("Notifications are not available with the configured backend.")
         require(notificationId > 0) { "Notification ID must be positive." }
         notificationApi.markNotificationRead(notificationId)
+    }
+
+    suspend fun registerFcmToken(token: String): Result<Unit> = call {
+        val pushApi = api as? TacPushApi
+            ?: throw ApiException("Push notifications are not available with the configured backend.")
+        require(token.length in 20..4096) { "FCM token is invalid." }
+        pushApi.registerFcmToken(token)
+    }
+
+    suspend fun unregisterFcmToken(token: String): Result<Unit> = call {
+        val pushApi = api as? TacPushApi
+            ?: return@call Unit
+        require(token.length in 20..4096) { "FCM token is invalid." }
+        pushApi.unregisterFcmToken(token)
     }
 
     suspend fun myIncidentMessages(

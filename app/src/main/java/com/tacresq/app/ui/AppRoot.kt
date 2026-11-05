@@ -1,5 +1,9 @@
 package com.tacresq.app.ui
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -51,6 +56,7 @@ import com.tacresq.app.data.model.Role
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
+import com.tacresq.app.notifications.PushTokenCoordinator
 import com.tacresq.app.ui.auth.AuthScreen
 import com.tacresq.app.ui.admin.AdminAccessScreen
 import com.tacresq.app.ui.common.ScreenHeader
@@ -76,9 +82,31 @@ fun AppRoot(
     val factory = remember(container) { VmFactory(container) }
     val sessionState by container.repository.sessionState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var notificationPermissionRequested by rememberSaveable { mutableStateOf(false) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
     val logout: () -> Unit = {
         container.responderLocationTracking.stop("Location sharing stopped because you signed out.")
-        scope.launch { container.repository.logout() }
+        scope.launch {
+            container.pushTokenCoordinator.unregister(container.repository)
+            container.repository.logout()
+        }
+    }
+
+    LaunchedEffect(sessionState) {
+        if (sessionState is SessionState.LoggedIn) {
+            container.pushTokenCoordinator.sync(container.repository)
+            if (
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                !notificationPermissionRequested &&
+                !PushTokenCoordinator.notificationsAllowed(context)
+            ) {
+                notificationPermissionRequested = true
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

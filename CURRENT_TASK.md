@@ -1,24 +1,13 @@
-# Active handoff — 2026-11-05: continuous in-app navigation and rerouting
+# Current handoff — 2026-11-05: review and repair PR #265 navigation authorization
 
-- **Objective:** Add explicit continuous routing for assigned responders/drivers while preserving dispatcher GPS visibility and protecting location privacy.
-- **Implementation branch:** `agent/continuous-navigation-rerouting`, based on current `origin/main` (`0388cc2`). Changes are not yet merged or deployed.
-- **Behavior:** The user explicitly starts navigation from an assigned en-route incident and accepts an in-app disclosure before location sharing/provider routing begins. A location foreground service continues the existing assignment-authorized dispatcher GPS flow, asks the configured server-side routing provider for an initial route, and reroutes only after two accurate off-route fixes. Requests are throttled to one every 30 seconds, with exponential retry backoff after provider errors (up to five minutes). Stop, sign-out, permission loss, or assignment end clears the navigation session.
-- **Privacy/provider:** No API key is added to Android; requests use the existing authenticated TACResQ backend route proxy. Live responder/incident coordinates were not sent to Geoapify or any external test service. Geoapify route success remains unverified; do not enable the opt-in Android routing build flag for operational use until the account/provider is validated and controlled-device checks pass.
-- **Validation:** Python continuous-navigation/location source contracts, requester→dispatcher→responder lifecycle checks, and workflow security checks pass. `git diff --check` passes. Android Gradle tests/compile could not run here because no Android SDK is installed; the exact branch must pass GitHub CI. No physical/emulator navigation session or live provider request was performed.
-- **Related PR state:** Open PR #264 is a separate FCM lifecycle change and also touches `AppRoot.kt`; this branch was created from main and reviewed for overlap. Do not merge this feature until exact-head CI passes and the PR is reviewed.
-- **PR:** [#265 — continuous responder navigation rerouting](https://github.com/RamProjector/TACResQ-School-Project/pull/265) is open; exact-head CI is pending.
-- **Next:** Review exact-head Android/build/source CI, resolve failures without weakening checks, then perform a separately authorized controlled-device/provider validation. Do not merge or deploy without explicit approval.
-
----
-
-# Previous handoff — 2026-11-05: research-backed app feature-gap documentation
-
-- **Objective:** Document which important app capabilities remain incomplete before implementing any feature, using repository evidence and official Android/Firebase/provider documentation.
-- **Documentation:** Added [`docs/APP_FEATURE_GAPS_AND_ROADMAP.md`](docs/APP_FEATURE_GAPS_AND_ROADMAP.md) and linked it from README. It distinguishes existing persistent in-app assignment/status alerts from absent FCM push; targeted uncertain-SOS protection from absent general offline synchronization; opt-in route preview code from unverified provider/device readiness; and automated CI from real-device release validation. Includes prioritized acceptance criteria and seven official references.
-- **Scope:** Documentation only. No Android, backend, database, Render, or Supabase implementation/configuration changes. Do not implement roadmap features until this documentation PR is reviewed/accepted or the user requests implementation.
-- **Branch:** `agent/app-feature-gap-roadmap`, based on `origin/main` `0789991d` (PR #262 cleanup merge). No open PRs were present when work began.
-- **Validation:** Research claims checked against current repository files, official Firebase and Android docs, and Geoapify Routing API docs. Citation/reference IDs were checked for resolution. Source-contract tests and final diff checks remain to run after all edits.
-- **Next:** Run relevant documentation-safe checks and `git diff --check`, commit, push, open a documentation-only PR, then report its exact link/head/check state. Do not implement features or merge this PR unless asked.
+- **Objective:** Review, repair, and merge PR #265 after its exact-head CI and safety review.
+- **Current main:** PR #264’s FCM lifecycle and the order-independent Admin RPC source-contract fix were squash-merged to `main` as `8fbe6c0aadc521873f56ffa809438fa555f7cb62`; that mainline commit is merged into the local PR branch, preserving both FCM and tracking wiring.
+- **PR #265:** `feat(android): add continuous responder navigation rerouting`, prior head `ec821ac46c3865d2a9ac0a73441cda8342aaed1`. Review found four issues: repository-wrapped HTTP failures were missed; destination changes could leave old route geometry visible; consent did not identify private OSRM; and a sharing-to-navigation upgrade kept stale notification text. Fixes and focused tests are now in the working tree.
+- **Existing evidence:** Prior PR #265 head had 11 checks successful, 2 skipped, 0 failing; no human reviews or inline review comments were recorded, and its deterministic automated review reported 0 findings. Those results are for the prior head only.
+- **Safety boundary:** Server route-preview checks identity, role, current assignment/status, validates incident coordinates, applies a per-user rate limit, and sends only coordinates to the configured provider. Android routing remains disabled unless a build opts in. Provider identity is now fetched through an authenticated endpoint that receives no coordinates before consent; no live responder coordinates, provider request, or device/emulator validation has occurred.
+- **Previous PR #264 handoff:** Fixed the brittle Admin RPC interface-order assertion; local source checks passed; exact-head PR CI was 11 successful, 2 skipped; #264 merged as `8fbe6c0aadc521873f56ffa809438fa555f7cb62`.
+- **Validation so far:** The new navigation contract checks pass. One older location contract still expects raw `HttpException` checks and needs updating to assert the shared status-code helper; rerun all relevant source tests after that. Android SDK/emulator and Laravel runtime availability have not yet been confirmed.
+- **Next:** Finish test-contract updates, run local checks, commit and push the mainline merge plus fixes to #265, verify exact-head CI and mergeability, then merge if all required checks pass. Keep the opt-in route flag and provider configuration unchanged.
 
 ---
 
@@ -391,3 +380,17 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Research basis:** Android top app bars host core contextual actions, and notification taps/actions should take users to the directly relevant destination. Official guidance: https://developer.android.com/develop/ui/compose/components/app-bars and https://developer.android.com/design/ui/mobile/guides/home-screen/notifications.
 - **Regression coverage:** Static notification contract now requires all three incident-chat route groups to provide the callback.
 - **Validation:** Await exact-head CI. No device visual validation or live notification delivery test performed.
+
+# Active handoff — 2026-11-05: FCM client registration foundation
+- **Objective:** Connect the existing authenticated Supabase FCM-token RPCs to Android system-notification plumbing without committing Firebase credentials or sensitive notification content.
+- **Implementation:** Added the Firebase Messaging dependency, `TacPushApi`/Supabase RPC calls, repository registration methods, `PushTokenCoordinator`, token-refresh service, Android notification channel, `POST_NOTIFICATIONS` guard, manifest service registration, and explicit sign-out token removal.
+- **Privacy/security:** Tokens remain in app-private preferences and are never logged. Push alerts are generic; incident details are fetched only after the user opens the authenticated app. Existing RLS/authenticated RPC ownership remains authoritative.
+- **Configuration:** Added `docs/FCM_SETUP.md`. Firebase project configuration and a trusted server-side FCM sender are intentionally deployment work; no service account or production credential is in source.
+- **Validation:** `python3 tools/test_fcm_registration_contract.py` is the offline source contract. Android compilation was attempted but this sandbox has no Android SDK (`ANDROID_HOME`/`sdk.dir` unavailable); no device or end-to-end FCM delivery test was performed.
+- **Next action:** CI/device-test registration, Android 13 permission grant/denial, token rotation, and sign-out removal. Then implement the server-side sender against the existing notification event path with minimal, non-sensitive data payloads.
+
+# Active handoff — 2026-11-05: FCM research-backed CI and permission follow-up
+- **Research findings:** Firebase's Android guidance requires a runtime `POST_NOTIFICATIONS` grant on Android 13+ and recommends handling token changes because tokens can rotate after restore, reinstall, app-data clearing, or security events. Firebase HTTP v1 delivery requires trusted server-side credentials/application-default credentials and the `firebase.messaging` scope; these must never be placed in the Android app.
+- **Implementation follow-up:** AppRoot now requests notification permission once after an authenticated session is available. The FCM service has a narrowly scoped lint suppression after its explicit permission check. The pre-existing incident-chat source contract was made robust to the new `TacPushApi` interface instead of relying on a contiguous interface-string assertion.
+- **Validation:** All local source, FCM, Android-source, RPC-grant, and diff checks pass. PR #264's first run had only the brittle chat assertion and notification lint failure; fixes are pushed in `e39916354915e18bd5b1f615a9caa511dd704f23`.
+- **Next:** Verify the new exact-head PR checks. Do not merge until source/build checks pass. After merge, the next implementation slice is the trusted server-side sender, contingent on an approved Firebase project credential/ADC deployment path; no live push test is authorized from this sandbox.

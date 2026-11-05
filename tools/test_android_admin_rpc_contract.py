@@ -15,7 +15,10 @@ rpc = supabase[bridge_end:]
 
 checks = {
     "Admin operations are an explicit optional capability": "interface TacAdminApi" in api,
-    "Android Supabase client implements the Admin capability": "TacApi, TacNotificationApi, TacChatApi, TacAdminApi" in supabase,
+    "Android Supabase client implements the Admin capability": all(
+        capability in supabase.split("class SupabaseTacApi", 1)[1].split("{", 1)[0]
+        for capability in ("TacApi", "TacNotificationApi", "TacChatApi", "TacAdminApi")
+    ),
     "User directory uses the bounded pagination RPC": 'rest/v1/rpc/api_admin_list_users_page' in rpc,
     "Audit reads use the protected audit RPC": 'rest/v1/rpc/api_admin_list_audit_logs' in rpc,
     "Role changes use the protected role RPC": 'rest/v1/rpc/api_admin_set_user_role' in rpc,
