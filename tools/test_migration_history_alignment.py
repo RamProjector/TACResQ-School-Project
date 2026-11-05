@@ -43,6 +43,7 @@ PENDING = {
     "20261030120000_bound_requester_signup_contact_lengths.sql",
     "20261030130000_incident_message_rate_limit_index.sql",
     "20261031130000_incident_chat_image_attachments.sql",
+    "20261105030000_fcm_delivery_attempts.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
@@ -204,4 +205,3 @@ for required in (
     assert required in signup_validation, f"Missing server-side requester signup requirement: {required}"
 assert "raw_user_meta_data ->> 'role'" not in signup_validation
 print("PASS: public signup enforces name/contact requirements and always provisions requester role.")
-

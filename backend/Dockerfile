@@ -19,7 +19,7 @@ WORKDIR /app
 
 # Create a conventional Laravel 13 application, then overlay this repository's API files.
 RUN composer create-project laravel/laravel:^13.0 . --no-interaction
-RUN composer require laravel/sanctum:^4.0 --no-interaction
+RUN composer require laravel/sanctum:^4.0 google/auth:^1.48 --no-interaction
 RUN rm -f database/migrations/*.php
 COPY src/ ./
 COPY --from=dashboard-build /dashboard/dist/ ./public/dispatch/
