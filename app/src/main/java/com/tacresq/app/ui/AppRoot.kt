@@ -58,7 +58,6 @@ import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
 import com.tacresq.app.notifications.PushTokenCoordinator
 import com.tacresq.app.ui.auth.AuthScreen
-import com.tacresq.app.ui.auth.AdminMobileBlockedScreen
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SectionHeading
 import com.tacresq.app.ui.dispatcher.DispatcherScreen
@@ -84,6 +83,7 @@ fun AppRoot(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var notificationPermissionRequested by rememberSaveable { mutableStateOf(false) }
+    var unsupportedAccountInfo by rememberSaveable { mutableStateOf<String?>(null) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
@@ -98,10 +98,11 @@ fun AppRoot(
     LaunchedEffect(sessionState) {
         val loggedInState = sessionState as? SessionState.LoggedIn ?: return@LaunchedEffect
         if (loggedInState.session.user.role == Role.ADMIN) {
-            // Remove any legacy mobile registration; Admin accounts must not receive mobile alerts.
-            container.pushTokenCoordinator.unregister(container.repository)
+            unsupportedAccountInfo = "This account type isn't supported in the mobile app. Sign in with an approved account to continue."
+            logout()
             return@LaunchedEffect
         }
+        unsupportedAccountInfo = null
         container.pushTokenCoordinator.sync(container.repository)
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -172,14 +173,29 @@ fun AppRoot(
 
             SessionState.LoggedOut -> AuthScreen(
                 vm = viewModel(factory = factory),
-                infoMessage = authReturnMessage,
-                onInfoMessageDismissed = onAuthReturnMessageDismissed,
+                infoMessage = unsupportedAccountInfo ?: authReturnMessage,
+                onInfoMessageDismissed = {
+                    unsupportedAccountInfo = null
+                    onAuthReturnMessageDismissed()
+                },
             )
 
             is SessionState.LoggedIn -> {
                 val user = state.session.user
                 if (user.role == Role.ADMIN) {
-                    AdminMobileBlockedScreen(onSignOut = logout)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            CircularProgressIndicator()
+                            Text(
+                                "Signing out…",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 } else {
                     val notificationsVm: NotificationsViewModel = viewModel(
                         key = "notifications-${user.id}",
@@ -190,7 +206,7 @@ fun AppRoot(
                         factory = factory,
                     )
                     when (user.role) {
-                        Role.ADMIN -> AdminMobileBlockedScreen(onSignOut = logout)
+                        Role.ADMIN -> Unit
                         Role.REQUESTER -> {
                             val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                             val vmState by vm.state.collectAsStateWithLifecycle()
@@ -285,10 +301,7 @@ private fun RoleApp(
     onMapRefresh: () -> Unit = {},
     contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit, () -> Unit, (Long) -> Unit) -> Unit,
 ) {
-    if (role == Role.ADMIN) {
-        AdminMobileBlockedScreen(onSignOut = logout)
-        return
-    }
+    if (role == Role.ADMIN) return
     var destination by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
     var destinationBeforeMap by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
     var selectedIncidentId by rememberSaveable(role, user.id) { mutableStateOf<Long?>(null) }
@@ -353,6 +366,7 @@ internal fun RoleSectionScreen(
     onOpenNotifications: () -> Unit = {},
     selectedIncidentId: Long? = null,
 ) {
+    if (user.role == Role.ADMIN) return
     if (destination == AppDestination.ALERTS) {
         NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident, onOpenChat)
         return
@@ -365,7 +379,7 @@ internal fun RoleSectionScreen(
             Role.REQUESTER -> "My requests"
             Role.RESPONDER, Role.DRIVER -> "Response history"
             Role.DISPATCHER -> "Field units"
-            Role.ADMIN -> "Mobile access unavailable"
+            Role.ADMIN -> "TACResQ"
         }
         AppDestination.CHAT -> "Messages"
         AppDestination.ALERTS -> "Notifications"
@@ -413,10 +427,6 @@ internal fun RoleSectionScreen(
         ScreenHeader(title = title, subtitle = "", onOpenNotifications = onOpenNotifications)
 
         when {
-            role == Role.ADMIN -> EmptySectionCard(
-                "Mobile access unavailable",
-                "Admin accounts can't use TACResQ Android. Use your organization's approved admin console or contact your system administrator.",
-            )
             destination == AppDestination.SECONDARY && role == Role.DISPATCHER -> {
                 Card(
                     modifier = Modifier.fillMaxWidth(),

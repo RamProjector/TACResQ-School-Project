@@ -327,7 +327,7 @@ fun AuthScreen(
 
                 if (registering) {
                     Text(
-                        "All four fields are required. Staff and administrator accounts are provisioned separately; public sign-up creates requester accounts only.",
+                        "All four fields are required. Public sign-up creates requester accounts only; other accounts are provisioned separately.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

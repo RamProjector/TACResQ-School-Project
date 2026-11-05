@@ -40,7 +40,7 @@ assert "var passwordVisible by rememberSaveable" not in auth
 assert 'Text(if (passwordVisible) "Hide" else "Show")' in auth
 assert "if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation()" in auth
 assert "passwordVisible = false" in auth
-assert "Staff and administrator accounts are provisioned separately" in auth
+assert "Public sign-up creates requester accounts only; other accounts are provisioned separately." in auth
 assert '"role" to "requester"' in supabase_api
 assert "administrator provisioning is operator-only" in admin_migration.lower()
 assert "a full name is required for requester registration" in signup_migration
