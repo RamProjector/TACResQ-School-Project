@@ -1,13 +1,14 @@
-# Current handoff — 2026-11-06: block Admin accounts from Android
+# Current handoff — 2026-11-06: remove Admin-specific Android UI
 
-- **Objective:** Remove privileged Admin functions from TACResQ Android and block Admin-role accounts from operational mobile screens, while preserving web and server Admin capabilities.
-- **Verified baseline:** Branch `agent/block-admin-android` was created from `origin/main` at `c349ec23b8f1ffd464fa835f3c133274aefb97d4`; no open PRs were listed at the start of this task.
-- **Implementation:** Deleted the Android Admin console and its direct Supabase Admin RPC client/repository APIs. Admin sessions now see a sign-out/approved-console screen before operational ViewModels are created; AppRoot, RoleApp, and RoleShell all fail closed. Legacy FCM registration is unregistered for Admin sessions, and Admin sessions skip new token registration and notification permission requests.
-- **Preserved:** The shared Admin role model, protected Supabase Admin RPC migrations/grants, and the web Admin console remain. The provisioning runbook now points to the web console and prohibits mobile Admin tasks.
-- **Validation passed:** `check_android_source.py`, Android build-mode, Admin role-safety, Admin client/server preservation, navigation, adaptive scaffold, GPS map, FCM, encrypted session, notifications, chat, responder-location, navigation, and requester/provisioning source contracts; `git diff --check`.
-- **Android build limitation:** `./gradlew testDebugUnitTest --no-daemon` failed before compilation because this sandbox has no Android SDK (`SDK location not found`). CI Android debug/release builds are required before merge. No device/emulator testing was run.
-- **Branch/PR:** `agent/block-admin-android`; implementation commit `5ead6c0cc071284ff50eadddc9020135fba200a8`; PR [#266](https://github.com/RamProjector/TACResQ-School-Project/pull/266) is open.
-- **Next:** Refresh PR #266 and inspect checks for its current exact head; merge only if required checks pass and GitHub reports it mergeable. On resume, if it is already merged, continue with the next verified safety-priority task.
+- **Objective:** Remove Admin UI and operational functions from Android only; preserve the web Admin console and protected server-side Admin authorization/tools.
+- **Verified baseline:** `agent/remove-admin-mobile-ui` was created from latest `origin/main` at `676179290d2a5c6b5c4f3ce9d6a259a70e161813` (PR #266 merged); no open PRs were listed before this follow-up.
+- **Prior result:** PR #266 removed the Android Admin console and Admin RPC/repository APIs but retained an Admin-specific blocked screen. User clarified the scope is Android only and asked that Admin UI/functions be removed from the app.
+- **Follow-up implementation:** Removed the dedicated blocked screen and remaining Admin-specific UI copy, including signup and map text. Admin-role sessions are automatically signed out using generic sign-out/sign-in messaging before operational ViewModels or push registration can run. Role decoding and fail-closed guards remain for safe denial.
+- **Preserved:** Protected Supabase Admin RPCs/grants, web Admin console, and server role model. No backend, web, live-data, or production-configuration changes.
+- **Validation passed locally:** Admin role-safety (12 checks), Admin mobile/server/web preservation (8 checks), FCM, navigation, GPS map role presentation/coordinates, requester/provisioning, Android source integrity, build-mode, Render bridge contracts, and `git diff HEAD --check`.
+- **Build/device status:** Android Gradle compilation is not available in this sandbox because its Android SDK is missing (previous `SDK location not found`). Current follow-up CI must run Android debug/release builds and unit tests. No device/emulator test has been run.
+- **Branch/PR:** `agent/remove-admin-mobile-ui`; changes are validated locally but not yet committed or opened as a PR.
+- **Next:** Review the final diff, commit and push, open a focused PR, inspect all checks on its exact head, and merge only after required workflows pass and GitHub reports it mergeable.
 ---
 
 # Previous handoff — 2026-11-05: failed one-off Geoapify Routing API test and cleanup

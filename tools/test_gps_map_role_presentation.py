@@ -9,7 +9,7 @@ for label in (
     'Role.REQUESTER -> if (deviceFix != null) "Your location" else "Your map"',
     'Role.RESPONDER, Role.DRIVER -> "Response map"',
     'Role.DISPATCHER -> "Dispatch overview"',
-    'Role.ADMIN -> "Operations map"',
+    'Role.ADMIN -> "Map"',
 ):
     assert label in SOURCE, f"Missing role-specific map title: {label}"
 
@@ -24,7 +24,7 @@ assert "hasIncidents = validIncidentPoints.isNotEmpty()" in SOURCE
 assert "hasActiveUnits = validResponderLocations.isNotEmpty()" in SOURCE
 assert "FilledTonalButton(" not in SOURCE[SOURCE.index("private fun GpsMapFilterButtons"):SOURCE.index("@OptIn(ExperimentalMaterial3Api::class)")]
 assert "emptyMapMessage" in SOURCE
-assert "The admin map is read-only." in SOURCE
+assert 'Role.ADMIN -> "No incident locations are available right now."' in SOURCE
 assert "© OpenStreetMap contributors" in SOURCE
 assert "AndroidView(" in SOURCE
 print("PASS: GPS map presentation adapts by role and keeps permission recovery and map chrome compact.")

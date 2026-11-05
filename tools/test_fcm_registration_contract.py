@@ -24,9 +24,15 @@ assert "com.google.firebase.MESSAGING_EVENT" in manifest
 assert "POST_NOTIFICATIONS" in manifest
 assert "pushTokenCoordinator.sync" in app_root
 assert "pushTokenCoordinator.unregister" in app_root
+logout_start = app_root.index("val logout: () -> Unit")
+logout_end = app_root.index("LaunchedEffect(sessionState)", logout_start)
+logout_flow = app_root[logout_start:logout_end]
+assert logout_flow.index("pushTokenCoordinator.unregister") < logout_flow.index("container.repository.logout()")
 admin_gate = app_root.index("if (loggedInState.session.user.role == Role.ADMIN)")
-assert app_root.index("pushTokenCoordinator.unregister", admin_gate) < app_root.index("pushTokenCoordinator.sync", admin_gate)
-assert "return@LaunchedEffect" in app_root[admin_gate:app_root.index("pushTokenCoordinator.sync", admin_gate)]
+admin_gate_end = app_root.index("container.pushTokenCoordinator.sync", admin_gate)
+admin_gate_body = app_root[admin_gate:admin_gate_end]
+assert "logout()" in admin_gate_body
+assert "return@LaunchedEffect" in admin_gate_body
 assert "RequestPermission()" in app_root
 assert "POST_NOTIFICATIONS" in app_root
 # Alert content must remain generic; incident details are fetched after authentication.

@@ -542,7 +542,7 @@ fun GpsMapScreen(
         Role.REQUESTER -> if (deviceFix != null) "Your location" else "Your map"
         Role.RESPONDER, Role.DRIVER -> "Response map"
         Role.DISPATCHER -> "Dispatch overview"
-        Role.ADMIN -> "Operations map"
+        Role.ADMIN -> "Map"
     }
     val roleMapSummary = when (role) {
         Role.REQUESTER -> when {
@@ -556,7 +556,7 @@ fun GpsMapScreen(
         } else {
             "$defaultMapStatus No field-unit location reports; units share locations only while en route."
         }
-        Role.ADMIN -> "Read-only map overview."
+        Role.ADMIN -> defaultMapStatus
     }
     val collapsedMapSummary = when {
         showAppSettingsAction -> "Location access is off · incident pins remain visible."
@@ -566,7 +566,7 @@ fun GpsMapScreen(
         Role.REQUESTER -> "No active incident locations are available right now. You can still explore the map."
         Role.RESPONDER, Role.DRIVER -> "No active response locations are available right now."
         Role.DISPATCHER -> "No incident or field-unit locations are available right now."
-        Role.ADMIN -> "The admin map is read-only. Incident and responder locations are not exposed here."
+        Role.ADMIN -> "No incident locations are available right now."
     }
 
     // Clear stale action text when the incident set changes; the default is derived from current map data.

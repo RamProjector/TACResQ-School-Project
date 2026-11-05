@@ -71,7 +71,7 @@ map_contract = {
         "Role.REQUESTER -> if (deviceFix != null) \"Your location\" else \"Your map\"",
         "Role.RESPONDER, Role.DRIVER -> \"Response map\"",
         "Role.DISPATCHER -> \"Dispatch overview\"",
-        "Role.ADMIN -> \"Operations map\"",
+        "Role.ADMIN -> \"Map\"",
         "AssistChip(",
         "sheetPeekHeight = 120.dp",
         "Location access is off",

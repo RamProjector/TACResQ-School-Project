@@ -8,6 +8,7 @@ supabase = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi
 repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 root = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text()
 admin_screen_path = ROOT / "app/src/main/java/com/tacresq/app/ui/admin/AdminAccessScreen.kt"
+blocked_screen_path = ROOT / "app/src/main/java/com/tacresq/app/ui/auth/AdminMobileBlockedScreen.kt"
 web_admin_console = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
 server_admin_migration = (
     ROOT / "supabase/migrations/20261026161500_admin_role_audit_foundation.sql"
@@ -37,9 +38,14 @@ checks = {
     "TacRepository exposes no Admin operations": all(
         name not in repository for name in ("TacAdminApi", "adminUsersPage", "adminAuditLogs", "setAdminUserRole")
     ),
-    "Admin console implementation is removed from Android": not admin_screen_path.exists(),
-    "AppRoot uses the blocked Admin screen instead of an Admin console": (
-        "AdminMobileBlockedScreen(onSignOut = logout)" in root and "AdminAccessScreen" not in root
+    "Admin console and blocked screen implementations are removed from Android": (
+        not admin_screen_path.exists() and not blocked_screen_path.exists()
+    ),
+    "AppRoot automatically signs out Admin without an Admin-specific screen": (
+        "if (user.role == Role.ADMIN)" in root
+        and "logout()" in root
+        and "AdminMobileBlockedScreen" not in root
+        and "AdminAccessScreen" not in root
     ),
     "Server-side Admin RPCs remain in Supabase migrations": all(
         f"create or replace function public.{name}" in server_contract
