@@ -20,9 +20,9 @@ The token is stored only in app-private preferences. It is never logged, include
 
 ## Trusted server sender
 
-The backend now contains `php artisan tacresq:dispatch-fcm`. It reads unread `user_notifications` rows and the recipient's registered `fcm_tokens` through the Supabase REST API using the server-only `SUPABASE_SERVICE_ROLE_KEY`. It sends data-only HTTP v1 messages through `google/auth` ADC, records one delivery attempt per notification/token pair in `fcm_delivery_attempts`, and removes tokens when Firebase reports `UNREGISTERED` or `INVALID_ARGUMENT`. The command prints counts only; it never prints tokens, provider response bodies, incident narratives, or coordinates.
+The backend now contains `php artisan tacresq:dispatch-fcm`. It reads unread `user_notifications` rows and the recipient's registered `fcm_tokens` through the Supabase REST API using the server-only `SUPABASE_SECRET_KEY`. It sends data-only HTTP v1 messages through `google/auth` ADC, records one delivery attempt per notification/token pair in `fcm_delivery_attempts`, and removes tokens when Firebase reports `UNREGISTERED` or `INVALID_ARGUMENT`. The command prints counts only; it never prints tokens, provider response bodies, incident narratives, or coordinates.
 
-Configure the worker environment privately with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `FCM_PROJECT_ID`, and an ADC mechanism. On a non-Google host, Firebase documents using `GOOGLE_APPLICATION_CREDENTIALS` to point to a protected service-account JSON file. The file must be mounted or injected by the deployment secret manager, outside the repository and outside the Android artifact. Run the command from a scheduler or worker at a short interval, for example `php artisan tacresq:dispatch-fcm --limit=100`. Do not expose this command as a public HTTP route.
+Configure the worker environment privately with `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and an ADC mechanism. On a non-Google host, Firebase documents using `GOOGLE_APPLICATION_CREDENTIALS` to point to a protected service-account JSON file. The file must be mounted or injected by the deployment secret manager, outside the repository and outside the Android artifact. Run the command from a scheduler or worker at a short interval, for example `php artisan tacresq:dispatch-fcm --limit=100`. Do not expose this command as a public HTTP route.
 
 ### Render placement
 
@@ -32,7 +32,7 @@ For Render, add the Firebase service-account JSON under the worker service's **E
 GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
 ```
 
-Add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (or the current Supabase server secret supplied through that compatibility variable), `FCM_PROJECT_ID`, `FCM_BATCH_LIMIT`, and `FCM_HTTP_TIMEOUT` under that service's private **Environment Variables**. The file must be a Google service-account JSON containing `type: service_account`; the Android `google-services.json` is not an ADC credential. Attach the secret file and variables to the Render Cron Job or worker that runs the command, not only to the public dispatcher web service. A Cron Job command can be:
+Add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, `FCM_BATCH_LIMIT`, and `FCM_HTTP_TIMEOUT` under that service's private **Environment Variables**. The file must be a Google service-account JSON containing `type: service_account`; the Android `google-services.json` is not an ADC credential. Attach the secret file and variables to the Render Cron Job or worker that runs the command, not only to the public dispatcher web service. A Cron Job command can be:
 
 ```sh
 php artisan tacresq:dispatch-fcm --limit=100

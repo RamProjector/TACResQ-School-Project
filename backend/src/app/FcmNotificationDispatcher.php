@@ -98,8 +98,8 @@ final class FcmNotificationDispatcher
 
     private function assertConfigured(): void
     {
-        if (trim((string) config('tacru.supabase_url')) === '' || trim((string) config('tacru.supabase_service_role_key')) === '') {
-            throw new RuntimeException('FCM dispatcher requires the server-only Supabase service-role key.');
+        if (trim((string) config('tacru.supabase_url')) === '' || trim((string) config('tacru.supabase_secret_key')) === '') {
+            throw new RuntimeException('FCM dispatcher requires the server-only Supabase secret key.');
         }
         if (trim((string) config('tacru.fcm_project_id')) === '') {
             throw new RuntimeException('FCM dispatcher requires FCM_PROJECT_ID.');
@@ -179,8 +179,8 @@ final class FcmNotificationDispatcher
         return Http::acceptJson()
             ->asJson()
             ->withHeaders([
-                'apikey' => (string) config('tacru.supabase_service_role_key'),
-                'Authorization' => 'Bearer '.(string) config('tacru.supabase_service_role_key'),
+                'apikey' => (string) config('tacru.supabase_secret_key'),
+                'Authorization' => 'Bearer '.(string) config('tacru.supabase_secret_key'),
             ])
             ->timeout(max(1, (int) config('tacru.fcm_http_timeout', 8)));
     }
