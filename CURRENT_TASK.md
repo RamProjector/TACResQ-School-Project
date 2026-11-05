@@ -1,4 +1,16 @@
-# Current handoff — 2026-11-05: research-backed app feature-gap documentation
+# Active handoff — 2026-11-05: continuous in-app navigation and rerouting
+
+- **Objective:** Add explicit continuous routing for assigned responders/drivers while preserving dispatcher GPS visibility and protecting location privacy.
+- **Implementation branch:** `agent/continuous-navigation-rerouting`, based on current `origin/main` (`0388cc2`). Changes are not yet merged or deployed.
+- **Behavior:** The user explicitly starts navigation from an assigned en-route incident and accepts an in-app disclosure before location sharing/provider routing begins. A location foreground service continues the existing assignment-authorized dispatcher GPS flow, asks the configured server-side routing provider for an initial route, and reroutes only after two accurate off-route fixes. Requests are throttled to one every 30 seconds, with exponential retry backoff after provider errors (up to five minutes). Stop, sign-out, permission loss, or assignment end clears the navigation session.
+- **Privacy/provider:** No API key is added to Android; requests use the existing authenticated TACResQ backend route proxy. Live responder/incident coordinates were not sent to Geoapify or any external test service. Geoapify route success remains unverified; do not enable the opt-in Android routing build flag for operational use until the account/provider is validated and controlled-device checks pass.
+- **Validation:** Python continuous-navigation/location source contracts, requester→dispatcher→responder lifecycle checks, and workflow security checks pass. `git diff --check` passes. Android Gradle tests/compile could not run here because no Android SDK is installed; the exact branch must pass GitHub CI. No physical/emulator navigation session or live provider request was performed.
+- **Related PR state:** Open PR #264 is a separate FCM lifecycle change and also touches `AppRoot.kt`; this branch was created from main and reviewed for overlap. Do not merge this feature until exact-head CI passes and the PR is reviewed.
+- **Next:** Finalize the branch, open a focused PR, await Android/build/source CI, resolve failures without weakening checks, then perform a separately authorized controlled-device/provider validation. Do not merge or deploy without explicit approval.
+
+---
+
+# Previous handoff — 2026-11-05: research-backed app feature-gap documentation
 
 - **Objective:** Document which important app capabilities remain incomplete before implementing any feature, using repository evidence and official Android/Firebase/provider documentation.
 - **Documentation:** Added [`docs/APP_FEATURE_GAPS_AND_ROADMAP.md`](docs/APP_FEATURE_GAPS_AND_ROADMAP.md) and linked it from README. It distinguishes existing persistent in-app assignment/status alerts from absent FCM push; targeted uncertain-SOS protection from absent general offline synchronization; opt-in route preview code from unverified provider/device readiness; and automated CI from real-device release validation. Includes prioritized acceptance criteria and seven official references.

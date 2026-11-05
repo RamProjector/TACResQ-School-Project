@@ -17,6 +17,11 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.tacresq.app.R
 import com.tacresq.app.TacResqApp
+import com.tacresq.app.data.routing.RouteCoordinate
+import com.tacresq.app.data.routing.RouteMode
+import com.tacresq.app.data.routing.RouteRequestReason
+import com.tacresq.app.data.routing.RouteResult
+import com.tacresq.app.data.routing.RouteReroutePolicy
 import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.statusFor
 import kotlinx.coroutines.CancellationException
@@ -41,6 +46,10 @@ data class ResponderTrackingStatus(
     val lastSentAtEpochMillis: Long? = null,
     val lastAccuracyMeters: Float? = null,
     val message: String? = null,
+    val navigationActive: Boolean = false,
+    val navigationRoute: RouteResult? = null,
+    val navigationMessage: String? = null,
+    val navigationCalculating: Boolean = false,
 )
 
 /** App-scoped commands and status for the explicit, user-started location foreground service. */
@@ -50,16 +59,38 @@ class ResponderLocationTrackingController(context: Context) {
     val status: StateFlow<ResponderTrackingStatus> = _status.asStateFlow()
 
     fun start(incidentId: Long): Result<Unit> {
+        return start(incidentId, navigationEnabled = false)
+    }
+
+    fun startNavigation(incidentId: Long): Result<Unit> {
+        return start(incidentId, navigationEnabled = true)
+    }
+
+    private fun start(incidentId: Long, navigationEnabled: Boolean): Result<Unit> {
         require(incidentId > 0L)
+        val current = _status.value
+        if (current.incidentId != null && current.incidentId != incidentId && (current.active || current.starting)) {
+            return Result.failure(IllegalStateException("Another response is already sharing location. Stop it before starting a different assignment."))
+        }
+        val previous = current.takeIf { it.incidentId == incidentId }
         val intent = Intent(appContext, ResponderLocationTrackingService::class.java)
             .setAction(ResponderLocationTrackingService.ACTION_START)
             .putExtra(ResponderLocationTrackingService.EXTRA_INCIDENT_ID, incidentId)
+            .putExtra(ResponderLocationTrackingService.EXTRA_START_NAVIGATION, navigationEnabled)
         return try {
             ContextCompat.startForegroundService(appContext, intent)
-            _status.value = ResponderTrackingStatus(
+            _status.value = previous?.copy(
+                starting = true,
+                navigationActive = navigationEnabled || previous.navigationActive,
+                message = if (navigationEnabled) "Starting live navigation and location sharing…" else "Starting location sharing…",
+                navigationMessage = if (navigationEnabled) previous.navigationMessage
+                    ?: "Waiting for a fresh location to calculate the first route." else previous.navigationMessage,
+            ) ?: ResponderTrackingStatus(
                 incidentId = incidentId,
                 starting = true,
-                message = "Starting location sharing…",
+                navigationActive = navigationEnabled,
+                message = if (navigationEnabled) "Starting live navigation and location sharing…" else "Starting location sharing…",
+                navigationMessage = if (navigationEnabled) "Waiting for a fresh location to calculate the first route." else null,
             )
             Result.success(Unit)
         } catch (failure: Exception) {
@@ -74,7 +105,7 @@ class ResponderLocationTrackingController(context: Context) {
         _status.value = ResponderTrackingStatus(message = message)
     }
 
-    internal fun serviceStarted(incidentId: Long) {
+    internal fun serviceStarted(incidentId: Long, navigationEnabled: Boolean = false) {
         val previous = _status.value.takeIf { it.incidentId == incidentId }
         _status.value = ResponderTrackingStatus(
             incidentId = incidentId,
@@ -82,6 +113,10 @@ class ResponderLocationTrackingController(context: Context) {
             lastSentAtEpochMillis = previous?.lastSentAtEpochMillis,
             lastAccuracyMeters = previous?.lastAccuracyMeters,
             message = "Sharing approximate location with authorized dispatch while this response is en route.",
+            navigationActive = navigationEnabled || previous?.navigationActive == true,
+            navigationRoute = previous?.navigationRoute,
+            navigationMessage = previous?.navigationMessage,
+            navigationCalculating = previous?.navigationCalculating == true,
         )
     }
 
@@ -94,6 +129,54 @@ class ResponderLocationTrackingController(context: Context) {
             lastAccuracyMeters = accuracyMeters,
             message = null,
         )
+    }
+
+    internal fun navigationWaiting(incidentId: Long, message: String) {
+        if (_status.value.incidentId == incidentId) {
+            _status.value = _status.value.copy(
+                active = true,
+                navigationActive = true,
+                navigationCalculating = false,
+                navigationMessage = message,
+            )
+        }
+    }
+
+    internal fun navigationRequestStarted(incidentId: Long, reason: RouteRequestReason) {
+        if (_status.value.incidentId == incidentId) {
+            _status.value = _status.value.copy(
+                active = true,
+                navigationActive = true,
+                navigationCalculating = true,
+                navigationMessage = when (reason) {
+                    RouteRequestReason.INITIAL -> "Calculating your route…"
+                    RouteRequestReason.OFF_ROUTE -> "You appear off route; recalculating…"
+                },
+            )
+        }
+    }
+
+    internal fun navigationRouteUpdated(incidentId: Long, route: RouteResult, reason: RouteRequestReason) {
+        if (_status.value.incidentId == incidentId) {
+            _status.value = _status.value.copy(
+                active = true,
+                navigationActive = true,
+                navigationRoute = route,
+                navigationCalculating = false,
+                navigationMessage = if (reason == RouteRequestReason.OFF_ROUTE) "Route updated after an off-route deviation. ETA may be stale; traffic, hazards, and emergency access are not verified." else "Live route geometry active. ETA may be stale; traffic, hazards, and emergency access are not verified.",
+            )
+        }
+    }
+
+    internal fun navigationFailed(incidentId: Long, message: String) {
+        if (_status.value.incidentId == incidentId) {
+            _status.value = _status.value.copy(
+                active = true,
+                navigationActive = true,
+                navigationCalculating = false,
+                navigationMessage = message,
+            )
+        }
     }
 
     internal fun serviceMessage(incidentId: Long, message: String) {
@@ -116,6 +199,7 @@ class ResponderLocationTrackingService : Service() {
         const val ACTION_START = "com.tacresq.app.location.START_RESPONDER_SHARING"
         const val ACTION_STOP = "com.tacresq.app.location.STOP_RESPONDER_SHARING"
         const val EXTRA_INCIDENT_ID = "incident_id"
+        const val EXTRA_START_NAVIGATION = "start_navigation"
         private const val NOTIFICATION_CHANNEL_ID = "responder_location_sharing"
         private const val NOTIFICATION_ID = 2401
         private const val RETRY_DELAY_MILLIS = 12_000L
@@ -135,6 +219,10 @@ class ResponderLocationTrackingService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var activeIncidentId: Long? = null
+    @Volatile private var navigationEnabled = false
+    @Volatile private var activeDestination: RouteCoordinate? = null
+    @Volatile private var currentNavigationRoute: RouteResult? = null
+    private val reroutePolicy = RouteReroutePolicy()
     private var trackingJob: Job? = null
     private var assignmentMonitorJob: Job? = null
     private lateinit var controller: ResponderLocationTrackingController
@@ -153,6 +241,7 @@ class ResponderLocationTrackingService : Service() {
             }
             ACTION_START -> {
                 val incidentId = intent.getLongExtra(EXTRA_INCIDENT_ID, -1L)
+                val startNavigation = intent.getBooleanExtra(EXTRA_START_NAVIGATION, false)
                 if (incidentId <= 0L) {
                     stopActiveSharing("Location sharing could not start because the assignment was invalid.")
                     stopSelf(startId)
@@ -160,7 +249,8 @@ class ResponderLocationTrackingService : Service() {
                 }
                 if (activeIncidentId != null) {
                     if (activeIncidentId == incidentId) {
-                        controller.serviceStarted(incidentId)
+                        if (startNavigation) enableNavigation(incidentId)
+                        else controller.serviceStarted(incidentId, navigationEnabled)
                     } else {
                         controller.serviceMessage(
                             activeIncidentId!!,
@@ -174,11 +264,21 @@ class ResponderLocationTrackingService : Service() {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
+                val appContainer = (application as TacResqApp).container
+                if (startNavigation && appContainer.routingProvider == null) {
+                    controller.serviceStopped("In-app routing is not enabled or configured. No location sharing or route request was started.")
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+                navigationEnabled = startNavigation
+                currentNavigationRoute = null
+                activeDestination = null
+                reroutePolicy.reset()
                 try {
                     ServiceCompat.startForeground(
                         this,
                         NOTIFICATION_ID,
-                        createNotification(),
+                        createNotification(startNavigation),
                         if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0,
                     )
                 } catch (failure: Exception) {
@@ -187,7 +287,8 @@ class ResponderLocationTrackingService : Service() {
                     return START_NOT_STICKY
                 }
                 activeIncidentId = incidentId
-                controller.serviceStarted(incidentId)
+                controller.serviceStarted(incidentId, startNavigation)
+                if (startNavigation) controller.navigationWaiting(incidentId, "Waiting for a fresh location to calculate the first route.")
                 trackingJob = serviceScope.launch { trackAssignment(incidentId) }
                 assignmentMonitorJob = serviceScope.launch { monitorAssignment(incidentId) }
             }
@@ -231,14 +332,15 @@ class ResponderLocationTrackingService : Service() {
                     delay(RETRY_DELAY_MILLIS)
                     continue
                 }
-                val assignmentIsActive = assignments.any {
+                val activeAssignment = assignments.firstOrNull {
                     it.id == incidentId && it.statusFor(user.id) == IncidentStatus.EN_ROUTE
                 }
-                if (!assignmentIsActive) {
+                if (activeAssignment == null) {
                     stopActiveSharing("Location sharing stopped because this assignment is no longer en route.")
                     stopSelf()
                     return
                 }
+                refreshNavigationDestination(incidentId, activeAssignment.latitude, activeAssignment.longitude)
                 if (!ResponderLocationTrackingService.hasRequiredPermissions(this) ||
                     !locationProvider.hasApproximatePermission()
                 ) {
@@ -267,6 +369,9 @@ class ResponderLocationTrackingService : Service() {
                                     return@collect
                                 } else {
                                     controller.serviceMessage(incidentId, "Latest location could not be sent; TACResQ will retry when connectivity returns.")
+                                }
+                                if (activeIncidentId == incidentId) {
+                                    maybeRecalculateRoute(incidentId, capture.fix)
                                 }
                             }
                         }
@@ -299,6 +404,82 @@ class ResponderLocationTrackingService : Service() {
                 stopActiveSharing("Location sharing stopped after an unexpected error.")
                 stopSelf()
             }
+        }
+    }
+
+    private fun enableNavigation(incidentId: Long) {
+        val routingProvider = (application as TacResqApp).container.routingProvider
+        if (routingProvider == null) {
+            controller.navigationFailed(incidentId, "In-app routing is not enabled or configured. Location sharing remains active.")
+            return
+        }
+        if (!navigationEnabled) {
+            navigationEnabled = true
+            currentNavigationRoute = null
+            reroutePolicy.reset()
+        }
+        controller.serviceStarted(incidentId, navigationEnabled = true)
+        controller.navigationWaiting(incidentId, "Waiting for a fresh location to calculate the first route.")
+    }
+
+    private fun refreshNavigationDestination(incidentId: Long, latitude: Double?, longitude: Double?) {
+        val destination = if (
+            latitude != null && longitude != null && latitude.isFinite() && longitude.isFinite() &&
+            latitude in -90.0..90.0 && longitude in -180.0..180.0
+        ) RouteCoordinate(latitude, longitude) else null
+        if (destination == activeDestination) return
+        activeDestination = destination
+        currentNavigationRoute = null
+        reroutePolicy.resetForNewDestination()
+        if (navigationEnabled) {
+            controller.navigationWaiting(
+                incidentId,
+                if (destination == null) "This assignment has no valid destination coordinate. Confirm the location with dispatch."
+                else "Destination updated; waiting for a fresh fix and route-request cooldown.",
+            )
+        }
+    }
+
+    private suspend fun maybeRecalculateRoute(incidentId: Long, fix: com.tacresq.app.data.model.GeoFix) {
+        if (!navigationEnabled || activeIncidentId != incidentId) return
+        val appContainer = (application as TacResqApp).container
+        val destination = activeDestination
+        val provider = appContainer.routingProvider
+        if (provider == null) {
+            controller.navigationFailed(incidentId, "In-app routing is not enabled or configured. Location sharing remains active.")
+            return
+        }
+        if (destination == null) {
+            controller.navigationFailed(incidentId, "This assignment has no valid destination coordinate. Confirm the location with dispatch.")
+            return
+        }
+        val origin = RouteCoordinate(fix.latitude, fix.longitude)
+        val reason = reroutePolicy.consider(
+            origin = origin,
+            accuracyMeters = fix.accuracyM,
+            route = currentNavigationRoute,
+            nowMillis = System.currentTimeMillis(),
+        ) ?: return
+        controller.navigationRequestStarted(incidentId, reason)
+        val result = try {
+            provider.route(origin, destination, RouteMode.DRIVING, incidentId)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            Result.failure(failure)
+        }
+        if (activeIncidentId != incidentId || !navigationEnabled || activeDestination != destination) return
+        val route = result.getOrNull()?.takeIf { it.isUsable(System.currentTimeMillis()) }
+        if (route != null) {
+            reroutePolicy.recordRequestResult(succeeded = true, nowMillis = System.currentTimeMillis())
+            currentNavigationRoute = route
+            controller.navigationRouteUpdated(incidentId, route, reason)
+        } else {
+            reroutePolicy.recordRequestResult(succeeded = false, nowMillis = System.currentTimeMillis())
+            controller.navigationFailed(
+                incidentId,
+                result.exceptionOrNull()?.message ?: "No current route was returned. Location sharing remains active; confirm the route with dispatch.",
+            )
         }
     }
 
@@ -338,11 +519,15 @@ class ResponderLocationTrackingService : Service() {
                     controller.serviceMessage(incidentId, "Could not refresh assignment status; every location write remains server-authorized.")
                     continue
                 }
-                if (assignments.none { it.id == incidentId && it.statusFor(user.id) == IncidentStatus.EN_ROUTE }) {
+                val activeAssignment = assignments.firstOrNull {
+                    it.id == incidentId && it.statusFor(user.id) == IncidentStatus.EN_ROUTE
+                }
+                if (activeAssignment == null) {
                     stopActiveSharing("Location sharing stopped because this assignment is no longer en route.")
                     stopSelf()
                     return
                 }
+                refreshNavigationDestination(incidentId, activeAssignment.latitude, activeAssignment.longitude)
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -357,6 +542,10 @@ class ResponderLocationTrackingService : Service() {
     private fun stopActiveSharing(message: String) {
         val oldIncidentId = activeIncidentId
         activeIncidentId = null
+        navigationEnabled = false
+        activeDestination = null
+        currentNavigationRoute = null
+        reroutePolicy.reset()
         trackingJob?.cancel()
         trackingJob = null
         assignmentMonitorJob?.cancel()
@@ -382,7 +571,7 @@ class ResponderLocationTrackingService : Service() {
         }
     }
 
-    private fun createNotification(): Notification {
+    private fun createNotification(navigationEnabled: Boolean): Notification {
         val stopIntent = Intent(this, ResponderLocationTrackingService::class.java).setAction(ACTION_STOP)
         val stopPendingIntent = PendingIntent.getService(
             this,
@@ -392,12 +581,12 @@ class ResponderLocationTrackingService : Service() {
         )
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("TACResQ location sharing is active")
-            .setContentText("Authorized dispatch can see your recent position for this en-route response.")
+            .setContentTitle(if (navigationEnabled) "TACResQ live navigation is active" else "TACResQ location sharing is active")
+            .setContentText(if (navigationEnabled) "Your route is updating and authorized dispatch can see your recent position." else "Authorized dispatch can see your recent position for this en-route response.")
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .addAction(0, "Stop sharing", stopPendingIntent)
+            .addAction(0, if (navigationEnabled) "Stop navigation & sharing" else "Stop sharing", stopPendingIntent)
             .build()
     }
 
@@ -410,6 +599,10 @@ class ResponderLocationTrackingService : Service() {
         assignmentMonitorJob?.cancel()
         assignmentMonitorJob = null
         activeIncidentId = null
+        navigationEnabled = false
+        activeDestination = null
+        currentNavigationRoute = null
+        reroutePolicy.reset()
         serviceScope.cancel()
         if (hadActiveTracking && ::controller.isInitialized) {
             controller.serviceStopped("Location sharing stopped because Android ended the tracking service. Resume sharing in TACResQ.")
