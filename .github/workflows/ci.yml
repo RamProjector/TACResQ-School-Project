@@ -198,7 +198,7 @@ jobs:
       - name: Check incident chat image attachment security and UI contract
         run: python3 tools/test_incident_chat_attachments_contract.py
 
-      - name: Check Android Admin RPC transport contract
+      - name: Check Android Admin removal and server RPC preservation
         run: python3 tools/test_android_admin_rpc_contract.py
 
       - name: Set up pnpm

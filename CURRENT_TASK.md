@@ -1,14 +1,13 @@
-# Current handoff — 2026-11-05: review and repair PR #265 navigation authorization
+# Current handoff — 2026-11-06: block Admin accounts from Android
 
-- **Objective:** Review, repair, and merge PR #265 after its exact-head CI and safety review.
-- **Current main:** PR #264’s FCM lifecycle and the order-independent Admin RPC source-contract fix were squash-merged to `main` as `8fbe6c0aadc521873f56ffa809438fa555f7cb62`; that mainline commit is merged into the local PR branch, preserving both FCM and tracking wiring.
-- **PR #265:** `feat(android): add continuous responder navigation rerouting`, prior head `ec821ac46c3865d2a9ac0a73441cda8342aaed1`. Review found four issues: repository-wrapped HTTP failures were missed; destination changes could leave old route geometry visible; consent did not identify private OSRM; and a sharing-to-navigation upgrade kept stale notification text. Fixes and focused tests are now in the working tree.
-- **Existing evidence:** Prior PR #265 head had 11 checks successful, 2 skipped, 0 failing; no human reviews or inline review comments were recorded, and its deterministic automated review reported 0 findings. Those results are for the prior head only.
-- **Safety boundary:** Server route-preview checks identity, role, current assignment/status, validates incident coordinates, applies a per-user rate limit, and sends only coordinates to the configured provider. Android routing remains disabled unless a build opts in. Provider identity is now fetched through an authenticated endpoint that receives no coordinates before consent; no live responder coordinates, provider request, or device/emulator validation has occurred.
-- **Previous PR #264 handoff:** Fixed the brittle Admin RPC interface-order assertion; local source checks passed; exact-head PR CI was 11 successful, 2 skipped; #264 merged as `8fbe6c0aadc521873f56ffa809438fa555f7cb62`.
-- **Validation:** All relevant Python source-contract checks passed, including 36 responder-location checks and the added navigation, FCM, Admin, chat, and Android-source checks; `git diff --check` passed. Android unit tests could not run because this sandbox has no Android SDK (`SDK location not found`); PHP/Composer and backend vendor dependencies are absent, so Laravel feature tests must run in CI. No device/emulator or live provider request was used.
-- **Next:** Commit and push the mainline merge plus fixes to #265; inspect CI on the exact new head and merge only if all required checks pass and GitHub reports the PR mergeable. Keep the opt-in route flag and provider configuration unchanged.
-
+- **Objective:** Remove privileged Admin functions from TACResQ Android and block Admin-role accounts from operational mobile screens, while preserving web and server Admin capabilities.
+- **Verified baseline:** Branch `agent/block-admin-android` was created from `origin/main` at `c349ec23b8f1ffd464fa835f3c133274aefb97d4`; no open PRs were listed at the start of this task.
+- **Implementation:** Deleted the Android Admin console and its direct Supabase Admin RPC client/repository APIs. Admin sessions now see a sign-out/approved-console screen before operational ViewModels are created; AppRoot, RoleApp, and RoleShell all fail closed. Legacy FCM registration is unregistered for Admin sessions, and Admin sessions skip new token registration and notification permission requests.
+- **Preserved:** The shared Admin role model, protected Supabase Admin RPC migrations/grants, and the web Admin console remain. The provisioning runbook now points to the web console and prohibits mobile Admin tasks.
+- **Validation passed:** `check_android_source.py`, Android build-mode, Admin role-safety, Admin client/server preservation, navigation, adaptive scaffold, GPS map, FCM, encrypted session, notifications, chat, responder-location, navigation, and requester/provisioning source contracts; `git diff --check`.
+- **Android build limitation:** `./gradlew testDebugUnitTest --no-daemon` failed before compilation because this sandbox has no Android SDK (`SDK location not found`). CI Android debug/release builds are required before merge. No device/emulator testing was run.
+- **Branch/PR:** `agent/block-admin-android`; implementation commit `5ead6c0cc071284ff50eadddc9020135fba200a8`; PR [#266](https://github.com/RamProjector/TACResQ-School-Project/pull/266) is open.
+- **Next:** Refresh PR #266 and inspect checks for its current exact head; merge only if required checks pass and GitHub reports it mergeable. On resume, if it is already merged, continue with the next verified safety-priority task.
 ---
 
 # Previous handoff — 2026-11-05: failed one-off Geoapify Routing API test and cleanup
