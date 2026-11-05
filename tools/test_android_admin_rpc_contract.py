@@ -1,57 +1,70 @@
 #!/usr/bin/env python3
-"""Contract checks for the Android Supabase-only Admin RPC transport and console."""
+"""Ensure Admin tooling is absent from Android while protected server RPCs remain available."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt").read_text()
 supabase = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
-screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/admin/AdminAccessScreen.kt").read_text()
 root = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text()
-bridge_start = supabase.index("private interface SupabaseBridgeRpcWire")
-bridge_end = supabase.index("private interface SupabaseRpcWire", bridge_start)
-bridge = supabase[bridge_start:bridge_end]
-rpc = supabase[bridge_end:]
+admin_screen_path = ROOT / "app/src/main/java/com/tacresq/app/ui/admin/AdminAccessScreen.kt"
+web_admin_console = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
+server_admin_migration = (
+    ROOT / "supabase/migrations/20261026161500_admin_role_audit_foundation.sql"
+).read_text().lower()
+server_pagination_migration = (
+    ROOT / "supabase/migrations/20261026170000_admin_server_side_user_pagination.sql"
+).read_text().lower()
+server_contract = server_admin_migration + "\n" + server_pagination_migration
+mobile_client = "\n".join((api, supabase, repository))
 
 checks = {
-    "Admin operations are an explicit optional capability": "interface TacAdminApi" in api,
-    "Android Supabase client implements the Admin capability": all(
-        capability in supabase.split("class SupabaseTacApi", 1)[1].split("{", 1)[0]
-        for capability in ("TacApi", "TacNotificationApi", "TacChatApi", "TacAdminApi")
+    "Android has no privileged Admin API interface or DTOs": all(
+        name not in api
+        for name in ("TacAdminApi", "AdminUser", "AdminUsersPage", "AdminAuditEvent", "AdminRoleChangeResult")
     ),
-    "User directory uses the bounded pagination RPC": 'rest/v1/rpc/api_admin_list_users_page' in rpc,
-    "Audit reads use the protected audit RPC": 'rest/v1/rpc/api_admin_list_audit_logs' in rpc,
-    "Role changes use the protected role RPC": 'rest/v1/rpc/api_admin_set_user_role' in rpc,
-    "Admin RPCs are not exposed through the Laravel bridge": not any(name in bridge for name in (
-        "api_admin_list_users", "api_admin_list_users_page", "api_admin_list_audit_logs", "api_admin_set_user_role"
-    )),
-    "Page size, offset, and search length are bounded client-side": (
-        "limit in 1..100" in supabase and "offset in 0..1_000_000" in supabase
-        and "query.length <= 120" in supabase
+    "Android Supabase transport exposes no Admin RPC endpoints": all(
+        name not in supabase
+        for name in (
+            "api_admin_list_users_page",
+            "api_admin_list_audit_logs",
+            "api_admin_set_user_role",
+            "adminUsersPage",
+            "adminAuditLogs",
+            "setAdminUserRole",
+        )
     ),
-    "Role mutation cannot request Admin promotion or demotion": (
-        'setOf("requester", "responder", "driver", "dispatcher")' in supabase
+    "TacRepository exposes no Admin operations": all(
+        name not in repository for name in ("TacAdminApi", "adminUsersPage", "adminAuditLogs", "setAdminUserRole")
     ),
-    "Role mutation requires a bounded audit reason": "normalizedReason.length in 10..500" in supabase,
-    "Repository exposes admin operations through the protected capability": all(name in repository for name in (
-        "TacAdminApi", "adminUsersPage", "adminAuditLogs", "setAdminUserRole"
-    )),
-    "Admin route receives the authenticated repository": "AdminAccessScreen(user = user, repository = container.repository" in root,
-    "Admin screen supports paginated user search and audit history": all(name in screen for name in (
-        "loadUsers(reset = false)", "Search accounts", "Recent administrative actions", "it.length <= 120", "event.action.replace"
-    )),
-    "Admin role changes require a reason and exclude Admin promotion": (
-        "reason.trim().length in 10..500" in screen and "adminRoles" in screen
-        and "Admin promotion and demotion are not available in the app." in screen
+    "Admin console implementation is removed from Android": not admin_screen_path.exists(),
+    "AppRoot uses the blocked Admin screen instead of an Admin console": (
+        "AdminMobileBlockedScreen(onSignOut = logout)" in root and "AdminAccessScreen" not in root
     ),
-    "RPC argument names match the database contract": all(name in supabase for name in (
-        'SerializedName("p_limit")', 'SerializedName("p_offset")',
-        'SerializedName("p_user_id")', 'SerializedName("p_role")', 'SerializedName("p_reason")'
-    )),
+    "Server-side Admin RPCs remain in Supabase migrations": all(
+        f"create or replace function public.{name}" in server_contract
+        for name in (
+            "api_admin_list_users_page",
+            "api_admin_list_audit_logs",
+            "api_admin_set_user_role",
+        )
+    ),
+    "Server-side Admin RPCs remain unavailable to anon and public roles": all(
+        "revoke all on function public." + name in server_contract
+        for name in (
+            "api_admin_list_users_page",
+            "api_admin_list_audit_logs",
+            "api_admin_set_user_role",
+        )
+    ),
+    "Existing web Admin console remains available": all(
+        label in web_admin_console
+        for label in ("Admin console", "Change role", "Administrative audit log")
+    ),
 }
 failed = [name for name, passed in checks.items() if not passed]
 for name, passed in checks.items():
     print(f"{'PASS' if passed else 'FAIL'} {name}")
 if failed:
-    raise SystemExit(f"{len(failed)} Android Admin RPC contract check(s) failed")
-print(f"Android Admin RPC transport contract OK: {len(checks)} checks.")
+    raise SystemExit(f"{len(failed)} Admin client/server contract check(s) failed")
+print(f"Android Admin removal and server preservation contract OK: {len(checks)} checks.")

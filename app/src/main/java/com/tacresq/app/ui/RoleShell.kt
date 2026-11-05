@@ -56,6 +56,7 @@ fun RoleShell(
     content: @Composable () -> Unit,
     mapContent: @Composable () -> Unit,
 ) {
+    if (role == Role.ADMIN) return
     // The map remains a dedicated, full-window destination on every form factor.
     // Other destinations switch to a rail only when the window has enough width
     // and height; short landscape and split-screen windows keep the bottom bar.
@@ -112,10 +113,10 @@ fun RoleShell(
 
 private fun roleNavigationDestinations(role: Role): List<Pair<AppDestination, String>> {
     val labels = when (role) {
+        Role.ADMIN -> return emptyList()
         Role.REQUESTER -> listOf("Home", "Requests", "Messages", "Profile")
         Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Messages", "Profile")
         Role.DISPATCHER -> listOf("Queue", "Units", "Messages", "Profile")
-        Role.ADMIN -> listOf("Admin", "Audit", "Messages", "Profile")
     }
     return listOf(
         AppDestination.PRIMARY to labels[0],

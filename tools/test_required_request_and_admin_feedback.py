@@ -3,7 +3,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 requester = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 auth = (ROOT / "app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt").read_text()
-admin = (ROOT / "app/src/main/java/com/tacresq/app/ui/admin/AdminAccessScreen.kt").read_text()
 supabase_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 admin_migration = (ROOT / "supabase/migrations/20261026161500_admin_role_audit_foundation.sql").read_text()
@@ -86,26 +85,4 @@ for prerequisite in (
 ):
     assert prerequisite.lower() in admin_runbook.lower(), f"Missing Admin provisioning prerequisite: {prerequisite}"
 
-# Admin role changes require an audit reason and explicit target selection.
-assert 'label = { Text("Audit reason (required)") }' in admin
-assert "reason.trim().length in 10..500" in admin
-assert "Required: explain why this role change is necessary." in admin
-assert "This explanation is saved in the audit history." in admin
-assert "repository.setAdminUserRole(account.id, targetRole, reason.trim())" in admin
-assert 'var targetRole by remember { mutableStateOf("") }' in admin
-assert 'targetRole = ""' in admin
-assert "No role is preselected." in admin
-assert 'Text("${account.email} · Account ID ${account.id}"' in admin
-assert "targetRole in adminRoles" in admin
-assert "Confirm ${targetRole.replaceFirstChar { it.uppercase() }} role" in admin
-assert "onDismissRequest = { if (!loading) selectedUser = null }" in admin
-assert "enabled = !loading, onClick = { targetRole = role; error = null }" in admin
-assert "onValueChange = { if (it.length <= 500) { reason = it; error = null } }" in admin
-reason_start = admin.index("value = reason")
-reason_end = admin.index("modifier = Modifier.fillMaxWidth()", reason_start)
-assert "enabled = !loading," in admin[reason_start:reason_end]
-assert "error?.let {" in admin[admin.index("selectedUser?.let"):admin.index("confirmButton = {")]
-assert "Saving role change…" in admin
-assert 'enabled = !loading) { Text("Cancel") }' in admin
-
-print("Requester, SOS location, registration, authentication privacy, and admin audit contracts passed.")
+print("Requester, SOS location, registration, authentication privacy, and out-of-band Admin provisioning contracts passed.")

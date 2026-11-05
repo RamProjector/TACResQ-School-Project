@@ -58,7 +58,7 @@ import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
 import com.tacresq.app.notifications.PushTokenCoordinator
 import com.tacresq.app.ui.auth.AuthScreen
-import com.tacresq.app.ui.admin.AdminAccessScreen
+import com.tacresq.app.ui.auth.AdminMobileBlockedScreen
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SectionHeading
 import com.tacresq.app.ui.dispatcher.DispatcherScreen
@@ -96,16 +96,20 @@ fun AppRoot(
     }
 
     LaunchedEffect(sessionState) {
-        if (sessionState is SessionState.LoggedIn) {
-            container.pushTokenCoordinator.sync(container.repository)
-            if (
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                !notificationPermissionRequested &&
-                !PushTokenCoordinator.notificationsAllowed(context)
-            ) {
-                notificationPermissionRequested = true
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
+        val loggedInState = sessionState as? SessionState.LoggedIn ?: return@LaunchedEffect
+        if (loggedInState.session.user.role == Role.ADMIN) {
+            // Remove any legacy mobile registration; Admin accounts must not receive mobile alerts.
+            container.pushTokenCoordinator.unregister(container.repository)
+            return@LaunchedEffect
+        }
+        container.pushTokenCoordinator.sync(container.repository)
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !notificationPermissionRequested &&
+            !PushTokenCoordinator.notificationsAllowed(context)
+        ) {
+            notificationPermissionRequested = true
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 
@@ -174,88 +178,92 @@ fun AppRoot(
 
             is SessionState.LoggedIn -> {
                 val user = state.session.user
-                val notificationsVm: NotificationsViewModel = viewModel(
-                    key = "notifications-${user.id}",
-                    factory = factory,
-                )
-                val chatVm: IncidentChatViewModel = viewModel(
-                    key = "chat-${user.id}",
-                    factory = factory,
-                )
-                when (user.role) {
-                    Role.ADMIN -> AdminAccessScreen(user = user, repository = container.repository, onSignOut = logout)
-                    Role.REQUESTER -> {
-                        val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
-                        val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout, routingProvider = container.routingProvider) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
-                            if (selectedChatIncidentId != null && destination == AppDestination.CHAT) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
-                            } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)
-                            else RoleSectionScreen(
-                                destination, user, logout, vmState.incidents,
-                                notificationsVm = notificationsVm,
-                                onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
-                                onOpenChat = openChat,
-                                onOpenNotifications = openNotifications,
-                                onRefreshIncidents = vm::refresh,
-                                selectedIncidentId = selectedIncidentId,
-                            )
+                if (user.role == Role.ADMIN) {
+                    AdminMobileBlockedScreen(onSignOut = logout)
+                } else {
+                    val notificationsVm: NotificationsViewModel = viewModel(
+                        key = "notifications-${user.id}",
+                        factory = factory,
+                    )
+                    val chatVm: IncidentChatViewModel = viewModel(
+                        key = "chat-${user.id}",
+                        factory = factory,
+                    )
+                    when (user.role) {
+                        Role.ADMIN -> AdminMobileBlockedScreen(onSignOut = logout)
+                        Role.REQUESTER -> {
+                            val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
+                            val vmState by vm.state.collectAsStateWithLifecycle()
+                            RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout, routingProvider = container.routingProvider) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
+                                if (selectedChatIncidentId != null && destination == AppDestination.CHAT) {
+                                    IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
+                                } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)
+                                else RoleSectionScreen(
+                                    destination, user, logout, vmState.incidents,
+                                    notificationsVm = notificationsVm,
+                                    onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
+                                    onOpenChat = openChat,
+                                    onOpenNotifications = openNotifications,
+                                    onRefreshIncidents = vm::refresh,
+                                    selectedIncidentId = selectedIncidentId,
+                                )
+                            }
                         }
-                    }
-                    Role.RESPONDER, Role.DRIVER -> {
-                        val vm: ResponderViewModel = viewModel(key = "unit-${user.id}", factory = factory)
-                        val vmState by vm.state.collectAsStateWithLifecycle()
-                        // Stop the responder's foreground location service before ending the session.
-                        val responderLogout: () -> Unit = {
-                            vm.stopTracking("Location sharing stopped because you signed out.")
-                            logout()
+                        Role.RESPONDER, Role.DRIVER -> {
+                            val vm: ResponderViewModel = viewModel(key = "unit-${user.id}", factory = factory)
+                            val vmState by vm.state.collectAsStateWithLifecycle()
+                            // Stop the responder's foreground location service before ending the session.
+                            val responderLogout: () -> Unit = {
+                                vm.stopTracking("Location sharing stopped because you signed out.")
+                                logout()
+                            }
+                            RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider, trackingController = container.responderLocationTracking) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, openMapIncident ->
+                                if (selectedChatIncidentId != null) {
+                                    IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); responderLogout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
+                                } else if (destination == AppDestination.PRIMARY) ResponderScreen(
+                                    vm,
+                                    user,
+                                    responderLogout,
+                                    onOpenNotifications = openNotifications,
+                                    onOpenMap = openMapIncident,
+                                )
+                                else RoleSectionScreen(
+                                    destination, user, responderLogout, vmState.incidents,
+                                    notificationsVm = notificationsVm,
+                                    onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
+                                    onOpenChat = openChat,
+                                    onOpenNotifications = openNotifications,
+                                    onRefreshIncidents = vm::refresh,
+                                    selectedIncidentId = selectedIncidentId,
+                                )
+                            }
                         }
-                        RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider, trackingController = container.responderLocationTracking) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, openMapIncident ->
-                            if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); responderLogout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
-                            } else if (destination == AppDestination.PRIMARY) ResponderScreen(
-                                vm,
-                                user,
-                                responderLogout,
-                                onOpenNotifications = openNotifications,
-                                onOpenMap = openMapIncident,
-                            )
-                            else RoleSectionScreen(
-                                destination, user, responderLogout, vmState.incidents,
-                                notificationsVm = notificationsVm,
-                                onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
-                                onOpenChat = openChat,
-                                onOpenNotifications = openNotifications,
-                                onRefreshIncidents = vm::refresh,
-                                selectedIncidentId = selectedIncidentId,
-                            )
-                        }
-                    }
-                    Role.DISPATCHER -> {
-                        val vm: DispatcherViewModel = viewModel(key = "dispatcher-${user.id}", factory = factory)
-                        val vmState by vm.state.collectAsStateWithLifecycle()
-                        RoleApp(
-                            role = user.role,
-                            incidents = vmState.incidents,
-                            user = user,
-                            locationProvider = container.locationProvider,
-                            logout = logout,
-                            routingProvider = container.routingProvider,
-                            responderLocations = vmState.responderLocations,
-                            onMapRefresh = vm::refresh,
-                        ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
-                            if (selectedChatIncidentId != null) {
-                                IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
-                            } else if (destination == AppDestination.PRIMARY) {
-                                DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId, onOpenChat = openChat, onOpenNotifications = openNotifications)
-                            } else RoleSectionScreen(
-                                destination, user, logout, vmState.incidents, vmState.units, notificationsVm,
-                                onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
-                                onOpenChat = openChat,
-                                onOpenNotifications = openNotifications,
-                                onRefreshIncidents = vm::refresh,
-                                selectedIncidentId = selectedIncidentId,
-                            )
+                        Role.DISPATCHER -> {
+                            val vm: DispatcherViewModel = viewModel(key = "dispatcher-${user.id}", factory = factory)
+                            val vmState by vm.state.collectAsStateWithLifecycle()
+                            RoleApp(
+                                role = user.role,
+                                incidents = vmState.incidents,
+                                user = user,
+                                locationProvider = container.locationProvider,
+                                logout = logout,
+                                routingProvider = container.routingProvider,
+                                responderLocations = vmState.responderLocations,
+                                onMapRefresh = vm::refresh,
+                            ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
+                                if (selectedChatIncidentId != null) {
+                                    IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
+                                } else if (destination == AppDestination.PRIMARY) {
+                                    DispatcherScreen(vm, user, logout, focusedIncidentId = selectedIncidentId, onOpenChat = openChat, onOpenNotifications = openNotifications)
+                                } else RoleSectionScreen(
+                                    destination, user, logout, vmState.incidents, vmState.units, notificationsVm,
+                                    onOpenIncident = { incidentId -> vm.refresh(); openIncident(incidentId) },
+                                    onOpenChat = openChat,
+                                    onOpenNotifications = openNotifications,
+                                    onRefreshIncidents = vm::refresh,
+                                    selectedIncidentId = selectedIncidentId,
+                                )
+                            }
                         }
                     }
                 }
@@ -277,6 +285,10 @@ private fun RoleApp(
     onMapRefresh: () -> Unit = {},
     contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit, () -> Unit, (Long) -> Unit) -> Unit,
 ) {
+    if (role == Role.ADMIN) {
+        AdminMobileBlockedScreen(onSignOut = logout)
+        return
+    }
     var destination by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
     var destinationBeforeMap by rememberSaveable(role, user.id) { mutableStateOf(AppDestination.PRIMARY) }
     var selectedIncidentId by rememberSaveable(role, user.id) { mutableStateOf<Long?>(null) }
@@ -353,7 +365,7 @@ internal fun RoleSectionScreen(
             Role.REQUESTER -> "My requests"
             Role.RESPONDER, Role.DRIVER -> "Response history"
             Role.DISPATCHER -> "Field units"
-            Role.ADMIN -> "Administrator access"
+            Role.ADMIN -> "Mobile access unavailable"
         }
         AppDestination.CHAT -> "Messages"
         AppDestination.ALERTS -> "Notifications"
@@ -401,7 +413,10 @@ internal fun RoleSectionScreen(
         ScreenHeader(title = title, subtitle = "", onOpenNotifications = onOpenNotifications)
 
         when {
-            role == Role.ADMIN -> EmptySectionCard("Administrator access", "Administrative tools are not available in this Android build yet.")
+            role == Role.ADMIN -> EmptySectionCard(
+                "Mobile access unavailable",
+                "Admin accounts can't use TACResQ Android. Use your organization's approved admin console or contact your system administrator.",
+            )
             destination == AppDestination.SECONDARY && role == Role.DISPATCHER -> {
                 Card(
                     modifier = Modifier.fillMaxWidth(),

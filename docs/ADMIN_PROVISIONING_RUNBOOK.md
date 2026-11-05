@@ -79,11 +79,11 @@ $provision_admin$;
 COMMIT;
 ```
 
-After provisioning, sign in through the Admin console and verify that the user list and audit log load. Do not grant Admin by editing user metadata or adding a public bootstrap endpoint.
+After provisioning, sign in through the web Admin console and verify that the user list and audit log load. Admin accounts are blocked from TACResQ Android; do not use the mobile app for Admin tasks. Do not grant Admin by editing user metadata or adding a public bootstrap endpoint.
 
 ## Admin rotation or demotion
 
-The app's Admin RPC deliberately cannot promote, demote, or edit Admin accounts. For a planned rotation, first provision and verify a second Admin through the approved operator procedure. Only then demote the outgoing Admin.
+The server-side role-change RPC deliberately cannot promote, demote, or edit Admin accounts. For a planned rotation, first provision and verify a second Admin through the approved operator procedure. Only then demote the outgoing Admin.
 
 Before running a demotion, confirm there are **at least two** Admin profiles and replace the placeholders below. The procedure locks the profile table, refuses to demote the last Admin, refuses an unverified/non-Admin target, refuses active incident assignments, and writes a corresponding audit event in the same transaction.
 

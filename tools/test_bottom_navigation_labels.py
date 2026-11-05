@@ -11,7 +11,9 @@ for destination in ('PRIMARY("Home")', 'SECONDARY("Requests")', 'MAP("GPS Map")'
 assert 'Role.DISPATCHER -> listOf("Queue", "Units", "Messages", "Profile")' in source
 assert 'Role.RESPONDER, Role.DRIVER -> listOf("Call", "History", "Messages", "Profile")' in source
 assert 'Role.REQUESTER -> listOf("Home", "Requests", "Messages", "Profile")' in source
-assert 'Role.ADMIN -> listOf("Admin", "Audit", "Messages", "Profile")' in source
+assert 'if (role == Role.ADMIN) return' in source
+assert 'Role.ADMIN -> return emptyList()' in source
+assert '"Admin"' not in source and '"Audit"' not in source
 assert "NavigationBar(" in source
 assert source.count("NavigationItem(destinations[") == 4
 assert "GpsMapNavigationItem(selected, onDestinationSelected)" in source
