@@ -14,6 +14,11 @@ return [
     // or on Laravel's runtime environment lookup.
     'supabase_url' => env('SUPABASE_URL', 'https://kttguamhznoflzagfutr.supabase.co'),
     'supabase_publishable_key' => env('SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_1-_oEKiNRWO0tvEOr5Gr3g_USY07s2g'),
+    // Server-only notification worker settings. Never expose these through runtime-config.json.
+    'supabase_secret_key' => env('SUPABASE_SECRET_KEY', ''),
+    'fcm_project_id' => env('FCM_PROJECT_ID', ''),
+    'fcm_batch_limit' => (int) env('FCM_BATCH_LIMIT', 100),
+    'fcm_http_timeout' => (int) env('FCM_HTTP_TIMEOUT', 8),
 
 
     // Explicit RPC allowlist for the additive Render -> Supabase bridge.
