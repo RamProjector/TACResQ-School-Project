@@ -196,7 +196,10 @@ fun NotificationsAndSafetyScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            ScreenHeader(title = "Notifications")
+            ScreenHeader(
+                title = "Notifications",
+                subtitle = "Push alerts bring you here; this inbox is the source of truth.",
+            )
         }
         item {
             Card(
