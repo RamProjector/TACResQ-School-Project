@@ -10,6 +10,20 @@ final class FcmHttpV1Client
 {
     private const MESSAGING_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 
+    /**
+     * Validate that ADC can mint a Firebase Messaging token without sending a message.
+     * Never return or log the credential or access token.
+     */
+    public function assertCredentialsAvailable(): void
+    {
+        $credentials = ApplicationDefaultCredentials::getCredentials([self::MESSAGING_SCOPE]);
+        $authToken = $credentials->fetchAuthToken();
+        $accessToken = is_array($authToken) ? ($authToken['access_token'] ?? null) : null;
+        if (!is_string($accessToken) || $accessToken === '') {
+            throw new RuntimeException('ADC did not provide an FCM access token.');
+        }
+    }
+
     public function send(string $projectId, string $token, array $data): array
     {
         $projectId = trim($projectId);

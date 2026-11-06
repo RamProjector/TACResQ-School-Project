@@ -38,11 +38,19 @@ Add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, `FCM_BATCH_LIMIT`, 
 php artisan tacresq:dispatch-fcm --limit=100
 ```
 
+Before sending anything, validate the Render environment and ADC without reading the inbox or sending a message:
+
+```sh
+php artisan tacresq:dispatch-fcm --check-config
+```
+
+This prints only a success/failure message and never prints the service-account contents or OAuth access token.
+
 Render's [environment and secret-file guide](https://render.com/docs/configure-environment-variables) documents the `/etc/secrets/` path, and its [Cron Job guide](https://render.com/docs/cronjobs) documents the scheduled command and service-specific environment variables.
 
 The Android service intentionally renders a generic message and opens TACResQ, where the authenticated app fetches the notification inbox. Do not add a Firebase service-account key to the Android app or repository. A server sender must use FCM HTTP v1 with server-side credentials or application-default credentials; Firebase documents the `firebase.messaging` OAuth scope and the `Authorization: Bearer` request pattern in its [HTTP v1 sending guide](https://firebase.google.com/docs/cloud-messaging/send/v1-api).
 
-The Render web service currently has only browser-safe Supabase configuration and does not run this worker automatically. Adding the private service-role key, Firebase project ID, ADC secret, or a scheduler is a separate deployment change and has not been performed by this implementation task.
+The public Render web service should retain only browser-safe Supabase configuration. The private Supabase secret, Firebase project ID, ADC secret file, and scheduler belong on the separate worker/Cron Job service.
 
 ## Verification limits in this environment
 

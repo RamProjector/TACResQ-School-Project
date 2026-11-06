@@ -1,6 +1,6 @@
 # TACResQ completion tracker
 
-**Updated:** 2026-10-26  
+**Updated:** 2026-11-07
 **Measurement:** functional implementation coverage, not production readiness.
 
 ## How the 80% target is measured
@@ -18,29 +18,29 @@ The project tracks ten major functional capability groups at equal weight. A gro
 | 5 | GPS map, location permission, and foreground lifecycle | Verified in CI | Lifecycle/source tests; physical GPS behavior remains unverified |
 | 6 | Supabase schema, RPC authorization, and direct-table privilege boundaries | Verified in CI | Clean PostgreSQL replay, RPC grant checks, and migration-history checks |
 | 7 | Web dispatcher/Laravel dashboard integration | Verified in CI | Laravel/dashboard integration job |
-| 8 | Persistent in-app notifications and Android inbox | **Verified in CI** | Backend PR #174 and inbox PR #175 full CI passed on their recorded heads; still draft/unmerged |
-| 9 | Admin role, dashboard, and audit foundation | **Verified in CI** | PR #173 latest head passed source checks, Android debug/release builds, clean PostgreSQL replay, dashboard integration, visual/navigation checks, RPC grant contract, and frontend review; still draft/unmerged |
-| 10 | Incident-scoped chat | In review — not counted yet | PR #176 backend passed on an earlier head; a concurrency fix needs a fresh run. PR #178 UI passed on an earlier head; latest cleanup changes need a fresh run |
+| 8 | Persistent in-app notifications, Android inbox, and FCM sender foundation | **Verified in CI** | FCM client registration and trusted HTTP v1 sender merged in PR #268; live worker/device delivery remains unverified |
+| 9 | Admin role, dashboard, and audit foundation | **Verified in CI** | Android Admin access is removed; protected server-side Admin foundations remain. Live operator provisioning still needs non-production validation |
+| 10 | Incident-scoped chat | **Verified in CI** | Android and backend chat paths are merged; live authorization and attachment behavior still need device/backend validation |
 
 ## Current result
 
-**9/10 functional capability groups = 90% implementation coverage.**
+**10/10 functional capability groups = 100% implementation coverage.**
 
-This is an implementation milestone across the current repository and draft review branches, not a claim that 80% of production readiness is complete. The notification capability is the eighth counted group because its backend and Android inbox both have complete CI evidence on the recorded heads. Admin is now the ninth counted group because PR #173's current head passed all required checks. Chat remains uncounted until the latest backend concurrency-fix and Android UI heads pass.
+This score reflects repository implementation and CI evidence only. It is not a claim of production readiness. FCM delivery, GPS behavior, routing, offline recovery, and emergency-service operation still require live and physical-device validation.
 
 ## Release gates still outstanding
 
-- Keep all PRs draft until their current-head checks are green and the overlapping notification PR diff is reconciled.
-- Do not apply proposed migrations to live Supabase or deploy to Render without explicit approval and a reviewed rollback plan.
+- Keep new PRs blocked until their current-head checks are green and the deployed schema is reconciled with the repository migration history.
+- Live Supabase migrations require an explicit change record and reviewed rollback plan; the notification and FCM ledger migrations are now applied to the connected TACResQ project.
 - Verify email-confirmation redirects, session renewal, and role assignment in a non-production Supabase environment.
 - Test actual GPS permission changes, foreground/background transitions, incident creation, notification refresh/read state, chat access, and retry behavior on physical Android devices.
 - Run an end-to-end role matrix: requester, assigned responder, assigned driver, dispatcher, unrelated account, and Admin. Admin must not inherit incident/chat access by default.
-- Decide separately whether web notifications/chat or FCM push delivery are required. FCM is not implemented and is not counted as a core capability in this 80% metric.
+- FCM client registration, trusted sender code, and the delivery ledger are implemented. Render worker execution and physical-device push delivery remain release gates.
 - Preserve incident privacy: notification IDs are navigation references only; every incident/chat access must be reauthorized server-side.
 
 ## Next work
 
-1. Finish the latest CI runs for PR #173, PR #176, and PR #178; fix any failure before promoting those drafts.
-2. Reconcile the PR #174/#175 overlapping migration diff before any merge decision.
-3. Perform non-production Supabase and physical-device end-to-end validation.
-4. Reassess the metric after these gates; do not equate green CI with real-world emergency-service readiness.
+1. Reconcile remaining live Supabase migrations and verify deployed RPC/schema definitions.
+2. Run the Render FCM worker configuration check and one synthetic device delivery test.
+3. Perform non-production role-matrix, GPS, notification, chat, routing, and weak-network validation on a physical Android device.
+4. Reassess release readiness; do not equate green CI with real-world emergency-service readiness.

@@ -33,11 +33,15 @@ assert "fcm_delivery_attempts" in dispatcher
 assert "resolution=ignore-duplicates" in dispatcher
 assert "deleteToken" in dispatcher
 assert "tacresq:dispatch-fcm" in command
+assert "--check-config" in command
+assert "checkConfiguration" in dispatcher
+assert "assertCredentialsAvailable" in transport
 assert "notification_id" in migration and "token" in migration
 assert "UNIQUE (notification_id, token)" in migration
 assert "REVOKE ALL ON TABLE public.fcm_delivery_attempts" in migration
 assert "SUPABASE_SECRET_KEY" in docs
 assert "Do not expose this command" in docs
+assert "--check-config" in docs
 # The trusted sender must not expose a public route or use a client-visible key.
 assert "Route::post('/internal/push" not in read("backend/src/routes/api.php")
 assert "supabase_publishable_key" not in dispatcher

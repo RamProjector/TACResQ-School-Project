@@ -7,12 +7,17 @@ use Illuminate\Console\Command;
 
 final class DispatchFcmNotifications extends Command
 {
-    protected $signature = 'tacresq:dispatch-fcm {--limit= : Maximum unread notifications to inspect}';
+    protected $signature = 'tacresq:dispatch-fcm {--limit= : Maximum unread notifications to inspect} {--check-config : Validate Supabase/Firebase configuration without sending}';
     protected $description = 'Deliver unread TACResQ inbox notifications through Firebase Cloud Messaging';
 
     public function handle(FcmNotificationDispatcher $dispatcher): int
     {
         try {
+            if ((bool) $this->option('check-config')) {
+                $dispatcher->checkConfiguration();
+                $this->info('FCM configuration and ADC credentials are available; no notification was sent.');
+                return self::SUCCESS;
+            }
             $limit = $this->option('limit');
             $limit = $limit === null ? null : (int) $limit;
             $stats = $dispatcher->dispatch($limit);
