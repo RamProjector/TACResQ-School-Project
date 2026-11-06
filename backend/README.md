@@ -55,7 +55,7 @@ python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 - Role checks, ownership checks, allowed status transitions, coordinate bounds, paired GPS/null semantics, and available-unit checks are enforced server-side.
 - An SOS may include one optional coordinate pair, measured accuracy, and the device fix timestamp, or no pin plus an optional 500-character landmark note. No-GPS SOS submission is valid; the backend does not synthesize coordinates. Requester location is attached to the incident only, not continuously tracked.
 - Assignments and status changes use database transactions/row locks to prevent conflicting dispatch operations.
-- FCM client registration and a trusted, server-only HTTP v1 sender foundation are implemented, but delivery remains disabled until private Firebase ADC and Supabase service-role configuration is deployed. The starter still does not include live GPS tracking, a complete throttling policy, user/role administration UI, or incident cancellation. Before real emergency use, add operational monitoring, rate limits, backups, abuse controls, and review the privacy/security design.
+- FCM client registration and a trusted, server-only HTTP v1 sender are implemented. Delivery remains unverified until the private Render worker is configured; validate it without sending by running `php artisan tacresq:dispatch-fcm --check-config`. The starter still does not include offline write synchronization or guaranteed emergency delivery. Before real emergency use, add operational monitoring, rate limits, backups, abuse controls, and review the privacy/security design.
 - Never commit `.env`, production credentials, or real personal/incident data to Git.
 
 
@@ -67,7 +67,7 @@ The dashboard deliberately keeps its sign-in, incident/unit reads, and assignmen
 
 For local Compose setup, copy `.env.example` to `.env`, then set the Supabase URL and publishable key along with a generated `APP_KEY`. To run the frontend separately during UI development, use `backend/web/README.md`: copy `web/.env.example` to `web/.env.local`, fill in the same browser-safe Supabase values, and run `pnpm dev` from `backend/web/`.
 
-The console remains dispatcher-only, requires an administrator-provisioned dispatcher profile, and is a school prototype—not an operational emergency service. It does not add live GPS tracking, FCM, offline write synchronization, or map-based fleet visualization.
+The console remains dispatcher-only, requires an administrator-provisioned dispatcher profile, and is a school prototype—not an operational emergency service. It does not provide offline write synchronization or guaranteed emergency delivery; FCM delivery is handled by the separate trusted worker rather than the public dashboard route.
 
 
 ## Automated CI tests

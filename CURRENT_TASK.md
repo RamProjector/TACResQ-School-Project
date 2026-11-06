@@ -401,3 +401,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Security boundaries:** No public dispatch route, no service-account file, token, privileged key, incident narrative, coordinate, or phone data added. The sender prints aggregate counts only. Delivery remains disabled until deployment supplies `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and ADC securely.
 - **Validation:** `test_fcm_server_contract.py`, `test_fcm_registration_contract.py`, migration-history alignment, Render startup/bridge contracts, Android chat contract, RPC-grant contract, and `git diff --check` pass. PHP syntax, Docker image build, live Supabase migration, ADC authentication, and live Firebase delivery were not run because PHP/Docker/credentials are unavailable in the sandbox.
 - **Next:** Review exact-head CI, then merge only after required checks pass. Separately authorize and configure the pending Supabase migration plus a private scheduler/worker; do not claim live delivery until a synthetic non-sensitive device test passes.
+
+
+# Active handoff — 2026-11-07: FCM operational hardening and documentation alignment
+- **Objective:** Reduce rollout risk after merging the FCM client and trusted server sender.
+- **Implementation:** Added `php artisan tacresq:dispatch-fcm --check-config`, which validates Supabase/Firebase configuration and ADC token minting without reading notifications or sending a push. It never prints credentials or OAuth tokens.
+- **Documentation:** Updated `README.md`, `backend/README.md`, `docs/COMPLETION_TRACKER.md`, `docs/PRODUCT_SCOPE.md`, `docs/SUPABASE_BACKEND.md`, `docs/FCM_SETUP.md`, `docs/FCM_PUSH_DELIVERY_SECURITY_GATE.md`, and `docs/APP_FEATURE_GAPS_AND_ROADMAP.md` so FCM is described as implemented but not live/device-validated.
+- **Validation:** `test_fcm_server_contract.py`, `test_fcm_registration_contract.py`, `test_migration_history_alignment.py`, `check_android_source.py`, stale-claim scan, and `git diff --check` pass. PHP/Android compilation and live Render execution remain unavailable in this sandbox.
+- **Security:** No credentials, tokens, provider responses, incident narratives, or coordinates were added. The configuration check is not a public HTTP route.
+- **Next:** Open a focused PR; after merge, run `php artisan tacresq:dispatch-fcm --check-config` on the private Render worker, then perform one synthetic physical-device delivery test. Do not claim push delivery from the configuration check alone.

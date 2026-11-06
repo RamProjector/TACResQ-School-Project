@@ -96,6 +96,15 @@ final class FcmNotificationDispatcher
         return $stats;
     }
 
+    /**
+     * Validate server configuration and ADC without reading inbox rows or sending a push.
+     */
+    public function checkConfiguration(): void
+    {
+        $this->assertConfigured();
+        $this->fcm->assertCredentialsAvailable();
+    }
+
     private function assertConfigured(): void
     {
         if (trim((string) config('tacru.supabase_url')) === '' || trim((string) config('tacru.supabase_secret_key')) === '') {

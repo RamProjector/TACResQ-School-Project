@@ -3,9 +3,9 @@
 ## Current verified architecture
 
 - PostgreSQL/Supabase is the source of truth for TACResQ incidents and persistent in-app notifications.
-- Android currently uses the app's existing Supabase API stack. Its Gradle dependencies do not currently include Firebase Messaging, and the Android manifest does not register an FCM messaging service.
-- The Render service `TACResQ-School-Project` builds `backend/Dockerfile`, which hosts the Laravel dispatcher console and browser-safe Supabase runtime configuration. Its documented role is not currently an FCM sender or a mobile API.
-- The current notification implementation creates database-backed inbox records. It does not deliver FCM pushes.
+- Android includes Firebase Messaging, registers tokens through authenticated Supabase RPCs, handles token rotation, and presents generic alerts through the messaging service.
+- The backend contains a trusted Firebase HTTP v1 sender and `php artisan tacresq:dispatch-fcm`. The sender uses ADC, a server-only Supabase secret, a deduplicated delivery ledger, and invalid-token cleanup.
+- The connected TACResQ Supabase project contains `user_notifications` and `fcm_delivery_attempts`; the inbox remains the source of truth. Render worker execution and physical-device delivery are still rollout gates.
 - Render free services may spin down. A sleeping Render process must not be treated as a guaranteed emergency-notification delivery path.
 
 ## Environment variable contract
@@ -39,4 +39,4 @@ The Firebase Admin service-account JSON must remain server-side. A proposed cano
 
 ## Current status
 
-**Planning/security gate only. FCM is not implemented.** The environment variable is configuration, not a working integration until application code consumes it and the Android client is registered/configured. No live push, database migration, Render deployment, or credential access was performed while writing this document.
+**Implementation complete; rollout gate remains.** The Android and server foundations are merged, and the notification/ledger migrations are applied to the connected TACResQ Supabase project. Before claiming operational delivery, run `php artisan tacresq:dispatch-fcm --check-config` on the Render worker, then perform one synthetic background/closed-app device test. Do not treat a successful configuration check as proof that a user saw or acted on an alert.
