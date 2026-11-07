@@ -1,0 +1,80 @@
+name: Signed release readiness
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-release:
+    name: Build and verify signed release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074e1ad # v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK packages
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" --install "platforms;android-37.0" "build-tools;36.0.0"
+
+      - name: Require complete signing configuration
+        env:
+          ANDROID_SIGNING_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+          ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+        run: |
+          test -n "$ANDROID_SIGNING_KEYSTORE_BASE64"
+          test -n "$ANDROID_SIGNING_KEY_ALIAS"
+          test -n "$ANDROID_SIGNING_KEY_PASSWORD"
+          test -n "$ANDROID_SIGNING_STORE_PASSWORD"
+          mkdir -p "$RUNNER_TEMP/tacresq-signing"
+          printf '%s' "$ANDROID_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/tacresq-signing/release.jks"
+          test -s "$RUNNER_TEMP/tacresq-signing/release.jks"
+          {
+            echo "ANDROID_SIGNING_STORE_FILE=$RUNNER_TEMP/tacresq-signing/release.jks"
+            echo "ANDROID_SIGNING_KEY_ALIAS=$ANDROID_SIGNING_KEY_ALIAS"
+            echo "ANDROID_SIGNING_KEY_PASSWORD=$ANDROID_SIGNING_KEY_PASSWORD"
+            echo "ANDROID_SIGNING_STORE_PASSWORD=$ANDROID_SIGNING_STORE_PASSWORD"
+            echo "ANDROID_RELEASE_SIGNING_CONFIGURED=true"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      - name: Build release APK
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Verify signature and publish checksum
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          mkdir -p artifacts
+          cp "$APK" artifacts/tacresq-release-signed.apk
+          sha256sum "$APK" | tee artifacts/tacresq-release-signed.apk.sha256
+
+      - name: Upload signed release artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tacresq-signed-release-readiness
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14

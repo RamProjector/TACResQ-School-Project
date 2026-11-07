@@ -1,0 +1,23 @@
+# Example only. Review and configure in Render; do not apply automatically.
+# The Firebase service-account JSON must be added as a private Render Secret File
+# mounted at /etc/secrets/firebase-service-account.json.
+cronJobs:
+  - name: tacresq-fcm-dispatch
+    runtime: docker
+    schedule: "*/5 * * * *"
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    startCommand: php artisan tacresq:dispatch-fcm --limit=100
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: FCM_PROJECT_ID
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/firebase-service-account.json
+      - key: FCM_BATCH_LIMIT
+        value: "100"
+      - key: FCM_HTTP_TIMEOUT
+        value: "8"
