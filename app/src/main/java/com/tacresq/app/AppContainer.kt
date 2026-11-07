@@ -6,8 +6,12 @@ import com.tacresq.app.data.remote.ApiClient
 import com.tacresq.app.data.remote.FakeTacApi
 import com.tacresq.app.data.remote.SupabaseTacApi
 import com.tacresq.app.data.remote.TacApi
+import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.data.repo.TokenHolder
+import com.tacresq.app.data.realtime.NoopNotificationRealtime
+import com.tacresq.app.data.realtime.NotificationRealtime
+import com.tacresq.app.data.realtime.SupabaseNotificationRealtime
 import com.tacresq.app.data.routing.RoutingProvider
 import com.tacresq.app.data.routing.RenderRoutingClientFactory
 import com.tacresq.app.location.LocationProvider
@@ -38,6 +42,17 @@ class AppContainer(context: Context) {
         tokenHolder,
         appScope,
     )
+    val notificationRealtime: NotificationRealtime = if (AppConfig.USE_SUPABASE_API) {
+        SupabaseNotificationRealtime(
+            tokenHolder = tokenHolder,
+            userIdProvider = {
+                (repository.sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            },
+            scope = appScope,
+        )
+    } else {
+        NoopNotificationRealtime()
+    }
     val pushTokenCoordinator = PushTokenCoordinator(appContext, appScope)
     val locationProvider = LocationProvider(appContext)
     val responderLocationTracking = ResponderLocationTrackingController(appContext)

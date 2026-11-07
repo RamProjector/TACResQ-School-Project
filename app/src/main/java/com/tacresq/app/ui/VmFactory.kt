@@ -27,7 +27,7 @@ class VmFactory(private val container: AppContainer) : ViewModelProvider.Factory
             modelClass.isAssignableFrom(DispatcherViewModel::class.java) ->
                 DispatcherViewModel(container.repository)
             modelClass.isAssignableFrom(NotificationsViewModel::class.java) ->
-                NotificationsViewModel(container.repository)
+                NotificationsViewModel(container.repository, container.notificationRealtime)
             modelClass.isAssignableFrom(IncidentChatViewModel::class.java) ->
                 IncidentChatViewModel(container.repository)
             else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")

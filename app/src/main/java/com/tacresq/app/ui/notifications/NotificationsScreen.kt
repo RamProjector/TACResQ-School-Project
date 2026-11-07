@@ -33,6 +33,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
+import com.tacresq.app.data.realtime.NotificationRealtime
+import com.tacresq.app.data.realtime.RealtimeConnectionState
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.repo.NotificationRepository
@@ -43,6 +45,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -57,12 +60,27 @@ data class NotificationUiState(
     val busyIds: Set<Long> = emptySet(),
     val error: String? = null,
     val actionError: String? = null,
+    val lastSyncAt: String? = null,
 )
 
-class NotificationsViewModel(private val repo: NotificationRepository) : ViewModel() {
+class NotificationsViewModel(
+    private val repo: NotificationRepository,
+    private val realtime: NotificationRealtime,
+) : ViewModel() {
     private val _state = MutableStateFlow(NotificationUiState())
     val state: StateFlow<NotificationUiState> = _state.asStateFlow()
+    val realtimeState: StateFlow<RealtimeConnectionState> = realtime.state
     private var refreshJob: kotlinx.coroutines.Job? = null
+
+    init {
+        viewModelScope.launch {
+            realtime.notificationHints.collectLatest { refresh() }
+        }
+    }
+
+    fun startRealtime() = realtime.start()
+
+    fun stopRealtime() = realtime.stop()
 
     fun refresh() {
         if (refreshJob?.isActive == true) return
@@ -83,6 +101,7 @@ class NotificationsViewModel(private val repo: NotificationRepository) : ViewMod
                                 loading = false,
                                 refreshing = false,
                                 error = null,
+                                lastSyncAt = Instant.now().toString(),
                             )
                         }
                     }
@@ -176,14 +195,20 @@ fun NotificationsAndSafetyScreen(
     onOpenChat: (Long) -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val realtimeState by vm.realtimeState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            vm.refresh()
-            while (true) {
-                delay(30_000)
+            vm.startRealtime()
+            try {
                 vm.refresh()
+                while (true) {
+                    delay(30_000)
+                    vm.refresh()
+                }
+            } finally {
+                vm.stopRealtime()
             }
         }
     }
@@ -222,6 +247,18 @@ fun NotificationsAndSafetyScreen(
                             else -> "$unreadCount unread"
                         },
                         style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        when (realtimeState) {
+                            RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt ?: "not yet recorded"}."
+                            RealtimeConnectionState.CONNECTING,
+                            RealtimeConnectionState.RECONNECTING -> "Realtime reconnecting; the inbox is using server refresh fallback."
+                            RealtimeConnectionState.UNAVAILABLE,
+                            RealtimeConnectionState.FALLBACK_SYNC,
+                            RealtimeConnectionState.ERROR -> "Realtime unavailable; the inbox remains available through server refresh."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Row(
