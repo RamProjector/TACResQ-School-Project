@@ -32,6 +32,11 @@ import javax.crypto.spec.GCMParameterSpec
 
 private val Context.sessionDataStore by preferencesDataStore(name = "tacresq_session")
 
+internal const val REQUESTER_STATUS_CACHE_MAX_AGE_MILLIS = 24L * 60L * 60L * 1000L
+
+internal fun isRequesterStatusCacheFresh(cachedAtEpochMillis: Long, nowEpochMillis: Long): Boolean =
+    nowEpochMillis >= cachedAtEpochMillis && nowEpochMillis - cachedAtEpochMillis <= REQUESTER_STATUS_CACHE_MAX_AGE_MILLIS
+
 /**
  * Persists the session encrypted with an AES-GCM key held by Android Keystore.
  *
@@ -152,7 +157,7 @@ class SessionStore(
 
     data class CachedRequesterIncidents(
         val ownerUserId: Long,
-        val incidentsJson: String,
+        val statusesJson: String?,
         val cachedAtEpochMillis: Long = System.currentTimeMillis(),
     )
 
@@ -302,9 +307,9 @@ class SessionStore(
         }
     }
 
-    suspend fun saveRequesterIncidents(ownerUserId: Long, incidentsJson: String) = requesterIncidentsMutex.withLock {
+    suspend fun saveRequesterIncidents(ownerUserId: Long, statusesJson: String) = requesterIncidentsMutex.withLock {
         require(ownerUserId > 0L) { "A signed-in requester account is required to cache incident status." }
-        val cached = CachedRequesterIncidents(ownerUserId, incidentsJson)
+        val cached = CachedRequesterIncidents(ownerUserId, statusesJson)
         if (!persistSessions) {
             inMemoryRequesterIncidents = cached
             return@withLock
@@ -315,12 +320,22 @@ class SessionStore(
     suspend fun getRequesterIncidents(ownerUserId: Long): CachedRequesterIncidents? = requesterIncidentsMutex.withLock {
         require(ownerUserId > 0L) { "A signed-in requester account is required to restore incident status." }
         if (!persistSessions) {
-            return@withLock inMemoryRequesterIncidents?.also { requireIncidentOwner(it, ownerUserId) }
+            val cached = inMemoryRequesterIncidents ?: return@withLock null
+            requireIncidentOwner(cached, ownerUserId)
+            if (cached.statusesJson.isNullOrBlank() || !isRequesterStatusCacheFresh(cached.cachedAtEpochMillis, System.currentTimeMillis())) {
+                inMemoryRequesterIncidents = null
+                return@withLock null
+            }
+            return@withLock cached
         }
         val encoded = dataStore.data.first()[encryptedRequesterIncidentsKey] ?: return@withLock null
         val cached = runCatching { gson.fromJson(decrypt(encoded), CachedRequesterIncidents::class.java) }
             .getOrElse { throw PendingIncidentConflictException("The cached incident status could not be restored safely.") }
         requireIncidentOwner(cached, ownerUserId)
+        if (cached.statusesJson.isNullOrBlank() || !isRequesterStatusCacheFresh(cached.cachedAtEpochMillis, System.currentTimeMillis())) {
+            dataStore.edit { it.remove(encryptedRequesterIncidentsKey) }
+            return@withLock null
+        }
         cached
     }
 
@@ -343,6 +358,8 @@ class SessionStore(
             prefs.remove(encryptedSessionKey)
             prefs.remove(stringPreferencesKey("token"))
             prefs.remove(stringPreferencesKey("user_json"))
+            // A last-confirmed status is only a short-lived read-only aid, not a recoverable SOS.
+            prefs.remove(encryptedRequesterIncidentsKey)
         }
     }
 

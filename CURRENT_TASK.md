@@ -1,4 +1,15 @@
-# Current handoff — 2026-11-06: remove Admin-specific Android UI
+# Current handoff — 2026-11-07: make requester offline status recovery privacy-safe
+
+- **Objective:** Continue PR #273's requester offline-recovery work, fix review findings without changing SOS dispatch semantics, and preserve the prototype boundary.
+- **PR/branch baseline:** PR [#273](https://github.com/RamProjector/TACResQ-School-Project/pull/273), `feat/requester-offline-confirmed-cache`, base commit `4c8ec21a9e9e8ce3c3fd9618d361ce6125868270`; open and clean at task start.
+- **Implemented locally:** Replace full incident cache payloads with an allowlisted ID/type/status snapshot; enforce a 24-hour freshness window and remove expired/legacy cache entries on read; clear status snapshots on sign-out while preserving unresolved SOS envelopes; await cache write before publishing a successful refresh; separate stale cache from current incidents and require successful live status before create/edit/cancel/message actions; show an explicit unavailable state when neither current nor cached status can be used. Existing pending-SOS retry behavior is unchanged.
+- **Regression coverage added:** JVM tests for snapshot minimization, age policy, and current-status action gating; Android instrumentation tests for encrypted DataStore round-trip, owner isolation, and logout deletion; CI source contract plus an update to the active-emergency visual contract.
+- **Validation passed locally:** `test_requester_active_incident.py`, `test_requester_active_emergency_visual_contract.py`, `test_requester_feedback_hierarchy.py`, `test_durable_sos_idempotency.py`, `test_pending_sos_verification_state.py`, and `test_requester_offline_cache.py`; CI YAML parsed; Python checks compiled; `git diff --check` clean.
+- **Validation not run:** Android JVM tests, debug lint, and instrumentation execution cannot run locally because this sandbox has no Android SDK (`SDK location not found`). The existing CI workflow builds Android and runs JVM tests and compiles the instrumentation APK; exact-head results must be checked after push. No emulator or physical-device test was run.
+- **Next:** Review the full patch, commit and push to PR #273, inspect the exact new head's CI and review threads, fix any failures, then merge only if GitHub reports it eligible and no critical finding remains.
+---
+
+# Previous handoff — 2026-11-06: remove Admin-specific Android UI
 
 - **Objective:** Remove Admin UI and operational functions from Android only; preserve the web Admin console and protected server-side Admin authorization/tools.
 - **Verified baseline:** `agent/remove-admin-mobile-ui` was created from latest `origin/main` at `676179290d2a5c6b5c4f3ce9d6a259a70e161813` (PR #266 merged); no open PRs were listed before this follow-up.

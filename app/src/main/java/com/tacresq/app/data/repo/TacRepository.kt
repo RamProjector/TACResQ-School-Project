@@ -3,6 +3,7 @@ package com.tacresq.app.data.repo
 import com.google.gson.Gson
 import com.tacresq.app.data.local.SessionStore
 import com.tacresq.app.data.model.DutyStatus
+import com.tacresq.app.data.model.CachedRequesterIncidentStatus
 import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
@@ -13,6 +14,7 @@ import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.model.IncidentMessage
+import com.tacresq.app.data.model.toCachedRequesterIncidentStatus
 import com.tacresq.app.data.remote.AuthResponse
 import com.tacresq.app.data.remote.AssignIncidentTeamRequest
 import com.tacresq.app.data.remote.CreateIncidentRequest
@@ -132,14 +134,16 @@ class TacRepository(
     suspend fun cacheMyIncidents(incidents: List<Incident>): Result<Unit> = call {
         val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
             ?: throw ApiException("Sign in as the requester before caching incident status.")
-        store.saveRequesterIncidents(ownerUserId, Gson().toJson(incidents))
+        val statusSnapshots = incidents.map(Incident::toCachedRequesterIncidentStatus)
+        store.saveRequesterIncidents(ownerUserId, Gson().toJson(statusSnapshots))
     }
 
-    suspend fun cachedMyIncidents(): Result<Pair<List<Incident>, Long>?> = call {
+    suspend fun cachedMyIncidents(): Result<Pair<List<CachedRequesterIncidentStatus>, Long>?> = call {
         val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
             ?: throw ApiException("Sign in as the requester before restoring incident status.")
         store.getRequesterIncidents(ownerUserId)?.let { cached ->
-            Gson().fromJson(cached.incidentsJson, Array<Incident>::class.java).toList() to cached.cachedAtEpochMillis
+            val json = cached.statusesJson ?: return@let null
+            Gson().fromJson(json, Array<CachedRequesterIncidentStatus>::class.java).toList() to cached.cachedAtEpochMillis
         }
     }
 

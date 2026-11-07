@@ -78,6 +78,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.local.SessionStore
+import com.tacresq.app.data.model.CachedRequesterIncidentStatus
 import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentType
@@ -134,7 +135,16 @@ data class RequesterUiState(
     val error: String? = null,
     val syncError: String? = null,
     val lastSyncedAtEpochMs: Long? = null,
+    val cachedIncidentStatuses: List<CachedRequesterIncidentStatus> = emptyList(),
+    val isShowingCachedIncidentStatuses: Boolean = false,
+    val hasCurrentIncidentStatus: Boolean = false,
+    val refreshInProgress: Boolean = false,
 )
+
+internal fun canUseCurrentRequesterActions(
+    hasCurrentIncidentStatus: Boolean,
+    refreshInProgress: Boolean,
+): Boolean = hasCurrentIncidentStatus && !refreshInProgress
 
 class RequesterViewModel(
     private val repo: TacRepository,
@@ -205,7 +215,8 @@ class RequesterViewModel(
     }
 
     fun retryPendingSos() {
-        if (_state.value.sending) return
+        val current = _state.value
+        if (current.sending || current.refreshInProgress) return
         _state.update { it.copy(sending = true, error = null, notice = null, pendingSosCanBeDiscarded = false) }
         viewModelScope.launch {
             repo.retryPendingIncident()
@@ -236,7 +247,7 @@ class RequesterViewModel(
 
     fun discardRejectedPendingSos() {
         val current = _state.value
-        if (current.sending || !current.pendingSosCanBeDiscarded) return
+        if (current.sending || current.refreshInProgress || !current.pendingSosCanBeDiscarded) return
         _state.update { it.copy(sending = true, error = null, notice = null) }
         viewModelScope.launch {
             repo.discardPendingIncident()
@@ -264,34 +275,55 @@ class RequesterViewModel(
 
     fun refresh() {
         if (refreshJob?.isActive == true) return
+        _state.update { it.copy(refreshInProgress = true) }
         refreshJob = viewModelScope.launch {
-            repo.myIncidents()
-                .onSuccess { list ->
-                    viewModelScope.launch { repo.cacheMyIncidents(list) }
-                    _state.update { it.copy(incidents = list, loading = false, syncError = null, lastSyncedAtEpochMs = System.currentTimeMillis()) }
+            val refreshResult = repo.myIncidents()
+            if (refreshResult.isSuccess) {
+                val list = refreshResult.getOrThrow()
+                // Await the protected snapshot write so a later failed poll cannot restore an older cache.
+                repo.cacheMyIncidents(list)
+                _state.update {
+                    it.copy(
+                        incidents = list,
+                        cachedIncidentStatuses = emptyList(),
+                        isShowingCachedIncidentStatuses = false,
+                        hasCurrentIncidentStatus = true,
+                        refreshInProgress = false,
+                        loading = false,
+                        syncError = null,
+                        lastSyncedAtEpochMs = System.currentTimeMillis(),
+                    )
                 }
-                .onFailure { e ->
-                    viewModelScope.launch {
-                        repo.cachedMyIncidents()
-                            .onSuccess { cached ->
-                                if (cached != null) {
-                                    _state.update {
-                                        it.copy(
-                                            incidents = cached.first,
-                                            loading = false,
-                                            syncError = "Offline or unavailable. Showing the last confirmed status; refresh before taking action. ${e.message.orEmpty()}",
-                                            lastSyncedAtEpochMs = cached.second,
-                                        )
-                                    }
-                                } else {
-                                    _state.update { it.copy(loading = false, syncError = e.message ?: "Couldn't refresh incident updates.") }
-                                }
-                            }
-                            .onFailure {
-                                _state.update { it.copy(loading = false, syncError = e.message ?: "Couldn't refresh incident updates.") }
-                            }
+            } else {
+                val cacheResult = repo.cachedMyIncidents()
+                val cached = cacheResult.getOrNull()
+                if (cached != null) {
+                    _state.update {
+                        it.copy(
+                            incidents = emptyList(),
+                            cachedIncidentStatuses = cached.first,
+                            isShowingCachedIncidentStatuses = true,
+                            hasCurrentIncidentStatus = false,
+                            refreshInProgress = false,
+                            loading = false,
+                            syncError = "Showing last-confirmed statuses only. Reconnect and refresh before taking action.",
+                            lastSyncedAtEpochMs = cached.second,
+                        )
+                    }
+                } else {
+                    _state.update {
+                        it.copy(
+                            incidents = emptyList(),
+                            cachedIncidentStatuses = emptyList(),
+                            isShowingCachedIncidentStatuses = false,
+                            hasCurrentIncidentStatus = false,
+                            refreshInProgress = false,
+                            loading = false,
+                            syncError = "Couldn't refresh current incident status. Reconnect and refresh before taking action.",
+                        )
                     }
                 }
+            }
         }
     }
 
@@ -394,6 +426,18 @@ class RequesterViewModel(
     fun sendSos(type: IncidentType, description: String, locationNotes: String) {
         if (_state.value.sending) return
         val current = _state.value
+        if (!canUseCurrentRequesterActions(current.hasCurrentIncidentStatus, current.refreshInProgress)) {
+            _state.update {
+                it.copy(
+                    error = if (current.refreshInProgress) {
+                        "Wait for the current incident status check to finish before creating a new request."
+                    } else {
+                        "Current incident status is unavailable. Reconnect and refresh before creating a new request."
+                    },
+                )
+            }
+            return
+        }
         if (current.pendingSosCheckInProgress || current.pendingSosCheckError != null) {
             _state.update {
                 it.copy(error = "TACResQ hasn't verified whether an earlier SOS is still pending. Check again before sending another request.")
@@ -505,6 +549,15 @@ class RequesterViewModel(
         confirmReview: Boolean,
     ) {
         if (_state.value.sending) return
+        if (!canUseCurrentRequesterActions(_state.value.hasCurrentIncidentStatus, _state.value.refreshInProgress)) {
+            val message = if (_state.value.refreshInProgress) {
+                "Wait for the current incident status check to finish before editing this request."
+            } else {
+                "Reconnect and refresh incident status before editing this request."
+            }
+            _state.update { it.copy(error = message) }
+            return
+        }
         _state.update { it.copy(sending = true, error = null, notice = null) }
         viewModelScope.launch {
             repo.updateMyIncident(
@@ -534,6 +587,15 @@ class RequesterViewModel(
 
     fun cancelPendingIncident(id: Long) {
         if (_state.value.sending) return
+        if (!canUseCurrentRequesterActions(_state.value.hasCurrentIncidentStatus, _state.value.refreshInProgress)) {
+            val message = if (_state.value.refreshInProgress) {
+                "Wait for the current incident status check to finish before cancelling this request."
+            } else {
+                "Reconnect and refresh incident status before cancelling this request."
+            }
+            _state.update { it.copy(error = message) }
+            return
+        }
         _state.update { it.copy(sending = true, error = null, notice = null) }
         viewModelScope.launch {
             repo.cancelMyIncident(id)
@@ -634,8 +696,13 @@ fun RequesterScreen(
     var restoredDraftApplied by rememberSaveable { mutableStateOf(false) }
     var requestStep by rememberSaveable { mutableStateOf(1) }
     val freshFix = state.locationFix?.takeIf(vm::isFresh)
-    val activeIncidents = state.incidents.filter { it.status.isActive }
+    val activeIncidents = if (!state.hasCurrentIncidentStatus) emptyList()
+        else state.incidents.filter { it.status.isActive }
     val activeIncident = activeIncidents.firstOrNull()
+    val requesterActionsEnabled = canUseCurrentRequesterActions(
+        state.hasCurrentIncidentStatus,
+        state.refreshInProgress,
+    )
     LaunchedEffect(state.draftRestoreComplete, state.restoredDraft) {
         val draft = state.restoredDraft ?: return@LaunchedEffect
         if (restoredDraftApplied) return@LaunchedEffect
@@ -700,6 +767,73 @@ fun RequesterScreen(
 
         if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
 
+        if (state.refreshInProgress) item {
+            Card(
+                modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text(
+                        if (state.hasCurrentIncidentStatus) {
+                            "Refreshing current status. Incident actions and saved-SOS recovery are paused until this check finishes."
+                        } else {
+                            "Checking current incident status before enabling request actions or saved-SOS recovery."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+
+        if (state.isShowingCachedIncidentStatuses) item {
+            Card(
+                modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Last-confirmed request statuses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "These may have changed. Creating, editing, cancelling, and opening incident messages require a live refresh. A saved-SOS recovery, if present below, uses its original idempotency key.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (state.cachedIncidentStatuses.isEmpty()) {
+                        Text("No requests were recorded at the last successful sync.", style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        state.cachedIncidentStatuses.forEach { cached ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text("Request #${cached.incidentId}", style = MaterialTheme.typography.labelMedium)
+                                    Text(cached.type.label, style = MaterialTheme.typography.bodySmall)
+                                }
+                                StatusPill(cached.status.requesterLabel, cached.status.pillColor())
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!state.hasCurrentIncidentStatus && !state.isShowingCachedIncidentStatuses && !state.loading) item {
+            Card(
+                modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Current incident status unavailable", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("Reconnect and refresh before creating, changing, or opening incident messages. No current server status could be confirmed.", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
         if (state.pendingSosCheckInProgress) item {
             Card(
                 modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
@@ -753,7 +887,11 @@ fun RequesterScreen(
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("An earlier SOS needs confirmation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("TACResQ saved the original request. Retry it exactly as submitted; do not create a replacement SOS while its outcome is unknown.")
-                    Button(onClick = vm::retryPendingSos, enabled = !state.sending, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                    Button(
+                        onClick = vm::retryPendingSos,
+                        enabled = !state.sending && !state.refreshInProgress,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                    ) {
                         if (state.sending) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(10.dp))
@@ -765,7 +903,7 @@ fun RequesterScreen(
                     if (state.pendingSosCanBeDiscarded) {
                         TextButton(
                             onClick = { showPendingSosDiscardConfirmation = true },
-                            enabled = !state.sending,
+                            enabled = !state.sending && !state.refreshInProgress,
                             modifier = Modifier.align(Alignment.End),
                         ) {
                             Text("Discard rejected SOS")
@@ -827,6 +965,7 @@ fun RequesterScreen(
                     }
                     Button(
                         onClick = { onOpenChat(activeIncident.id) },
+                        enabled = requesterActionsEnabled,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
@@ -850,7 +989,7 @@ fun RequesterScreen(
                                     editLocationSource = activeIncident.locationSource ?: if (activeIncident.latitude == null) "none" else "gps"
                                     confirmingEdit = false
                                 },
-                                enabled = !state.sending,
+                                enabled = !state.sending && requesterActionsEnabled,
                                 modifier = Modifier.weight(1f).heightIn(min = 52.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                                 colors = ButtonDefaults.outlinedButtonColors(
@@ -859,7 +998,7 @@ fun RequesterScreen(
                             ) { Text("Edit") }
                             OutlinedButton(
                                 onClick = { incidentToCancel = activeIncident.id },
-                                enabled = !state.sending,
+                                enabled = !state.sending && requesterActionsEnabled,
                                 modifier = Modifier.weight(1f).heightIn(min = 52.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                                 colors = ButtonDefaults.outlinedButtonColors(
@@ -870,7 +1009,7 @@ fun RequesterScreen(
                     }
                 }
             }
-        } else if (!showRequestForm && !state.pendingSosAvailable &&
+        } else if (state.hasCurrentIncidentStatus && !showRequestForm && !state.pendingSosAvailable &&
 
             !state.pendingSosCheckInProgress && state.pendingSosCheckError == null
         ) item {
@@ -912,7 +1051,7 @@ fun RequesterScreen(
                     }
                     Button(
                         onClick = { showRequestForm = true },
-                        enabled = !state.sending && !state.loading,
+                        enabled = !state.sending && !state.loading && requesterActionsEnabled,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = MaterialTheme.shapes.medium,
                         colors = ButtonDefaults.buttonColors(
@@ -922,7 +1061,7 @@ fun RequesterScreen(
                             disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
                         ),
                     ) {
-                        if (state.loading) {
+                        if (state.loading || state.refreshInProgress) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(18.dp),
                                 strokeWidth = 2.dp,
@@ -937,7 +1076,7 @@ fun RequesterScreen(
             }
         }
 
-        if (showRequestForm && (activeIncident != null || state.pendingSosAvailable)) item {
+        if (showRequestForm && (!requesterActionsEnabled || activeIncident != null || state.pendingSosAvailable)) item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
@@ -948,7 +1087,11 @@ fun RequesterScreen(
                 ) {
                     Text("Unsent draft paused", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Text(
-                        if (activeIncident != null) {
+                        if (state.refreshInProgress) {
+                            "Current incident status is being refreshed. Wait for the check to finish before continuing. Your draft is preserved."
+                        } else if (!state.hasCurrentIncidentStatus) {
+                            "Current incident status isn't confirmed. Reconnect and refresh before continuing this request. Your draft is preserved."
+                        } else if (activeIncident != null) {
                             "Request #${activeIncident.id} is active. Your draft is preserved but cannot be sent while this request is active."
                         } else {
                             "A previously saved SOS still needs confirmation. Your draft is preserved; retry or resolve the saved SOS before creating another request."
@@ -963,7 +1106,7 @@ fun RequesterScreen(
             }
         }
 
-        if (showRequestForm && activeIncident == null && !state.pendingSosAvailable &&
+        if (showRequestForm && activeIncident == null && requesterActionsEnabled && !state.pendingSosAvailable &&
             !state.pendingSosCheckInProgress && state.pendingSosCheckError == null
         ) item {
             Card(
@@ -1451,7 +1594,7 @@ fun RequesterScreen(
             },
             confirmButton = {
                 TextButton(
-                    enabled = !state.sending && state.pendingSosCanBeDiscarded,
+                    enabled = !state.sending && !state.refreshInProgress && state.pendingSosCanBeDiscarded,
                     onClick = {
                         showPendingSosDiscardConfirmation = false
                         vm.discardRejectedPendingSos()

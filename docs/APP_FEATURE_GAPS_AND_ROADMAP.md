@@ -1,7 +1,7 @@
 # TACResQ app gaps and implementation roadmap
 
-**Reviewed:** 2026-11-05
-**Scope:** Android app and its supporting backend/database behavior. This is a planning document only; no features are implemented by this change.
+**Reviewed:** 2026-11-07
+**Scope:** Android app and its supporting backend/database behavior. This roadmap records implemented software behavior and separates CI evidence from live/device release gates.
 
 ## What already exists
 
@@ -25,13 +25,13 @@ Android 13 and later require user-granted `POST_NOTIFICATIONS` permission for or
 
 ### 2. Make requester behavior resilient to weak or missing connectivity
 
-**Status.** Safe local recovery is implemented: requester drafts and the last server-confirmed incident status are encrypted and owner-scoped on device. General offline write synchronization remains intentionally out of scope for dispatch-critical SOS operations. It is important not to label this as a missing feature in the sense that every SOS should silently queue and later submit: delayed background submission can be unsafe if the user has moved, circumstances changed, or they believe help has already been dispatched.
+**Status.** Safe local recovery is implemented: requester drafts remain encrypted and owner-scoped; the separate last-confirmed status cache stores only incident ID, type, and status, expires after 24 hours, and is removed on sign-out. Cached status is shown as read-only; create, edit, cancel, and incident-message actions require a successful server refresh. General offline write synchronization remains intentionally out of scope for dispatch-critical SOS operations. It is unsafe to silently queue an SOS for later submission if the user has moved, circumstances changed, or they believe help has already been dispatched.
 
-**Recommended implementation.** First add a clear local draft and last-confirmed-status experience. Show distinct states for “saved on this phone,” “sending,” “confirmed by server,” and “could not confirm.” Preserve the existing idempotent reconciliation for uncertain submissions and require an explicit, informed user action to retry or submit when connectivity returns. Do not say “SOS sent” until the server confirms it. Do not automatically send a stale emergency draft in the background. Cache only the minimum requester data needed to recover the draft and last known incident status, protect it on-device, and provide a clear deletion/expiry policy.
+**Implemented baseline.** Show the last successful sync time and a distinct stale-status message; preserve uncertain SOS reconciliation and the explicit retry path; never say “SOS sent” until server confirmation; never auto-submit a stale SOS in the background. The status snapshot allowlists only its ID/type/status fields, uses encrypted storage, and has a 24-hour expiry plus sign-out deletion. Kotlin unit tests cover the allowlist mapping, cache-age boundary, and action-policy predicate; an isolated Android instrumentation test covers encrypted DataStore round-trip, owner isolation, and logout deletion. CI compiles instrumented tests but does not run them on an emulator in the current workflow; CI also runs supplemental source-contract checks.
 
 If later research establishes a safe background-sync use case, use durable constrained work for deferrable synchronization, with idempotency keys and server reconciliation. Android recommends a local source of truth for offline-first reads and describes WorkManager as persistent work that can retry under constraints; its run time remains subject to system scheduling. Therefore WorkManager should not be represented as guaranteed immediate emergency delivery.[4] [5]
 
-**Acceptance criteria for the safe recovery scope:** airplane-mode submission never claims dispatch received the SOS; process death/restart does not erase a confirmed local draft or last-confirmed incident status; cached data is labeled as last confirmed and never treated as current server state; reconnecting refreshes from the server before offering new request actions; repeated retry cannot create duplicate incidents; stale location is labeled with its capture time and accuracy; a user can edit or discard an unsent draft safely; backend rejection and timeout remain distinguishable; tests cover offline, timeout-after-server-commit, restart, sign-out, ownership, and retry races. Automatic background submission remains a separate safety review.
+**Remaining acceptance criteria:** execute the Android DataStore/Keystore instrumentation test on an emulator and add direct persisted-cache expiry-deletion coverage; verify airplane-mode, timeout-after-server-commit, process restart, sign-out, and retry races with executable behavior tests; confirm stale location is labeled with its capture time and accuracy; distinguish backend rejection from timeout. Cached status must remain non-actionable until refreshed from the server. Automatic background submission remains a separate safety review and is not implemented.
 
 ### 3. Validate route preview and provide a safe fallback
 

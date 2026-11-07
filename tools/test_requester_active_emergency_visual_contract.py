@@ -8,7 +8,7 @@ screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen
 components = (ROOT / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
 
 start = screen.index('if (activeIncident != null) item {')
-end = screen.index('} else if (!showRequestForm && !state.pendingSosAvailable &&', start)
+end = screen.index('} else if (state.hasCurrentIncidentStatus && !showRequestForm && !state.pendingSosAvailable &&', start)
 card = screen[start:end]
 
 assert "surfaceContainerLow" in card
@@ -25,6 +25,8 @@ assert "contentColor = MaterialTheme.colorScheme.primary" in card
 assert "contentColor = MaterialTheme.colorScheme.error" in card
 assert card.count("heightIn(min = 52.dp)") == 3
 assert "defaultElevation = 2.dp" in card
+assert "Current incident status unavailable" in screen
+assert "state.hasCurrentIncidentStatus && !showRequestForm" in screen
 
 status_start = components.index("fun StatusPill(status: IncidentStatus)")
 status_end = components.index("\n@Composable", status_start)
