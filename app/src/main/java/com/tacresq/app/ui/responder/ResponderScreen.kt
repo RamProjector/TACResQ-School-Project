@@ -340,7 +340,7 @@ fun ResponderScreen(
         item {
             ScreenHeader(
                 title = "Current call",
-                subtitle = "",
+                subtitle = "Review assignments, update your status, and manage location sharing.",
                 onOpenNotifications = onOpenNotifications,
             )
         }

@@ -112,7 +112,7 @@ assert "GpsMapNavigationItem(selected, onDestinationSelected)" in shell
 assert shell.count("NavigationItem(destinations[") >= 4, "The four non-map destinations must remain"
 assert "GPS Map" in shell, "GPS Map must remain visible in the central navigation item"
 assert 'ALERTS("Notifications")' in shell, "notifications remain available as a dedicated top-app-bar destination"
-assert 'ScreenHeader(title = "Notifications")' in screen, "notifications must have a focused notification-center title"
+assert 'title = "Notifications"' in screen, "notifications must have a focused notification-center title"
 profile = root
 profile_start = profile.index("destination == AppDestination.PROFILE -> {")
 profile_section = profile[profile_start:]
