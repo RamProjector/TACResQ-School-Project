@@ -3,6 +3,9 @@
 return [
     // Provider selection is server-side. Geoapify avoids hosting a router on Render;
     // private OSRM remains available when explicitly selected.
+    // Keep the backend kill switch independent from Android build flags so routing
+    // can be rolled out or withdrawn without shipping a new APK.
+    'route_preview_enabled' => filter_var(env('ROUTE_PREVIEW_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'route_provider' => env('ROUTE_PROVIDER', 'geoapify'),
     // Optional private OSRM HTTP service. Must be an internal hostname or private IP.
     'osrm_base_url' => env('OSRM_BASE_URL', ''),
