@@ -77,6 +77,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.tacresq.app.data.local.SessionStore
 import com.tacresq.app.data.model.GeoFix
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentType
@@ -124,6 +125,8 @@ data class RequesterUiState(
     val pendingSosCanBeDiscarded: Boolean = false,
     val pendingSosCheckInProgress: Boolean = true,
     val pendingSosCheckError: String? = null,
+    val restoredDraft: SessionStore.RequesterDraft? = null,
+    val draftRestoreComplete: Boolean = false,
     val capturingLocation: Boolean = false,
     val locationFix: GeoFix? = null,
     val locationError: String? = null,
@@ -141,6 +144,35 @@ class RequesterViewModel(
     val state: StateFlow<RequesterUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
     private var pendingSosCheckJob: Job? = null
+
+    fun restoreRequesterDraft() {
+        if (_state.value.draftRestoreComplete) return
+        viewModelScope.launch {
+            repo.requesterDraft()
+                .onSuccess { draft ->
+                    _state.update { it.copy(restoredDraft = draft, draftRestoreComplete = true) }
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(
+                            draftRestoreComplete = true,
+                            error = error.message ?: "The saved request draft could not be restored safely.",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun saveRequesterDraft(type: IncidentType?, description: String, locationNotes: String) {
+        if (type == null && description.isBlank() && locationNotes.isBlank()) return
+        viewModelScope.launch {
+            repo.saveRequesterDraft(type, description, locationNotes)
+        }
+    }
+
+    fun clearRequesterDraft() {
+        viewModelScope.launch { repo.clearRequesterDraft() }
+    }
 
     fun refreshPendingSos() {
         if (pendingSosCheckJob?.isActive == true) return
@@ -385,6 +417,7 @@ class RequesterViewModel(
             val landmark = locationNotes.trim().take(500).ifBlank { null }
             repo.createIncident(type, report, fix, landmark)
                 .onSuccess { created ->
+                    viewModelScope.launch { repo.clearRequesterDraft() }
                     val locationConfirmed = locationResponseMatches(fix, landmark, created)
                     val status = when {
                         !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
@@ -549,7 +582,10 @@ fun RequesterScreen(
         }
     }
     PollWhileStarted { vm.refresh() }
-    LaunchedEffect(Unit) { vm.refreshPendingSos() }
+    LaunchedEffect(Unit) {
+        vm.refreshPendingSos()
+        vm.restoreRequesterDraft()
+    }
 
     var selectedType by rememberSaveable { mutableStateOf<IncidentType?>(null) }
     var emergencyTypeError by rememberSaveable { mutableStateOf(false) }
@@ -575,10 +611,28 @@ fun RequesterScreen(
     var editNowMillis by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
     var showManualPinPicker by rememberSaveable { mutableStateOf(false) }
     var showRequestForm by rememberSaveable { mutableStateOf(false) }
+    var restoredDraftApplied by rememberSaveable { mutableStateOf(false) }
     var requestStep by rememberSaveable { mutableStateOf(1) }
     val freshFix = state.locationFix?.takeIf(vm::isFresh)
     val activeIncidents = state.incidents.filter { it.status.isActive }
     val activeIncident = activeIncidents.firstOrNull()
+    LaunchedEffect(state.draftRestoreComplete, state.restoredDraft) {
+        val draft = state.restoredDraft ?: return@LaunchedEffect
+        if (restoredDraftApplied) return@LaunchedEffect
+        selectedType = draft.type?.let { stored ->
+            IncidentType.entries.firstOrNull { it.name == stored }
+        }
+        description = draft.description
+        locationNotes = draft.locationNotes
+        showRequestForm = true
+        restoredDraftApplied = true
+    }
+    LaunchedEffect(showRequestForm, selectedType, description, locationNotes, state.draftRestoreComplete) {
+        if (showRequestForm && state.draftRestoreComplete) {
+            delay(500)
+            vm.saveRequesterDraft(selectedType, description, locationNotes)
+        }
+    }
     LaunchedEffect(incidentToEdit?.id, incidentToEdit?.requesterLastEditedAt) {
         while (incidentToEdit != null) {
             editNowMillis = System.currentTimeMillis()
@@ -907,8 +961,8 @@ fun RequesterScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                        ) {
+                            Text("Emergency request", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                         TextButton(
                             onClick = {
                                 val hasDraft = selectedType != null ||
@@ -923,9 +977,16 @@ fun RequesterScreen(
                                 }
                             },
                             enabled = !state.sending && !state.capturingLocation,
-                        ) { Text("Close") }
-                    }
-                    Text(
+                            ) { Text("Close") }
+                        }
+                        if (selectedType != null || description.isNotBlank() || locationNotes.isNotBlank()) {
+                            Text(
+                                "Draft saved on this phone. Nothing is sent to dispatch until you confirm the SOS.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
                         "Step $requestStep of 3 · " + when (requestStep) {
                             1 -> "Details"
                             2 -> "Location"
@@ -1402,6 +1463,7 @@ fun RequesterScreen(
                     locationNotes = ""
                     requestStep = 1
                     vm.clearLocationFix()
+                    vm.clearRequesterDraft()
                     showRequestForm = false
                 }) { Text("Discard draft") }
             },
