@@ -1,10 +1,11 @@
-# Current handoff — 2026-11-07: start phase 3 realtime reliability
+# Current handoff — 2026-11-07: implement authenticated notification realtime
 
-- **Phase 2 result:** PR [#275](https://github.com/RamProjector/TACResQ-School-Project/pull/275) was completed and squashed into `origin/main` after exact-head CI passed (11 successful, 2 skipped). The final repair corrected the full 40-character `actions/setup-java` pin in the manual signed-release workflow.
-- **Phase 3 starting slice:** Added `docs/RESEARCH_REALTIME_RELIABILITY.md`, `docs/PHASE3_REALTIME_STATUS.md`, and `tools/test_realtime_readiness_contract.py`. The contract preserves authenticated RPC reads and polling as fallback, requires scoped authorization and reconnect reconciliation, defines explicit connection states, and defers responder-location streaming until its separate authorization/migration review.
-- **Current branch:** `agent/phase3-realtime-reliability`, based on merged `origin/main` commit `e2de3cab`; no realtime transport is enabled yet.
-- **Validation:** phase-3 readiness contract passes locally; Android Gradle tests remain unavailable in this sandbox because the Android SDK is not installed.
-- **Next:** commit/push this phase-3 boundary PR, then implement one authenticated notification/assignment stream that carries only a safe event signal and reconciles through the existing `api_my_notifications` RPC. Keep the current inbox polling path active and do not add location streaming in the same PR.
+- **Objective:** Add one narrowly scoped Supabase Realtime broadcast signal for notification/assignment hints while preserving the protected notification RPC and 30-second polling fallback.
+- **Implementation:** Added an OkHttp Supabase Realtime v1 client with private profile topics, authenticated `phx_join`, heartbeat, reconnect backoff, explicit connection states, and an allowlisted hint flow. Hints trigger `api_my_notifications` reconciliation; they never carry notification title/body, incident details, coordinates, or authorization decisions. Demo mode uses a no-op transport.
+- **Backend migration:** Added `20261107160000_notification_realtime_broadcast.sql`. It is guarded for the local PostgreSQL replay harness, creates a profile-scoped `realtime.messages` SELECT policy on Supabase, and broadcasts only `notification_id` and `event_type` through a private topic. No direct `user_notifications` table access was added.
+- **Branch:** `agent/phase3-notification-realtime`, based on merged phase-3 boundary mainline `a43ffd31`; no live Supabase migration, staging connection, or device delivery test has been run.
+- **Validation:** Pending final local static contracts, Python compilation, SQL replay, and GitHub exact-head Android/build/security checks. The local sandbox still lacks the Android SDK, so native Gradle tests cannot run locally.
+- **Next:** Fix any contract/CI findings, open and validate the implementation PR, then perform only authorized staging/device verification. Do not add responder-location streaming in this PR.
 
 ---
 
