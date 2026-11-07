@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
+import com.tacresq.app.data.realtime.NoopNotificationRealtime
 import com.tacresq.app.data.realtime.NotificationRealtime
 import com.tacresq.app.data.realtime.RealtimeConnectionState
 import com.tacresq.app.data.model.User
@@ -65,7 +66,7 @@ data class NotificationUiState(
 
 class NotificationsViewModel(
     private val repo: NotificationRepository,
-    private val realtime: NotificationRealtime,
+    private val realtime: NotificationRealtime = NoopNotificationRealtime(),
 ) : ViewModel() {
     private val _state = MutableStateFlow(NotificationUiState())
     val state: StateFlow<NotificationUiState> = _state.asStateFlow()
