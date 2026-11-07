@@ -201,6 +201,12 @@ jobs:
       - name: Check trusted FCM server sender boundaries
         run: python3 tools/test_fcm_server_contract.py
 
+      - name: Check offline synchronization safety boundaries
+        run: python3 tools/test_offline_sync_contract.py
+
+      - name: Check target-2 release controls
+        run: python3 tools/test_target2_release_controls.py
+
       - name: Check incident chat image attachment security and UI contract
         run: python3 tools/test_incident_chat_attachments_contract.py
 

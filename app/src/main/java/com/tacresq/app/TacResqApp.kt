@@ -1,6 +1,7 @@
 package com.tacresq.app
 
 import android.app.Application
+import com.tacresq.app.data.sync.OfflineSyncScheduler
 import com.tacresq.app.notifications.PushNotificationChannels
 
 class TacResqApp : Application() {
@@ -11,5 +12,6 @@ class TacResqApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         PushNotificationChannels.ensure(this)
+        OfflineSyncScheduler.ensureScheduled(this)
     }
 }
