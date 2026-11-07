@@ -255,7 +255,8 @@ sync_contract = {
     "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt": (
         "SyncStatus(state.lastSyncedAtEpochMs, state.syncError)",
         "lastSyncedAtEpochMs = System.currentTimeMillis()",
-        "syncError = e.message",
+        'syncError = "Showing last-confirmed statuses only. Reconnect and refresh before taking action."',
+        "syncError = \"Couldn't refresh current incident status. Reconnect and refresh before taking action.\"",
     ),
     "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt": (
         "SyncStatus(state.lastSyncedAtEpochMs, state.syncError)",
