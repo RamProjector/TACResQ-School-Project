@@ -28,7 +28,9 @@ The existing private OSRM implementation remains available as a server-side alte
 
 ## Enablement and validation gate
 
-- Keep `ROUTE_PROVIDER` at its default `geoapify` for the free Render setup. The app's route-preview build flag remains a separate explicit enablement gate.
+- Keep `ROUTE_PREVIEW_ENABLED=false` until provider configuration, privacy review, synthetic QA, and device validation are complete. This backend kill switch is independent of the Android build flag, so routing can be withdrawn without shipping a new APK; disabled endpoints return a sanitized 503 before authentication or any upstream request.
+- When approved, set `ROUTE_PREVIEW_ENABLED=true` and keep `ROUTE_PROVIDER` at its default `geoapify` for the free Render setup. The app's route-preview build flag remains a separate explicit enablement gate.
+- To roll routing back, set `ROUTE_PREVIEW_ENABLED=false`, redeploy the backend configuration, and verify both route-preview endpoints return the disabled response without contacting Supabase or the provider.
 - Store only `GEOAPIFY_API_KEY` in the backend service's secret manager. Keep the temporary smoke-test token unset except during a separately approved diagnostic, then clear it.
 - Before enabling the Android route-preview flag for real traffic, verify the key with an authorized synthetic test, inspect sanitized status only, and confirm that the location disclosure is appropriate.
 - Do not use real responder or incident coordinates for provider tests. Do not log raw upstream URLs, response bodies, or HTTP exception messages.

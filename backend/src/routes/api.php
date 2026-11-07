@@ -408,6 +408,9 @@ Route::post('/geoapify-smoke-test', function (Request $request) {
 // Reports only the server-selected routing recipient so the app can name it before consent.
 // This endpoint accepts no incident identifier or coordinates and is restricted to field roles.
 Route::get('/route-preview/provider', function (Request $request, \App\SupabaseBridge $bridge) {
+    if (!config('tacru.route_preview_enabled', false)) {
+        return response()->json(['message' => 'In-app routing is not enabled for this environment.'], 503);
+    }
     $token = $request->bearerToken();
     abort_if (!$token, 401, 'A valid Supabase access token is required.');
 
@@ -445,6 +448,9 @@ Route::get('/route-preview/provider', function (Request $request, \App\SupabaseB
 // Authenticated route preview. The request goes only to the explicitly configured provider;
 // incident text, profile data, and upstream response details are never forwarded or logged.
 Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $bridge) {
+    if (!config('tacru.route_preview_enabled', false)) {
+        return response()->json(['message' => 'In-app routing is not enabled for this environment.'], 503);
+    }
     $token = $request->bearerToken();
     abort_if (!$token, 401, 'A valid Supabase access token is required.');
 

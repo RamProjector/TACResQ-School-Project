@@ -20,12 +20,38 @@ class RoutePreviewTest extends TestCase
         parent::setUp();
         Cache::flush();
         config([
+            'tacru.route_preview_enabled' => true,
             'tacru.supabase_url' => self::BASE,
             'tacru.supabase_publishable_key' => 'test-publishable-key',
             'tacru.route_provider' => 'osrm',
             'tacru.osrm_base_url' => self::OSRM_BASE,
             'tacru.geoapify_api_key' => self::GEOAPIFY_KEY,
         ]);
+    }
+
+    public function test_disabled_rollout_gate_rejects_provider_disclosure_without_auth_or_upstream_calls(): void
+    {
+        config(['tacru.route_preview_enabled' => false]);
+        Http::preventStrayRequests();
+
+        $this->getJson('/api/route-preview/provider')
+            ->assertStatus(503)
+            ->assertExactJson(['message' => 'In-app routing is not enabled for this environment.']);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_disabled_rollout_gate_rejects_route_requests_before_auth_or_coordinate_processing(): void
+    {
+        config(['tacru.route_preview_enabled' => false]);
+        Http::preventStrayRequests();
+
+        $this->withToken(self::TOKEN)
+            ->postJson('/api/route-preview', $this->input())
+            ->assertStatus(503)
+            ->assertExactJson(['message' => 'In-app routing is not enabled for this environment.']);
+
+        Http::assertNothingSent();
     }
 
     public function test_route_preview_requires_bearer_authentication(): void
