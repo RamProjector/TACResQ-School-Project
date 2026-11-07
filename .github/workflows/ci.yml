@@ -207,6 +207,9 @@ jobs:
       - name: Check target-2 release controls
         run: python3 tools/test_target2_release_controls.py
 
+      - name: Check phase-3 realtime readiness boundaries
+        run: python3 tools/test_realtime_readiness_contract.py
+
       - name: Check incident chat image attachment security and UI contract
         run: python3 tools/test_incident_chat_attachments_contract.py
 

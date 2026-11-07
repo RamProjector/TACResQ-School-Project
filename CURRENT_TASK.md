@@ -1,4 +1,14 @@
-# Current handoff — 2026-11-07: make requester offline status recovery privacy-safe
+# Current handoff — 2026-11-07: start phase 3 realtime reliability
+
+- **Phase 2 result:** PR [#275](https://github.com/RamProjector/TACResQ-School-Project/pull/275) was completed and squashed into `origin/main` after exact-head CI passed (11 successful, 2 skipped). The final repair corrected the full 40-character `actions/setup-java` pin in the manual signed-release workflow.
+- **Phase 3 starting slice:** Added `docs/RESEARCH_REALTIME_RELIABILITY.md`, `docs/PHASE3_REALTIME_STATUS.md`, and `tools/test_realtime_readiness_contract.py`. The contract preserves authenticated RPC reads and polling as fallback, requires scoped authorization and reconnect reconciliation, defines explicit connection states, and defers responder-location streaming until its separate authorization/migration review.
+- **Current branch:** `agent/phase3-realtime-reliability`, based on merged `origin/main` commit `e2de3cab`; no realtime transport is enabled yet.
+- **Validation:** phase-3 readiness contract passes locally; Android Gradle tests remain unavailable in this sandbox because the Android SDK is not installed.
+- **Next:** commit/push this phase-3 boundary PR, then implement one authenticated notification/assignment stream that carries only a safe event signal and reconciles through the existing `api_my_notifications` RPC. Keep the current inbox polling path active and do not add location streaming in the same PR.
+
+---
+
+# Previous handoff — 2026-11-07: make requester offline status recovery privacy-safe
 
 - **Objective:** Continue PR #273's requester offline-recovery work, fix review findings without changing SOS dispatch semantics, and preserve the prototype boundary.
 - **PR/branch baseline:** PR [#273](https://github.com/RamProjector/TACResQ-School-Project/pull/273), `feat/requester-offline-confirmed-cache`, base commit `4c8ec21a9e9e8ce3c3fd9618d361ce6125868270`; open and clean at task start.
