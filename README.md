@@ -54,7 +54,7 @@ The [GPS map UI recommendation](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) explai
 | In-app route preview | Authenticated Render proxy defaults to Geoapify and supports private OSRM as an explicit alternative for the responder/driver's own active assignment; Android disabled by default and requires a build opt-in; driving-only; no automatic provider failover; not turn-by-turn or device/route validated |
 | In-app map tiles and live fleet markers | OpenStreetMap tiles and incident pins implemented; dispatcher map can show fresh (≤2 min) consented en-route unit reports from the existing Supabase RPC. Physical-device/network behavior remains unverified |
 | FCM push notifications | Client registration, trusted HTTP v1 sender, and server-only delivery ledger implemented; Render worker and physical-device delivery remain unverified |
-| Offline write synchronization | Not yet implemented |
+| Safe offline requester recovery | Encrypted local drafts plus a status-only incident snapshot (ID/type/status) with a 24-hour expiry and sign-out cleanup; cached status is read-only until a server refresh; automatic background SOS submission is intentionally not implemented; DataStore/Keystore restart behavior remains device-unverified |
 
 See the [research-backed app feature-gap roadmap](docs/APP_FEATURE_GAPS_AND_ROADMAP.md) for the implemented baseline, prioritized remaining capabilities, acceptance criteria, and official technical references. FCM implementation exists, but live worker/device delivery remains a rollout gate.
 

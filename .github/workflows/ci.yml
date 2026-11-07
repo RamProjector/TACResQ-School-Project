@@ -100,6 +100,9 @@ jobs:
       - name: Check requester active-incident and cancellation contract
         run: python3 tools/test_requester_active_incident.py
 
+      - name: Check requester offline status cache safety contract
+        run: python3 tools/test_requester_offline_cache.py
+
       - name: Check requester active-emergency visual contract
         run: python3 tools/test_requester_active_emergency_visual_contract.py
 

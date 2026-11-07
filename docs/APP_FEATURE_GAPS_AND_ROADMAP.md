@@ -1,7 +1,7 @@
 # TACResQ app gaps and implementation roadmap
 
-**Reviewed:** 2026-11-05
-**Scope:** Android app and its supporting backend/database behavior. This is a planning document only; no features are implemented by this change.
+**Reviewed:** 2026-11-07
+**Scope:** Android app and its supporting backend/database behavior. This roadmap records implemented software behavior and separates CI evidence from live/device release gates.
 
 ## What already exists
 
@@ -9,7 +9,7 @@ TACResQ already has a useful foundation that should be extended rather than repl
 
 The database has persistent in-app notifications. Its assignment triggers create a “Response unit assigned” notification for the requester, and later status changes create in-app alerts for incident participants. The Android inbox reads and marks these records as read, refreshing every 30 seconds while that screen is active. FCM client registration and a trusted HTTP v1 sender are now implemented, with `fcm_delivery_attempts` providing retry-safe server bookkeeping; Render worker execution and physical-device delivery remain unverified. See [`NotificationsScreen.kt`](../app/src/main/java/com/tacresq/app/ui/notifications/NotificationsScreen.kt), [`FCM_SETUP.md`](FCM_SETUP.md), and [`20261105030000_fcm_delivery_attempts.sql`](../supabase/migrations/20261105030000_fcm_delivery_attempts.sql).
 
-The repository also marks offline write synchronization as not implemented. Existing uncertain-SOS safeguards should be preserved: an unconfirmed SOS must never be presented as received by dispatch, and a second SOS must not be created blindly. In-app route preview is opt-in in Android builds. The backend integration exists, but a successful real provider route response and end-to-end device navigation have not been established in the reviewed handoff. See [`README.md`](../README.md), [`AppConfig.kt`](../app/src/main/java/com/tacresq/app/AppConfig.kt), and [`CURRENT_TASK.md`](../CURRENT_TASK.md).
+The repository now implements safe offline requester recovery: encrypted local form drafts and a last-confirmed incident-status cache. This is intentionally not general offline write synchronization: an unconfirmed SOS must never be presented as received by dispatch, and a second SOS must not be created blindly. In-app route preview is opt-in in Android builds. The backend integration exists, but a successful real provider route response and end-to-end device navigation have not been established in the reviewed handoff. See [`README.md`](../README.md), [`AppConfig.kt`](../app/src/main/java/com/tacresq/app/AppConfig.kt), and [`CURRENT_TASK.md`](../CURRENT_TASK.md).
 
 ## Prioritized gaps
 
@@ -25,13 +25,13 @@ Android 13 and later require user-granted `POST_NOTIFICATIONS` permission for or
 
 ### 2. Make requester behavior resilient to weak or missing connectivity
 
-**Gap.** The current app has targeted SOS uncertainty handling, but no general offline cache/write synchronization. It is important not to label this as a missing feature in the sense that every SOS should silently queue and later submit: delayed background submission can be unsafe if the user has moved, circumstances changed, or they believe help has already been dispatched.
+**Status.** Safe local recovery is implemented: requester drafts remain encrypted and owner-scoped; the separate last-confirmed status cache stores only incident ID, type, and status, expires after 24 hours, and is removed on sign-out. Cached status is shown as read-only; create, edit, cancel, and incident-message actions require a successful server refresh. General offline write synchronization remains intentionally out of scope for dispatch-critical SOS operations. It is unsafe to silently queue an SOS for later submission if the user has moved, circumstances changed, or they believe help has already been dispatched.
 
-**Recommended implementation.** First add a clear local draft and last-confirmed-status experience. Show distinct states for “saved on this phone,” “sending,” “confirmed by server,” and “could not confirm.” Preserve the existing idempotent reconciliation for uncertain submissions and require an explicit, informed user action to retry or submit when connectivity returns. Do not say “SOS sent” until the server confirms it. Do not automatically send a stale emergency draft in the background. Cache only the minimum requester data needed to recover the draft and last known incident status, protect it on-device, and provide a clear deletion/expiry policy.
+**Implemented baseline.** Show the last successful sync time and a distinct stale-status message; preserve uncertain SOS reconciliation and the explicit retry path; never say “SOS sent” until server confirmation; never auto-submit a stale SOS in the background. The status snapshot allowlists only its ID/type/status fields, uses encrypted storage, and has a 24-hour expiry plus sign-out deletion. Kotlin unit tests cover the allowlist mapping, cache-age boundary, and action-policy predicate; an isolated Android instrumentation test covers encrypted DataStore round-trip, owner isolation, and logout deletion. CI compiles instrumented tests but does not run them on an emulator in the current workflow; CI also runs supplemental source-contract checks.
 
 If later research establishes a safe background-sync use case, use durable constrained work for deferrable synchronization, with idempotency keys and server reconciliation. Android recommends a local source of truth for offline-first reads and describes WorkManager as persistent work that can retry under constraints; its run time remains subject to system scheduling. Therefore WorkManager should not be represented as guaranteed immediate emergency delivery.[4] [5]
 
-**Acceptance criteria before calling this complete:** airplane-mode submission never claims dispatch received the SOS; process death/restart does not erase a confirmed local draft; reconnecting reconciles against the server before offering a new request; repeated retry cannot create duplicate incidents; stale location is labeled with its capture time and accuracy; a user can edit or discard an unsent draft safely; backend rejection and timeout remain distinguishable; tests cover offline, timeout-after-server-commit, restart, sign-out, and retry races.
+**Remaining acceptance criteria:** execute the Android DataStore/Keystore instrumentation test on an emulator and add direct persisted-cache expiry-deletion coverage; verify airplane-mode, timeout-after-server-commit, process restart, sign-out, and retry races with executable behavior tests; confirm stale location is labeled with its capture time and accuracy; distinguish backend rejection from timeout. Cached status must remain non-actionable until refreshed from the server. Automatic background submission remains a separate safety review and is not implemented.
 
 ### 3. Validate route preview and provide a safe fallback
 

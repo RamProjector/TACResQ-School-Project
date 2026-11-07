@@ -115,6 +115,19 @@ data class Incident(
     @SerializedName("requester_last_edited_at") val requesterLastEditedAt: String? = null,
 )
 
+/** Minimal last-confirmed status cache; intentionally excludes incident narrative and location/contact data. */
+data class CachedRequesterIncidentStatus(
+    val incidentId: Long,
+    val type: IncidentType,
+    val status: IncidentStatus,
+)
+
+fun Incident.toCachedRequesterIncidentStatus() = CachedRequesterIncidentStatus(
+    incidentId = id,
+    type = type,
+    status = status,
+)
+
 fun Incident.statusFor(userId: Long): IncidentStatus =
     assignedUserStatuses.firstOrNull { it.userId == userId }?.status ?: status
 

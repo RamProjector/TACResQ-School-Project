@@ -8,7 +8,8 @@ end = source.index("\n                }\n            }\n        }", start)
 card = source[start:end]
 assert "TACResQ saved the original request." in card
 assert "do not create a replacement SOS" in card
-assert "Button(onClick = vm::retryPendingSos, enabled = !state.sending" in card
+assert "onClick = vm::retryPendingSos" in card
+assert "enabled = !state.sending && !state.refreshInProgress" in card
 assert 'Text("Retry saved SOS")' in card
 assert 'Text("Retrying saved SOS…")' in card
 assert "if (state.sending)" in card
