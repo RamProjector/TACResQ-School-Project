@@ -299,6 +299,35 @@ class TacRepository(
         store.clearPendingIncidentRequestId(pending.requestId, ownerUserId)
     }
 
+    suspend fun saveRequesterDraft(
+        type: IncidentType?,
+        description: String,
+        locationNotes: String,
+    ): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in as the original requester account to save this draft.")
+        store.saveRequesterDraft(
+            SessionStore.RequesterDraft(
+                ownerUserId = ownerUserId,
+                type = type?.name,
+                description = description.take(2_000),
+                locationNotes = locationNotes.take(500),
+            )
+        )
+    }
+
+    suspend fun requesterDraft(): Result<SessionStore.RequesterDraft?> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in as the original requester account to restore this draft.")
+        store.getRequesterDraft(ownerUserId)
+    }
+
+    suspend fun clearRequesterDraft(): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in as the original requester account to clear this draft.")
+        store.clearRequesterDraft(ownerUserId)
+    }
+
     suspend fun updateIncidentStatus(id: Long, status: IncidentStatus): Result<Incident> = call {
         api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))
     }

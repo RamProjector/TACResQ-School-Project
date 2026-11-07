@@ -51,9 +51,12 @@ class SessionStore(
     val sessionReadLoading = MutableStateFlow(persistSessions)
     private val encryptedSessionKey = stringPreferencesKey("encrypted_session_v1")
     private val pendingIncidentEnvelopeKey = stringPreferencesKey("pending_incident_envelope_v1")
+    private val encryptedRequesterDraftKey = stringPreferencesKey("requester_draft_v1")
     private val pendingIncidentMutex = Mutex()
+    private val requesterDraftMutex = Mutex()
     // Fake/test API mode must never write pending SOS state into the real app's DataStore.
     private var inMemoryPendingIncident: PendingIncidentSubmission? = null
+    private var inMemoryRequesterDraft: RequesterDraft? = null
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val session: Flow<Session?> = if (persistSessions) {
@@ -134,6 +137,14 @@ class SessionStore(
         val fingerprint: String,
         val payloadJson: String,
         val ownerUserId: Long? = null,
+    )
+
+    data class RequesterDraft(
+        val ownerUserId: Long,
+        val type: String? = null,
+        val description: String = "",
+        val locationNotes: String = "",
+        val savedAtEpochMillis: Long = System.currentTimeMillis(),
     )
 
     class PendingIncidentConflictException(
@@ -235,10 +246,58 @@ class SessionStore(
         }
     }
 
+    suspend fun saveRequesterDraft(draft: RequesterDraft) = requesterDraftMutex.withLock {
+        require(draft.ownerUserId > 0L) { "A signed-in requester account is required to save a draft." }
+        if (!persistSessions) {
+            inMemoryRequesterDraft = draft
+            return@withLock
+        }
+        dataStore.edit { prefs ->
+            prefs[encryptedRequesterDraftKey] = encrypt(gson.toJson(draft))
+        }
+    }
+
+    suspend fun getRequesterDraft(ownerUserId: Long): RequesterDraft? = requesterDraftMutex.withLock {
+        require(ownerUserId > 0L) { "A signed-in requester account is required to restore a draft." }
+        if (!persistSessions) {
+            return@withLock inMemoryRequesterDraft?.also { requireDraftOwner(it, ownerUserId) }
+        }
+        val encoded = dataStore.data.first()[encryptedRequesterDraftKey] ?: return@withLock null
+        val draft = runCatching { gson.fromJson(decrypt(encoded), RequesterDraft::class.java) }
+            .getOrElse { throw PendingIncidentConflictException("The saved request draft could not be restored safely.") }
+        requireDraftOwner(draft, ownerUserId)
+        draft
+    }
+
+    suspend fun clearRequesterDraft(ownerUserId: Long) = requesterDraftMutex.withLock {
+        require(ownerUserId > 0L) { "A signed-in requester account is required to clear a draft." }
+        if (!persistSessions) {
+            inMemoryRequesterDraft?.let { requireDraftOwner(it, ownerUserId) }
+            inMemoryRequesterDraft = null
+            return@withLock
+        }
+        dataStore.edit { prefs ->
+            val encoded = prefs[encryptedRequesterDraftKey] ?: return@edit
+            val draft = runCatching { gson.fromJson(decrypt(encoded), RequesterDraft::class.java) }
+                .getOrElse { throw PendingIncidentConflictException("The saved request draft could not be cleared safely.") }
+            requireDraftOwner(draft, ownerUserId)
+            prefs.remove(encryptedRequesterDraftKey)
+        }
+    }
+
+    private fun requireDraftOwner(draft: RequesterDraft, ownerUserId: Long) {
+        if (draft.ownerUserId != ownerUserId) {
+            throw PendingIncidentConflictException(
+                "A saved request draft belongs to a different requester account on this device. Sign in with the original account to resolve it."
+            )
+        }
+    }
+
     suspend fun clear() {
         if (!persistSessions) {
             inMemorySession.value = null
             pendingIncidentMutex.withLock { inMemoryPendingIncident = null }
+            requesterDraftMutex.withLock { inMemoryRequesterDraft = null }
             return
         }
         dataStore.edit { prefs ->
