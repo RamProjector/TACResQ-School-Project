@@ -129,6 +129,20 @@ class TacRepository(
 
     suspend fun myIncidents(): Result<List<Incident>> = call { api.myIncidents() }
 
+    suspend fun cacheMyIncidents(incidents: List<Incident>): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in as the requester before caching incident status.")
+        store.saveRequesterIncidents(ownerUserId, Gson().toJson(incidents))
+    }
+
+    suspend fun cachedMyIncidents(): Result<Pair<List<Incident>, Long>?> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in as the requester before restoring incident status.")
+        store.getRequesterIncidents(ownerUserId)?.let { cached ->
+            Gson().fromJson(cached.incidentsJson, Array<Incident>::class.java).toList() to cached.cachedAtEpochMillis
+        }
+    }
+
     suspend fun allIncidents(): Result<List<Incident>> = call { api.allIncidents() }
 
     suspend fun units(): Result<List<User>> = call { api.units() }

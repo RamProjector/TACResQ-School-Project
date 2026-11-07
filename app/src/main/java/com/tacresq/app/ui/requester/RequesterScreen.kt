@@ -267,10 +267,30 @@ class RequesterViewModel(
         refreshJob = viewModelScope.launch {
             repo.myIncidents()
                 .onSuccess { list ->
+                    viewModelScope.launch { repo.cacheMyIncidents(list) }
                     _state.update { it.copy(incidents = list, loading = false, syncError = null, lastSyncedAtEpochMs = System.currentTimeMillis()) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(loading = false, syncError = e.message ?: "Couldn't refresh incident updates.") }
+                    viewModelScope.launch {
+                        repo.cachedMyIncidents()
+                            .onSuccess { cached ->
+                                if (cached != null) {
+                                    _state.update {
+                                        it.copy(
+                                            incidents = cached.first,
+                                            loading = false,
+                                            syncError = "Offline or unavailable. Showing the last confirmed status; refresh before taking action. ${e.message.orEmpty()}",
+                                            lastSyncedAtEpochMs = cached.second,
+                                        )
+                                    }
+                                } else {
+                                    _state.update { it.copy(loading = false, syncError = e.message ?: "Couldn't refresh incident updates.") }
+                                }
+                            }
+                            .onFailure {
+                                _state.update { it.copy(loading = false, syncError = e.message ?: "Couldn't refresh incident updates.") }
+                            }
+                    }
                 }
         }
     }
