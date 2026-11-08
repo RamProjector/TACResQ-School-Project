@@ -372,7 +372,7 @@ private fun GpsMapCameraControls(
                 },
             ) {
                 androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.ZoomOutMap,
+                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
                     contentDescription = null,
                 )
             }

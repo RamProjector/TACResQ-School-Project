@@ -10,7 +10,7 @@ for required in (
     'contentDescription = "Zoom in on map"',
     'contentDescription = "Zoom out on map"',
     'contentDescription = "Fit all visible map locations"',
-    "Icons.Default.ZoomOutMap",
+    "Icons.Default.LocationOn",
     "CameraUpdateFactory.zoomIn()",
     "CameraUpdateFactory.zoomOut()",
     "fun showAllVisiblePoints()",
