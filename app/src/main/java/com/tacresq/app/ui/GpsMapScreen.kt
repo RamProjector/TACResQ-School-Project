@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.net.ConnectivityManager
+import android.view.Gravity
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.graphics.Color
@@ -61,7 +62,6 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Explore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -94,6 +94,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import com.tacresq.app.ui.common.MapLoadStatusOverlay
 import com.tacresq.app.ui.common.incidentLocationText
 import org.maplibre.android.MapLibre
 import org.maplibre.android.annotations.Icon
@@ -330,7 +331,6 @@ private fun GpsMapCameraControls(
     onZoomIn: () -> Unit,
     onZoomOut: () -> Unit,
     onShowAll: () -> Unit,
-    onResetNorth: () -> Unit,
 ) {
     androidx.compose.material3.Surface(
         modifier = modifier,
@@ -368,22 +368,11 @@ private fun GpsMapCameraControls(
             androidx.compose.material3.IconButton(
                 onClick = onShowAll,
                 modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = "Show all available map locations"
+                    contentDescription = "Fit all visible map locations"
                 },
             ) {
                 androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
-                    contentDescription = null,
-                )
-            }
-            androidx.compose.material3.IconButton(
-                onClick = onResetNorth,
-                modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = "Reset map orientation to north"
-                },
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Explore,
+                    imageVector = androidx.compose.material.icons.Icons.Default.ZoomOutMap,
                     contentDescription = null,
                 )
             }
@@ -634,6 +623,8 @@ fun GpsMapScreen(
 
     var mapLibreMap by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
     var mapStyleLoaded by remember(context, role) { mutableStateOf(false) }
+    var mapDataLoaded by remember(context, role) { mutableStateOf(false) }
+    var mapLoadError by remember(context, role) { mutableStateOf(false) }
     val mapView = remember(context, role) {
         MapLibre.getInstance(context)
         MapView(context).apply {
@@ -648,9 +639,13 @@ fun GpsMapScreen(
 
     DisposableEffect(mapView) {
         mapView.addOnDidFailLoadingMapListener {
+            mapDataLoaded = false
+            mapLoadError = true
             locationStatus = MAP_DATA_UNAVAILABLE_STATUS
         }
         mapView.addOnDidFinishLoadingMapListener {
+            mapDataLoaded = true
+            mapLoadError = false
             if (locationStatus == MAP_DATA_UNAVAILABLE_STATUS) locationStatus = null
         }
         mapView.getMapAsync { map ->
@@ -667,6 +662,10 @@ fun GpsMapScreen(
             }
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
                 mapStyleLoaded = true
+                map.uiSettings.setCompassEnabled(true)
+                map.uiSettings.setCompassGravity(Gravity.TOP or Gravity.RIGHT)
+                val density = context.resources.displayMetrics.density
+                map.uiSettings.setCompassMargins(0, (176f * density).toInt(), (12f * density).toInt(), 0)
                 map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
                     .target(LatLng(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
                     .zoom(12.0)
@@ -677,6 +676,8 @@ fun GpsMapScreen(
             mapView.onDestroy()
             mapLibreMap = null
             mapStyleLoaded = false
+            mapDataLoaded = false
+            mapLoadError = false
         }
     }
 
@@ -807,15 +808,6 @@ fun GpsMapScreen(
         } else {
             "Showing all available incident locations."
         }
-    }
-
-    fun resetMapNorth() {
-        if (mapLibreMap == null || !mapStyleLoaded) {
-            locationStatus = "Map is still loading. Try again in a moment."
-            return
-        }
-        mapLibreMap?.animateCamera(CameraUpdateFactory.bearingTo(0.0), 260)
-        locationStatus = "Map orientation reset to north."
     }
 
     val locationSettingsLauncher = rememberLauncherForActivityResult(
@@ -1520,6 +1512,7 @@ fun GpsMapScreen(
                             incident = selectedIncident,
                             context = context,
                             now = mapNow,
+                            showNavigationActions = role != Role.REQUESTER,
                             onFocusOnMap = ::focusIncidentOnMap,
                             onNavigate = requestRoute,
                             onStartNavigation = if (
@@ -1659,6 +1652,7 @@ fun GpsMapScreen(
                                     incident = incident,
                                     context = context,
                                     now = mapNow,
+                                    showNavigationActions = role != Role.REQUESTER,
                                     onFocusOnMap = ::focusIncidentOnMap,
                                     onNavigate = requestRoute,
                                     onStartNavigation = if (
@@ -1741,6 +1735,7 @@ fun GpsMapScreen(
             modifier = Modifier.fillMaxSize(),
             update = { it.invalidate() },
         )
+        MapLoadStatusOverlay(isLoading = !mapDataLoaded && !mapLoadError)
 
         Column(
             modifier = Modifier
@@ -1775,7 +1770,7 @@ fun GpsMapScreen(
                         )
                     }
                     Text(
-                        "GPS Map",
+                        if (role == Role.REQUESTER) "Map" else "GPS Map",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.SemiBold,
@@ -1802,7 +1797,7 @@ fun GpsMapScreen(
                             )
                         }
                     }
-                    if (isLocationRequestInProgress) {
+                    if (role != Role.REQUESTER && isLocationRequestInProgress) {
                         androidx.compose.material3.FilledTonalIconButton(
                             onClick = {},
                             enabled = false,
@@ -1817,7 +1812,7 @@ fun GpsMapScreen(
                                 strokeWidth = 2.dp,
                             )
                         }
-                    } else if (locationProvider.hasPrecisePermission()) {
+                    } else if (role != Role.REQUESTER && locationProvider.hasPrecisePermission()) {
                         androidx.compose.material3.FilledTonalIconButton(
                             onClick = ::locateOnce,
                             modifier = Modifier.size(48.dp),
@@ -1827,7 +1822,7 @@ fun GpsMapScreen(
                                 contentDescription = if (deviceFix == null) "Locate me" else "Refresh location",
                             )
                         }
-                    } else if (!locationProvider.hasApproximatePermission()) {
+                    } else if (role != Role.REQUESTER && !locationProvider.hasApproximatePermission()) {
                         androidx.compose.material3.FilledTonalIconButton(
                             onClick = onLocateClick,
                             modifier = Modifier.size(48.dp),
@@ -1837,7 +1832,7 @@ fun GpsMapScreen(
                                 contentDescription = if (deviceFix == null) "Locate me" else "Refresh location",
                             )
                         }
-                    } else {
+                    } else if (role != Role.REQUESTER) {
                         LocationButton(
                             modifier = Modifier
                                 .size(48.dp)
@@ -1885,7 +1880,6 @@ fun GpsMapScreen(
             onZoomIn = ::zoomMapIn,
             onZoomOut = ::zoomMapOut,
             onShowAll = ::showAllVisiblePoints,
-            onResetNorth = ::resetMapNorth,
         )
 
         // Keep OSM attribution visible on the map even while the sheet is collapsed.
@@ -1919,6 +1913,7 @@ private fun IncidentMapActions(
     incidentId: Long,
     needsConfirmation: Boolean,
     stacked: Boolean,
+    showNavigation: Boolean = true,
     onFocus: () -> Unit,
     onNavigate: () -> Unit,
 ) {
@@ -1927,15 +1922,21 @@ private fun IncidentMapActions(
     if (stacked) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             IncidentMapFocusButton(incidentId, onFocus, Modifier.fillMaxWidth(), focusPadding)
-            IncidentMapNavigateButton(incidentId, needsConfirmation, onNavigate, Modifier.fillMaxWidth(), navigatePadding)
+            if (showNavigation) {
+                IncidentMapNavigateButton(incidentId, needsConfirmation, onNavigate, Modifier.fillMaxWidth(), navigatePadding)
+            }
         }
     } else {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            IncidentMapFocusButton(incidentId, onFocus, Modifier.weight(1f), focusPadding)
-            IncidentMapNavigateButton(incidentId, needsConfirmation, onNavigate, Modifier.weight(1f), navigatePadding)
+            if (showNavigation) {
+                IncidentMapFocusButton(incidentId, onFocus, Modifier.weight(1f), focusPadding)
+                IncidentMapNavigateButton(incidentId, needsConfirmation, onNavigate, Modifier.weight(1f), navigatePadding)
+            } else {
+                IncidentMapFocusButton(incidentId, onFocus, Modifier.fillMaxWidth(), focusPadding)
+            }
         }
     }
 }
@@ -1986,6 +1987,7 @@ private fun MapIncidentCard(
     incident: Incident,
     context: Context,
     now: Instant,
+    showNavigationActions: Boolean = true,
     onFocusOnMap: (Incident) -> Unit,
     onNavigate: (Incident) -> Unit,
     onStartNavigation: ((Incident) -> Unit)? = null,
@@ -2090,32 +2092,35 @@ private fun MapIncidentCard(
                         incidentId = incident.id,
                         needsConfirmation = needsConfirmation,
                         stacked = maxWidth < 320.dp,
+                        showNavigation = showNavigationActions,
                         onFocus = { onFocusOnMap(incident) },
                         onNavigate = { navigateToIncident(false) },
                     )
                 }
-                androidx.compose.material3.TextButton(
-                    onClick = { navigateToIncident(true) },
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Text("Open external Maps instead")
-                }
-                if (onStartNavigation != null) {
-                    Button(
-                        onClick = {
-                            if (needsConfirmation) {
-                                liveNavigationPending = true
-                                externalNavigationPending = false
-                                showNavigationConfirmation = true
-                            } else {
-                                showLiveNavigationConsent = true
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                    ) { Text("Start live navigation & share location") }
-                } else {
-                    liveNavigationUnavailableMessage?.let { message ->
-                        Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (showNavigationActions) {
+                    androidx.compose.material3.TextButton(
+                        onClick = { navigateToIncident(true) },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Text("Open external Maps instead")
+                    }
+                    if (onStartNavigation != null) {
+                        Button(
+                            onClick = {
+                                if (needsConfirmation) {
+                                    liveNavigationPending = true
+                                    externalNavigationPending = false
+                                    showNavigationConfirmation = true
+                                } else {
+                                    showLiveNavigationConsent = true
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                        ) { Text("Start live navigation & share location") }
+                    } else {
+                        liveNavigationUnavailableMessage?.let { message ->
+                            Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             } else {

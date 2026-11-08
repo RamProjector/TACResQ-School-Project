@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
@@ -16,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
@@ -141,6 +143,28 @@ fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null, isSu
                     modifier = Modifier.heightIn(min = 48.dp),
                     colors = ButtonDefaults.textButtonColors(contentColor = content),
                 ) { Text("Dismiss") }
+            }
+        }
+    }
+}
+
+@Composable
+fun MapLoadStatusOverlay(isLoading: Boolean, modifier: Modifier = Modifier) {
+    if (!isLoading) return
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            tonalElevation = 4.dp,
+            shadowElevation = 4.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                Text("Loading map data…", style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
