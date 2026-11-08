@@ -27,6 +27,11 @@ for required in (
     "NotificationsLimitRpc(limit)",
     "MarkNotificationReadRpc(notificationId)",
     "limit in 1..100",
+    "List<UserNotificationWire>",
+    "mapNotNull { it.toSafeModel() }",
+    "private data class UserNotificationWire(",
+    "title?.takeIf { it.isNotBlank() } ?: \"TACResQ notification\"",
+    "body?.takeIf { it.isNotBlank() } ?: \"Open TACResQ to review this update.\"",
 ):
     assert required in api, f"Supabase notification RPC contract missing: {required}"
 

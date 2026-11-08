@@ -149,28 +149,37 @@ class SupabaseNotificationRealtime(
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
-            val message = runCatching { JsonParser.parseString(text).asJsonObject }.getOrNull() ?: return
-            when (message.get("event")?.asString) {
-                "phx_reply" -> {
-                    val status = message.getAsJsonObject("payload")?.getAsJsonObject("response")?.get("status")?.asString
-                    if (status == "ok") {
-                        retryCount = 0
-                        _state.value = RealtimeConnectionState.CONNECTED
-                    } else if (status == "error") {
-                        _state.value = RealtimeConnectionState.ERROR
-                        scheduleReconnect()
+            runCatching {
+                val message = JsonParser.parseString(text).asJsonObject
+                when (message.get("event")?.asString) {
+                    "phx_reply" -> {
+                        val status = message.getAsJsonObject("payload")
+                            ?.getAsJsonObject("response")
+                            ?.get("status")
+                            ?.asString
+                        if (status == "ok") {
+                            retryCount = 0
+                            _state.value = RealtimeConnectionState.CONNECTED
+                        } else if (status == "error") {
+                            _state.value = RealtimeConnectionState.ERROR
+                            scheduleReconnect()
+                        }
+                    }
+                    "broadcast" -> {
+                        val payload = message.getAsJsonObject("payload") ?: return@runCatching
+                        if (payload.get("event")?.asString != "notification_created") return@runCatching
+                        val hint = payload.getAsJsonObject("payload") ?: return@runCatching
+                        if (hint.get("notification_id")?.asLong ?: 0L > 0L &&
+                            hint.get("event_type")?.asString in setOf("incident_assigned", "incident_status_changed")
+                        ) {
+                            _notificationHints.tryEmit(Unit)
+                        }
                     }
                 }
-                "broadcast" -> {
-                    val payload = message.getAsJsonObject("payload") ?: return
-                    if (payload.get("event")?.asString != "notification_created") return
-                    val hint = payload.getAsJsonObject("payload") ?: return
-                    if (hint.get("notification_id")?.asLong ?: 0L > 0L &&
-                        hint.get("event_type")?.asString in setOf("incident_assigned", "incident_status_changed")
-                    ) {
-                        _notificationHints.tryEmit(Unit)
-                    }
-                }
+            }.onFailure {
+                // Realtime is only an optimization. A malformed server frame must
+                // never take down the process or interrupt the authoritative RPC poll.
+                _state.value = RealtimeConnectionState.ERROR
             }
         }
 

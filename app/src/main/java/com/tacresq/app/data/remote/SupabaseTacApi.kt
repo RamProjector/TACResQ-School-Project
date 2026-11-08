@@ -130,7 +130,7 @@ class SupabaseTacApi private constructor(
         require(limit in 1..100) { "Notification page size must be between 1 and 100." }
         // The current Render bridge allowlist has no notification routes yet. Use the
         // authenticated Supabase RPC directly; the same stored session token is applied.
-        return rpc.myNotifications(NotificationsLimitRpc(limit))
+        return rpc.myNotifications(NotificationsLimitRpc(limit)).mapNotNull { it.toSafeModel() }
     }
 
     override suspend fun markNotificationRead(notificationId: Long): Boolean {
@@ -375,7 +375,7 @@ private interface SupabaseRpcWire {
     suspend fun recordLocation(@Body body: RecordLocationRpc): Long
 
     @POST("rest/v1/rpc/api_my_notifications")
-    suspend fun myNotifications(@Body body: NotificationsLimitRpc): List<UserNotification>
+    suspend fun myNotifications(@Body body: NotificationsLimitRpc): List<UserNotificationWire>
 
     @POST("rest/v1/rpc/api_mark_notification_read")
     suspend fun markNotificationRead(@Body body: MarkNotificationReadRpc): Boolean
@@ -445,6 +445,29 @@ private data class RecordLocationRpc(
     @SerializedName("p_recorded_at") val recordedAt: String,
 )
 private data class NotificationsLimitRpc(@SerializedName("p_limit") val limit: Int)
+private data class UserNotificationWire(
+    val id: Long?,
+    @SerializedName("incident_id") val incidentId: Long?,
+    @SerializedName("event_type") val eventType: String?,
+    val title: String?,
+    val body: String?,
+    @SerializedName("created_at") val createdAt: String?,
+    @SerializedName("read_at") val readAt: String?,
+)
+
+private fun UserNotificationWire.toSafeModel(): UserNotification? {
+    val safeId = id?.takeIf { it > 0L } ?: return null
+    return UserNotification(
+        id = safeId,
+        incidentId = incidentId?.takeIf { it > 0L },
+        eventType = eventType.orEmpty(),
+        title = title?.takeIf { it.isNotBlank() } ?: "TACResQ notification",
+        body = body?.takeIf { it.isNotBlank() } ?: "Open TACResQ to review this update.",
+        createdAt = createdAt,
+        readAt = readAt,
+    )
+}
+
 private data class MarkNotificationReadRpc(@SerializedName("p_notification_id") val notificationId: Long)
 private data class FcmTokenRpc(@SerializedName("p_token") val token: String)
 private data class IncidentMessagesRpc(

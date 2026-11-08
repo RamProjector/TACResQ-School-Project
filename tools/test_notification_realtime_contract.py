@@ -28,6 +28,9 @@ checks = [
     check("transport emits only allowlisted notification hints", all(token in transport for token in (
         "notification_id", "incident_assigned", "incident_status_changed", "notification_created",
     )) and "user_notifications" not in transport),
+    check("malformed realtime frames remain a fallback error", all(token in transport for token in (
+        "runCatching", "onFailure", "RealtimeConnectionState.ERROR", "return@runCatching",
+    ))),
     check("database broadcast payload is minimized", all(token in migration for token in (
         "realtime.send", "notification_id", "event_type", "true",
     )) and "'title', NEW" not in migration and "'body', NEW" not in migration),
