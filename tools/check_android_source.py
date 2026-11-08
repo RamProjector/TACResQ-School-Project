@@ -174,6 +174,7 @@ gps_map_location_contract = {
         "liveRegion = LiveRegionMode.Polite",
         "if (locationStatus != null || showAppSettingsAction) liveRegion = LiveRegionMode.Polite",
         "var isLocationRequestInProgress by remember { mutableStateOf(false) }",
+        "if (role != Role.REQUESTER && isLocationRequestInProgress)",
         "if (isLocationRequestInProgress) return",
         "LocationButton(",
         "onPermissionResult = { granted ->",
@@ -209,7 +210,7 @@ for relative_path, required_text in gps_map_location_contract.items():
 
 gps_map_source = (ROOT / "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt").read_text(encoding="utf-8")
 progress_button = re.search(
-    r"if \(isLocationRequestInProgress\) \{\s*(.*?)\n\s*\}\s*else \{",
+    r"if \(role != Role.REQUESTER && isLocationRequestInProgress\) \{\s*(.*?)\n\s*\}\s*else if",
     gps_map_source,
     re.DOTALL,
 )

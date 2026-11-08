@@ -15,7 +15,7 @@ assert "mapSheetState.bottomSheetState.partialExpand()" in map_screen
 assert "else {\n            onBack()" in map_screen
 assert "contentDescription = \"Back from GPS map\"" in map_screen
 assert "onClick = onBack" in map_screen
-assert '"GPS Map",\n                        style = MaterialTheme.typography.titleMedium' in map_screen
+assert 'if (role == Role.REQUESTER) "Map" else "GPS Map"' in map_screen
 assert "maxLines = 1,\n                        softWrap = false,\n                        overflow = TextOverflow.Ellipsis," in map_screen
 assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen
 assert "modifier = Modifier.fillMaxSize()" in map_screen
@@ -32,9 +32,11 @@ assert "AssistChip(" in map_screen
 assert 'Text("Incidents", maxLines = 1)' in map_screen
 assert 'Text("Field units", maxLines = 1)' in map_screen
 assert 'contentDescription = if (deviceFix == null) "Locate me" else "Refresh location"' in map_screen
-assert "if (isLocationRequestInProgress)" in map_screen
+assert "if (role != Role.REQUESTER && isLocationRequestInProgress)" in map_screen
 assert "enabled = false" in map_screen
 assert "LocationButton(" in map_screen
+assert "showNavigationActions = role != Role.REQUESTER" in map_screen
+assert "MapLoadStatusOverlay(isLoading = !mapDataLoaded && !mapLoadError)" in map_screen
 assert "onPermissionResult = { granted ->" in map_screen
 assert "if (isLocationRequestInProgress) return" in map_screen
 assert "isLocationRequestInProgress = false" in map_screen

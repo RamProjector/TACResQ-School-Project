@@ -31,6 +31,13 @@ assert 'Correct map pin' in SCREEN
 assert 'Review changes' in SCREEN
 assert 'Confirm and save' in SCREEN
 assert 'editCooldownSeconds == 0L' in SCREEN
+assert 'requesterEditResponseMatches(' in SCREEN
+assert 'coordinateMatches(updated.latitude, latitude)' in SCREEN
+assert '<= 0.000001' in SCREEN
+assert 'requesterSequenceNumber(incidentId: Long, incidents: List<Incident>)' in SCREEN
+assert 'Your request #$sequence · reference #$incidentId' in SCREEN
+assert 'requesterRequestLabel(incident.id, state.incidents)' in SCREEN
+assert 'MapLoadStatusOverlay(isLoading = !mapDataLoaded && !mapLoadError)' in SCREEN
 assert 'contact dispatch for urgent corrections' in SQL
 
 print("PASS: requester edits are ownership-checked, pending-only, cooldown-enforced, reviewed, and audited.")

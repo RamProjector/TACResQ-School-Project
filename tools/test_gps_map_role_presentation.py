@@ -27,4 +27,7 @@ assert "emptyMapMessage" in SOURCE
 assert 'Role.ADMIN -> "No incident locations are available right now."' in SOURCE
 assert "© OpenStreetMap contributors" in SOURCE
 assert "AndroidView(" in SOURCE
+assert "role != Role.REQUESTER && locationProvider.hasPrecisePermission()" in SOURCE
+assert "showNavigationActions = role != Role.REQUESTER" in SOURCE
+assert "MapLoadStatusOverlay(isLoading = !mapDataLoaded && !mapLoadError)" in SOURCE
 print("PASS: GPS map presentation adapts by role and keeps permission recovery and map chrome compact.")

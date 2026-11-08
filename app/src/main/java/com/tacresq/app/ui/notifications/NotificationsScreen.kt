@@ -373,7 +373,7 @@ private fun NotificationCard(
                 )
             }
             Text(notification.body, style = MaterialTheme.typography.bodyMedium)
-            val incidentLabel = incidentId?.let { "Incident #$it · " }.orEmpty()
+            val incidentLabel = incidentId?.let { "Request reference #$it · " }.orEmpty()
             Text(
                 incidentLabel + formatNotificationTime(notification.createdAt),
                 style = MaterialTheme.typography.labelSmall,

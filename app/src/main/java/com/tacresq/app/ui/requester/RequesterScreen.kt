@@ -91,6 +91,7 @@ import com.tacresq.app.location.LocationProvider
 import com.tacresq.app.location.LocationSettingsCheck
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
+import com.tacresq.app.ui.common.MapLoadStatusOverlay
 import com.tacresq.app.ui.common.PollWhileStarted
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SectionHeading
@@ -140,6 +141,48 @@ data class RequesterUiState(
     val hasCurrentIncidentStatus: Boolean = false,
     val refreshInProgress: Boolean = false,
 )
+
+internal fun requesterSequenceNumber(incidentId: Long, incidents: List<Incident>): Int? {
+    val ordered = incidents.distinctBy { it.id }.sortedWith(
+        compareBy<Incident> {
+            it.createdAt?.let { value -> runCatching { Instant.parse(value).toEpochMilli() }.getOrNull() }
+                ?: Long.MAX_VALUE
+        }.thenBy { it.id },
+    )
+    return ordered.indexOfFirst { it.id == incidentId }.takeIf { it >= 0 }?.plus(1)
+}
+
+internal fun requesterRequestLabel(incidentId: Long, incidents: List<Incident>): String {
+    val sequence = requesterSequenceNumber(incidentId, incidents)
+    return if (sequence == null) {
+        "Request reference #$incidentId"
+    } else {
+        "Your request #$sequence · reference #$incidentId"
+    }
+}
+
+internal fun requesterEditResponseMatches(
+    updated: Incident,
+    type: IncidentType,
+    description: String,
+    locationNotes: String,
+    latitude: Double?,
+    longitude: Double?,
+    locationSource: String,
+): Boolean {
+    fun coordinateMatches(actual: Double?, expected: Double?): Boolean = when {
+        actual == null || expected == null -> actual == expected
+        !actual.isFinite() || !expected.isFinite() -> false
+        else -> abs(actual - expected) <= 0.000001
+    }
+
+    return updated.type == type &&
+        updated.description.orEmpty() == description.trim() &&
+        updated.locationNotes.orEmpty() == locationNotes.trim() &&
+        coordinateMatches(updated.latitude, latitude) &&
+        coordinateMatches(updated.longitude, longitude) &&
+        updated.locationSource == locationSource
+}
 
 internal fun canUseCurrentRequesterActions(
     hasCurrentIncidentStatus: Boolean,
@@ -453,7 +496,7 @@ class RequesterViewModel(
         val existingActive = current.incidents.firstOrNull { it.status.isActive }
         if (existingActive != null) {
             _state.update {
-                it.copy(error = "You already have active request #${existingActive.id}. Cancel it while waiting for dispatch or contact dispatch if a unit may be responding.")
+                it.copy(error = "You already have ${requesterRequestLabel(existingActive.id, current.incidents)} active. Cancel it while waiting for dispatch or contact dispatch if a unit may be responding.")
             }
             return
         }
@@ -564,16 +607,20 @@ class RequesterViewModel(
                 incident, type, description, locationNotes, latitude, longitude,
                 accuracyM, locationRecordedAt, locationSource, confirmReview,
             ).onSuccess { updated ->
-                val matches = updated.type == type &&
-                    updated.description.orEmpty() == description.trim() &&
-                    updated.locationNotes.orEmpty() == locationNotes.trim() &&
-                    updated.latitude == latitude && updated.longitude == longitude &&
-                    updated.locationSource == locationSource
+                val matches = requesterEditResponseMatches(
+                    updated = updated,
+                    type = type,
+                    description = description,
+                    locationNotes = locationNotes,
+                    latitude = latitude,
+                    longitude = longitude,
+                    locationSource = locationSource,
+                )
                 _state.update { current ->
                     current.copy(
                         sending = false,
                         incidents = current.incidents.map { if (it.id == updated.id) updated else it },
-                        notice = if (matches) "Request #" + updated.id + " updated. Dispatch can see the corrected details." else null,
+                        notice = if (matches) requesterRequestLabel(updated.id, current.incidents) + " updated. Dispatch can see the corrected details." else null,
                         error = if (matches) null else "The server accepted the edit, but the returned details did not match what you reviewed. Contact dispatch to verify the request before making more changes.",
                     )
                 }
@@ -604,7 +651,7 @@ class RequesterViewModel(
                         current.copy(
                             sending = false,
                             incidents = current.incidents.map { if (it.id == cancelled.id) cancelled else it },
-                            notice = "Request #${cancelled.id} was cancelled before dispatch assignment.",
+                            notice = requesterRequestLabel(cancelled.id, current.incidents) + " was cancelled before dispatch assignment.",
                         )
                     }
                     refresh()
@@ -811,7 +858,7 @@ fun RequesterScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text("Request #${cached.incidentId}", style = MaterialTheme.typography.labelMedium)
+                                    Text("Request reference #${cached.incidentId}", style = MaterialTheme.typography.labelMedium)
                                     Text(cached.type.label, style = MaterialTheme.typography.bodySmall)
                                 }
                                 StatusPill(cached.status.requesterLabel, cached.status.pillColor())
@@ -947,7 +994,7 @@ fun RequesterScreen(
                         )
                     }
                     Text(
-                        "Request #${activeIncident.id}",
+                        requesterRequestLabel(activeIncident.id, state.incidents),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1421,7 +1468,15 @@ fun RequesterScreen(
                 }
             }
         }
-        items(state.incidents, key = { it.id }) { incident -> IncidentCard(incident) }
+        items(state.incidents, key = { it.id }) { incident ->
+            IncidentCard(incident) {
+                Text(
+                    requesterRequestLabel(incident.id, state.incidents),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 
     if (showManualPinPicker) {
@@ -1442,7 +1497,7 @@ fun RequesterScreen(
         val editing = incidentToEdit!!
         AlertDialog(
             onDismissRequest = { if (!state.sending) { incidentToEdit = null; confirmingEdit = false } },
-            title = { Text("Edit request #" + editing.id) },
+            title = { Text("Edit " + requesterRequestLabel(editing.id, state.incidents)) },
             text = {
                 Column(
                     modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
@@ -1535,7 +1590,7 @@ fun RequesterScreen(
             title = { Text("Review your correction") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Request #" + editing.id + " will be updated with these details:")
+                    Text(requesterRequestLabel(editing.id, state.incidents) + " will be updated with these details:")
                     Text("Emergency: " + editType.label)
                     Text("Details: " + editDescription.trim().ifBlank { "None provided" })
                     Text("Location note: " + editLocationNotes.trim().ifBlank { "None provided" })
@@ -1758,6 +1813,7 @@ private fun ManualLocationPickerDialog(
     var userAdjustedMap by androidx.compose.runtime.remember { mutableStateOf(false) }
     var mapLibreMap by remember(context) { mutableStateOf<MapLibreMap?>(null) }
     var mapStyleLoaded by remember(context) { mutableStateOf(false) }
+    var mapDataLoaded by remember(context) { mutableStateOf(false) }
     var mapLoadError by remember(context) { mutableStateOf(false) }
     val mapView = remember(context) {
         MapLibre.getInstance(context)
@@ -1772,9 +1828,11 @@ private fun ManualLocationPickerDialog(
     }
     androidx.compose.runtime.DisposableEffect(mapView) {
         mapView.addOnDidFailLoadingMapListener {
+            mapDataLoaded = false
             mapLoadError = true
         }
         mapView.addOnDidFinishLoadingMapListener {
+            mapDataLoaded = true
             mapLoadError = false
         }
         mapView.getMapAsync { map ->
@@ -1796,6 +1854,7 @@ private fun ManualLocationPickerDialog(
             mapView.onDestroy()
             mapLibreMap = null
             mapStyleLoaded = false
+            mapDataLoaded = false
         }
     }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -1870,6 +1929,7 @@ private fun ManualLocationPickerDialog(
                     factory = { mapView },
                     modifier = Modifier.fillMaxSize(),
                 )
+                MapLoadStatusOverlay(isLoading = !mapDataLoaded && !mapLoadError)
 
                 // A fixed center pin makes the chosen coordinate explicit while the map moves beneath it.
                 Icon(
