@@ -24,8 +24,8 @@ assert "NavigationDestinationItem(" in source
 assert "NavigationBarItem(" in source
 assert "alwaysShowLabel = true" in source
 assert "indicatorColor = if (emphasized)" in source
-assert "mapContent()" in source.split("if (selected == AppDestination.MAP)", 1)[1].split("} else {", 1)[0]
-assert "TacruBottomNavigation(" not in source.split("if (selected == AppDestination.MAP)", 1)[1].split("} else {", 1)[0]
+assert "if (selected == AppDestination.MAP) mapContent() else content()" in source
+assert "Scaffold(" in source and "TacruBottomNavigation(" in source
 assert "onDestinationSelected(AppDestination.MAP)" in source
 print("Five-position navigation, Messages destination, and unified GPS Map styling passed.")
 assert "maxLines = 2" in source and "softWrap = true" in source

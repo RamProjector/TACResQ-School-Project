@@ -98,7 +98,9 @@ class NotificationsViewModel(
                     .onSuccess { items ->
                         _state.update {
                             it.copy(
-                                items = items,
+                                // Keep malformed or retried RPC responses from producing
+                                // duplicate LazyColumn keys and a runtime crash.
+                                items = items.distinctBy(UserNotification::id),
                                 loading = false,
                                 refreshing = false,
                                 error = null,

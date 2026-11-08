@@ -66,6 +66,19 @@ class NotificationsViewModelTest {
     }
 
     @Test
+    fun refreshDeduplicatesNotificationIdsForComposeListSafety() = runTest {
+        val repository = FakeNotificationRepository(
+            load = { Result.success(listOf(unreadNotification, unreadNotification.copy(title = "Duplicate response"))) },
+        )
+        val viewModel = NotificationsViewModel(repository)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(listOf(unreadNotification), viewModel.state.value.items)
+    }
+
+    @Test
     fun refreshCancellationPropagatesWithoutShowingErrorAndClearsProgress() = runTest {
         val repository = FakeNotificationRepository(
             load = { throw CancellationException("cancel refresh") },

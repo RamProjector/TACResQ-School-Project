@@ -57,55 +57,48 @@ fun RoleShell(
     mapContent: @Composable () -> Unit,
 ) {
     if (role == Role.ADMIN) return
-    // The map remains a dedicated, full-window destination on every form factor.
     // Other destinations switch to a rail only when the window has enough width
     // and height; short landscape and split-screen windows keep the bottom bar.
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     val useNavigationRail = windowSizeClass.minWidthDp >= 840 && windowSizeClass.minHeightDp >= 480
 
-    if (selected == AppDestination.MAP) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            mapContent()
-        }
-    } else {
-        // Keep Scaffold in both modes so system-bar insets and content padding
-        // remain consistent when the window crosses the rail breakpoint.
-        Scaffold(
-            bottomBar = {
-                if (!useNavigationRail) {
-                    TacruBottomNavigation(
-                        role = role,
-                        selected = selected,
-                        onDestinationSelected = onDestinationSelected,
-                    )
-                }
-            },
-        ) { padding ->
-            if (useNavigationRail) {
-                Row(modifier = Modifier.fillMaxSize().padding(padding)) {
-                    TacruNavigationRail(
-                        role = role,
-                        selected = selected,
-                        onDestinationSelected = onDestinationSelected,
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background),
-                    ) {
-                        content()
-                    }
-                }
-            } else {
+    // Keep Scaffold in both modes, including GPS Map, so navigation remains
+    // visible and the map no longer needs a custom in-map back button.
+    Scaffold(
+        bottomBar = {
+            if (!useNavigationRail) {
+                TacruBottomNavigation(
+                    role = role,
+                    selected = selected,
+                    onDestinationSelected = onDestinationSelected,
+                )
+            }
+        },
+    ) { padding ->
+        if (useNavigationRail) {
+            Row(modifier = Modifier.fillMaxSize().padding(padding)) {
+                TacruNavigationRail(
+                    role = role,
+                    selected = selected,
+                    onDestinationSelected = onDestinationSelected,
+                )
                 Box(
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
-                        .padding(padding),
+                        .background(MaterialTheme.colorScheme.background),
                 ) {
-                    content()
+                    if (selected == AppDestination.MAP) mapContent() else content()
                 }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(padding),
+            ) {
+                if (selected == AppDestination.MAP) mapContent() else content()
             }
         }
     }
