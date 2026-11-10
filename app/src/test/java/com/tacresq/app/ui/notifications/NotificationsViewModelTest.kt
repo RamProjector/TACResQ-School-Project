@@ -2,10 +2,16 @@ package com.tacresq.app.ui.notifications
 
 import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.repo.NotificationRepository
+import com.tacresq.app.data.realtime.NotificationRealtime
+import com.tacresq.app.data.realtime.RealtimeConnectionState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -134,6 +140,52 @@ class NotificationsViewModelTest {
         assertNull(viewModel.state.value.actionError)
     }
 
+    @Test
+    fun duplicateAndOutOfOrderHintsAreReconciledByTheAuthoritativeRead() = runTest {
+        var reads = 0
+        val repository = FakeNotificationRepository(
+            load = {
+                reads += 1
+                Result.success(listOf(unreadNotification))
+            },
+        )
+        val realtime = FakeNotificationRealtime()
+        val viewModel = NotificationsViewModel(repository, realtime)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+        realtime.emitHint()
+        realtime.emitHint()
+        realtime.emitHint()
+        advanceUntilIdle()
+
+        assertEquals(unreadNotification.id, viewModel.state.value.items.single().id)
+        assertEquals(4, reads)
+    }
+
+    @Test
+    fun authoritativeReadRemovesNotificationAfterMembershipRevocation() = runTest {
+        var revoked = false
+        val repository = FakeNotificationRepository(
+            load = {
+                Result.success(if (revoked) emptyList() else listOf(unreadNotification))
+            },
+        )
+        val realtime = FakeNotificationRealtime()
+        val viewModel = NotificationsViewModel(repository, realtime)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertEquals(listOf(unreadNotification), viewModel.state.value.items)
+
+        revoked = true
+        realtime.emitHint()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.items.isEmpty())
+        assertNull(viewModel.state.value.error)
+    }
+
     private class FakeNotificationRepository(
         private val load: suspend (Int) -> Result<List<UserNotification>> = {
             Result.success(emptyList())
@@ -151,6 +203,20 @@ class NotificationsViewModelTest {
         override suspend fun markNotificationRead(notificationId: Long): Result<Boolean> {
             lastMarkReadJob = currentCoroutineContext()[Job]
             return markRead(notificationId)
+        }
+    }
+
+    private class FakeNotificationRealtime : NotificationRealtime {
+        private val mutableState = MutableStateFlow(RealtimeConnectionState.CONNECTED)
+        private val mutableHints = MutableSharedFlow<Unit>(extraBufferCapacity = 16)
+
+        override val state: StateFlow<RealtimeConnectionState> = mutableState
+        override val notificationHints: SharedFlow<Unit> = mutableHints
+
+        override fun start() = Unit
+        override fun stop() = Unit
+        fun emitHint() {
+            mutableHints.tryEmit(Unit)
         }
     }
 

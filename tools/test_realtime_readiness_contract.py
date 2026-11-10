@@ -18,7 +18,8 @@ checks = [
         "unavailable", "connecting", "connected", "reconnecting", "fallback_sync", "error",
     ))),
     check("phase 3 defers location streaming", "Do not enable responder-location streaming" in research),
-    check("phase 3 does not claim completion", "no realtime transport is enabled yet" in research and "does not claim live Supabase authorization" in status),
+    check("phase 3 does not claim live completion", "live Supabase and device gates remain open" in research and "does not claim live Supabase authorization" in status),
+    check("phase 3 has synthetic duplicate/order/revocation coverage", "duplicate and out-of-order hints" in research and "revoked-membership" in research and "NotificationsViewModelTest" in status),
     check("project plan still requires polling fallback", "Keep the existing polling refresh as a fallback" in plan),
 ]
 if not all(checks):

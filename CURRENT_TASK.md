@@ -7,6 +7,15 @@
 - **Validation:** Focused GPS map, requester edit/numbering, notification, and chat source contracts pass. `git diff --check` passes. `visual_regression.py` fails on all four prototype screenshots; a clean `origin/main` worktree produces the exact same ratios, so this is a pre-existing baseline/renderer mismatch unrelated to these Android changes. Initial PR CI on `db1dab9d` failed Android compilation because `ZoomOutMap` is not in the app's icon set; Android CodeQL failed on the same compile. The control now uses the already-supported `LocationOn` vector, and exact-head CI must rerun. Local Android JVM tests could not start because the Gradle distribution download timed out. No emulator or device test was performed.
 - **Next:** Check all exact-head CI results on PR #279 and fix failures before merge. Request authorization before applying the already-existing missing chat migrations to the live Supabase schema. Obtain a sanitized notification crash log and exact cancellation action/response before changing those code paths. No Render changes.
 
+
+# Phase-3 follow-up — 2026-11-10: synthetic realtime reliability coverage
+
+- **Objective:** Complete the phase-3 notification realtime reliability slice while preserving the protected notification RPC and 30-second polling fallback.
+- **Implementation:** PR #277 merged an OkHttp Supabase Realtime v1 client with private profile topics, authenticated `phx_join`, heartbeat, reconnect backoff, explicit connection states, and an allowlisted hint flow. Hints trigger `api_my_notifications` reconciliation; they never carry notification title/body, incident details, coordinates, or authorization decisions.
+- **Synthetic coverage:** PR #291 adds JVM tests for duplicate/out-of-order hints and authoritative removal after membership revocation, plus corrected phase-3 evidence.
+- **Validation:** Static phase-3, notification, FCM, and server contracts pass locally. Exact-head CI for PR #291 passed; the branch is being rebased onto newer mainline changes before merge.
+- **Remaining gates:** No live Supabase migration, staging connection, or physical-device foreground/background FCM/realtime test has been run. These are the only remaining phase-3 gates. Do not add responder-location streaming in this PR.
+
 ---
 
 # Previous handoff — 2026-11-07: implement authenticated notification realtime
