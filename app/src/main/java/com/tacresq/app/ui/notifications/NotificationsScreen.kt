@@ -342,6 +342,11 @@ private fun NotificationCard(
 ) {
     val unread = notification.readAt == null
     val incidentId = notification.incidentId
+    // Gson may provide null for a missing JSON string even when the Kotlin model
+    // declares it non-null. Normalize at the UI boundary before calling Compose.
+    val title = notification.title.orEmpty().ifBlank { "Notification" }
+    val body = notification.body.orEmpty().ifBlank { "Open TACResQ to view this update." }
+    val eventType = notification.eventType.orEmpty()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -361,7 +366,7 @@ private fun NotificationCard(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    notification.title,
+                    title,
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium,
@@ -372,7 +377,7 @@ private fun NotificationCard(
                     color = if (unread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(notification.body, style = MaterialTheme.typography.bodyMedium)
+            Text(body, style = MaterialTheme.typography.bodyMedium)
             val incidentLabel = incidentId?.let { "Request reference #$it · " }.orEmpty()
             Text(
                 incidentLabel + formatNotificationTime(notification.createdAt),
@@ -389,7 +394,7 @@ private fun NotificationCard(
                         TextButton(
                             onClick = { onOpenIncident(incidentId) },
                             enabled = !busy,
-                        ) { Text(if (notification.eventType == "incident_message") "Open conversation" else "Open incident") }
+                        ) { Text(if (eventType == "incident_message") "Open conversation" else "Open incident") }
                     }
                     if (unread) {
                         TextButton(onClick = onMarkRead, enabled = !busy) {

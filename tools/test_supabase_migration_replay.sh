@@ -223,6 +223,29 @@ BEGIN
 END;
 $incident_location_update_test$;
 
+-- Regression for the requester cancellation trigger conflict observed in the
+-- app: the owner can cancel a pending, unassigned request through its RPC.
+DO $requester_cancel_guard_test$
+DECLARE
+  requester_profile_id bigint;
+  incident_id bigint;
+  result jsonb;
+  final_status text;
+BEGIN
+  SELECT id INTO requester_profile_id FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000123';
+  SELECT id INTO incident_id FROM public.incidents
+   WHERE requester_id = requester_profile_id
+     AND description = 'Automated SOS audit regression';
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000123', true);
+  result := public.api_cancel_my_incident(incident_id);
+  SELECT status INTO final_status FROM public.incidents WHERE id = incident_id;
+  IF result->>'status' <> 'cancelled' OR final_status <> 'cancelled' THEN
+    RAISE EXCEPTION 'Requester cancellation RPC should persist a cancelled response; result=% status=%', result, final_status;
+  END IF;
+END;
+$requester_cancel_guard_test$;
+
 
 -- End-to-end SQL regression: team members advance independently, the aggregate
 -- stays en_route until all units arrive, and GPS is rejected for an arrived unit.

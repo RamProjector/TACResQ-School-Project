@@ -53,6 +53,8 @@ assert "validIncidentPoints + responderPointsForInitialFrame" in map_screen
 assert "val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
 assert "onShowActiveUnits = ::showActiveUnits" in map_screen
 assert "map.clear()" in map_screen and "map.addMarker(" in map_screen
+assert "val scale = 0.75f" in map_screen
+assert "val bitmap = Bitmap.createBitmap(width, iconHeight * 2" in map_screen, "pin geographic anchor padding must remain proportional after scaling"
 
 # Location preview is cleared if permission is revoked while the map is backgrounded.
 assert "val latestDeviceFix by rememberUpdatedState(deviceFix)" in map_screen
