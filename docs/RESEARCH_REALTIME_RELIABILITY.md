@@ -1,10 +1,10 @@
 # Phase 3: realtime reliability boundary
 
-**Status:** phase-3 design and contract slice; no realtime transport is enabled yet.
+**Status:** phase-3 notification broadcast slice merged; live Supabase and device gates remain open.
 
 ## Current evidence
 
-TACResQ currently refreshes incident state, dispatcher responder locations, incident chat, and the notification inbox through authenticated RPC reads. Those refresh loops are lifecycle-aware and must remain available as the fallback path. The Android module does not currently contain a Supabase Realtime client or a WebSocket transport.
+TACResQ refreshes incident state, dispatcher responder locations, incident chat, and the notification inbox through authenticated RPC reads. Those refresh loops remain lifecycle-aware and are the fallback path. PR #277 adds an Android Supabase Realtime WebSocket for a private profile-scoped notification topic; events are hints only and trigger the authoritative notification RPC.
 
 The persistent notification inbox remains the source of truth. FCM is a supplemental delivery prompt, and a push receipt is not evidence that a user saw or accepted an incident update.
 
@@ -34,9 +34,11 @@ The UI and tests should distinguish these states:
 
 A disconnected channel must never be described as live, and the timestamp of the last successful server read must not be replaced by an event-receipt timestamp.
 
-## First implementation slice
+## Implemented first slice
 
-The next code PR should add one narrowly scoped authenticated stream, preferably the notification/assignment signal, while retaining the current inbox polling loop. The stream should carry only an event identifier and safe event type; the client should then call the existing `api_my_notifications` RPC and reconcile the returned list. Incident details, coordinates, and message bodies must continue to come from authorized RPC reads.
+The first slice adds one narrowly scoped authenticated stream for notification/assignment hints while retaining the current inbox polling loop. The stream carries only an event identifier and safe event type; the client then calls the existing `api_my_notifications` RPC and replaces the inbox with the authorized result. Incident details, coordinates, and message bodies continue to come from authorized RPC reads.
+
+The Android JVM suite now exercises duplicate and out-of-order hints as harmless repeated authoritative reads, and verifies that a notification disappears after the authoritative read no longer returns it (the synthetic revoked-membership case). These tests do not claim live channel authorization or network delivery.
 
 Do not enable responder-location streaming in the same PR. Location has a stricter incident/member authorization boundary and needs its own publication, retention, payload-minimization, and migration replay review.
 
