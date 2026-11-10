@@ -85,6 +85,12 @@ assert screen.count("catch (cancelled: kotlinx.coroutines.CancellationException)
 assert screen.count("catch (_: Exception)") >= 2, (
     "Both notification refresh and mark-read actions must handle unexpected repository exceptions."
 )
+for required in (
+    'val title = notification.title.orEmpty().ifBlank { "Notification" }',
+    'val body = notification.body.orEmpty().ifBlank { "Open TACResQ to view this update." }',
+    "val eventType = notification.eventType.orEmpty()",
+):
+    assert required in screen, f"Notification rendering must safely normalize untrusted payload text: {required}"
 
 root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
 requester = read("app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt")

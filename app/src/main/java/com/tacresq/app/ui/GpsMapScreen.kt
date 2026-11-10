@@ -144,8 +144,9 @@ private const val MAP_DATA_UNAVAILABLE_STATUS = "Map data is temporarily unavail
  */
 private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255): Icon {
     val drawable = requireNotNull(ContextCompat.getDrawable(this, resourceId)).mutate()
-    val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 48
-    val iconHeight = drawable.intrinsicHeight.takeIf { it > 0 } ?: 56
+    val scale = 0.75f
+    val width = ((drawable.intrinsicWidth.takeIf { it > 0 } ?: 48) * scale).roundToInt().coerceAtLeast(1)
+    val iconHeight = ((drawable.intrinsicHeight.takeIf { it > 0 } ?: 56) * scale).roundToInt().coerceAtLeast(1)
     // MapLibre's legacy Marker annotation anchors icons at their center. Keep the
     // pin tip at the geographic coordinate by adding transparent space below it.
     val bitmap = Bitmap.createBitmap(width, iconHeight * 2, Bitmap.Config.ARGB_8888)
