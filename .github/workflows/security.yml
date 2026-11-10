@@ -86,7 +86,7 @@ jobs:
         run: ./gradlew --no-daemon --no-build-cache clean assembleDebug
 
       - name: Analyze Android source with CodeQL
-        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
 
   codeql-web-actions:
     name: CodeQL Web and GitHub Actions
@@ -106,4 +106,4 @@ jobs:
           build-mode: none
 
       - name: Analyze web and workflow source with CodeQL
-        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
