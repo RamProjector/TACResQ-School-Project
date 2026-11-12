@@ -8,11 +8,32 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.tacresq.app.MainActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class PushNotificationPendingIntentTest {
+    @Test
+    fun notificationTapParserRejectsMalformedAndOversizedIds() {
+        val invalidPath = Intent().putExtra(
+            TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID,
+            "../not-an-inbox-id",
+        )
+        val oversized = Intent().putExtra(
+            TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID,
+            "x".repeat(201),
+        )
+        val valid = Intent().putExtra(
+            TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID,
+            "12345",
+        )
+
+        assertNull(PushNotificationTap.from(invalidPath))
+        assertNull(PushNotificationTap.from(oversized))
+        assertEquals(PushNotificationTap("12345"), PushNotificationTap.from(valid))
+    }
+
     @Test
     fun notificationDataUriSeparatesPendingIntentsEvenWithSameRequestCode() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
