@@ -200,3 +200,10 @@ A clean-PostgreSQL runtime test in the repository checks function privileges, th
 ### Still unapplied
 
 `20261108120000_allow_requester_pending_cancellation` remains absent from the live migration ledger. Its deployment is a separate decision. No cancellation, incident data, user data, FCM worker, or Render configuration was changed by the notification lookup migration.
+
+
+## CI verification refresh — 2026-11-13
+
+PR #294 exact head `249202d9073dfc663e5734e12825a92c6ad4353a` completed all automated checks successfully: source checks, Android debug/release builds, Android JVM unit tests, debug lint, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grant contract, repository security guardrails, CodeQL Android, CodeQL Web/GitHub Actions, static UI/workflow review, static security/correctness review, and automated code review.
+
+The Android job compiled instrumentation tests but did not execute them on emulator/physical hardware. Therefore, notification tap/session-isolation/process-recreation behavior remains unverified on-device. PR #294 remains draft and unmerged. Release-signing verification was skipped because signing was not configured; CI generated demo-mode debug, Supabase-mode debug, and release APK artifacts, but no signed/production-ready release is claimed.
