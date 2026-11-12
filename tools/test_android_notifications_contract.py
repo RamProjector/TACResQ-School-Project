@@ -197,7 +197,7 @@ for required in (
     'UUID.randomUUID()',
 ):
     assert required in identity, f"Stable notification identity contract missing: {required}"
-assert "incident_id"]?.hashCode()" not in push_service, "PendingIntent identity must not be scoped only to incident ID"
+assert 'message.data["incident_id"]?.hashCode()' not in push_service, "PendingIntent identity must not be scoped only to incident ID"
 
 identity_tests = read("app/src/test/java/com/tacresq/app/notifications/PushNotificationIdentityTest.kt")
 for required in (
