@@ -144,6 +144,9 @@ class NavigationInstrumentedTest {
             override suspend fun myNotifications(limit: Int): Result<List<UserNotification>> =
                 Result.success(emptyList())
 
+            override suspend fun myNotification(notificationId: Long): Result<UserNotification?> =
+                Result.success(null)
+
             override suspend fun markNotificationRead(notificationId: Long): Result<Boolean> =
                 Result.success(true)
         })
