@@ -31,6 +31,7 @@ checks = [
         "catch (_: IllegalArgumentException)",
         "RealtimeConnectionState.FALLBACK_SYNC",
         "connectSafely(isReconnect = true)",
+        "reconnectJob = null",
     ))),
     check("transport emits only allowlisted notification hints", all(token in transport for token in (
         "notification_id", "incident_assigned", "incident_status_changed", "notification_created",
