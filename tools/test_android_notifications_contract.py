@@ -242,3 +242,13 @@ for required in (
     "PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE",
 ):
     assert required in pending_intent_tests, f"PendingIntent identity instrumentation test missing: {required}"
+
+
+for required in (
+    "savedInstanceState?.getString(STATE_NOTIFICATION_ID)",
+    "onSaveInstanceState(outState: Bundle)",
+    "outState.putString(STATE_NOTIFICATION_ID, it.notificationId)",
+    "private fun consumeNotificationTap()",
+    "intent?.removeExtra(com.tacresq.app.notifications.TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID)",
+):
+    assert required in activity, f"Notification tap recreation/consumption contract missing: {required}"
