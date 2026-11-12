@@ -25,10 +25,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         acceptAuthReturn(intent)
-        notificationTap = savedInstanceState?.getString(STATE_NOTIFICATION_ID)
-            ?.takeIf(PushNotificationIdentity::isValidNotificationId)
-            ?.let(::PushNotificationTap)
-            ?: PushNotificationTap.from(intent)
+        // A new notification launch intent takes precedence over an older saved tap.
+        notificationTap = PushNotificationTap.from(intent)
+            ?: savedInstanceState?.getString(STATE_NOTIFICATION_ID)
+                ?.takeIf(PushNotificationIdentity::isValidNotificationId)
+                ?.let(::PushNotificationTap)
         val container = (application as TacResqApp).container
         setContent {
             TACResQTheme {
