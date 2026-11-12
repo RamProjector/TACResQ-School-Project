@@ -10,7 +10,7 @@ data class PushNotificationTap(val notificationId: String) {
     companion object {
         fun from(intent: Intent?): PushNotificationTap? {
             val id = intent?.getStringExtra(TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID)
-                ?.takeIf { it.isNotBlank() && it.length <= 200 }
+                ?.takeIf(PushNotificationIdentity::isValidNotificationId)
                 ?: return null
             return PushNotificationTap(id)
         }
