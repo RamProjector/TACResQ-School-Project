@@ -13,7 +13,7 @@ command = read("backend/src/app/Console/Commands/DispatchFcmNotifications.php")
 config = read("backend/src/config/tacru.php")
 dockerfile = read("backend/Dockerfile")
 env = read("backend/.env.example")
-migration = read("supabase/migrations/20261105030000_fcm_delivery_attempts.sql")
+migration = read("supabase/migrations/20261105235016_fcm_delivery_attempts.sql")
 docs = read("docs/FCM_SETUP.md")
 
 assert "ApplicationDefaultCredentials::getCredentials" in transport
