@@ -85,6 +85,12 @@ for required in (
 ):
     assert required in screen, f"Notification UI/lifecycle contract missing: {required}"
 
+# Follow the proven LifeLink feed pattern: isolate the screen surface and do not
+# open a raw Realtime socket or issue a programmatic scroll during screen entry.
+assert "Surface(" in screen and "Modifier.fillMaxSize()" in screen
+assert "vm.startRealtime()" not in screen and "vm.stopRealtime()" not in screen
+assert "animateScrollToItem" not in screen and "rememberLazyListState" not in screen
+
 assert screen.count("catch (cancelled: kotlinx.coroutines.CancellationException)") >= 2, (
     "Both notification refresh and mark-read actions must preserve coroutine cancellation."
 )
