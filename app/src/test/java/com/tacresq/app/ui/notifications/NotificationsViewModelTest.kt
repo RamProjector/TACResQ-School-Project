@@ -39,6 +39,35 @@ class NotificationsViewModelTest {
     }
 
     @Test
+    fun pushTapForcesFreshExpandedInboxAndRetainsOnlyTheRequestedFocus() = runTest {
+        val repository = FakeNotificationRepository(
+            load = { Result.success(listOf(unreadNotification)) },
+        )
+        val viewModel = NotificationsViewModel(repository)
+
+        viewModel.focusNotification(unreadNotification.id)
+        advanceUntilIdle()
+
+        assertEquals(100, repository.lastRequestedLimit)
+        assertEquals(unreadNotification.id, viewModel.state.value.focusedNotificationId)
+        assertEquals(listOf(unreadNotification), viewModel.state.value.items)
+        assertFalse(viewModel.state.value.loading)
+        assertFalse(viewModel.state.value.refreshing)
+    }
+
+    @Test
+    fun invalidPushTapDoesNotStartAnInboxRequest() = runTest {
+        val repository = FakeNotificationRepository()
+        val viewModel = NotificationsViewModel(repository)
+
+        viewModel.focusNotification(0L)
+        advanceUntilIdle()
+
+        assertEquals(0, repository.lastRequestedLimit)
+        assertNull(viewModel.state.value.focusedNotificationId)
+    }
+
+    @Test
     fun refreshThrownExceptionUsesGenericErrorAndClearsProgress() = runTest {
         val repository = FakeNotificationRepository(
             load = {
@@ -194,8 +223,10 @@ class NotificationsViewModelTest {
     ) : NotificationRepository {
         var lastLoadJob: Job? = null
         var lastMarkReadJob: Job? = null
+        var lastRequestedLimit: Int = 0
 
         override suspend fun myNotifications(limit: Int): Result<List<UserNotification>> {
+            lastRequestedLimit = limit
             lastLoadJob = currentCoroutineContext()[Job]
             return load(limit)
         }
