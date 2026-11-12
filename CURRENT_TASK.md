@@ -8,6 +8,18 @@
 - **PR #294:** `fix/notification-tap-identity-and-routing` remains a draft. The prior tested head `654c8e1c74eb5d21ba41752b113ceffc349cd019` had Android debug/release, clean PostgreSQL replay, Laravel/dashboard integration, source, RPC grant, and security checks passing; CodeQL summary was neutral because one workflow configuration was missing. Instrumentation tests were compiled but not run on a physical device/emulator. The new merge/reconciliation commit requires a fresh exact-head CI run. No device-verified crash fix is claimed.
 - **Operational boundary:** No FCM delivery worker, live FCM send, Render configuration, deployment, or user/incident-row mutation was performed. The applied database change is DDL for the protected lookup RPC only.
 
+
+## Verification refresh — 2026-11-13 (PR #294 head `249202d9073dfc663e5734e12825a92c6ad4353a`)
+
+All automated checks on this exact head completed successfully:
+- Source checks; Android debug and release APK builds; Android JVM unit tests; Android debug lint.
+- Clean PostgreSQL replay of the Supabase migrations; Laravel/dashboard integration; RPC-grant contract.
+- Repository security guardrails; CodeQL Android; CodeQL Web/GitHub Actions; static UI/workflow review; static security/correctness review; automated code review.
+
+The Android workflow **compiled** instrumentation tests but did not execute them on an emulator or physical device. No notification tap/session-lifecycle device validation is claimed. The PR remains a draft and is not merged. Keep it open until the notification tap flow is manually verified on an Android emulator or physical device, including session isolation and process recreation; then mark ready for review and re-check the exact head before merge.
+
+Artifacts were generated and uploaded by CI: demo-mode debug APK, Supabase-mode debug APK, and release APK. Release signing verification was skipped because signing was not configured; do not describe that APK as signed or production-ready.
+
 ---
 
 # Current handoff — 2026-11-11: cross-layer error/fix history
