@@ -286,6 +286,7 @@ fun NotificationsAndSafetyScreen(
     onOpenChat: (Long) -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val realtimeState by vm.realtimeState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val displayedNotifications = remember(state.items, state.focusedNotification) {
         val focused = state.focusedNotification
@@ -296,13 +297,18 @@ fun NotificationsAndSafetyScreen(
         }
     }
 
-    // Keep the screen lifecycle-owned and server-backed without starting a socket from composition.
+    // Keep socket ownership tied to the visible screen, but never let startup failure block the inbox.
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            vm.refresh()
-            while (true) {
-                delay(30_000)
+            try {
+                runCatching { vm.startRealtime() }
                 vm.refresh()
+                while (true) {
+                    delay(30_000)
+                    vm.refresh()
+                }
+            } finally {
+                vm.stopRealtime()
             }
         }
     }
@@ -348,7 +354,14 @@ fun NotificationsAndSafetyScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            "This inbox syncs with the server while the screen is open.",
+                            when (realtimeState) {
+                                RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt ?: "not yet recorded"}."
+                                RealtimeConnectionState.CONNECTING,
+                                RealtimeConnectionState.RECONNECTING -> "Realtime reconnecting; the inbox is using server refresh fallback."
+                                RealtimeConnectionState.UNAVAILABLE,
+                                RealtimeConnectionState.FALLBACK_SYNC,
+                                RealtimeConnectionState.ERROR -> "Realtime unavailable; the inbox remains available through server refresh."
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
