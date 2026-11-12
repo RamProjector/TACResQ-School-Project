@@ -57,6 +57,7 @@ import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.SessionState
 import com.tacresq.app.data.model.User
 import com.tacresq.app.notifications.PushTokenCoordinator
+import com.tacresq.app.notifications.PushNotificationTap
 import com.tacresq.app.ui.auth.AuthScreen
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SectionHeading
@@ -77,6 +78,8 @@ fun AppRoot(
     container: AppContainer,
     authReturnMessage: String? = null,
     onAuthReturnMessageDismissed: () -> Unit = {},
+    notificationTap: PushNotificationTap? = null,
+    onNotificationTapConsumed: () -> Unit = {},
 ) {
     val factory = remember(container) { VmFactory(container) }
     val sessionState by container.repository.sessionState.collectAsStateWithLifecycle()
@@ -210,7 +213,7 @@ fun AppRoot(
                         Role.REQUESTER -> {
                             val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                             val vmState by vm.state.collectAsStateWithLifecycle()
-                            RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout, routingProvider = container.routingProvider) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
+                            RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout, routingProvider = container.routingProvider, notificationTap = notificationTap, onNotificationTapConsumed = onNotificationTapConsumed) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
                                 if (selectedChatIncidentId != null && destination == AppDestination.CHAT) {
                                     IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                                 } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)
@@ -233,7 +236,7 @@ fun AppRoot(
                                 vm.stopTracking("Location sharing stopped because you signed out.")
                                 logout()
                             }
-                            RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider, trackingController = container.responderLocationTracking) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, openMapIncident ->
+                            RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider, trackingController = container.responderLocationTracking, notificationTap = notificationTap, onNotificationTapConsumed = onNotificationTapConsumed) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, openMapIncident ->
                                 if (selectedChatIncidentId != null) {
                                     IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); responderLogout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                                 } else if (destination == AppDestination.PRIMARY) ResponderScreen(
@@ -266,6 +269,8 @@ fun AppRoot(
                                 routingProvider = container.routingProvider,
                                 responderLocations = vmState.responderLocations,
                                 onMapRefresh = vm::refresh,
+                                notificationTap = notificationTap,
+                                onNotificationTapConsumed = onNotificationTapConsumed,
                             ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
                                 if (selectedChatIncidentId != null) {
                                     IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
@@ -299,6 +304,8 @@ private fun RoleApp(
     trackingController: ResponderLocationTrackingController? = null,
     responderLocations: List<ResponderLocation> = emptyList(),
     onMapRefresh: () -> Unit = {},
+    notificationTap: PushNotificationTap? = null,
+    onNotificationTapConsumed: () -> Unit = {},
     contentFor: @Composable (AppDestination, (Long) -> Unit, Long?, (Long) -> Unit, Long?, () -> Unit, () -> Unit, (Long) -> Unit) -> Unit,
 ) {
     if (role == Role.ADMIN) return
@@ -319,6 +326,13 @@ private fun RoleApp(
         // Leave the chat route before showing Alerts; contentFor prioritizes an open chat.
         selectedChatIncidentId = null
         destination = AppDestination.ALERTS
+    }
+    LaunchedEffect(notificationTap?.notificationId) {
+        if (notificationTap != null) {
+            // Push payloads only open the caller-scoped inbox; incident access is checked by protected RPCs.
+            openNotifications()
+            onNotificationTapConsumed()
+        }
     }
     val openMapIncident: (Long) -> Unit = { incidentId ->
         selectedIncidentId = incidentId
