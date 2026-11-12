@@ -32,11 +32,11 @@ print("Location RPC search-path and privilege-boundary contract passed.")
 
 # New GPS isolation migrations are checked separately so this test remains useful
 # even when the historical migration boundary changes.
-writer = (ROOT / "supabase/migrations/20261025170000_isolate_per_responder_location_writer.sql").read_text().lower()
-reader = (ROOT / "supabase/migrations/20261026010000_isolate_multi_responder_location_reader.sql").read_text().lower()
+writer = (ROOT / "supabase/migrations/20261112215429_isolate_per_responder_location_writer.sql").read_text().lower()
+reader = (ROOT / "supabase/migrations/20261112215554_isolate_multi_responder_location_reader.sql").read_text().lower()
 assert "add column if not exists received_at timestamptz" in writer
 assert "alter column received_at set default pg_catalog.clock_timestamp()" in writer
-rate_index = (ROOT / "supabase/migrations/20261025180000_location_logs_received_rate_index_concurrently.sql").read_text().lower()
+rate_index = (ROOT / "supabase/migrations/20261112215513_location_logs_received_rate_index_concurrently.sql").read_text().lower()
 assert "location_logs_received_rate_idx" in rate_index
 assert "create index concurrently" in rate_index
 assert "l.created_at" not in writer and "coalesce(l.received_at, l.recorded_at)" in writer
