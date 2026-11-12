@@ -32,15 +32,15 @@ END;
 $notification_lookup_privileges$;
 
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
-  ('00000000-0000-4000-8000-000000000160', 'notification-lookup-owner@example.test', '{"name":"Notification Lookup Owner","phone":"+639170000160"}'),
-  ('00000000-0000-4000-8000-000000000161', 'notification-lookup-outsider@example.test', '{"name":"Notification Lookup Outsider","phone":"+639170000161"}');
+  ('a1600000-1111-4111-8111-000000000160', 'notification-lookup-owner@example.test', '{"name":"Notification Lookup Owner","phone":"+639170000160"}'),
+  ('a1610000-1111-4111-8111-000000000161', 'notification-lookup-outsider@example.test', '{"name":"Notification Lookup Outsider","phone":"+639170000161"}');
 
 INSERT INTO public.user_notifications (
   recipient_user_id, incident_id, event_type, title, body
 )
 SELECT p.id, NULL, 'incident_status_changed', 'Disposable notification lookup', 'Private notification lookup test.'
   FROM public.profiles p
- WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000160';
+ WHERE p.auth_user_id = 'a1600000-1111-4111-8111-000000000160';
 
 SELECT set_config(
   'tacresq.test_notification_id',
@@ -48,13 +48,13 @@ SELECT set_config(
     SELECT n.id::text
       FROM public.user_notifications n
       JOIN public.profiles p ON p.id = n.recipient_user_id
-     WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000160'
+     WHERE p.auth_user_id = 'a1600000-1111-4111-8111-000000000160'
        AND n.title = 'Disposable notification lookup'
      LIMIT 1
   ),
   true
 );
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000160', true);
+SELECT set_config('request.jwt.claim.sub', 'a1600000-1111-4111-8111-000000000160', true);
 SET LOCAL ROLE authenticated;
 DO $owner_can_read$
 DECLARE
@@ -72,7 +72,7 @@ BEGIN
 END;
 $owner_can_read$;
 
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000161', true);
+SELECT set_config('request.jwt.claim.sub', 'a1610000-1111-4111-8111-000000000161', true);
 DO $outsider_cannot_read$
 DECLARE
   notification_id bigint;
