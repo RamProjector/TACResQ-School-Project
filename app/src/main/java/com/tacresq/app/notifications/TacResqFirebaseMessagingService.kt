@@ -24,7 +24,7 @@ class TacResqFirebaseMessagingService : FirebaseMessagingService() {
         if (!PushTokenCoordinator.notificationsAllowed(this)) return
 
         val notificationId = PushNotificationIdentity.resolveNotificationId(message.data, message.messageId)
-        val androidNotificationId = PushNotificationIdentity.notificationManagerId(notificationId)
+        val notificationTag = PushNotificationIdentity.notificationManagerTag(notificationId)
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             // PendingIntent identity includes Intent data; extras alone do not distinguish alerts.
@@ -39,7 +39,7 @@ class TacResqFirebaseMessagingService : FirebaseMessagingService() {
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
-            androidNotificationId,
+            0,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -51,7 +51,7 @@ class TacResqFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        NotificationManagerCompat.from(this).notify(androidNotificationId, notification)
+        NotificationManagerCompat.from(this).notify(notificationTag, 0, notification)
     }
 
     companion object {
