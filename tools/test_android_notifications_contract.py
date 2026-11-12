@@ -207,3 +207,28 @@ for required in (
     "managerIdentityIsStableAndSeparatesDistinctInboxNotifications",
 ):
     assert required in identity_tests, f"Push identity behavior test missing: {required}"
+
+
+# A notification tap is retained by the Activity and routed only inside an authenticated role shell.
+tap_model = read("app/src/main/java/com/tacresq/app/notifications/PushNotificationTap.kt")
+activity = read("app/src/main/java/com/tacresq/app/MainActivity.kt")
+root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
+for required in (
+    "getStringExtra(TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID)",
+    "id.isNotBlank() && id.length <= 200",
+):
+    assert required in tap_model, f"Notification tap parser validation missing: {required}"
+for required in (
+    "notificationTap = PushNotificationTap.from(intent)",
+    "PushNotificationTap.from(intent)?.let { notificationTap = it }",
+    "onNotificationTapConsumed = { notificationTap = null }",
+):
+    assert required in activity, f"Activity notification lifecycle handoff missing: {required}"
+for required in (
+    "notificationTap: PushNotificationTap? = null",
+    "LaunchedEffect(notificationTap?.notificationId)",
+    "openNotifications()",
+    "onNotificationTapConsumed()",
+    "notificationTap = notificationTap",
+):
+    assert required in root, f"Authenticated notification inbox routing missing: {required}"
