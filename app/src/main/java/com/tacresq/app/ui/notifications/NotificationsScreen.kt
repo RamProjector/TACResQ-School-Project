@@ -43,7 +43,6 @@ import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.repo.NotificationRepository
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.ScreenHeader
-import com.tacresq.app.ui.common.SectionHeading
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
