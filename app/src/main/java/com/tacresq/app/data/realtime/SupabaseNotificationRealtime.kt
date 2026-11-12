@@ -48,7 +48,29 @@ class SupabaseNotificationRealtime(
     override fun start() {
         stopped = false
         reconnectJob?.cancel()
-        connect(isReconnect = false)
+        connectSafely(isReconnect = false)
+    }
+
+    /**
+     * Socket URL/request construction can fail synchronously before OkHttp invokes
+     * its listener. Keep that failure inside the transport so opening the inbox
+     * can continue through its authenticated HTTP refresh fallback.
+     */
+    private fun connectSafely(isReconnect: Boolean) {
+        try {
+            connect(isReconnect)
+        } catch (_: IllegalArgumentException) {
+            socket = null
+            heartbeatJob?.cancel()
+            heartbeatJob = null
+            _state.value = RealtimeConnectionState.FALLBACK_SYNC
+        } catch (_: Exception) {
+            socket = null
+            heartbeatJob?.cancel()
+            heartbeatJob = null
+            _state.value = RealtimeConnectionState.FALLBACK_SYNC
+            scheduleReconnect()
+        }
     }
 
     override fun stop() {
@@ -91,7 +113,7 @@ class SupabaseNotificationRealtime(
         _state.value = RealtimeConnectionState.RECONNECTING
         reconnectJob = scope.launch(Dispatchers.IO) {
             delay(delayMs)
-            if (!stopped) connect(isReconnect = true)
+            if (!stopped) connectSafely(isReconnect = true)
         }
     }
 
