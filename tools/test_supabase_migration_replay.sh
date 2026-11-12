@@ -1416,3 +1416,4 @@ SQL
 # Verify incident-image Storage RLS and the authenticated image-message RPC
 # against the minimal Storage schema created above.
 psql -v ON_ERROR_STOP=1 -f tools/test_incident_chat_storage_policies.sql
+psql -v ON_ERROR_STOP=1 -f tools/test_notification_rpc_security.sql
