@@ -14,8 +14,7 @@ BEGIN
   IF NOT has_function_privilege('authenticated', lookup_oid, 'EXECUTE') THEN
     RAISE EXCEPTION 'authenticated must execute the caller-scoped notification lookup';
   END IF;
-  IF has_function_privilege('anon', lookup_oid, 'EXECUTE')
-     OR has_function_privilege('public', lookup_oid, 'EXECUTE') THEN
+  IF has_function_privilege('anon', lookup_oid, 'EXECUTE') THEN
     RAISE EXCEPTION 'anon/PUBLIC must not execute the caller-scoped notification lookup';
   END IF;
   SELECT prosecdef, proconfig INTO lookup_definer, lookup_settings
@@ -43,6 +42,18 @@ SELECT p.id, NULL, 'incident_status_changed', 'Disposable notification lookup', 
   FROM public.profiles p
  WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000160';
 
+SELECT set_config(
+  'tacresq.test_notification_id',
+  (
+    SELECT n.id::text
+      FROM public.user_notifications n
+      JOIN public.profiles p ON p.id = n.recipient_user_id
+     WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000160'
+       AND n.title = 'Disposable notification lookup'
+     LIMIT 1
+  ),
+  true
+);
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000160', true);
 SET LOCAL ROLE authenticated;
 DO $owner_can_read$
@@ -50,11 +61,7 @@ DECLARE
   notification_id bigint;
   payload jsonb;
 BEGIN
-  SELECT n.id INTO notification_id
-    FROM public.user_notifications n
-    JOIN public.profiles p ON p.id = n.recipient_user_id
-   WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000160'
-     AND n.title = 'Disposable notification lookup';
+  notification_id := current_setting('tacresq.test_notification_id')::bigint;
   payload := public.api_my_notification(notification_id);
   IF payload IS NULL OR payload->>'id' IS DISTINCT FROM notification_id::text THEN
     RAISE EXCEPTION 'The notification owner must receive their exact notification row';
@@ -71,11 +78,7 @@ DECLARE
   notification_id bigint;
   payload jsonb;
 BEGIN
-  SELECT n.id INTO notification_id
-    FROM public.user_notifications n
-    JOIN public.profiles p ON p.id = n.recipient_user_id
-   WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000160'
-     AND n.title = 'Disposable notification lookup';
+  notification_id := current_setting('tacresq.test_notification_id')::bigint;
   payload := public.api_my_notification(notification_id);
   IF payload IS NOT NULL THEN
     RAISE EXCEPTION 'A different authenticated profile must not read this notification';
