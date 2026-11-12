@@ -12,7 +12,7 @@ def check(label: str, passed: bool) -> bool:
 transport = read("app/src/main/java/com/tacresq/app/data/realtime/SupabaseNotificationRealtime.kt")
 contract = read("app/src/main/java/com/tacresq/app/data/realtime/NotificationRealtime.kt")
 noop = read("app/src/main/java/com/tacresq/app/data/realtime/NoopNotificationRealtime.kt")
-migration = read("supabase/migrations/20261107160000_notification_realtime_broadcast.sql")
+migration = read("supabase/migrations/20261107234752_notification_realtime_broadcast.sql")
 container = read("app/src/main/java/com/tacresq/app/AppContainer.kt")
 factory = read("app/src/main/java/com/tacresq/app/ui/VmFactory.kt")
 screen = read("app/src/main/java/com/tacresq/app/ui/notifications/NotificationsScreen.kt")

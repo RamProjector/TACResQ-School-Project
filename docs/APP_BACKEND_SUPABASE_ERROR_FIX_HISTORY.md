@@ -165,3 +165,45 @@ Paths are relative to the repository unless a PR/commit URL is shown.
 - Render inventory and app selection (read-only, 2026-11-11): [LifeLink FastAPI entry point](https://github.com/RamProjector/LifeLink/blob/main/lifelink_fastapi/app/main_postgres.py); `app/src/main/java/com/tacresq/app/AppConfig.kt`, `AppContainer.kt`, and `app/build.gradle.kts` show the separate TACResQ bridge/direct-Supabase selection. See the [Render service inventory](#render-service-inventory-read-only-2026-11-11); no environment values or live health response were inspected.
 - Routing: [`docs/IN_APP_ROUTING_FOUNDATION.md`](IN_APP_ROUTING_FOUNDATION.md), [`docs/RENDER_OSRM_DEPLOYMENT.md`](RENDER_OSRM_DEPLOYMENT.md), [`docs/CONTINUOUS_NAVIGATION_REROUTING.md`](CONTINUOUS_NAVIGATION_REROUTING.md).
 - Relevant PRs: [#129](https://github.com/RamProjector/TACResQ-School-Project/pull/129), [#131](https://github.com/RamProjector/TACResQ-School-Project/pull/131), [#137](https://github.com/RamProjector/TACResQ-School-Project/pull/137), [#194](https://github.com/RamProjector/TACResQ-School-Project/pull/194), [#201](https://github.com/RamProjector/TACResQ-School-Project/pull/201), [#206](https://github.com/RamProjector/TACResQ-School-Project/pull/206), [#207](https://github.com/RamProjector/TACResQ-School-Project/pull/207), [#243](https://github.com/RamProjector/TACResQ-School-Project/pull/243), [#264](https://github.com/RamProjector/TACResQ-School-Project/pull/264), [#268](https://github.com/RamProjector/TACResQ-School-Project/pull/268), [#271](https://github.com/RamProjector/TACResQ-School-Project/pull/271), [#272](https://github.com/RamProjector/TACResQ-School-Project/pull/272), [#277](https://github.com/RamProjector/TACResQ-School-Project/pull/277), [#279](https://github.com/RamProjector/TACResQ-School-Project/pull/279), [#292](https://github.com/RamProjector/TACResQ-School-Project/pull/292).
+
+
+## Live Supabase refresh — 2026-11-13
+
+This section supersedes the earlier 2026-11-10 snapshot for current migration status; the earlier observations remain as historical evidence.
+
+### Confirmed applied migration versions
+
+The live project migration ledger now includes these notification/chat versions, and the repository branch renames the matching SQL files to the exact recorded version keys:
+
+| Live version | Migration |
+|---|---|
+| `20261105235009` | `persistent_in_app_notifications` |
+| `20261105235016` | `fcm_delivery_attempts` |
+| `20261107234752` | `notification_realtime_broadcast` |
+| `20261108092044` | `incident_scoped_chat` |
+| `20261108092648` | `incident_message_rate_limit_index` |
+| `20261108092703` | `incident_chat_image_attachments` |
+| `20261112170112` | `add_my_notification_lookup` |
+
+### Notification lookup security
+
+`public.api_my_notification(bigint)` is present and its deployed definition pins `search_path` to `pg_catalog`, requires a profile mapped to `auth.uid()`, and queries only the row whose `recipient_user_id` matches that profile. Live privilege inspection confirmed `anon` cannot execute the function, `authenticated` can, and neither `anon` nor `authenticated` has direct SELECT access to `public.user_notifications`.
+
+A clean-PostgreSQL runtime test in the repository checks function privileges, the fixed search path, owner lookup, cross-profile non-disclosure, and protected table access. The Supabase security advisor still flags authenticated-callable SECURITY DEFINER functions by design; this function remains a narrow, explicitly granted RPC with recipient enforcement, not a reason to grant table access.
+
+### Advisor snapshot
+
+- Security: 5 RLS-enabled tables have no policies; live ACL checks show `anon` and `authenticated` have no SELECT privilege on those tables. 11 SECURITY DEFINER RPCs are executable by authenticated users, including `api_my_notification`; the advisor also reports leaked-password protection disabled.
+- Performance: 4 unindexed foreign keys, 6 RLS init-plan warnings, and 9 unused-index candidates. No index was dropped or added during this reconciliation.
+- Health: no findings returned.
+
+### Still unapplied
+
+`20261108120000_allow_requester_pending_cancellation` remains absent from the live migration ledger. Its deployment is a separate decision. No cancellation, incident data, user data, FCM worker, or Render configuration was changed by the notification lookup migration.
+
+
+## CI verification refresh — 2026-11-13
+
+PR #294 exact head `249202d9073dfc663e5734e12825a92c6ad4353a` completed all automated checks successfully: source checks, Android debug/release builds, Android JVM unit tests, debug lint, clean PostgreSQL migration replay, Laravel/dashboard integration, RPC grant contract, repository security guardrails, CodeQL Android, CodeQL Web/GitHub Actions, static UI/workflow review, static security/correctness review, and automated code review.
+
+The Android job compiled instrumentation tests but did not execute them on emulator/physical hardware. Therefore, notification tap/session-isolation/process-recreation behavior remains unverified on-device. PR #294 remains draft and unmerged. Release-signing verification was skipped because signing was not configured; CI generated demo-mode debug, Supabase-mode debug, and release APK artifacts, but no signed/production-ready release is claimed.

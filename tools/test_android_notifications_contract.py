@@ -23,8 +23,11 @@ api = read("app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 for required in (
     "TacApi, TacNotificationApi",
     'rest/v1/rpc/api_my_notifications',
+    'rest/v1/rpc/api_my_notification',
     'rest/v1/rpc/api_mark_notification_read',
     "NotificationsLimitRpc(limit)",
+    "NotificationByIdRpc(notificationId)",
+    "rpc.myNotification(NotificationByIdRpc(notificationId))",
     "MarkNotificationReadRpc(notificationId)",
     "limit in 1..100",
 ):
@@ -33,6 +36,7 @@ for required in (
 notification_contract = read("app/src/main/java/com/tacresq/app/data/repo/NotificationRepository.kt")
 for required in (
     "suspend fun myNotifications(limit: Int = 50)",
+    "suspend fun myNotification(notificationId: Long)",
     "suspend fun markNotificationRead(notificationId: Long)",
 ):
     assert required in notification_contract, f"Notification interface contract missing: {required}"
@@ -40,6 +44,7 @@ for required in (
 repository = read("app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt")
 for required in (
     "override suspend fun myNotifications(limit: Int)",
+    "override suspend fun myNotification(notificationId: Long)",
     "override suspend fun markNotificationRead(notificationId: Long)",
     "api as? TacNotificationApi",
     "Notification page size must be between 1 and 100.",
@@ -50,6 +55,7 @@ fake = read("app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt")
 for required in (
     "TacApi, TacNotificationApi",
     "override suspend fun myNotifications(limit: Int)",
+    "override suspend fun myNotification(notificationId: Long)",
     "it.recipientId == me.id",
     "it.value.id == notificationId && it.recipientId == me.id",
     "emitAssignmentNotifications(id, body.userIds)",
@@ -67,7 +73,7 @@ for required in (
     "catch (_: Exception)",
     "Could not load notifications. Try again.",
     "LazyColumn(",
-    "items(state.items, key = { it.id })",
+    "items(displayedNotifications, key = { it.id })",
     "Mark as read",
     "Open incident",
     "Open conversation",
@@ -176,4 +182,124 @@ for required in (
 ):
     assert required in behavior_tests, f"Focused notification ViewModel behavior test missing: {required}"
 
-print("PASS: Android notifications use caller-scoped RPCs, recipient-filtered demo data, lifecycle-aware polling, explicit loading/empty/error/retry states, and preserve GPS Map navigation.")
+focused_notifications = read("app/src/main/java/com/tacresq/app/ui/notifications/NotificationsScreen.kt")
+focused_tests = read("app/src/test/java/com/tacresq/app/ui/notifications/NotificationsViewModelTest.kt")
+for required in (
+    "val focusedNotificationId: Long? = null",
+    "fun focusNotification(notificationId: Long)",
+    "refreshNotifications(limit = 50, force = true)",
+    "repo.myNotification(notificationId)",
+    "val focusedNotification: UserNotification? = null",
+    "focusedNotificationMissing",
+    "displayedNotifications",
+    "focused = notification.id == state.focusedNotificationId",
+    '"Opened from alert"',
+):
+    assert required in focused_notifications, f"Push-tap inbox focus contract missing: {required}"
+for required in (
+    "pushTapLoadsExactNotificationAndRefreshesTheInbox",
+    "pushTapFindsOlderOwnedNotificationOutsideTheNewestInboxPage",
+    "lookupForRemovedOrUnownedNotificationReturnsSafeNotFoundState",
+    "lookupExceptionUsesGenericMessageWithoutBackendDetails",
+    "invalidPushTapDoesNotStartAnInboxRequest",
+):
+    assert required in focused_tests, f"Push-tap inbox focus test missing: {required}"
+
+print("PASS: Android notifications use caller-scoped RPCs, recipient-filtered demo data, lifecycle-aware polling, selected-alert focus, explicit loading/empty/error/retry states, and preserve GPS Map navigation.")
+
+notification_lookup_sql = read("supabase/migrations/20261112170112_add_my_notification_lookup.sql")
+for required in (
+    "CREATE OR REPLACE FUNCTION public.api_my_notification(p_notification_id bigint)",
+    "SECURITY DEFINER",
+    "SET search_path = pg_catalog",
+    "WHERE n.id = p_notification_id",
+    "AND n.recipient_user_id = actor_profile_id",
+    "REVOKE ALL ON FUNCTION public.api_my_notification(bigint) FROM PUBLIC, anon",
+    "GRANT EXECUTE ON FUNCTION public.api_my_notification(bigint) TO authenticated",
+):
+    assert required in notification_lookup_sql, f"Caller-scoped notification lookup security contract missing: {required}"
+
+
+
+# FCM tap identity must be per inbox notification, not per incident.
+push_service = read("app/src/main/java/com/tacresq/app/notifications/TacResqFirebaseMessagingService.kt")
+identity = read("app/src/main/java/com/tacresq/app/notifications/PushNotificationIdentity.kt")
+for required in (
+    'message.data, message.messageId',
+    'EXTRA_NOTIFICATION_ID, notificationId',
+    '.authority("notification")',
+    '.appendPath(notificationId)',
+    'PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE',
+    'notify(notificationTag, 0, notification)',
+    'val notificationTag = PushNotificationIdentity.notificationManagerTag(notificationId)',
+):
+    assert required in push_service, f"Push notification tap identity missing: {required}"
+for required in (
+    'data["notification_id"]',
+    'fun notificationManagerTag(notificationId: String): String',
+    'UUID.randomUUID()',
+):
+    assert required in identity, f"Stable notification identity contract missing: {required}"
+assert 'message.data["incident_id"]?.hashCode()' not in push_service, "PendingIntent identity must not be scoped only to incident ID"
+
+identity_tests = read("app/src/test/java/com/tacresq/app/notifications/PushNotificationIdentityTest.kt")
+for required in (
+    "serverNotificationIdWinsOverIncidentAndMessageIdentity",
+    "malformedServerIdFallsBackToFcmMessageId",
+    "missingIdsUseGeneratedFallback",
+    "managerTagPreservesTheFullNotificationIdentity",
+    "notificationManagerTagRejectsMalformedIds",
+):
+    assert required in identity_tests, f"Push identity behavior test missing: {required}"
+
+
+# A notification tap is retained by the Activity and routed only inside an authenticated role shell.
+tap_model = read("app/src/main/java/com/tacresq/app/notifications/PushNotificationTap.kt")
+activity = read("app/src/main/java/com/tacresq/app/MainActivity.kt")
+root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
+for required in (
+    "getStringExtra(TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID)",
+    "PushNotificationIdentity::isValidNotificationId",
+):
+    assert required in tap_model, f"Notification tap parser validation missing: {required}"
+for required in (
+    "notificationTap = PushNotificationTap.from(intent)",
+    "savedInstanceState?.getString(STATE_NOTIFICATION_ID)",
+    "onNotificationTapConsumed = { consumeNotificationTap() }",
+):
+    assert required in activity, f"Activity notification lifecycle handoff missing: {required}"
+incoming_tap_index = activity.index("notificationTap = PushNotificationTap.from(intent)")
+restored_tap_index = activity.index("savedInstanceState?.getString(STATE_NOTIFICATION_ID)")
+assert incoming_tap_index < restored_tap_index, (
+    "A fresh notification intent must take precedence over an older restored tap."
+)
+for required in (
+    "notificationTap: PushNotificationTap? = null",
+    "LaunchedEffect(notificationTap?.notificationId)",
+    "openNotifications()",
+    "onNotificationTapConsumed()",
+    "notificationsVm::focusNotification",
+    "notificationTap = notificationTap",
+):
+    assert required in root, f"Authenticated notification inbox routing missing: {required}"
+
+
+pending_intent_tests = read("app/src/androidTest/java/com/tacresq/app/notifications/PushNotificationPendingIntentTest.kt")
+for required in (
+    "notificationDataUriSeparatesPendingIntentsEvenWithSameRequestCode",
+    "assertNotEquals(first, second)",
+    "assertEquals(first, firstAgain)",
+    "notificationTapParserRejectsMalformedAndOversizedIds",
+    "PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE",
+):
+    assert required in pending_intent_tests, f"PendingIntent identity instrumentation test missing: {required}"
+
+
+for required in (
+    "savedInstanceState?.getString(STATE_NOTIFICATION_ID)",
+    "onSaveInstanceState(outState: Bundle)",
+    "outState.putString(STATE_NOTIFICATION_ID, it.notificationId)",
+    "private fun consumeNotificationTap()",
+    "intent?.removeExtra(com.tacresq.app.notifications.TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID)",
+):
+    assert required in activity, f"Notification tap recreation/consumption contract missing: {required}"

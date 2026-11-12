@@ -107,8 +107,8 @@ print("PASS: incident chat uses caller-scoped RPCs, role-scoped navigation, life
 # The database flood guard counts a sender's messages in a rolling one-minute
 # window. Its query needs a matching composite index so cost remains bounded as
 # the incident-message history grows.
-chat_sql = read("supabase/migrations/20261026200000_incident_scoped_chat.sql")
-index_sql = read("supabase/migrations/20261030130000_incident_message_rate_limit_index.sql")
+chat_sql = read("supabase/migrations/20261108092044_incident_scoped_chat.sql")
+index_sql = read("supabase/migrations/20261108092648_incident_message_rate_limit_index.sql")
 for label, passed in {
     "rate limit filters by sender": "WHERE m.sender_id = actor_profile_id" in chat_sql,
     "rate limit uses a rolling one-minute window": "m.created_at >= now() - interval '1 minute'" in chat_sql,

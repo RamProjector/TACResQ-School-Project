@@ -8,16 +8,28 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.tacresq.app.notifications.PushNotificationTap
+import com.tacresq.app.notifications.PushNotificationIdentity
 import com.tacresq.app.ui.AppRoot
 import com.tacresq.app.ui.theme.TACResQTheme
 
 class MainActivity : ComponentActivity() {
     private var authReturnMessage by mutableStateOf<String?>(null)
+    private var notificationTap by mutableStateOf<PushNotificationTap?>(null)
+
+    private companion object {
+        const val STATE_NOTIFICATION_ID = "tacresq.state.notification_id"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         acceptAuthReturn(intent)
+        // A new notification launch intent takes precedence over an older saved tap.
+        notificationTap = PushNotificationTap.from(intent)
+            ?: savedInstanceState?.getString(STATE_NOTIFICATION_ID)
+                ?.takeIf(PushNotificationIdentity::isValidNotificationId)
+                ?.let(::PushNotificationTap)
         val container = (application as TacResqApp).container
         setContent {
             TACResQTheme {
@@ -25,6 +37,8 @@ class MainActivity : ComponentActivity() {
                     container = container,
                     authReturnMessage = authReturnMessage,
                     onAuthReturnMessageDismissed = { authReturnMessage = null },
+                    notificationTap = notificationTap,
+                    onNotificationTapConsumed = { consumeNotificationTap() },
                 )
             }
         }
@@ -34,6 +48,20 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         acceptAuthReturn(intent)
+        notificationTap = PushNotificationTap.from(intent)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        notificationTap?.let { outState.putString(STATE_NOTIFICATION_ID, it.notificationId) }
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun consumeNotificationTap() {
+        notificationTap = null
+        intent?.removeExtra(com.tacresq.app.notifications.TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID)
+        if (intent?.data?.scheme == "tacresq" && intent?.data?.host == "notification") {
+            intent?.data = null
+        }
     }
 
     /**

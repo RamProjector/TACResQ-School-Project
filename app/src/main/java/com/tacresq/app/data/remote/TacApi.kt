@@ -25,6 +25,8 @@ import retrofit2.http.Path
  */
 interface TacNotificationApi {
     suspend fun myNotifications(limit: Int): List<UserNotification>
+    /** Returns null when the notification is absent or is not owned by the current caller. */
+    suspend fun myNotification(notificationId: Long): UserNotification?
     suspend fun markNotificationRead(notificationId: Long): Boolean
 }
 

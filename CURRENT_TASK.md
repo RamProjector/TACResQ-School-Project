@@ -1,3 +1,27 @@
+# Current handoff — 2026-11-13: live notification lookup and migration-history reconciliation
+
+- **Live Supabase migration ledger:** Read-only verification confirms 30 applied migrations. The newer applied versions now include `20261105235009_persistent_in_app_notifications`, `20261105235016_fcm_delivery_attempts`, `20261107234752_notification_realtime_broadcast`, `20261108092044_incident_scoped_chat`, `20261108092648_incident_message_rate_limit_index`, `20261108092703_incident_chat_image_attachments`, and `20261112170112_add_my_notification_lookup`.
+- **Repository alignment:** The corresponding seven migration files are renamed in this branch to those exact database version keys. SQL content is preserved; only filenames and the alignment contract are changed. The migration-history test now classifies 30 applied files and 9 unapplied files.
+- **Notification lookup RPC:** `public.api_my_notification(bigint)` exists in the live database. Its body requires a signed-in profile and filters by both notification ID and recipient profile. Live ACL verification: `anon` cannot execute; `authenticated` can execute; direct `SELECT` on `public.user_notifications` is denied to both `anon` and `authenticated`. Function search_path is fixed to `pg_catalog`. The disposable PostgreSQL regression test verifies owner access, cross-profile non-disclosure, and no direct table access.
+- **Advisor review after migration:** Health advisor returned no findings. Security advisor still reports 5 RLS-enabled/no-policy tables, 11 authenticated-callable SECURITY DEFINER RPCs (including this intentionally caller-scoped lookup), and leaked-password protection disabled. The five no-policy tables explicitly deny SELECT to `anon` and `authenticated`; their ACLs are limited to `postgres` and `service_role`. Performance advisor reports 4 unindexed foreign keys, 6 RLS init-plan warnings, and 9 unused-index candidates. No unrelated grants, policies, indexes, password settings, or paid-plan features were changed.
+- **Still pending:** `20261108120000_allow_requester_pending_cancellation` is not in the live migration ledger. Do not apply it until separately reviewed and authorized. The remaining local pending migration files also remain unapplied.
+- **PR #294:** `fix/notification-tap-identity-and-routing` remains a draft. The prior tested head `654c8e1c74eb5d21ba41752b113ceffc349cd019` had Android debug/release, clean PostgreSQL replay, Laravel/dashboard integration, source, RPC grant, and security checks passing; CodeQL summary was neutral because one workflow configuration was missing. Instrumentation tests were compiled but not run on a physical device/emulator. The new merge/reconciliation commit requires a fresh exact-head CI run. No device-verified crash fix is claimed.
+- **Operational boundary:** No FCM delivery worker, live FCM send, Render configuration, deployment, or user/incident-row mutation was performed. The applied database change is DDL for the protected lookup RPC only.
+
+
+## Verification refresh — 2026-11-13 (PR #294 head `249202d9073dfc663e5734e12825a92c6ad4353a`)
+
+All automated checks on this exact head completed successfully:
+- Source checks; Android debug and release APK builds; Android JVM unit tests; Android debug lint.
+- Clean PostgreSQL replay of the Supabase migrations; Laravel/dashboard integration; RPC-grant contract.
+- Repository security guardrails; CodeQL Android; CodeQL Web/GitHub Actions; static UI/workflow review; static security/correctness review; automated code review.
+
+The Android workflow **compiled** instrumentation tests but did not execute them on an emulator or physical device. No notification tap/session-lifecycle device validation is claimed. The PR remains a draft and is not merged. Keep it open until the notification tap flow is manually verified on an Android emulator or physical device, including session isolation and process recreation; then mark ready for review and re-check the exact head before merge.
+
+Artifacts were generated and uploaded by CI: demo-mode debug APK, Supabase-mode debug APK, and release APK. Release signing verification was skipped because signing was not configured; do not describe that APK as signed or production-ready.
+
+---
+
 # Current handoff — 2026-11-11: cross-layer error/fix history
 
 - **Consolidated error/fix history:** [`docs/APP_BACKEND_SUPABASE_ERROR_FIX_HISTORY.md`](docs/APP_BACKEND_SUPABASE_ERROR_FIX_HISTORY.md) combines the requester recording/report with documented Android, Render/Laravel bridge, dashboard, Supabase, notifications/Realtime/FCM, offline, and relevant CI/build fixes. It distinguishes confirmed vs inferred causes, merged code from live deployment, and verified checks from device/live gaps. README links to it. This is comprehensive across the audited records, not a claim to capture every undocumented runtime error or every repo change.
@@ -456,3 +480,15 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Validation:** `test_fcm_server_contract.py`, `test_fcm_registration_contract.py`, `test_migration_history_alignment.py`, `check_android_source.py`, stale-claim scan, and `git diff --check` pass. PHP/Android compilation and live Render execution remain unavailable in this sandbox.
 - **Security:** No credentials, tokens, provider responses, incident narratives, or coordinates were added. The configuration check is not a public HTTP route.
 - **Next:** Open a focused PR; after merge, run `php artisan tacresq:dispatch-fcm --check-config` on the private Render worker, then perform one synthetic physical-device delivery test. Do not claim push delivery from the configuration check alone.
+
+
+# Active handoff — 2026-11-13: live Supabase migrations and end-to-end validation
+- **Target:** TACResQ-School-Project / Supabase project `kttguamhznoflzagfutr`; branch `fix/notification-tap-identity-and-routing`; PR #294 remains draft.
+- **Database:** Applied all nine previously pending migrations. Supabase ledger now contains 39 versions. Repository migration filenames and `tools/test_migration_history_alignment.py` align to those exact versions; no unapplied migration files remain.
+- **Deployment detail:** The location receipt/rate-limit index is intentionally concurrent. Supabase's migration tool wraps submitted migrations in a transaction and rejected `CREATE INDEX CONCURRENTLY`; the index was created via direct SQL and verified, then the corresponding ledger row was recorded using a no-op `CREATE INDEX IF NOT EXISTS`. The repository's clean replay script executes it outside an enclosing transaction.
+- **Runtime checks:** Rollback-only PostgreSQL test passed synthetic signup/requester-only role enforcement, invalid signup rejection, requester pending cancellation, responder GPS write and eight-second rate limit, dispatcher-only fresh location read, Admin page/role-change/audit path, non-admin denial, and emergency location fallback validation. Test rows/users were rolled back.
+- **Live state:** Role/duty violations = 0; invalid/missing SOS location rows = 0. Four pre-existing profiles have incomplete name/phone values and remain unchanged.
+- **Review:** Security advisor reports five RLS-on/no-policy tables (these intentionally block direct client table access), 14 authenticated-callable SECURITY DEFINER RPCs with auth checks/grants, and leaked-password protection disabled. Performance advisor reports four unindexed FK constraints, six RLS auth-initplan opportunities, and eight currently unused indexes; do not drop/add indexes without validating query workload.
+- **CI:** After renaming migration files, stale hard-coded migration paths were updated in `test_required_request_and_admin_feedback.py`, `test_android_admin_rpc_contract.py`, `test_location_rpc_search_path.py`, `test_location_contract.py`, and `test_requester_active_incident.py`. The current exact-head CI run still needs to complete, including clean PostgreSQL replay and Laravel/dashboard integration.
+- **Device/operations:** Android JVM tests and build pass on the preceding head; instrumentation tests were compiled but not executed on a device. Real FCM delivery, notification tap/process recreation, physical device/OEM tests, Render worker configuration, and signed release artifact remain rollout checks. No production Auth user, incident, or location row was changed by the synthetic test.
+- **Do not merge PR #294 until all exact-head required checks pass and manual device/FCM acceptance is separately completed.**

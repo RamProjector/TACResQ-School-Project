@@ -3,6 +3,7 @@ package com.tacresq.app.notifications
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
+import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -22,14 +23,23 @@ class TacResqFirebaseMessagingService : FirebaseMessagingService() {
         PushNotificationChannels.ensure(this)
         if (!PushTokenCoordinator.notificationsAllowed(this)) return
 
+        val notificationId = PushNotificationIdentity.resolveNotificationId(message.data, message.messageId)
+        val notificationTag = PushNotificationIdentity.notificationManagerTag(notificationId)
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            // PendingIntent identity includes Intent data; extras alone do not distinguish alerts.
+            data = Uri.Builder()
+                .scheme("tacresq")
+                .authority("notification")
+                .appendPath(notificationId)
+                .build()
+            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
             putExtra(EXTRA_INCIDENT_ID, message.data["incident_id"])
             putExtra(EXTRA_EVENT_TYPE, message.data["event_type"])
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
-            message.data["incident_id"]?.hashCode() ?: 0,
+            0,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -41,13 +51,11 @@ class TacResqFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        NotificationManagerCompat.from(this).notify(
-            message.data["incident_id"]?.hashCode() ?: System.currentTimeMillis().toInt(),
-            notification,
-        )
+        NotificationManagerCompat.from(this).notify(notificationTag, 0, notification)
     }
 
     companion object {
+        const val EXTRA_NOTIFICATION_ID = "tacresq.notification_id"
         const val EXTRA_INCIDENT_ID = "tacresq.incident_id"
         const val EXTRA_EVENT_TYPE = "tacresq.event_type"
     }

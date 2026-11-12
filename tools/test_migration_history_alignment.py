@@ -29,24 +29,24 @@ EXPECTED = {
     "20261023082526_harden_dispatch_team_assignment.sql",
     "20261023082939_pin_dispatch_team_search_path.sql",
     "20261023103737_per_responder_assignment_status.sql",
+    "20261105235009_persistent_in_app_notifications.sql",
+    "20261105235016_fcm_delivery_attempts.sql",
+    "20261107234752_notification_realtime_broadcast.sql",
+    "20261108092044_incident_scoped_chat.sql",
+    "20261108092648_incident_message_rate_limit_index.sql",
+    "20261108092703_incident_chat_image_attachments.sql",
+    "20261112170112_add_my_notification_lookup.sql",
+    "20261112215429_isolate_per_responder_location_writer.sql",
+    "20261112215513_location_logs_received_rate_index_concurrently.sql",
+    "20261112215554_isolate_multi_responder_location_reader.sql",
+    "20261112215653_admin_role_audit_foundation.sql",
+    "20261112215712_admin_server_side_user_pagination.sql",
+    "20261112215721_require_incident_location_fallback.sql",
+    "20261112215734_require_requester_signup_contact.sql",
+    "20261112215748_bound_requester_signup_contact_lengths.sql",
+    "20261112215815_allow_requester_pending_cancellation.sql",
 }
-PENDING = {
-    "20261025170000_isolate_per_responder_location_writer.sql",
-    "20261025180000_location_logs_received_rate_index_concurrently.sql",
-    "20261026010000_isolate_multi_responder_location_reader.sql",
-    "20261026190000_persistent_in_app_notifications.sql",
-    "20261026200000_incident_scoped_chat.sql",
-    "20261026161500_admin_role_audit_foundation.sql",
-    "20261026170000_admin_server_side_user_pagination.sql",
-    "20261030100000_require_incident_location_fallback.sql",
-    "20261030110000_require_requester_signup_contact.sql",
-    "20261030120000_bound_requester_signup_contact_lengths.sql",
-    "20261030130000_incident_message_rate_limit_index.sql",
-    "20261031130000_incident_chat_image_attachments.sql",
-    "20261105030000_fcm_delivery_attempts.sql",
-    "20261107160000_notification_realtime_broadcast.sql",
-    "20261108120000_allow_requester_pending_cancellation.sql",
-}
+PENDING = set()
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
     f"Supabase migration history drift. Missing={sorted((EXPECTED | PENDING) - actual)}; "
@@ -91,7 +91,7 @@ for required in (
     assert required in team, f"Missing multi-unit dispatch contract: {required}"
 
 
-notifications = (MIGRATIONS / "20261026190000_persistent_in_app_notifications.sql").read_text()
+notifications = (MIGRATIONS / "20261105235009_persistent_in_app_notifications.sql").read_text()
 for required in (
     "CREATE TABLE IF NOT EXISTS public.user_notifications",
     "user_notifications_one_unread_assignment_idx",
@@ -108,8 +108,21 @@ for required in (
 ):
     assert required in notifications, f"Missing in-app notification security contract: {required}"
 
+notification_lookup = (MIGRATIONS / "20261112170112_add_my_notification_lookup.sql").read_text()
+for required in (
+    "CREATE OR REPLACE FUNCTION public.api_my_notification(p_notification_id bigint)",
+    "SECURITY DEFINER",
+    "SET search_path = pg_catalog",
+    "WHERE n.id = p_notification_id",
+    "AND n.recipient_user_id = actor_profile_id",
+    "REVOKE ALL ON FUNCTION public.api_my_notification(bigint) FROM PUBLIC, anon",
+    "GRANT EXECUTE ON FUNCTION public.api_my_notification(bigint) TO authenticated",
+):
+    assert required in notification_lookup, f"Missing caller-scoped notification lookup contract: {required}"
 
-chat = (MIGRATIONS / "20261026200000_incident_scoped_chat.sql").read_text()
+
+
+chat = (MIGRATIONS / "20261108092044_incident_scoped_chat.sql").read_text()
 for required in (
     "CREATE TABLE IF NOT EXISTS public.incident_messages",
     "ALTER TABLE public.incident_messages ENABLE ROW LEVEL SECURITY",
@@ -125,7 +138,7 @@ for required in (
 ):
     assert required in chat, f"Missing incident chat security contract: {required}"
 
-attachments = (MIGRATIONS / "20261031130000_incident_chat_image_attachments.sql").read_text()
+attachments = (MIGRATIONS / "20261108092703_incident_chat_image_attachments.sql").read_text()
 for required in (
     "ADD COLUMN IF NOT EXISTS attachment_path text",
     "public.api_send_incident_image_message(",
@@ -138,7 +151,7 @@ for required in (
     assert required in attachments, f"Missing private incident-image attachment contract: {required}"
 print("PASS: incident chat image attachments use private Storage policies and server-verified object metadata.")
 
-print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history; {len(PENDING)} proposed migration(s) are explicitly pending live application.")
+print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history; no unapplied migration files remain.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
     "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",
@@ -156,7 +169,7 @@ print("PASS: private assignment RPC pins its search path to pg_catalog.")
 print("PASS: missing location_and_push migration recreates FCM storage, RLS, and RPCs.")
 print("PASS: incident status logging runs after insert to satisfy the incident foreign key.")
 
-admin = (MIGRATIONS / "20261026161500_admin_role_audit_foundation.sql").read_text()
+admin = (MIGRATIONS / "20261112215653_admin_role_audit_foundation.sql").read_text()
 for required in (
     "CREATE TABLE public.admin_audit_logs",
     "ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY",
@@ -173,14 +186,14 @@ assert "FOR UPDATE TO authenticated" not in admin
 assert "FOR DELETE TO authenticated" not in admin
 assert "DROP FUNCTION" not in admin.upper()
 assert "DELETE FROM" not in admin.upper()
-pagination = (MIGRATIONS / "20261026170000_admin_server_side_user_pagination.sql").read_text()
+pagination = (MIGRATIONS / "20261112215712_admin_server_side_user_pagination.sql").read_text()
 assert "LIMIT p_limit OFFSET p_offset" in pagination
 assert "SET search_path = pg_catalog" in pagination
 assert "DROP FUNCTION" not in pagination.upper()
 assert "DELETE FROM" not in pagination.upper()
 print("PASS: Admin RPC authorization, append-only audit, and bounded pagination contracts are present.")
 
-location_fallback = (MIGRATIONS / "20261030100000_require_incident_location_fallback.sql").read_text().lower()
+location_fallback = (MIGRATIONS / "20261112215721_require_incident_location_fallback.sql").read_text().lower()
 for required in (
     "create or replace function public.tacresq_require_incident_location()",
     "set search_path = pg_catalog",
@@ -194,7 +207,7 @@ for required in (
 assert "security definer" not in location_fallback
 print("PASS: SOS inserts and location/type edits require a complete pin or a nonblank landmark/access detail.")
 
-signup_validation = (MIGRATIONS / "20261030110000_require_requester_signup_contact.sql").read_text().lower()
+signup_validation = (MIGRATIONS / "20261112215734_require_requester_signup_contact.sql").read_text().lower()
 for required in (
     "create or replace function public.tacresq_profile_on_signup()",
     "security definer",

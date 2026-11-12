@@ -39,6 +39,93 @@ class NotificationsViewModelTest {
     }
 
     @Test
+    fun pushTapLoadsExactNotificationAndRefreshesTheInbox() = runTest {
+        val repository = FakeNotificationRepository(
+            load = { Result.success(listOf(unreadNotification)) },
+            lookup = { Result.success(unreadNotification) },
+        )
+        val viewModel = NotificationsViewModel(repository)
+
+        viewModel.focusNotification(unreadNotification.id)
+        advanceUntilIdle()
+
+        assertEquals(50, repository.lastRequestedLimit)
+        assertEquals(unreadNotification.id, repository.lastLookupId)
+        assertEquals(unreadNotification.id, viewModel.state.value.focusedNotificationId)
+        assertEquals(unreadNotification, viewModel.state.value.focusedNotification)
+        assertEquals(listOf(unreadNotification), viewModel.state.value.items)
+        assertFalse(viewModel.state.value.focusLookupLoading)
+        assertFalse(viewModel.state.value.loading)
+        assertFalse(viewModel.state.value.refreshing)
+    }
+
+    @Test
+    fun pushTapFindsOlderOwnedNotificationOutsideTheNewestInboxPage() = runTest {
+        val recent = unreadNotification.copy(id = 900L, title = "Recent notification")
+        val older = unreadNotification.copy(id = 42L, title = "Older notification")
+        val repository = FakeNotificationRepository(
+            load = { Result.success(listOf(recent)) },
+            lookup = { requestedId -> if (requestedId == older.id) Result.success(older) else Result.success(null) },
+        )
+        val viewModel = NotificationsViewModel(repository)
+
+        viewModel.focusNotification(older.id)
+        advanceUntilIdle()
+
+        assertEquals(listOf(recent), viewModel.state.value.items)
+        assertEquals(older, viewModel.state.value.focusedNotification)
+        assertEquals(older.id, viewModel.state.value.focusedNotificationId)
+        assertFalse(viewModel.state.value.focusedNotificationMissing)
+    }
+
+    @Test
+    fun lookupForRemovedOrUnownedNotificationReturnsSafeNotFoundState() = runTest {
+        val repository = FakeNotificationRepository(
+            load = { Result.success(listOf(unreadNotification)) },
+            lookup = { Result.success(null) },
+        )
+        val viewModel = NotificationsViewModel(repository)
+
+        viewModel.focusNotification(987654L)
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.focusedNotification)
+        assertTrue(viewModel.state.value.focusedNotificationMissing)
+        assertNull(viewModel.state.value.focusLookupError)
+    }
+
+    @Test
+    fun lookupExceptionUsesGenericMessageWithoutBackendDetails() = runTest {
+        val repository = FakeNotificationRepository(
+            lookup = { throw IllegalStateException("sensitive backend detail") },
+        )
+        val viewModel = NotificationsViewModel(repository)
+
+        viewModel.focusNotification(unreadNotification.id)
+        advanceUntilIdle()
+
+        assertEquals(
+            "Could not verify this alert. Refresh your inbox and try again.",
+            viewModel.state.value.focusLookupError,
+        )
+        assertFalse(viewModel.state.value.focusLookupError!!.contains("sensitive backend detail"))
+        assertFalse(viewModel.state.value.focusLookupLoading)
+    }
+
+    @Test
+    fun invalidPushTapDoesNotStartAnInboxRequest() = runTest {
+        val repository = FakeNotificationRepository()
+        val viewModel = NotificationsViewModel(repository)
+
+        viewModel.focusNotification(0L)
+        advanceUntilIdle()
+
+        assertEquals(0, repository.lastRequestedLimit)
+        assertNull(repository.lastLookupId)
+        assertNull(viewModel.state.value.focusedNotificationId)
+    }
+
+    @Test
     fun refreshThrownExceptionUsesGenericErrorAndClearsProgress() = runTest {
         val repository = FakeNotificationRepository(
             load = {
@@ -191,13 +278,24 @@ class NotificationsViewModelTest {
             Result.success(emptyList())
         },
         private val markRead: suspend (Long) -> Result<Boolean> = { Result.success(true) },
+        private val lookup: suspend (Long) -> Result<UserNotification?> = { Result.success(null) },
     ) : NotificationRepository {
         var lastLoadJob: Job? = null
         var lastMarkReadJob: Job? = null
+        var lastLookupJob: Job? = null
+        var lastLookupId: Long? = null
+        var lastRequestedLimit: Int = 0
 
         override suspend fun myNotifications(limit: Int): Result<List<UserNotification>> {
+            lastRequestedLimit = limit
             lastLoadJob = currentCoroutineContext()[Job]
             return load(limit)
+        }
+
+        override suspend fun myNotification(notificationId: Long): Result<UserNotification?> {
+            lastLookupId = notificationId
+            lastLookupJob = currentCoroutineContext()[Job]
+            return lookup(notificationId)
         }
 
         override suspend fun markNotificationRead(notificationId: Long): Result<Boolean> {

@@ -95,9 +95,9 @@ checks = {
     "expanded incident cards share the ticking map clock so stale-location warnings keep updating": all(text in map_screen for text in ("MapIncidentCard(", "context = context,", "now = mapNow,", "private fun MapIncidentCard(", "now: Instant,", "incident.locationAgeStatus(now)")),
     "responder sign-out stops location sharing before clearing the session": 'Location sharing stopped because you signed out.' in app_root and "vm.stopTracking(" in app_root and "responderLogout" in app_root,
 }
-location_hardening_migration = (ROOT / "supabase/migrations/20261025170000_isolate_per_responder_location_writer.sql").read_text().lower()
-location_reader_migration = (ROOT / "supabase/migrations/20261026010000_isolate_multi_responder_location_reader.sql").read_text().lower()
-location_rate_index_migration = (ROOT / "supabase/migrations/20261025180000_location_logs_received_rate_index_concurrently.sql").read_text().lower()
+location_hardening_migration = (ROOT / "supabase/migrations/20261112215429_isolate_per_responder_location_writer.sql").read_text().lower()
+location_reader_migration = (ROOT / "supabase/migrations/20261112215554_isolate_multi_responder_location_reader.sql").read_text().lower()
+location_rate_index_migration = (ROOT / "supabase/migrations/20261112215513_location_logs_received_rate_index_concurrently.sql").read_text().lower()
 checks.update({
     "private GPS writer locks incident and assignment rows and serializes responder writes": (
         "for update of i, a;" in location_hardening_migration

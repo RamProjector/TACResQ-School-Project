@@ -49,6 +49,7 @@ ACTIVE_CLIENT_RPCS = {
     "api_update_my_incident",
     "api_me",
     "api_my_incidents",
+    "api_my_notification",
     "api_record_location_v2",
     "api_register_fcm_token",
     "api_set_duty_status",
