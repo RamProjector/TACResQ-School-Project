@@ -24,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +65,10 @@ data class NotificationUiState(
     val actionError: String? = null,
     val lastSyncAt: String? = null,
     val focusedNotificationId: Long? = null,
+    val focusedNotification: UserNotification? = null,
+    val focusLookupLoading: Boolean = false,
+    val focusedNotificationMissing: Boolean = false,
+    val focusLookupError: String? = null,
 )
 
 class NotificationsViewModel(
@@ -75,6 +80,8 @@ class NotificationsViewModel(
     val realtimeState: StateFlow<RealtimeConnectionState> = realtime.state
     private var refreshJob: kotlinx.coroutines.Job? = null
     private var refreshGeneration = 0L
+    private var focusLookupJob: kotlinx.coroutines.Job? = null
+    private var focusLookupGeneration = 0L
 
     init {
         viewModelScope.launch {
@@ -89,11 +96,13 @@ class NotificationsViewModel(
     fun refresh() = refreshNotifications(limit = 50, force = false)
 
     /**
-     * A push ID is untrusted. Clear cached rows and verify it against the
-     * authenticated inbox RPC before highlighting it in the UI.
+     * A push ID is only a locator. Refresh the inbox and perform a second,
+     * caller-scoped lookup so older alerts outside the newest page still open.
      */
     fun focusNotification(notificationId: Long) {
         if (notificationId <= 0L) return
+        val generation = ++focusLookupGeneration
+        focusLookupJob?.cancel()
         _state.update {
             it.copy(
                 items = emptyList(),
@@ -102,9 +111,63 @@ class NotificationsViewModel(
                 error = null,
                 actionError = null,
                 focusedNotificationId = notificationId,
+                focusedNotification = null,
+                focusLookupLoading = true,
+                focusedNotificationMissing = false,
+                focusLookupError = null,
             )
         }
-        refreshNotifications(limit = 100, force = true)
+        refreshNotifications(limit = 50, force = true)
+        focusLookupJob = viewModelScope.launch {
+            try {
+                repo.myNotification(notificationId)
+                    .onSuccess { notification ->
+                        _state.update { current ->
+                            if (
+                                current.focusedNotificationId != notificationId ||
+                                generation != focusLookupGeneration
+                            ) current
+                            else current.copy(
+                                focusedNotification = notification,
+                                focusLookupLoading = false,
+                                focusedNotificationMissing = notification == null,
+                                focusLookupError = null,
+                            )
+                        }
+                    }
+                    .onFailure {
+                        _state.update { current ->
+                            if (
+                                current.focusedNotificationId != notificationId ||
+                                generation != focusLookupGeneration
+                            ) current
+                            else current.copy(
+                                focusLookupLoading = false,
+                                focusedNotificationMissing = false,
+                                focusLookupError = "Could not verify this alert. Refresh your inbox and try again.",
+                            )
+                        }
+                    }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update { current ->
+                    if (
+                        current.focusedNotificationId != notificationId ||
+                        generation != focusLookupGeneration
+                    ) current
+                    else current.copy(
+                        focusLookupLoading = false,
+                        focusedNotificationMissing = false,
+                        focusLookupError = "Could not verify this alert. Refresh your inbox and try again.",
+                    )
+                }
+            } finally {
+                if (generation == focusLookupGeneration) {
+                    _state.update { it.copy(focusLookupLoading = false) }
+                }
+            }
+        }
     }
 
     private fun refreshNotifications(limit: Int, force: Boolean) {
@@ -227,14 +290,35 @@ fun NotificationsAndSafetyScreen(
     val realtimeState by vm.realtimeState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val listState = rememberLazyListState()
+    val displayedNotifications = remember(state.items, state.focusedNotification) {
+        val focused = state.focusedNotification
+        if (focused == null || state.items.any { it.id == focused.id }) {
+            state.items
+        } else {
+            listOf(focused) + state.items
+        }
+    }
 
-    LaunchedEffect(state.items, state.focusedNotificationId, state.loading, state.refreshing) {
+    LaunchedEffect(
+        displayedNotifications,
+        state.focusedNotificationId,
+        state.loading,
+        state.refreshing,
+        state.focusLookupLoading,
+        state.actionError,
+        state.error,
+        state.focusLookupError,
+    ) {
         val focusedId = state.focusedNotificationId ?: return@LaunchedEffect
-        if (state.loading || state.refreshing) return@LaunchedEffect
-        val focusedIndex = state.items.indexOfFirst { it.id == focusedId }
+        if (state.loading || state.refreshing || state.focusLookupLoading) return@LaunchedEffect
+        val focusedIndex = displayedNotifications.indexOfFirst { it.id == focusedId }
         if (focusedIndex >= 0) {
-            // Header + inbox status card precede the notification rows.
-            listState.animateScrollToItem(focusedIndex + 2)
+            // Screen header + inbox status card, plus any visible banners before the rows.
+            val leadingItems = 2 +
+                (if (state.actionError != null) 1 else 0) +
+                (if (state.error != null) 1 else 0) +
+                (if (state.focusLookupError != null) 1 else 0)
+            listState.animateScrollToItem(focusedIndex + leadingItems)
         }
     }
 
@@ -253,7 +337,7 @@ fun NotificationsAndSafetyScreen(
         }
     }
 
-    val unreadCount = state.items.count { it.readAt == null }
+    val unreadCount = displayedNotifications.count { it.readAt == null }
 
     LazyColumn(
         state = listState,
@@ -283,7 +367,7 @@ fun NotificationsAndSafetyScreen(
                         when {
                             state.error != null && state.items.isEmpty() -> "Notifications unavailable"
                             state.loading && state.items.isEmpty() -> "Loading notifications"
-                            state.items.isEmpty() -> "No notifications yet"
+                            displayedNotifications.isEmpty() -> "No notifications yet"
                             unreadCount == 0 -> "All caught up"
                             else -> "$unreadCount unread"
                         },
@@ -341,22 +425,25 @@ fun NotificationsAndSafetyScreen(
             }
         }
 
+        if (state.focusLookupLoading) {
+            item { Banner(text = "Verifying the selected alert…", isError = false) }
+        }
+        state.focusLookupError?.let { message ->
+            item { Banner(text = message, isError = true) }
+        }
         if (
-            state.focusedNotificationId != null &&
-            !state.loading &&
-            !state.refreshing &&
-            state.error == null &&
-            state.items.none { it.id == state.focusedNotificationId }
+            state.focusedNotificationMissing &&
+            displayedNotifications.none { it.id == state.focusedNotificationId }
         ) {
             item {
                 Banner(
-                    text = "This alert isn't in the latest 100 notifications returned for your account. It may have been removed or be outside the loaded history.",
+                    text = "This alert was removed or isn't available to this account.",
                     isError = false,
                 )
             }
         }
 
-        if (state.loading && state.items.isEmpty()) {
+        if (state.loading && displayedNotifications.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -369,8 +456,8 @@ fun NotificationsAndSafetyScreen(
                     }
                 }
             }
-        } else if (state.items.isNotEmpty()) {
-            items(state.items, key = { it.id }) { notification ->
+        } else if (displayedNotifications.isNotEmpty()) {
+            items(displayedNotifications, key = { it.id }) { notification ->
                 NotificationCard(
                     notification = notification,
                     focused = notification.id == state.focusedNotificationId,
