@@ -207,7 +207,7 @@ for required in (
 
 print("PASS: Android notifications use caller-scoped RPCs, recipient-filtered demo data, lifecycle-aware polling, selected-alert focus, explicit loading/empty/error/retry states, and preserve GPS Map navigation.")
 
-notification_lookup_sql = read("supabase/migrations/20261112150000_add_my_notification_lookup.sql")
+notification_lookup_sql = read("supabase/migrations/20261112170112_add_my_notification_lookup.sql")
 for required in (
     "CREATE OR REPLACE FUNCTION public.api_my_notification(p_notification_id bigint)",
     "SECURITY DEFINER",
