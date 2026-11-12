@@ -160,6 +160,13 @@ class TacRepository(
         notificationApi.myNotifications(limit)
     }
 
+    override suspend fun myNotification(notificationId: Long): Result<UserNotification?> = call {
+        val notificationApi = api as? TacNotificationApi
+            ?: throw ApiException("Notifications are not available with the configured backend.")
+        require(notificationId > 0) { "Notification ID must be positive." }
+        notificationApi.myNotification(notificationId)
+    }
+
     override suspend fun markNotificationRead(notificationId: Long): Result<Boolean> = call {
         val notificationApi = api as? TacNotificationApi
             ?: throw ApiException("Notifications are not available with the configured backend.")
