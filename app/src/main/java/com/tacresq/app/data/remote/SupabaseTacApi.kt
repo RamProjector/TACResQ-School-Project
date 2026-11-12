@@ -133,6 +133,11 @@ class SupabaseTacApi private constructor(
         return rpc.myNotifications(NotificationsLimitRpc(limit))
     }
 
+    override suspend fun myNotification(notificationId: Long): UserNotification? {
+        require(notificationId > 0) { "Notification ID must be positive." }
+        return rpc.myNotification(NotificationByIdRpc(notificationId))
+    }
+
     override suspend fun markNotificationRead(notificationId: Long): Boolean {
         require(notificationId > 0) { "Notification ID must be positive." }
         return rpc.markNotificationRead(MarkNotificationReadRpc(notificationId))
@@ -377,6 +382,9 @@ private interface SupabaseRpcWire {
     @POST("rest/v1/rpc/api_my_notifications")
     suspend fun myNotifications(@Body body: NotificationsLimitRpc): List<UserNotification>
 
+    @POST("rest/v1/rpc/api_my_notification")
+    suspend fun myNotification(@Body body: NotificationByIdRpc): UserNotification?
+
     @POST("rest/v1/rpc/api_mark_notification_read")
     suspend fun markNotificationRead(@Body body: MarkNotificationReadRpc): Boolean
 
@@ -445,6 +453,7 @@ private data class RecordLocationRpc(
     @SerializedName("p_recorded_at") val recordedAt: String,
 )
 private data class NotificationsLimitRpc(@SerializedName("p_limit") val limit: Int)
+private data class NotificationByIdRpc(@SerializedName("p_notification_id") val notificationId: Long)
 private data class MarkNotificationReadRpc(@SerializedName("p_notification_id") val notificationId: Long)
 private data class FcmTokenRpc(@SerializedName("p_token") val token: String)
 private data class IncidentMessagesRpc(
