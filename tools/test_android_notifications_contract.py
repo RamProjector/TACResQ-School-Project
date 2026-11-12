@@ -215,7 +215,7 @@ activity = read("app/src/main/java/com/tacresq/app/MainActivity.kt")
 root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
 for required in (
     "getStringExtra(TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID)",
-    "id.isNotBlank() && id.length <= 200",
+    "it.isNotBlank() && it.length <= 200",
 ):
     assert required in tap_model, f"Notification tap parser validation missing: {required}"
 for required in (
