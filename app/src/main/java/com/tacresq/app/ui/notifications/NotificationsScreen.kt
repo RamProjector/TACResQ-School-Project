@@ -69,6 +69,7 @@ data class NotificationUiState(
     val focusLookupLoading: Boolean = false,
     val focusedNotificationMissing: Boolean = false,
     val focusLookupError: String? = null,
+    val realtimeStartError: Boolean = false,
 )
 
 class NotificationsViewModel(
@@ -89,9 +90,31 @@ class NotificationsViewModel(
         }
     }
 
-    fun startRealtime() = realtime.start()
+    /**
+     * Realtime is an optimization; a bad endpoint or socket setup must never take
+     * down the notification inbox. The screen keeps its authoritative refresh loop
+     * running when the optional realtime connection cannot start.
+     */
+    fun startRealtime() {
+        try {
+            realtime.start()
+            _state.update { it.copy(realtimeStartError = false) }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            _state.update { it.copy(realtimeStartError = true) }
+        }
+    }
 
-    fun stopRealtime() = realtime.stop()
+    fun stopRealtime() {
+        try {
+            realtime.stop()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            _state.update { it.copy(realtimeStartError = true) }
+        }
+    }
 
     fun refresh() = refreshNotifications(limit = 50, force = false)
 
@@ -375,13 +398,14 @@ fun NotificationsAndSafetyScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        when (realtimeState) {
-                            RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt ?: "not yet recorded"}."
-                            RealtimeConnectionState.CONNECTING,
-                            RealtimeConnectionState.RECONNECTING -> "Realtime reconnecting; the inbox is using server refresh fallback."
-                            RealtimeConnectionState.UNAVAILABLE,
-                            RealtimeConnectionState.FALLBACK_SYNC,
-                            RealtimeConnectionState.ERROR -> "Realtime unavailable; the inbox remains available through server refresh."
+                        when {
+                            state.realtimeStartError -> "Realtime unavailable; the inbox remains available through server refresh."
+                            realtimeState == RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt ?: "not yet recorded"}."
+                            realtimeState == RealtimeConnectionState.CONNECTING ||
+                                realtimeState == RealtimeConnectionState.RECONNECTING -> "Realtime reconnecting; the inbox is using server refresh fallback."
+                            realtimeState == RealtimeConnectionState.UNAVAILABLE ||
+                                realtimeState == RealtimeConnectionState.FALLBACK_SYNC ||
+                                realtimeState == RealtimeConnectionState.ERROR -> "Realtime unavailable; the inbox remains available through server refresh."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
