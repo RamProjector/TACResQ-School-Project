@@ -1,7 +1,5 @@
 package com.tacresq.app.notifications
 
-import java.nio.ByteBuffer
-import java.security.MessageDigest
 import java.util.UUID
 
 /**
@@ -13,16 +11,25 @@ import java.util.UUID
 internal object PushNotificationIdentity {
     private val validId = Regex("[A-Za-z0-9._:-]{1,200}")
 
-    fun resolveNotificationId(data: Map<String, String>, messageId: String?, generatedId: String = UUID.randomUUID().toString()): String {
-        return data["notification_id"]?.takeIf(validId::matches)
-            ?: messageId?.takeIf(validId::matches)
-            ?: generatedId.takeIf(validId::matches)
+    fun isValidNotificationId(value: String): Boolean = validId.matches(value)
+
+    fun resolveNotificationId(
+        data: Map<String, String>,
+        messageId: String?,
+        generatedId: String = UUID.randomUUID().toString(),
+    ): String {
+        return data["notification_id"]?.takeIf(::isValidNotificationId)
+            ?: messageId?.takeIf(::isValidNotificationId)
+            ?: generatedId.takeIf(::isValidNotificationId)
             ?: UUID.randomUUID().toString()
     }
 
-    /** Android notification IDs are Ints; SHA-256 avoids Java String.hashCode collisions. */
-    fun notificationManagerId(notificationId: String): Int {
-        val digest = MessageDigest.getInstance("SHA-256").digest(notificationId.toByteArray(Charsets.UTF_8))
-        return (ByteBuffer.wrap(digest, 0, Int.SIZE_BYTES).int and Int.MAX_VALUE).coerceAtLeast(1)
+    /**
+     * Android notification identity is the (tag, integer ID) pair. Keeping the
+     * complete server ID in the tag avoids truncating it into a collision-prone Int.
+     */
+    fun notificationManagerTag(notificationId: String): String {
+        require(isValidNotificationId(notificationId)) { "Notification ID is invalid." }
+        return notificationId
     }
 }
