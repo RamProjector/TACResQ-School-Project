@@ -5,11 +5,11 @@ requester = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScr
 auth = (ROOT / "app/src/main/java/com/tacresq/app/ui/auth/AuthScreen.kt").read_text()
 supabase_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
-admin_migration = (ROOT / "supabase/migrations/20261026161500_admin_role_audit_foundation.sql").read_text()
+admin_migration = (ROOT / "supabase/migrations/20261112215653_admin_role_audit_foundation.sql").read_text()
 admin_runbook = (ROOT / "docs/ADMIN_PROVISIONING_RUNBOOK.md").read_text()
-location_migration = (ROOT / "supabase/migrations/20261030100000_require_incident_location_fallback.sql").read_text().lower()
-signup_migration = (ROOT / "supabase/migrations/20261030110000_require_requester_signup_contact.sql").read_text().lower()
-signup_bounds_migration = (ROOT / "supabase/migrations/20261030120000_bound_requester_signup_contact_lengths.sql").read_text().lower()
+location_migration = (ROOT / "supabase/migrations/20261112215721_require_incident_location_fallback.sql").read_text().lower()
+signup_migration = (ROOT / "supabase/migrations/20261112215734_require_requester_signup_contact.sql").read_text().lower()
+signup_bounds_migration = (ROOT / "supabase/migrations/20261112215748_bound_requester_signup_contact_lengths.sql").read_text().lower()
 
 # SOS category must be selected explicitly; Other requires details.
 assert "mutableStateOf<IncidentType?>(null)" in requester
