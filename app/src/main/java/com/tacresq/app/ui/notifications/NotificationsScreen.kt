@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -21,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -287,9 +287,7 @@ fun NotificationsAndSafetyScreen(
     onOpenChat: (Long) -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val realtimeState by vm.realtimeState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
-    val listState = rememberLazyListState()
     val displayedNotifications = remember(state.items, state.focusedNotification) {
         val focused = state.focusedNotification
         if (focused == null || state.items.any { it.id == focused.id }) {
@@ -299,48 +297,24 @@ fun NotificationsAndSafetyScreen(
         }
     }
 
-    LaunchedEffect(
-        displayedNotifications,
-        state.focusedNotificationId,
-        state.loading,
-        state.refreshing,
-        state.focusLookupLoading,
-        state.actionError,
-        state.error,
-        state.focusLookupError,
-    ) {
-        val focusedId = state.focusedNotificationId ?: return@LaunchedEffect
-        if (state.loading || state.refreshing || state.focusLookupLoading) return@LaunchedEffect
-        val focusedIndex = displayedNotifications.indexOfFirst { it.id == focusedId }
-        if (focusedIndex >= 0) {
-            // Screen header + inbox status card, plus any visible banners before the rows.
-            val leadingItems = 2 +
-                (if (state.actionError != null) 1 else 0) +
-                (if (state.error != null) 1 else 0) +
-                (if (state.focusLookupError != null) 1 else 0)
-            listState.animateScrollToItem(focusedIndex + leadingItems)
-        }
-    }
-
+    // Keep the screen lifecycle-owned and server-backed without starting a socket from composition.
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            vm.startRealtime()
-            try {
+            vm.refresh()
+            while (true) {
+                delay(30_000)
                 vm.refresh()
-                while (true) {
-                    delay(30_000)
-                    vm.refresh()
-                }
-            } finally {
-                vm.stopRealtime()
             }
         }
     }
 
     val unreadCount = displayedNotifications.count { it.readAt == null }
 
-    LazyColumn(
-        state = listState,
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -375,14 +349,7 @@ fun NotificationsAndSafetyScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        when (realtimeState) {
-                            RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt ?: "not yet recorded"}."
-                            RealtimeConnectionState.CONNECTING,
-                            RealtimeConnectionState.RECONNECTING -> "Realtime reconnecting; the inbox is using server refresh fallback."
-                            RealtimeConnectionState.UNAVAILABLE,
-                            RealtimeConnectionState.FALLBACK_SYNC,
-                            RealtimeConnectionState.ERROR -> "Realtime unavailable; the inbox remains available through server refresh."
-                        },
+                        "This inbox syncs with the server while the screen is open.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -473,6 +440,7 @@ fun NotificationsAndSafetyScreen(
         }
 
 
+        }
     }
 }
 
