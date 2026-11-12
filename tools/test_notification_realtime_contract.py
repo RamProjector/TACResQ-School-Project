@@ -25,6 +25,13 @@ checks = [
     check("transport has explicit lifecycle and reconnect states", all(token in contract for token in (
         "UNAVAILABLE", "CONNECTING", "CONNECTED", "RECONNECTING", "FALLBACK_SYNC", "ERROR",
     )) and all(token in transport for token in ("fun start()", "fun stop()", "scheduleReconnect"))),
+    check("synchronous socket setup failures fall back without escaping screen entry", all(token in transport for token in (
+        "connectSafely(isReconnect = false)",
+        "private fun connectSafely(isReconnect: Boolean)",
+        "catch (_: IllegalArgumentException)",
+        "RealtimeConnectionState.FALLBACK_SYNC",
+        "connectSafely(isReconnect = true)",
+    ))),
     check("transport emits only allowlisted notification hints", all(token in transport for token in (
         "notification_id", "incident_assigned", "incident_status_changed", "notification_created",
     )) and "user_notifications" not in transport),
