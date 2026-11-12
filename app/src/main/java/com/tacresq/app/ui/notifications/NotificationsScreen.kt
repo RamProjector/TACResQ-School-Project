@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -62,6 +63,7 @@ data class NotificationUiState(
     val error: String? = null,
     val actionError: String? = null,
     val lastSyncAt: String? = null,
+    val focusedNotificationId: Long? = null,
 )
 
 class NotificationsViewModel(
@@ -72,6 +74,7 @@ class NotificationsViewModel(
     val state: StateFlow<NotificationUiState> = _state.asStateFlow()
     val realtimeState: StateFlow<RealtimeConnectionState> = realtime.state
     private var refreshJob: kotlinx.coroutines.Job? = null
+    private var refreshGeneration = 0L
 
     init {
         viewModelScope.launch {
@@ -83,8 +86,31 @@ class NotificationsViewModel(
 
     fun stopRealtime() = realtime.stop()
 
-    fun refresh() {
-        if (refreshJob?.isActive == true) return
+    fun refresh() = refreshNotifications(limit = 50, force = false)
+
+    /**
+     * A push ID is untrusted. Clear cached rows and verify it against the
+     * authenticated inbox RPC before highlighting it in the UI.
+     */
+    fun focusNotification(notificationId: Long) {
+        if (notificationId <= 0L) return
+        _state.update {
+            it.copy(
+                items = emptyList(),
+                loading = true,
+                refreshing = false,
+                error = null,
+                actionError = null,
+                focusedNotificationId = notificationId,
+            )
+        }
+        refreshNotifications(limit = 100, force = true)
+    }
+
+    private fun refreshNotifications(limit: Int, force: Boolean) {
+        if (!force && refreshJob?.isActive == true) return
+        val generation = ++refreshGeneration
+        if (force) refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             _state.update {
                 it.copy(
@@ -94,7 +120,7 @@ class NotificationsViewModel(
                 )
             }
             try {
-                repo.myNotifications(limit = 50)
+                repo.myNotifications(limit = limit)
                     .onSuccess { items ->
                         _state.update {
                             it.copy(
@@ -126,8 +152,10 @@ class NotificationsViewModel(
                     )
                 }
             } finally {
-                // Cancellation must not leave stale progress indicators in a still-visible VM.
-                _state.update { it.copy(loading = false, refreshing = false) }
+                // A superseded request must not clear progress owned by a newer refresh.
+                if (generation == refreshGeneration) {
+                    _state.update { it.copy(loading = false, refreshing = false) }
+                }
             }
         }
     }
@@ -198,6 +226,17 @@ fun NotificationsAndSafetyScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     val realtimeState by vm.realtimeState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(state.items, state.focusedNotificationId, state.loading, state.refreshing) {
+        val focusedId = state.focusedNotificationId ?: return@LaunchedEffect
+        if (state.loading || state.refreshing) return@LaunchedEffect
+        val focusedIndex = state.items.indexOfFirst { it.id == focusedId }
+        if (focusedIndex >= 0) {
+            // Header + inbox status card precede the notification rows.
+            listState.animateScrollToItem(focusedIndex + 2)
+        }
+    }
 
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -217,6 +256,7 @@ fun NotificationsAndSafetyScreen(
     val unreadCount = state.items.count { it.readAt == null }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -301,6 +341,21 @@ fun NotificationsAndSafetyScreen(
             }
         }
 
+        if (
+            state.focusedNotificationId != null &&
+            !state.loading &&
+            !state.refreshing &&
+            state.error == null &&
+            state.items.none { it.id == state.focusedNotificationId }
+        ) {
+            item {
+                Banner(
+                    text = "This alert isn't in the latest 100 notifications returned for your account. It may have been removed or be outside the loaded history.",
+                    isError = false,
+                )
+            }
+        }
+
         if (state.loading && state.items.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -318,6 +373,7 @@ fun NotificationsAndSafetyScreen(
             items(state.items, key = { it.id }) { notification ->
                 NotificationCard(
                     notification = notification,
+                    focused = notification.id == state.focusedNotificationId,
                     busy = notification.id in state.busyIds,
                     onMarkRead = { vm.markRead(notification) },
                     onOpenIncident = { incidentId ->
@@ -336,6 +392,7 @@ fun NotificationsAndSafetyScreen(
 @Composable
 private fun NotificationCard(
     notification: UserNotification,
+    focused: Boolean,
     busy: Boolean,
     onMarkRead: () -> Unit,
     onOpenIncident: (Long) -> Unit,
@@ -352,7 +409,8 @@ private fun NotificationCard(
         shape = MaterialTheme.shapes.large,
         border = BorderStroke(
             1.dp,
-            if (unread) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+            if (focused) MaterialTheme.colorScheme.primary
+            else if (unread) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
             else MaterialTheme.colorScheme.outlineVariant,
         ),
         colors = CardDefaults.cardColors(
@@ -378,6 +436,14 @@ private fun NotificationCard(
                 )
             }
             Text(body, style = MaterialTheme.typography.bodyMedium)
+            if (focused) {
+                Text(
+                    "Opened from alert",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
             val incidentLabel = incidentId?.let { "Request reference #$it · " }.orEmpty()
             Text(
                 incidentLabel + formatNotificationTime(notification.createdAt),
