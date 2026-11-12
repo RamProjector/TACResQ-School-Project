@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.tacresq.app.notifications.PushNotificationTap
+import com.tacresq.app.notifications.PushNotificationIdentity
 import com.tacresq.app.ui.AppRoot
 import com.tacresq.app.ui.theme.TACResQTheme
 
@@ -25,7 +26,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         acceptAuthReturn(intent)
         notificationTap = savedInstanceState?.getString(STATE_NOTIFICATION_ID)
-            ?.takeIf { it.isNotBlank() && it.length <= 200 }
+            ?.takeIf(PushNotificationIdentity::isValidNotificationId)
             ?.let(::PushNotificationTap)
             ?: PushNotificationTap.from(intent)
         val container = (application as TacResqApp).container
@@ -46,7 +47,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         acceptAuthReturn(intent)
-        PushNotificationTap.from(intent)?.let { notificationTap = it }
+        notificationTap = PushNotificationTap.from(intent)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
