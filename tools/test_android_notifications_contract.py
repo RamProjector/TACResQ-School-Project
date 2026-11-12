@@ -238,12 +238,16 @@ for required in (
 ):
     assert required in tap_model, f"Notification tap parser validation missing: {required}"
 for required in (
-    "notificationTap = savedInstanceState?.getString(STATE_NOTIFICATION_ID)",
-    "?: PushNotificationTap.from(intent)",
     "notificationTap = PushNotificationTap.from(intent)",
+    "savedInstanceState?.getString(STATE_NOTIFICATION_ID)",
     "onNotificationTapConsumed = { consumeNotificationTap() }",
 ):
     assert required in activity, f"Activity notification lifecycle handoff missing: {required}"
+incoming_tap_index = activity.index("notificationTap = PushNotificationTap.from(intent)")
+restored_tap_index = activity.index("savedInstanceState?.getString(STATE_NOTIFICATION_ID)")
+assert incoming_tap_index < restored_tap_index, (
+    "A fresh notification intent must take precedence over an older restored tap."
+)
 for required in (
     "notificationTap: PushNotificationTap? = null",
     "LaunchedEffect(notificationTap?.notificationId)",
