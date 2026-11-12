@@ -11,10 +11,10 @@ admin_screen_path = ROOT / "app/src/main/java/com/tacresq/app/ui/admin/AdminAcce
 blocked_screen_path = ROOT / "app/src/main/java/com/tacresq/app/ui/auth/AdminMobileBlockedScreen.kt"
 web_admin_console = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
 server_admin_migration = (
-    ROOT / "supabase/migrations/20261026161500_admin_role_audit_foundation.sql"
+    ROOT / "supabase/migrations/20261112215653_admin_role_audit_foundation.sql"
 ).read_text().lower()
 server_pagination_migration = (
-    ROOT / "supabase/migrations/20261026170000_admin_server_side_user_pagination.sql"
+    ROOT / "supabase/migrations/20261112215712_admin_server_side_user_pagination.sql"
 ).read_text().lower()
 server_contract = server_admin_migration + "\n" + server_pagination_migration
 mobile_client = "\n".join((api, supabase, repository))
