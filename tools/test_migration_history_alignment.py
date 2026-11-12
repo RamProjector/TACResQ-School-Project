@@ -46,6 +46,7 @@ PENDING = {
     "20261105030000_fcm_delivery_attempts.sql",
     "20261107160000_notification_realtime_broadcast.sql",
     "20261108120000_allow_requester_pending_cancellation.sql",
+    "20261112150000_add_my_notification_lookup.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
@@ -107,6 +108,19 @@ for required in (
     "GRANT EXECUTE ON FUNCTION public.api_mark_notification_read(bigint) TO authenticated",
 ):
     assert required in notifications, f"Missing in-app notification security contract: {required}"
+
+notification_lookup = (MIGRATIONS / "20261112150000_add_my_notification_lookup.sql").read_text()
+for required in (
+    "CREATE OR REPLACE FUNCTION public.api_my_notification(p_notification_id bigint)",
+    "SECURITY DEFINER",
+    "SET search_path = pg_catalog",
+    "WHERE n.id = p_notification_id",
+    "AND n.recipient_user_id = actor_profile_id",
+    "REVOKE ALL ON FUNCTION public.api_my_notification(bigint) FROM PUBLIC, anon",
+    "GRANT EXECUTE ON FUNCTION public.api_my_notification(bigint) TO authenticated",
+):
+    assert required in notification_lookup, f"Missing caller-scoped notification lookup contract: {required}"
+
 
 
 chat = (MIGRATIONS / "20261026200000_incident_scoped_chat.sql").read_text()
