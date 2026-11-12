@@ -219,7 +219,8 @@ for required in (
 ):
     assert required in tap_model, f"Notification tap parser validation missing: {required}"
 for required in (
-    "notificationTap = PushNotificationTap.from(intent)",
+    "notificationTap = savedInstanceState?.getString(STATE_NOTIFICATION_ID)",
+    "?: PushNotificationTap.from(intent)",
     "PushNotificationTap.from(intent)?.let { notificationTap = it }",
     "onNotificationTapConsumed = { notificationTap = null }",
 ):
