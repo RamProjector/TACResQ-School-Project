@@ -232,3 +232,13 @@ for required in (
     "notificationTap = notificationTap",
 ):
     assert required in root, f"Authenticated notification inbox routing missing: {required}"
+
+
+pending_intent_tests = read("app/src/androidTest/java/com/tacresq/app/notifications/PushNotificationPendingIntentTest.kt")
+for required in (
+    "notificationDataUriSeparatesPendingIntentsEvenWithSameRequestCode",
+    "assertNotEquals(first, second)",
+    "assertEquals(first, firstAgain)",
+    "PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE",
+):
+    assert required in pending_intent_tests, f"PendingIntent identity instrumentation test missing: {required}"
