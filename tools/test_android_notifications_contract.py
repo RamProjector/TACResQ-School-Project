@@ -176,7 +176,24 @@ for required in (
 ):
     assert required in behavior_tests, f"Focused notification ViewModel behavior test missing: {required}"
 
-print("PASS: Android notifications use caller-scoped RPCs, recipient-filtered demo data, lifecycle-aware polling, explicit loading/empty/error/retry states, and preserve GPS Map navigation.")
+focused_notifications = read("app/src/main/java/com/tacresq/app/ui/notifications/NotificationsScreen.kt")
+focused_tests = read("app/src/test/java/com/tacresq/app/ui/notifications/NotificationsViewModelTest.kt")
+for required in (
+    "val focusedNotificationId: Long? = null",
+    "fun focusNotification(notificationId: Long)",
+    "refreshNotifications(limit = 100, force = true)",
+    "focused = notification.id == state.focusedNotificationId",
+    '"Opened from alert"',
+    "listState.animateScrollToItem(focusedIndex + 2)",
+):
+    assert required in focused_notifications, f"Push-tap inbox focus contract missing: {required}"
+for required in (
+    "pushTapForcesFreshExpandedInboxAndRetainsOnlyTheRequestedFocus",
+    "invalidPushTapDoesNotStartAnInboxRequest",
+):
+    assert required in focused_tests, f"Push-tap inbox focus test missing: {required}"
+
+print("PASS: Android notifications use caller-scoped RPCs, recipient-filtered demo data, lifecycle-aware polling, selected-alert focus, explicit loading/empty/error/retry states, and preserve GPS Map navigation.")
 
 
 # FCM tap identity must be per inbox notification, not per incident.
@@ -188,12 +205,13 @@ for required in (
     '.authority("notification")',
     '.appendPath(notificationId)',
     'PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE',
-    'notify(androidNotificationId, notification)',
+    'notify(notificationTag, 0, notification)',
+    'val notificationTag = PushNotificationIdentity.notificationManagerTag(notificationId)',
 ):
     assert required in push_service, f"Push notification tap identity missing: {required}"
 for required in (
     'data["notification_id"]',
-    'MessageDigest.getInstance("SHA-256")',
+    'fun notificationManagerTag(notificationId: String): String',
     'UUID.randomUUID()',
 ):
     assert required in identity, f"Stable notification identity contract missing: {required}"
@@ -204,7 +222,8 @@ for required in (
     "serverNotificationIdWinsOverIncidentAndMessageIdentity",
     "malformedServerIdFallsBackToFcmMessageId",
     "missingIdsUseGeneratedFallback",
-    "managerIdentityIsStableAndSeparatesDistinctInboxNotifications",
+    "managerTagPreservesTheFullNotificationIdentity",
+    "notificationManagerTagRejectsMalformedIds",
 ):
     assert required in identity_tests, f"Push identity behavior test missing: {required}"
 
@@ -215,13 +234,13 @@ activity = read("app/src/main/java/com/tacresq/app/MainActivity.kt")
 root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
 for required in (
     "getStringExtra(TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID)",
-    "it.isNotBlank() && it.length <= 200",
+    "PushNotificationIdentity::isValidNotificationId",
 ):
     assert required in tap_model, f"Notification tap parser validation missing: {required}"
 for required in (
     "notificationTap = savedInstanceState?.getString(STATE_NOTIFICATION_ID)",
     "?: PushNotificationTap.from(intent)",
-    "PushNotificationTap.from(intent)?.let { notificationTap = it }",
+    "notificationTap = PushNotificationTap.from(intent)",
     "onNotificationTapConsumed = { consumeNotificationTap() }",
 ):
     assert required in activity, f"Activity notification lifecycle handoff missing: {required}"
@@ -230,6 +249,7 @@ for required in (
     "LaunchedEffect(notificationTap?.notificationId)",
     "openNotifications()",
     "onNotificationTapConsumed()",
+    "notificationsVm::focusNotification",
     "notificationTap = notificationTap",
 ):
     assert required in root, f"Authenticated notification inbox routing missing: {required}"
@@ -240,6 +260,7 @@ for required in (
     "notificationDataUriSeparatesPendingIntentsEvenWithSameRequestCode",
     "assertNotEquals(first, second)",
     "assertEquals(first, firstAgain)",
+    "notificationTapParserRejectsMalformedAndOversizedIds",
     "PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE",
 ):
     assert required in pending_intent_tests, f"PendingIntent identity instrumentation test missing: {required}"
