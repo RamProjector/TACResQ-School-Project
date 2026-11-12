@@ -167,6 +167,17 @@ class FakeTacApi(
         }
     }
 
+    override suspend fun myNotification(notificationId: Long): UserNotification? {
+        delay(80)
+        if (notificationId < 1) throw httpError(422, "Notification ID must be positive.")
+        return synchronized(lock) {
+            val me = current()
+            notifications.firstOrNull {
+                it.value.id == notificationId && it.recipientId == me.id
+            }?.value
+        }
+    }
+
     override suspend fun markNotificationRead(notificationId: Long): Boolean {
         delay(100)
         if (notificationId < 1) throw httpError(422, "Notification ID must be positive.")
