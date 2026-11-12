@@ -208,12 +208,19 @@ fun AppRoot(
                         key = "chat-${user.id}",
                         factory = factory,
                     )
+                    val consumePushNotificationTap: () -> Unit = {
+                        notificationTap?.notificationId
+                            ?.toLongOrNull()
+                            ?.takeIf { it > 0L }
+                            ?.let(notificationsVm::focusNotification)
+                        onNotificationTapConsumed()
+                    }
                     when (user.role) {
                         Role.ADMIN -> Unit
                         Role.REQUESTER -> {
                             val vm: RequesterViewModel = viewModel(key = "requester-${user.id}", factory = factory)
                             val vmState by vm.state.collectAsStateWithLifecycle()
-                            RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout, routingProvider = container.routingProvider, notificationTap = notificationTap, onNotificationTapConsumed = onNotificationTapConsumed) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
+                            RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout, routingProvider = container.routingProvider, notificationTap = notificationTap, onNotificationTapConsumed = consumePushNotificationTap) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
                                 if (selectedChatIncidentId != null && destination == AppDestination.CHAT) {
                                     IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                                 } else if (destination == AppDestination.PRIMARY) RequesterScreen(vm, user, logout, onOpenChat = openChat, onOpenNotifications = openNotifications)
@@ -236,7 +243,7 @@ fun AppRoot(
                                 vm.stopTracking("Location sharing stopped because you signed out.")
                                 logout()
                             }
-                            RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider, trackingController = container.responderLocationTracking, notificationTap = notificationTap, onNotificationTapConsumed = onNotificationTapConsumed) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, openMapIncident ->
+                            RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider, trackingController = container.responderLocationTracking, notificationTap = notificationTap, onNotificationTapConsumed = consumePushNotificationTap) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, openMapIncident ->
                                 if (selectedChatIncidentId != null) {
                                     IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); responderLogout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
                                 } else if (destination == AppDestination.PRIMARY) ResponderScreen(
@@ -270,7 +277,7 @@ fun AppRoot(
                                 responderLocations = vmState.responderLocations,
                                 onMapRefresh = vm::refresh,
                                 notificationTap = notificationTap,
-                                onNotificationTapConsumed = onNotificationTapConsumed,
+                                onNotificationTapConsumed = consumePushNotificationTap,
                             ) { destination, openIncident, selectedIncidentId, openChat, selectedChatIncidentId, closeChat, openNotifications, _ ->
                                 if (selectedChatIncidentId != null) {
                                     IncidentChatScreen(chatVm, selectedChatIncidentId, user, onBack = { chatVm.closeConversation(); closeChat() }, onLogout = { chatVm.closeConversation(); logout() }, onOpenNotifications = { chatVm.closeConversation(); openNotifications() })
