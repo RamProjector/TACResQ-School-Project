@@ -113,6 +113,7 @@ class SupabaseNotificationRealtime(
         _state.value = RealtimeConnectionState.RECONNECTING
         reconnectJob = scope.launch(Dispatchers.IO) {
             delay(delayMs)
+            reconnectJob = null
             if (!stopped) connectSafely(isReconnect = true)
         }
     }
