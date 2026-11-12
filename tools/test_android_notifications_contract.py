@@ -177,3 +177,33 @@ for required in (
     assert required in behavior_tests, f"Focused notification ViewModel behavior test missing: {required}"
 
 print("PASS: Android notifications use caller-scoped RPCs, recipient-filtered demo data, lifecycle-aware polling, explicit loading/empty/error/retry states, and preserve GPS Map navigation.")
+
+
+# FCM tap identity must be per inbox notification, not per incident.
+push_service = read("app/src/main/java/com/tacresq/app/notifications/TacResqFirebaseMessagingService.kt")
+identity = read("app/src/main/java/com/tacresq/app/notifications/PushNotificationIdentity.kt")
+for required in (
+    'message.data, message.messageId',
+    'EXTRA_NOTIFICATION_ID, notificationId',
+    '.authority("notification")',
+    '.appendPath(notificationId)',
+    'PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE',
+    'notify(androidNotificationId, notification)',
+):
+    assert required in push_service, f"Push notification tap identity missing: {required}"
+for required in (
+    'data["notification_id"]',
+    'MessageDigest.getInstance("SHA-256")',
+    'UUID.randomUUID()',
+):
+    assert required in identity, f"Stable notification identity contract missing: {required}"
+assert "incident_id"]?.hashCode()" not in push_service, "PendingIntent identity must not be scoped only to incident ID"
+
+identity_tests = read("app/src/test/java/com/tacresq/app/notifications/PushNotificationIdentityTest.kt")
+for required in (
+    "serverNotificationIdWinsOverIncidentAndMessageIdentity",
+    "malformedServerIdFallsBackToFcmMessageId",
+    "missingIdsUseGeneratedFallback",
+    "managerIdentityIsStableAndSeparatesDistinctInboxNotifications",
+):
+    assert required in identity_tests, f"Push identity behavior test missing: {required}"
