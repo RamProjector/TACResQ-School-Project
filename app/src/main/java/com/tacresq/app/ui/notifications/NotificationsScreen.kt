@@ -406,6 +406,7 @@ fun NotificationsAndSafetyScreen(
                             realtimeState == RealtimeConnectionState.UNAVAILABLE ||
                                 realtimeState == RealtimeConnectionState.FALLBACK_SYNC ||
                                 realtimeState == RealtimeConnectionState.ERROR -> "Realtime unavailable; the inbox remains available through server refresh."
+                            else -> "Realtime unavailable; the inbox remains available through server refresh."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
