@@ -18,9 +18,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -315,129 +315,129 @@ fun NotificationsAndSafetyScreen(
         color = MaterialTheme.colorScheme.background,
     ) {
         LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            ScreenHeader(
-                title = "Notifications",
-                subtitle = "Push alerts bring you here; this inbox is the source of truth.",
-            )
-        }
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        when {
-                            state.error != null && state.items.isEmpty() -> "Notifications unavailable"
-                            state.loading && state.items.isEmpty() -> "Loading notifications"
-                            displayedNotifications.isEmpty() -> "No notifications yet"
-                            unreadCount == 0 -> "All caught up"
-                            else -> "$unreadCount unread"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        "This inbox syncs with the server while the screen is open.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (state.refreshing) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.size(8.dp))
-                        }
-                        OutlinedButton(onClick = vm::refresh, enabled = !state.loading && !state.refreshing) {
-                            Text("Refresh")
-                        }
-                    }
-                }
-            }
-        }
-
-        state.actionError?.let { message ->
-            item {
-                Banner(
-                    text = message,
-                    isError = true,
-                    onDismiss = vm::dismissActionError,
-                )
-            }
-        }
-
-        state.error?.let { message ->
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Notifications unavailable", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Button(onClick = vm::refresh, enabled = !state.refreshing) { Text("Try again") }
-                    }
-                }
-            }
-        }
-
-        if (state.focusLookupLoading) {
-            item { Banner(text = "Verifying the selected alert…", isError = false) }
-        }
-        state.focusLookupError?.let { message ->
-            item { Banner(text = message, isError = true) }
-        }
-        if (
-            state.focusedNotificationMissing &&
-            displayedNotifications.none { it.id == state.focusedNotificationId }
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                Banner(
-                    text = "This alert was removed or isn't available to this account.",
-                    isError = false,
+                ScreenHeader(
+                    title = "Notifications",
+                    subtitle = "Push alerts bring you here; this inbox is the source of truth.",
                 )
             }
-        }
-
-        if (state.loading && displayedNotifications.isEmpty()) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                        Text("Loading your notifications…", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            when {
+                                state.error != null && state.items.isEmpty() -> "Notifications unavailable"
+                                state.loading && state.items.isEmpty() -> "Loading notifications"
+                                displayedNotifications.isEmpty() -> "No notifications yet"
+                                unreadCount == 0 -> "All caught up"
+                                else -> "$unreadCount unread"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "This inbox syncs with the server while the screen is open.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (state.refreshing) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.size(8.dp))
+                            }
+                            OutlinedButton(onClick = vm::refresh, enabled = !state.loading && !state.refreshing) {
+                                Text("Refresh")
+                            }
+                        }
                     }
                 }
             }
-        } else if (displayedNotifications.isNotEmpty()) {
-            items(displayedNotifications, key = { it.id }) { notification ->
-                NotificationCard(
-                    notification = notification,
-                    focused = notification.id == state.focusedNotificationId,
-                    busy = notification.id in state.busyIds,
-                    onMarkRead = { vm.markRead(notification) },
-                    onOpenIncident = { incidentId ->
-                        if (notification.readAt == null) vm.markRead(notification)
-                        if (notification.eventType == "incident_message") onOpenChat(incidentId)
-                        else onOpenIncident(incidentId)
-                    },
-                )
+
+            state.actionError?.let { message ->
+                item {
+                    Banner(
+                        text = message,
+                        isError = true,
+                        onDismiss = vm::dismissActionError,
+                    )
+                }
             }
-        }
+
+            state.error?.let { message ->
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Notifications unavailable", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Button(onClick = vm::refresh, enabled = !state.refreshing) { Text("Try again") }
+                        }
+                    }
+                }
+            }
+
+            if (state.focusLookupLoading) {
+                item { Banner(text = "Verifying the selected alert…", isError = false) }
+            }
+            state.focusLookupError?.let { message ->
+                item { Banner(text = message, isError = true) }
+            }
+            if (
+                state.focusedNotificationMissing &&
+                displayedNotifications.none { it.id == state.focusedNotificationId }
+            ) {
+                item {
+                    Banner(
+                        text = "This alert was removed or isn't available to this account.",
+                        isError = false,
+                    )
+                }
+            }
+
+            if (state.loading && displayedNotifications.isEmpty()) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                            Text("Loading your notifications…", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            } else if (displayedNotifications.isNotEmpty()) {
+                items(displayedNotifications, key = { it.id }) { notification ->
+                    NotificationCard(
+                        notification = notification,
+                        focused = notification.id == state.focusedNotificationId,
+                        busy = notification.id in state.busyIds,
+                        onMarkRead = { vm.markRead(notification) },
+                        onOpenIncident = { incidentId ->
+                            if (notification.readAt == null) vm.markRead(notification)
+                            if (notification.eventType == "incident_message") onOpenChat(incidentId)
+                            else onOpenIncident(incidentId)
+                        },
+                    )
+                }
+            }
 
 
         }
