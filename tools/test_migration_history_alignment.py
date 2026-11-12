@@ -29,24 +29,24 @@ EXPECTED = {
     "20261023082526_harden_dispatch_team_assignment.sql",
     "20261023082939_pin_dispatch_team_search_path.sql",
     "20261023103737_per_responder_assignment_status.sql",
+    "20261105235009_persistent_in_app_notifications.sql",
+    "20261105235016_fcm_delivery_attempts.sql",
+    "20261107234752_notification_realtime_broadcast.sql",
+    "20261108092044_incident_scoped_chat.sql",
+    "20261108092648_incident_message_rate_limit_index.sql",
+    "20261108092703_incident_chat_image_attachments.sql",
+    "20261112170112_add_my_notification_lookup.sql",
 }
 PENDING = {
     "20261025170000_isolate_per_responder_location_writer.sql",
     "20261025180000_location_logs_received_rate_index_concurrently.sql",
     "20261026010000_isolate_multi_responder_location_reader.sql",
-    "20261026190000_persistent_in_app_notifications.sql",
-    "20261026200000_incident_scoped_chat.sql",
     "20261026161500_admin_role_audit_foundation.sql",
     "20261026170000_admin_server_side_user_pagination.sql",
     "20261030100000_require_incident_location_fallback.sql",
     "20261030110000_require_requester_signup_contact.sql",
     "20261030120000_bound_requester_signup_contact_lengths.sql",
-    "20261030130000_incident_message_rate_limit_index.sql",
-    "20261031130000_incident_chat_image_attachments.sql",
-    "20261105030000_fcm_delivery_attempts.sql",
-    "20261107160000_notification_realtime_broadcast.sql",
     "20261108120000_allow_requester_pending_cancellation.sql",
-    "20261112150000_add_my_notification_lookup.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
@@ -92,7 +92,7 @@ for required in (
     assert required in team, f"Missing multi-unit dispatch contract: {required}"
 
 
-notifications = (MIGRATIONS / "20261026190000_persistent_in_app_notifications.sql").read_text()
+notifications = (MIGRATIONS / "20261105235009_persistent_in_app_notifications.sql").read_text()
 for required in (
     "CREATE TABLE IF NOT EXISTS public.user_notifications",
     "user_notifications_one_unread_assignment_idx",
@@ -109,7 +109,7 @@ for required in (
 ):
     assert required in notifications, f"Missing in-app notification security contract: {required}"
 
-notification_lookup = (MIGRATIONS / "20261112150000_add_my_notification_lookup.sql").read_text()
+notification_lookup = (MIGRATIONS / "20261112170112_add_my_notification_lookup.sql").read_text()
 for required in (
     "CREATE OR REPLACE FUNCTION public.api_my_notification(p_notification_id bigint)",
     "SECURITY DEFINER",
@@ -123,7 +123,7 @@ for required in (
 
 
 
-chat = (MIGRATIONS / "20261026200000_incident_scoped_chat.sql").read_text()
+chat = (MIGRATIONS / "20261108092044_incident_scoped_chat.sql").read_text()
 for required in (
     "CREATE TABLE IF NOT EXISTS public.incident_messages",
     "ALTER TABLE public.incident_messages ENABLE ROW LEVEL SECURITY",
@@ -139,7 +139,7 @@ for required in (
 ):
     assert required in chat, f"Missing incident chat security contract: {required}"
 
-attachments = (MIGRATIONS / "20261031130000_incident_chat_image_attachments.sql").read_text()
+attachments = (MIGRATIONS / "20261108092703_incident_chat_image_attachments.sql").read_text()
 for required in (
     "ADD COLUMN IF NOT EXISTS attachment_path text",
     "public.api_send_incident_image_message(",

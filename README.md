@@ -158,6 +158,7 @@ For the complete operator runbook covering debug/release builds, web navigation,
 - [`docs/SUPABASE_BACKEND.md`](docs/SUPABASE_BACKEND.md) — Supabase setup and provisioning
 - [`docs/GPS_LOCATION_NOTES.md`](docs/GPS_LOCATION_NOTES.md) — location privacy and Android behavior
 - [`docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md`](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) — centered GPS Map navigation
+- [`docs/APP_BACKEND_SUPABASE_ERROR_FIX_HISTORY.md`](docs/APP_BACKEND_SUPABASE_ERROR_FIX_HISTORY.md) — evidence-based Android, backend, Supabase, and relevant CI error/fix history
 - [`docs/RENDER_OSRM_DEPLOYMENT.md`](docs/RENDER_OSRM_DEPLOYMENT.md) — optional paid private OSRM deployment runbook
 - [`PROJECT_ANALYSIS.md`](PROJECT_ANALYSIS.md) — project analysis and implementation context
 - [`docs/QA_WORKFLOWS.md`](docs/QA_WORKFLOWS.md) — actionable build, browser, screenshot, stress, and security workflows
