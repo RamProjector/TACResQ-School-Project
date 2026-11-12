@@ -223,13 +223,15 @@ if not progress_button or not all(
     )
 app_root_source = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text(encoding="utf-8")
 role_app_calls_are_wired = (
-    app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout, routingProvider = container.routingProvider)") == 1
-    and app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider, trackingController = container.responderLocationTracking)") == 1
+    app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, logout, routingProvider = container.routingProvider, notificationTap = notificationTap, onNotificationTapConsumed = onNotificationTapConsumed)") == 1
+    and app_root_source.count("RoleApp(user.role, vmState.incidents, user, container.locationProvider, responderLogout, routingProvider = container.routingProvider, trackingController = container.responderLocationTracking, notificationTap = notificationTap, onNotificationTapConsumed = onNotificationTapConsumed)") == 1
     and "onOpenMap = openMapIncident" in app_root_source
     and "initialSelectedIncidentId = selectedIncidentId" in app_root_source
     and "locationProvider = container.locationProvider" in app_root_source
     and "responderLocations = vmState.responderLocations" in app_root_source
     and "onMapRefresh = vm::refresh" in app_root_source
+    and "notificationTap = notificationTap" in app_root_source
+    and "onNotificationTapConsumed = onNotificationTapConsumed" in app_root_source
 )
 if not role_app_calls_are_wired:
     raise SystemExit("GPS map local-location contract failed: requester, responder/driver, and dispatcher map wiring must remain intact.")
