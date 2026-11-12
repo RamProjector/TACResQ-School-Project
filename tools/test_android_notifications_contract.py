@@ -23,8 +23,11 @@ api = read("app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 for required in (
     "TacApi, TacNotificationApi",
     'rest/v1/rpc/api_my_notifications',
+    'rest/v1/rpc/api_my_notification',
     'rest/v1/rpc/api_mark_notification_read',
     "NotificationsLimitRpc(limit)",
+    "NotificationByIdRpc(notificationId)",
+    "rpc.myNotification(NotificationByIdRpc(notificationId))",
     "MarkNotificationReadRpc(notificationId)",
     "limit in 1..100",
 ):
@@ -33,6 +36,7 @@ for required in (
 notification_contract = read("app/src/main/java/com/tacresq/app/data/repo/NotificationRepository.kt")
 for required in (
     "suspend fun myNotifications(limit: Int = 50)",
+    "suspend fun myNotification(notificationId: Long)",
     "suspend fun markNotificationRead(notificationId: Long)",
 ):
     assert required in notification_contract, f"Notification interface contract missing: {required}"
@@ -40,6 +44,7 @@ for required in (
 repository = read("app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt")
 for required in (
     "override suspend fun myNotifications(limit: Int)",
+    "override suspend fun myNotification(notificationId: Long)",
     "override suspend fun markNotificationRead(notificationId: Long)",
     "api as? TacNotificationApi",
     "Notification page size must be between 1 and 100.",
@@ -50,6 +55,7 @@ fake = read("app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt")
 for required in (
     "TacApi, TacNotificationApi",
     "override suspend fun myNotifications(limit: Int)",
+    "override suspend fun myNotification(notificationId: Long)",
     "it.recipientId == me.id",
     "it.value.id == notificationId && it.recipientId == me.id",
     "emitAssignmentNotifications(id, body.userIds)",
@@ -67,7 +73,7 @@ for required in (
     "catch (_: Exception)",
     "Could not load notifications. Try again.",
     "LazyColumn(",
-    "items(state.items, key = { it.id })",
+    "items(displayedNotifications, key = { it.id })",
     "Mark as read",
     "Open incident",
     "Open conversation",
@@ -181,19 +187,38 @@ focused_tests = read("app/src/test/java/com/tacresq/app/ui/notifications/Notific
 for required in (
     "val focusedNotificationId: Long? = null",
     "fun focusNotification(notificationId: Long)",
-    "refreshNotifications(limit = 100, force = true)",
+    "refreshNotifications(limit = 50, force = true)",
+    "repo.myNotification(notificationId)",
+    "val focusedNotification: UserNotification? = null",
+    "focusedNotificationMissing",
+    "displayedNotifications",
     "focused = notification.id == state.focusedNotificationId",
     '"Opened from alert"',
-    "listState.animateScrollToItem(focusedIndex + 2)",
 ):
     assert required in focused_notifications, f"Push-tap inbox focus contract missing: {required}"
 for required in (
-    "pushTapForcesFreshExpandedInboxAndRetainsOnlyTheRequestedFocus",
+    "pushTapLoadsExactNotificationAndRefreshesTheInbox",
+    "pushTapFindsOlderOwnedNotificationOutsideTheNewestInboxPage",
+    "lookupForRemovedOrUnownedNotificationReturnsSafeNotFoundState",
+    "lookupExceptionUsesGenericMessageWithoutBackendDetails",
     "invalidPushTapDoesNotStartAnInboxRequest",
 ):
     assert required in focused_tests, f"Push-tap inbox focus test missing: {required}"
 
 print("PASS: Android notifications use caller-scoped RPCs, recipient-filtered demo data, lifecycle-aware polling, selected-alert focus, explicit loading/empty/error/retry states, and preserve GPS Map navigation.")
+
+notification_lookup_sql = read("supabase/migrations/20261112150000_add_my_notification_lookup.sql")
+for required in (
+    "CREATE OR REPLACE FUNCTION public.api_my_notification(p_notification_id bigint)",
+    "SECURITY DEFINER",
+    "SET search_path = pg_catalog",
+    "WHERE n.id = p_notification_id",
+    "AND n.recipient_user_id = actor_profile_id",
+    "REVOKE ALL ON FUNCTION public.api_my_notification(bigint) FROM PUBLIC, anon",
+    "GRANT EXECUTE ON FUNCTION public.api_my_notification(bigint) TO authenticated",
+):
+    assert required in notification_lookup_sql, f"Caller-scoped notification lookup security contract missing: {required}"
+
 
 
 # FCM tap identity must be per inbox notification, not per incident.
