@@ -222,7 +222,7 @@ for required in (
     "notificationTap = savedInstanceState?.getString(STATE_NOTIFICATION_ID)",
     "?: PushNotificationTap.from(intent)",
     "PushNotificationTap.from(intent)?.let { notificationTap = it }",
-    "onNotificationTapConsumed = { notificationTap = null }",
+    "onNotificationTapConsumed = { consumeNotificationTap() }",
 ):
     assert required in activity, f"Activity notification lifecycle handoff missing: {required}"
 for required in (
