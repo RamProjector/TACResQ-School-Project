@@ -36,14 +36,20 @@ class PushNotificationIdentityTest {
     }
 
     @Test
-    fun managerIdentityIsStableAndSeparatesDistinctInboxNotifications() {
-        val first = PushNotificationIdentity.notificationManagerId("inbox-101")
-        val same = PushNotificationIdentity.notificationManagerId("inbox-101")
-        val second = PushNotificationIdentity.notificationManagerId("inbox-102")
+    fun managerTagPreservesTheFullNotificationIdentity() {
+        val first = PushNotificationIdentity.notificationManagerTag("inbox-101")
+        val same = PushNotificationIdentity.notificationManagerTag("inbox-101")
+        val second = PushNotificationIdentity.notificationManagerTag("inbox-102")
 
+        assertEquals("inbox-101", first)
         assertEquals(first, same)
         assertNotEquals(first, second)
-        assertTrue(first > 0)
-        assertTrue(second > 0)
+    }
+
+    @Test
+    fun notificationManagerTagRejectsMalformedIds() {
+        assertTrue(runCatching {
+            PushNotificationIdentity.notificationManagerTag("../injected")
+        }.isFailure)
     }
 }
