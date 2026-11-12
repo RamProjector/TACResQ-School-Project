@@ -16,11 +16,18 @@ class MainActivity : ComponentActivity() {
     private var authReturnMessage by mutableStateOf<String?>(null)
     private var notificationTap by mutableStateOf<PushNotificationTap?>(null)
 
+    private companion object {
+        const val STATE_NOTIFICATION_ID = "tacresq.state.notification_id"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         acceptAuthReturn(intent)
-        notificationTap = PushNotificationTap.from(intent)
+        notificationTap = savedInstanceState?.getString(STATE_NOTIFICATION_ID)
+            ?.takeIf { it.isNotBlank() && it.length <= 200 }
+            ?.let(::PushNotificationTap)
+            ?: PushNotificationTap.from(intent)
         val container = (application as TacResqApp).container
         setContent {
             TACResQTheme {
@@ -29,7 +36,7 @@ class MainActivity : ComponentActivity() {
                     authReturnMessage = authReturnMessage,
                     onAuthReturnMessageDismissed = { authReturnMessage = null },
                     notificationTap = notificationTap,
-                    onNotificationTapConsumed = { notificationTap = null },
+                    onNotificationTapConsumed = { consumeNotificationTap() },
                 )
             }
         }
@@ -40,6 +47,19 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         acceptAuthReturn(intent)
         PushNotificationTap.from(intent)?.let { notificationTap = it }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        notificationTap?.let { outState.putString(STATE_NOTIFICATION_ID, it.notificationId) }
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun consumeNotificationTap() {
+        notificationTap = null
+        intent?.removeExtra(com.tacresq.app.notifications.TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID)
+        if (intent?.data?.scheme == "tacresq" && intent?.data?.host == "notification") {
+            intent?.data = null
+        }
     }
 
     /**
