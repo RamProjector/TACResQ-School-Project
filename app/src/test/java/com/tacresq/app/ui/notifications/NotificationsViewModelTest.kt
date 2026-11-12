@@ -39,6 +39,27 @@ class NotificationsViewModelTest {
     }
 
     @Test
+    fun realtimeStartupFailureDoesNotCrashInboxOrBlockServerRefresh() = runTest {
+        val repository = FakeNotificationRepository(
+            load = { Result.success(listOf(unreadNotification)) },
+        )
+        val realtime = FakeNotificationRealtime(
+            startFailure = IllegalStateException("invalid realtime endpoint"),
+        )
+        val viewModel = NotificationsViewModel(repository, realtime)
+
+        viewModel.startRealtime()
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.realtimeStartError)
+        assertEquals(listOf(unreadNotification), viewModel.state.value.items)
+        assertFalse(viewModel.state.value.loading)
+        assertFalse(viewModel.state.value.refreshing)
+        assertNull(viewModel.state.value.error)
+    }
+
+    @Test
     fun pushTapLoadsExactNotificationAndRefreshesTheInbox() = runTest {
         val repository = FakeNotificationRepository(
             load = { Result.success(listOf(unreadNotification)) },
@@ -304,14 +325,18 @@ class NotificationsViewModelTest {
         }
     }
 
-    private class FakeNotificationRealtime : NotificationRealtime {
+    private class FakeNotificationRealtime(
+        private val startFailure: Exception? = null,
+    ) : NotificationRealtime {
         private val mutableState = MutableStateFlow(RealtimeConnectionState.CONNECTED)
         private val mutableHints = MutableSharedFlow<Unit>(extraBufferCapacity = 16)
 
         override val state: StateFlow<RealtimeConnectionState> = mutableState
         override val notificationHints: SharedFlow<Unit> = mutableHints
 
-        override fun start() = Unit
+        override fun start() {
+            startFailure?.let { throw it }
+        }
         override fun stop() = Unit
         fun emitHint() {
             mutableHints.tryEmit(Unit)
