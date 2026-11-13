@@ -33,6 +33,11 @@ checks = [
         "connectSafely(isReconnect = true)",
         "reconnectJob = null",
     ))),
+    check("OkHttp WebSocket URL retains a supported HTTP(S) scheme", (
+        "AppConfig.SUPABASE_URL.toHttpUrl().newBuilder()" in transport
+        and '.scheme("wss")' not in transport
+        and "client.newWebSocket(" in transport
+    )),
     check("transport emits only allowlisted notification hints", all(token in transport for token in (
         "notification_id", "incident_assigned", "incident_status_changed", "notification_created",
     )) and "user_notifications" not in transport),
