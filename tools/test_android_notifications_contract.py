@@ -88,8 +88,14 @@ for required in (
 # Follow LifeLink's isolated full-screen feed presentation while preserving
 # TACResQ's authenticated Realtime hints and HTTP refresh fallback.
 assert "Surface(" in screen and "Modifier.fillMaxSize()" in screen
-assert "runCatching { vm.startRealtime() }" in screen
-assert "vm.stopRealtime()" in screen
+assert "vm.startRealtime()" in screen and "vm.stopRealtime()" in screen
+assert "runCatching { vm.startRealtime() }" not in screen
+for lifecycle_method in ("startRealtime()", "stopRealtime()"):
+    start = screen.index(f"fun {lifecycle_method}")
+    end = screen.find("\n    fun ", start + 1)
+    body = screen[start:end if end >= 0 else len(screen)]
+    assert "catch (cancelled: kotlinx.coroutines.CancellationException)" in body
+    assert "catch (_: Exception)" in body
 assert "animateScrollToItem" not in screen and "rememberLazyListState" not in screen
 
 assert screen.count("catch (cancelled: kotlinx.coroutines.CancellationException)") >= 2, (
