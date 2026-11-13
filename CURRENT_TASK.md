@@ -492,3 +492,13 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **CI:** After renaming migration files, stale hard-coded migration paths were updated in `test_required_request_and_admin_feedback.py`, `test_android_admin_rpc_contract.py`, `test_location_rpc_search_path.py`, `test_location_contract.py`, and `test_requester_active_incident.py`. The current exact-head CI run still needs to complete, including clean PostgreSQL replay and Laravel/dashboard integration.
 - **Device/operations:** Android JVM tests and build pass on the preceding head; instrumentation tests were compiled but not executed on a device. Real FCM delivery, notification tap/process recreation, physical device/OEM tests, Render worker configuration, and signed release artifact remain rollout checks. No production Auth user, incident, or location row was changed by the synthetic test.
 - **Do not merge PR #294 until all exact-head required checks pass and manual device/FCM acceptance is separately completed.**
+
+
+# Active handoff — 2026-11-13: consolidated notification PRs
+- **Objective:** Resolve overlapping PR #295 and #296 notification stability changes and address the full review findings before merge.
+- **Branch/PR:** `fix/notifications-screen-stable-lifelink-pattern`, PR #296, current head `cc5575b7613688a8f02f6d6988b868d7b96555fd`, based on `main` at `e1cc01d6aa14e7d4255dc3fd9e4015985a54d90b`.
+- **Implementation:** Removed unsupported `wss` assignment from OkHttp's `HttpUrl.Builder`; OkHttp keeps the supported HTTP(S) URL and upgrades it for WebSocket. Realtime startup/teardown failures are contained while coroutine cancellation propagates. A caller-verified focused notification is moved to the top and de-duplicated. PR #295's startup regression test and ViewModel fallback behavior are included, with additional focused-alert and URL regression checks.
+- **Review response:** Addressed PR #296 CodeRabbit findings about the invalid URL scheme and a focused notification remaining below the fold. Updated the PR body to match the repository template and marked combined-head checks pending.
+- **Validation:** Previous head `77e0a205e650549942ad895d3ab628b17dd148df` passed CI, but that does not validate the combined changes. Exact-head CI for `cc5575b7613688a8f02f6d6988b868d7b96555fd` is pending. No physical-device run or Logcat crash trace is available.
+- **PR cleanup:** Keep PR #295 open until PR #296's combined exact-head checks pass, then close #295 as superseded. Do not merge PR #296 before required checks pass.
+- **Deployment boundary:** The TACResQ Render service auto-deploys from `main`. Merging PR #296 will deploy; wait for the user's explicit approval before merge. No live config or database changes are included.
