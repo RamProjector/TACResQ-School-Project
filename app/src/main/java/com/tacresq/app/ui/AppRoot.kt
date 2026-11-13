@@ -1,6 +1,7 @@
 package com.tacresq.app.ui
 
 import android.Manifest
+import android.content.Context
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
@@ -73,6 +75,9 @@ import com.tacresq.app.ui.chat.IncidentChatViewModel
 import com.tacresq.app.ui.chat.IncidentChatScreen
 import kotlinx.coroutines.launch
 
+private const val NOTIFICATION_PERMISSION_PREFERENCES = "tacresq_notification_settings"
+private const val NOTIFICATION_PERMISSION_PROMPT_SHOWN = "notification_permission_prompt_shown"
+
 @Composable
 fun AppRoot(
     container: AppContainer,
@@ -85,7 +90,10 @@ fun AppRoot(
     val sessionState by container.repository.sessionState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var notificationPermissionRequested by rememberSaveable { mutableStateOf(false) }
+    val notificationPermissionPreferences = remember(context) {
+        context.getSharedPreferences(NOTIFICATION_PERMISSION_PREFERENCES, Context.MODE_PRIVATE)
+    }
+    var showNotificationPermissionRationale by rememberSaveable { mutableStateOf(false) }
     var unsupportedAccountInfo by rememberSaveable { mutableStateOf<String?>(null) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -109,15 +117,49 @@ fun AppRoot(
         container.pushTokenCoordinator.sync(container.repository)
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            !notificationPermissionRequested &&
-            !PushTokenCoordinator.notificationsAllowed(context)
+            !PushTokenCoordinator.notificationsAllowed(context) &&
+            !notificationPermissionPreferences.getBoolean(NOTIFICATION_PERMISSION_PROMPT_SHOWN, false)
         ) {
-            notificationPermissionRequested = true
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            notificationPermissionPreferences.edit()
+                .putBoolean(NOTIFICATION_PERMISSION_PROMPT_SHOWN, true)
+                .apply()
+            showNotificationPermissionRationale = true
         }
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        if (showNotificationPermissionRationale) {
+            AlertDialog(
+                onDismissRequest = { showNotificationPermissionRationale = false },
+                title = { Text("Stay informed about incident updates") },
+                text = {
+                    Text(
+                        "Notifications can alert you to incident assignments and status changes. " +
+                            "Your in-app inbox remains available if you skip.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showNotificationPermissionRationale = false
+                            if (
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                !PushTokenCoordinator.notificationsAllowed(context)
+                            ) {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        },
+                    ) {
+                        Text("Continue")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showNotificationPermissionRationale = false }) {
+                        Text("Not now")
+                    }
+                },
+            )
+        }
         when (val state = sessionState) {
             SessionState.Loading -> Box(
                 modifier = Modifier
