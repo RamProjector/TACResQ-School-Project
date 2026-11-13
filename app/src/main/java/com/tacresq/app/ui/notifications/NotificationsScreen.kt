@@ -68,6 +68,7 @@ data class NotificationUiState(
     val focusLookupLoading: Boolean = false,
     val focusedNotificationMissing: Boolean = false,
     val focusLookupError: String? = null,
+    val realtimeStartError: Boolean = false,
 )
 
 class NotificationsViewModel(
@@ -88,9 +89,30 @@ class NotificationsViewModel(
         }
     }
 
-    fun startRealtime() = realtime.start()
+    /**
+     * Realtime is an optimization; setup or teardown failures must not block the inbox.
+     * Keep server refresh available when the optional connection cannot run.
+     */
+    fun startRealtime() {
+        try {
+            realtime.start()
+            _state.update { it.copy(realtimeStartError = false) }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            _state.update { it.copy(realtimeStartError = true) }
+        }
+    }
 
-    fun stopRealtime() = realtime.stop()
+    fun stopRealtime() {
+        try {
+            realtime.stop()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            _state.update { it.copy(realtimeStartError = true) }
+        }
+    }
 
     fun refresh() = refreshNotifications(limit = 50, force = false)
 
@@ -277,6 +299,14 @@ class NotificationsViewModel(
     fun dismissActionError() = _state.update { it.copy(actionError = null) }
 }
 
+internal fun prioritizeFocusedNotification(
+    items: List<UserNotification>,
+    focused: UserNotification?,
+): List<UserNotification> {
+    if (focused == null) return items
+    return listOf(focused) + items.filterNot { it.id == focused.id }
+}
+
 @Composable
 fun NotificationsAndSafetyScreen(
     vm: NotificationsViewModel,
@@ -289,19 +319,14 @@ fun NotificationsAndSafetyScreen(
     val realtimeState by vm.realtimeState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val displayedNotifications = remember(state.items, state.focusedNotification) {
-        val focused = state.focusedNotification
-        if (focused == null || state.items.any { it.id == focused.id }) {
-            state.items
-        } else {
-            listOf(focused) + state.items
-        }
+        prioritizeFocusedNotification(state.items, state.focusedNotification)
     }
 
     // Keep socket ownership tied to the visible screen, but never let startup failure block the inbox.
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             try {
-                runCatching { vm.startRealtime() }
+                vm.startRealtime()
                 vm.refresh()
                 while (true) {
                     delay(30_000)
@@ -354,13 +379,12 @@ fun NotificationsAndSafetyScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            when (realtimeState) {
-                                RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt ?: "not yet recorded"}."
-                                RealtimeConnectionState.CONNECTING,
-                                RealtimeConnectionState.RECONNECTING -> "Realtime reconnecting; the inbox is using server refresh fallback."
-                                RealtimeConnectionState.UNAVAILABLE,
-                                RealtimeConnectionState.FALLBACK_SYNC,
-                                RealtimeConnectionState.ERROR -> "Realtime unavailable; the inbox remains available through server refresh."
+                            when {
+                                state.realtimeStartError -> "Realtime unavailable; the inbox remains available through server refresh."
+                                realtimeState == RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt ?: "not yet recorded"}."
+                                realtimeState == RealtimeConnectionState.CONNECTING ||
+                                    realtimeState == RealtimeConnectionState.RECONNECTING -> "Realtime reconnecting; the inbox is using server refresh fallback."
+                                else -> "Realtime unavailable; the inbox remains available through server refresh."
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
