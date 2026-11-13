@@ -316,3 +316,13 @@ for required in (
     "intent?.removeExtra(com.tacresq.app.notifications.TacResqFirebaseMessagingService.EXTRA_NOTIFICATION_ID)",
 ):
     assert required in activity, f"Notification tap recreation/consumption contract missing: {required}"
+
+
+# Notification permission stays optional and can be managed from the in-app inbox.
+permission_screen = read("app/src/main/java/com/tacresq/app/ui/notifications/NotificationsScreen.kt")
+for required in (
+    "Push alerts are optional. This inbox remains available if notifications are disabled.",
+    "Settings.ACTION_APP_NOTIFICATION_SETTINGS",
+    "Manage Android notification settings",
+):
+    assert required in permission_screen, f"Notification permission recovery path missing: {required}"
