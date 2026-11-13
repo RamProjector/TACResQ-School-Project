@@ -1,3 +1,15 @@
+# Current handoff — 2026-11-13: Android notification permission onboarding
+
+- **Objective:** Make Android notification permission opt-in understandable while keeping the persistent in-app inbox usable.
+- **Baseline:** Started from `main` at `4e5192d7d33819a6b30990f76e142f5b91a9af13`. The main branch CI, Security, and RPC grant workflows passed on that revision; there were no open PRs before this task.
+- **Changes:** On `agent/notification-permission-onboarding`, add a once-only rationale before the Android 13+ notification permission dialog, a “Not now” path, and a shortcut from the inbox to Android notification settings. FCM token synchronization remains independent from display permission. Update the app roadmap and focused source-contract checks.
+- **PR:** [#297](https://github.com/RamProjector/TACResQ-School-Project/pull/297), open; branch was mergeable at code head `af038c026ec69145c07ed0e5301f6c3837e1e8e3`.
+- **Validation passed on code head `af038c026ec69145c07ed0e5301f6c3837e1e8e3`:** Source checks; Android demo/Supabase debug and release APK builds; Android JVM unit tests; Android debug lint; instrumentation test compilation; clean PostgreSQL migration replay; Laravel/dashboard integration; RPC grant contract; repository security guardrails; CodeQL Android and Web; static UI/workflow and security/correctness reviews. The top-level CodeQL summary was neutral while both CodeQL scan checks succeeded. CodeRabbit was skipped.
+- **Not run / limitations:** Emulator or physical-device permission flow was not run. Release signing verification was skipped because signing is not configured; no signed APK is claimed. No backend, Supabase schema, production setting, or Render deployment change is included.
+- **Next:** Re-check checks on the current PR head after this handoff-only commit, then merge if it remains mergeable and all required checks pass.
+
+---
+
 # Current handoff — 2026-11-13: live notification lookup and migration-history reconciliation
 
 - **Live Supabase migration ledger:** Read-only verification confirms 30 applied migrations. The newer applied versions now include `20261105235009_persistent_in_app_notifications`, `20261105235016_fcm_delivery_attempts`, `20261107234752_notification_realtime_broadcast`, `20261108092044_incident_scoped_chat`, `20261108092648_incident_message_rate_limit_index`, `20261108092703_incident_chat_image_attachments`, and `20261112170112_add_my_notification_lookup`.

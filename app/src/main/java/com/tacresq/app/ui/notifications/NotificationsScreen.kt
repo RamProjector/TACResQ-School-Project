@@ -1,5 +1,8 @@
 package com.tacresq.app.ui.notifications
 
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -54,6 +58,13 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private fun openAppNotificationSettings(context: Context) {
+    context.startActivity(
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+    )
+}
 
 data class NotificationUiState(
     val items: List<UserNotification> = emptyList(),
@@ -317,6 +328,7 @@ fun NotificationsAndSafetyScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val realtimeState by vm.realtimeState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val displayedNotifications = remember(state.items, state.focusedNotification) {
         prioritizeFocusedNotification(state.items, state.focusedNotification)
@@ -389,6 +401,14 @@ fun NotificationsAndSafetyScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Text(
+                            "Push alerts are optional. This inbox remains available if notifications are disabled.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        OutlinedButton(onClick = { openAppNotificationSettings(context) }) {
+                            Text("Manage Android notification settings")
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End,

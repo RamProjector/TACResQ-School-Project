@@ -9,6 +9,7 @@ api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt").read_te
 supabase = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text(encoding="utf-8")
 repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text(encoding="utf-8")
 coordinator = (ROOT / "app/src/main/java/com/tacresq/app/notifications/PushTokenCoordinator.kt").read_text(encoding="utf-8")
+notifications_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/notifications/NotificationsScreen.kt").read_text(encoding="utf-8")
 service = (ROOT / "app/src/main/java/com/tacresq/app/notifications/TacResqFirebaseMessagingService.kt").read_text(encoding="utf-8")
 app_root = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text(encoding="utf-8")
 
@@ -35,6 +36,19 @@ assert "logout()" in admin_gate_body
 assert "return@LaunchedEffect" in admin_gate_body
 assert "RequestPermission()" in app_root
 assert "POST_NOTIFICATIONS" in app_root
+assert "AlertDialog(" in app_root
+assert "Stay informed about incident updates" in app_root
+assert "Your in-app inbox remains available if you skip." in app_root
+assert "notificationPermissionPreferences.getBoolean(NOTIFICATION_PERMISSION_PROMPT_SHOWN, false)" in app_root
+assert "putBoolean(NOTIFICATION_PERMISSION_PROMPT_SHOWN, true)" in app_root
+permission_effect_start = app_root.index("LaunchedEffect(sessionState)")
+permission_effect_end = app_root.index("Surface(modifier = Modifier.fillMaxSize()", permission_effect_start)
+permission_effect = app_root[permission_effect_start:permission_effect_end]
+assert "notificationPermissionLauncher.launch" not in permission_effect, "Explain the optional permission before opening Android's prompt."
+assert "pushTokenCoordinator.sync(container.repository)" in permission_effect
+assert permission_effect.index("pushTokenCoordinator.sync(container.repository)") < permission_effect.index("showNotificationPermissionRationale = true")
+assert "Settings.ACTION_APP_NOTIFICATION_SETTINGS" in notifications_screen
+assert "Manage Android notification settings" in notifications_screen
 # Alert content must remain generic; incident details are fetched after authentication.
 assert '"Open TACResQ to review a new incident update."' in service
 assert 'message.data["description"]' not in service
