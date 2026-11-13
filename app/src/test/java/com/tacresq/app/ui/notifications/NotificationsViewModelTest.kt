@@ -39,6 +39,50 @@ class NotificationsViewModelTest {
     }
 
     @Test
+    fun focusedNotificationAlreadyInInboxMovesToTopWithoutDuplicate() {
+        val page = (1L..50L).map { id ->
+            unreadNotification.copy(id = id, title = "Notification $id")
+        }
+        val focused = page.last()
+
+        val displayed = prioritizeFocusedNotification(page, focused)
+
+        assertEquals(50, displayed.size)
+        assertEquals(focused.id, displayed.first().id)
+        assertEquals(1, displayed.count { it.id == focused.id })
+    }
+
+    @Test
+    fun focusedNotificationOutsideInboxPageIsPrepended() {
+        val focused = unreadNotification.copy(id = 999L, title = "Older notification")
+
+        val displayed = prioritizeFocusedNotification(listOf(unreadNotification), focused)
+
+        assertEquals(listOf(999L, unreadNotification.id), displayed.map { it.id })
+    }
+
+    @Test
+    fun realtimeStartupFailureDoesNotCrashInboxOrBlockServerRefresh() = runTest {
+        val repository = FakeNotificationRepository(
+            load = { Result.success(listOf(unreadNotification)) },
+        )
+        val realtime = FakeNotificationRealtime(
+            startFailure = IllegalStateException("invalid realtime endpoint"),
+        )
+        val viewModel = NotificationsViewModel(repository, realtime)
+
+        viewModel.startRealtime()
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.realtimeStartError)
+        assertEquals(listOf(unreadNotification), viewModel.state.value.items)
+        assertFalse(viewModel.state.value.loading)
+        assertFalse(viewModel.state.value.refreshing)
+        assertNull(viewModel.state.value.error)
+    }
+
+    @Test
     fun pushTapLoadsExactNotificationAndRefreshesTheInbox() = runTest {
         val repository = FakeNotificationRepository(
             load = { Result.success(listOf(unreadNotification)) },
@@ -304,14 +348,18 @@ class NotificationsViewModelTest {
         }
     }
 
-    private class FakeNotificationRealtime : NotificationRealtime {
+    private class FakeNotificationRealtime(
+        private val startFailure: Exception? = null,
+    ) : NotificationRealtime {
         private val mutableState = MutableStateFlow(RealtimeConnectionState.CONNECTED)
         private val mutableHints = MutableSharedFlow<Unit>(extraBufferCapacity = 16)
 
         override val state: StateFlow<RealtimeConnectionState> = mutableState
         override val notificationHints: SharedFlow<Unit> = mutableHints
 
-        override fun start() = Unit
+        override fun start() {
+            startFailure?.let { throw it }
+        }
         override fun stop() = Unit
         fun emitHint() {
             mutableHints.tryEmit(Unit)
