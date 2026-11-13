@@ -59,6 +59,8 @@ class SupabaseNotificationRealtime(
     private fun connectSafely(isReconnect: Boolean) {
         try {
             connect(isReconnect)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: IllegalArgumentException) {
             socket = null
             heartbeatJob?.cancel()
