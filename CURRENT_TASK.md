@@ -1,3 +1,14 @@
+# Current handoff — 2026-11-13: Android notification permission onboarding
+
+- **Objective:** Make Android notification permission opt-in understandable while keeping the persistent in-app inbox usable.
+- **Baseline:** Started from `main` at `4e5192d7d33819a6b30990f76e142f5b91a9af13`. The main branch CI, Security, and RPC grant workflows passed on that revision; there were no open PRs before this task.
+- **Changes:** On `agent/notification-permission-onboarding`, add a once-only rationale before the Android 13+ notification permission dialog, a “Not now” path, and a shortcut from the inbox to Android notification settings. FCM token synchronization remains independent from display permission. Update the app roadmap and focused source-contract checks.
+- **PR:** [#297](https://github.com/RamProjector/TACResQ-School-Project/pull/297), open; exact-head automated checks pending.
+- **Validation:** No local checkout was available for local commands. Emulator/physical-device permission flow was not run. No backend, Supabase schema, production setting, or Render deployment change is included.
+- **Next:** Inspect PR #297’s final-head diff and CI; merge only if checks pass and the branch is mergeable. Update this handoff with the final outcome.
+
+---
+
 # Current handoff — 2026-11-13: live notification lookup and migration-history reconciliation
 
 - **Live Supabase migration ledger:** Read-only verification confirms 30 applied migrations. The newer applied versions now include `20261105235009_persistent_in_app_notifications`, `20261105235016_fcm_delivery_attempts`, `20261107234752_notification_realtime_broadcast`, `20261108092044_incident_scoped_chat`, `20261108092648_incident_message_rate_limit_index`, `20261108092703_incident_chat_image_attachments`, and `20261112170112_add_my_notification_lookup`.
