@@ -93,7 +93,6 @@ class SupabaseNotificationRealtime(
         }
         _state.value = if (isReconnect) RealtimeConnectionState.RECONNECTING else RealtimeConnectionState.CONNECTING
         val url = AppConfig.SUPABASE_URL.toHttpUrl().newBuilder()
-            .scheme("wss")
             .addPathSegments("realtime/v1/websocket")
             .addQueryParameter("apikey", AppConfig.SUPABASE_PUBLISHABLE_KEY)
             .addQueryParameter("vsn", "1.0.0")
