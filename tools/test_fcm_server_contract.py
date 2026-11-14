@@ -10,6 +10,7 @@ def read(path: str) -> str:
 
 
 transport = read("backend/src/app/FcmHttpV1Client.php")
+error_classifier = read("backend/src/app/FcmHttpV1ErrorClassifier.php")
 dispatcher = read("backend/src/app/FcmNotificationDispatcher.php")
 command = read("backend/src/app/Console/Commands/DispatchFcmNotifications.php")
 config = read("backend/src/config/tacru.php")
@@ -25,12 +26,12 @@ assert "https://www.googleapis.com/auth/firebase.messaging" in transport
 assert "fcm.googleapis.com/v1/projects/" in transport
 assert "['message' => ['token' => $token, 'data' => $data]]" in transport
 assert "error.status" in transport
-assert "'invalid_token' => $invalidToken" in transport
-assert "type.googleapis.com/google.firebase.fcm.v1.FcmError" in transport
-assert "type.googleapis.com/google.rpc.BadRequest" in transport
-assert "$fcmErrorCode === 'UNREGISTERED'" in transport
-assert "$fcmErrorCode === 'INVALID_ARGUMENT'" in transport
-assert "$hasBadRequestDetails" in transport
+assert "FcmHttpV1ErrorClassifier::classify" in transport
+assert "type.googleapis.com/google.firebase.fcm.v1.FcmError" in error_classifier
+assert "type.googleapis.com/google.rpc.BadRequest" in error_classifier
+assert "$fcmErrorCode === 'UNREGISTERED'" in error_classifier
+assert "$fcmErrorCode === 'INVALID_ARGUMENT'" in error_classifier
+assert "$hasBadRequestDetails" in error_classifier
 assert "'retryable' => $retryable" in transport
 assert "Retry-After" in transport and "retryAfterSeconds" in transport
 assert "INVALID_ARGUMENT" in transport
