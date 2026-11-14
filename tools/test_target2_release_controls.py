@@ -22,7 +22,7 @@ checks = [
     check("signed release uploads checksum", "sha256sum" in workflow and "upload-artifact" in workflow),
     check("FCM runbook isolates private worker credentials", "private Render Cron Job" in runbook and "SUPABASE_SECRET_KEY" in runbook and "GOOGLE_APPLICATION_CREDENTIALS" in runbook),
     check("FCM runbook defines aggregate observability", all(token in runbook for token in (
-        "run identifier", "invalid-token cleanup count", "oldest pending notification age",
+        "run identifier", "invalid-token cleanup count", "oldest due failed-attempt age",
     ))),
     check("FCM runbook has check-only and rollback paths", "--check-config" in runbook and "pause the private Cron Job" in runbook),
     check("physical QA matrix separates unverified evidence", "Not run: device/live QA required" in qa and "synthetic accounts" in qa),
