@@ -25,16 +25,16 @@ assert "ApplicationDefaultCredentials::getCredentials" in transport
 assert "https://www.googleapis.com/auth/firebase.messaging" in transport
 assert "fcm.googleapis.com/v1/projects/" in transport
 assert "['message' => ['token' => $token, 'data' => $data]]" in transport
-assert "error.status" in error_classifier
+assert "'status'" in error_classifier
 assert "FcmHttpV1ErrorClassifier::classify" in transport
 assert "type.googleapis.com/google.firebase.fcm.v1.FcmError" in error_classifier
 assert "type.googleapis.com/google.rpc.BadRequest" in error_classifier
 assert "$fcmErrorCode === 'UNREGISTERED'" in error_classifier
 assert "$fcmErrorCode === 'INVALID_ARGUMENT'" in error_classifier
 assert "$hasBadRequestDetails" in error_classifier
-assert "'retryable' => $retryable" in transport
+assert "'retryable' => $retryable" in error_classifier
 assert "Retry-After" in transport and "retryAfterSeconds" in transport
-assert "INVALID_ARGUMENT" in transport
+assert "INVALID_ARGUMENT" in error_classifier
 assert "supabase_secret_key" in config
 assert "fcm_project_id" in config
 assert "SUPABASE_SECRET_KEY" in env
