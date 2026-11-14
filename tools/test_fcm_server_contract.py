@@ -70,6 +70,7 @@ assert "ON CONFLICT ON CONSTRAINT fcm_delivery_attempts_notification_id_token_ke
 assert "p_limit > 50" in queue_migration
 assert "existing.attempt_count < 8" in queue_migration
 assert "existing.next_attempt_at <= statement_timestamp()" in queue_migration
+assert "WHERE n.read_at IS NULL" in queue_migration
 assert "GRANT EXECUTE ON FUNCTION public.api_claim_fcm_delivery_batch(integer, integer)" in queue_migration
 assert "TO service_role" in queue_migration
 assert "FROM PUBLIC, anon, authenticated" in queue_migration
@@ -80,6 +81,7 @@ assert "A failed attempt must respect next_attempt_at backoff" in queue_test
 assert "Attempts at the retry ceiling must not be claimed again" in queue_test
 assert "Only an expired lease below the retry ceiling must be reclaimed" in queue_test
 assert "A reclaimed lease must be fresh and the exhausted lease must stay excluded" in queue_test
+assert "read_at" in queue_test and "Already read notification" in queue_test
 assert "typed `google.firebase.fcm.v1.FcmError` detail" in docs
 assert "typed `google.rpc.BadRequest` field-violation detail" in docs
 assert "SUPABASE_SECRET_KEY" in docs
