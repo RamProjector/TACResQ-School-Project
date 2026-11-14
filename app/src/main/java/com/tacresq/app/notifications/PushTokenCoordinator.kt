@@ -37,21 +37,26 @@ class PushTokenCoordinator(
     private var registrationEnabled = false
 
     suspend fun sync(repository: TacRepository) {
-        syncInternal(repository, expectedGeneration = null)
+        val generation = registrationGeneration
+        syncInternal(repository, expectedGeneration = generation)
     }
 
     private suspend fun syncInternal(
         repository: TacRepository,
-        expectedGeneration: Long?,
+        expectedGeneration: Long,
+        tokenOverride: String? = null,
     ) {
         operations.withLock {
-            if (expectedGeneration != null && expectedGeneration != registrationGeneration) {
+            if (expectedGeneration != registrationGeneration) {
                 return@withLock
             }
             registrationEnabled = true
             if (!firebaseConfigured()) return@withLock
 
-            val token = currentToken() ?: return@withLock
+            if (!tokenOverride.isNullOrBlank()) {
+                preferences.edit().putString(KEY_PENDING_TOKEN, tokenOverride).apply()
+            }
+            val token = tokenOverride?.takeIf { it.isNotBlank() } ?: currentToken() ?: return@withLock
             val previouslyRegistered = preferences.getString(KEY_REGISTERED_TOKEN, null)
 
             // Always reconcile ownership on authenticated session restore/login. The
@@ -79,13 +84,21 @@ class PushTokenCoordinator(
 
     fun onTokenRefreshed(token: String, repository: TacRepository) {
         if (token.length !in 20..4096) return
-        preferences.edit().putString(KEY_PENDING_TOKEN, token).apply()
         // Capture the generation before checking the flag. If sign-out starts
         // between these reads, either the flag is false or the generation check
         // inside syncInternal rejects this callback.
         val generation = registrationGeneration
-        if (!registrationEnabled) return
-        appScope.launch { syncInternal(repository, expectedGeneration = generation) }
+        if (!registrationEnabled) {
+            preferences.edit().putString(KEY_PENDING_TOKEN, token).apply()
+            return
+        }
+        appScope.launch {
+            syncInternal(
+                repository,
+                expectedGeneration = generation,
+                tokenOverride = token,
+            )
+        }
     }
 
     suspend fun unregister(repository: TacRepository) {
