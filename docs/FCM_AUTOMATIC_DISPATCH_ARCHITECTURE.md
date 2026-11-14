@@ -105,7 +105,13 @@ If a database event is used in a future approved design:
 - A periodic reconciliation path is still needed to recover missed wake-up events. It must not rely solely on a best-effort webhook.
 - Rate-limit and bound each invocation; never allow an unauthenticated caller to choose recipients or arbitrary FCM messages.
 
-## 5. Threat model and controls
+## 5. Delivery semantics: at-least-once, not exactly-once
+
+The queue provides atomic claiming, leases, retry limits, and deduplication of the notification/token ledger row. It cannot guarantee exactly-once delivery to FCM: if FCM accepts a message but the worker crashes or loses its database connection before recording the `sent` outcome, the expired lease may be reclaimed and the same notification may be submitted again. FCM HTTP v1 does not provide an application idempotency key for this send operation.
+
+The Android client uses the stable `notification_id` as its notification-manager tag, so a repeated push for the same inbox notification replaces the existing system-tray item rather than creating another visible item. This is UI-level duplicate suppression, not exactly-once provider delivery or proof of device receipt. Keep the persistent inbox authoritative and describe sender success as **accepted by FCM**, never as confirmed delivered to the device.
+
+## 6. Threat model and controls
 
 | Threat | Required control |
 |---|---|
