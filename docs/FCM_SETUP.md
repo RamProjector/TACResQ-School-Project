@@ -32,7 +32,7 @@ For Render, add the Firebase service-account JSON under the worker service's **E
 GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
 ```
 
-Add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, `FCM_BATCH_LIMIT`, and `FCM_HTTP_TIMEOUT` under that service's private **Environment Variables**. The file must be a Google service-account JSON containing `type: service_account`; the Android `google-services.json` is not an ADC credential. Attach the secret file and variables to the Render Cron Job or worker that runs the command, not only to the public dispatcher web service. A Cron Job command can be:
+Add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and `FCM_BATCH_LIMIT` under that service's private **Environment Variables**. The file must be a Google service-account JSON containing `type: service_account`; the Android `google-services.json` is not an ADC credential. Attach the secret file and variables to the Render Cron Job or worker that runs the command, not only to the public dispatcher web service. A Cron Job command can be:
 
 ```sh
 php artisan tacresq:dispatch-fcm --limit=50
