@@ -200,5 +200,83 @@ END;
 $fcm_exhausted$;
 RESET ROLE;
 
+-- A crashed worker's expired lease may be reclaimed, but a claim already at
+-- the eight-attempt ceiling must remain excluded even after its lease expires.
+DO $fcm_lease_seed$
+DECLARE
+  fixture_profile_id bigint;
+  stale_notification_id bigint;
+  exhausted_notification_id bigint;
+  fixture_token text := current_setting('tacresq.test_fcm_token');
+BEGIN
+  SELECT id INTO fixture_profile_id
+    FROM public.profiles
+   WHERE auth_user_id = 'f1000000-1111-4111-8111-000000000100';
+
+  INSERT INTO public.user_notifications (
+    recipient_user_id, incident_id, event_type, title, body
+  ) VALUES (
+    fixture_profile_id, NULL, 'incident_status_changed',
+    'Expired delivery lease', 'A crashed worker lease can be recovered.'
+  ) RETURNING id INTO stale_notification_id;
+
+  INSERT INTO public.fcm_delivery_attempts (
+    notification_id, profile_id, token, status, attempted_at, updated_at, attempt_count
+  ) VALUES (
+    stale_notification_id, fixture_profile_id, fixture_token, 'claimed',
+    statement_timestamp() - interval '20 minutes',
+    statement_timestamp() - interval '20 minutes',
+    1
+  );
+
+  INSERT INTO public.user_notifications (
+    recipient_user_id, incident_id, event_type, title, body
+  ) VALUES (
+    fixture_profile_id, NULL, 'incident_status_changed',
+    'Expired attempt ceiling', 'This delivery has already exhausted retries.'
+  ) RETURNING id INTO exhausted_notification_id;
+
+  INSERT INTO public.fcm_delivery_attempts (
+    notification_id, profile_id, token, status, attempted_at, updated_at, attempt_count
+  ) VALUES (
+    exhausted_notification_id, fixture_profile_id, fixture_token, 'claimed',
+    statement_timestamp() - interval '20 minutes',
+    statement_timestamp() - interval '20 minutes',
+    8
+  );
+
+  PERFORM set_config('tacresq.test_fcm_stale_notification_id', stale_notification_id::text, true);
+END;
+$fcm_lease_seed$;
+
+SET LOCAL ROLE service_role;
+DO $fcm_expired_lease$
+DECLARE
+  expected_notification_id bigint := current_setting('tacresq.test_fcm_stale_notification_id')::bigint;
+  claimed_count integer;
+  claimed_id bigint;
+  claimed_attempt_count integer;
+BEGIN
+  SELECT count(*), min(notification_id), min(attempt_count)
+    INTO claimed_count, claimed_id, claimed_attempt_count
+    FROM public.api_claim_fcm_delivery_batch(100, 600);
+
+  IF claimed_count <> 1 OR claimed_id <> expected_notification_id THEN
+    RAISE EXCEPTION 'Only an expired lease below the retry ceiling must be reclaimed; count %, id %',
+      claimed_count, claimed_id;
+  END IF;
+  IF claimed_attempt_count <> 2 THEN
+    RAISE EXCEPTION 'Reclaiming an expired lease must increment attempt_count; found %', claimed_attempt_count;
+  END IF;
+
+  SELECT count(*) INTO claimed_count
+    FROM public.api_claim_fcm_delivery_batch(100, 600);
+  IF claimed_count <> 0 THEN
+    RAISE EXCEPTION 'A reclaimed lease must be fresh and the exhausted lease must stay excluded';
+  END IF;
+END;
+$fcm_expired_lease$;
+RESET ROLE;
+
 ROLLBACK;
 SELECT 'PASS: FCM claims are service-role-only, due/leased, retry-aware, and skip delivered or permanently failed inbox items.' AS result;
