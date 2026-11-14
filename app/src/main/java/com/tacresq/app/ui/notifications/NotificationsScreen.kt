@@ -269,6 +269,13 @@ class NotificationsViewModel(
                                     items = current.items.map {
                                         if (it.id == notification.id) it.copy(readAt = it.readAt ?: readAt) else it
                                     },
+                                    focusedNotification = current.focusedNotification?.let { focused ->
+                                        if (focused.id == notification.id) {
+                                            focused.copy(readAt = focused.readAt ?: readAt)
+                                        } else {
+                                            focused
+                                        }
+                                    },
                                     busyIds = current.busyIds - notification.id,
                                     actionError = null,
                                 )

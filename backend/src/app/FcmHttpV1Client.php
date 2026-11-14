@@ -41,7 +41,7 @@ final class FcmHttpV1Client
         $response = Http::acceptJson()
             ->asJson()
             ->withToken($accessToken)
-            ->timeout(max(1, (int) config('tacru.fcm_http_timeout', 8)))
+            ->timeout(10)
             ->post(
                 'https://fcm.googleapis.com/v1/projects/'.rawurlencode($projectId).'/messages:send',
                 ['message' => ['token' => $token, 'data' => $data]],
@@ -52,21 +52,47 @@ final class FcmHttpV1Client
             return [
                 'sent' => true,
                 'invalid_token' => false,
+                'retryable' => false,
                 'status' => $response->status(),
+                'retry_after_seconds' => null,
                 'provider_message_name' => is_string($name) ? $name : null,
                 'error_code' => null,
             ];
         }
 
-        $errorCode = $response->json('error.status');
-        $errorCode = is_string($errorCode) ? $errorCode : null;
+        $httpStatus = $response->status();
+        $classification = FcmHttpV1ErrorClassifier::classify(
+            $httpStatus,
+            is_array($response->json('error')) ? $response->json('error') : [],
+        );
+
         return [
             'sent' => false,
-            'invalid_token' => in_array($errorCode, ['UNREGISTERED', 'INVALID_ARGUMENT'], true),
-            'status' => $response->status(),
+            'invalid_token' => $classification['invalid_token'],
+            'retryable' => $classification['retryable'],
+            'status' => $httpStatus,
+            'retry_after_seconds' => $this->retryAfterSeconds($response->header('Retry-After')),
             'provider_message_name' => null,
             // Keep provider details out of logs and persisted records.
-            'error_code' => $errorCode ?? 'HTTP_'.$response->status(),
+            'error_code' => $classification['error_code'],
         ];
+    }
+
+    private function retryAfterSeconds(?string $header): ?int
+    {
+        $header = trim((string) $header);
+        if ($header === '') {
+            return null;
+        }
+        if (ctype_digit($header)) {
+            return min(86400, (int) $header);
+        }
+
+        $timestamp = strtotime($header);
+        if ($timestamp === false) {
+            return null;
+        }
+
+        return min(86400, max(0, $timestamp - time()));
     }
 }

@@ -20,9 +20,9 @@ The token is stored only in app-private preferences. It is never logged, include
 
 ## Trusted server sender
 
-The backend now contains `php artisan tacresq:dispatch-fcm`. It reads unread `user_notifications` rows and the recipient's registered `fcm_tokens` through the Supabase REST API using the server-only `SUPABASE_SECRET_KEY`. It sends data-only HTTP v1 messages through `google/auth` ADC, records one delivery attempt per notification/token pair in `fcm_delivery_attempts`, and removes tokens when Firebase reports `UNREGISTERED` or `INVALID_ARGUMENT`. The command prints counts only; it never prints tokens, provider response bodies, incident narratives, or coordinates.
+The backend contains `php artisan tacresq:dispatch-fcm`. It calls the server-only `api_claim_fcm_delivery_batch` RPC using `SUPABASE_SECRET_KEY`; the RPC atomically reserves due notification/token attempts from `fcm_delivery_attempts`. The worker does not use the inbox's unread page as its queue, so already-sent unread inbox rows cannot starve newer alerts. Claims use a 10-minute lease, retryable failures use exponential backoff with jitter and the FCM `Retry-After` header, and each token pair is capped at eight attempts. Permanent failures are retained for diagnosis. It sends data-only HTTP v1 messages through `google/auth` ADC and deletes a token for FCM `UNREGISTERED`; for `INVALID_ARGUMENT`, it deletes only when Firebase returns the typed `google.firebase.fcm.v1.FcmError` detail with `errorCode: INVALID_ARGUMENT` and no typed `google.rpc.BadRequest` field-violation detail. A `BadRequest` means the request/payload must be corrected and the token is retained. The sender constructs a fixed, bounded data-only payload using string identifiers. The command prints aggregate counts only; it never prints tokens, provider response bodies, incident narratives, or coordinates.
 
-Configure the worker environment privately with `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and an ADC mechanism. On a non-Google host, Firebase documents using `GOOGLE_APPLICATION_CREDENTIALS` to point to a protected service-account JSON file. The file must be mounted or injected by the deployment secret manager, outside the repository and outside the Android artifact. Run the command from a scheduler or worker at a short interval, for example `php artisan tacresq:dispatch-fcm --limit=100`. Do not expose this command as a public HTTP route.
+Configure the worker environment privately with `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and an ADC mechanism. On a non-Google host, Firebase documents using `GOOGLE_APPLICATION_CREDENTIALS` to point to a protected service-account JSON file. The file must be mounted or injected by the deployment secret manager, outside the repository and outside the Android artifact. Run the command from a scheduler or worker at a short interval, for example `php artisan tacresq:dispatch-fcm --limit=50`. Do not expose this command as a public HTTP route.
 
 ### Render placement
 
@@ -32,10 +32,10 @@ For Render, add the Firebase service-account JSON under the worker service's **E
 GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
 ```
 
-Add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, `FCM_BATCH_LIMIT`, and `FCM_HTTP_TIMEOUT` under that service's private **Environment Variables**. The file must be a Google service-account JSON containing `type: service_account`; the Android `google-services.json` is not an ADC credential. Attach the secret file and variables to the Render Cron Job or worker that runs the command, not only to the public dispatcher web service. A Cron Job command can be:
+Add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and `FCM_BATCH_LIMIT` under that service's private **Environment Variables**. The file must be a Google service-account JSON containing `type: service_account`; the Android `google-services.json` is not an ADC credential. Attach the secret file and variables to the Render Cron Job or worker that runs the command, not only to the public dispatcher web service. A Cron Job command can be:
 
 ```sh
-php artisan tacresq:dispatch-fcm --limit=100
+php artisan tacresq:dispatch-fcm --limit=50
 ```
 
 Before sending anything, validate the Render environment and ADC without reading the inbox or sending a message:
@@ -54,7 +54,7 @@ The public Render web service should retain only browser-safe Supabase configura
 
 ## Verification limits in this environment
 
-The sandbox has no Android SDK, PHP runtime, physical device, or Firebase project credentials, so APK compilation, PHP execution, and end-to-end delivery cannot be run here. The offline contracts are:
+This review environment cannot run the complete Android Gradle build, the Laravel/PostgreSQL integration stack, live Firebase authentication, or physical-device delivery. CI is the source of truth for clean migration replay and application build/test execution; actual Firebase delivery and device receipt remain separate deployment gates. The offline sender contracts are:
 
 ```sh
 python3 tools/test_fcm_registration_contract.py

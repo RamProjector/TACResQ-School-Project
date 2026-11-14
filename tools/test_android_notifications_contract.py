@@ -189,6 +189,7 @@ for required in (
     "refreshThrownExceptionUsesGenericErrorAndClearsProgress",
     "refreshResultFailurePreservesRepositoryMessageAndClearsProgress",
     "refreshCancellationPropagatesWithoutShowingErrorAndClearsProgress",
+    "markReadUpdatesFocusedNotificationOutsideInboxPage",
     "markReadThrownExceptionUsesGenericErrorAndClearsBusyId",
     "markReadResultFailurePreservesRepositoryMessageAndClearsBusyId",
     "markReadCancellationPropagatesWithoutShowingErrorAndClearsBusyId",
