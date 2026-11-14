@@ -124,8 +124,14 @@ class PushTokenCoordinator(
     private suspend fun currentToken(): String? {
         val pending = preferences.getString(KEY_PENDING_TOKEN, null)
         if (!pending.isNullOrBlank()) return pending
-        return runCatching { FirebaseMessaging.getInstance().token.await() }
-            .getOrNull()
+        val token = try {
+            FirebaseMessaging.getInstance().token.await()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+        return token
             ?.takeIf { it.length in 20..4096 }
             ?.also { preferences.edit().putString(KEY_PENDING_TOKEN, it).apply() }
     }
