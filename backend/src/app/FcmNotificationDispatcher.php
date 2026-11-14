@@ -7,7 +7,6 @@ use RuntimeException;
 
 final class FcmNotificationDispatcher
 {
-    private const MAX_ATTEMPTS = 8;
     private const CLAIM_LEASE_SECONDS = 600;
 
     public function __construct(private readonly FcmHttpV1Client $fcm)
@@ -23,7 +22,7 @@ final class FcmNotificationDispatcher
     public function dispatch(?int $limit = null): array
     {
         $this->assertConfigured();
-        $limit = max(1, min($limit ?? (int) config('tacru.fcm_batch_limit', 100), 500));
+        $limit = max(1, min($limit ?? (int) config('tacru.fcm_batch_limit', 50), 50));
 
         $response = $this->client()->post($this->rpcUrl('api_claim_fcm_delivery_batch'), [
             'p_limit' => $limit,
