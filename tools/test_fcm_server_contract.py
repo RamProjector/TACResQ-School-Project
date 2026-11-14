@@ -57,7 +57,7 @@ assert "UNIQUE (notification_id, token)" in base_migration
 assert "REVOKE ALL ON TABLE public.fcm_delivery_attempts" in base_migration
 assert "ADD COLUMN IF NOT EXISTS attempt_count" in queue_migration
 assert "ADD COLUMN IF NOT EXISTS next_attempt_at" in queue_migration
-assert "ON CONFLICT (notification_id, token) DO UPDATE" in queue_migration
+assert "ON CONFLICT ON CONSTRAINT fcm_delivery_attempts_notification_id_token_key DO UPDATE" in queue_migration
 assert "p_limit > 50" in queue_migration
 assert "existing.attempt_count < 8" in queue_migration
 assert "existing.next_attempt_at <= statement_timestamp()" in queue_migration
