@@ -191,7 +191,7 @@ final class FcmNotificationDispatcher
     private function nextAttemptAt(int $attemptCount, int $httpStatus, ?int $retryAfterSeconds): string
     {
         // FCM recommends at least a one-minute initial delay for quota errors.
-        $baseSeconds = $httpStatus === 429 ? 60 : 2;
+        $baseSeconds = $httpStatus === 429 ? 60 : 10;
         $exponent = min(10, max(0, $attemptCount - 1));
         $backoff = min(3600, $baseSeconds * (2 ** $exponent));
         $jitter = random_int(0, max(1, (int) floor($backoff * 0.25)));
@@ -208,7 +208,7 @@ final class FcmNotificationDispatcher
                 'apikey' => (string) config('tacru.supabase_secret_key'),
                 'Authorization' => 'Bearer '.(string) config('tacru.supabase_secret_key'),
             ])
-            ->timeout(max(1, (int) config('tacru.fcm_http_timeout', 8)));
+            ->timeout(10);
     }
 
     private function tableUrl(string $table): string
