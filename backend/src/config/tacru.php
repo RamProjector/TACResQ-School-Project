@@ -21,7 +21,6 @@ return [
     'supabase_secret_key' => env('SUPABASE_SECRET_KEY', ''),
     'fcm_project_id' => env('FCM_PROJECT_ID', ''),
     'fcm_batch_limit' => (int) env('FCM_BATCH_LIMIT', 50),
-    'fcm_http_timeout' => (int) env('FCM_HTTP_TIMEOUT', 8),
 
 
     // Explicit RPC allowlist for the additive Render -> Supabase bridge.
