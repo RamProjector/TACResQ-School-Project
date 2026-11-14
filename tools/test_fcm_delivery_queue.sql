@@ -112,7 +112,7 @@ DECLARE
 BEGIN
   SELECT count(*), min(notification_id), min(attempt_count)
     INTO claimed_count, claimed_id, claimed_attempt_count
-    FROM public.api_claim_fcm_delivery_batch(100, 600);
+    FROM public.api_claim_fcm_delivery_batch(50, 600);
 
   IF claimed_count <> 1 OR claimed_id <> expected_notification_id THEN
     RAISE EXCEPTION 'Expected only the new due notification to be claimed; count %, id %',
