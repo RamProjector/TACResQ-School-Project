@@ -53,15 +53,17 @@ final class FcmNotificationDispatcher
         foreach ($attempts as $attempt) {
             $attemptId = (int) ($attempt['attempt_id'] ?? 0);
             $notificationId = (int) ($attempt['notification_id'] ?? 0);
+            $profileId = (int) ($attempt['profile_id'] ?? 0);
             $token = $attempt['token'] ?? null;
             $attemptCount = max(1, (int) ($attempt['attempt_count'] ?? 1));
-            if ($attemptId < 1 || $notificationId < 1 || !is_string($token) || $token === '') {
+            if ($attemptId < 1 || $notificationId < 1 || $profileId < 1 || !is_string($token) || $token === '') {
                 $stats['skipped']++;
                 continue;
             }
 
             $data = [
                 'notification_id' => (string) $notificationId,
+                'recipient_profile_id' => (string) $profileId,
                 'event_type' => (string) ($attempt['event_type'] ?? 'incident_status_changed'),
             ];
             if (isset($attempt['incident_id']) && $attempt['incident_id'] !== null) {
