@@ -123,7 +123,7 @@ BEGIN
   END IF;
 
   SELECT count(*) INTO claimed_count
-    FROM public.api_claim_fcm_delivery_batch(100, 600);
+    FROM public.api_claim_fcm_delivery_batch(50, 600);
   IF claimed_count <> 0 THEN
     RAISE EXCEPTION 'A second worker claim must not reclaim a live lease';
   END IF;
@@ -144,7 +144,7 @@ DECLARE
   claimed_count integer;
 BEGIN
   SELECT count(*) INTO claimed_count
-    FROM public.api_claim_fcm_delivery_batch(100, 600);
+    FROM public.api_claim_fcm_delivery_batch(50, 600);
   IF claimed_count <> 0 THEN
     RAISE EXCEPTION 'A failed attempt must respect next_attempt_at backoff';
   END IF;
@@ -167,7 +167,7 @@ DECLARE
 BEGIN
   SELECT count(*), min(notification_id), min(attempt_count)
     INTO claimed_count, claimed_id, claimed_attempt_count
-    FROM public.api_claim_fcm_delivery_batch(100, 600);
+    FROM public.api_claim_fcm_delivery_batch(50, 600);
 
   IF claimed_count <> 1 OR claimed_id <> expected_notification_id THEN
     RAISE EXCEPTION 'A due failed attempt must be retried; count %, id %', claimed_count, claimed_id;
@@ -192,7 +192,7 @@ DECLARE
   claimed_count integer;
 BEGIN
   SELECT count(*) INTO claimed_count
-    FROM public.api_claim_fcm_delivery_batch(100, 600);
+    FROM public.api_claim_fcm_delivery_batch(50, 600);
   IF claimed_count <> 0 THEN
     RAISE EXCEPTION 'Attempts at the retry ceiling must not be claimed again';
   END IF;
@@ -259,7 +259,7 @@ DECLARE
 BEGIN
   SELECT count(*), min(notification_id), min(attempt_count)
     INTO claimed_count, claimed_id, claimed_attempt_count
-    FROM public.api_claim_fcm_delivery_batch(100, 600);
+    FROM public.api_claim_fcm_delivery_batch(50, 600);
 
   IF claimed_count <> 1 OR claimed_id <> expected_notification_id THEN
     RAISE EXCEPTION 'Only an expired lease below the retry ceiling must be reclaimed; count %, id %',
@@ -270,7 +270,7 @@ BEGIN
   END IF;
 
   SELECT count(*) INTO claimed_count
-    FROM public.api_claim_fcm_delivery_batch(100, 600);
+    FROM public.api_claim_fcm_delivery_batch(50, 600);
   IF claimed_count <> 0 THEN
     RAISE EXCEPTION 'A reclaimed lease must be fresh and the exhausted lease must stay excluded';
   END IF;
