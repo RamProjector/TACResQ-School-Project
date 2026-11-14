@@ -7,13 +7,16 @@ use RuntimeException;
 
 final class FcmNotificationDispatcher
 {
+    private const MAX_ATTEMPTS = 8;
+    private const CLAIM_LEASE_SECONDS = 600;
+
     public function __construct(private readonly FcmHttpV1Client $fcm)
     {
     }
 
     /**
-     * Dispatch unread inbox events to the recipient's currently registered tokens.
-     * The service-role key is required here and is never accepted from a request.
+     * Claim due notification/token deliveries atomically, then send them through
+     * FCM. Inbox read state is not used as the delivery-work ledger.
      *
      * @return array{notifications:int,tokens:int,sent:int,invalid_tokens:int,failed:int,skipped:int}
      */
@@ -21,75 +24,100 @@ final class FcmNotificationDispatcher
     {
         $this->assertConfigured();
         $limit = max(1, min($limit ?? (int) config('tacru.fcm_batch_limit', 100), 500));
-        $notifications = $this->get('user_notifications', [
-            'select' => 'id,recipient_user_id,incident_id,event_type',
-            'read_at' => 'is.null',
-            'order' => 'id.asc',
-            'limit' => $limit,
+
+        $response = $this->client()->post($this->rpcUrl('api_claim_fcm_delivery_batch'), [
+            'p_limit' => $limit,
+            'p_lease_seconds' => self::CLAIM_LEASE_SECONDS,
         ]);
-        if ($notifications === []) {
-            return ['notifications' => 0, 'tokens' => 0, 'sent' => 0, 'invalid_tokens' => 0, 'failed' => 0, 'skipped' => 0];
+        if (!$response->successful() || !is_array($response->json())) {
+            throw new RuntimeException('Supabase FCM delivery queue claim failed.');
         }
 
-        $profileIds = array_values(array_unique(array_map(
-            static fn (array $notification): int => (int) ($notification['recipient_user_id'] ?? 0),
-            $notifications,
-        )));
-        $profileIds = array_values(array_filter($profileIds, static fn (int $id): bool => $id > 0));
-        $tokens = $this->get('fcm_tokens', [
-            'select' => 'profile_id,token',
-            'profile_id' => 'in.('.implode(',', $profileIds).')',
-            'limit' => 2000,
-        ]);
-        $tokensByProfile = [];
-        foreach ($tokens as $token) {
-            $profileId = (int) ($token['profile_id'] ?? 0);
-            $value = $token['token'] ?? null;
-            if ($profileId > 0 && is_string($value) && strlen($value) >= 20 && strlen($value) <= 4096) {
-                $tokensByProfile[$profileId][] = $value;
+        $attempts = array_values(array_filter($response->json(), 'is_array'));
+        $notificationIds = [];
+        foreach ($attempts as $attempt) {
+            $id = (int) ($attempt['notification_id'] ?? 0);
+            if ($id > 0) {
+                $notificationIds[$id] = true;
             }
         }
 
-        $stats = ['notifications' => count($notifications), 'tokens' => 0, 'sent' => 0, 'invalid_tokens' => 0, 'failed' => 0, 'skipped' => 0];
-        foreach ($notifications as $notification) {
-            $notificationId = (int) ($notification['id'] ?? 0);
-            $profileId = (int) ($notification['recipient_user_id'] ?? 0);
-            if ($notificationId < 1 || $profileId < 1) {
+        $stats = [
+            'notifications' => count($notificationIds),
+            'tokens' => count($attempts),
+            'sent' => 0,
+            'invalid_tokens' => 0,
+            'failed' => 0,
+            'skipped' => 0,
+        ];
+
+        foreach ($attempts as $attempt) {
+            $attemptId = (int) ($attempt['attempt_id'] ?? 0);
+            $notificationId = (int) ($attempt['notification_id'] ?? 0);
+            $token = $attempt['token'] ?? null;
+            $attemptCount = max(1, (int) ($attempt['attempt_count'] ?? 1));
+            if ($attemptId < 1 || $notificationId < 1 || !is_string($token) || $token === '') {
+                $stats['skipped']++;
                 continue;
             }
-            foreach ($tokensByProfile[$profileId] ?? [] as $token) {
-                $stats['tokens']++;
-                $attempt = $this->claimAttempt($notificationId, $profileId, $token);
-                if ($attempt === null) {
-                    $stats['skipped']++;
-                    continue;
-                }
 
-                $data = [
-                    'notification_id' => (string) $notificationId,
-                    'event_type' => (string) ($notification['event_type'] ?? 'incident_status_changed'),
-                ];
-                if (isset($notification['incident_id']) && $notification['incident_id'] !== null) {
-                    $data['incident_id'] = (string) $notification['incident_id'];
-                }
+            $data = [
+                'notification_id' => (string) $notificationId,
+                'event_type' => (string) ($attempt['event_type'] ?? 'incident_status_changed'),
+            ];
+            if (isset($attempt['incident_id']) && $attempt['incident_id'] !== null) {
+                $data['incident_id'] = (string) $attempt['incident_id'];
+            }
 
-                try {
-                    $result = $this->fcm->send((string) config('tacru.fcm_project_id'), $token, $data);
-                    if ($result['sent']) {
-                        $this->updateAttempt((int) $attempt['id'], 'sent', $result['provider_message_name'], null);
-                        $stats['sent']++;
-                    } elseif ($result['invalid_token']) {
-                        $this->deleteToken($token);
-                        $this->updateAttempt((int) $attempt['id'], 'invalid_token', null, $result['error_code']);
-                        $stats['invalid_tokens']++;
-                    } else {
-                        $this->updateAttempt((int) $attempt['id'], 'failed', null, $result['error_code']);
-                        $stats['failed']++;
-                    }
-                } catch (\Throwable) {
-                    $this->updateAttempt((int) $attempt['id'], 'failed', null, 'TRANSPORT_FAILURE');
+            try {
+                $result = $this->fcm->send(
+                    (string) config('tacru.fcm_project_id'),
+                    $token,
+                    $data,
+                );
+
+                if ($result['sent']) {
+                    $this->updateAttempt($attemptId, 'sent', $result['provider_message_name'], null);
+                    $stats['sent']++;
+                } elseif ($result['invalid_token']) {
+                    // FCM UNREGISTERED is the definitive signal that this token is
+                    // no longer registered. Do not delete tokens for INVALID_ARGUMENT.
+                    $this->deleteToken($token);
+                    $this->updateAttempt($attemptId, 'invalid_token', null, $result['error_code']);
+                    $stats['invalid_tokens']++;
+                } elseif ($result['retryable']) {
+                    $this->updateAttempt(
+                        $attemptId,
+                        'failed',
+                        null,
+                        $result['error_code'],
+                        $this->nextAttemptAt(
+                            $attemptCount,
+                            (int) $result['status'],
+                            $result['retry_after_seconds'],
+                        ),
+                    );
+                    $stats['failed']++;
+                } else {
+                    $this->updateAttempt(
+                        $attemptId,
+                        'permanent_failure',
+                        null,
+                        $result['error_code'],
+                    );
                     $stats['failed']++;
                 }
+            } catch (\Throwable) {
+                // Transport or ledger-update failures retain the attempt for a
+                // bounded retry. A worker crash leaves the claim leased for 10 min.
+                $this->updateAttempt(
+                    $attemptId,
+                    'failed',
+                    null,
+                    'TRANSPORT_FAILURE',
+                    $this->nextAttemptAt($attemptCount, 0, null),
+                );
+                $stats['failed']++;
             }
         }
 
@@ -97,7 +125,7 @@ final class FcmNotificationDispatcher
     }
 
     /**
-     * Validate server configuration and ADC without reading inbox rows or sending a push.
+     * Validate server configuration and ADC without claiming or sending a push.
      */
     public function checkConfiguration(): void
     {
@@ -115,72 +143,62 @@ final class FcmNotificationDispatcher
         }
     }
 
-    private function get(string $table, array $query): array
-    {
-        $response = $this->client()->get($this->tableUrl($table), $query);
-        if (!$response->successful() || !is_array($response->json())) {
-            throw new RuntimeException('Supabase push-dispatch read failed.');
-        }
-        return array_values(array_filter($response->json(), 'is_array'));
-    }
-
-    /** @return array{id:int}|null */
-    private function claimAttempt(int $notificationId, int $profileId, string $token): ?array
-    {
-        $existing = $this->get('fcm_delivery_attempts', [
-            'select' => 'id,status,attempted_at',
-            'notification_id' => 'eq.'.$notificationId,
-            'token' => 'eq.'.rawurlencode($token),
-            'limit' => 1,
-        ])[0] ?? null;
-        if (is_array($existing)) {
-            $status = (string) ($existing['status'] ?? '');
-            if (in_array($status, ['sent', 'invalid_token'], true)) {
-                return null;
-            }
-            if ($status === 'claimed' && (string) ($existing['attempted_at'] ?? '') >= now()->subMinutes(10)->toISOString()) {
-                return null;
-            }
-            $this->patchAttempt((int) $existing['id'], ['status' => 'claimed', 'updated_at' => now()->toISOString(), 'attempted_at' => now()->toISOString()]);
-            return ['id' => (int) $existing['id']];
-        }
-
-        $response = $this->client()
-            ->withHeaders(['Prefer' => 'return=representation,resolution=ignore-duplicates'])
-            ->post($this->tableUrl('fcm_delivery_attempts'), [
-                'notification_id' => $notificationId,
-                'profile_id' => $profileId,
-                'token' => $token,
-                'status' => 'claimed',
-            ]);
-        if (!$response->successful()) {
-            return null;
-        }
-        $row = $response->json()[0] ?? null;
-        return is_array($row) && isset($row['id']) ? ['id' => (int) $row['id']] : null;
-    }
-
-    private function updateAttempt(int $id, string $status, ?string $providerName, ?string $errorCode): void
-    {
+    private function updateAttempt(
+        int $id,
+        string $status,
+        ?string $providerName,
+        ?string $errorCode,
+        ?string $nextAttemptAt = null,
+    ): void {
         $this->patchAttempt($id, [
             'status' => $status,
             'provider_message_name' => $providerName,
             'last_error_code' => $errorCode,
+            'next_attempt_at' => $nextAttemptAt ?? now()->toISOString(),
             'updated_at' => now()->toISOString(),
         ]);
     }
 
     private function patchAttempt(int $id, array $payload): void
     {
-        $this->client()->patch(
-            $this->tableUrl('fcm_delivery_attempts').'?id=eq.'.rawurlencode((string) $id),
-            $payload,
+        $query = http_build_query(
+            ['id' => 'eq.'.$id],
+            '',
+            '&',
+            PHP_QUERY_RFC3986,
         );
+        $response = $this->client()->patch($this->tableUrl('fcm_delivery_attempts').'?'.$query, $payload);
+        if (!$response->successful()) {
+            throw new RuntimeException('Supabase FCM delivery ledger update failed.');
+        }
     }
 
     private function deleteToken(string $token): void
     {
-        $this->client()->delete($this->tableUrl('fcm_tokens'), ['token' => 'eq.'.rawurlencode($token)]);
+        // Laravel's delete(url, data) argument is a request body, not PostgREST
+        // query parameters. Put the encoded filter in the URL instead.
+        $query = http_build_query(
+            ['token' => 'eq.'.$token],
+            '',
+            '&',
+            PHP_QUERY_RFC3986,
+        );
+        $response = $this->client()->delete($this->tableUrl('fcm_tokens').'?'.$query);
+        if (!$response->successful()) {
+            throw new RuntimeException('Supabase invalid-token cleanup failed.');
+        }
+    }
+
+    private function nextAttemptAt(int $attemptCount, int $httpStatus, ?int $retryAfterSeconds): string
+    {
+        // FCM recommends at least a one-minute initial delay for quota errors.
+        $baseSeconds = $httpStatus === 429 ? 60 : 2;
+        $exponent = min(10, max(0, $attemptCount - 1));
+        $backoff = min(3600, $baseSeconds * (2 ** $exponent));
+        $jitter = random_int(0, max(1, (int) floor($backoff * 0.25)));
+        $providerDelay = max(0, min(86400, $retryAfterSeconds ?? 0));
+
+        return now()->addSeconds(max($providerDelay, $backoff + $jitter))->toISOString();
     }
 
     private function client()
@@ -197,5 +215,10 @@ final class FcmNotificationDispatcher
     private function tableUrl(string $table): string
     {
         return rtrim((string) config('tacru.supabase_url'), '/').'/rest/v1/'.$table;
+    }
+
+    private function rpcUrl(string $function): string
+    {
+        return rtrim((string) config('tacru.supabase_url'), '/').'/rest/v1/rpc/'.$function;
     }
 }
