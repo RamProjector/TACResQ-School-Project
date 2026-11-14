@@ -41,7 +41,7 @@ final class FcmHttpV1Client
         $response = Http::acceptJson()
             ->asJson()
             ->withToken($accessToken)
-            ->timeout(max(1, (int) config('tacru.fcm_http_timeout', 8)))
+            ->timeout(10)
             ->post(
                 'https://fcm.googleapis.com/v1/projects/'.rawurlencode($projectId).'/messages:send',
                 ['message' => ['token' => $token, 'data' => $data]],
