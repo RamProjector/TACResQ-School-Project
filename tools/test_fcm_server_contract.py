@@ -36,6 +36,7 @@ assert "GOOGLE_APPLICATION_CREDENTIALS" in env
 assert "google/auth:^1.48" in dockerfile
 assert "api_claim_fcm_delivery_batch" in dispatcher
 assert "p_lease_seconds" in dispatcher
+assert "min($limit ?? (int) config('tacru.fcm_batch_limit', 50), 50)" in dispatcher
 assert "fcm_delivery_attempts" in dispatcher
 assert "next_attempt_at" in dispatcher
 assert "attempt_count" in dispatcher
@@ -57,6 +58,7 @@ assert "REVOKE ALL ON TABLE public.fcm_delivery_attempts" in base_migration
 assert "ADD COLUMN IF NOT EXISTS attempt_count" in queue_migration
 assert "ADD COLUMN IF NOT EXISTS next_attempt_at" in queue_migration
 assert "ON CONFLICT (notification_id, token) DO UPDATE" in queue_migration
+assert "p_limit > 50" in queue_migration
 assert "existing.attempt_count < 8" in queue_migration
 assert "existing.next_attempt_at <= statement_timestamp()" in queue_migration
 assert "GRANT EXECUTE ON FUNCTION public.api_claim_fcm_delivery_batch(integer, integer)" in queue_migration
