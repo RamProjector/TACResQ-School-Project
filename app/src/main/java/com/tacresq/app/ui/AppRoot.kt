@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.core.app.NotificationManagerCompat
 import androidx.compose.material3.Card
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
@@ -103,6 +104,8 @@ fun AppRoot(
         scope.launch {
             container.pushTokenCoordinator.unregister(container.repository)
             container.repository.logout()
+            // Remove alerts rendered for the previous account before another account can sign in.
+            NotificationManagerCompat.from(context).cancelAll()
         }
     }
 
