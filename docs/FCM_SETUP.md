@@ -1,10 +1,12 @@
 # TACResQ Firebase Cloud Messaging setup
 
-The Android client contains the FCM registration lifecycle, and the backend now contains a credential-free source implementation for trusted Firebase HTTP v1 delivery. Push delivery remains disabled until deployment supplies private Firebase and Supabase server configuration. No Firebase credential is committed to this repository.
+The Android client contains the FCM registration lifecycle, and the backend contains a trusted Firebase HTTP v1 sender. The Render deployment already has a Firebase service-account Secret File and a `GOOGLE_APPLICATION_CREDENTIALS` path configured. Preserve that existing file and path; do not recreate, duplicate, expose, or rotate the credential as part of routine dispatcher work.
+
+**Important status distinction:** sender credentials and code exist, but the deployed Render web-service startup does not automatically run `php artisan tacresq:dispatch-fcm`. Automatic queue processing and physical-device delivery are therefore not yet verified. See [the Render execution audit](FCM_RENDER_EXECUTION_AUDIT.md). FCM is supplemental; the persistent in-app inbox remains authoritative.
 
 ## Client configuration
 
-1. Create or select a Firebase project owned by the TACResQ deployment operator.
+1. Create or select the Firebase project owned by the TACResQ deployment operator.
 2. Register the Android application with the exact application ID from `app/build.gradle.kts`.
 3. Supply the generated `google-services.json` through the private Android build/CI secret mechanism. Do not commit it or print it in logs.
 4. Add the Google Services Gradle plugin only in the deployment build configuration if the project uses it to generate Firebase resources; the app remains buildable without Firebase configuration for local/demo builds.
@@ -20,45 +22,32 @@ The token is stored only in app-private preferences. It is never logged, include
 
 ## Trusted server sender
 
-The backend contains `php artisan tacresq:dispatch-fcm`. It calls the server-only `api_claim_fcm_delivery_batch` RPC using `SUPABASE_SECRET_KEY`; the RPC atomically reserves due notification/token attempts from `fcm_delivery_attempts`. The worker does not use the inbox's unread page as its queue, so already-sent unread inbox rows cannot starve newer alerts. Claims use a 10-minute lease, retryable failures use exponential backoff with jitter and the FCM `Retry-After` header, and each token pair is capped at eight attempts. Permanent failures are retained for diagnosis. It sends data-only HTTP v1 messages through `google/auth` ADC and deletes a token for FCM `UNREGISTERED`; for `INVALID_ARGUMENT`, it deletes only when Firebase returns the typed `google.firebase.fcm.v1.FcmError` detail with `errorCode: INVALID_ARGUMENT` and no typed `google.rpc.BadRequest` field-violation detail. A `BadRequest` means the request/payload must be corrected and the token is retained. The sender constructs a fixed, bounded data-only payload using string identifiers. The command prints aggregate counts only; it never prints tokens, provider response bodies, incident narratives, or coordinates.
+The backend contains `php artisan tacresq:dispatch-fcm`. It calls the server-only `api_claim_fcm_delivery_batch` RPC using `SUPABASE_SECRET_KEY`; the RPC atomically reserves due notification/token attempts from `fcm_delivery_attempts`. The claim query considers only notifications that are still unread, so a notification already opened in the app does not generate a later push. The delivery ledger—not the inbox read flag—tracks each notification/token pair's claim, sent state, retry schedule, and permanent failure. A sent-but-unread pair is excluded by its ledger record and cannot be repeatedly claimed. This is the distinction between inbox visibility and delivery bookkeeping.
 
-Configure the worker environment privately with `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and an ADC mechanism. On a non-Google host, Firebase documents using `GOOGLE_APPLICATION_CREDENTIALS` to point to a protected service-account JSON file. The file must be mounted or injected by the deployment secret manager, outside the repository and outside the Android artifact. Run the command from a scheduler or worker at a short interval, for example `php artisan tacresq:dispatch-fcm --limit=50`. Do not expose this command as a public HTTP route.
+Claims use a 10-minute lease, retryable failures use exponential backoff with jitter and the FCM `Retry-After` header, and each token pair is capped at eight attempts. Permanent failures are retained for diagnosis. The sender uses Google Application Default Credentials (ADC) via `google/auth` and sends data-only HTTP v1 messages. It deletes a token for FCM `UNREGISTERED`; for `INVALID_ARGUMENT`, it deletes only when Firebase returns the typed `google.firebase.fcm.v1.FcmError` detail with `errorCode: INVALID_ARGUMENT` and no typed `google.rpc.BadRequest` field-violation detail. A `BadRequest` means the request/payload must be corrected and the token is retained. The sender constructs a fixed, bounded data-only payload using string identifiers. The command prints aggregate counts only; it must never print tokens, provider response bodies, incident narratives, or coordinates.
 
-### Render placement
+The dispatcher requires `SUPABASE_URL`, server-only `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and ADC credentials. On Render, ADC reads the service-account JSON file named by the existing `GOOGLE_APPLICATION_CREDENTIALS` environment variable. Preserve the current Render Secret File and exact path; do not substitute Android `google-services.json`, add a second credential variable, or copy the JSON into source control. The command accepts a maximum batch size of 50, enforced both by the PHP dispatcher and the database RPC. Do not expose this command as a public HTTP route.
 
-For Render, add the Firebase service-account JSON under the worker service's **Environment → Secret Files**, for example with the filename `firebase-service-account.json`. Render mounts Docker secret files at `/etc/secrets/<filename>`, so set this environment variable on the same worker service:
+### Render execution status
 
-```env
-GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
-```
+The existing Render web service currently starts the PHP web server only. Its startup command does not invoke the FCM dispatcher, a scheduler, or a worker. A Secret File and `GOOGLE_APPLICATION_CREDENTIALS` make the credential available to the process; they do not run the queue command.
 
-Add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and `FCM_BATCH_LIMIT` under that service's private **Environment Variables**. The file must be a Google service-account JSON containing `type: service_account`; the Android `google-services.json` is not an ADC credential. Attach the secret file and variables to the Render Cron Job or worker that runs the command, not only to the public dispatcher web service. A Cron Job command can be:
+Render Free Web Services can spin down when idle. A background loop inside that same service is not a dependable emergency-delivery mechanism while the service is asleep. Render Cron Jobs and Background Workers are not available on the Free instance tier. Do not change the plan or create a paid service without explicit approval.
 
-```sh
-php artisan tacresq:dispatch-fcm --limit=50
-```
+A private worker/Cron Job is the cleanest isolated execution model if a paid tier is later approved. The example at [render-fcm-cron.example.yaml](../render-fcm-cron.example.yaml) is illustrative only and must not be applied automatically. Any future worker must receive the server-only Supabase key and ADC file through its own protected environment, use a batch limit no greater than 50, and pass a synthetic device test before recurring execution is enabled.
 
-Before sending anything, validate the Render environment and ADC without reading the inbox or sending a message:
+### Safe validation
+
+Run this command in the deployed environment only when an authorized operator can execute it safely:
 
 ```sh
 php artisan tacresq:dispatch-fcm --check-config
 ```
 
-This prints only a success/failure message and never prints the service-account contents or OAuth access token.
+It validates required Supabase/FCM configuration and that ADC can mint an FCM-scoped access token. It does not claim queue access or send a notification. A successful preflight is not proof of automatic dispatch or physical-device receipt.
 
-Render's [environment and secret-file guide](https://render.com/docs/configure-environment-variables) documents the `/etc/secrets/` path, and its [Cron Job guide](https://render.com/docs/cronjobs) documents the scheduled command and service-specific environment variables.
+The Android service intentionally renders a generic message and opens TACResQ, where the authenticated app fetches the notification inbox. Do not add a Firebase service-account key to the Android app or repository. Firebase documents the `firebase.messaging` OAuth scope and the `Authorization: Bearer` request pattern in its [HTTP v1 sending guide](https://firebase.google.com/docs/cloud-messaging/send/v1-api).
 
-The Android service intentionally renders a generic message and opens TACResQ, where the authenticated app fetches the notification inbox. Do not add a Firebase service-account key to the Android app or repository. A server sender must use FCM HTTP v1 with server-side credentials or application-default credentials; Firebase documents the `firebase.messaging` OAuth scope and the `Authorization: Bearer` request pattern in its [HTTP v1 sending guide](https://firebase.google.com/docs/cloud-messaging/send/v1-api).
+## Verification limits
 
-The public Render web service should retain only browser-safe Supabase configuration. The private Supabase secret, Firebase project ID, ADC secret file, and scheduler belong on the separate worker/Cron Job service.
-
-## Verification limits in this environment
-
-This review environment cannot run the complete Android Gradle build, the Laravel/PostgreSQL integration stack, live Firebase authentication, or physical-device delivery. CI is the source of truth for clean migration replay and application build/test execution; actual Firebase delivery and device receipt remain separate deployment gates. The offline sender contracts are:
-
-```sh
-python3 tools/test_fcm_registration_contract.py
-python3 tools/test_fcm_server_contract.py
-```
-
-CI/device/deployment validation must verify Firebase configuration, Android 13 permission denial/grant behavior, token rotation, sign-out removal, the command's ADC authentication, invalid-token cleanup, duplicate suppression, and a synthetic non-sensitive notification.
+CI can validate source contracts, migration replay, and application tests. It cannot validate the live Render credential mount, automatic command execution, live Firebase authentication, or physical-device delivery from the repository alone. Before operational delivery is claimed, verify the deployed preflight, automatic invocation, a synthetic non-sensitive push, and foreground/background/closed-app receipt on a dedicated test device.
