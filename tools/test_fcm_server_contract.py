@@ -67,6 +67,9 @@ assert "service_role" in queue_test and "authenticated" in queue_test
 assert "A second worker claim must not reclaim a live lease" in queue_test
 assert "A failed attempt must respect next_attempt_at backoff" in queue_test
 assert "Attempts at the retry ceiling must not be claimed again" in queue_test
+assert "Only an expired lease below the retry ceiling must be reclaimed" in queue_test
+assert "A reclaimed lease must be fresh and the exhausted lease must stay excluded" in queue_test
+assert "INVALID_ARGUMENT` is treated as a payload/request error" in docs
 assert "SUPABASE_SECRET_KEY" in docs
 assert "Do not expose this command" in docs
 assert "--check-config" in docs
