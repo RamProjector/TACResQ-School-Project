@@ -60,6 +60,7 @@ assert "permanent_failure" in dispatcher
 assert "tacresq:dispatch-fcm" in command
 assert "--check-config" in command
 assert "checkConfiguration" in dispatcher
+assert dispatcher.index("$this->checkConfiguration();") < dispatcher.index("api_claim_fcm_delivery_batch")
 assert "assertCredentialsAvailable" in transport
 assert "notification_id" in base_migration and "token" in base_migration
 assert "UNIQUE (notification_id, token)" in base_migration
