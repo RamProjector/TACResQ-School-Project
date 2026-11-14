@@ -74,8 +74,11 @@ BEGIN
             existing.status IN ('sent', 'invalid_token', 'permanent_failure')
             OR (
               existing.status = 'claimed'
-              AND existing.attempted_at > statement_timestamp()
-                - make_interval(secs => p_lease_seconds)
+              AND (
+                existing.attempt_count >= 8
+                OR existing.attempted_at > statement_timestamp()
+                  - make_interval(secs => p_lease_seconds)
+              )
             )
             OR (
               existing.status = 'failed'
@@ -124,6 +127,7 @@ BEGIN
         )
         OR (
           existing.status = 'claimed'
+          AND existing.attempt_count < 8
           AND existing.attempted_at <= statement_timestamp()
             - make_interval(secs => p_lease_seconds)
         )
