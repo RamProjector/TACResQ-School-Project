@@ -11,7 +11,7 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SECRET_KEY=<secret-manager value>
 FCM_PROJECT_ID=<firebase project id>
 GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
-FCM_BATCH_LIMIT=100
+FCM_BATCH_LIMIT=50
 FCM_HTTP_TIMEOUT=8
 ```
 
