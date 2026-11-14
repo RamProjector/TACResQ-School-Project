@@ -52,21 +52,49 @@ final class FcmHttpV1Client
             return [
                 'sent' => true,
                 'invalid_token' => false,
+                'retryable' => false,
                 'status' => $response->status(),
+                'retry_after_seconds' => null,
                 'provider_message_name' => is_string($name) ? $name : null,
                 'error_code' => null,
             ];
         }
 
+        $httpStatus = $response->status();
         $errorCode = $response->json('error.status');
         $errorCode = is_string($errorCode) ? $errorCode : null;
+        $retryable = in_array($httpStatus, [429, 500, 502, 503, 504], true)
+            || in_array($errorCode, ['QUOTA_EXCEEDED', 'UNAVAILABLE', 'INTERNAL'], true);
+
         return [
             'sent' => false,
-            'invalid_token' => in_array($errorCode, ['UNREGISTERED', 'INVALID_ARGUMENT'], true),
-            'status' => $response->status(),
+            // FCM INVALID_ARGUMENT can describe a malformed payload. Only
+            // UNREGISTERED unambiguously means this registration token is stale.
+            'invalid_token' => $errorCode === 'UNREGISTERED',
+            'retryable' => $retryable,
+            'status' => $httpStatus,
+            'retry_after_seconds' => $this->retryAfterSeconds($response->header('Retry-After')),
             'provider_message_name' => null,
             // Keep provider details out of logs and persisted records.
-            'error_code' => $errorCode ?? 'HTTP_'.$response->status(),
+            'error_code' => $errorCode ?? 'HTTP_'.$httpStatus,
         ];
+    }
+
+    private function retryAfterSeconds(?string $header): ?int
+    {
+        $header = trim((string) $header);
+        if ($header === '') {
+            return null;
+        }
+        if (ctype_digit($header)) {
+            return min(86400, (int) $header);
+        }
+
+        $timestamp = strtotime($header);
+        if ($timestamp === false) {
+            return null;
+        }
+
+        return min(86400, max(0, $timestamp - time()));
     }
 }
