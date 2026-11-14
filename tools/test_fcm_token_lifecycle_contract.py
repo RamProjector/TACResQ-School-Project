@@ -16,6 +16,11 @@ assert "registrationEnabled = false" in coordinator
 assert "linkedSetOf(" in coordinator
 assert "KEY_REGISTERED_TOKEN" in coordinator and "KEY_PENDING_TOKEN" in coordinator
 assert "cleanupFailed" in coordinator
+# TacRepository wraps both token operations in Result<Unit>. Verify cleanup checks
+# the Result value rather than relying on exceptions that the repository does not throw.
+assert "repository.unregisterFcmToken(previouslyRegistered).isSuccess" in coordinator
+assert "repository.unregisterFcmToken(token).isFailure" in coordinator
+assert "if (previousTokenRemoved)" in coordinator
 assert "repository.registerFcmToken(token)" in coordinator
 assert "ON CONFLICT (token) DO UPDATE" in migration
 assert "SET search_path = pg_catalog" in migration
