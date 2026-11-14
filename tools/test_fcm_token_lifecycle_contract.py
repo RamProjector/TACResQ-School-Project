@@ -31,4 +31,6 @@ assert "GRANT EXECUTE ON FUNCTION public.api_register_fcm_token(text)" in migrat
 assert "registrationEnabled" in coordinator
 assert "pushTokenCoordinator.unregister" in app_root
 assert "pushTokenCoordinator.sync" in app_root
+assert "NotificationManagerCompat.from(context).cancelAll()" in app_root
+assert app_root.index("container.repository.logout()") < app_root.index("NotificationManagerCompat.from(context).cancelAll()")
 print("FCM token lifecycle contract passed.")
