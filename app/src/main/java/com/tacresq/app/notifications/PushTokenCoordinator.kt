@@ -64,20 +64,25 @@ class PushTokenCoordinator(
             // switch, including after an earlier offline sign-out cleanup.
             repository.registerFcmToken(token)
                 .onSuccess {
+                    var previousTokenRemoved = true
                     if (!previouslyRegistered.isNullOrBlank() && previouslyRegistered != token) {
-                        try {
-                            repository.unregisterFcmToken(previouslyRegistered)
+                        previousTokenRemoved = try {
+                            repository.unregisterFcmToken(previouslyRegistered).isSuccess
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (_: Exception) {
-                            // A stale token is harmless to local session state. The next
-                            // sync retries ownership reconciliation; never undo new token.
+                            false
                         }
                     }
-                    preferences.edit()
-                        .putString(KEY_REGISTERED_TOKEN, token)
-                        .putString(KEY_PENDING_TOKEN, token)
-                        .apply()
+
+                    // Keep the old registered value until its server-side cleanup is
+                    // confirmed. The pending value holds the new token, so a later
+                    // authenticated sync can retry removal without losing either value.
+                    val editor = preferences.edit().putString(KEY_PENDING_TOKEN, token)
+                    if (previousTokenRemoved) {
+                        editor.putString(KEY_REGISTERED_TOKEN, token)
+                    }
+                    editor.apply()
                 }
         }
     }
@@ -115,7 +120,11 @@ class PushTokenCoordinator(
             var cleanupFailed = false
             for (token in tokens) {
                 try {
-                    repository.unregisterFcmToken(token)
+                    // TacRepository returns Result<Unit>; a failed HTTP/RPC call is
+                    // represented as Result.failure and does not throw.
+                    if (repository.unregisterFcmToken(token).isFailure) {
+                        cleanupFailed = true
+                    }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
