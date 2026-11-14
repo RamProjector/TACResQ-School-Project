@@ -21,7 +21,9 @@ final class FcmNotificationDispatcher
      */
     public function dispatch(?int $limit = null): array
     {
-        $this->assertConfigured();
+        // Validate ADC before claiming queue rows. A broken/missing credential must
+        // not consume delivery attempts or move valid work into retry backoff.
+        $this->checkConfiguration();
         $limit = max(1, min($limit ?? (int) config('tacru.fcm_batch_limit', 50), 50));
 
         $response = $this->client()->post($this->rpcUrl('api_claim_fcm_delivery_batch'), [
