@@ -12,7 +12,6 @@ SUPABASE_SECRET_KEY=<secret-manager value>
 FCM_PROJECT_ID=<firebase project id>
 GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
 FCM_BATCH_LIMIT=50
-FCM_HTTP_TIMEOUT=8
 ```
 
 Mount the service-account JSON as a Render Secret File. Never use Android `google-services.json` as the server credential. Never print either credential, an OAuth token, FCM registration token, notification body, incident text, or coordinate.
