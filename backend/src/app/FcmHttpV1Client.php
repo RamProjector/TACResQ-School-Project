@@ -61,55 +61,20 @@ final class FcmHttpV1Client
         }
 
         $httpStatus = $response->status();
-        $errorStatus = $response->json('error.status');
-        $errorStatus = is_string($errorStatus) ? $errorStatus : null;
-        $errorDetails = $response->json('error.details');
-        $fcmErrorCode = null;
-        $hasBadRequestDetails = false;
-
-        // FCM HTTP v1 uses typed details to distinguish a bad message field
-        // from an invalid registration. Both can use top-level INVALID_ARGUMENT.
-        if (is_array($errorDetails)) {
-            foreach ($errorDetails as $detail) {
-                if (!is_array($detail)) {
-                    continue;
-                }
-
-                $detailType = $detail['@type'] ?? null;
-                if ($detailType === 'type.googleapis.com/google.firebase.fcm.v1.FcmError') {
-                    $detailCode = $detail['errorCode'] ?? null;
-                    if (is_string($detailCode)) {
-                        $fcmErrorCode = $detailCode;
-                    }
-                } elseif ($detailType === 'type.googleapis.com/google.rpc.BadRequest') {
-                    $hasBadRequestDetails = true;
-                }
-            }
-        }
-
-        $errorCode = $fcmErrorCode ?? $errorStatus;
-        $invalidToken = $errorStatus === 'UNREGISTERED'
-            || $fcmErrorCode === 'UNREGISTERED'
-            || (
-                $httpStatus === 400
-                && $errorStatus === 'INVALID_ARGUMENT'
-                && $fcmErrorCode === 'INVALID_ARGUMENT'
-                && !$hasBadRequestDetails
-            );
-        $retryable = in_array($httpStatus, [429, 500, 502, 503, 504], true)
-            || in_array($errorCode, ['QUOTA_EXCEEDED', 'UNAVAILABLE', 'INTERNAL'], true);
+        $classification = FcmHttpV1ErrorClassifier::classify(
+            $httpStatus,
+            is_array($response->json('error')) ? $response->json('error') : [],
+        );
 
         return [
             'sent' => false,
-            // INVALID_ARGUMENT is only token-invalid when the typed FCM detail
-            // identifies it and no BadRequest field-violation detail is present.
-            'invalid_token' => $invalidToken,
-            'retryable' => $retryable,
+            'invalid_token' => $classification['invalid_token'],
+            'retryable' => $classification['retryable'],
             'status' => $httpStatus,
             'retry_after_seconds' => $this->retryAfterSeconds($response->header('Retry-After')),
             'provider_message_name' => null,
             // Keep provider details out of logs and persisted records.
-            'error_code' => $errorCode ?? 'HTTP_'.$httpStatus,
+            'error_code' => $classification['error_code'],
         ];
     }
 
