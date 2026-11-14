@@ -1418,3 +1418,4 @@ SQL
 psql -v ON_ERROR_STOP=1 -f tools/test_incident_chat_storage_policies.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_notification_rpc_security.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_delivery_queue.sql
+psql -v ON_ERROR_STOP=1 -f tools/test_fcm_token_account_switch.sql
