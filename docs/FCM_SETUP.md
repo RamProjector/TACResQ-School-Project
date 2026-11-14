@@ -20,7 +20,7 @@ The token is stored only in app-private preferences. It is never logged, include
 
 ## Trusted server sender
 
-The backend contains `php artisan tacresq:dispatch-fcm`. It calls the server-only `api_claim_fcm_delivery_batch` RPC using `SUPABASE_SECRET_KEY`; the RPC atomically reserves due notification/token attempts from `fcm_delivery_attempts`. The worker does not use the inbox's unread page as its queue, so already-sent unread inbox rows cannot starve newer alerts. Claims use a 10-minute lease, retryable failures use exponential backoff with jitter and the FCM `Retry-After` header, and each token pair is capped at eight attempts. Permanent failures are retained for diagnosis. It sends data-only HTTP v1 messages through `google/auth` ADC and deletes a token only for FCM `UNREGISTERED`; `INVALID_ARGUMENT` is treated as a payload/request error, not proof of a stale token. The command prints aggregate counts only; it never prints tokens, provider response bodies, incident narratives, or coordinates.
+The backend contains `php artisan tacresq:dispatch-fcm`. It calls the server-only `api_claim_fcm_delivery_batch` RPC using `SUPABASE_SECRET_KEY`; the RPC atomically reserves due notification/token attempts from `fcm_delivery_attempts`. The worker does not use the inbox's unread page as its queue, so already-sent unread inbox rows cannot starve newer alerts. Claims use a 10-minute lease, retryable failures use exponential backoff with jitter and the FCM `Retry-After` header, and each token pair is capped at eight attempts. Permanent failures are retained for diagnosis. It sends data-only HTTP v1 messages through `google/auth` ADC and deletes a token for FCM `UNREGISTERED`; for `INVALID_ARGUMENT`, it deletes only when Firebase returns the typed `google.firebase.fcm.v1.FcmError` detail with `errorCode: INVALID_ARGUMENT` and no typed `google.rpc.BadRequest` field-violation detail. A `BadRequest` means the request/payload must be corrected and the token is retained. The sender constructs a fixed, bounded data-only payload using string identifiers. The command prints aggregate counts only; it never prints tokens, provider response bodies, incident narratives, or coordinates.
 
 Configure the worker environment privately with `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and an ADC mechanism. On a non-Google host, Firebase documents using `GOOGLE_APPLICATION_CREDENTIALS` to point to a protected service-account JSON file. The file must be mounted or injected by the deployment secret manager, outside the repository and outside the Android artifact. Run the command from a scheduler or worker at a short interval, for example `php artisan tacresq:dispatch-fcm --limit=50`. Do not expose this command as a public HTTP route.
 
@@ -35,7 +35,7 @@ GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-service-account.json
 Add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, `FCM_BATCH_LIMIT`, and `FCM_HTTP_TIMEOUT` under that service's private **Environment Variables**. The file must be a Google service-account JSON containing `type: service_account`; the Android `google-services.json` is not an ADC credential. Attach the secret file and variables to the Render Cron Job or worker that runs the command, not only to the public dispatcher web service. A Cron Job command can be:
 
 ```sh
-php artisan tacresq:dispatch-fcm --limit=100
+php artisan tacresq:dispatch-fcm --limit=50
 ```
 
 Before sending anything, validate the Render environment and ADC without reading the inbox or sending a message:
