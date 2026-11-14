@@ -201,6 +201,9 @@ jobs:
       - name: Check trusted FCM server sender boundaries
         run: python3 tools/test_fcm_server_contract.py
 
+      - name: Check FCM token lifecycle and account switching
+        run: python3 tools/test_fcm_token_lifecycle_contract.py
+
       - name: Check offline synchronization safety boundaries
         run: python3 tools/test_offline_sync_contract.py
 
