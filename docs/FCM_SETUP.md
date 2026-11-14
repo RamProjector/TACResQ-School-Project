@@ -46,7 +46,7 @@ php artisan tacresq:dispatch-fcm --check-config
 
 It validates required Supabase/FCM configuration and that ADC can mint an FCM-scoped access token. It does not claim queue access or send a notification. A successful preflight is not proof of automatic dispatch or physical-device receipt.
 
-The Android service intentionally renders a generic message and opens TACResQ, where the authenticated app fetches the notification inbox. Do not add a Firebase service-account key to the Android app or repository. Firebase documents the `firebase.messaging` OAuth scope and the `Authorization: Bearer` request pattern in its [HTTP v1 sending guide](https://firebase.google.com/docs/cloud-messaging/send/v1-api).
+The Android service intentionally renders a generic message and opens TACResQ, where the authenticated app fetches the notification inbox. Each push carries the intended recipient profile ID; Android waits briefly for encrypted session restoration and drops the push if the active account does not match. This prevents a previously claimed notification from appearing after an installation token has moved to another account. Do not add a Firebase service-account key to the Android app or repository. Firebase documents the `firebase.messaging` OAuth scope and the `Authorization: Bearer` request pattern in its [HTTP v1 sending guide](https://firebase.google.com/docs/cloud-messaging/send/v1-api).
 
 ## Verification limits
 

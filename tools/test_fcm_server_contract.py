@@ -90,4 +90,10 @@ assert "--check-config" in docs
 # The trusted sender must not expose a public route or use a client-visible key.
 assert "Route::post('/internal/push" not in read("backend/src/routes/api.php")
 assert "supabase_publishable_key" not in dispatcher
+
+# Each push carries its intended profile ID so Android can discard stale pushes
+# that arrive after this installation has switched accounts.
+assert "$profileId = (int) ($attempt['profile_id'] ?? 0);" in dispatcher
+assert "$profileId < 1" in dispatcher
+assert "'recipient_profile_id' => (string) $profileId" in dispatcher
 print("Trusted FCM server contract passed.")

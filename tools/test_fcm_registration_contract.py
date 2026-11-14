@@ -3,15 +3,22 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-build = (ROOT / "app/build.gradle.kts").read_text(encoding="utf-8")
-manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
-api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt").read_text(encoding="utf-8")
-supabase = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text(encoding="utf-8")
-repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text(encoding="utf-8")
-coordinator = (ROOT / "app/src/main/java/com/tacresq/app/notifications/PushTokenCoordinator.kt").read_text(encoding="utf-8")
-notifications_screen = (ROOT / "app/src/main/java/com/tacresq/app/ui/notifications/NotificationsScreen.kt").read_text(encoding="utf-8")
-service = (ROOT / "app/src/main/java/com/tacresq/app/notifications/TacResqFirebaseMessagingService.kt").read_text(encoding="utf-8")
-app_root = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text(encoding="utf-8")
+
+
+def read(path: str) -> str:
+    return (ROOT / path).read_text(encoding="utf-8")
+
+
+build = read("app/build.gradle.kts")
+manifest = read("app/src/main/AndroidManifest.xml")
+api = read("app/src/main/java/com/tacresq/app/data/remote/TacApi.kt")
+supabase = read("app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
+repository = read("app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt")
+coordinator = read("app/src/main/java/com/tacresq/app/notifications/PushTokenCoordinator.kt")
+notifications_screen = read("app/src/main/java/com/tacresq/app/ui/notifications/NotificationsScreen.kt")
+service = read("app/src/main/java/com/tacresq/app/notifications/TacResqFirebaseMessagingService.kt")
+recipient_policy = read("app/src/main/java/com/tacresq/app/notifications/PushNotificationRecipientPolicy.kt")
+app_root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
 
 assert 'com.google.firebase:firebase-messaging:' in build
 assert "interface TacPushApi" in api
@@ -49,6 +56,16 @@ assert "pushTokenCoordinator.sync(container.repository)" in permission_effect
 assert permission_effect.index("pushTokenCoordinator.sync(container.repository)") < permission_effect.index("showNotificationPermissionRationale = true")
 assert "Settings.ACTION_APP_NOTIFICATION_SETTINGS" in notifications_screen
 assert "Manage Android notification settings" in notifications_screen
+
+# Push delivery is account-scoped. The service waits for session restoration and
+# fails closed when the intended profile does not match the active session.
+assert 'message.data["recipient_profile_id"]' in service
+assert "sessionState.first { it !is SessionState.Loading }" in service
+assert "withTimeoutOrNull(SESSION_RESTORE_TIMEOUT_MILLIS)" in service
+assert "PushNotificationRecipientPolicy.shouldDisplay(recipientProfileId, sessionState)" in service
+assert "currentProfileId == expectedProfileId" in recipient_policy
+assert "SessionState.LoggedOut" not in recipient_policy  # non-LoggedIn states are rejected by the safe cast
+
 # Alert content must remain generic; incident details are fetched after authentication.
 assert '"Open TACResQ to review a new incident update."' in service
 assert 'message.data["description"]' not in service

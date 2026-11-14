@@ -10,6 +10,11 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.tacresq.app.MainActivity
 import com.tacresq.app.TacResqApp
+import com.tacresq.app.data.model.SessionState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Receives minimal event data; incident details are fetched only after the user opens the app. */
 class TacResqFirebaseMessagingService : FirebaseMessagingService() {
@@ -20,9 +25,21 @@ class TacResqFirebaseMessagingService : FirebaseMessagingService() {
 
     @SuppressLint("MissingPermission")
     override fun onMessageReceived(message: RemoteMessage) {
-        PushNotificationChannels.ensure(this)
         if (!PushTokenCoordinator.notificationsAllowed(this)) return
 
+        val app = application as? TacResqApp ?: return
+        val recipientProfileId = message.data["recipient_profile_id"] ?: return
+        // FCM may start the process before DataStore has restored the encrypted session.
+        // Wait briefly for a definitive state, then fail closed: never display a push
+        // whose intended account cannot be matched to the currently authenticated user.
+        val sessionState = runBlocking(Dispatchers.IO) {
+            withTimeoutOrNull(SESSION_RESTORE_TIMEOUT_MILLIS) {
+                app.container.repository.sessionState.first { it !is SessionState.Loading }
+            }
+        } ?: return
+        if (!PushNotificationRecipientPolicy.shouldDisplay(recipientProfileId, sessionState)) return
+
+        PushNotificationChannels.ensure(this)
         val notificationId = PushNotificationIdentity.resolveNotificationId(message.data, message.messageId)
         val notificationTag = PushNotificationIdentity.notificationManagerTag(notificationId)
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -55,6 +72,7 @@ class TacResqFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
+        private const val SESSION_RESTORE_TIMEOUT_MILLIS = 5_000L
         const val EXTRA_NOTIFICATION_ID = "tacresq.notification_id"
         const val EXTRA_INCIDENT_ID = "tacresq.incident_id"
         const val EXTRA_EVENT_TYPE = "tacresq.event_type"
