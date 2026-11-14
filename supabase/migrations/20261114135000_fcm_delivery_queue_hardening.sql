@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS fcm_delivery_attempts_due_idx
 -- ON CONFLICT serializes competing claims for the unique notification/token pair;
 -- the conditional update re-checks the lease/retry eligibility after lock acquisition.
 CREATE OR REPLACE FUNCTION public.api_claim_fcm_delivery_batch(
-  p_limit integer DEFAULT 100,
+  p_limit integer DEFAULT 50,
   p_lease_seconds integer DEFAULT 600
 )
 RETURNS TABLE (
@@ -45,8 +45,8 @@ SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
 BEGIN
-  IF p_limit IS NULL OR p_limit < 1 OR p_limit > 500 THEN
-    RAISE EXCEPTION 'FCM delivery batch limit must be between 1 and 500'
+  IF p_limit IS NULL OR p_limit < 1 OR p_limit > 50 THEN
+    RAISE EXCEPTION 'FCM delivery batch limit must be between 1 and 50'
       USING ERRCODE = '22023';
   END IF;
 
