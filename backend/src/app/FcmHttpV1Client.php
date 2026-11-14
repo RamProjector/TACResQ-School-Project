@@ -61,16 +61,49 @@ final class FcmHttpV1Client
         }
 
         $httpStatus = $response->status();
-        $errorCode = $response->json('error.status');
-        $errorCode = is_string($errorCode) ? $errorCode : null;
+        $errorStatus = $response->json('error.status');
+        $errorStatus = is_string($errorStatus) ? $errorStatus : null;
+        $errorDetails = $response->json('error.details');
+        $fcmErrorCode = null;
+        $hasBadRequestDetails = false;
+
+        // FCM HTTP v1 uses typed details to distinguish a bad message field
+        // from an invalid registration. Both can use top-level INVALID_ARGUMENT.
+        if (is_array($errorDetails)) {
+            foreach ($errorDetails as $detail) {
+                if (!is_array($detail)) {
+                    continue;
+                }
+
+                $detailType = $detail['@type'] ?? null;
+                if ($detailType === 'type.googleapis.com/google.firebase.fcm.v1.FcmError') {
+                    $detailCode = $detail['errorCode'] ?? null;
+                    if (is_string($detailCode)) {
+                        $fcmErrorCode = $detailCode;
+                    }
+                } elseif ($detailType === 'type.googleapis.com/google.rpc.BadRequest') {
+                    $hasBadRequestDetails = true;
+                }
+            }
+        }
+
+        $errorCode = $fcmErrorCode ?? $errorStatus;
+        $invalidToken = $errorStatus === 'UNREGISTERED'
+            || $fcmErrorCode === 'UNREGISTERED'
+            || (
+                $httpStatus === 400
+                && $errorStatus === 'INVALID_ARGUMENT'
+                && $fcmErrorCode === 'INVALID_ARGUMENT'
+                && !$hasBadRequestDetails
+            );
         $retryable = in_array($httpStatus, [429, 500, 502, 503, 504], true)
             || in_array($errorCode, ['QUOTA_EXCEEDED', 'UNAVAILABLE', 'INTERNAL'], true);
 
         return [
             'sent' => false,
-            // FCM INVALID_ARGUMENT can describe a malformed payload. Only
-            // UNREGISTERED unambiguously means this registration token is stale.
-            'invalid_token' => $errorCode === 'UNREGISTERED',
+            // INVALID_ARGUMENT is only token-invalid when the typed FCM detail
+            // identifies it and no BadRequest field-violation detail is present.
+            'invalid_token' => $invalidToken,
             'retryable' => $retryable,
             'status' => $httpStatus,
             'retry_after_seconds' => $this->retryAfterSeconds($response->header('Retry-After')),
