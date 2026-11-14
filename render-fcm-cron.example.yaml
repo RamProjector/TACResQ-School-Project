@@ -1,4 +1,5 @@
 # Example only. Review and configure in Render; do not apply automatically.
+# Render Cron Jobs are not available on the Free instance tier.
 # The Firebase service-account JSON must be added as a private Render Secret File
 # mounted at /etc/secrets/firebase-service-account.json.
 cronJobs:
@@ -7,7 +8,7 @@ cronJobs:
     schedule: "*/5 * * * *"
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    startCommand: php artisan tacresq:dispatch-fcm --limit=100
+    startCommand: php artisan tacresq:dispatch-fcm --limit=50
     envVars:
       - key: SUPABASE_URL
         sync: false
@@ -18,6 +19,4 @@ cronJobs:
       - key: GOOGLE_APPLICATION_CREDENTIALS
         value: /etc/secrets/firebase-service-account.json
       - key: FCM_BATCH_LIMIT
-        value: "100"
-      - key: FCM_HTTP_TIMEOUT
-        value: "8"
+        value: "50"
