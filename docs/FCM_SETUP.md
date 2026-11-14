@@ -20,7 +20,7 @@ The token is stored only in app-private preferences. It is never logged, include
 
 ## Trusted server sender
 
-The backend now contains `php artisan tacresq:dispatch-fcm`. It reads unread `user_notifications` rows and the recipient's registered `fcm_tokens` through the Supabase REST API using the server-only `SUPABASE_SECRET_KEY`. It sends data-only HTTP v1 messages through `google/auth` ADC, records one delivery attempt per notification/token pair in `fcm_delivery_attempts`, and removes tokens when Firebase reports `UNREGISTERED` or `INVALID_ARGUMENT`. The command prints counts only; it never prints tokens, provider response bodies, incident narratives, or coordinates.
+The backend contains `php artisan tacresq:dispatch-fcm`. It calls the server-only `api_claim_fcm_delivery_batch` RPC using `SUPABASE_SECRET_KEY`; the RPC atomically reserves due notification/token attempts from `fcm_delivery_attempts`. The worker does not use the inbox's unread page as its queue, so already-sent unread inbox rows cannot starve newer alerts. Claims use a 10-minute lease, retryable failures use exponential backoff with jitter and the FCM `Retry-After` header, and each token pair is capped at eight attempts. Permanent failures are retained for diagnosis. It sends data-only HTTP v1 messages through `google/auth` ADC and deletes a token only for FCM `UNREGISTERED`; `INVALID_ARGUMENT` is treated as a payload/request error, not proof of a stale token. The command prints aggregate counts only; it never prints tokens, provider response bodies, incident narratives, or coordinates.
 
 Configure the worker environment privately with `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FCM_PROJECT_ID`, and an ADC mechanism. On a non-Google host, Firebase documents using `GOOGLE_APPLICATION_CREDENTIALS` to point to a protected service-account JSON file. The file must be mounted or injected by the deployment secret manager, outside the repository and outside the Android artifact. Run the command from a scheduler or worker at a short interval, for example `php artisan tacresq:dispatch-fcm --limit=100`. Do not expose this command as a public HTTP route.
 
@@ -54,7 +54,7 @@ The public Render web service should retain only browser-safe Supabase configura
 
 ## Verification limits in this environment
 
-The sandbox has no Android SDK, PHP runtime, physical device, or Firebase project credentials, so APK compilation, PHP execution, and end-to-end delivery cannot be run here. The offline contracts are:
+This review environment cannot run the complete Android Gradle build, the Laravel/PostgreSQL integration stack, live Firebase authentication, or physical-device delivery. CI is the source of truth for clean migration replay and application build/test execution; actual Firebase delivery and device receipt remain separate deployment gates. The offline sender contracts are:
 
 ```sh
 python3 tools/test_fcm_registration_contract.py
