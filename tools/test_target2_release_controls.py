@@ -20,7 +20,7 @@ checks = [
     ))),
     check("signed release fails closed and verifies APK", "test -n \"$ANDROID_SIGNING_KEYSTORE_BASE64\"" in workflow and "apksigner\" verify" in workflow),
     check("signed release uploads checksum", "sha256sum" in workflow and "upload-artifact" in workflow),
-    check("FCM runbook isolates private worker credentials", ("private Render Cron Job" in runbook or "private worker/Cron Job" in runbook) and "SUPABASE_SECRET_KEY" in runbook and "GOOGLE_APPLICATION_CREDENTIALS" in runbook),
+    check("FCM runbook isolates private worker credentials", "must remain server-side" in runbook and "must not be exposed as a public HTTP route" in runbook and "SUPABASE_SECRET_KEY" in runbook and "GOOGLE_APPLICATION_CREDENTIALS" in runbook),
     check("FCM runbook defines aggregate observability", all(token in runbook for token in (
         "run identifier", "invalid-token cleanup count", "oldest due failed-attempt age",
     ))),
