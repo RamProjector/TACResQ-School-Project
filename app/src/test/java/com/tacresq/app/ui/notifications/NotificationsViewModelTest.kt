@@ -219,6 +219,31 @@ class NotificationsViewModelTest {
     }
 
     @Test
+    fun markReadUpdatesFocusedNotificationOutsideInboxPage() = runTest {
+        val recent = unreadNotification.copy(id = 900L, title = "Recent notification")
+        val older = unreadNotification.copy(id = 42L, title = "Older notification")
+        val repository = FakeNotificationRepository(
+            load = { Result.success(listOf(recent)) },
+            lookup = { Result.success(older) },
+        )
+        val viewModel = NotificationsViewModel(repository)
+
+        viewModel.focusNotification(older.id)
+        advanceUntilIdle()
+
+        assertEquals(listOf(recent), viewModel.state.value.items)
+        assertNull(viewModel.state.value.focusedNotification?.readAt)
+
+        viewModel.markRead(older)
+        advanceUntilIdle()
+
+        assertEquals(older.id, viewModel.state.value.focusedNotification?.id)
+        assertTrue(!viewModel.state.value.focusedNotification?.readAt.isNullOrBlank())
+        assertEquals(listOf(recent), viewModel.state.value.items)
+        assertTrue(viewModel.state.value.busyIds.isEmpty())
+    }
+
+    @Test
     fun markReadThrownExceptionUsesGenericErrorAndClearsBusyId() = runTest {
         val repository = FakeNotificationRepository(
             load = { Result.success(listOf(unreadNotification)) },
