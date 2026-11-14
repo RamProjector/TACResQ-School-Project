@@ -22,6 +22,9 @@ queue_test = read("tools/test_fcm_delivery_queue.sql")
 docs = read("docs/FCM_SETUP.md")
 
 assert "ApplicationDefaultCredentials::getCredentials" in transport
+assert "->timeout(10)" in transport
+assert "->timeout(10)" in dispatcher
+assert "$baseSeconds = $httpStatus === 429 ? 60 : 10;" in dispatcher
 assert "https://www.googleapis.com/auth/firebase.messaging" in transport
 assert "fcm.googleapis.com/v1/projects/" in transport
 assert "['message' => ['token' => $token, 'data' => $data]]" in transport
