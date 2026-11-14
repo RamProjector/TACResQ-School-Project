@@ -80,9 +80,11 @@ class PushTokenCoordinator(
     fun onTokenRefreshed(token: String, repository: TacRepository) {
         if (token.length !in 20..4096) return
         preferences.edit().putString(KEY_PENDING_TOKEN, token).apply()
-        if (!registrationEnabled) return
-
+        // Capture the generation before checking the flag. If sign-out starts
+        // between these reads, either the flag is false or the generation check
+        // inside syncInternal rejects this callback.
         val generation = registrationGeneration
+        if (!registrationEnabled) return
         appScope.launch { syncInternal(repository, expectedGeneration = generation) }
     }
 
