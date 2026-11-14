@@ -25,7 +25,12 @@ assert "https://www.googleapis.com/auth/firebase.messaging" in transport
 assert "fcm.googleapis.com/v1/projects/" in transport
 assert "['message' => ['token' => $token, 'data' => $data]]" in transport
 assert "error.status" in transport
-assert "'invalid_token' => $errorCode === 'UNREGISTERED'" in transport
+assert "'invalid_token' => $invalidToken" in transport
+assert "type.googleapis.com/google.firebase.fcm.v1.FcmError" in transport
+assert "type.googleapis.com/google.rpc.BadRequest" in transport
+assert "$fcmErrorCode === 'UNREGISTERED'" in transport
+assert "$fcmErrorCode === 'INVALID_ARGUMENT'" in transport
+assert "$hasBadRequestDetails" in transport
 assert "'retryable' => $retryable" in transport
 assert "Retry-After" in transport and "retryAfterSeconds" in transport
 assert "INVALID_ARGUMENT" in transport
@@ -71,7 +76,8 @@ assert "A failed attempt must respect next_attempt_at backoff" in queue_test
 assert "Attempts at the retry ceiling must not be claimed again" in queue_test
 assert "Only an expired lease below the retry ceiling must be reclaimed" in queue_test
 assert "A reclaimed lease must be fresh and the exhausted lease must stay excluded" in queue_test
-assert "INVALID_ARGUMENT` is treated as a payload/request error" in docs
+assert "typed `google.firebase.fcm.v1.FcmError` detail" in docs
+assert "typed `google.rpc.BadRequest` field-violation detail" in docs
 assert "SUPABASE_SECRET_KEY" in docs
 assert "Do not expose this command" in docs
 assert "--check-config" in docs
