@@ -113,7 +113,7 @@ BEGIN
       1,
       statement_timestamp()
     FROM candidates
-    ON CONFLICT (notification_id, token) DO UPDATE
+    ON CONFLICT ON CONSTRAINT fcm_delivery_attempts_notification_id_token_key DO UPDATE
       SET status = 'claimed',
           attempted_at = statement_timestamp(),
           updated_at = statement_timestamp(),
