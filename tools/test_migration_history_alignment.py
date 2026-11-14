@@ -46,7 +46,7 @@ EXPECTED = {
     "20261112215748_bound_requester_signup_contact_lengths.sql",
     "20261112215815_allow_requester_pending_cancellation.sql",
 }
-PENDING = set()
+PENDING = {"20261114135000_fcm_delivery_queue_hardening.sql"}
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
     f"Supabase migration history drift. Missing={sorted((EXPECTED | PENDING) - actual)}; "
@@ -151,7 +151,7 @@ for required in (
     assert required in attachments, f"Missing private incident-image attachment contract: {required}"
 print("PASS: incident chat image attachments use private Storage policies and server-verified object metadata.")
 
-print(f"PASS: {len(EXPECTED)} local Supabase migrations match applied version history; no unapplied migration files remain.")
+print(f"PASS: {len(EXPECTED)} applied migration files match history; {len(PENDING)} explicitly pending migration file(s) are tracked for a later approved deployment.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
     "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",
