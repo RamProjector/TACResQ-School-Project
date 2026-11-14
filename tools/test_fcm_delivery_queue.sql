@@ -95,12 +95,22 @@ BEGIN
     permanent_notification_id, fixture_profile_id, fixture_token, 'permanent_failure', 1
   );
 
+  -- A notification already opened in the app must not be sent later as a push.
+  -- This also proves the claim query's read-state filter independently of the
+  -- delivery ledger's deduplication and retry behavior.
+  INSERT INTO public.user_notifications (
+    recipient_user_id, incident_id, event_type, title, body, read_at
+  ) VALUES (
+    fixture_profile_id, NULL, 'incident_status_changed',
+    'Already read notification', 'Must not be claimed for push.', statement_timestamp()
+  );
+
   PERFORM set_config('tacresq.test_fcm_notification_id', new_notification_id::text, true);
   PERFORM set_config('tacresq.test_fcm_token', fixture_token, true);
 END;
 $fcm_queue_seed$;
 
--- First worker claims only the unattempted notification. A second worker cannot
+-- First worker claims only the unattempted, unread notification. A second worker cannot
 -- claim it again while the lease is active.
 SET LOCAL ROLE service_role;
 DO $fcm_first_claim$
@@ -115,7 +125,7 @@ BEGIN
     FROM public.api_claim_fcm_delivery_batch(50, 600);
 
   IF claimed_count <> 1 OR claimed_id <> expected_notification_id THEN
-    RAISE EXCEPTION 'Expected only the new due notification to be claimed; count %, id %',
+    RAISE EXCEPTION 'Expected only the new unread due notification to be claimed; count %, id %',
       claimed_count, claimed_id;
   END IF;
   IF claimed_attempt_count <> 1 THEN
@@ -279,4 +289,4 @@ $fcm_expired_lease$;
 RESET ROLE;
 
 ROLLBACK;
-SELECT 'PASS: FCM claims are service-role-only, due/leased, retry-aware, and skip delivered or permanently failed inbox items.' AS result;
+SELECT 'PASS: FCM claims are service-role-only, due/leased, retry-aware, and skip read, delivered, or permanently failed notifications.' AS result;
