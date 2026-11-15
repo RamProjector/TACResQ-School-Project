@@ -554,3 +554,13 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Fix:** Responder actions now claim the busy state synchronously before launching. The shared action runner clears busy in `finally`, including cancellation and unexpected failures. Location resume verifies the current incident assignment and responder identity through the cancellation-safe repository boundary, leaves sharing off on verification failure, and always releases busy.
 - **Regression contract:** Extended `tools/test_activity_lifecycle_failure_safety.py` to assert synchronous busy claims, exception-safe identity/assignment checks, and finally-based cleanup.
 - **Validation:** PR #307's exact head changed again; all previous CI results are stale for this commit. A new full exact-head workflow run is required. No production deploy, Supabase mutation, Render configuration change, or FCM send was performed.
+
+
+---
+
+# Follow-up hardening — 2026-11-16: requester submission and draft recovery
+
+- **Finding:** Requester SOS creation and pending-SOS retry/discard handled normal repository `Result` failures but could leave `sending` set if a repository call threw unexpectedly. Draft restore/save/clear and the post-submit draft clear also lacked a uniform exception boundary.
+- **Fix:** Applied the cancellation-safe repository wrapper to SOS creation, pending retry/discard, and draft persistence. SOS and pending-recovery operations now release transient sending state in `finally`. The original pending-submission identity and existing no-replacement-SOS rules remain unchanged; an accepted-but-unverified SOS still explicitly tells the user not to resend it.
+- **Regression contract:** Extended the source contract to cover requester create/retry/discard, draft restore/save/clear, and finally-based sending-state cleanup.
+- **Validation:** Exact-head CI must run after this commit. Previous checks are not evidence for the latest head. No Supabase or Render change, live SOS, FCM send, or production deployment was performed.
