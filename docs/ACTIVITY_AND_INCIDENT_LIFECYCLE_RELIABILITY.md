@@ -21,6 +21,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 4. **Requester actions correctly fail closed when live incident status is unavailable.** The refresh path needed an exception-safe boundary so an unexpected exception could not leave the loading/refresh flag or current-status eligibility inconsistent.
 5. **Same-incident chat responses could outlive a conversation instance.** Checking only the incident ID was insufficient: navigating away and reopening the same incident could let an older request's response update the newly opened screen. Closing also needed to cancel the in-flight send, not only drop its Job reference.
 6. **Responder actions could race before the busy state was published.** Rapid taps could launch multiple status/duty or location-resume operations. The location-resume path also needed guaranteed busy-state cleanup if repository or tracking calls threw unexpectedly.
+7. **Requester SOS and pending-recovery operations could strand the sending state on an unexpected exception.** Their normal Result failures were handled, but thrown exceptions during create/retry/discard or draft persistence could bypass those handlers. A submitted SOS must continue using its existing idempotency envelope after an uncertain outcome; it must never be resent as a new request.
 
 ## Changes in this reliability pass
 
@@ -36,7 +37,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 | Workflow | Valid state progression | Failure/recovery rule |
 |---|---|---|
 | Session restore | Loading → Logged in / Logged out | Restore failure is explicit and retryable; never silently erase encrypted session data |
-| Requester SOS | Draft → verify current status → verify pending envelope → capture/confirm location → submit once → server-confirmed incident | Unknown submission outcome keeps the original idempotency envelope; never create a replacement request |
+| Requester SOS | Draft → verify current status → verify pending envelope → capture/confirm location → submit once → server-confirmed incident | Normalize unexpected failures; release transient sending state; unknown submission outcome keeps the original idempotency envelope; never create a replacement request |
 | Dispatch | Fresh queue + fresh units → select team → assign → refresh authoritative queue | Stale or failed queue/unit data disables assignment |
 | Responder | Assigned → En route → On scene → Transporting/Resolved | Server validates each transition; actions claim busy synchronously; GPS sharing is independent and requires explicit consent; failed identity/assignment verification keeps sharing off |
 | Chat | Authorized incident → load latest → paginate/send | Scope responses to incident + conversation generation; cancel jobs on close; preserve idempotency keys for uncertain send outcomes |
