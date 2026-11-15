@@ -544,3 +544,13 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Regression contract:** Extended `tools/test_activity_lifecycle_failure_safety.py` to require four generation captures, all eight guarded result handlers, generation invalidation, and cancellation/clearing of chat jobs.
 - **Documentation:** Updated `docs/ACTIVITY_AND_INCIDENT_LIFECYCLE_RELIABILITY.md` with the same-incident reopen race and required close-during-send scenarios.
 - **Validation:** This changes PR #307's head. All prior CI results apply only to the previous commit; the updated exact head must complete a fresh full workflow run before it is considered validated. No merge, Render deployment, Supabase change, or FCM send was performed.
+
+
+---
+
+# Follow-up hardening — 2026-11-16: responder action serialization
+
+- **Finding:** Responder duty/status actions and location-sharing resume checked `busy`, but published `busy = true` only after the launched coroutine began. Rapid taps could race into multiple operations. The resume path also lacked a guaranteed busy reset if a repository or tracking call threw.
+- **Fix:** Responder actions now claim the busy state synchronously before launching. The shared action runner clears busy in `finally`, including cancellation and unexpected failures. Location resume verifies the current incident assignment and responder identity through the cancellation-safe repository boundary, leaves sharing off on verification failure, and always releases busy.
+- **Regression contract:** Extended `tools/test_activity_lifecycle_failure_safety.py` to assert synchronous busy claims, exception-safe identity/assignment checks, and finally-based cleanup.
+- **Validation:** PR #307's exact head changed again; all previous CI results are stale for this commit. A new full exact-head workflow run is required. No production deploy, Supabase mutation, Render configuration change, or FCM send was performed.
