@@ -198,6 +198,9 @@ jobs:
       - name: Check Android incident chat security and lifecycle
         run: python3 tools/test_android_chat_contract.py
 
+      - name: Check Android activity and incident lifecycle failure safety
+        run: python3 tools/test_activity_lifecycle_failure_safety.py
+
       - name: Check trusted FCM server sender boundaries
         run: python3 tools/test_fcm_server_contract.py
 
