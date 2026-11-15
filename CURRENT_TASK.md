@@ -533,3 +533,14 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Validation:** Not yet run on the branch. GitHub Actions must validate the exact PR head before merge. Emulator/physical-device execution is not planned as a blocker; report as not run.
 - **Production boundary:** No Supabase migrations/data, Render settings, credentials, real incident records, or FCM sends were changed. Merging to main may trigger the repository's automatic Render deployment even though these changes are Android/source/docs only. Do not merge until the user explicitly authorizes that deployment side effect.
 - **Next:** Run the new Python source contract and Android JVM/build CI on the PR head; inspect the complete diff for Kotlin/test failures; then present the PR and wait for explicit approval before merge/automatic Render deploy.
+
+
+---
+
+# Follow-up hardening — 2026-11-16: chat conversation instance isolation
+
+- **Finding:** The chat ViewModel checked only `activeIncidentId` before applying async results. If a user closed and reopened the same incident while a read/send was still in flight, the old response could pass the incident-ID check and mutate the new conversation state.
+- **Fix:** Added a monotonically increasing conversation-generation token. Refresh, pagination, text-send, and image-send results now require both the incident ID and the generation captured when the operation began. Opening a different conversation and closing the current one invalidate older work. Close now cancels refresh, pagination, and send jobs and clears their references.
+- **Regression contract:** Extended `tools/test_activity_lifecycle_failure_safety.py` to require four generation captures, all eight guarded result handlers, generation invalidation, and cancellation/clearing of chat jobs.
+- **Documentation:** Updated `docs/ACTIVITY_AND_INCIDENT_LIFECYCLE_RELIABILITY.md` with the same-incident reopen race and required close-during-send scenarios.
+- **Validation:** This changes PR #307's head. All prior CI results apply only to the previous commit; the updated exact head must complete a fresh full workflow run before it is considered validated. No merge, Render deployment, Supabase change, or FCM send was performed.
