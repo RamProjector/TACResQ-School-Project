@@ -33,6 +33,15 @@ assert "catch (cancelled: CancellationException)" in requester_refresh
 assert "throw cancelled" in requester_refresh
 assert "finally {" in requester_refresh and "refreshJob = null" in requester_refresh
 assert "hasCurrentIncidentStatus = false" in requester_refresh
+assert "repositoryCallOrFailure { repo.createIncident(type, report, fix, landmark) }" in REQUESTER
+assert "repositoryCallOrFailure { repo.retryPendingIncident() }" in REQUESTER
+assert "repositoryCallOrFailure { repo.discardPendingIncident() }" in REQUESTER
+assert "repositoryCallOrFailure { repo.requesterDraft() }" in REQUESTER
+assert "repositoryCallOrFailure { repo.saveRequesterDraft(type, description, locationNotes) }" in REQUESTER
+assert "repositoryCallOrFailure { repo.clearRequesterDraft() }" in REQUESTER
+send_sos_block = REQUESTER[REQUESTER.index("    fun sendSos("):REQUESTER.index("    private fun locationResponseMatches(")]
+assert "repositoryCallOrFailure { repo.createIncident(type, report, fix, landmark) }" in send_sos_block
+assert "finally {" in send_sos_block and "sending = false" in send_sos_block
 
 assert "private var conversationGeneration: Long = 0L" in CHAT
 assert "activeIncidentId == incidentId && conversationGeneration == generation" in CHAT
@@ -69,6 +78,7 @@ assert "PushNotificationTap.from(intent)" in MAIN_ACTIVITY
 print("PASS: cancellation is preserved and unexpected repository failures become UI-state failures.")
 print("PASS: dispatcher refreshes are coalesced and assignment freshness fails closed.")
 print("PASS: requester refresh cannot leave a stale current-status state after an exception.")
+print("PASS: requester SOS, pending recovery, and draft persistence normalize unexpected failures and release sending state.")
 print("PASS: incident chat operations share the same safe failure boundary.")
 print("PASS: generation guards prevent old same-incident responses from overwriting a reopened conversation.")
 print("PASS: responder tracking verification and status actions claim busy synchronously and always release it.")
