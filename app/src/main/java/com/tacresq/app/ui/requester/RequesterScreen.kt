@@ -579,7 +579,6 @@ class RequesterViewModel(
             }
         }
     }
-    }
 
     private fun locationResponseMatches(fix: GeoFix?, notes: String?, incident: Incident): Boolean {
         if (incident.locationNotes?.trim().orEmpty() != notes?.trim().orEmpty()) return false
