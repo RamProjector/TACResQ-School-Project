@@ -202,7 +202,7 @@ class RequesterViewModel(
     fun restoreRequesterDraft() {
         if (_state.value.draftRestoreComplete) return
         viewModelScope.launch {
-            repo.requesterDraft()
+            repositoryCallOrFailure { repo.requesterDraft() }
                 .onSuccess { draft ->
                     _state.update { it.copy(restoredDraft = draft, draftRestoreComplete = true) }
                 }
@@ -220,12 +220,24 @@ class RequesterViewModel(
     fun saveRequesterDraft(type: IncidentType?, description: String, locationNotes: String) {
         if (type == null && description.isBlank() && locationNotes.isBlank()) return
         viewModelScope.launch {
-            repo.saveRequesterDraft(type, description, locationNotes)
+            repositoryCallOrFailure { repo.saveRequesterDraft(type, description, locationNotes) }
+                .onFailure { failure ->
+                    _state.update {
+                        it.copy(error = failure.message ?: "The request draft could not be saved.")
+                    }
+                }
         }
     }
 
     fun clearRequesterDraft() {
-        viewModelScope.launch { repo.clearRequesterDraft() }
+        viewModelScope.launch {
+            repositoryCallOrFailure { repo.clearRequesterDraft() }
+                .onFailure { failure ->
+                    _state.update {
+                        it.copy(error = failure.message ?: "The saved request draft could not be cleared.")
+                    }
+                }
+        }
     }
 
     fun refreshPendingSos() {
@@ -549,7 +561,14 @@ class RequesterViewModel(
                 val landmark = locationNotes.trim().take(500).ifBlank { null }
                 repositoryCallOrFailure { repo.createIncident(type, report, fix, landmark) }
                     .onSuccess { created ->
-                        viewModelScope.launch { repo.clearRequesterDraft() }
+                        viewModelScope.launch {
+                            repositoryCallOrFailure { repo.clearRequesterDraft() }
+                                .onFailure { failure ->
+                                    _state.update {
+                                        it.copy(error = failure.message ?: "The SOS was sent, but the saved draft could not be cleared.")
+                                    }
+                                }
+                        }
                         val locationConfirmed = locationResponseMatches(fix, landmark, created)
                         val status = when {
                             !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
