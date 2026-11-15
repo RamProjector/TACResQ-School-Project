@@ -428,11 +428,20 @@ fun ResponderScreen(
             item { SectionHeading("Available for field claiming", "Open incidents ready for assignment") }
             items(state.claimableIncidents, key = { "claim_${it.id}" }) { incident ->
                 IncidentCard(incident) {
-                    Text(
-                        "This incident was made available for field units by dispatch.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    val assignedCount = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }.distinct().size
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "This incident was made available for field units by dispatch.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        StatusPill("$assignedCount/5 assigned", MaterialTheme.colorScheme.primary)
+                    }
                     Button(
                         onClick = { vm.claimIncident(incident.id) },
                         enabled = !state.busy,
