@@ -33,6 +33,14 @@ assert "throw cancelled" in requester_refresh
 assert "finally {" in requester_refresh and "refreshJob = null" in requester_refresh
 assert "hasCurrentIncidentStatus = false" in requester_refresh
 
+assert "private var conversationGeneration: Long = 0L" in CHAT
+assert "activeIncidentId == incidentId && conversationGeneration == generation" in CHAT
+assert CHAT.count("val generation = conversationGeneration") == 4
+assert CHAT.count("isCurrentConversation(incidentId, generation)") == 8
+assert "conversationGeneration += 1" in CHAT
+assert "sendJob?.cancel()" in CHAT
+assert "refreshJob = null" in CHAT and "olderJob = null" in CHAT and "sendJob = null" in CHAT
+
 for expected in (
     "repositoryCallOrFailure { repo.myIncidentMessages(incidentId, limit = 50) }",
     "repositoryCallOrFailure { repo.myIncidentMessages(incidentId, limit = 50, beforeId = cursor) }",
@@ -51,4 +59,5 @@ print("PASS: cancellation is preserved and unexpected repository failures become
 print("PASS: dispatcher refreshes are coalesced and assignment freshness fails closed.")
 print("PASS: requester refresh cannot leave a stale current-status state after an exception.")
 print("PASS: incident chat operations share the same safe failure boundary.")
+print("PASS: generation guards prevent old same-incident responses from overwriting a reopened conversation.")
 print("PASS: lifecycle-aware polling, state collection, and notification tap restoration remain in place.")
