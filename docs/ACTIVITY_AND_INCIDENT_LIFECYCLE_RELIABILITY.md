@@ -20,6 +20,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 3. **Dispatcher assignment had no synchronous busy claim.** Two rapid taps could enter the coroutine before the UI state changed, risking duplicate assignment requests.
 4. **Requester actions correctly fail closed when live incident status is unavailable.** The refresh path needed an exception-safe boundary so an unexpected exception could not leave the loading/refresh flag or current-status eligibility inconsistent.
 5. **Same-incident chat responses could outlive a conversation instance.** Checking only the incident ID was insufficient: navigating away and reopening the same incident could let an older request's response update the newly opened screen. Closing also needed to cancel the in-flight send, not only drop its Job reference.
+6. **Responder actions could race before the busy state was published.** Rapid taps could launch multiple status/duty or location-resume operations. The location-resume path also needed guaranteed busy-state cleanup if repository or tracking calls threw unexpectedly.
 
 ## Changes in this reliability pass
 
@@ -27,6 +28,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 - Dispatcher refreshes now coalesce overlapping refresh requests into one follow-up pass, clear the refresh-job slot in finally, and keep assignment disabled unless both incident and unit data are fresh.
 - Dispatcher assignment claims the busy state synchronously and normalizes unexpected repository exceptions into a visible failure. Failed assignment confirmation invalidates the local freshness gate so the queue must be refreshed before another assignment.
 - Requester incident refresh now normalizes unexpected repository/cache exceptions, always releases its refresh-job slot, and marks live incident status unavailable on unexpected failure. Cached status remains informational and does not authorize new emergency actions.
+- Responder duty/status actions now claim the busy state before launching their coroutine and release it in a finally block, including cancellation and unexpected failures. Resuming location sharing uses the cancellation-safe repository boundary for assignment/identity checks, keeps sharing off on verification failure, and always clears the busy state.
 - Chat refresh, older-message pagination, text sends, and image sends now use the same exception boundary. A monotonically increasing conversation generation scopes every async result to the exact open/close instance, even when the same incident is reopened. Closing cancels all three chat jobs and invalidates their generation. Cancellation remains cancellation; failures continue through the existing user-visible error state.
 
 ## Required lifecycle/state contract
@@ -36,7 +38,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 | Session restore | Loading → Logged in / Logged out | Restore failure is explicit and retryable; never silently erase encrypted session data |
 | Requester SOS | Draft → verify current status → verify pending envelope → capture/confirm location → submit once → server-confirmed incident | Unknown submission outcome keeps the original idempotency envelope; never create a replacement request |
 | Dispatch | Fresh queue + fresh units → select team → assign → refresh authoritative queue | Stale or failed queue/unit data disables assignment |
-| Responder | Assigned → En route → On scene → Transporting/Resolved | Server validates each transition; GPS sharing is independent and requires explicit consent |
+| Responder | Assigned → En route → On scene → Transporting/Resolved | Server validates each transition; actions claim busy synchronously; GPS sharing is independent and requires explicit consent; failed identity/assignment verification keeps sharing off |
 | Chat | Authorized incident → load latest → paginate/send | Scope responses to incident + conversation generation; cancel jobs on close; preserve idempotency keys for uncertain send outcomes |
 | Notification tap | Capture ID → restore authenticated session → open inbox → protected lookup | Push payload is a locator, not authorization; malformed/stale/cross-account notification must not open incident data |
 | Foreground GPS | Explicit start → service active → authorized periodic updates → explicit/terminal stop | Permission loss, revoked assignment, sign-out, and service failure stop sharing and surface status |
@@ -45,7 +47,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 
 - Process recreation while session restore, notification routing, or requester draft restoration is in progress.
 - Notification tap when app is cold, already foregrounded, backgrounded, or process-killed; two distinct notification IDs; duplicate tap; malformed ID; signed-out session; account switch.
-- Double-tap SOS, assignment, status advance, and message send.
+- Double-tap SOS, assignment, status advance, responder duty changes, location resume, and message send; verify only one operation starts.
 - Network timeout after request reaches server but before response; retry with same idempotency identity.
 - Offline/timeout during dispatcher refresh, requester refresh, chat pagination, and image upload.
 - Permission denied/revoked, device Location disabled, stale GPS fix, foreground service stopped by Android, responder signs out, assignment no longer en route.
