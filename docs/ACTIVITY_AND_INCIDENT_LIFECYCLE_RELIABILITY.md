@@ -19,6 +19,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 2. **Dispatcher refreshes could be silently dropped while another refresh was active.** A refresh requested during an active request was simply ignored. After an assignment or lifecycle resume, the screen could therefore keep an older queue snapshot until the next periodic poll.
 3. **Dispatcher assignment had no synchronous busy claim.** Two rapid taps could enter the coroutine before the UI state changed, risking duplicate assignment requests.
 4. **Requester actions correctly fail closed when live incident status is unavailable.** The refresh path needed an exception-safe boundary so an unexpected exception could not leave the loading/refresh flag or current-status eligibility inconsistent.
+5. **Same-incident chat responses could outlive a conversation instance.** Checking only the incident ID was insufficient: navigating away and reopening the same incident could let an older request's response update the newly opened screen. Closing also needed to cancel the in-flight send, not only drop its Job reference.
 
 ## Changes in this reliability pass
 
@@ -26,7 +27,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 - Dispatcher refreshes now coalesce overlapping refresh requests into one follow-up pass, clear the refresh-job slot in finally, and keep assignment disabled unless both incident and unit data are fresh.
 - Dispatcher assignment claims the busy state synchronously and normalizes unexpected repository exceptions into a visible failure. Failed assignment confirmation invalidates the local freshness gate so the queue must be refreshed before another assignment.
 - Requester incident refresh now normalizes unexpected repository/cache exceptions, always releases its refresh-job slot, and marks live incident status unavailable on unexpected failure. Cached status remains informational and does not authorize new emergency actions.
-- Chat refresh, older-message pagination, text sends, and image sends now use the same exception boundary. Cancellation remains cancellation; failures continue through the existing user-visible error state.
+- Chat refresh, older-message pagination, text sends, and image sends now use the same exception boundary. A monotonically increasing conversation generation scopes every async result to the exact open/close instance, even when the same incident is reopened. Closing cancels all three chat jobs and invalidates their generation. Cancellation remains cancellation; failures continue through the existing user-visible error state.
 
 ## Required lifecycle/state contract
 
@@ -36,7 +37,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 | Requester SOS | Draft → verify current status → verify pending envelope → capture/confirm location → submit once → server-confirmed incident | Unknown submission outcome keeps the original idempotency envelope; never create a replacement request |
 | Dispatch | Fresh queue + fresh units → select team → assign → refresh authoritative queue | Stale or failed queue/unit data disables assignment |
 | Responder | Assigned → En route → On scene → Transporting/Resolved | Server validates each transition; GPS sharing is independent and requires explicit consent |
-| Chat | Authorized incident → load latest → paginate/send | Keep incident identity scoped; preserve idempotency keys for uncertain send outcomes |
+| Chat | Authorized incident → load latest → paginate/send | Scope responses to incident + conversation generation; cancel jobs on close; preserve idempotency keys for uncertain send outcomes |
 | Notification tap | Capture ID → restore authenticated session → open inbox → protected lookup | Push payload is a locator, not authorization; malformed/stale/cross-account notification must not open incident data |
 | Foreground GPS | Explicit start → service active → authorized periodic updates → explicit/terminal stop | Permission loss, revoked assignment, sign-out, and service failure stop sharing and surface status |
 
@@ -48,7 +49,8 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 - Network timeout after request reaches server but before response; retry with same idempotency identity.
 - Offline/timeout during dispatcher refresh, requester refresh, chat pagination, and image upload.
 - Permission denied/revoked, device Location disabled, stale GPS fix, foreground service stopped by Android, responder signs out, assignment no longer en route.
-- Navigate away during a request, return to the same incident, and ensure old async responses cannot overwrite a newer incident/account state.
+- Navigate away during a chat read/send, reopen the same incident, and ensure old async responses cannot overwrite the new conversation instance.
+- Close a conversation during image upload or text send; verify the old result cannot clear or append to a later draft. Preserve the same client idempotency key when retrying an uncertain send in the still-open conversation.
 
 ## Validation boundary
 
