@@ -7,6 +7,7 @@ HELPER = (ROOT / "app/src/main/java/com/tacresq/app/ui/common/RepositoryCall.kt"
 DISPATCHER = (ROOT / "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt").read_text()
 REQUESTER = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 CHAT = (ROOT / "app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt").read_text()
+RESPONDER = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 COMPONENTS = (ROOT / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
 APP_ROOT = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text()
 MAIN_ACTIVITY = (ROOT / "app/src/main/java/com/tacresq/app/MainActivity.kt").read_text()
@@ -38,6 +39,16 @@ assert "activeIncidentId == incidentId && conversationGeneration == generation" 
 assert CHAT.count("val generation = conversationGeneration") == 4
 assert CHAT.count("isCurrentConversation(incidentId, generation)") == 8
 assert "conversationGeneration += 1" in CHAT
+assert "import com.tacresq.app.ui.common.repositoryCallOrFailure" in RESPONDER
+assert "repositoryCallOrFailure { repo.myIncidents() }" in RESPONDER
+assert "repositoryCallOrFailure { repo.me() }" in RESPONDER
+assert "repositoryCallOrFailure { tracking.start(incidentId) }" in RESPONDER
+resume_block = RESPONDER[RESPONDER.index("    fun resumeTracking(incidentId: Long) {"):RESPONDER.index("    fun advance(", RESPONDER.index("    fun resumeTracking(incidentId: Long) {"))]
+assert resume_block.index("it.copy(") < resume_block.index("viewModelScope.launch")
+assert "finally {" in resume_block and "busy = false" in resume_block
+act_block = RESPONDER[RESPONDER.index("    private fun act(call: suspend () -> Result<*>) {"):RESPONDER.index("\n    }\n}", RESPONDER.index("    private fun act(call: suspend () -> Result<*>) {"))]
+assert act_block.index("it.copy(busy = true, error = null)") < act_block.index("viewModelScope.launch")
+assert "finally {" in act_block and "busy = false" in act_block
 assert "sendJob?.cancel()" in CHAT
 assert "refreshJob = null" in CHAT and "olderJob = null" in CHAT and "sendJob = null" in CHAT
 
@@ -60,4 +71,5 @@ print("PASS: dispatcher refreshes are coalesced and assignment freshness fails c
 print("PASS: requester refresh cannot leave a stale current-status state after an exception.")
 print("PASS: incident chat operations share the same safe failure boundary.")
 print("PASS: generation guards prevent old same-incident responses from overwriting a reopened conversation.")
+print("PASS: responder tracking verification and status actions claim busy synchronously and always release it.")
 print("PASS: lifecycle-aware polling, state collection, and notification tap restoration remain in place.")
