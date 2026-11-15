@@ -49,6 +49,7 @@ EXPECTED = {
 PENDING = {
     "20261114135000_fcm_delivery_queue_hardening.sql",
     "20261114170000_fcm_token_account_switch.sql",
+    "20261115120000_responder_incident_claiming.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (

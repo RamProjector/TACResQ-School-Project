@@ -119,6 +119,18 @@ interface TacApi {
     @POST("incidents/{id}/assign-team")
     suspend fun assignIncidentTeam(@Path("id") id: Long, @Body body: AssignIncidentTeamRequest): Incident
 
+    /** Responder/driver: claim an available open incident. */
+    @POST("incidents/{id}/claim")
+    suspend fun claimIncident(@Path("id") id: Long): com.tacresq.app.data.model.ClaimIncidentResult
+
+    /** Responder/driver: fetch list of claimable open incidents. */
+    @GET("incidents/claimable")
+    suspend fun claimableIncidents(): List<Incident>
+
+    /** Dispatcher: toggle field claiming availability for an incident. */
+    @POST("incidents/{id}/claimable")
+    suspend fun setIncidentClaimable(@Path("id") id: Long, @Body body: SetClaimableRequest): Incident
+
     /** Reserved for foreground responder tracking while the assigned incident is en route. */
     @POST("me/locations")
     suspend fun recordLocation(@Body body: ResponderLocationRequest): Long
@@ -167,6 +179,8 @@ data class UpdateMyIncidentRequest(
 data class AssignIncidentRequest(@SerializedName("user_id") val userId: Long)
 
 data class AssignIncidentTeamRequest(@SerializedName("user_ids") val userIds: List<Long>)
+
+data class SetClaimableRequest(@SerializedName("claimable") val claimable: Boolean)
 
 data class ResponderLocationRequest(
     @SerializedName("incident_id") val incidentId: Long,

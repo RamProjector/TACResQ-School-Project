@@ -121,6 +121,27 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
         }
     }
 
+    fun setIncidentClaimable(incidentId: Long, claimable: Boolean) {
+        if (_state.value.busy) return
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, notice = null) }
+            repo.setIncidentClaimable(incidentId, claimable)
+                .onSuccess { updated ->
+                    _state.update { state ->
+                        state.copy(
+                            busy = false,
+                            notice = if (claimable) "Incident #${updated.id} is now available for field claiming."
+                            else "Field claiming disabled for incident #${updated.id}.",
+                            incidents = state.incidents.map { if (it.id == updated.id) updated else it },
+                        )
+                    }
+                    refreshJob?.cancel()
+                    refresh()
+                }
+                .onFailure { e -> _state.update { it.copy(busy = false, error = e.message) } }
+        }
+    }
+
     fun dismissMessages() = _state.update { it.copy(notice = null, error = null) }
 }
 
@@ -293,6 +314,13 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     ) {
                         Text("Select response team")
                     }
+                }
+                OutlinedButton(
+                    onClick = { vm.setIncidentClaimable(incident.id, !incident.isClaimable) },
+                    enabled = !state.busy && state.assignmentDataFresh,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                ) {
+                    Text(if (incident.isClaimable) "Disable field claiming" else "Allow field claiming")
                 }
                 TextButton(onClick = { onOpenChat(incident.id) }) { Text("Open conversation") }
             }

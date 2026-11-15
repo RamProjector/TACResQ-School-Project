@@ -569,6 +569,80 @@ class FakeTacApi(
         }
     }
 
+    override suspend fun claimIncident(id: Long): com.tacresq.app.data.model.ClaimIncidentResult {
+        delay(300)
+        return synchronized(lock) {
+            val me = current()
+            if (me.role != Role.RESPONDER && me.role != Role.DRIVER) {
+                return com.tacresq.app.data.model.ClaimIncidentResult("error", code = "UNAUTHORIZED", message = "Only responders or drivers can claim incidents.")
+            }
+            if (me.dutyStatus == DutyStatus.OFF_DUTY || me.dutyStatus == null) {
+                return com.tacresq.app.data.model.ClaimIncidentResult("error", code = "OFF_DUTY", message = "You must be on duty to claim an incident.")
+            }
+            val index = incidents.indexOfFirst { it.id == id }
+            if (index < 0) {
+                return com.tacresq.app.data.model.ClaimIncidentResult("error", code = "NOT_FOUND", message = "Incident not found.")
+            }
+            val incident = incidents[index]
+            if (!incident.isClaimable || incident.status == IncidentStatus.CANCELLED || incident.status == IncidentStatus.RESOLVED) {
+                return com.tacresq.app.data.model.ClaimIncidentResult("error", code = "NOT_CLAIMABLE", message = "Incident is not available for field claiming.")
+            }
+            val currentTeam = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+            if (me.id in currentTeam) {
+                return com.tacresq.app.data.model.ClaimIncidentResult("already_assigned", incidentId = id, userId = me.id)
+            }
+            if (currentTeam.size >= 5) {
+                return com.tacresq.app.data.model.ClaimIncidentResult("error", code = "GROUP_FULL", message = "Response team is already full (maximum 5 members).")
+            }
+            val newTeam = (currentTeam + me.id).distinct()
+            val oldStatuses = incident.assignedUserStatuses.ifEmpty {
+                currentTeam.map { unitId -> ResponderAssignmentStatus(unitId, incident.status, incident.createdAt) }
+            }
+            val newStatuses = oldStatuses + ResponderAssignmentStatus(me.id, IncidentStatus.ASSIGNED, Instant.now().toString())
+            val updated = incident.copy(
+                status = if (incident.status == IncidentStatus.PENDING) IncidentStatus.ASSIGNED else incident.status,
+                assignedTo = incident.assignedTo ?: me.id,
+                assignedUserIds = newTeam,
+                assignedUserStatuses = newStatuses,
+            )
+            incidents[index] = updated
+            setDuty(me.id, DutyStatus.ASSIGNED)
+            emitAssignmentNotifications(id, listOf(me.id))
+            com.tacresq.app.data.model.ClaimIncidentResult("claimed", incidentId = id, userId = me.id)
+        }
+    }
+
+    override suspend fun claimableIncidents(): List<Incident> {
+        delay(200)
+        return synchronized(lock) {
+            val me = current()
+            if ((me.role != Role.RESPONDER && me.role != Role.DRIVER) || me.dutyStatus == DutyStatus.OFF_DUTY || me.dutyStatus == null) {
+                emptyList()
+            } else {
+                incidents.filter {
+                    it.isClaimable && (it.status == IncidentStatus.PENDING || it.status == IncidentStatus.ASSIGNED) &&
+                            (it.assignedUserIds.ifEmpty { listOfNotNull(it.assignedTo) }).size < 5
+                }
+            }
+        }
+    }
+
+    override suspend fun setIncidentClaimable(id: Long, body: SetClaimableRequest): Incident {
+        delay(300)
+        return synchronized(lock) {
+            if (current().role != Role.DISPATCHER) throw httpError(403, "Only dispatchers can toggle field claiming.")
+            val index = incidents.indexOfFirst { it.id == id }
+            if (index < 0) throw httpError(404, "Incident not found.")
+            val incident = incidents[index]
+            if (incident.status == IncidentStatus.CANCELLED || incident.status == IncidentStatus.RESOLVED) {
+                throw httpError(422, "Closed incidents cannot be made claimable.")
+            }
+            incident.copy(isClaimable = body.claimable).also {
+                incidents[index] = it
+            }
+        }
+    }
+
     override suspend fun recordLocation(body: ResponderLocationRequest): Long {
         delay(100)
         return synchronized(lock) {

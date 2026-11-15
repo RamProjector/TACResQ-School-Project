@@ -113,6 +113,15 @@ data class Incident(
     @SerializedName("location_source") val locationSource: String? = null,
     @SerializedName("requester_edit_count") val requesterEditCount: Int = 0,
     @SerializedName("requester_last_edited_at") val requesterLastEditedAt: String? = null,
+    @SerializedName("is_claimable") val isClaimable: Boolean = false,
+)
+
+data class ClaimIncidentResult(
+    val status: String,
+    @SerializedName("incident_id") val incidentId: Long? = null,
+    @SerializedName("user_id") val userId: Long? = null,
+    val code: String? = null,
+    val message: String? = null,
 )
 
 /** Minimal last-confirmed status cache; intentionally excludes incident narrative and location/contact data. */

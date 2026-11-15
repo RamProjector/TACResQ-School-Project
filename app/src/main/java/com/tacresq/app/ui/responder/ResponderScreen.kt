@@ -67,11 +67,13 @@ import kotlinx.coroutines.launch
 
 data class ResponderUiState(
     val incidents: List<Incident> = emptyList(),
+    val claimableIncidents: List<Incident> = emptyList(),
     val dutyStatus: DutyStatus = DutyStatus.OFF_DUTY,
     val loading: Boolean = true,
     val refreshing: Boolean = false,
     val busy: Boolean = false,
     val error: String? = null,
+    val claimMessage: String? = null,
     val trackingIncidentId: Long? = null,
     val trackingError: String? = null,
     val lastLocationSentAt: Long? = null,
@@ -129,14 +131,19 @@ class ResponderViewModel(
                 if (trackingEnded) {
                     tracking.stop("Location sharing stopped because this incident is no longer assigned en route.")
                 }
+                val userDuty = me.getOrNull()?.dutyStatus ?: _state.value.dutyStatus
+                val claimable = if (userDuty != DutyStatus.OFF_DUTY) {
+                    repo.getClaimableIncidents().getOrDefault(emptyList())
+                } else emptyList()
                 _state.update { s ->
                     // The aggregate can stay en-route while another unit is still travelling.
                     // Stop only when this device's own assignment is no longer en route.
                     s.copy(
                         loading = false,
                         refreshing = false,
-                        dutyStatus = me.getOrNull()?.dutyStatus ?: s.dutyStatus,
+                        dutyStatus = userDuty,
                         incidents = serverIncidents ?: s.incidents,
+                        claimableIncidents = claimable,
                         trackingIncidentId = if (trackingEnded) null else s.trackingIncidentId,
                         trackingError = if (trackingEnded) "Location sharing stopped because this incident is no longer assigned en route." else s.trackingError,
                         syncError = refreshError?.message,
@@ -241,6 +248,39 @@ class ResponderViewModel(
 
     fun dismissError() {
         _state.update { it.copy(error = null) }
+    }
+
+    fun dismissClaimMessage() {
+        _state.update { it.copy(claimMessage = null) }
+    }
+
+    fun claimIncident(incidentId: Long) {
+        if (_state.value.busy) return
+        _state.update { it.copy(busy = true, error = null, claimMessage = null) }
+        viewModelScope.launch {
+            val result = repo.claimIncident(incidentId)
+            val outcome = result.getOrNull()
+            val errorMsg = if (result.isFailure) {
+                result.exceptionOrNull()?.message ?: "Could not claim incident."
+            } else if (outcome?.status == "error") {
+                outcome.message ?: "Could not claim incident."
+            } else null
+
+            val successMsg = if (outcome?.status == "claimed") {
+                "Incident #${incidentId} claimed successfully!"
+            } else if (outcome?.status == "already_assigned") {
+                "You are already assigned to incident #${incidentId}."
+            } else null
+
+            _state.update { s ->
+                s.copy(
+                    busy = false,
+                    error = errorMsg,
+                    claimMessage = successMsg,
+                )
+            }
+            refresh()
+        }
     }
 
     private fun act(call: suspend () -> Result<*>) {
@@ -378,6 +418,30 @@ fun ResponderScreen(
 
         state.error?.let { message ->
             item { Banner(message, isError = true, onDismiss = vm::dismissError) }
+        }
+
+        state.claimMessage?.let { message ->
+            item { Banner(message, isError = false, onDismiss = vm::dismissClaimMessage) }
+        }
+
+        if (state.dutyStatus != DutyStatus.OFF_DUTY && state.claimableIncidents.isNotEmpty()) {
+            item { SectionHeading("Available for field claiming", "Open incidents ready for assignment") }
+            items(state.claimableIncidents, key = { "claim_${it.id}" }) { incident ->
+                IncidentCard(incident) {
+                    Text(
+                        "This incident was made available for field units by dispatch.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(
+                        onClick = { vm.claimIncident(incident.id) },
+                        enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    ) {
+                        Text("Claim Incident #${incident.id}")
+                    }
+                }
+            }
         }
 
         // A failed sync is already explained by SyncStatus and the disabled DutyCard.

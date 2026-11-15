@@ -121,6 +121,21 @@ class SupabaseTacApi private constructor(
         return if (bridgeRpc != null) bridgeRpc.assignIncidentTeam(request) else rpc.assignIncidentTeam(request)
     }
 
+    override suspend fun claimIncident(id: Long): com.tacresq.app.data.model.ClaimIncidentResult {
+        require(id > 0) { "Incident ID must be positive." }
+        val request = ClaimIncidentRpc(id)
+        return rpc.claimIncident(request)
+    }
+
+    override suspend fun claimableIncidents(): List<Incident> =
+        rpc.claimableIncidents(EmptyRpcBody())
+
+    override suspend fun setIncidentClaimable(id: Long, body: SetClaimableRequest): Incident {
+        require(id > 0) { "Incident ID must be positive." }
+        val request = SetIncidentClaimableRpc(id, body.claimable)
+        return rpc.setIncidentClaimable(request)
+    }
+
     override suspend fun recordLocation(body: ResponderLocationRequest): Long {
         val request = RecordLocationRpc(body.incidentId, body.latitude, body.longitude, body.accuracyM, body.recordedAt)
         return if (bridgeRpc != null) bridgeRpc.recordLocation(request) else rpc.recordLocation(request)
@@ -376,6 +391,15 @@ private interface SupabaseRpcWire {
     @POST("rest/v1/rpc/api_assign_incident_team")
     suspend fun assignIncidentTeam(@Body body: AssignIncidentTeamRpc): Incident
 
+    @POST("rest/v1/rpc/api_claim_incident")
+    suspend fun claimIncident(@Body body: ClaimIncidentRpc): com.tacresq.app.data.model.ClaimIncidentResult
+
+    @POST("rest/v1/rpc/api_claimable_incidents")
+    suspend fun claimableIncidents(@Body body: EmptyRpcBody): List<Incident>
+
+    @POST("rest/v1/rpc/api_set_incident_claimable")
+    suspend fun setIncidentClaimable(@Body body: SetIncidentClaimableRpc): Incident
+
     @POST("rest/v1/rpc/api_record_location_v2")
     suspend fun recordLocation(@Body body: RecordLocationRpc): Long
 
@@ -445,6 +469,8 @@ private data class UpdateMyAssignmentStatusRpc(
 )
 private data class AssignIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_id") val userId: Long)
 private data class AssignIncidentTeamRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_ids") val userIds: List<Long>)
+private data class ClaimIncidentRpc(@SerializedName("p_incident_id") val incidentId: Long)
+private data class SetIncidentClaimableRpc(@SerializedName("p_incident_id") val incidentId: Long, @SerializedName("p_claimable") val claimable: Boolean)
 private data class RecordLocationRpc(
     @SerializedName("p_incident_id") val incidentId: Long,
     @SerializedName("p_latitude") val latitude: Double,

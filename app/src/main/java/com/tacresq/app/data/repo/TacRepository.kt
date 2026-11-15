@@ -241,6 +241,20 @@ class TacRepository(
         chatApi.downloadIncidentImage(path)
     }
 
+    suspend fun claimIncident(incidentId: Long): Result<com.tacresq.app.data.model.ClaimIncidentResult> = call {
+        require(incidentId > 0) { "Incident ID must be positive." }
+        api.claimIncident(incidentId)
+    }
+
+    suspend fun getClaimableIncidents(): Result<List<Incident>> = call {
+        api.claimableIncidents()
+    }
+
+    suspend fun setIncidentClaimable(incidentId: Long, claimable: Boolean): Result<Incident> = call {
+        require(incidentId > 0) { "Incident ID must be positive." }
+        api.setIncidentClaimable(incidentId, com.tacresq.app.data.remote.SetClaimableRequest(claimable))
+    }
+
     suspend fun createIncident(
         type: IncidentType,
         description: String?,

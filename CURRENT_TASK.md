@@ -1,12 +1,23 @@
-# Current handoff — 2026-11-13: Android notification permission onboarding
+# Current handoff — 2026-11-15: responder incident claiming workflow implementation
 
-- **Objective:** Make Android notification permission opt-in understandable while keeping the persistent in-app inbox usable.
-- **Changes:** The app presents a once-only explanation before the Android 13+ permission dialog, lets users skip without blocking sign-in or inbox access, and links to Android notification settings from the inbox. FCM token sync remains independent of display permission. The roadmap and source-contract checks were updated.
-- **Branch / PR:** `agent/notification-permission-onboarding`; PR [#297](https://github.com/RamProjector/TACResQ-School-Project/pull/297) merged by squash.
-- **Merge:** Main is at `6ee6300d7be7b23a553135d1d9606c23b0b67e16`. PR head `3205b9d07e0d125c195c0f32fbb1433e7da330a1` was mergeable and passed automated validation before merge.
-- **Validation passed on PR head `3205b9d07e0d125c195c0f32fbb1433e7da330a1`:** Source checks; Android demo/Supabase debug and release APK builds; JVM unit tests; Android debug lint; instrumentation test compilation; clean PostgreSQL migration replay; Laravel/dashboard integration; RPC grant contract; repository security guardrails; Android and Web CodeQL checks; static UI/workflow and security/correctness reviews. The top-level CodeQL summary was neutral while both CodeQL scan checks succeeded. CodeRabbit was skipped.
-- **Not run / limitations:** Emulator or physical-device permission flow was not run. Release signing verification was skipped because signing is not configured; no signed APK is claimed. Post-merge checks on main commit `6ee6300d7be7b23a553135d1d9606c23b0b67e16` were in progress when checked. No backend, Supabase schema, production setting, or Render deployment change was included.
-- **Next:** Run a controlled Android 13+ device pass with synthetic accounts for allow/deny, settings return, and background/closed-app push delivery; record the observed results before making delivery-readiness claims.
+- **Objective:** Implement the complete responder & driver field incident claiming workflow across Supabase migrations, Android API/repo, Fake API, Compose UI, and contract tests.
+- **Branch:** `agent/responder-incident-claiming`.
+- **Changes Implemented:**
+  - **Supabase Migration:** Created `20261115120000_responder_incident_claiming.sql` with column `is_claimable` on `incidents`, RPC `api_set_incident_claimable` for dispatchers, RPC `api_claim_incident` (atomic `FOR UPDATE` lock, on-duty role check, max-5 member check), RPC `api_claimable_incidents`, and strict security grants/revokes.
+  - **Android Data & Remote Layer:** Added `isClaimable` property to `Incident` model, `ClaimIncidentResult` DTO, `SetClaimableRequest` DTO, RPC endpoints in `TacApi`, `SupabaseTacApi`, and `FakeTacApi` (demo mode).
+  - **Android Repository Layer:** Added `claimIncident`, `getClaimableIncidents`, and `setIncidentClaimable` methods in `TacRepository`.
+  - **Android UI Layer:**
+    - [ResponderScreen.kt](file:///Users/mylinafabi/StudioProjects/TACResQ-School-Project/app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt): Added "Available for field claiming" section, claim buttons, in-flight state handling, success confirmation banners, and duty checks.
+    - [DispatcherScreen.kt](file:///Users/mylinafabi/StudioProjects/TACResQ-School-Project/app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt): Added "Allow field claiming" / "Disable field claiming" toggle action on pending incident cards.
+  - **Automated Regression Tests:**
+    - Added Kotlin unit tests in `FakeTacApiClaimIncidentTest.kt` (106 total JVM unit tests passing).
+    - Added Python contract test `tools/test_responder_incident_claiming.py` and PostgreSQL test `tools/test_responder_incident_claiming.sql`.
+- **Actual Validation Results (100% passing):**
+  - Android Gradle build: `:app:assembleDebug` and `:app:assembleRelease` passed cleanly.
+  - Android JVM unit tests: `:app:testDebugUnitTest` passed with 106 passing tests (0 failures).
+  - Android debug lint: `:app:lintDebug` passed with 0 errors.
+  - Python test suite: All 81 contract test scripts passed (including `check_android_source.py`, `test_responder_incident_claiming.py`, `test_migration_history_alignment.py`).
+- **Next Task:** Merge `agent/responder-incident-claiming` branch into `main` after PR review and perform physical-device QA verification.
 
 ---
 
