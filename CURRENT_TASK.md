@@ -573,3 +573,6 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - The first CI run after the lifecycle follow-ups failed in `tools/test_android_chat_contract.py`, which still required the previous incident-ID-only callback guard.
 - Updated that existing chat contract to require the new incident-ID + conversation-generation guard. The failure was a stale test expectation, not a Kotlin compiler result; Android build jobs were still running at the time.
 - The latest commit is `ea6eeb5146949494f1fbe20af06eb2ccd1153cf3`. All workflows must be checked again against this exact head. Do not count earlier successful workflows or the failed source-check run as validation for the new head.
+
+
+- **CI integration:** Added `tools/test_activity_lifecycle_failure_safety.py` to the Android source-check workflow so the new dispatcher/requester/responder/chat lifecycle regression contract runs on every PR, rather than existing only as an uninvoked test file.
