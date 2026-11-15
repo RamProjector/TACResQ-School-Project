@@ -216,7 +216,6 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             pendingClientMessageId = it
         }
         val generation = conversationGeneration
-        val generation = conversationGeneration
         sendJob = viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null, error = null) }
             repositoryCallOrFailure { repo.sendIncidentMessage(incidentId, message, clientMessageId) }
@@ -282,6 +281,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                 pendingImageSignature = signature
             }
         }
+        val generation = conversationGeneration
         sendJob = viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null, error = null) }
             repositoryCallOrFailure { repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes) }
