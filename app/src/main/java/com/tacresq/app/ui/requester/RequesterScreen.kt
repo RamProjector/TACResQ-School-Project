@@ -93,6 +93,7 @@ import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.MapLoadStatusOverlay
 import com.tacresq.app.ui.common.PollWhileStarted
+import com.tacresq.app.ui.common.repositoryCallOrFailure
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SectionHeading
 import com.tacresq.app.ui.common.StatusPill
@@ -320,56 +321,71 @@ class RequesterViewModel(
         if (refreshJob?.isActive == true) return
         _state.update { it.copy(refreshInProgress = true) }
         refreshJob = viewModelScope.launch {
-            val refreshResult = repo.myIncidents()
-            if (refreshResult.isSuccess) {
-                val list = refreshResult.getOrThrow()
-                // Await the protected snapshot write so a later failed poll cannot restore an older cache.
-                repo.cacheMyIncidents(list)
-                _state.update {
-                    it.copy(
-                        incidents = list,
-                        cachedIncidentStatuses = emptyList(),
-                        isShowingCachedIncidentStatuses = false,
-                        hasCurrentIncidentStatus = true,
-                        refreshInProgress = false,
-                        loading = false,
-                        syncError = null,
-                        lastSyncedAtEpochMs = System.currentTimeMillis(),
-                    )
-                }
-            } else {
-                val cacheResult = repo.cachedMyIncidents()
-                val cached = cacheResult.getOrNull()
-                if (cached != null) {
+            try {
+                val refreshResult = repositoryCallOrFailure { repo.myIncidents() }
+                if (refreshResult.isSuccess) {
+                    val list = refreshResult.getOrThrow()
+                    // Cache is best-effort; the confirmed live response remains authoritative.
+                    repositoryCallOrFailure { repo.cacheMyIncidents(list) }
                     _state.update {
                         it.copy(
-                            incidents = emptyList(),
-                            cachedIncidentStatuses = cached.first,
-                            isShowingCachedIncidentStatuses = true,
-                            hasCurrentIncidentStatus = false,
+                            incidents = list,
+                            cachedIncidentStatuses = emptyList(),
+                            isShowingCachedIncidentStatuses = false,
+                            hasCurrentIncidentStatus = true,
                             refreshInProgress = false,
                             loading = false,
-                            syncError = "Showing last-confirmed statuses only. Reconnect and refresh before taking action.",
-                            lastSyncedAtEpochMs = cached.second,
+                            syncError = null,
+                            lastSyncedAtEpochMs = System.currentTimeMillis(),
                         )
                     }
                 } else {
-                    _state.update {
-                        it.copy(
-                            incidents = emptyList(),
-                            cachedIncidentStatuses = emptyList(),
-                            isShowingCachedIncidentStatuses = false,
-                            hasCurrentIncidentStatus = false,
-                            refreshInProgress = false,
-                            loading = false,
-                            syncError = "Couldn't refresh current incident status. Reconnect and refresh before taking action.",
-                        )
+                    val cacheResult = repositoryCallOrFailure { repo.cachedMyIncidents() }
+                    val cached = cacheResult.getOrNull()
+                    if (cached != null) {
+                        _state.update {
+                            it.copy(
+                                incidents = emptyList(),
+                                cachedIncidentStatuses = cached.first,
+                                isShowingCachedIncidentStatuses = true,
+                                hasCurrentIncidentStatus = false,
+                                refreshInProgress = false,
+                                loading = false,
+                                syncError = "Showing last-confirmed statuses only. Reconnect and refresh before taking action.",
+                                lastSyncedAtEpochMs = cached.second,
+                            )
+                        }
+                    } else {
+                        _state.update {
+                            it.copy(
+                                incidents = emptyList(),
+                                cachedIncidentStatuses = emptyList(),
+                                isShowingCachedIncidentStatuses = false,
+                                hasCurrentIncidentStatus = false,
+                                refreshInProgress = false,
+                                loading = false,
+                                syncError = "Couldn't refresh current incident status. Reconnect and refresh before taking action.",
+                            )
+                        }
                     }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        incidents = emptyList(),
+                        hasCurrentIncidentStatus = false,
+                        refreshInProgress = false,
+                        loading = false,
+                        syncError = failure.message ?: "Couldn't refresh current incident status. Reconnect and refresh before taking action.",
+                    )
+                }
+            } finally {
+                refreshJob = null
             }
         }
     }
-
     /** Called only after the user activates the Android LocationButton. */
     fun captureLocation() {
         if (_state.value.capturingLocation || _state.value.sending) return
