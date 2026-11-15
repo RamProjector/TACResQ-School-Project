@@ -67,6 +67,7 @@ import com.tacresq.app.data.model.IncidentMessage
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.repositoryCallOrFailure
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -131,7 +132,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     error = null,
                 )
             }
-            repo.myIncidentMessages(incidentId, limit = 50)
+            repositoryCallOrFailure { repo.myIncidentMessages(incidentId, limit = 50) }
                 .onSuccess { latest ->
                     if (activeIncidentId != incidentId) return@onSuccess
                     _state.update { current ->
@@ -164,7 +165,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         if (!_state.value.hasOlder) return
         olderJob = viewModelScope.launch {
             _state.update { it.copy(loadingOlder = true, error = null) }
-            repo.myIncidentMessages(incidentId, limit = 50, beforeId = cursor)
+            repositoryCallOrFailure { repo.myIncidentMessages(incidentId, limit = 50, beforeId = cursor) }
                 .onSuccess { older ->
                     if (activeIncidentId != incidentId) return@onSuccess
                     _state.update { current ->
@@ -206,7 +207,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         }
         sendJob = viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null, error = null) }
-            repo.sendIncidentMessage(incidentId, message, clientMessageId)
+            repositoryCallOrFailure { repo.sendIncidentMessage(incidentId, message, clientMessageId) }
                 .onSuccess { sent ->
                     if (activeIncidentId != incidentId) return@onSuccess
                     pendingClientMessageId = null
@@ -271,7 +272,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         }
         sendJob = viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null, error = null) }
-            repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes)
+            repositoryCallOrFailure { repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes) }
                 .onSuccess { sent ->
                     if (activeIncidentId != incidentId) return@onSuccess
                     pendingImageClientMessageId = null
