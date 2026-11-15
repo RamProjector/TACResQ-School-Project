@@ -515,3 +515,21 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Validation on application-code head `f15f2c51c2be0a21563b32776a58a72a6ab146f6`:** Source checks, Android debug/release APK builds, Android JVM unit tests and debug lint, clean PostgreSQL migration replay, Laravel/dashboard integration, repository security guardrails, CodeQL Android, CodeQL Web/GitHub Actions, static UI/workflow review, static security/correctness review, RPC-grant contract, and advisory prototype checks all passed. The top-level CodeQL summary is neutral because two scan configurations are not found on `main`; both configured language/security jobs passed. CodeRabbit was skipped because manual review is required for this OSS repository. Instrumentation tests were compiled but no physical-device execution or Logcat crash trace is available.
 - **PR cleanup:** PR #295 is the overlapping fallback-only change and should be closed as superseded after PR #296's final exact-head checks pass.
 - **Deployment boundary:** The TACResQ Render service auto-deploys from `main`. Merging PR #296 will deploy; wait for the user's explicit approval before merge. No live config or database changes are included.
+
+
+---
+
+# Current handoff — 2026-11-16: activity and incident lifecycle failure safety
+
+- **Objective:** Harden the TACResQ Android activity/incident lifecycle so unexpected repository exceptions do not crash high-value workflows or strand loading/busy/freshness state.
+- **Research:** Reviewed current MainActivity notification handoff, AppRoot role routing, SessionStore persistence, requester/responder/dispatcher/chat ViewModels, lifecycle-aware state collection and polling, incident state model, and existing regression contracts. Official Android guidance recommends lifecycle-aware collection/effects and catching likely exceptions inside ViewModel coroutines while rethrowing CancellationException; Kotlin documents uncaught launch exceptions as unhandled failures.
+- **Changes on branch:** `agent/activity-lifecycle-failure-safety`, based on main `088e7415e8108693f8b79ca1db0b7130edc6119a`.
+  - Added `RepositoryCall.kt` to normalize unexpected exceptions from Result-returning repository calls while preserving cancellation.
+  - Hardened dispatcher refresh: coalesces overlapping refresh requests, releases its job slot in finally, fails assignment freshness closed, and surfaces unexpected failures.
+  - Hardened dispatcher assignment: synchronously claims busy state to prevent rapid duplicate requests and safely reports unexpected repository exceptions; failed assignment confirmation invalidates local freshness.
+  - Hardened requester incident refresh: safely handles unexpected network/cache failures, clears refresh job state, and marks live incident state unavailable on unexpected exceptions.
+  - Hardened chat refresh, pagination, text sends, and image sends with the same cancellation-safe repository boundary.
+  - Added JVM tests for exception conversion/cancellation preservation, a source regression contract, and `docs/ACTIVITY_AND_INCIDENT_LIFECYCLE_RELIABILITY.md` describing role workflows, lifecycle scenarios, and unverified behavior.
+- **Validation:** Not yet run on the branch. GitHub Actions must validate the exact PR head before merge. Emulator/physical-device execution is not planned as a blocker; report as not run.
+- **Production boundary:** No Supabase migrations/data, Render settings, credentials, real incident records, or FCM sends were changed. Merging to main may trigger the repository's automatic Render deployment even though these changes are Android/source/docs only. Do not merge until the user explicitly authorizes that deployment side effect.
+- **Next:** Run the new Python source contract and Android JVM/build CI on the PR head; inspect the complete diff for Kotlin/test failures; then present the PR and wait for explicit approval before merge/automatic Render deploy.
