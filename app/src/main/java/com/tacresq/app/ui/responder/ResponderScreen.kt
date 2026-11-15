@@ -291,7 +291,8 @@ class ResponderViewModel(
                 _state.update { it.copy(busy = false) }
             }
         }
-    }}
+    }
+}
 
 @Composable
 fun ResponderScreen(
