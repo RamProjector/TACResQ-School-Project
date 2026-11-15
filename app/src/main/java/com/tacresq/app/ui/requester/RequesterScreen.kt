@@ -263,29 +263,33 @@ class RequesterViewModel(
         if (current.sending || current.refreshInProgress) return
         _state.update { it.copy(sending = true, error = null, notice = null, pendingSosCanBeDiscarded = false) }
         viewModelScope.launch {
-            repo.retryPendingIncident()
-                .onSuccess { created ->
-                    _state.update {
-                        it.copy(
-                            sending = false,
-                            pendingSosAvailable = false,
-                            notice = "The previously saved SOS was confirmed by the server. Review the request below and contact dispatch directly if the emergency is still active.",
-                            incidents = listOf(created) + it.incidents.filterNot { existing -> existing.id == created.id },
-                        )
+            try {
+                repositoryCallOrFailure { repo.retryPendingIncident() }
+                    .onSuccess { created ->
+                        _state.update {
+                            it.copy(
+                                sending = false,
+                                pendingSosAvailable = false,
+                                notice = "The previously saved SOS was confirmed by the server. Review the request below and contact dispatch directly if the emergency is still active.",
+                                incidents = listOf(created) + it.incidents.filterNot { existing -> existing.id == created.id },
+                            )
+                        }
+                        refresh()
                     }
-                    refresh()
-                }
-                .onFailure { e ->
-                    val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
-                    _state.update {
-                        it.copy(
-                            sending = false,
-                            pendingSosCanBeDiscarded = canDiscard,
-                            error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.",
-                        )
+                    .onFailure { e ->
+                        val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
+                        _state.update {
+                            it.copy(
+                                sending = false,
+                                pendingSosCanBeDiscarded = canDiscard,
+                                error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.",
+                            )
+                        }
+                        refreshPendingSos()
                     }
-                    refreshPendingSos()
-                }
+            } finally {
+                _state.update { if (it.sending) it.copy(sending = false) else it }
+            }
         }
     }
 
@@ -294,22 +298,26 @@ class RequesterViewModel(
         if (current.sending || current.refreshInProgress || !current.pendingSosCanBeDiscarded) return
         _state.update { it.copy(sending = true, error = null, notice = null) }
         viewModelScope.launch {
-            repo.discardPendingIncident()
-                .onSuccess {
-                    _state.update {
-                        it.copy(
-                            sending = false,
-                            pendingSosAvailable = false,
-                            pendingSosCanBeDiscarded = false,
-                            notice = "The rejected saved SOS was discarded. Review the details carefully before sending a new request.",
-                        )
+            try {
+                repositoryCallOrFailure { repo.discardPendingIncident() }
+                    .onSuccess {
+                        _state.update {
+                            it.copy(
+                                sending = false,
+                                pendingSosAvailable = false,
+                                pendingSosCanBeDiscarded = false,
+                                notice = "The rejected saved SOS was discarded. Review the details carefully before sending a new request.",
+                            )
+                        }
                     }
-                }
-                .onFailure { e ->
-                    _state.update {
-                        it.copy(sending = false, error = e.message ?: "The saved SOS could not be discarded.")
+                    .onFailure { e ->
+                        _state.update {
+                            it.copy(sending = false, error = e.message ?: "The saved SOS could not be discarded.")
+                        }
                     }
-                }
+            } finally {
+                _state.update { if (it.sending) it.copy(sending = false) else it }
+            }
         }
     }
 
@@ -536,36 +544,41 @@ class RequesterViewModel(
         // the small double-tap window where two taps could both observe sending == false.
         _state.update { it.copy(sending = true, notice = null, error = null) }
         viewModelScope.launch {
-            val report = description.trim().ifBlank { null }
-            val landmark = locationNotes.trim().take(500).ifBlank { null }
-            repo.createIncident(type, report, fix, landmark)
-                .onSuccess { created ->
-                    viewModelScope.launch { repo.clearRequesterDraft() }
-                    val locationConfirmed = locationResponseMatches(fix, landmark, created)
-                    val status = when {
-                        !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
-                        fix?.manuallySelected == true -> "SOS sent. Dispatch confirmed the map pin you selected."
-                        fix != null -> "SOS sent. Dispatch confirmed the one-time GPS pin you submitted."
-                        else -> "SOS sent without a GPS pin. Dispatch received your request; any landmark note is included."
+            try {
+                val report = description.trim().ifBlank { null }
+                val landmark = locationNotes.trim().take(500).ifBlank { null }
+                repositoryCallOrFailure { repo.createIncident(type, report, fix, landmark) }
+                    .onSuccess { created ->
+                        viewModelScope.launch { repo.clearRequesterDraft() }
+                        val locationConfirmed = locationResponseMatches(fix, landmark, created)
+                        val status = when {
+                            !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
+                            fix?.manuallySelected == true -> "SOS sent. Dispatch confirmed the map pin you selected."
+                            fix != null -> "SOS sent. Dispatch confirmed the one-time GPS pin you submitted."
+                            else -> "SOS sent without a GPS pin. Dispatch received your request; any landmark note is included."
+                        }
+                        _state.update {
+                            it.copy(
+                                sending = false,
+                                pendingSosAvailable = false,
+                                locationFix = null,
+                                locationError = null,
+                                notice = status,
+                                error = if (locationConfirmed) null else "Do not resend this SOS. The server accepted the request, but the GPS pin or location note did not match what you approved. Contact dispatch to verify the location.",
+                                incidents = listOf(created) + it.incidents,
+                            )
+                        }
                     }
-                    _state.update {
-                        it.copy(
-                            sending = false,
-                            pendingSosAvailable = false,
-                            locationFix = null,
-                            locationError = null,
-                            notice = status,
-                            error = if (locationConfirmed) null else "Do not resend this SOS. The server accepted the request, but the GPS pin or location note did not match what you approved. Contact dispatch to verify the location.",
-                            incidents = listOf(created) + it.incidents,
-                        )
+                    .onFailure { e ->
+                        val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
+                        _state.update { it.copy(sending = false, pendingSosCanBeDiscarded = canDiscard, error = e.message) }
+                        refreshPendingSos()
                     }
-                }
-                .onFailure { e ->
-                    val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
-                    _state.update { it.copy(sending = false, pendingSosCanBeDiscarded = canDiscard, error = e.message) }
-                    refreshPendingSos()
-                }
+            } finally {
+                _state.update { if (it.sending) it.copy(sending = false) else it }
+            }
         }
+    }
     }
 
     private fun locationResponseMatches(fix: GeoFix?, notes: String?, incident: Incident): Boolean {
