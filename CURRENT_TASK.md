@@ -564,3 +564,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Fix:** Applied the cancellation-safe repository wrapper to SOS creation, pending retry/discard, and draft persistence. SOS and pending-recovery operations now release transient sending state in `finally`. The original pending-submission identity and existing no-replacement-SOS rules remain unchanged; an accepted-but-unverified SOS still explicitly tells the user not to resend it.
 - **Regression contract:** Extended the source contract to cover requester create/retry/discard, draft restore/save/clear, and finally-based sending-state cleanup.
 - **Validation:** Exact-head CI must run after this commit. Previous checks are not evidence for the latest head. No Supabase or Render change, live SOS, FCM send, or production deployment was performed.
+
+
+---
+
+# Validation correction — 2026-11-16: chat source-contract update
+
+- The first CI run after the lifecycle follow-ups failed in `tools/test_android_chat_contract.py`, which still required the previous incident-ID-only callback guard.
+- Updated that existing chat contract to require the new incident-ID + conversation-generation guard. The failure was a stale test expectation, not a Kotlin compiler result; Android build jobs were still running at the time.
+- The latest commit is `ea6eeb5146949494f1fbe20af06eb2ccd1153cf3`. All workflows must be checked again against this exact head. Do not count earlier successful workflows or the failed source-check run as validation for the new head.
