@@ -63,7 +63,7 @@ for required in (
     "pendingClientMessageId",
     "refreshJob?.cancel()",
     "fun closeConversation()",
-    "if (activeIncidentId != incidentId) return@onSuccess",
+    "if (!isCurrentConversation(incidentId, generation)) return@onSuccess",
     "2000",
     "Back to conversations",
     "!state.loading && state.error == null",
