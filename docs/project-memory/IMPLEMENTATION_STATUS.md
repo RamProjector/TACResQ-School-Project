@@ -51,6 +51,7 @@ The connected Supabase project was inspected read-only during the project review
 - The private incident-chat image bucket was configured with a 5 MiB limit and JPEG/PNG/WebP allowlist.
 - `pg_cron` and `pg_net` were absent; Vault was present among the queried dispatch extensions. No production Cron job was active.
 - Security advisor findings included disabled leaked-password protection and function search-path hardening opportunities. See the specific PR/review notes; do not treat advisor counts as proof of exploitable vulnerabilities.
+- Performance advisor details (observed 2026-11-16): missing covering indexes on `fcm_delivery_attempts.profile_id`, `incident_assignments.assigned_by`, `incident_request_edit_logs.requester_id`, and `user_notifications.incident_id`; six RLS initplan warnings across `incident_assignments`, `incidents`, `location_logs`, and `realtime.messages`; nine unused-index candidates. The inspected public tables had only 0–2 live rows each, so there is not enough workload to claim measurable gains or justify dropping indexes. No performance indexes or policies were changed.
 - No production migration, data mutation, extension activation, Vault secret, Render variable, Cron job, or live notification was created by that audit.
 
 These observations can change. Re-run read-only checks before any deployment or production setup.
