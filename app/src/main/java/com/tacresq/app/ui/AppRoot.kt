@@ -451,6 +451,7 @@ internal fun RoleSectionScreen(
     var showSignOutConfirmation by remember(user.id) { mutableStateOf(false) }
     var showPrivacyPolicyDialog by remember(user.id) { mutableStateOf(false) }
     var showAccountDeletionDialog by remember(user.id) { mutableStateOf(false) }
+    var showHelpGuideDialog by remember(user.id) { mutableStateOf(false) }
     var stepUpSecurityEnabled by remember(user.id) { mutableStateOf(false) }
     var unsupportedAccountInfo by remember(user.id) { mutableStateOf<String?>(null) }
     val role = user.role
@@ -732,6 +733,13 @@ internal fun RoleSectionScreen(
                         ProfileDetail("Personal information", "Share only details needed for the response. Keep medical and contact details private.")
 
                         androidx.compose.material3.OutlinedButton(
+                            onClick = { showHelpGuideDialog = true },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Text("Emergency Help & Operation Guide")
+                        }
+
+                        androidx.compose.material3.OutlinedButton(
                             onClick = { showSignOutConfirmation = true },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                         ) {
@@ -792,6 +800,31 @@ internal fun RoleSectionScreen(
                             androidx.compose.material3.TextButton(
                                 onClick = { showAccountDeletionDialog = false },
                             ) { Text("Cancel") }
+                        },
+                    )
+                }
+
+                // Help Guide Dialog
+                if (showHelpGuideDialog) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { showHelpGuideDialog = false },
+                        title = { Text("Emergency Help & Operation Guide") },
+                        text = {
+                            Column(
+                                modifier = Modifier.verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text("TACResQ System Usage Guidelines", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("1. Emergency Requests: Tap the SOS request button, pick the incident type (Medical, Fire, Vehicular, Disaster, Other), add optional notes, check the map pin, and confirm.", style = MaterialTheme.typography.bodySmall)
+                                Text("2. Location Verification: Verify the map pin against an accessible landmark. GPS can drift indoors or in high-density areas.", style = MaterialTheme.typography.bodySmall)
+                                Text("3. Status Updates: Dispatchers assign available responders. Responders update their status (En Route, On Scene, Transporting, Resolved) step by step.", style = MaterialTheme.typography.bodySmall)
+                                Text("4. Immediate Life Danger: For immediate life-threatening emergencies, call TACRU or local emergency hotlines directly. Do not wait solely for an app notification.", style = MaterialTheme.typography.bodySmall)
+                            }
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = { showHelpGuideDialog = false },
+                            ) { Text("Got it") }
                         },
                     )
                 }
