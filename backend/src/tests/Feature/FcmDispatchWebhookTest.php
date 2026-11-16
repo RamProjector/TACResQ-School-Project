@@ -95,7 +95,7 @@ final class FcmDispatchWebhookTest extends TestCase
     public function test_dispatch_exception_is_sanitized(): void
     {
         $dispatcher = Mockery::mock(FcmNotificationDispatcher::class);
-        $dispatcher->shouldReceive('dispatch')->once()->with(5)
+        $dispatcher->shouldReceive('dispatch')->once()->with(3)
             ->andThrow(new RuntimeException('synthetic secret-bearing diagnostic'));
         $this->app->instance(FcmNotificationDispatcher::class, $dispatcher);
 
