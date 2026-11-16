@@ -118,6 +118,15 @@ assert "rest/v1/rpc/api_send_incident_message" in api_source, "Android must use 
 screen_source = read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
 assert "incident_messages" not in screen_source, "UI must not directly access the private chat table"
 
+chat_persistence_test = read("app/src/androidTest/java/com/tacresq/app/data/local/SessionStorePendingChatPersistenceTest.kt")
+for required in (
+    "exactMessageAndClientIdSurviveStoreRecreationAndLogout",
+    "pendingMessageCannotBeReadOrClearedByAnotherAccount",
+    "differentMessageCannotReplaceAnUnresolvedOutboxRecord",
+    "onlyMatchingClientMessageIdClearsThePendingRecord",
+):
+    assert required in chat_persistence_test, f"Encrypted chat outbox instrumentation coverage missing: {required}"
+
 print("PASS: incident chat uses caller-scoped RPCs, role-scoped navigation, lifecycle-bound polling, bounded text, idempotent retry, and no direct table access.")
 
 
