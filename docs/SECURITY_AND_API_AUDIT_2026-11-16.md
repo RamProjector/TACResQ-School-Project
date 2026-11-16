@@ -54,7 +54,7 @@ The Auth advisor reports leaked-password protection disabled. This is a project 
 - The routing proxy sends responder-origin and assigned-incident destination coordinates to the selected provider. It does not forward the bearer token, incident ID, narrative, requester identity, or profile data.
 - Geoapify requires its API key in the query string. Application code must continue suppressing full URL and exception logging; provider-side handling remains a separate data-recipient consideration.
 - No automatic provider failover is appropriate because it would disclose the same coordinates to another recipient without a new user decision.
-- Android fused location cannot reliably identify the underlying GNSS/Wi-Fi/cellular sensor. Store only a verified API/provider label if exposed; do not infer sensor provenance.
+- The live `incidents` schema stores `location_source` (`gps`/`manual`), accuracy, and a client-supplied capture timestamp; `location_logs` stores coordinates, accuracy, client `recorded_at`, and server `received_at`. Neither table currently stores a location-provider identifier. Android fused location may report a provider label such as `fused`, but that is client-reported metadata, not proof of which GNSS/Wi-Fi/cellular sensor produced a fix. A future change should add an explicitly named, allowlisted `reported_location_provider` field only if the Android capture path can supply it consistently, and retain server `received_at` as the trusted receipt time.
 - Route preview remains disabled by default and is not turn-by-turn navigation, live traffic, flood/closure data, or proof of road passability.
 
 ### Notifications and emergency safety
@@ -84,6 +84,7 @@ The advisor snapshot was observed around 2026-11-16 06:39 UTC. Re-run advisors a
 | P1 | Add append-only assignment lifecycle event history | Separate business audit model requiring transaction and visibility design |
 | P1 | Validate FCM scheduling/device delivery with synthetic accounts | CI cannot prove external delivery |
 | P1 | Validate location freshness and foreground lifecycle on physical devices | OEM, permission, battery, and process behavior |
+| P1 | Add optional reported location-provider metadata end-to-end | Current incident/location-log schema has no provider field; any client-reported label must not be presented as verified sensor provenance |
 | P2 | Evaluate unit presence and explicit location-sharing sessions | Requires agreed semantics and retention policy |
 | P2 | Add durable image attachment retry after process death | Client encrypted-storage/lifecycle work |
 | P2 | Revisit index utilization after representative staging workload | Avoid decisions from a nearly empty dataset |
