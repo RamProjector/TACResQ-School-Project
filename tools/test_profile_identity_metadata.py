@@ -16,7 +16,7 @@ required = (
     "NEW.role IS DISTINCT FROM OLD.role",
     "OLD.role = 'admin' OR NEW.role = 'admin'",
     "NEW.duty_status NOT IN ('available', 'off_duty')",
-    "active_i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')",
+    "i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')",
     "NEW.updated_at := now()",
     "REVOKE ALL ON FUNCTION public.tacresq_guard_profile_update() FROM PUBLIC, anon, authenticated",
 )
