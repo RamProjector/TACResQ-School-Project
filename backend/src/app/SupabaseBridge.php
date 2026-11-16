@@ -3,13 +3,14 @@
 namespace App;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Throwable;
 
 final class SupabaseBridge
 {
     /**
-     * Ask Supabase Auth to validate the access token. We deliberately do not
-     * decode an unverified JWT or trust role claims supplied by the client.
+     * Validate the access token with Supabase Auth. Never decode an unverified
+     * JWT or trust client-supplied role claims.
      */
     public function getUser(string $accessToken): ?array
     {
@@ -20,6 +21,7 @@ final class SupabaseBridge
             return null;
         }
 
+        $startedAt = hrtime(true);
         try {
             $response = Http::acceptJson()
                 ->withHeaders([
@@ -29,7 +31,19 @@ final class SupabaseBridge
                 ->timeout(5)
                 ->get($baseUrl.'/auth/v1/user');
 
-            if ($response->status() >= 500 || $response->status() === 429) {
+            $status = $response->status();
+            app(ApiOperationAuditLogger::class)->record(
+                'supabase',
+                'auth.get_user',
+                $status >= 500 || $status === 429 ? 'failure' : ($response->successful() ? 'success' : 'rejected'),
+                $status,
+                (int) ((hrtime(true) - $startedAt) / 1_000_000),
+                null,
+                null,
+                $this->correlationId(),
+            );
+
+            if ($status >= 500 || $status === 429) {
                 throw new \RuntimeException('Supabase Auth is temporarily unavailable.');
             }
 
@@ -38,20 +52,28 @@ final class SupabaseBridge
             }
 
             $user = $response->json();
-
-            return is_array($user) && is_string($user['id'] ?? null)
-                ? $user
-                : null;
+            return is_array($user) && is_string($user['id'] ?? null) ? $user : null;
         } catch (\RuntimeException $exception) {
             throw $exception;
         } catch (Throwable) {
+            app(ApiOperationAuditLogger::class)->record(
+                'supabase',
+                'auth.get_user',
+                'timeout',
+                502,
+                (int) ((hrtime(true) - $startedAt) / 1_000_000),
+                null,
+                'upstream_unavailable',
+                $this->correlationId(),
+            );
             throw new \RuntimeException('Supabase Auth is temporarily unavailable.');
         }
     }
 
     /**
      * Forward an allowlisted RPC using the caller's own JWT. No service-role
-     * credential is accepted or used; auth.uid() remains the actual caller.
+     * credential is used for the business operation; auth.uid() remains the
+     * actual caller. A separate server-only credential writes audit metadata.
      *
      * @return array{status:int, body:mixed}
      */
@@ -64,6 +86,7 @@ final class SupabaseBridge
 
         $baseUrl = rtrim((string) config('tacru.supabase_url'), '/');
         $publishableKey = (string) config('tacru.supabase_publishable_key');
+        $startedAt = hrtime(true);
 
         try {
             $response = Http::acceptJson()
@@ -74,12 +97,40 @@ final class SupabaseBridge
                 ])
                 ->timeout(8)
                 // PostgREST RPC parameters must be a JSON object; PHP's empty
-                // array would serialize as [], which is not the no-argument shape.
+                // array would serialize as [], not the no-argument object.
                 ->post($baseUrl.'/rest/v1/rpc/'.$function, $arguments === [] ? new \stdClass() : $arguments);
 
-            $status = $response->status();\n            app(ApiOperationAuditLogger::class)->record(\n                'supabase', 'rpc.'.$function, $status >= 500 || $status === 429 ? 'failure' : ($status >= 400 ? 'rejected' : 'success'),\n                $status, (int) ((hrtime(true) - $startedAt) / 1_000_000), null, null, $this->correlationId()\n            );\n            return ['status' => $status, 'body' => $response->json()];
+            $status = $response->status();
+            app(ApiOperationAuditLogger::class)->record(
+                'supabase',
+                'rpc.'.$function,
+                $status >= 500 || $status === 429 ? 'failure' : ($status >= 400 ? 'rejected' : 'success'),
+                $status,
+                (int) ((hrtime(true) - $startedAt) / 1_000_000),
+                null,
+                null,
+                $this->correlationId(),
+            );
+
+            return ['status' => $status, 'body' => $response->json()];
         } catch (Throwable) {
+            app(ApiOperationAuditLogger::class)->record(
+                'supabase',
+                'rpc.'.$function,
+                'timeout',
+                502,
+                (int) ((hrtime(true) - $startedAt) / 1_000_000),
+                null,
+                'upstream_unavailable',
+                $this->correlationId(),
+            );
             return ['status' => 502, 'body' => ['message' => 'Supabase is temporarily unavailable.']];
         }
+    }
+
+    private function correlationId(): string
+    {
+        $value = request()->attributes->get('correlation_id');
+        return is_string($value) && Str::isUuid($value) ? $value : (string) Str::uuid();
     }
 }
