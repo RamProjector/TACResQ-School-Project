@@ -1,7 +1,7 @@
 # TACResQ Next-Session Handoff
 
 **Snapshot:** 2026-11-16  
-**Main after PR #312 merge:** `28d4e4f24ab1c202c066257068b23979fadca4e6`
+**Main after PR #313 merge:** `62b04f719c79af21a4e4812fb5f30331da5ba964`
 
 Re-fetch PR heads and exact-head checks before continuing. This page is a snapshot, not a live dashboard.
 
@@ -15,37 +15,34 @@ Re-fetch PR heads and exact-head checks before continuing. This page is a snapsh
 - Instrumentation tests were compiled but not executed on an emulator or physical device. Device validation remains required.
 - Image attachment retry persistence is deliberately separate follow-up work.
 
-## Active PRs at snapshot
-
 ### PR #313 — Dispatcher units RPC search-path hardening
 - URL: https://github.com/RamProjector/TACResQ-School-Project/pull/313
-- Branch: `agent/pin-api-units-search-path`
-- Head: `a6947ae46f83c67c5bdf459306130dba6de5346d`
-- Status: open, not merged.
-- Adds `ALTER FUNCTION public.api_units() SET search_path = pg_catalog`.
-- Preserves SECURITY DEFINER behavior, dispatcher check, function body, and existing grants.
-- At the last exact-head poll, migration replay, Laravel/dashboard integration, Android debug/release, source checks, security review, repository guardrails, UI review, and RPC grant contract passed. CodeQL Android was still running; aggregate CodeQL was neutral; CodeRabbit skipped.
-- No live migration was applied.
+- Squash commit: `62b04f719c79af21a4e4812fb5f30331da5ba964`.
+- Adds a forward-only migration pinning `public.api_units()` to `search_path = pg_catalog`.
+- Preserves SECURITY DEFINER behavior, dispatcher authorization, function body, and existing grants.
+- Exact-head migration replay, Laravel/dashboard integration, Android debug/release builds, source checks, security review, repository guardrails, UI review, RPC grant contract, and individual CodeQL Android/Web checks passed. Aggregate CodeQL was neutral; CodeRabbit skipped.
+- The migration is committed but has **not** been applied to the live Supabase project.
+
+## Active PR at snapshot
 
 ### PR #314 — Project memory and documentation reconciliation
 - URL: https://github.com/RamProjector/TACResQ-School-Project/pull/314
 - Branch: `docs/project-memory-and-baseline`
-- Head before this handoff update: `7c95f2d3d84a98e5b28a20967e1689b751171c3d`; the handoff update will advance it.
-- Status: open, not merged.
+- Head at last poll: `18c60a551e74c24955164ca90cb9389ead334476`
+- Status: open, not merged; checks were running/queued.
 - Adds durable decisions, a 2020–2029 research evidence register, implementation baseline, and next-session handoff.
 - Reconciles the stale `PROJECT_ANALYSIS.md`, corrects the backend routing provider documentation, and links memory from the root README.
-- At the last poll, static security review, static UI/UX review, and RPC grant contract passed; source checks, Android builds, migration replay, backend integration, and CodeQL were running or queued. CodeRabbit skipped.
+- It also records the fused-location provenance limitation and the current Supabase performance-advisor findings.
 
 ## Next safe actions
 
-1. Re-fetch PR #313 and #314 current head SHAs and check runs.
-2. Wait for all required checks on exact heads; inspect any failing job logs and fix only demonstrated issues.
-3. Review and merge PR #313 if all required checks pass and no blocking review findings appear.
-4. Review and merge PR #314 if its documentation claims and CI pass; verify its handoff snapshot is still accurate at merge time.
-5. After security hardening, investigate the remaining Supabase advisor findings with query-plan and permission evidence. Do not add broad RLS policies or drop indexes just to silence warnings.
-6. Implement durable image attachment retry as a separate PR after text outbox device validation.
-7. Reconcile GPS provider provenance only after confirming which metadata Android actually exposes. Do not invent satellite/Wi-Fi/cellular attribution.
-8. Continue physical-device QA with synthetic accounts and locations. CI does not prove GPS, Doze, permission, OEM background, route, or real notification behavior.
+1. Re-fetch PR #314's current head SHA and check runs. Review its final documentation diff and merge only after required exact-head checks pass.
+2. Do not apply PR #313's migration to live Supabase without the appropriate operator approval; keep the checked-in migration and live migration ledger clearly distinguished.
+3. Investigate the four missing FK indexes using the exact child columns and delete/update/query patterns. The inspected tables had only 0–2 live rows, so don't claim a measured speedup or remove indexes based on current advisor counts.
+4. Review the six RLS initplan policies and consider `(select auth.uid())` / `(select helper())` only where the expression is row-independent and authorization semantics remain identical. Keep grants and RLS as separate controls.
+5. Implement durable image attachment retry as a separate PR after text outbox device validation.
+6. Reconcile GPS provider provenance only after confirming which metadata Android actually exposes. A fused API label is not proof of GNSS/Wi-Fi/cellular source.
+7. Continue physical-device QA with synthetic accounts and locations. CI does not prove GPS, Doze, permission, OEM background, route, or real notification behavior.
 
 ## Operational restrictions
 
