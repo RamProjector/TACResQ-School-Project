@@ -30,6 +30,7 @@ required = (
     "CREATE OR REPLACE FUNCTION public.tacresq_log_claimability_status_transition()",
     "'incident_status_transition'",
     "Only pending or assigned incidents can be made claimable.",
+    "'migration_backfill'",
     "incident_claimability_logs_incident_created_idx",
     "incident_claimability_logs_actor_created_idx",
     "v_previous_claimable IS NOT DISTINCT FROM p_claimable",
