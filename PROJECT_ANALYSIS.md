@@ -36,7 +36,7 @@ Incident-scoped text and image messaging use server-side authorization. Text sen
 
 The migration set covers profiles, incidents, status logs, responder assignments, location reports, in-app notifications, FCM delivery attempts, incident messages, image attachment metadata/policies, and administrative audit records. Application data access is guarded through RLS, explicit grants, and role/ownership/assignment checks in RPCs.
 
-Do not infer that every SECURITY DEFINER function is unsafe merely because it is callable by authenticated users. Review its owner, pinned search path, explicit EXECUTE grants, identity/role checks, and row/object ownership logic. Conversely, a pinned search path does not replace authorization checks.
+Do not infer that every SECURITY DEFINER function is unsafe merely because it is callable by authenticated users. Review its owner, pinned search path, explicit EXECUTE grants, identity/role checks, and row/object ownership logic. Conversely, a pinned search path does not replace authorization checks. The `api_units()` dispatcher RPC retains its server-side role check and existing grants; PR #313 adds a migration to pin its lookup path to `pg_catalog`. That migration is committed in the repository but remains unapplied to the live Supabase project at this snapshot.
 
 ## Important capability boundaries
 
