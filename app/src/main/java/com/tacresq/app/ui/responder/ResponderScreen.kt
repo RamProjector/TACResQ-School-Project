@@ -51,6 +51,7 @@ import com.tacresq.app.location.ResponderLocationTrackingController
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.PollWhileStarted
+import com.tacresq.app.ui.common.repositoryCallOrFailure
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SyncStatus
 import com.tacresq.app.ui.common.SectionHeading
@@ -190,41 +191,53 @@ class ResponderViewModel(
 
     fun resumeTracking(incidentId: Long) {
         if (_state.value.busy) return
+        // Claim the action synchronously so rapid taps cannot start duplicate verification/tracking.
+        _state.update {
+            it.copy(
+                busy = true,
+                trackingError = null,
+                // A resumed session must not present a previous session's send as current.
+                lastLocationSentAt = null,
+                lastLocationAccuracyM = null,
+            )
+        }
         viewModelScope.launch {
-            _state.update {
-                it.copy(
-                    busy = true,
-                    trackingError = null,
-                    // A resumed session must not present a previous session's send as current.
-                    lastLocationSentAt = null,
-                    lastLocationAccuracyM = null,
-                )
-            }
-            val current = repo.myIncidents()
-            val me = repo.me()
-            val incident = current.getOrNull()?.firstOrNull { it.id == incidentId }
-            val ownStatus = incident?.assignedUserStatuses
-                ?.firstOrNull { it.userId == me.getOrNull()?.id }?.status ?: incident?.status
-            val failure = when {
-                current.isFailure -> current.exceptionOrNull()?.message ?: "Could not verify the active assignment."
-                me.isFailure -> me.exceptionOrNull()?.message ?: "Could not verify your responder identity."
-                ownStatus != IncidentStatus.EN_ROUTE -> "Location sharing is allowed only for your own en-route unit status. Refresh the assignment and try again."
-                !location.hasApproximatePermission() -> "Approximate location permission is not available. Location sharing remains off."
-                else -> null
-            }
-            _state.update { it.copy(
-                busy = false,
-                trackingError = failure,
-            ) }
-            if (failure == null) {
-                tracking.start(incidentId).onFailure { startFailure ->
-                    _state.update {
-                        it.copy(
-                            trackingIncidentId = null,
-                            trackingError = startFailure.message ?: "Location sharing could not start. Resume it explicitly.",
-                        )
-                    }
+            try {
+                val current = repositoryCallOrFailure { repo.myIncidents() }
+                val me = repositoryCallOrFailure { repo.me() }
+                val incident = current.getOrNull()?.firstOrNull { it.id == incidentId }
+                val ownStatus = incident?.assignedUserStatuses
+                    ?.firstOrNull { it.userId == me.getOrNull()?.id }?.status ?: incident?.status
+                val failure = when {
+                    current.isFailure -> current.exceptionOrNull()?.message ?: "Could not verify the active assignment."
+                    me.isFailure -> me.exceptionOrNull()?.message ?: "Could not verify your responder identity."
+                    ownStatus != IncidentStatus.EN_ROUTE -> "Location sharing is allowed only for your own en-route unit status. Refresh the assignment and try again."
+                    !location.hasApproximatePermission() -> "Approximate location permission is not available. Location sharing remains off."
+                    else -> null
                 }
+                if (failure == null) {
+                    repositoryCallOrFailure { tracking.start(incidentId) }
+                        .onFailure { startFailure ->
+                            _state.update {
+                                it.copy(
+                                    trackingIncidentId = null,
+                                    trackingError = startFailure.message ?: "Location sharing could not start. Resume it explicitly.",
+                                )
+                            }
+                        }
+                } else {
+                    _state.update { it.copy(trackingError = failure) }
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        trackingError = failure.message ?: "Could not verify the active assignment. Location sharing remains off.",
+                    )
+                }
+            } finally {
+                _state.update { it.copy(busy = false) }
             }
         }
     }
@@ -245,27 +258,37 @@ class ResponderViewModel(
 
     private fun act(call: suspend () -> Result<*>) {
         if (_state.value.busy) return
+        // Set busy before launching; Compose may deliver another tap before the coroutine runs.
+        _state.update { it.copy(busy = true, error = null) }
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null) }
-            val result = try {
-                call()
+            try {
+                val result = try {
+                    call()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    Result.failure<Nothing>(failure)
+                }
+                _state.update { s ->
+                    s.copy(
+                        error = result.exceptionOrNull()?.message
+                            ?: if (result.isFailure) "The action failed. Refresh and try again." else null,
+                    )
+                }
+                if (result.isSuccess) {
+                    // refresh() queues a follow-up when an earlier sync is still active.
+                    // Do not cancel and replace the job: its finally block could clear the
+                    // reference to the newer job and make overlapping refreshes possible.
+                    refresh()
+                }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                Result.failure<Nothing>(failure)
-            }
-            _state.update { s ->
-                s.copy(
-                    busy = false,
-                    error = result.exceptionOrNull()?.message
-                        ?: if (result.isFailure) "The action failed. Refresh and try again." else null,
-                )
-            }
-            if (result.isSuccess) {
-                // refresh() queues a follow-up when an earlier sync is still active.
-                // Do not cancel and replace the job: its finally block could clear the
-                // reference to the newer job and make overlapping refreshes possible.
-                refresh()
+                _state.update {
+                    it.copy(error = failure.message ?: "The action failed. Refresh and try again.")
+                }
+            } finally {
+                _state.update { it.copy(busy = false) }
             }
         }
     }

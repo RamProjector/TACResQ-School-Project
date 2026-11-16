@@ -45,6 +45,7 @@ import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.formatTime
 import com.tacresq.app.ui.common.PollWhileStarted
+import com.tacresq.app.ui.common.repositoryCallOrFailure
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SyncStatus
 import com.tacresq.app.ui.common.SectionHeading
@@ -77,47 +78,78 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
     private val _state = MutableStateFlow(DispatcherUiState())
     val state: StateFlow<DispatcherUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
+    private var refreshRequested = false
 
     fun refresh() {
-        if (refreshJob?.isActive == true) return
+        if (refreshJob?.isActive == true) {
+            // Coalesce overlapping lifecycle/poll refreshes into one follow-up pass.
+            refreshRequested = true
+            return
+        }
         _state.update { it.copy(loading = true, assignmentDataFresh = false) }
         refreshJob = viewModelScope.launch {
-            val incidents = repo.allIncidents()
-            val units = repo.units()
-            val responderLocations = repo.activeResponderLocations()
-            val refreshError = incidents.exceptionOrNull() ?: units.exceptionOrNull() ?: responderLocations.exceptionOrNull()
-            _state.update { current ->
-                current.copy(
-                    incidents = incidents.getOrNull() ?: current.incidents,
-                    units = units.getOrNull() ?: current.units,
-                    responderLocations = responderLocations.getOrNull() ?: current.responderLocations,
-                    loading = false,
-                    syncError = refreshError?.message,
-                    assignmentDataFresh = incidents.isSuccess && units.isSuccess,
-                    lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else current.lastSyncedAtEpochMs,
-                )
+            try {
+                val incidents = repositoryCallOrFailure { repo.allIncidents() }
+                val units = repositoryCallOrFailure { repo.units() }
+                val responderLocations = repositoryCallOrFailure { repo.activeResponderLocations() }
+                val refreshError = incidents.exceptionOrNull()
+                    ?: units.exceptionOrNull()
+                    ?: responderLocations.exceptionOrNull()
+                _state.update { current ->
+                    current.copy(
+                        incidents = incidents.getOrNull() ?: current.incidents,
+                        units = units.getOrNull() ?: current.units,
+                        responderLocations = responderLocations.getOrNull() ?: current.responderLocations,
+                        loading = false,
+                        syncError = refreshError?.message,
+                        assignmentDataFresh = incidents.isSuccess && units.isSuccess,
+                        lastSyncedAtEpochMs = if (refreshError == null) System.currentTimeMillis() else current.lastSyncedAtEpochMs,
+                    )
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        assignmentDataFresh = false,
+                        syncError = failure.message ?: "Could not refresh the dispatch queue. Try again.",
+                    )
+                }
+            } finally {
+                val runQueuedRefresh = refreshRequested
+                refreshRequested = false
+                refreshJob = null
+                if (runQueuedRefresh) refresh()
             }
         }
     }
 
     fun assign(incident: Incident, userIds: List<Long>) {
         if (_state.value.busy || !_state.value.assignmentDataFresh || userIds.isEmpty() || userIds.size > 5) return
+        // Claim synchronously so two rapid taps cannot start duplicate assignment calls.
+        _state.update { it.copy(busy = true, error = null, notice = null) }
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, notice = null) }
-            repo.assignIncident(incident.id, userIds)
-                .onSuccess { updated ->
-                    val names = _state.value.units.filter { it.id in userIds }.joinToString(", ") { it.name }
-                    _state.update { state ->
-                        state.copy(
-                            busy = false,
-                            notice = "Incident #${updated.id} assigned to ${names.ifBlank { "the selected response team" }}.",
-                            incidents = state.incidents.map { if (it.id == updated.id) updated else it },
-                        )
-                    }
-                    refreshJob?.cancel()
-                    refresh()
+            val result = repositoryCallOrFailure { repo.assignIncident(incident.id, userIds) }
+            result.onSuccess { updated ->
+                val names = _state.value.units.filter { it.id in userIds }.joinToString(", ") { it.name }
+                _state.update { state ->
+                    state.copy(
+                        busy = false,
+                        notice = "Incident #${updated.id} assigned to ${names.ifBlank { "the selected response team" }}.",
+                        incidents = state.incidents.map { if (it.id == updated.id) updated else it },
+                    )
                 }
-                .onFailure { e -> _state.update { it.copy(busy = false, error = e.message) } }
+                refresh()
+            }.onFailure { failure ->
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        error = failure.message ?: "The assignment could not be confirmed. Refresh the queue before retrying.",
+                        assignmentDataFresh = false,
+                    )
+                }
+            }
         }
     }
 

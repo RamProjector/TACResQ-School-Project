@@ -93,6 +93,7 @@ import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
 import com.tacresq.app.ui.common.MapLoadStatusOverlay
 import com.tacresq.app.ui.common.PollWhileStarted
+import com.tacresq.app.ui.common.repositoryCallOrFailure
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SectionHeading
 import com.tacresq.app.ui.common.StatusPill
@@ -201,7 +202,7 @@ class RequesterViewModel(
     fun restoreRequesterDraft() {
         if (_state.value.draftRestoreComplete) return
         viewModelScope.launch {
-            repo.requesterDraft()
+            repositoryCallOrFailure { repo.requesterDraft() }
                 .onSuccess { draft ->
                     _state.update { it.copy(restoredDraft = draft, draftRestoreComplete = true) }
                 }
@@ -219,12 +220,24 @@ class RequesterViewModel(
     fun saveRequesterDraft(type: IncidentType?, description: String, locationNotes: String) {
         if (type == null && description.isBlank() && locationNotes.isBlank()) return
         viewModelScope.launch {
-            repo.saveRequesterDraft(type, description, locationNotes)
+            repositoryCallOrFailure { repo.saveRequesterDraft(type, description, locationNotes) }
+                .onFailure { failure ->
+                    _state.update {
+                        it.copy(error = failure.message ?: "The request draft could not be saved.")
+                    }
+                }
         }
     }
 
     fun clearRequesterDraft() {
-        viewModelScope.launch { repo.clearRequesterDraft() }
+        viewModelScope.launch {
+            repositoryCallOrFailure { repo.clearRequesterDraft() }
+                .onFailure { failure ->
+                    _state.update {
+                        it.copy(error = failure.message ?: "The saved request draft could not be cleared.")
+                    }
+                }
+        }
     }
 
     fun refreshPendingSos() {
@@ -262,29 +275,33 @@ class RequesterViewModel(
         if (current.sending || current.refreshInProgress) return
         _state.update { it.copy(sending = true, error = null, notice = null, pendingSosCanBeDiscarded = false) }
         viewModelScope.launch {
-            repo.retryPendingIncident()
-                .onSuccess { created ->
-                    _state.update {
-                        it.copy(
-                            sending = false,
-                            pendingSosAvailable = false,
-                            notice = "The previously saved SOS was confirmed by the server. Review the request below and contact dispatch directly if the emergency is still active.",
-                            incidents = listOf(created) + it.incidents.filterNot { existing -> existing.id == created.id },
-                        )
+            try {
+                repositoryCallOrFailure { repo.retryPendingIncident() }
+                    .onSuccess { created ->
+                        _state.update {
+                            it.copy(
+                                sending = false,
+                                pendingSosAvailable = false,
+                                notice = "The previously saved SOS was confirmed by the server. Review the request below and contact dispatch directly if the emergency is still active.",
+                                incidents = listOf(created) + it.incidents.filterNot { existing -> existing.id == created.id },
+                            )
+                        }
+                        refresh()
                     }
-                    refresh()
-                }
-                .onFailure { e ->
-                    val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
-                    _state.update {
-                        it.copy(
-                            sending = false,
-                            pendingSosCanBeDiscarded = canDiscard,
-                            error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.",
-                        )
+                    .onFailure { e ->
+                        val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
+                        _state.update {
+                            it.copy(
+                                sending = false,
+                                pendingSosCanBeDiscarded = canDiscard,
+                                error = e.message ?: "The saved SOS is still unresolved. Do not create a replacement request.",
+                            )
+                        }
+                        refreshPendingSos()
                     }
-                    refreshPendingSos()
-                }
+            } finally {
+                _state.update { if (it.sending) it.copy(sending = false) else it }
+            }
         }
     }
 
@@ -293,22 +310,26 @@ class RequesterViewModel(
         if (current.sending || current.refreshInProgress || !current.pendingSosCanBeDiscarded) return
         _state.update { it.copy(sending = true, error = null, notice = null) }
         viewModelScope.launch {
-            repo.discardPendingIncident()
-                .onSuccess {
-                    _state.update {
-                        it.copy(
-                            sending = false,
-                            pendingSosAvailable = false,
-                            pendingSosCanBeDiscarded = false,
-                            notice = "The rejected saved SOS was discarded. Review the details carefully before sending a new request.",
-                        )
+            try {
+                repositoryCallOrFailure { repo.discardPendingIncident() }
+                    .onSuccess {
+                        _state.update {
+                            it.copy(
+                                sending = false,
+                                pendingSosAvailable = false,
+                                pendingSosCanBeDiscarded = false,
+                                notice = "The rejected saved SOS was discarded. Review the details carefully before sending a new request.",
+                            )
+                        }
                     }
-                }
-                .onFailure { e ->
-                    _state.update {
-                        it.copy(sending = false, error = e.message ?: "The saved SOS could not be discarded.")
+                    .onFailure { e ->
+                        _state.update {
+                            it.copy(sending = false, error = e.message ?: "The saved SOS could not be discarded.")
+                        }
                     }
-                }
+            } finally {
+                _state.update { if (it.sending) it.copy(sending = false) else it }
+            }
         }
     }
 
@@ -320,56 +341,71 @@ class RequesterViewModel(
         if (refreshJob?.isActive == true) return
         _state.update { it.copy(refreshInProgress = true) }
         refreshJob = viewModelScope.launch {
-            val refreshResult = repo.myIncidents()
-            if (refreshResult.isSuccess) {
-                val list = refreshResult.getOrThrow()
-                // Await the protected snapshot write so a later failed poll cannot restore an older cache.
-                repo.cacheMyIncidents(list)
-                _state.update {
-                    it.copy(
-                        incidents = list,
-                        cachedIncidentStatuses = emptyList(),
-                        isShowingCachedIncidentStatuses = false,
-                        hasCurrentIncidentStatus = true,
-                        refreshInProgress = false,
-                        loading = false,
-                        syncError = null,
-                        lastSyncedAtEpochMs = System.currentTimeMillis(),
-                    )
-                }
-            } else {
-                val cacheResult = repo.cachedMyIncidents()
-                val cached = cacheResult.getOrNull()
-                if (cached != null) {
+            try {
+                val refreshResult = repositoryCallOrFailure { repo.myIncidents() }
+                if (refreshResult.isSuccess) {
+                    val list = refreshResult.getOrThrow()
+                    // Cache is best-effort; the confirmed live response remains authoritative.
+                    repositoryCallOrFailure { repo.cacheMyIncidents(list) }
                     _state.update {
                         it.copy(
-                            incidents = emptyList(),
-                            cachedIncidentStatuses = cached.first,
-                            isShowingCachedIncidentStatuses = true,
-                            hasCurrentIncidentStatus = false,
+                            incidents = list,
+                            cachedIncidentStatuses = emptyList(),
+                            isShowingCachedIncidentStatuses = false,
+                            hasCurrentIncidentStatus = true,
                             refreshInProgress = false,
                             loading = false,
-                            syncError = "Showing last-confirmed statuses only. Reconnect and refresh before taking action.",
-                            lastSyncedAtEpochMs = cached.second,
+                            syncError = null,
+                            lastSyncedAtEpochMs = System.currentTimeMillis(),
                         )
                     }
                 } else {
-                    _state.update {
-                        it.copy(
-                            incidents = emptyList(),
-                            cachedIncidentStatuses = emptyList(),
-                            isShowingCachedIncidentStatuses = false,
-                            hasCurrentIncidentStatus = false,
-                            refreshInProgress = false,
-                            loading = false,
-                            syncError = "Couldn't refresh current incident status. Reconnect and refresh before taking action.",
-                        )
+                    val cacheResult = repositoryCallOrFailure { repo.cachedMyIncidents() }
+                    val cached = cacheResult.getOrNull()
+                    if (cached != null) {
+                        _state.update {
+                            it.copy(
+                                incidents = emptyList(),
+                                cachedIncidentStatuses = cached.first,
+                                isShowingCachedIncidentStatuses = true,
+                                hasCurrentIncidentStatus = false,
+                                refreshInProgress = false,
+                                loading = false,
+                                syncError = "Showing last-confirmed statuses only. Reconnect and refresh before taking action.",
+                                lastSyncedAtEpochMs = cached.second,
+                            )
+                        }
+                    } else {
+                        _state.update {
+                            it.copy(
+                                incidents = emptyList(),
+                                cachedIncidentStatuses = emptyList(),
+                                isShowingCachedIncidentStatuses = false,
+                                hasCurrentIncidentStatus = false,
+                                refreshInProgress = false,
+                                loading = false,
+                                syncError = "Couldn't refresh current incident status. Reconnect and refresh before taking action.",
+                            )
+                        }
                     }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        incidents = emptyList(),
+                        hasCurrentIncidentStatus = false,
+                        refreshInProgress = false,
+                        loading = false,
+                        syncError = failure.message ?: "Couldn't refresh current incident status. Reconnect and refresh before taking action.",
+                    )
+                }
+            } finally {
+                refreshJob = null
             }
         }
     }
-
     /** Called only after the user activates the Android LocationButton. */
     fun captureLocation() {
         if (_state.value.capturingLocation || _state.value.sending) return
@@ -520,35 +556,46 @@ class RequesterViewModel(
         // the small double-tap window where two taps could both observe sending == false.
         _state.update { it.copy(sending = true, notice = null, error = null) }
         viewModelScope.launch {
-            val report = description.trim().ifBlank { null }
-            val landmark = locationNotes.trim().take(500).ifBlank { null }
-            repo.createIncident(type, report, fix, landmark)
-                .onSuccess { created ->
-                    viewModelScope.launch { repo.clearRequesterDraft() }
-                    val locationConfirmed = locationResponseMatches(fix, landmark, created)
-                    val status = when {
-                        !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
-                        fix?.manuallySelected == true -> "SOS sent. Dispatch confirmed the map pin you selected."
-                        fix != null -> "SOS sent. Dispatch confirmed the one-time GPS pin you submitted."
-                        else -> "SOS sent without a GPS pin. Dispatch received your request; any landmark note is included."
+            try {
+                val report = description.trim().ifBlank { null }
+                val landmark = locationNotes.trim().take(500).ifBlank { null }
+                repositoryCallOrFailure { repo.createIncident(type, report, fix, landmark) }
+                    .onSuccess { created ->
+                        viewModelScope.launch {
+                            repositoryCallOrFailure { repo.clearRequesterDraft() }
+                                .onFailure { failure ->
+                                    _state.update {
+                                        it.copy(error = failure.message ?: "The SOS was sent, but the saved draft could not be cleared.")
+                                    }
+                                }
+                        }
+                        val locationConfirmed = locationResponseMatches(fix, landmark, created)
+                        val status = when {
+                            !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
+                            fix?.manuallySelected == true -> "SOS sent. Dispatch confirmed the map pin you selected."
+                            fix != null -> "SOS sent. Dispatch confirmed the one-time GPS pin you submitted."
+                            else -> "SOS sent without a GPS pin. Dispatch received your request; any landmark note is included."
+                        }
+                        _state.update {
+                            it.copy(
+                                sending = false,
+                                pendingSosAvailable = false,
+                                locationFix = null,
+                                locationError = null,
+                                notice = status,
+                                error = if (locationConfirmed) null else "Do not resend this SOS. The server accepted the request, but the GPS pin or location note did not match what you approved. Contact dispatch to verify the location.",
+                                incidents = listOf(created) + it.incidents,
+                            )
+                        }
                     }
-                    _state.update {
-                        it.copy(
-                            sending = false,
-                            pendingSosAvailable = false,
-                            locationFix = null,
-                            locationError = null,
-                            notice = status,
-                            error = if (locationConfirmed) null else "Do not resend this SOS. The server accepted the request, but the GPS pin or location note did not match what you approved. Contact dispatch to verify the location.",
-                            incidents = listOf(created) + it.incidents,
-                        )
+                    .onFailure { e ->
+                        val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
+                        _state.update { it.copy(sending = false, pendingSosCanBeDiscarded = canDiscard, error = e.message) }
+                        refreshPendingSos()
                     }
-                }
-                .onFailure { e ->
-                    val canDiscard = (e as? ApiException)?.httpCode?.let(::isDefinitiveIncidentRejection) == true
-                    _state.update { it.copy(sending = false, pendingSosCanBeDiscarded = canDiscard, error = e.message) }
-                    refreshPendingSos()
-                }
+            } finally {
+                _state.update { if (it.sending) it.copy(sending = false) else it }
+            }
         }
     }
 

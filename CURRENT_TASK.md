@@ -515,3 +515,64 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Validation on application-code head `f15f2c51c2be0a21563b32776a58a72a6ab146f6`:** Source checks, Android debug/release APK builds, Android JVM unit tests and debug lint, clean PostgreSQL migration replay, Laravel/dashboard integration, repository security guardrails, CodeQL Android, CodeQL Web/GitHub Actions, static UI/workflow review, static security/correctness review, RPC-grant contract, and advisory prototype checks all passed. The top-level CodeQL summary is neutral because two scan configurations are not found on `main`; both configured language/security jobs passed. CodeRabbit was skipped because manual review is required for this OSS repository. Instrumentation tests were compiled but no physical-device execution or Logcat crash trace is available.
 - **PR cleanup:** PR #295 is the overlapping fallback-only change and should be closed as superseded after PR #296's final exact-head checks pass.
 - **Deployment boundary:** The TACResQ Render service auto-deploys from `main`. Merging PR #296 will deploy; wait for the user's explicit approval before merge. No live config or database changes are included.
+
+
+---
+
+# Current handoff — 2026-11-16: activity and incident lifecycle failure safety
+
+- **Objective:** Harden the TACResQ Android activity/incident lifecycle so unexpected repository exceptions do not crash high-value workflows or strand loading/busy/freshness state.
+- **Research:** Reviewed current MainActivity notification handoff, AppRoot role routing, SessionStore persistence, requester/responder/dispatcher/chat ViewModels, lifecycle-aware state collection and polling, incident state model, and existing regression contracts. Official Android guidance recommends lifecycle-aware collection/effects and catching likely exceptions inside ViewModel coroutines while rethrowing CancellationException; Kotlin documents uncaught launch exceptions as unhandled failures.
+- **Changes on branch:** `agent/activity-lifecycle-failure-safety`, based on main `088e7415e8108693f8b79ca1db0b7130edc6119a`.
+  - Added `RepositoryCall.kt` to normalize unexpected exceptions from Result-returning repository calls while preserving cancellation.
+  - Hardened dispatcher refresh: coalesces overlapping refresh requests, releases its job slot in finally, fails assignment freshness closed, and surfaces unexpected failures.
+  - Hardened dispatcher assignment: synchronously claims busy state to prevent rapid duplicate requests and safely reports unexpected repository exceptions; failed assignment confirmation invalidates local freshness.
+  - Hardened requester incident refresh: safely handles unexpected network/cache failures, clears refresh job state, and marks live incident state unavailable on unexpected exceptions.
+  - Hardened chat refresh, pagination, text sends, and image sends with the same cancellation-safe repository boundary.
+  - Added JVM tests for exception conversion/cancellation preservation, a source regression contract, and `docs/ACTIVITY_AND_INCIDENT_LIFECYCLE_RELIABILITY.md` describing role workflows, lifecycle scenarios, and unverified behavior.
+- **Validation:** Not yet run on the branch. GitHub Actions must validate the exact PR head before merge. Emulator/physical-device execution is not planned as a blocker; report as not run.
+- **Production boundary:** No Supabase migrations/data, Render settings, credentials, real incident records, or FCM sends were changed. Merging to main may trigger the repository's automatic Render deployment even though these changes are Android/source/docs only. Do not merge until the user explicitly authorizes that deployment side effect.
+- **Next:** Run the new Python source contract and Android JVM/build CI on the PR head; inspect the complete diff for Kotlin/test failures; then present the PR and wait for explicit approval before merge/automatic Render deploy.
+
+
+---
+
+# Follow-up hardening — 2026-11-16: chat conversation instance isolation
+
+- **Finding:** The chat ViewModel checked only `activeIncidentId` before applying async results. If a user closed and reopened the same incident while a read/send was still in flight, the old response could pass the incident-ID check and mutate the new conversation state.
+- **Fix:** Added a monotonically increasing conversation-generation token. Refresh, pagination, text-send, and image-send results now require both the incident ID and the generation captured when the operation began. Opening a different conversation and closing the current one invalidate older work. Close now cancels refresh, pagination, and send jobs and clears their references.
+- **Regression contract:** Extended `tools/test_activity_lifecycle_failure_safety.py` to require four generation captures, all eight guarded result handlers, generation invalidation, and cancellation/clearing of chat jobs.
+- **Documentation:** Updated `docs/ACTIVITY_AND_INCIDENT_LIFECYCLE_RELIABILITY.md` with the same-incident reopen race and required close-during-send scenarios.
+- **Validation:** This changes PR #307's head. All prior CI results apply only to the previous commit; the updated exact head must complete a fresh full workflow run before it is considered validated. No merge, Render deployment, Supabase change, or FCM send was performed.
+
+
+---
+
+# Follow-up hardening — 2026-11-16: responder action serialization
+
+- **Finding:** Responder duty/status actions and location-sharing resume checked `busy`, but published `busy = true` only after the launched coroutine began. Rapid taps could race into multiple operations. The resume path also lacked a guaranteed busy reset if a repository or tracking call threw.
+- **Fix:** Responder actions now claim the busy state synchronously before launching. The shared action runner clears busy in `finally`, including cancellation and unexpected failures. Location resume verifies the current incident assignment and responder identity through the cancellation-safe repository boundary, leaves sharing off on verification failure, and always releases busy.
+- **Regression contract:** Extended `tools/test_activity_lifecycle_failure_safety.py` to assert synchronous busy claims, exception-safe identity/assignment checks, and finally-based cleanup.
+- **Validation:** PR #307's exact head changed again; all previous CI results are stale for this commit. A new full exact-head workflow run is required. No production deploy, Supabase mutation, Render configuration change, or FCM send was performed.
+
+
+---
+
+# Follow-up hardening — 2026-11-16: requester submission and draft recovery
+
+- **Finding:** Requester SOS creation and pending-SOS retry/discard handled normal repository `Result` failures but could leave `sending` set if a repository call threw unexpectedly. Draft restore/save/clear and the post-submit draft clear also lacked a uniform exception boundary.
+- **Fix:** Applied the cancellation-safe repository wrapper to SOS creation, pending retry/discard, and draft persistence. SOS and pending-recovery operations now release transient sending state in `finally`. The original pending-submission identity and existing no-replacement-SOS rules remain unchanged; an accepted-but-unverified SOS still explicitly tells the user not to resend it.
+- **Regression contract:** Extended the source contract to cover requester create/retry/discard, draft restore/save/clear, and finally-based sending-state cleanup.
+- **Validation:** Exact-head CI must run after this commit. Previous checks are not evidence for the latest head. No Supabase or Render change, live SOS, FCM send, or production deployment was performed.
+
+
+---
+
+# Validation correction — 2026-11-16: chat source-contract update
+
+- The first CI run after the lifecycle follow-ups failed in `tools/test_android_chat_contract.py`, which still required the previous incident-ID-only callback guard.
+- Updated that existing chat contract to require the new incident-ID + conversation-generation guard. The failure was a stale test expectation, not a Kotlin compiler result; Android build jobs were still running at the time.
+- The latest commit is `ea6eeb5146949494f1fbe20af06eb2ccd1153cf3`. All workflows must be checked again against this exact head. Do not count earlier successful workflows or the failed source-check run as validation for the new head.
+
+
+- **CI integration:** Added `tools/test_activity_lifecycle_failure_safety.py` to the Android source-check workflow so the new dispatcher/requester/responder/chat lifecycle regression contract runs on every PR, rather than existing only as an uninvoked test file.

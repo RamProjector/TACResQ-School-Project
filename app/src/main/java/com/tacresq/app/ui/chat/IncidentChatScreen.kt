@@ -67,6 +67,7 @@ import com.tacresq.app.data.model.IncidentMessage
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.ui.common.ScreenHeader
+import com.tacresq.app.ui.common.repositoryCallOrFailure
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -100,29 +101,39 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     private val _state = MutableStateFlow(IncidentChatUiState())
     val state: StateFlow<IncidentChatUiState> = _state.asStateFlow()
     private var activeIncidentId: Long? = null
+    private var conversationGeneration: Long = 0L
+
+    private fun isCurrentConversation(incidentId: Long, generation: Long): Boolean =
+        activeIncidentId == incidentId && conversationGeneration == generation
     private var refreshJob: Job? = null
     private var olderJob: Job? = null
     private var sendJob: Job? = null
+    private data class PendingTextMessage(val incidentId: Long, val message: String, val clientMessageId: String)
+    // Retain uncertain sends across conversation close/reopen. Never mint a new key for the same payload.
+    private var pendingTextMessage: PendingTextMessage? = null
     private var pendingClientMessageId: String? = null
     private var pendingImageClientMessageId: String? = null
     private var pendingImageSignature: String? = null
 
     fun open(incidentId: Long) {
         if (activeIncidentId != incidentId) {
+            conversationGeneration += 1
             refreshJob?.cancel()
             olderJob?.cancel()
+            sendJob?.cancel()
+            refreshJob = null
+            olderJob = null
             sendJob = null
             activeIncidentId = incidentId
-            pendingClientMessageId = null
-            pendingImageClientMessageId = null
-            pendingImageSignature = null
-            _state.value = IncidentChatUiState()
+            val recoverableDraft = pendingTextMessage?.takeIf { it.incidentId == incidentId }?.message.orEmpty()
+            _state.value = IncidentChatUiState(draft = recoverableDraft)
         }
         refresh(incidentId)
     }
 
     fun refresh(incidentId: Long) {
         if (activeIncidentId != incidentId || refreshJob?.isActive == true) return
+        val generation = conversationGeneration
         refreshJob = viewModelScope.launch {
             _state.update {
                 it.copy(
@@ -131,9 +142,9 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     error = null,
                 )
             }
-            repo.myIncidentMessages(incidentId, limit = 50)
+            repositoryCallOrFailure { repo.myIncidentMessages(incidentId, limit = 50) }
                 .onSuccess { latest ->
-                    if (activeIncidentId != incidentId) return@onSuccess
+                    if (!isCurrentConversation(incidentId, generation)) return@onSuccess
                     _state.update { current ->
                         val merged = (current.items + latest).distinctBy { it.id }.sortedBy { it.id }
                         current.copy(
@@ -146,7 +157,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     }
                 }
                 .onFailure { failure ->
-                    if (activeIncidentId != incidentId) return@onFailure
+                    if (!isCurrentConversation(incidentId, generation)) return@onFailure
                     _state.update {
                         it.copy(
                             loading = false,
@@ -162,11 +173,12 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         if (activeIncidentId != incidentId || olderJob?.isActive == true) return
         val cursor = _state.value.items.firstOrNull()?.id ?: return
         if (!_state.value.hasOlder) return
+        val generation = conversationGeneration
         olderJob = viewModelScope.launch {
             _state.update { it.copy(loadingOlder = true, error = null) }
-            repo.myIncidentMessages(incidentId, limit = 50, beforeId = cursor)
+            repositoryCallOrFailure { repo.myIncidentMessages(incidentId, limit = 50, beforeId = cursor) }
                 .onSuccess { older ->
-                    if (activeIncidentId != incidentId) return@onSuccess
+                    if (!isCurrentConversation(incidentId, generation)) return@onSuccess
                     _state.update { current ->
                         current.copy(
                             items = (older + current.items).distinctBy { it.id }.sortedBy { it.id },
@@ -177,7 +189,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     }
                 }
                 .onFailure { failure ->
-                    if (activeIncidentId != incidentId) return@onFailure
+                    if (!isCurrentConversation(incidentId, generation)) return@onFailure
                     _state.update {
                         it.copy(
                             loadingOlder = false,
@@ -190,8 +202,12 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun updateDraft(value: String) {
         val next = value.take(2000)
+        val pending = pendingTextMessage
+        if (pending != null && next.trim() != pending.message) {
+            _state.update { it.copy(draft = pending.message, sendError = "A previous message may already have been sent. Retry its original text in the same incident before editing it.") }
+            return
+        }
         if (next != _state.value.draft) {
-            pendingClientMessageId = null
             pendingImageClientMessageId = null
             pendingImageSignature = null
         }
@@ -201,14 +217,22 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     fun send(incidentId: Long) {
         val message = _state.value.draft.trim()
         if (activeIncidentId != incidentId || sendJob?.isActive == true || message.isEmpty() || message.length > 2000) return
-        val clientMessageId = pendingClientMessageId ?: UUID.randomUUID().toString().also {
-            pendingClientMessageId = it
+        val pending = pendingTextMessage
+        if (pending != null && (pending.incidentId != incidentId || pending.message != message)) {
+            _state.update { it.copy(sendError = "Resolve the earlier uncertain message in its original incident before sending different content.") }
+            return
         }
+        val clientMessageId = pending?.clientMessageId ?: UUID.randomUUID().toString().also {
+            pendingClientMessageId = it
+            pendingTextMessage = PendingTextMessage(incidentId, message, it)
+        }
+        val generation = conversationGeneration
         sendJob = viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null, error = null) }
-            repo.sendIncidentMessage(incidentId, message, clientMessageId)
+            repositoryCallOrFailure { repo.sendIncidentMessage(incidentId, message, clientMessageId) }
                 .onSuccess { sent ->
-                    if (activeIncidentId != incidentId) return@onSuccess
+                    if (!isCurrentConversation(incidentId, generation)) return@onSuccess
+                    if (pendingTextMessage?.clientMessageId == clientMessageId) pendingTextMessage = null
                     pendingClientMessageId = null
                     _state.update { current ->
                         current.copy(
@@ -220,7 +244,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     }
                 }
                 .onFailure { failure ->
-                    if (activeIncidentId != incidentId) return@onFailure
+                    if (!isCurrentConversation(incidentId, generation)) return@onFailure
                     _state.update {
                         it.copy(
                             sending = false,
@@ -269,11 +293,12 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                 pendingImageSignature = signature
             }
         }
+        val generation = conversationGeneration
         sendJob = viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null, error = null) }
-            repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes)
+            repositoryCallOrFailure { repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes) }
                 .onSuccess { sent ->
-                    if (activeIncidentId != incidentId) return@onSuccess
+                    if (!isCurrentConversation(incidentId, generation)) return@onSuccess
                     pendingImageClientMessageId = null
                     pendingImageSignature = null
                     pendingClientMessageId = null
@@ -289,7 +314,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     }
                 }
                 .onFailure { failure ->
-                    if (activeIncidentId != incidentId) return@onFailure
+                    if (!isCurrentConversation(incidentId, generation)) return@onFailure
                     _state.update {
                         it.copy(
                             sending = false,
@@ -306,11 +331,16 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     fun dismissError() = _state.update { it.copy(error = null, sendError = null) }
 
     fun closeConversation() {
+        conversationGeneration += 1
         refreshJob?.cancel()
         olderJob?.cancel()
+        sendJob?.cancel()
+        refreshJob = null
+        olderJob = null
         sendJob = null
         activeIncidentId = null
-        pendingClientMessageId = null
+        // Do not clear an uncertain text-send identity here: the server may have committed
+        // it even though cancellation prevented the response from reaching this ViewModel.
         pendingImageClientMessageId = null
         pendingImageSignature = null
         _state.value = IncidentChatUiState()
