@@ -446,7 +446,7 @@ Route::get('/route-preview/provider', function (Request $request, \App\SupabaseB
 });
 
 // Authenticated route preview. The request goes only to the explicitly configured provider;
-// incident text, profile data, and upstream response details are never forwarded or logged.
+// incident text, profile data, raw URLs, and upstream response bodies are never logged.
 Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $bridge, \App\ApiOperationAuditLogger $auditLogger) {
     if (!config('tacru.route_preview_enabled', false)) {
         return response()->json(['message' => 'In-app routing is not enabled for this environment.'], 503);
