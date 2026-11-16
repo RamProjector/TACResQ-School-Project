@@ -68,3 +68,10 @@ Checked on 2026-11-17:
 - PostgreSQL constraints and foreign keys: https://www.postgresql.org/docs/current/ddl-constraints.html
 - Firebase Android message priority: https://firebase.google.com/docs/cloud-messaging/android/message-priority
 - Firebase message priority guidance: https://firebase.google.com/docs/cloud-messaging/customize-messages/setting-message-priority
+
+
+## Concurrency evidence update — 2026-11-17
+
+- PR #317 now includes a genuine two-session PostgreSQL 16 test. Its latest-head clean migration-replay job passed and emitted both expected assertions: one claim succeeded, the competing claim returned `UNIT_BUSY`, and the final database state contained one membership and one assigned incident.
+- PR #319 now includes a genuine two-session dispatcher-toggle/requester-cancellation race test. Its latest-head migration-replay job is still running; do not count this test as passed until that job completes and its output is inspected.
+- These tests use synthetic fixtures on disposable CI PostgreSQL. Neither test runs against live Supabase.
