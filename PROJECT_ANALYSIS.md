@@ -30,7 +30,7 @@ The dispatcher dashboard reads the incident queue and available units, coordinat
 The repository includes a limited server-side user-management and audit foundation. Do not infer additional administration capabilities without inspecting the current RPCs and UI.
 
 ### Incident chat
-Incident-scoped text and image messaging use server-side authorization. Text sends use a client message ID and server idempotency. Durable Android text retry state is being addressed in PR #312; durable image attachment retry across process death remains a separate gap.
+Incident-scoped text and image messaging use server-side authorization. Text sends use a client message ID and server idempotency. Durable Android text retry persistence merged in PR #312 (squash commit `28d4e4f24ab1c202c066257068b23979fadca4e6`); its instrumentation tests still need device execution. Durable image attachment retry across process death remains a separate gap.
 
 ## Database and security model
 
