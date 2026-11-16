@@ -11,9 +11,9 @@
 3. The request includes a timestamp, UUID request ID, and HMAC-SHA256 signature. The HMAC secret is stored in Supabase Vault and as the Render-only FCM_DISPATCH_WEBHOOK_SECRET environment variable. The secret itself is never sent.
 4. Laravel validates the signature, five-minute timestamp window, UUID, empty body, replay cache, and per-minute rate limit.
 5. A single-instance file-cache lock prevents overlapping invocations on the current one-instance Render service.
-6. The endpoint invokes the existing FcmNotificationDispatcher with a hard-coded batch limit of five. It accepts no recipient, notification, token, or message parameters. The existing atomic Supabase claim RPC and per-token delivery ledger remain authoritative.
+6. The endpoint invokes the existing FcmNotificationDispatcher with a hard-coded batch limit of three. It accepts no recipient, notification, token, or message parameters. The existing atomic Supabase claim RPC and per-token delivery ledger remain authoritative.
 
-The five-token cap bounds serial FCM network waits to approximately 50 seconds at the sender's current 10-second per-request timeout. pg_net is configured with a 120-second HTTP timeout to allow for Render cold start plus dispatch. If the request times out, the delivery ledger's lease and retry logic remain responsible for recovery.
+The three-token cap bounds serial FCM network waits to approximately 30 seconds at the sender's current 10-second per-request timeout. pg_net is configured with a 120-second HTTP timeout to allow for Render cold start plus dispatch. If the request times out, the delivery ledger's lease and retry logic remain responsible for recovery.
 
 ## One-time operator setup
 
