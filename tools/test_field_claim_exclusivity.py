@@ -37,3 +37,24 @@ assert "REVOKE ALL ON FUNCTION public.api_claim_incident(bigint) FROM PUBLIC, an
 
 print("PASS: field claims serialize by incident then profile, reject busy units, and respect lifecycle states.")
 print("PASS: claimable-incident discovery excludes busy/already-assigned units and stale lifecycle states.")
+
+# Dispatcher expansion must remain possible after the first field self-claim.
+# A self-claimed incident has status=assigned, assigned_to=NULL, and at least
+# one authoritative incident_assignments row. Empty-team assigned incidents
+# without a dispatcher lead remain invalid.
+assignment_start = sql.index("CREATE OR REPLACE FUNCTION private.tacresq_assign_incident_team")
+assignment_end = sql.index("$function$;", assignment_start) + len("$function$;")
+assignment = sql[assignment_start:assignment_end]
+assert "FROM public.incidents WHERE id = p_id FOR UPDATE" in assignment
+assert "FROM public.profiles WHERE auth_user_id = auth.uid() FOR UPDATE" in assignment
+assert assignment.index("FROM public.incidents WHERE id = p_id FOR UPDATE") < assignment.index("FROM public.profiles WHERE auth_user_id = auth.uid() FOR UPDATE")
+assert "incident_row.status IN ('assigned','en_route')" in assignment
+assert "incident_row.assigned_to IS NULL" in assignment
+assert "FROM public.incident_assignments existing_team" in assignment
+assert "FROM public.incident_assignments legacy_lead" in assignment
+assert "current_team_count + cardinality(p_user_ids) > 5" in assignment
+assert "ORDER BY id FOR UPDATE" in assignment
+assert "ON CONFLICT (incident_id, user_id) DO NOTHING" in assignment
+
+print("PASS: dispatcher team expansion supports field-claimed incidents while preserving assignment, capacity, and lock-order guards.")
+
