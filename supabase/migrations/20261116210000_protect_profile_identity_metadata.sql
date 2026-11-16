@@ -11,11 +11,10 @@ AS $function$
 DECLARE
   actor_role text;
 BEGIN
-  IF auth.uid() IS NOT NULL AND pg_trigger_depth() = 1 THEN
-    SELECT p.role INTO actor_role
-    FROM public.profiles p
-    WHERE p.auth_user_id = auth.uid();
-
+  IF auth.uid() IS NOT NULL THEN
+    -- Identity metadata stays immutable even during nested trigger updates.
+    -- Only operational role/duty checks are skipped for trusted nested writes,
+    -- such as the incident-status trigger updating a unit's duty status.
     IF NEW.id IS DISTINCT FROM OLD.id
        OR NEW.auth_user_id IS DISTINCT FROM OLD.auth_user_id
        OR NEW.created_at IS DISTINCT FROM OLD.created_at
@@ -25,6 +24,11 @@ BEGIN
       RAISE EXCEPTION 'Profile identifiers, creation timestamps, and identity fields cannot be changed through the application API'
         USING ERRCODE = '42501';
     END IF;
+
+    IF pg_trigger_depth() = 1 THEN
+      SELECT p.role INTO actor_role
+      FROM public.profiles p
+      WHERE p.auth_user_id = auth.uid();
 
     IF NEW.role IS DISTINCT FROM OLD.role
        AND actor_role IS DISTINCT FROM 'admin' THEN
@@ -69,6 +73,7 @@ BEGIN
     ) AND (NEW.role IS DISTINCT FROM OLD.role OR NEW.duty_status IS DISTINCT FROM OLD.duty_status) THEN
       RAISE EXCEPTION 'Finish the active incident before changing a field unit role or duty status'
         USING ERRCODE = '22023';
+    END IF;
     END IF;
   END IF;
 
