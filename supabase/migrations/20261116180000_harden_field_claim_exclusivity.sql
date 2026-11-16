@@ -272,6 +272,7 @@ RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $function$
 DECLARE
   actor public.profiles;
+  actor_role text;
   incident_row public.incidents;
   primary_user_id bigint;
   selected_count integer;
@@ -280,6 +281,12 @@ DECLARE
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501';
+  END IF;
+  SELECT role INTO actor_role
+  FROM public.profiles
+  WHERE auth_user_id = auth.uid();
+  IF actor_role IS DISTINCT FROM 'dispatcher' THEN
+    RAISE EXCEPTION 'Only dispatchers can assign incidents' USING ERRCODE = '42501';
   END IF;
   IF p_user_ids IS NULL OR cardinality(p_user_ids) < 1 OR cardinality(p_user_ids) > 5
      OR array_position(p_user_ids, NULL) IS NOT NULL
