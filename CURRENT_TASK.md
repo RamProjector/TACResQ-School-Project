@@ -682,3 +682,13 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - `api_claimable_incidents()` is currently unpaginated; this is an operational scale concern, not a confirmed exposure, because access is restricted to authenticated on-duty responders/drivers. Add bounded paging only with queue completeness and emergency workflow tests.
 - No confirmed cross-account disclosure or privilege escalation was established by static review.
 - PR #317, #319, #321, and #322 remain open/unmerged; no live database migration or deployment performed.
+
+
+## Location provider provenance trace — 2026-11-17
+
+- Traced Android requester/responder location capture through `LocationProvider.kt`, `GeoFix`, Supabase RPC request DTOs, and live PostgreSQL columns.
+- No provider name is currently captured or stored. `location_source` means GPS/manual/none; it is not the provider identity.
+- Requester capture uses Google Play services `FusedLocationProviderClient.getCurrentLocation`; responder sharing uses fused `requestLocationUpdates`. `GeoFix`, `CreateIncidentV4Rpc`, `RecordLocationRpc`, and the database schemas omit provider metadata.
+- Live `location_logs.received_at` already records server receipt time; incident `created_at` provides server row creation time.
+- Recommendation: if operationally needed, store a constrained `capture_provider` diagnostic value such as `google_fused_location` or `manual_map_selection`, distinct from existing `location_source`; keep `map_data_provider` separate and only set it when that provider actually supplies a selected coordinate/address. Treat client values as untrusted diagnostics, never proof of physical presence.
+- No payload or schema changes made pending confirmation of which provider distinction is required.
