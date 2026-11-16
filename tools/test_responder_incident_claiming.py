@@ -40,7 +40,14 @@ for required in (
     "CREATE OR REPLACE FUNCTION public.api_claimable_incidents",
     "FOR UPDATE",
     "REVOKE ALL ON FUNCTION public.api_claim_incident",
+    "CREATE OR REPLACE FUNCTION public.tacresq_guard_incident_update",
+    "OLD.is_claimable IS TRUE",
+    "a.user_id = actor_id",
+    "p.duty_status = 'available'",
+    "SET status = 'assigned'",
 ):
+
     assert required in sql, f"SQL migration missing claiming security/schema rule: {required}"
 
+assert "SET assigned_to = v_actor_id" not in sql, "Field claims must not bypass dispatcher-managed assigned_to"
 print("PASS: responder incident claiming contract verified across Android UI, API, repository, fake mode, and SQL migration.")
