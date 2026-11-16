@@ -245,7 +245,15 @@ BEGIN
         AND own_assignment.user_id = v_actor_id
     )
     AND (
-      SELECT count(*) FROM public.incident_assignments a WHERE a.incident_id = i.id
+      SELECT count(*) + CASE
+        WHEN i.assigned_to IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM public.incident_assignments legacy_lead
+          WHERE legacy_lead.incident_id = i.id AND legacy_lead.user_id = i.assigned_to
+        ) THEN 1
+        ELSE 0
+      END
+      FROM public.incident_assignments a
+      WHERE a.incident_id = i.id
     ) < 5;
 
   RETURN v_result;
