@@ -24,8 +24,10 @@ for item in required:
     assert item in sql, f"Missing immutable profile metadata guard: {item}"
 
 identity_check = sql.index("IF NEW.id IS DISTINCT FROM OLD.id")
+depth_check = sql.index("IF pg_trigger_depth() = 1 THEN")
 role_check = sql.index("IF NEW.role IS DISTINCT FROM OLD.role")
-assert identity_check < role_check
+assert identity_check < depth_check < role_check, "Identity immutability must run even for nested trigger updates"
+assert "IF auth.uid() IS NOT NULL AND pg_trigger_depth() = 1" not in sql
 assert "CREATE OR REPLACE FUNCTION public.tacresq_guard_profile_update()" in sql
 
 print("PASS: authenticated field units cannot change profile IDs or creation timestamps.")
