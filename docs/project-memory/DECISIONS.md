@@ -45,7 +45,7 @@ This file records decisions that should survive new development sessions. A new 
 2. Responder location sharing is consent-gated and foreground-only in the implemented flow. Do not add background tracking or request background location permission merely to improve map freshness.
 3. Route preview is disabled by default on Android and by the backend kill switch. Enabling it requires provider configuration, privacy review, synthetic route tests, and explicit approval.
 4. The backend currently selects Geoapify by default when routing is enabled; private OSRM is an explicit alternative. Do not silently fail over between providers because that would disclose coordinates to another recipient.
-5. Do not store or claim the exact underlying GPS source (satellite/Wi-Fi/cellular) when Android's fused provider does not expose that provenance. The existing incident source field distinguishes broad capture mode, not provider hardware attribution.
+5. A provider/API label may be recorded only when it is reliably exposed by the selected Android API (for example, a fused-provider label). Do not claim the underlying fix used GNSS, Wi-Fi, or cellular unless the platform explicitly establishes that. The existing incident source field distinguishes broad capture mode, not provider hardware attribution.
 
 ## Development and delivery constraints
 
