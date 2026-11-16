@@ -90,6 +90,7 @@ data class IncidentChatUiState(
     val refreshing: Boolean = false,
     val loadingOlder: Boolean = false,
     val sending: Boolean = false,
+    val restoringPending: Boolean = false,
     val hasOlder: Boolean = true,
     val error: String? = null,
     val sendError: String? = null,
@@ -108,6 +109,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     private var refreshJob: Job? = null
     private var olderJob: Job? = null
     private var sendJob: Job? = null
+    private var pendingRestoreJob: Job? = null
     private data class PendingTextMessage(val incidentId: Long, val message: String, val clientMessageId: String)
     // Retain uncertain sends across conversation close/reopen. Never mint a new key for the same payload.
     private var pendingTextMessage: PendingTextMessage? = null
@@ -126,7 +128,26 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             sendJob = null
             activeIncidentId = incidentId
             val recoverableDraft = pendingTextMessage?.takeIf { it.incidentId == incidentId }?.message.orEmpty()
-            _state.value = IncidentChatUiState(draft = recoverableDraft)
+            _state.value = IncidentChatUiState(draft = recoverableDraft, restoringPending = true)
+            pendingRestoreJob?.cancel()
+            pendingRestoreJob = viewModelScope.launch {
+                repo.pendingChatMessage()
+                    .onSuccess { saved ->
+                        if (!isCurrentConversation(incidentId, conversationGeneration)) return@onSuccess
+                        pendingTextMessage = saved?.let { PendingTextMessage(it.incidentId, it.message, it.clientMessageId) }
+                        pendingClientMessageId = saved?.clientMessageId
+                        if (saved != null && saved.incidentId != incidentId) {
+                            _state.update { it.copy(restoringPending = true, sendError = "A previous message is unresolved in another incident. Open that incident and retry it first.") }
+                        } else {
+                            _state.update { it.copy(draft = saved?.message.orEmpty(), restoringPending = false) }
+                        }
+                    }
+                    .onFailure { failure ->
+                        if (!isCurrentConversation(incidentId, conversationGeneration)) return@onFailure
+                        // Fail closed if the pending record's owner or integrity cannot be verified.
+                        _state.update { it.copy(restoringPending = true, sendError = failure.message ?: "Could not safely restore the pending message. Sending is blocked.") }
+                    }
+            }
         }
         refresh(incidentId)
     }
@@ -216,7 +237,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun send(incidentId: Long) {
         val message = _state.value.draft.trim()
-        if (activeIncidentId != incidentId || sendJob?.isActive == true || message.isEmpty() || message.length > 2000) return
+        if (activeIncidentId != incidentId || _state.value.restoringPending || sendJob?.isActive == true || message.isEmpty() || message.length > 2000) return
         val pending = pendingTextMessage
         if (pending != null && (pending.incidentId != incidentId || pending.message != message)) {
             _state.update { it.copy(sendError = "Resolve the earlier uncertain message in its original incident before sending different content.") }
@@ -229,9 +250,21 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         val generation = conversationGeneration
         sendJob = viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null, error = null) }
+            val saved = repo.persistPendingChatMessage(incidentId, message, clientMessageId)
+            if (saved.isFailure) {
+                if (isCurrentConversation(incidentId, generation)) {
+                    _state.update { it.copy(sending = false, sendError = saved.exceptionOrNull()?.message ?: "Could not safely save this message for retry.") }
+                }
+                return@launch
+            }
             repositoryCallOrFailure { repo.sendIncidentMessage(incidentId, message, clientMessageId) }
                 .onSuccess { sent ->
                     if (!isCurrentConversation(incidentId, generation)) return@onSuccess
+                    val cleared = repo.clearPendingChatMessage(clientMessageId)
+                    if (cleared.isFailure) {
+                        _state.update { it.copy(sending = false, sendError = "Message was sent, but its retry record could not be cleared. Retry safely to confirm the same message.") }
+                        return@onSuccess
+                    }
                     if (pendingTextMessage?.clientMessageId == clientMessageId) pendingTextMessage = null
                     pendingClientMessageId = null
                     _state.update { current ->
@@ -338,6 +371,8 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         refreshJob = null
         olderJob = null
         sendJob = null
+        pendingRestoreJob?.cancel()
+        pendingRestoreJob = null
         activeIncidentId = null
         // Do not clear an uncertain text-send identity here: the server may have committed
         // it even though cancellation prevented the response from reaching this ViewModel.
@@ -593,7 +628,7 @@ fun IncidentChatScreen(
                     onClick = {
                         imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     },
-                    enabled = !state.sending && !state.loading && state.error == null,
+                    enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null,
                     modifier = Modifier.size(48.dp),
                 ) {
                     Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "Attach image")
@@ -619,7 +654,7 @@ fun IncidentChatScreen(
                         if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
                         else vm.send(incidentId)
                     },
-                    enabled = !state.sending && !state.loading && state.error == null &&
+                    enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null &&
                         (state.draft.trim().isNotEmpty() || state.attachmentBytes != null),
                     modifier = Modifier.size(54.dp),
                 ) {
