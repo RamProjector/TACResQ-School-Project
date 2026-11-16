@@ -17,7 +17,7 @@ Migration `20261116200000_harden_dispatch_claimability_lifecycle.sql`:
 - rejects callers whose current role is not dispatcher;
 - permits enabling claims only while the incident is `pending` or `assigned`, while allowing dispatchers to clear stale flags;
 - clears `is_claimable` automatically as status progresses to `en_route` or later, and records that transition;
-- repairs existing stale claimability flags;
+- repairs existing stale claimability flags and records those repairs as `migration_backfill` audit events;
 - revokes authenticated direct INSERT/UPDATE/DELETE on `incidents`, enforcing the RPC write path used by the Android and web clients;
 - updates and returns the persisted row values;
 - preserves authenticated-only execution grants and a pinned `pg_catalog` search path.
