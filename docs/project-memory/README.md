@@ -8,7 +8,8 @@ This directory is the repository's concise, version-controlled memory. It is not
 ## Memory index
 
 - [Decisions and constraints](DECISIONS.md) — durable product requirements, user-approved constraints, and architectural choices.
-- [Research evidence](RESEARCH_EVIDENCE.md) — credible 2020–2029 sources, the claims they support, and the boundaries they impose.\n- [Security and reliability control matrix](SECURITY_RELIABILITY_CONTROL_MATRIX.md) — standards mapped to current source, pending PRs, live Supabase drift, acceptance tests, and remaining limitations.
+- [Research evidence](RESEARCH_EVIDENCE.md) — credible 2020–2029 sources, the claims they support, and the boundaries they impose.
+- [Security and reliability control matrix](SECURITY_RELIABILITY_CONTROL_MATRIX.md) — standards mapped to current source, pending PRs, live Supabase drift, acceptance tests, and remaining limitations.
 - [Implementation baseline](IMPLEMENTATION_STATUS.md) — implemented, partially verified, and unverified capabilities as of the snapshot date.
 - [Next-session handoff](NEXT_SESSION_HANDOFF.md) — active PRs, exact heads, current gates, and the next safe actions.
 
