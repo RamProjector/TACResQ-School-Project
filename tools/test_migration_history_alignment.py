@@ -47,12 +47,26 @@ EXPECTED = {
     "20261112215815_allow_requester_pending_cancellation.sql",
     "20261114153546_fcm_delivery_queue_hardening.sql",
     "20261114153550_fcm_token_account_switch.sql",
-}
-PENDING = {
     "20261116042927_responder_incident_claiming.sql",
+}
+# Repository migrations not yet confirmed in the live Supabase ledger are
+# allowlisted so independent PRs/deployment batches can proceed in either order.
+PENDING = {
     "20261116150000_pin_api_units_search_path.sql",
     "20261116153000_optimize_rls_policy_initplans.sql",
+    "20261116170000_api_operation_audit_and_fk_indexes.sql",
+    "20261116180000_harden_field_claim_exclusivity.sql",
+    "20261116190000_validate_requester_location_edits.sql",
+    "20261116200000_harden_dispatch_claimability_lifecycle.sql",
+    "20261116210000_protect_profile_identity_metadata.sql",
 }
+actual = {path.name for path in MIGRATIONS.glob("*.sql")}
+assert EXPECTED <= actual, (
+    f"Applied migration files missing from repository. Missing={sorted(EXPECTED - actual)}"
+)
+assert actual <= EXPECTED | PENDING, (
+    f"Untracked migration files found. Unexpected={sorted(actual - (EXPECTED | PENDING))}"
+)
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
     f"Supabase migration history drift. Missing={sorted((EXPECTED | PENDING) - actual)}; "
@@ -157,7 +171,7 @@ for required in (
     assert required in attachments, f"Missing private incident-image attachment contract: {required}"
 print("PASS: incident chat image attachments use private Storage policies and server-verified object metadata.")
 
-print(f"PASS: {len(EXPECTED)} applied migration files match history; {len(PENDING)} explicitly pending migration file(s) are tracked for a later approved deployment.")
+print(f"PASS: {len(EXPECTED)} applied migration files match history; {len(actual - EXPECTED)} additional migration file(s) are allowlisted and not assumed applied to live Supabase.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
     "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",
