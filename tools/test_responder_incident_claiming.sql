@@ -40,7 +40,7 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('c1020000-1111-4111-8111-000000000102', 'claim-responder@example.test', '{"name":"Claim Responder","phone":"+639170000102"}');
 
 UPDATE public.profiles SET role = 'dispatcher' WHERE auth_user_id = 'c1010000-1111-4111-8111-000000000101';
-UPDATE public.profiles SET role = 'responder', is_on_duty = true WHERE auth_user_id = 'c1020000-1111-4111-8111-000000000102';
+UPDATE public.profiles SET role = 'responder', duty_status = 'available' WHERE auth_user_id = 'c1020000-1111-4111-8111-000000000102';
 
 -- Create incident as requester
 SELECT set_config('request.jwt.claim.sub', 'c1000000-1111-4111-8111-000000000100', true);
