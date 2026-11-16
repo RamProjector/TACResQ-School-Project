@@ -58,3 +58,20 @@ assert "ON CONFLICT (incident_id, user_id) DO NOTHING" in assignment
 
 print("PASS: dispatcher team expansion supports field-claimed incidents while preserving assignment, capacity, and lock-order guards.")
 
+
+
+# This integration test runs two independent psql processes against the same
+# disposable PostgreSQL database; it is not a source-only lock-order assertion.
+race_test = ROOT / "tools/test_field_claim_concurrency.sh"
+race_sql = race_test.read_text()
+for required in (
+    "run_claim \"\${incident_ids[0]}\"",
+    "run_claim \"\${incident_ids[1]}\"",
+    "SET ROLE authenticated",
+    "SELECT public.api_claim_incident($incident_id)",
+    "pg_sleep(1)",
+    "'\"status\": \"claimed\"'",
+    "'\"code\": \"UNIT_BUSY\"'",
+    "Exactly one membership",
+):
+    assert required.lower() in race_sql.lower(), f"Missing two-session race assertion: {required}"
