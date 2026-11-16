@@ -37,6 +37,12 @@ class PushTokenCoordinator(
     private var registrationEnabled = false
 
     suspend fun sync(repository: TacRepository) {
+        // Do not keep a server-side delivery token when Android cannot show alerts.
+        // Reconcile again on app resume so changes made in system settings take effect.
+        if (!notificationsAllowed(appContext)) {
+            unregister(repository)
+            return
+        }
         val generation = registrationGeneration
         syncInternal(repository, expectedGeneration = generation)
     }
@@ -93,7 +99,7 @@ class PushTokenCoordinator(
         // between these reads, either the flag is false or the generation check
         // inside syncInternal rejects this callback.
         val generation = registrationGeneration
-        if (!registrationEnabled) {
+        if (!notificationsAllowed(appContext) || !registrationEnabled) {
             preferences.edit().putString(KEY_PENDING_TOKEN, token).apply()
             return
         }
@@ -166,11 +172,25 @@ class PushTokenCoordinator(
         private const val KEY_PENDING_TOKEN = "pending_token"
         private const val KEY_REGISTERED_TOKEN = "registered_token"
 
-        fun notificationsAllowed(context: Context): Boolean =
-            Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
+        fun notificationsAllowed(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) != PackageManager.PERMISSION_GRANTED
+            ) return false
+
+            val manager = androidx.core.app.NotificationManagerCompat.from(context)
+            if (!manager.areNotificationsEnabled()) return false
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = context.getSystemService(android.app.NotificationManager::class.java)
+                    .getNotificationChannel(PushNotificationChannels.ALERTS_CHANNEL)
+                if (channel != null && channel.importance == android.app.NotificationManager.IMPORTANCE_NONE) {
+                    return false
+                }
+            }
+            return true
+        }
     }
 }
 
