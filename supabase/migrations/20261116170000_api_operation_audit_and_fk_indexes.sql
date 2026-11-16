@@ -28,7 +28,7 @@ CREATE INDEX api_operation_logs_correlation_idx
 ALTER TABLE public.api_operation_logs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE public.api_operation_logs FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT, INSERT ON TABLE public.api_operation_logs TO service_role;
-GRANT USAGE, SELECT ON SEQUENCE public.api_operation_logs_id_seq TO service_role;
+REVOKE ALL PRIVILEGES ON SEQUENCE public.api_operation_logs_id_seq FROM PUBLIC, anon, authenticated, service_role;\nGRANT USAGE, SELECT ON SEQUENCE public.api_operation_logs_id_seq TO service_role;
 
 -- Cover the four foreign keys identified by the live Supabase performance
 -- advisor. Do not remove other indexes based only on low-traffic "unused" flags.
