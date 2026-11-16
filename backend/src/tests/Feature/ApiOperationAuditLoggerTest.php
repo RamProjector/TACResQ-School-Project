@@ -68,7 +68,7 @@ class ApiOperationAuditLoggerTest extends TestCase
         app(ApiOperationAuditLogger::class)->record('geoapify', 'route.preview', 'failure', 503, 120);
 
         Http::assertSentCount(1);
-        $this->assertTrue(true);
+        $this->assertTrue(Str::isUuid($replacement));
     }
 
     public function test_api_responses_include_a_valid_correlation_id_and_replace_invalid_input(): void
