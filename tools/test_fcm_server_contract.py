@@ -17,7 +17,7 @@ config = read("backend/src/config/tacru.php")
 dockerfile = read("backend/Dockerfile")
 env = read("backend/.env.example")
 base_migration = read("supabase/migrations/20261105235016_fcm_delivery_attempts.sql")
-queue_migration = read("supabase/migrations/20261114135000_fcm_delivery_queue_hardening.sql")
+queue_migration = read("supabase/migrations/20261114153546_fcm_delivery_queue_hardening.sql")
 queue_test = read("tools/test_fcm_delivery_queue.sql")
 docs = read("docs/FCM_SETUP.md")
 

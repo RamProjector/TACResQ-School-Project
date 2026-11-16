@@ -45,10 +45,10 @@ EXPECTED = {
     "20261112215734_require_requester_signup_contact.sql",
     "20261112215748_bound_requester_signup_contact_lengths.sql",
     "20261112215815_allow_requester_pending_cancellation.sql",
+    "20261114153546_fcm_delivery_queue_hardening.sql",
+    "20261114153550_fcm_token_account_switch.sql",
 }
 PENDING = {
-    "20261114135000_fcm_delivery_queue_hardening.sql",
-    "20261114170000_fcm_token_account_switch.sql",
     "20261115120000_responder_incident_claiming.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
@@ -172,7 +172,7 @@ print("PASS: public assignment RPCs are invoker wrappers over a private authoriz
 print("PASS: private assignment RPC pins its search path to pg_catalog.")
 print("PASS: missing location_and_push migration recreates FCM storage, RLS, and RPCs.")
 
-account_switch = (MIGRATIONS / "20261114170000_fcm_token_account_switch.sql").read_text()
+account_switch = (MIGRATIONS / "20261114153550_fcm_token_account_switch.sql").read_text()
 for required in (
     "CREATE OR REPLACE FUNCTION public.api_register_fcm_token(p_token text)",
     "SECURITY DEFINER",

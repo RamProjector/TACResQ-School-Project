@@ -40,7 +40,7 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('c1020000-1111-4111-8111-000000000102', 'claim-responder@example.test', '{"name":"Claim Responder","phone":"+639170000102"}');
 
 UPDATE public.profiles SET role = 'dispatcher' WHERE auth_user_id = 'c1010000-1111-4111-8111-000000000101';
-UPDATE public.profiles SET role = 'responder', is_on_duty = true WHERE auth_user_id = 'c1020000-1111-4111-8111-000000000102';
+UPDATE public.profiles SET role = 'responder', duty_status = 'available' WHERE auth_user_id = 'c1020000-1111-4111-8111-000000000102';
 
 -- Create incident as requester
 SELECT set_config('request.jwt.claim.sub', 'c1000000-1111-4111-8111-000000000100', true);
@@ -51,8 +51,8 @@ DECLARE
   v_result jsonb;
 BEGIN
   v_result := public.api_create_incident_v4(
-    'medical', 'Claim test incident', 11.243, 125.004, 10.0, 'Park entrance',
-    now()::text, 'gps', '00000000-0000-4000-8000-000000000100'
+    'medical'::text, 'Claim test incident'::text, 11.243::double precision, 125.004::double precision, 10.0::real, 'Park entrance'::text,
+    now(), 'gps'::text, '00000000-0000-4000-8000-000000000100'::uuid
   );
   PERFORM set_config('tacresq.test_claim_incident_id', (v_result->>'id'), true);
 END;
@@ -86,6 +86,22 @@ BEGIN
   v_result := public.api_claim_incident(v_incident_id);
   IF (v_result->>'status') IS DISTINCT FROM 'claimed' THEN
     RAISE EXCEPTION 'On-duty responder failed to claim incident: %', v_result;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.incident_assignments a
+    JOIN public.profiles p ON p.id = a.user_id
+    WHERE a.incident_id = v_incident_id
+      AND p.auth_user_id = 'c1020000-1111-4111-8111-000000000102'
+  ) THEN
+    RAISE EXCEPTION 'Claim must persist the responder team membership';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.incidents
+    WHERE id = v_incident_id AND status = 'assigned' AND assigned_to IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Field claim must advance status without taking dispatcher-managed assigned_to';
   END IF;
 END;
 $responder_claim_incident$;
