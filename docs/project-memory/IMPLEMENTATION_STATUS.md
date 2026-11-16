@@ -15,7 +15,7 @@ This is a point-in-time summary, not a live status dashboard. Check the reposito
 - Role/ownership/assignment checks, status transition guards, incident audit history, single-active-requester workflow, and multi-responder incident assignments.
 - Per-responder assignment status and responder incident claiming.
 - Persistent in-app notification inbox, server notification records, FCM token registration, trusted HTTP v1 sender, and delivery-attempt ledger.
-- Incident-scoped chat with server idempotency and private image attachment storage.
+- Incident-scoped chat with server idempotency, private image attachment storage, and encrypted/account-bound Android text retry outbox (PR #312 merged 2026-11-16).
 - Centered GPS Map destination, incident pins, device-only locate-me preview, and dispatcher visibility of fresh consented en-route field-unit reports.
 - Authenticated Laravel route-preview proxy with Geoapify and private OSRM provider support. Backend route preview and Android route preview are disabled by default.
 - TACRU dispatcher web dashboard served by Laravel; dashboard uses Supabase Auth/RPC for operational data.
@@ -28,7 +28,7 @@ This is a point-in-time summary, not a live status dashboard. Check the reposito
 - Geoapify and private OSRM route rendering end-to-end with authorized synthetic coordinates.
 - FCM foreground/background delivery, Doze, token rotation, permission revocation/regrant, account switching, and device notification display.
 - Render FCM dispatch endpoint is implemented/deployed, but scheduled production dispatch remains inactive pending operator setup/approval.
-- Encrypted DataStore/Keystore persistence behavior after real process death and on physical devices.
+- Encrypted DataStore/Keystore outbox persistence after real process death and on physical devices; CI compiles the instrumentation tests, but device execution remains outstanding.
 - Android UI acceptance across representative screen sizes and devices.
 
 ## Deliberately not implemented or not guaranteed
