@@ -49,7 +49,7 @@ EXPECTED = {
     "20261114153550_fcm_token_account_switch.sql",
 }
 PENDING = {
-    "20261115120000_responder_incident_claiming.sql",
+    "20261116042927_responder_incident_claiming.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert actual == EXPECTED | PENDING, (
