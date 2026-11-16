@@ -637,3 +637,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Location trace:** `LocationProvider.kt` uses FusedLocationProviderClient; `Models.kt` GeoFix retains coordinates, accuracy, capture/elapsed timestamps, permission precision, and manual selection. The incident RPC payload sends `location_source` (gps/manual/none), not a provider identifier. Do not add a provider column until the full edit/responder-write path and source semantics are verified.
 - **No production side effects:** no live schema/data/configuration change, deployment, notification send, or PR merge was performed.
 - **Next action:** review PR #316–#321 for unresolved comments and current exact-head checks; then add isolated two-session concurrency coverage where missing. Keep live migrations pending absent explicit approval.
+
+
+## PR #322 follow-up — 2026-11-17
+
+- Opened [PR #322 — Document TACResQ security and reliability control matrix](https://github.com/RamProjector/TACResQ-School-Project/pull/322).
+- Branch: `agent/security-reliability-control-matrix`; latest observed head before this handoff update: `6e2eefbe3f18b0a3570f2abf45326dc3dea2ab90`.
+- Documentation-only scope: standards-to-source control matrix, project-memory index, and this handoff. README index line-break formatting was corrected after diff inspection.
+- PR #322 workflows were observed running at the initial head `74463939626d463c0abdd50d09b011b29caec655`; they must be rechecked for the latest head.
+- No local checkout/content-link validation was run. No live DB migration, deployment, or merge was performed.
