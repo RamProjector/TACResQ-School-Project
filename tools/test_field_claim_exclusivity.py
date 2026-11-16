@@ -12,7 +12,7 @@ claim = sql[claim_start:claim_end]
 
 # Authentication is checked before locking an incident; then the incident row
 # is locked before the profile row, matching dispatcher team assignment.
-assert claim.index("v_auth_uid := auth.uid()") < claim.index("FROM public.incidents") < claim.index("FOR UPDATE;") < claim.index("FROM public.profiles\\n  WHERE id = v_actor_id AND auth_user_id = v_auth_uid")
+assert claim.index("v_auth_uid := auth.uid()") < claim.index("FROM public.incidents") < claim.index("FOR UPDATE;") < claim.index("SELECT role, duty_status INTO v_actor_role, v_duty_status")
 assert "FROM public.profiles\n  WHERE id = v_actor_id AND auth_user_id = v_auth_uid\n  FOR UPDATE" in claim
 assert "v_status NOT IN ('pending', 'assigned')" in claim
 assert "active_i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')" in claim
