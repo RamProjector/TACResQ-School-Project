@@ -32,6 +32,11 @@ final class SupabaseBridge
                 ->get($baseUrl.'/auth/v1/user');
 
             $status = $response->status();
+            $user = $response->successful() ? $response->json() : null;
+            if (is_array($user) && is_string($user['id'] ?? null) && Str::isUuid($user['id'])) {
+                request()->attributes->set('auth_user_id', $user['id']);
+            }
+
             app(ApiOperationAuditLogger::class)->record(
                 'supabase',
                 'auth.get_user',
@@ -51,7 +56,6 @@ final class SupabaseBridge
                 return null;
             }
 
-            $user = $response->json();
             return is_array($user) && is_string($user['id'] ?? null) ? $user : null;
         } catch (\RuntimeException $exception) {
             throw $exception;
