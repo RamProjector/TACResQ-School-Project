@@ -73,3 +73,5 @@ The console remains dispatcher-only, requires an administrator-provisioned dispa
 ## Automated CI tests
 
 GitHub Actions runs `tools/test_workflow.py`, type-checks/builds the dashboard with its `/dispatch/` base path, builds and starts the Docker Compose Laravel/PostgreSQL stack with disposable test settings, runs the Laravel feature tests, and smoke-tests the served dashboard and `/runtime-config.json` response. The integration job uses placeholder Supabase settings and an ephemeral database; it does not contact or write to the project's live Supabase database.
+
+The free-compatible Supabase Cron trigger is documented in [docs/FCM_SUPABASE_CRON_TRIGGER.md](../docs/FCM_SUPABASE_CRON_TRIGGER.md). It is not active until the Render webhook secret, Supabase Vault secrets, pg_cron/pg_net extensions, and scheduled job are configured by an authorized operator. It is best-effort only; the in-app inbox remains authoritative.
