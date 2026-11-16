@@ -31,7 +31,7 @@ BEGIN
   FROM public.profiles
   WHERE auth_user_id = v_auth_uid;
 
-  IF v_actor_id IS NULL OR v_actor_role NOT IN ('responder', 'driver') THEN
+  IF v_actor_id IS NULL OR v_actor_role IS NULL OR v_actor_role NOT IN ('responder', 'driver') THEN
     RETURN jsonb_build_object(
       'status', 'error',
       'code', 'UNAUTHORIZED',
@@ -197,7 +197,7 @@ BEGIN
   FROM public.profiles
   WHERE auth_user_id = v_auth_uid;
 
-  IF v_actor_id IS NULL OR v_actor_role NOT IN ('responder', 'driver')
+  IF v_actor_id IS NULL OR v_actor_role IS NULL OR v_actor_role NOT IN ('responder', 'driver')
      OR v_duty_status IS DISTINCT FROM 'available' THEN
     RETURN '[]'::jsonb;
   END IF;
