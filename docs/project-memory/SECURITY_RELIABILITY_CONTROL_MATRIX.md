@@ -127,3 +127,36 @@ The five advisor-flagged tables were checked directly in PostgreSQL catalogs and
 - `anon` has no SELECT or INSERT privilege on any of them.
 - `authenticated` has no SELECT, INSERT, UPDATE, or DELETE privilege on any of them.
 - Therefore, the advisor warning is currently a deny-by-default configuration, not evidence that these tables are directly exposed to anon/authenticated through the Data API. Do not add broad policies merely to silence the linter. Revisit only if a supported client access path is intentionally introduced; prefer narrow RPCs and explicit authorization.
+
+
+## Authenticated SECURITY DEFINER RPC review — 2026-11-17
+
+A read-only review examined all 18 public SECURITY DEFINER functions currently executable by `authenticated`, plus the private chat authorization helper functions.
+
+### Reviewed controls that are present
+
+- Admin audit/user-list endpoints check the caller's profile role is `admin`; audit page size is capped at 200 and paginated user search is capped at 100 rows with bounded offset/query input.
+- Requester cancellation and editing bind incident ownership to the authenticated profile and lock the requester/incident rows.
+- Incident creation requires requester role, validates the incident type, location metadata, and request idempotency key; v4 delegates creation to v3 inside the same transaction.
+- Notification read/detail/list operations resolve the authenticated profile and filter by `recipient_user_id`; list size is capped at 100 and a foreign notification ID is indistinguishable from a missing row.
+- Chat read/send operations resolve the caller profile, use the private incident-participation helper, bound message length/page size, serialize sends per sender, and use idempotency keys. Image sends additionally enforce path structure, MIME allowlist, size ceiling, and verify the uploaded object metadata.
+- FCM token registration requires an authenticated profile and bounds token length.
+- Dispatcher unit listing checks dispatcher role. Field claim and claimability functions check role/duty state; their current live concurrency/lifecycle gaps are addressed by pending PRs #317 and #319.
+
+### Outstanding items / risks
+
+- **Legacy unbounded admin user listing:** live `api_admin_list_users()` remains callable by authenticated admins and returns all profiles including contact data without pagination. PR #321 revokes client EXECUTE while retaining the function definition and removes the stale dashboard type declaration. Its exact-head CI, Security/CodeQL, RPC grant contract, and Frontend Review all passed; isolated runtime proof that the legacy RPC is denied while the paginated RPC remains available is still pending. Do not treat this migration as live-applied.
+- **Live lifecycle drift:** live `api_claim_incident()` and `api_claimable_incidents()` still predate PR #317's responder exclusivity/claimability fixes; live `api_set_incident_claimable()` still predates PR #319's row-lock and lifecycle hardening. Both PRs are green but unmerged/unapplied.
+- **Search-path drift:** `api_units()` still has `search_path=pg_catalog, public, auth`; narrow it to `pg_catalog` in a forward-only migration after dependency review.
+- **Potential scale concern:** `api_claimable_incidents()` returns the full claimable queue without pagination. It exposes emergency coordinates/details to eligible on-duty field units, which is an intended operational need, but should be paginated or bounded if expected incident volume grows. Preserve enough results for dispatch/response safety and test queue completeness.
+- The private chat helper fails closed for unknown roles and explicitly grants dispatcher, requester-owner, or assigned responder/driver access. Admin is intentionally not included in chat access by default.
+- No confirmed cross-account data disclosure or privilege escalation was established by this function review. Static inspection is not a substitute for authenticated negative tests.
+
+### Exact-head workflow evidence
+
+- #317 `84a95488872d4808a837bd7d03646b1290de8ab2`: TACResQ CI, TACResQ Security, RPC grant contract, Frontend Review passed.
+- #319 `b21f8cd7d9697b7c358a25e09e342d3470950248`: TACResQ CI, TACResQ Security, RPC grant contract, Frontend Review passed.
+- #321 `f44af2d88a8c822ab911612352a9cf65a114137a`: TACResQ CI, TACResQ Security, RPC grant contract, Frontend Review passed.
+- #322 `2212cfe71d64a0231d41944c0a4a81f6a4435030`: TACResQ CI, TACResQ Security, RPC grant contract, Frontend Review passed.
+
+All four PRs remain open/unmerged at this audit point. No live migration was applied.
