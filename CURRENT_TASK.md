@@ -660,3 +660,14 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - PR #317: `84a95488872d4808a837bd7d03646b1290de8ab2`. TACResQ CI passed, including clean PostgreSQL migration replay and the cross-incident two-session race; RPC grant contract and Frontend Review passed. Security/CodeQL was still in progress at last poll.
 - PR #319: `b21f8cd7d9697b7c358a25e09e342d3470950248`. Clean PostgreSQL migration replay passed, including the two-session dispatcher-toggle/requester-cancellation race; RPC grant contract and Frontend Review passed. TACResQ CI and Security were still in progress at last poll.
 - Both PRs remain open/unmerged. No live Supabase migrations were applied.
+
+
+## TACResQ audit continuation — 2026-11-17 (latest)
+
+- PR #317 exact head `84a95488872d4808a837bd7d03646b1290de8ab2`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. Open/unmerged.
+- PR #319 exact head `b21f8cd7d9697b7c358a25e09e342d3470950248`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. Open/unmerged. Runtime authenticated DML-denial/RPC-success integration check remains pending.
+- PR #322 latest documentation head `d701f9f9164c8fc3056b89dee3ebaa41304c9e8f`: audit matrix refreshed with live advisor, function ACL/search-path, and RLS no-policy table grant evidence. Exact-head workflows are pending/not yet returned at the latest poll. Compare reports 12 commits ahead and 0 behind main; PR currently reports mergeable.
+- Live Supabase read-only advisor recheck: health 0; security 5 RLS-enabled/no-policy tables, 18 authenticated-callable public SECURITY DEFINER functions, leaked-password protection disabled; performance 4 missing FK indexes, 6 RLS initplan warnings, 8 unused-index candidates.
+- Direct privilege checks show all five RLS/no-policy tables have zero policies and no anon/authenticated table privileges. Do not add policies merely to silence the advisor.
+- SECURITY DEFINER catalog/ACL review found no EXECUTE grants to PUBLIC among inspected public/private functions. `private.tacresq_is_incident_assignee(bigint)` has an unnecessary `public` search_path entry; schema-qualified body references and no confirmed exploit. `public.api_units()` remains the known live search_path drift.
+- No live migration, data mutation, deployment, FCM send, or merge was performed. Continue function-by-function authorization review and plan any search_path hardening as a forward-only migration after checking repository history and dependencies.
