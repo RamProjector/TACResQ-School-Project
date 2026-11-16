@@ -160,7 +160,8 @@ print("PASS: incident chat image attachments use private Storage policies and se
 
 api_audit = (MIGRATIONS / "20261116170000_api_operation_audit_and_fk_indexes.sql").read_text()
 for required in (
-    "CREATE TABLE public.api_operation_logs",\n    "actor_auth_user_id uuid",
+    "CREATE TABLE public.api_operation_logs",
+    "actor_auth_user_id uuid",
     "ALTER TABLE public.api_operation_logs ENABLE ROW LEVEL SECURITY",
     "REVOKE ALL PRIVILEGES ON TABLE public.api_operation_logs FROM PUBLIC, anon, authenticated, service_role",
     "GRANT SELECT, INSERT ON TABLE public.api_operation_logs TO service_role",
