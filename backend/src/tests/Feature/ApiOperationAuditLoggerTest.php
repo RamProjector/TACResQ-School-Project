@@ -47,6 +47,23 @@ class ApiOperationAuditLoggerTest extends TestCase
         });
     }
 
+
+    public function test_modern_supabase_secret_key_is_sent_only_as_apikey(): void
+    {
+        config([
+            'tacru.supabase_url' => 'https://tacresq-audit.example.test',
+            'tacru.supabase_secret_key' => 'sb_secret_synthetic-key',
+        ]);
+        Http::fake(['*' => Http::response(null, 201)]);
+
+        app(ApiOperationAuditLogger::class)->record('supabase', 'rpc.api_me', 'success', 200, 1);
+
+        Http::assertSent(function ($request): bool {
+            return $request->hasHeader('apikey', 'sb_secret_synthetic-key')
+                && !$request->hasHeader('Authorization');
+        });
+    }
+
     public function test_skips_database_audit_when_server_secret_is_not_configured(): void
     {
         config([
