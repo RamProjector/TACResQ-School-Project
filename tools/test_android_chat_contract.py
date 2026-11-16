@@ -35,6 +35,9 @@ for required in (
 repository = read("app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt")
 for required in (
     "suspend fun myIncidentMessages(",
+    "suspend fun pendingChatMessage()",
+    "suspend fun persistPendingChatMessage(",
+    "suspend fun clearPendingChatMessage(",
     "suspend fun sendIncidentMessage(",
     "api as? TacChatApi",
     "Incident chat is not available with the configured backend.",
@@ -53,6 +56,17 @@ for required in (
 ):
     assert required in fake, f"Demo chat security/behavior missing: {required}"
 
+store = read("app/src/main/java/com/tacresq/app/data/local/SessionStore.kt")
+for required in (
+    "data class PendingChatMessage(",
+    "pending_chat_message_v1",
+    "savePendingChatMessage(",
+    "getPendingChatMessage(ownerUserId: Long)",
+    "clearPendingChatMessage(clientMessageId: String, ownerUserId: Long)",
+    "encrypt(gson.toJson(record))",
+    "saved.ownerUserId != ownerUserId",
+):
+    assert required in store, f"Durable account-scoped chat outbox contract missing: {required}"
 screen = read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
 for required in (
     "class IncidentChatViewModel",
@@ -61,6 +75,9 @@ for required in (
     "Load earlier messages",
     "Message was not confirmed. Retry safely.",
     "pendingClientMessageId",
+    "restoringPending",
+    "repo.persistPendingChatMessage(incidentId, message, clientMessageId)",
+    "repo.clearPendingChatMessage(clientMessageId)",
     "refreshJob?.cancel()",
     "fun closeConversation()",
     "if (!isCurrentConversation(incidentId, generation)) return@onSuccess",
