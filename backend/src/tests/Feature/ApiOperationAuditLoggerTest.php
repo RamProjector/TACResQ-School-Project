@@ -73,15 +73,13 @@ class ApiOperationAuditLoggerTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_api_responses_include_a_valid_correlation_id_and_replace_invalid_input(): void
+    public function test_api_responses_use_server_generated_correlation_ids(): void
     {
-        $valid = 'e6c3bb0c-04e7-4e69-9d44-b65e0a3c7123';
-        $this->withHeader('X-Request-ID', $valid)->getJson('/up')
-            ->assertHeader('X-Request-ID', $valid);
+        $supplied = 'e6c3bb0c-04e7-4e69-9d44-b65e0a3c7123';
+        $response = $this->withHeader('X-Request-ID', $supplied)->getJson('/up');
+        $generated = $response->headers->get('X-Request-ID');
 
-        $response = $this->withHeader('X-Request-ID', 'not-a-uuid')->getJson('/up');
-        $replacement = $response->headers->get('X-Request-ID');
-        $this->assertNotSame('not-a-uuid', $replacement);
-        $this->assertTrue(Str::isUuid($replacement));
+        $this->assertNotSame($supplied, $generated);
+        $this->assertTrue(Str::isUuid($generated));
     }
 }
