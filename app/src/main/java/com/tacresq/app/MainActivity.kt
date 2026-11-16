@@ -7,11 +7,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.tacresq.app.notifications.PushNotificationTap
 import com.tacresq.app.notifications.PushNotificationIdentity
 import com.tacresq.app.ui.AppRoot
 import com.tacresq.app.ui.theme.TACResQTheme
+import com.tacresq.app.ui.theme.ThemeMode
 
 class MainActivity : ComponentActivity() {
     private var authReturnMessage by mutableStateOf<String?>(null)
@@ -32,13 +34,16 @@ class MainActivity : ComponentActivity() {
                 ?.let(::PushNotificationTap)
         val container = (application as TacResqApp).container
         setContent {
-            TACResQTheme {
+            var themeMode by rememberSaveable { mutableStateOf(ThemeMode.SYSTEM) }
+            TACResQTheme(themeMode = themeMode) {
                 AppRoot(
                     container = container,
                     authReturnMessage = authReturnMessage,
                     onAuthReturnMessageDismissed = { authReturnMessage = null },
                     notificationTap = notificationTap,
                     onNotificationTapConsumed = { consumeNotificationTap() },
+                    themeMode = themeMode,
+                    onThemeModeChanged = { themeMode = it },
                 )
             }
         }

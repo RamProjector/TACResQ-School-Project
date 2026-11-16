@@ -13,6 +13,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+enum class ThemeMode(val label: String) {
+    SYSTEM("System"),
+    LIGHT("Light"),
+    DARK("Dark"),
+}
+
 // Shared palette: calm surfaces, strong emergency actions, and consistent status
 // colors across every role.
 private val TacruLightColors = lightColorScheme(
@@ -69,8 +75,6 @@ private val TacruDarkColors = darkColorScheme(
     outlineVariant = Color(0xFF3B4B5D),
 )
 
-// One restrained type scale for every role. The goal is clearer hierarchy,
-// not larger text or extra decorative labels.
 private val TacruTypography = Typography().let { base ->
     base.copy(
         headlineSmall = base.headlineSmall.copy(
@@ -121,11 +125,17 @@ private val TacruShapes = Shapes(
 
 @Composable
 fun TACResQTheme(
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
+    val isDark = when (themeMode) {
+        ThemeMode.SYSTEM -> darkTheme
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
     MaterialTheme(
-        colorScheme = if (darkTheme) TacruDarkColors else TacruLightColors,
+        colorScheme = if (isDark) TacruDarkColors else TacruLightColors,
         typography = TacruTypography,
         shapes = TacruShapes,
         content = content,

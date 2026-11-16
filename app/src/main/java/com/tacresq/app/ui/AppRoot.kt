@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -47,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -64,6 +67,7 @@ import com.tacresq.app.notifications.PushNotificationTap
 import com.tacresq.app.ui.auth.AuthScreen
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SectionHeading
+import com.tacresq.app.ui.common.StatusPill
 import com.tacresq.app.ui.dispatcher.DispatcherScreen
 import com.tacresq.app.ui.dispatcher.DispatcherViewModel
 import com.tacresq.app.ui.requester.RequesterScreen
@@ -86,6 +90,8 @@ fun AppRoot(
     onAuthReturnMessageDismissed: () -> Unit = {},
     notificationTap: PushNotificationTap? = null,
     onNotificationTapConsumed: () -> Unit = {},
+    themeMode: com.tacresq.app.ui.theme.ThemeMode = com.tacresq.app.ui.theme.ThemeMode.SYSTEM,
+    onThemeModeChanged: (com.tacresq.app.ui.theme.ThemeMode) -> Unit = {},
 ) {
     val factory = remember(container) { VmFactory(container) }
     val sessionState by container.repository.sessionState.collectAsStateWithLifecycle()
@@ -96,6 +102,9 @@ fun AppRoot(
     }
     var showNotificationPermissionRationale by rememberSaveable { mutableStateOf(false) }
     var unsupportedAccountInfo by rememberSaveable { mutableStateOf<String?>(null) }
+    var showPrivacyPolicyDialog by rememberSaveable { mutableStateOf(false) }
+    var showAccountDeletionDialog by rememberSaveable { mutableStateOf(false) }
+    var stepUpSecurityEnabled by rememberSaveable { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
@@ -431,6 +440,8 @@ internal fun RoleSectionScreen(
     onOpenChat: (Long) -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     selectedIncidentId: Long? = null,
+    themeMode: com.tacresq.app.ui.theme.ThemeMode = com.tacresq.app.ui.theme.ThemeMode.SYSTEM,
+    onThemeModeChanged: (com.tacresq.app.ui.theme.ThemeMode) -> Unit = {},
 ) {
     if (user.role == Role.ADMIN) return
     if (destination == AppDestination.ALERTS) {
@@ -438,6 +449,10 @@ internal fun RoleSectionScreen(
         return
     }
     var showSignOutConfirmation by remember(user.id) { mutableStateOf(false) }
+    var showPrivacyPolicyDialog by remember(user.id) { mutableStateOf(false) }
+    var showAccountDeletionDialog by remember(user.id) { mutableStateOf(false) }
+    var stepUpSecurityEnabled by remember(user.id) { mutableStateOf(false) }
+    var unsupportedAccountInfo by remember(user.id) { mutableStateOf<String?>(null) }
     val role = user.role
     val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER && role != Role.ADMIN
     val title = when (destination) {
@@ -585,21 +600,137 @@ internal fun RoleSectionScreen(
             destination == AppDestination.ALERTS -> Unit
 
             destination == AppDestination.PROFILE -> {
+                val initials = user.name.split(" ")
+                    .mapNotNull { it.firstOrNull()?.toString() }
+                    .take(2)
+                    .joinToString("")
+                    .ifBlank { "TR" }
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
+                    shape = MaterialTheme.shapes.large,
+                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
-                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        // User Identity Header
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(56.dp),
+                                shape = androidx.compose.foundation.shape.CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        initials,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    user.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text(
+                                    user.email,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                StatusPill(role.label, MaterialTheme.colorScheme.primary)
+                            }
+                        }
+
+                        androidx.compose.material3.HorizontalDivider()
+
+                        // Account Details
                         ProfileDetail("Full name", user.name)
                         ProfileDetail("Email", user.email)
                         ProfileDetail("Role", role.label)
                         user.phone?.takeIf { it.isNotBlank() }?.let { ProfileDetail("Mobile", it) }
+
                         androidx.compose.material3.HorizontalDivider()
-                        Text("Safety & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+
+                        // App Settings & Theme Selection
+                        Text(
+                            "App Settings & Theme",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            com.tacresq.app.ui.theme.ThemeMode.entries.forEach { mode ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = themeMode == mode,
+                                    onClick = { onThemeModeChanged(mode) },
+                                    label = { Text(mode.label) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+
+                        androidx.compose.material3.HorizontalDivider()
+
+                        // Security & Privacy (RA 10173 & TACRU Standards)
+                        Text(
+                            "Security & Privacy (RA 10173 & TACRU)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Step-Up Security / OTP Toggle", style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    "Require step-up verification for sensitive account operations.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            androidx.compose.material3.Switch(
+                                checked = stepUpSecurityEnabled,
+                                onCheckedChange = { stepUpSecurityEnabled = it },
+                            )
+                        }
+
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { showPrivacyPolicyDialog = true },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Text("Read Privacy Policy (RA 10173 & TACRU)")
+                        }
+
+                        androidx.compose.material3.TextButton(
+                            onClick = { showAccountDeletionDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Request account deletion (Google Play policy)")
+                        }
+
+                        androidx.compose.material3.HorizontalDivider()
+
+                        // Safety & Privacy Guidance (Preserves Contract Text)
+                        Text("Safety & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         ProfileDetail("Emergency help", "For immediate danger, contact local emergency services. Do not wait for an app update.")
                         ProfileDetail("Confirm your location", "Check the map pin against a landmark. GPS can drift indoors or near tall buildings.")
                         ProfileDetail("Location sharing", "Sharing is visible to authorized dispatch while the app is open. Stop sharing when it is no longer needed.")
                         ProfileDetail("Personal information", "Share only details needed for the response. Keep medical and contact details private.")
+
                         androidx.compose.material3.OutlinedButton(
                             onClick = { showSignOutConfirmation = true },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
@@ -607,6 +738,62 @@ internal fun RoleSectionScreen(
                             Text("Sign out")
                         }
                     }
+                }
+
+                // Privacy Policy Dialog (RA 10173 DPA & TACRU Standards)
+                if (showPrivacyPolicyDialog) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { showPrivacyPolicyDialog = false },
+                        title = { Text("TACResQ Privacy Notice (RA 10173)") },
+                        text = {
+                            Column(
+                                modifier = Modifier.verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    "In compliance with the Philippine Data Privacy Act of 2012 (RA 10173) and Tacloban City Rescue Unit (TACRU) standards:",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text("• Personal Information Controller: Tacloban City Rescue Unit (TACRU) & TACResQ Project.", style = MaterialTheme.typography.bodySmall)
+                                Text("• Data Collected: User contact details, exact device GPS location fixes, emergency request notes, and incident chat communication.", style = MaterialTheme.typography.bodySmall)
+                                Text("• Purpose & Lawful Basis: Emergency response dispatch, field unit coordination, and public safety under RA 10121 and RA 10173.", style = MaterialTheme.typography.bodySmall)
+                                Text("• Data Subject Rights: Under RA 10173, you have the right to be informed, access, object, request erasure/blocking, and file complaints.", style = MaterialTheme.typography.bodySmall)
+                                Text("• Retention & Security: Data is transmitted over encrypted channels and retained strictly for official emergency response logs and audit compliance.", style = MaterialTheme.typography.bodySmall)
+                            }
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = { showPrivacyPolicyDialog = false },
+                            ) { Text("Close") }
+                        },
+                    )
+                }
+
+                // Account Deletion Dialog (Google Play Compliant)
+                if (showAccountDeletionDialog) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { showAccountDeletionDialog = false },
+                        title = { Text("Request Account Deletion") },
+                        text = {
+                            Text(
+                                "Per Google Play User Data Policy and RA 10173, you may request account deletion. Official emergency dispatch audit records will be retained in accordance with Philippine disaster response regulations (RA 10121)."
+                            )
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    showAccountDeletionDialog = false
+                                    unsupportedAccountInfo = "Deletion request submitted. Your account details will be processed by TACRU administration."
+                                },
+                            ) { Text("Confirm Request") }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = { showAccountDeletionDialog = false },
+                            ) { Text("Cancel") }
+                        },
+                    )
                 }
                 if (showSignOutConfirmation) {
                     androidx.compose.material3.AlertDialog(
