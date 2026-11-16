@@ -35,9 +35,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y shellcheck
           bash -n tools/test_supabase_migration_replay.sh
-          shellcheck --severity=error tools/test_supabase_migration_replay.sh
+          bash -n tools/test_claimability_cancellation_concurrency.sh
+          shellcheck --severity=error tools/test_supabase_migration_replay.sh tools/test_claimability_cancellation_concurrency.sh
           # Keep the exact leading-dash command failure from recurring (SC2215).
-          shellcheck --include=SC2215 tools/test_supabase_migration_replay.sh
+          shellcheck --include=SC2215 tools/test_supabase_migration_replay.sh tools/test_claimability_cancellation_concurrency.sh
 
       - name: Test TACResQ automated code reviewer
         run: python3 tools/test_tacresq_code_reviewer.py
