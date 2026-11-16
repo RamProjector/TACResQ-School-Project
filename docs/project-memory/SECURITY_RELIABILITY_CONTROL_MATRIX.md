@@ -223,3 +223,19 @@ No database migration, Render configuration change, client transport switch, or 
 - Latest inspected head: bcefc4702c3f29d6902923983ea44074b605bb4e.
 - TACResQ Frontend Review, RPC grant contract, TACResQ CI, and TACResQ Security all completed successfully on that exact commit.
 - PR #322 remains open and unmerged. No migration or deployment was performed.
+
+## Claimable-queue query review — 2026-11-17
+
+A read-only live PostgreSQL function-definition inspection confirmed that api_claimable_incidents() currently:
+
+- Requires a valid authenticated Supabase user whose profile role is responder or driver and whose duty_status is available; other callers receive an empty array.
+- Returns all incidents where is_claimable=true, status is pending or assigned, and current incident_assignments count is below five.
+- Sorts the JSON aggregate oldest-first and includes incident description, exact coordinates, timestamps, claimability, and assigned user IDs.
+- Has no page-size argument, cursor, LIMIT, or server-side response-size bound. It builds one JSONB array for the entire eligible queue.
+- Uses correlated subqueries per returned incident to count assignments and aggregate assigned user IDs.
+
+This is an operational scalability and data-minimization concern, not a confirmed authorization bypass: the function restricts callers to authenticated on-duty responders/drivers, and these fields are part of the current claim workflow. However, an unbounded response can become large as the queue grows and sends precise incident coordinates/descriptions to every eligible field unit.
+
+Do not add a simple LIMIT that silently hides older or urgent incidents. A safe pagination design needs explicit product semantics: stable ordering, cursor behavior under newly arriving/claimed/cancelled incidents, a maximum page size, and a visible way to load more while preserving emergency priority. Consider whether the app should receive a compact claim-list projection first and fetch full incident details only after a responder opens or claims an item. Any projection must still provide enough information to decide whether to respond safely.
+
+Before implementation, add tests for stable cursor ordering, newly inserted incidents, rows becoming non-claimable between pages, assignment-capacity changes, role/duty changes, and no duplicate/missing eligible incidents across pages. Benchmark the query with representative synthetic queue sizes and inspect indexes for the join/filter path. No live function was changed and no migration was applied.
