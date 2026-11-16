@@ -266,7 +266,7 @@ class SessionStore(
     }
 
     /** Stores one uncertain text send before network I/O; the record is encrypted and account-bound. */
-    suspend fun savePendingChatMessage(record: PendingChatMessage) = pendingChatMessageMutex.withLock {
+    suspend fun savePendingChatMessage(record: PendingChatMessage): Unit = pendingChatMessageMutex.withLock {
         require(record.incidentId > 0L && record.ownerUserId > 0L)
         require(record.message == record.message.trim() && record.message.length in 1..2000)
         UUID.fromString(record.clientMessageId)
@@ -303,7 +303,7 @@ class SessionStore(
         saved
     }
 
-    suspend fun clearPendingChatMessage(clientMessageId: String, ownerUserId: Long) = pendingChatMessageMutex.withLock {
+    suspend fun clearPendingChatMessage(clientMessageId: String, ownerUserId: Long): Unit = pendingChatMessageMutex.withLock {
         require(ownerUserId > 0L)
         if (!persistSessions) {
             val saved = inMemoryPendingChatMessage
