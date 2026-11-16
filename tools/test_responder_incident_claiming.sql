@@ -51,8 +51,8 @@ DECLARE
   v_result jsonb;
 BEGIN
   v_result := public.api_create_incident_v4(
-    'medical', 'Claim test incident', 11.243, 125.004, 10.0, 'Park entrance',
-    now()::text, 'gps', '00000000-0000-4000-8000-000000000100'
+    'medical'::text, 'Claim test incident'::text, 11.243::double precision, 125.004::double precision, 10.0::real, 'Park entrance'::text,
+    now(), 'gps'::text, '00000000-0000-4000-8000-000000000100'::uuid
   );
   PERFORM set_config('tacresq.test_claim_incident_id', (v_result->>'id'), true);
 END;
