@@ -208,6 +208,24 @@ class TacRepository(
         chatApi.myIncidentMessages(incidentId, limit, beforeId)
     }
 
+    suspend fun pendingChatMessage(): Result<SessionStore.PendingChatMessage?> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in with the original account to restore its pending chat message.")
+        store.getPendingChatMessage(ownerUserId)
+    }
+
+    suspend fun persistPendingChatMessage(incidentId: Long, message: String, clientMessageId: String): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in before sending an incident message.")
+        store.savePendingChatMessage(SessionStore.PendingChatMessage(incidentId, message.trim(), clientMessageId, ownerUserId))
+    }
+
+    suspend fun clearPendingChatMessage(clientMessageId: String): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in with the original account to resolve its pending chat message.")
+        store.clearPendingChatMessage(clientMessageId, ownerUserId)
+    }
+
     suspend fun sendIncidentMessage(
         incidentId: Long,
         message: String,

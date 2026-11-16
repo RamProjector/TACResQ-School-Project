@@ -56,13 +56,16 @@ class SessionStore(
     val sessionReadLoading = MutableStateFlow(persistSessions)
     private val encryptedSessionKey = stringPreferencesKey("encrypted_session_v1")
     private val pendingIncidentEnvelopeKey = stringPreferencesKey("pending_incident_envelope_v1")
+    private val pendingChatMessageKey = stringPreferencesKey("pending_chat_message_v1")
     private val encryptedRequesterDraftKey = stringPreferencesKey("requester_draft_v1")
     private val encryptedRequesterIncidentsKey = stringPreferencesKey("requester_incidents_v1")
     private val pendingIncidentMutex = Mutex()
+    private val pendingChatMessageMutex = Mutex()
     private val requesterDraftMutex = Mutex()
     private val requesterIncidentsMutex = Mutex()
     // Fake/test API mode must never write pending SOS state into the real app's DataStore.
     private var inMemoryPendingIncident: PendingIncidentSubmission? = null
+    private var inMemoryPendingChatMessage: PendingChatMessage? = null
     private var inMemoryRequesterDraft: RequesterDraft? = null
     private var inMemoryRequesterIncidents: CachedRequesterIncidents? = null
 
@@ -146,6 +149,8 @@ class SessionStore(
         val payloadJson: String,
         val ownerUserId: Long? = null,
     )
+
+    data class PendingChatMessage(val incidentId: Long, val message: String, val clientMessageId: String, val ownerUserId: Long)
 
     data class RequesterDraft(
         val ownerUserId: Long,
@@ -256,6 +261,66 @@ class SessionStore(
                     requirePendingOwner(saved, ownerUserId)
                     prefs.remove(pendingIncidentEnvelopeKey)
                 }
+            }
+        }
+    }
+
+    /** Stores one uncertain text send before network I/O; the record is encrypted and account-bound. */
+    suspend fun savePendingChatMessage(record: PendingChatMessage): Unit = pendingChatMessageMutex.withLock {
+        require(record.incidentId > 0L && record.ownerUserId > 0L)
+        require(record.message == record.message.trim() && record.message.length in 1..2000)
+        UUID.fromString(record.clientMessageId)
+        fun verify(saved: PendingChatMessage) {
+            if (saved.ownerUserId != record.ownerUserId) throw PendingIncidentConflictException("A pending chat message belongs to another account on this device.")
+            if (saved != record) throw PendingIncidentConflictException("Resolve the earlier unconfirmed message in its original incident before sending different content.")
+        }
+        if (!persistSessions) {
+            val saved = inMemoryPendingChatMessage
+            if (saved != null) verify(saved) else inMemoryPendingChatMessage = record
+            return@withLock
+        }
+        dataStore.edit { prefs ->
+            val encoded = prefs[pendingChatMessageKey]
+            if (encoded != null) {
+                val saved = runCatching { gson.fromJson(decrypt(encoded), PendingChatMessage::class.java) }
+                    .getOrElse { throw PendingIncidentConflictException("The saved chat message could not be restored safely.") }
+                    ?: throw PendingIncidentConflictException("The saved chat message could not be restored safely.")
+                verify(saved)
+            } else {
+                prefs[pendingChatMessageKey] = encrypt(gson.toJson(record))
+            }
+        }
+    }
+
+    suspend fun getPendingChatMessage(ownerUserId: Long): PendingChatMessage? = pendingChatMessageMutex.withLock {
+        require(ownerUserId > 0L)
+        val saved = if (!persistSessions) inMemoryPendingChatMessage else {
+            val encoded = dataStore.data.first()[pendingChatMessageKey] ?: return@withLock null
+            runCatching { gson.fromJson(decrypt(encoded), PendingChatMessage::class.java) }
+                .getOrElse { throw PendingIncidentConflictException("The saved chat message could not be restored safely.") }
+        } ?: return@withLock null
+        if (saved.ownerUserId != ownerUserId) throw PendingIncidentConflictException("A saved chat message belongs to another account on this device. Sign in with the original account to retry it.")
+        saved
+    }
+
+    suspend fun clearPendingChatMessage(clientMessageId: String, ownerUserId: Long): Unit = pendingChatMessageMutex.withLock {
+        require(ownerUserId > 0L)
+        if (!persistSessions) {
+            val saved = inMemoryPendingChatMessage
+            if (saved?.clientMessageId == clientMessageId) {
+                if (saved.ownerUserId != ownerUserId) throw PendingIncidentConflictException("This chat retry belongs to another account.")
+                inMemoryPendingChatMessage = null
+            }
+            return@withLock
+        }
+        dataStore.edit { prefs ->
+            val encoded = prefs[pendingChatMessageKey] ?: return@edit
+            val saved = runCatching { gson.fromJson(decrypt(encoded), PendingChatMessage::class.java) }
+                .getOrElse { throw PendingIncidentConflictException("The saved chat message could not be cleared safely.") }
+                ?: throw PendingIncidentConflictException("The saved chat message could not be cleared safely.")
+            if (saved.clientMessageId == clientMessageId) {
+                if (saved.ownerUserId != ownerUserId) throw PendingIncidentConflictException("This chat retry belongs to another account.")
+                prefs.remove(pendingChatMessageKey)
             }
         }
     }
