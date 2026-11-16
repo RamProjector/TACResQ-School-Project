@@ -15,6 +15,7 @@ required = (
     "p_location_recorded_at > clock_timestamp() + interval '5 minutes'",
     "p_location_recorded_at < clock_timestamp() - interval '15 minutes'",
     "incident_row.latitude IS DISTINCT FROM p_latitude",
+    "incident_row.accuracy_m IS DISTINCT FROM p_accuracy_m",
     "incident_row.location_recorded_at IS DISTINCT FROM p_location_recorded_at",
     "REVOKE ALL ON FUNCTION public.api_update_my_incident",
     "GRANT EXECUTE ON FUNCTION public.api_update_my_incident",
