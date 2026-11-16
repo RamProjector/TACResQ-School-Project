@@ -35,8 +35,14 @@ final class ApiOperationAuditLogger
             $correlationId = (string) Str::uuid();
         }
 
+        $actorAuthUserId = request()->attributes->get('auth_user_id');
+        if (!is_string($actorAuthUserId) || !Str::isUuid($actorAuthUserId)) {
+            $actorAuthUserId = null;
+        }
+
         $payload = [
             'correlation_id' => $correlationId,
+            'actor_auth_user_id' => $actorAuthUserId,
             'provider' => $provider,
             'operation' => $operation,
             'source' => 'render_api',
