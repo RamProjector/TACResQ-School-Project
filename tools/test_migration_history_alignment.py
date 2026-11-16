@@ -158,6 +158,21 @@ for required in (
     assert required in attachments, f"Missing private incident-image attachment contract: {required}"
 print("PASS: incident chat image attachments use private Storage policies and server-verified object metadata.")
 
+api_audit = (MIGRATIONS / "20261116170000_api_operation_audit_and_fk_indexes.sql").read_text()
+for required in (
+    "CREATE TABLE public.api_operation_logs",
+    "ALTER TABLE public.api_operation_logs ENABLE ROW LEVEL SECURITY",
+    "REVOKE ALL PRIVILEGES ON TABLE public.api_operation_logs FROM PUBLIC, anon, authenticated, service_role",
+    "GRANT SELECT, INSERT ON TABLE public.api_operation_logs TO service_role",
+    "CREATE INDEX fcm_delivery_attempts_profile_id_idx",
+    "CREATE INDEX incident_assignments_assigned_by_idx",
+    "CREATE INDEX incident_request_edit_logs_requester_id_idx",
+    "CREATE INDEX user_notifications_incident_id_idx",
+):
+    assert required in api_audit, f"Missing API audit/index hardening contract: {required}"
+assert "GRANT ALL" not in api_audit.upper()
+assert "GRANT INSERT ON TABLE public.api_operation_logs TO authenticated" not in api_audit
+
 print(f"PASS: {len(EXPECTED)} applied migration files match history; {len(PENDING)} explicitly pending migration file(s) are tracked for a later approved deployment.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
