@@ -75,3 +75,10 @@ Checked on 2026-11-17:
 - PR #317 now includes a genuine two-session PostgreSQL 16 test. Its latest-head clean migration-replay job passed and emitted both expected assertions: one claim succeeded, the competing claim returned `UNIT_BUSY`, and the final database state contained one membership and one assigned incident.
 - PR #319 now includes a genuine two-session dispatcher-toggle/requester-cancellation race test. Its latest-head migration-replay job is still running; do not count this test as passed until that job completes and its output is inspected.
 - These tests use synthetic fixtures on disposable CI PostgreSQL. Neither test runs against live Supabase.
+
+
+## Final concurrency CI snapshot — 2026-11-17
+
+- PR #317 head `84a95488872d4808a837bd7d03646b1290de8ab2`: TACResQ CI completed successfully, including clean PostgreSQL 16 migration replay and the two-session cross-incident claim test; RPC grant contract and Frontend Review also passed. TACResQ Security/CodeQL was still running at the last poll.
+- PR #319 head `b21f8cd7d9697b7c358a25e09e342d3470950248`: clean PostgreSQL 16 migration replay completed successfully, including the two-session dispatcher-toggle/requester-cancellation race. RPC grant contract and Frontend Review passed; the full TACResQ CI and Security workflows were still running at the last poll.
+- Neither PR is merged, and neither migration has been applied to live Supabase.
