@@ -1,9 +1,9 @@
 <?php
 
-use App\\FcmNotificationDispatcher;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\Cache;
-use Illuminate\\Support\\Facades\\Route;
+use App\FcmNotificationDispatcher;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', static function () {
     return response()->file(public_path('dispatch/index.html'));
@@ -48,11 +48,11 @@ Route::post('/internal/fcm/dispatch', function (Request $request, FcmNotificatio
 
     $rawBody = $request->getContent();
     $body = json_decode($rawBody);
-    if (!$body instanceof \\stdClass || count((array) $body) !== 0 || $request->query->count() !== 0) {
+    if (!$body instanceof \stdClass || count((array) $body) !== 0 || $request->query->count() !== 0) {
         return $json(['message' => 'This endpoint accepts only an empty JSON object.'], 422);
     }
 
-    $signedContent = $timestamp."\\n".$requestId."\\n".$rawBody;
+    $signedContent = $timestamp."\n".$requestId."\n".$rawBody;
     $expected = hash_hmac('sha256', $signedContent, $secret);
     if (!hash_equals($expected, $signature)) {
         return $json(['message' => 'Unauthorized.'], 401);
@@ -71,15 +71,15 @@ Route::post('/internal/fcm/dispatch', function (Request $request, FcmNotificatio
     }
 
     try {
-        // Keep the HTTP request bounded for Render cold starts and pg_net timeouts.
+        // Five token deliveries cap worst-case serial provider waits to ~50 seconds.
         $stats = $dispatcher->dispatch(5);
         $status = ($stats['failed'] ?? 0) > 0 ? 503 : 200;
         return $json(['ok' => $status === 200, 'counts' => $stats], $status);
-    } catch (\\Throwable) {
+    } catch (\Throwable) {
         // Never return exception text: it may contain provider URLs or configuration.
         return $json(['message' => 'FCM dispatch is temporarily unavailable.'], 503);
     } finally {
         $lock->release();
     }
-})->withoutMiddleware([\\Illuminate\\Foundation\\Http\\Middleware\\ValidateCsrfToken::class])
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
   ->middleware('throttle:5,1');
