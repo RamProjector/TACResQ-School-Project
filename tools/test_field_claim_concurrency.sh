@@ -15,7 +15,7 @@ trap 'rm -rf "$tmp_dir"' EXIT
 requester_uuid="00000000-0000-4000-8000-000000000901"
 responder_uuid="00000000-0000-4000-8000-000000000902"
 
-psql -v ON_ERROR_STOP=1 -At <<'SQL' > "$tmp_dir/ids"
+psql -q -v ON_ERROR_STOP=1 -At <<'SQL' > "$tmp_dir/ids"
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES
   ('00000000-0000-4000-8000-000000000901', 'claim-race-requester@example.test', '{"name":"Claim Race Requester","phone":"+63917000901"}'),
