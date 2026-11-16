@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\ApiOperationAuditLogger;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ApiOperationAuditLoggerTest extends TestCase
@@ -57,7 +58,7 @@ class ApiOperationAuditLoggerTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_audit_sink_failure_does_not_break_the_business_request(): void
+    public function test_audit_sink_failure_does_not_throw_or_expose_provider_response(): void
     {
         config([
             'tacru.supabase_url' => 'https://tacresq-audit.example.test',
@@ -68,7 +69,6 @@ class ApiOperationAuditLoggerTest extends TestCase
         app(ApiOperationAuditLogger::class)->record('geoapify', 'route.preview', 'failure', 503, 120);
 
         Http::assertSentCount(1);
-        $this->assertTrue(Str::isUuid($replacement));
     }
 
     public function test_api_responses_include_a_valid_correlation_id_and_replace_invalid_input(): void
@@ -80,6 +80,6 @@ class ApiOperationAuditLoggerTest extends TestCase
         $response = $this->withHeader('X-Request-ID', 'not-a-uuid')->getJson('/up');
         $replacement = $response->headers->get('X-Request-ID');
         $this->assertNotSame('not-a-uuid', $replacement);
-        $this->assertTrue(\\Illuminate\\Support\\Str::isUuid($replacement));
+        $this->assertTrue(Str::isUuid($replacement));
     }
 }
