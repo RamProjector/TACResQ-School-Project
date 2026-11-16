@@ -45,6 +45,8 @@ EXPECTED = {
     "20261112215734_require_requester_signup_contact.sql",
     "20261112215748_bound_requester_signup_contact_lengths.sql",
     "20261112215815_allow_requester_pending_cancellation.sql",
+    "20261114153546_fcm_delivery_queue_hardening.sql",
+    "20261114153550_fcm_token_account_switch.sql",
 }
 PENDING = {
     "20261115120000_responder_incident_claiming.sql",
