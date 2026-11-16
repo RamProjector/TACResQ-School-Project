@@ -77,7 +77,7 @@ final class SupabaseBridge
                 // array would serialize as [], which is not the no-argument shape.
                 ->post($baseUrl.'/rest/v1/rpc/'.$function, $arguments === [] ? new \stdClass() : $arguments);
 
-            return ['status' => $response->status(), 'body' => $response->json()];
+            $status = $response->status();\n            app(ApiOperationAuditLogger::class)->record(\n                'supabase', 'rpc.'.$function, $status >= 500 || $status === 429 ? 'failure' : ($status >= 400 ? 'rejected' : 'success'),\n                $status, (int) ((hrtime(true) - $startedAt) / 1_000_000), null, null, $this->correlationId()\n            );\n            return ['status' => $status, 'body' => $response->json()];
         } catch (Throwable) {
             return ['status' => 502, 'body' => ['message' => 'Supabase is temporarily unavailable.']];
         }
