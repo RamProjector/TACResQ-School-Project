@@ -28,6 +28,30 @@ CREATE INDEX IF NOT EXISTS incident_claimability_logs_actor_created_idx
 -- the claimability audit trail through the PostgREST table endpoint.
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.incidents FROM PUBLIC, anon, authenticated;
 
+-- PostgreSQL column-level ACLs are independent of table-level ACLs. Remove
+-- any historical per-column grants as well, or they would survive the table
+-- revoke above (the live schema currently has column grants on status,
+-- assigned_to, and updated_at).
+DO $revoke_incident_column_grants$
+DECLARE
+  v_columns text;
+BEGIN
+  SELECT string_agg(format('%I', attname), ', ' ORDER BY attnum)
+  INTO v_columns
+  FROM pg_catalog.pg_attribute
+  WHERE attrelid = 'public.incidents'::regclass
+    AND attnum > 0
+    AND NOT attisdropped;
+
+  IF v_columns IS NOT NULL THEN
+    EXECUTE format(
+      'REVOKE INSERT (%1$s), UPDATE (%1$s) ON TABLE public.incidents FROM PUBLIC, anon, authenticated',
+      v_columns
+    );
+  END IF;
+END;
+$revoke_incident_column_grants$;
+
 CREATE OR REPLACE FUNCTION public.tacresq_clear_claimability_on_status_progress()
 RETURNS trigger
 LANGUAGE plpgsql
