@@ -14,7 +14,7 @@ required = (
     "FROM public.profiles",
     "WHERE auth_user_id = v_auth_uid",
     "v_actor.role IS DISTINCT FROM 'dispatcher'",
-    "v_incident.status IN ('cancelled', 'completed', 'resolved')",
+    "p_claimable IS TRUE AND v_incident.status NOT IN ('pending', 'assigned')",
     "SET is_claimable = p_claimable",
     "RETURNING * INTO v_incident",
     "CREATE TABLE IF NOT EXISTS public.incident_claimability_logs",
@@ -51,11 +51,11 @@ profile_lock = sql.index("FROM public.profiles\n  WHERE auth_user_id = v_auth_ui
 assert sql.index("SELECT role INTO v_actor_role") < incident_lock < profile_lock, "Precheck must precede incident lock; locked profile must follow incident lock"
 assert sql.index("FOR UPDATE;", incident_lock) < profile_lock
 assert sql.index("FOR UPDATE;", profile_lock) < sql.index("v_actor.role IS DISTINCT")
-assert sql.index("v_incident.status IN") < sql.index("UPDATE public.incidents")
+assert sql.index("p_claimable IS TRUE AND v_incident.status NOT IN") < sql.index("UPDATE public.incidents")
 
 print("PASS: claimability toggle locks and rechecks incident lifecycle before update.")
 print("PASS: dispatcher role is re-read under profile lock in incident->profile lock order.")
-print("PASS: null inputs, missing incidents, closed incidents, and RPC grants are guarded.")
+print("PASS: null inputs, missing incidents, claimable lifecycle allowlist, and RPC grants are guarded.")
 
 # The shipped Android and web clients use RPCs for incident writes; they do not
 # call the PostgREST incidents table endpoint directly.
