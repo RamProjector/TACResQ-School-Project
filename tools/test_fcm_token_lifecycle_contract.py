@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 coordinator = (ROOT / "app/src/main/java/com/tacresq/app/notifications/PushTokenCoordinator.kt").read_text(encoding="utf-8")
 app_root = (ROOT / "app/src/main/java/com/tacresq/app/ui/AppRoot.kt").read_text(encoding="utf-8")
-migration = (ROOT / "supabase/migrations/20261114170000_fcm_token_account_switch.sql").read_text(encoding="utf-8")
+migration = (ROOT / "supabase/migrations/20261114153550_fcm_token_account_switch.sql").read_text(encoding="utf-8")
 registration_contract = (ROOT / "tools/test_fcm_registration_contract.py").read_text(encoding="utf-8")
 
 assert "private val operations = Mutex()" in coordinator
