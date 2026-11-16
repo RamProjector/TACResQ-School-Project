@@ -1420,3 +1420,8 @@ psql -v ON_ERROR_STOP=1 -f tools/test_notification_rpc_security.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_delivery_queue.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_token_account_switch.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_responder_incident_claiming.sql
+
+
+# Run a real two-connection race against the disposable database after all
+# migrations and sequential lifecycle fixtures have completed.
+bash tools/test_field_claim_concurrency.sh
