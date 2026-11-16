@@ -152,6 +152,7 @@ Supabase advisors are deterministic checks, not a substitute for understanding t
 | Location | Bounded coordinates, timestamp validation, rate limiting, foreground tracking path | Android restricts background location and recommends visible foreground service when required | Device/OEM matrix and visible freshness labels |
 | Notifications | Durable inbox + FCM delivery ledger | FCM acceptance does not equal device display; priority can be delayed/deprioritized | Treat push as supplementary; device delivery validation |
 | Routing | Server proxy, explicit provider, no automatic provider failover | Privacy-minimizing provider selection reduces unnecessary location disclosure | Keep route preview opt-in/disabled by default and label limits |
+| Mobile app security | Account-bound encrypted session/pending-message/SOS persistence is present in reviewed Android paths; full mobile assessment not completed | OWASP MASVS covers storage, crypto, auth, network, platform, code, resilience, and privacy | Run MASVS/MASTG checks for exported components, deep links, local data remnants, TLS, session expiry, and permission/privacy flows |
 
 ## Prioritized follow-up work
 
@@ -167,6 +168,7 @@ Supabase advisors are deterministic checks, not a substitute for understanding t
 ## Research references
 
 - OWASP API Security Top 10: https://owasp.org/www-project-api-security/
+- OWASP Mobile Application Security Verification Standard (MASVS): https://mas.owasp.org/MASVS/
 - OWASP Logging Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
 - Supabase Database Functions — SECURITY DEFINER/INVOKER, search_path, and EXECUTE grants: https://supabase.com/docs/guides/database/functions
 - Supabase Row Level Security: https://supabase.com/docs/guides/database/postgres/row-level-security
