@@ -69,7 +69,7 @@ final class ApiOperationAuditLogger
                 ->asJson()
                 ->withHeaders($headers)
                 ->connectTimeout(1)
-                ->timeout(2)
+                ->timeout(1)
                 ->post($baseUrl.'/rest/v1/api_operation_logs', $payload);
 
             if (!$response->successful()) {
