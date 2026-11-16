@@ -189,3 +189,37 @@ If provider provenance is required for troubleshooting/audit, add separately nam
 Treat all client-reported provider values as untrusted diagnostics, validate against a small allowlist, and never use them for authorization or emergency dispatch verification. Avoid adding location coordinates or raw provider metadata to the generic API operation log.
 
 No provider column or API payload change was made in this audit; first confirm which provider distinction the client and operational users actually need.
+
+## Direct-client audit coverage trace — 2026-11-17
+
+A source trace compared the PR #316 Laravel operation-audit design with the active Android and dispatcher-dashboard transports.
+
+### Confirmed transport split
+
+- Android's normal Supabase mode builds Retrofit against the Supabase URL and calls PostgREST RPCs directly. The current SupabaseRpcWire surface includes profile/duty, incident list/create/edit/cancel/status/assignment/claim/claimability, responder location, notifications, FCM-token lifecycle, and chat read/send/image-message RPCs.
+- Android also uploads and downloads chat attachments directly through Supabase Storage. Those object operations do not pass through the Laravel API-operation logger.
+- The optional Render bridge is a separate transport (SupabaseBridgeRpcWire) and is enabled only when the build/runtime opts into it. Its current allowlist is not the complete RPC surface: claim/claimable, notifications, FCM-token operations, chat operations, and Storage remain direct Supabase paths in the inspected client.
+- The dispatcher dashboard initializes @supabase/supabase-js with the browser-safe publishable key and invokes api_me, api_all_incidents, api_units, api_active_responder_locations, api_assign_incident, and the paginated Admin RPCs directly. These calls do not traverse Laravel's /api route middleware.
+- The Android OkHttp HttpLoggingInterceptor is configured at BASIC level. This is diagnostic request/response-line logging, not a durable, actor-aware audit record; it does not close the direct-to-Supabase audit gap.
+- The Render bridge authenticates the Supabase token, applies a per-user rate limit, and forwards allowlisted RPCs. In the inspected route, it does not create the PR #316 api_operation_logs record itself.
+
+### Audit coverage conclusion
+
+PR #316's Laravel API-operation logger must be described as **Laravel-route coverage**, not complete application/API coverage. It cannot by itself provide a complete audit trail while Android and the dashboard call Supabase RPCs and Storage directly. Supabase platform/API logs may help with infrastructure diagnostics, but should not be treated as a durable business audit trail unless retention, actor attribution, operation naming, and access have been verified for the deployed plan/configuration.
+
+### Safe next design
+
+1. Keep business audit events at the database boundary for security-sensitive state changes, using narrowly scoped transaction-local audit writes or explicit audit inserts inside the relevant RPC transaction. This is the only shared point for direct Android, dashboard, and bridge callers.
+2. Use an allowlisted operation name and derive actor identity from auth.uid() on the server. Never trust a client-supplied actor ID, role, outcome, or correlation claim.
+3. Record only metadata needed for accountability: operation, actor, target record ID where appropriate, outcome, server timestamp, and a validated request/correlation ID if a trustworthy propagation mechanism is established.
+4. Do not record request bodies, access tokens, message text, incident narratives, phone/email, image bytes/paths, or exact coordinates in the generic operation log. Sensitive domain-specific audit tables should have separate purpose, access, and retention rules.
+5. For Storage, verify whether upload/download audit events are available and retained in the current Supabase project. If they are not sufficient, add a controlled attachment lifecycle record around the chat RPCs without duplicating image content or exposing signed URLs.
+6. Define retention, admin read access, export, and tamper-resistance before calling the result a complete audit system. Do not add broad RLS policies to the five deny-by-default no-policy tables just to expose logs to clients.
+
+No database migration, Render configuration change, client transport switch, or production logging change was made. The next implementation should be a focused database-side audit design with tests proving that direct RPC and bridge callers create equivalent business audit events without leaking sensitive payloads.
+
+## PR #322 exact-head workflow refresh — 2026-11-17
+
+- Latest inspected head: bcefc4702c3f29d6902923983ea44074b605bb4e.
+- TACResQ Frontend Review, RPC grant contract, TACResQ CI, and TACResQ Security all completed successfully on that exact commit.
+- PR #322 remains open and unmerged. No migration or deployment was performed.
