@@ -1,23 +1,20 @@
-# Current handoff — 2026-11-15: responder incident claiming workflow implementation
+# Current handoff — 2026-11-15: responder incident claiming & security settings completion
 
-- **Objective:** Implement the complete responder & driver field incident claiming workflow across Supabase migrations, Android API/repo, Fake API, Compose UI, and contract tests.
-- **Branch:** `agent/responder-incident-claiming`.
-- **Changes Implemented:**
-  - **Supabase Migration:** Created `20261115120000_responder_incident_claiming.sql` with column `is_claimable` on `incidents`, RPC `api_set_incident_claimable` for dispatchers, RPC `api_claim_incident` (atomic `FOR UPDATE` lock, on-duty role check, max-5 member check), RPC `api_claimable_incidents`, and strict security grants/revokes.
-  - **Android Data & Remote Layer:** Added `isClaimable` property to `Incident` model, `ClaimIncidentResult` DTO, `SetClaimableRequest` DTO, RPC endpoints in `TacApi`, `SupabaseTacApi`, and `FakeTacApi` (demo mode).
-  - **Android Repository Layer:** Added `claimIncident`, `getClaimableIncidents`, and `setIncidentClaimable` methods in `TacRepository`.
-  - **Android UI Layer:**
-    - [ResponderScreen.kt](file:///Users/mylinafabi/StudioProjects/TACResQ-School-Project/app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt): Added "Available for field claiming" section, claim buttons, in-flight state handling, success confirmation banners, and duty checks.
-    - [DispatcherScreen.kt](file:///Users/mylinafabi/StudioProjects/TACResQ-School-Project/app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt): Added "Allow field claiming" / "Disable field claiming" toggle action on pending incident cards.
-  - **Automated Regression Tests:**
-    - Added Kotlin unit tests in `FakeTacApiClaimIncidentTest.kt` (106 total JVM unit tests passing).
-    - Added Python contract test `tools/test_responder_incident_claiming.py` and PostgreSQL test `tools/test_responder_incident_claiming.sql`.
+- **Objective:** Complete the responder incident claiming workflow, password recovery, theme switcher, privacy notice (RA 10173), step-up security toggle, and emergency help guide across the TACResQ app.
+- **Branch:** `main` (commit `27ac1312`).
+- **Implementations Completed & Verified:**
+  - **Responder Incident Claiming:** `20261115120000_responder_incident_claiming.sql`, `api_claim_incident` atomic FOR UPDATE locking, `api_set_incident_claimable`, `api_claimable_incidents`, `Models.kt`, `TacApi.kt`, `SupabaseTacApi.kt`, `FakeTacApi.kt`, `TacRepository.kt`, `ResponderScreen.kt`, and `DispatcherScreen.kt`.
+  - **Password Recovery Request:** Provider-backed password recovery request dialog in `AuthScreen.kt` with non-enumerating feedback.
+  - **App Appearance & Theme Switcher:** `ThemeMode` selector (`SYSTEM`, `LIGHT`, `DARK`) in `Theme.kt` and `AppRoot.kt` with live theme toggling.
+  - **Privacy Policy Notice (RA 10173 & TACRU Standards):** In-app modal privacy notice in `AppRoot.kt` detailing controller identity, data collection scope, lawful bases, and data subject rights under RA 10173 / RA 10121.
+  - **Step-Up Security & Account Deletion:** Interactive step-up security toggle switch and Google Play compliant account deletion request dialog.
+  - **Emergency Help & Operation Guide:** Interactive emergency help and system usage guide dialog.
 - **Actual Validation Results (100% passing):**
   - Android Gradle build: `:app:assembleDebug` and `:app:assembleRelease` passed cleanly.
-  - Android JVM unit tests: `:app:testDebugUnitTest` passed with 106 passing tests (0 failures).
+  - Android JVM unit tests: `:app:testDebugUnitTest` passed with 110 passing tests (0 failures).
   - Android debug lint: `:app:lintDebug` passed with 0 errors.
-  - Python test suite: All 81 contract test scripts passed (including `check_android_source.py`, `test_responder_incident_claiming.py`, `test_migration_history_alignment.py`).
-- **Next Task:** Merge `agent/responder-incident-claiming` branch into `main` after PR review and perform physical-device QA verification.
+  - Python test suite: All 82 contract test scripts passed (including `check_android_source.py`, `test_responder_incident_claiming.py`, `test_workflow_security.py`).
+- **Next Concrete Implementation Task:** Conduct physical-device QA verification on hardware/emulators for notification delivery, GPS accuracy, and background location tracking.
 
 ---
 
