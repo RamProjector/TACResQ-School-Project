@@ -35,6 +35,8 @@ for required in ("suspend fun claimIncident", "suspend fun getClaimableIncidents
 # Check SQL Migration
 for required in (
     "is_claimable",
+    "ADD CONSTRAINT incidents_check CHECK",
+    "OR status = 'assigned'",
     "CREATE OR REPLACE FUNCTION public.api_set_incident_claimable",
     "CREATE OR REPLACE FUNCTION public.api_claim_incident",
     "CREATE OR REPLACE FUNCTION public.api_claimable_incidents",
