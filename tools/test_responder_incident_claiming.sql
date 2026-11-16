@@ -87,6 +87,22 @@ BEGIN
   IF (v_result->>'status') IS DISTINCT FROM 'claimed' THEN
     RAISE EXCEPTION 'On-duty responder failed to claim incident: %', v_result;
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.incident_assignments a
+    JOIN public.profiles p ON p.id = a.user_id
+    WHERE a.incident_id = v_incident_id
+      AND p.auth_user_id = 'c1020000-1111-4111-8111-000000000102'
+  ) THEN
+    RAISE EXCEPTION 'Claim must persist the responder team membership';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.incidents
+    WHERE id = v_incident_id AND status = 'assigned' AND assigned_to IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Field claim must advance status without taking dispatcher-managed assigned_to';
+  END IF;
 END;
 $responder_claim_incident$;
 
