@@ -66,7 +66,7 @@ assert "pendingTextMessage = PendingTextMessage(incidentId, message, it)" in CHA
 assert "pendingTextMessage?.clientMessageId == clientMessageId" in CHAT
 assert "Do not clear an uncertain text-send identity here" in CHAT
 assert "pending.message != message" in CHAT
-CHAT_TEST = read("app/src/test/java/com/tacresq/app/data/remote/FakeTacApiChatTest.kt")
+CHAT_TEST = (ROOT / "app/src/test/java/com/tacresq/app/data/remote/FakeTacApiChatTest.kt").read_text()
 assert "committedMessageWithLostResponseRetriesAfterConversationReopenWithoutDuplicate" in CHAT_TEST
 assert "originalClientMessageId" in CHAT_TEST
 assert "api.myIncidentMessages(incident.id, 50, null)" in CHAT_TEST
