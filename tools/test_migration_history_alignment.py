@@ -47,11 +47,11 @@ EXPECTED = {
     "20261112215815_allow_requester_pending_cancellation.sql",
     "20261114153546_fcm_delivery_queue_hardening.sql",
     "20261114153550_fcm_token_account_switch.sql",
-}
-# Migrations in open, reviewable PRs are optional until merged. Keep this
-# allowlist broad enough that independent pending PRs can merge in either order.
-PENDING = {
     "20261116042927_responder_incident_claiming.sql",
+}
+# Migrations not yet confirmed in the live Supabase migration ledger are
+# allowlisted so independent PRs/deployment batches can proceed in either order.
+PENDING = {
     "20261116150000_pin_api_units_search_path.sql",
     "20261116153000_optimize_rls_policy_initplans.sql",
     "20261116170000_api_operation_audit_and_fk_indexes.sql",
@@ -182,7 +182,7 @@ for required in (
 assert "GRANT ALL" not in api_audit.upper()
 assert "GRANT INSERT ON TABLE public.api_operation_logs TO authenticated" not in api_audit
 
-print(f"PASS: {len(EXPECTED)} applied migration files match history; {len(actual - EXPECTED)} open-PR migration file(s) are allowlisted and not assumed deployed.")
+print(f"PASS: {len(EXPECTED)} applied migration files match history; {len(actual - EXPECTED)} additional migration file(s) are allowlisted and not assumed applied to live Supabase.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
     "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",
