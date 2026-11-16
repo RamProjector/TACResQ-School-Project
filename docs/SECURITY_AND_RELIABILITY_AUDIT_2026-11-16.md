@@ -196,3 +196,18 @@ The field-claim migration now replaces the private dispatcher assignment impleme
 - retain stable sorted locks for selected units, availability checks, and duplicate-safe inserts.
 
 This compatibility correction is covered by the field-claim regression contract. It does not assign a self-claiming responder as a dispatcher leader.
+
+
+## Two-session concurrency validation added — 2026-11-17
+
+The field-claim PR now includes `tools/test_field_claim_concurrency.sh`, invoked after clean migration replay. It starts two independent authenticated PostgreSQL sessions and races the same available responder against two different claimable incidents. Each incident uses a different requester fixture so the existing one-active-request-per-requester guard remains part of the test rather than being bypassed.
+
+Expected result:
+- exactly one RPC response is `claimed`;
+- exactly one competing response is `UNIT_BUSY`;
+- exactly one active `incident_assignments` membership exists for the responder across the two test incidents;
+- exactly one of the two incidents advances to `assigned`.
+
+The test deliberately holds the first transaction open briefly after its claim so the competing session must contend on the shared responder profile lock. This validates a real PostgreSQL lock race rather than merely asserting SQL source order. It runs only against the disposable PostgreSQL database in CI; it does not touch live Supabase.
+
+**Status:** harness committed; latest-head execution is pending. The first CI attempt exposed a fixture-design mistake (two active requests for one requester), not an application regression. The fixture was corrected to use two requester accounts; rerun is required before treating the test as passed.
