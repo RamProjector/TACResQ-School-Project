@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.incident_claimability_logs (
   -- workflows are not blocked by audit history.
   incident_id bigint NOT NULL,
   actor_profile_id bigint,
-  source_rpc text NOT NULL CHECK (source_rpc IN ('api_set_incident_claimable', 'incident_status_transition')),
+  source_rpc text NOT NULL CHECK (source_rpc IN ('api_set_incident_claimable', 'incident_status_transition', 'migration_backfill')),
   previous_claimable boolean NOT NULL,
   new_claimable boolean NOT NULL,
   incident_status text NOT NULL,
@@ -87,11 +87,20 @@ WHEN (OLD.status IS DISTINCT FROM NEW.status)
 EXECUTE FUNCTION public.tacresq_log_claimability_status_transition();
 
 -- Repair legacy rows that remained marked claimable after dispatch progression.
-UPDATE public.incidents
-SET is_claimable = false,
-    updated_at = clock_timestamp()
-WHERE status IN ('en_route', 'on_scene', 'transporting', 'resolved', 'cancelled', 'completed')
-  AND is_claimable IS TRUE;
+WITH repaired AS (
+  UPDATE public.incidents
+  SET is_claimable = false,
+      updated_at = clock_timestamp()
+  WHERE status IN ('en_route', 'on_scene', 'transporting', 'resolved', 'cancelled', 'completed')
+    AND is_claimable IS TRUE
+  RETURNING id, status
+)
+INSERT INTO public.incident_claimability_logs (
+  incident_id, actor_profile_id, source_rpc, previous_claimable,
+  new_claimable, incident_status
+)
+SELECT id, NULL, 'migration_backfill', true, false, status
+FROM repaired;
 
 -- Serialize claimability changes with cancellation, completion, and field claims.
 -- Lock order is incident -> dispatcher profile, matching the field-claim RPC.
