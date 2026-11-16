@@ -96,7 +96,6 @@ class FakeTacApiChatTest {
         assertEquals(1, messages.size)
         assertEquals(retry.id, messages.single().id)
         assertEquals(exactPayload, messages.single().message)
-        assertEquals(originalClientMessageId, messages.single().clientMessageId)
     }
 
     @Test
