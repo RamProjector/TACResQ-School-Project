@@ -35,6 +35,7 @@ AS $function$
 DECLARE
   v_auth_uid uuid;
   v_actor public.profiles;
+  v_actor_role text;
   v_incident public.incidents;
   v_previous_claimable boolean;
 BEGIN
@@ -45,6 +46,15 @@ BEGIN
 
   IF p_incident_id IS NULL OR p_incident_id < 1 OR p_claimable IS NULL THEN
     RAISE EXCEPTION 'Incident and claimability values are required.' USING ERRCODE = '22023';
+  END IF;
+
+  -- Reject unauthorized callers before allowing them to contend on an incident row.
+  SELECT role INTO v_actor_role
+  FROM public.profiles
+  WHERE auth_user_id = v_auth_uid;
+
+  IF v_actor_role IS DISTINCT FROM 'dispatcher' THEN
+    RAISE EXCEPTION 'Only dispatchers can toggle field claiming for incidents.' USING ERRCODE = '42501';
   END IF;
 
   -- Acquire the incident lock before checking state so a concurrent terminal
