@@ -75,3 +75,7 @@ for required in (
     "Exactly one membership",
 ):
     assert required.lower() in race_sql.lower(), f"Missing two-session race assertion: {required}"
+
+assert "00000000-0000-4000-8000-000000000903" in race_sql
+assert "claim-race-requester-b@example.test" in race_sql
+assert race_sql.count("WHERE p.auth_user_id = '00000000-0000-4000-8000-00000000090") >= 3, "Use distinct requester and responder fixture identities"
