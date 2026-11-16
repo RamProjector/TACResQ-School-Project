@@ -108,6 +108,8 @@ jobs:
 
       - name: Check dispatcher multi-responder assignment
         run: python3 tools/test_dispatch_team_assignment.py
+      - name: Check field-claim exclusivity and lifecycle safety
+        run: python3 tools/test_field_claim_exclusivity.py
       - name: Check dispatcher assignment freshness safety
         run: python3 tools/test_dispatcher_assignment_freshness.py
       - name: Check dispatcher queue wait-time prioritization
