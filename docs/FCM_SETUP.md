@@ -54,7 +54,7 @@ CI can validate source contracts, migration replay, and application tests. It ca
 
 ## Free-compatible automatic trigger
 
-The existing sender can be invoked through the signed, payload-free Render endpoint at /internal/fcm/dispatch. The endpoint is designed for Supabase Cron + pg_net, uses a separate HMAC secret stored in Supabase Vault and Render environment configuration, enforces a five-minute timestamp window and replay protection, and dispatches at most three token deliveries per request. It does not replace the existing queue claim RPC, delivery ledger, or Firebase ADC secret file.
+The existing sender can be invoked through the signed, payload-free Render endpoint at /internal/fcm/dispatch. The endpoint is designed for Supabase Cron + pg_net, uses a separate HMAC secret stored in Supabase Vault and Render environment configuration, enforces a five-minute timestamp window and replay protection, and dispatches at most three token deliveries per request. The Cron query checks due work first and does not ping Render when the queue is idle. It does not replace the existing queue claim RPC, delivery ledger, or Firebase ADC secret file.
 
 This is not yet enabled in the connected production project. The current live Supabase project did not have pg_cron or pg_net installed at review time, and no HMAC secret or scheduled job was created. Follow [FCM Supabase Cron trigger setup](FCM_SUPABASE_CRON_TRIGGER.md) only after the matching Render code is deployed and the operator approves the one-time secret/extension/job configuration.
 
