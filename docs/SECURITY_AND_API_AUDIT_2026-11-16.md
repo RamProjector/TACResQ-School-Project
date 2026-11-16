@@ -16,7 +16,7 @@ TACResQ has a substantial role-based foundation: requester SOS, dispatcher assig
 
 `admin_audit_logs` records privileged role changes; it is not a general API audit trail. `fcm_delivery_attempts` already records notification/token delivery attempts and provider outcomes.
 
-This PR adds `public.api_operation_logs` with correlation ID, provider, operation, source, outcome, HTTP status, duration, provider request ID, error code, and timestamp. RLS is enabled; no policies or direct `anon`/`authenticated` grants exist; the service role receives SELECT/INSERT only. No request/response body, credential, token, coordinate, incident narrative, URL, or contact detail is stored.
+This PR adds `public.api_operation_logs` with correlation ID, verified authenticated actor UUID when available, provider, operation, source, outcome, HTTP status, duration, provider request ID, error code, and timestamp. RLS is enabled; no policies or direct `anon`/`authenticated` grants exist; the service role receives SELECT/INSERT only. No request/response body, credential, token, coordinate, incident narrative, URL, or contact detail is stored.
 
 Laravel now validates or generates `X-Request-ID`, returns it in the response, and records Supabase Auth/RPC calls plus Geoapify/private OSRM route-preview outcomes. The logger is fail-open: telemetry failure does not break the operational request. Database writes are skipped if the server-only Supabase secret is not configured. This PR does not add or configure that secret. No automatic retention/deletion job is introduced; define a retention period and approved cleanup process before sustained production use.
 
@@ -46,7 +46,7 @@ The merged repository migrations for `api_units()` search-path hardening and RLS
 
 ### Auth password security
 
-The Auth advisor reports leaked-password protection disabled. This is a project Auth setting, not a schema migration. It is documented for operator review; this PR does not change live Auth settings.
+The Auth advisor reports leaked-password protection disabled. This is a project Auth setting, not a schema migration. Supabase's current password-security documentation says leaked-password protection is available on Pro and above; do not upgrade or enable a paid feature without approval. It is documented for operator review; this PR does not change live Auth settings.
 
 ### Routing and location privacy
 
@@ -94,3 +94,11 @@ The advisor snapshot was observed around 2026-11-16 06:39 UTC. Re-run advisors a
 - Laravel tests cover correlation IDs, metadata-only payloads, missing-secret behavior, and fail-open audit writes.
 - Android, dashboard, Laravel integration, source/security guardrails, and RPC grant contract pass on the exact PR head.
 - Live migration application, live Auth configuration, Render secret provisioning, real provider calls, and device/UI validation are outside this PR.
+
+## Research references
+
+- OWASP, [Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html), accessed 2026-11-16. Supports consistent interaction identifiers, event outcome/context, restricted log access, masking of tokens and sensitive data, and testing logging failures without disrupting application behavior.
+- Supabase, [Database Functions](https://supabase.com/docs/guides/database/functions), accessed 2026-11-16. Supports defaulting to SECURITY INVOKER, pinning SECURITY DEFINER search paths, and separately reviewing execute grants and row-level authorization.
+- Supabase, [Advisors](https://supabase.com/docs/guides/observability/advisors), updated 2026-10-02. Explains that advisor findings are deterministic checks and may be intentional; verify them against the actual access model before changing policies.
+- Supabase, [Password Security](https://supabase.com/docs/guides/auth/password-security), updated 2026-10-01. Documents leaked-password protection and its plan availability (Pro and above).
+- PostgreSQL, [Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html), accessed 2026-11-16. Explains that referencing FK columns are not automatically indexed and that indexes should be chosen according to workload.
