@@ -6,8 +6,8 @@
 
 ## Architecture
 
-1. Supabase Postgres Cron runs once per minute.
-2. pg_net sends a payload-free HTTPS POST to https://tacresq-school-project.onrender.com/internal/fcm/dispatch.
+1. Supabase Postgres Cron checks the durable delivery ledger once per minute.
+2. It calls pg_net only when at least one notification/token pair is new, retry-due, or has an expired claim lease. When the queue is empty, no request reaches Render, so the scheduler does not keep the free Render service awake continuously.
 3. The request includes a timestamp, UUID request ID, and HMAC-SHA256 signature. The HMAC secret is stored in Supabase Vault and as the Render-only FCM_DISPATCH_WEBHOOK_SECRET environment variable. The secret itself is never sent.
 4. Laravel validates the signature, five-minute timestamp window, UUID, empty body, replay cache, and per-minute rate limit.
 5. A single-instance file-cache lock prevents overlapping invocations on the current one-instance Render service.
@@ -101,12 +101,35 @@ select cron.schedule(
     ) as request_id
     from request_values
     where dispatch_url = 'https://tacresq-school-project.onrender.com/internal/fcm/dispatch'
-      and length(dispatch_secret) >= 32;
+      and length(dispatch_secret) >= 32
+      and exists (
+        select 1
+        from public.user_notifications as n
+        join public.fcm_tokens as t
+          on t.profile_id = n.recipient_user_id
+        left join public.fcm_delivery_attempts as a
+          on a.notification_id = n.id
+         and a.token = t.token
+        where n.read_at is null
+          and (
+            a.id is null
+            or (
+              a.status = 'failed'
+              and a.attempt_count < 8
+              and a.next_attempt_at <= statement_timestamp()
+            )
+            or (
+              a.status = 'claimed'
+              and a.attempt_count < 8
+              and a.attempted_at <= statement_timestamp() - interval '600 seconds'
+            )
+          )
+      );
   $job$
 );
 ~~~
 
-The SQL deliberately refuses to call any URL other than the fixed TACResQ Render endpoint. It sends an empty JSON object and signs the exact serialized body. The Vault secret is read only by the scheduled database command; it is not embedded in the cron definition.
+The SQL deliberately refuses to call any URL other than the fixed TACResQ Render endpoint. It sends an empty JSON object and signs the exact serialized body. The Vault secret is read only by the scheduled database command; it is not embedded in the cron definition. The due-work predicate mirrors the current claim RPC: new pairs, failed attempts whose next_attempt_at has arrived, and claimed attempts whose 600-second lease expired. Sent, invalid-token, permanent-failure, exhausted, and not-yet-due rows do not wake Render.
 
 ## Verification and monitoring
 
@@ -163,7 +186,7 @@ Then remove FCM_DISPATCH_WEBHOOK_SECRET from Render and delete the two named sec
 
 - Supabase documents pg_net as beta; review its current API/limits before enabling it.
 - The net.http_request_queue is an unlogged queue. Request headers can exist there transiently while a request is pending; keep database access restricted to trusted operators.
-- The Render Free service can cold-start, restart, or be suspended by platform limits. A successful cron invocation is not proof that FCM delivered or that a user saw an alert.
+- The Render Free service can cold-start, restart, or be suspended by platform limits. It is contacted only while the delivery queue has due work, so idle periods do not create a permanent keep-alive ping. A successful cron invocation is not proof that FCM delivered or that a user saw an alert.
 - The current file-cache lock is suitable only for the existing single-instance Render deployment. Revisit locking before enabling multiple instances or moving the endpoint to a multi-instance host.
 - Supabase Free projects can pause after extended inactivity; if the project is paused, Cron cannot run.
 - The sender's current bounded retry/lease ledger remains the recovery mechanism. Do not add a second sender or bypass api_claim_fcm_delivery_batch.
