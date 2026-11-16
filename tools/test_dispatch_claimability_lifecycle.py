@@ -19,10 +19,17 @@ required = (
     "RETURNING * INTO v_incident",
     "CREATE TABLE IF NOT EXISTS public.incident_claimability_logs",
     "incident_id bigint NOT NULL",
-    "actor_profile_id bigint NOT NULL",
+    "actor_profile_id bigint",
     "ALTER TABLE public.incident_claimability_logs ENABLE ROW LEVEL SECURITY",
     "REVOKE ALL ON TABLE public.incident_claimability_logs FROM PUBLIC, anon, authenticated",
     "GRANT SELECT ON TABLE public.incident_claimability_logs TO service_role",
+    "REVOKE INSERT, UPDATE, DELETE ON TABLE public.incidents FROM PUBLIC, anon, authenticated",
+    "CREATE OR REPLACE FUNCTION public.tacresq_clear_claimability_on_status_progress()",
+    "NEW.status IN ('en_route', 'on_scene', 'transporting', 'resolved', 'cancelled', 'completed')",
+    "zzz_tacresq_clear_claimability_on_status_progress",
+    "CREATE OR REPLACE FUNCTION public.tacresq_log_claimability_status_transition()",
+    "'incident_status_transition'",
+    "Only pending or assigned incidents can be made claimable.",
     "incident_claimability_logs_incident_created_idx",
     "incident_claimability_logs_actor_created_idx",
     "v_previous_claimable IS NOT DISTINCT FROM p_claimable",
@@ -48,3 +55,16 @@ assert sql.index("v_incident.status IN") < sql.index("UPDATE public.incidents")
 print("PASS: claimability toggle locks and rechecks incident lifecycle before update.")
 print("PASS: dispatcher role is re-read under profile lock in incident->profile lock order.")
 print("PASS: null inputs, missing incidents, closed incidents, and RPC grants are guarded.")
+
+# The shipped Android and web clients use RPCs for incident writes; they do not
+# call the PostgREST incidents table endpoint directly.
+android_api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
+web_api = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
+assert 'rest/v1/incidents' not in android_api
+assert '@POST("rest/v1/rpc/api_create_incident_v4")' in android_api
+assert '@POST("rest/v1/rpc/api_update_my_incident")' in android_api
+assert '@POST("rest/v1/rpc/api_set_incident_claimable")' in android_api
+assert 'getSupabase().rpc(' in web_api
+assert '.from("incidents")' not in web_api
+
+print("PASS: supported Android and web clients use RPCs, so authenticated table DML can be revoked without breaking their write paths.")
