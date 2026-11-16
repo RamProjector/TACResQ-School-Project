@@ -82,3 +82,38 @@ Checked on 2026-11-17:
 - PR #317 head `84a95488872d4808a837bd7d03646b1290de8ab2`: TACResQ CI completed successfully, including clean PostgreSQL 16 migration replay and the two-session cross-incident claim test; RPC grant contract and Frontend Review also passed. TACResQ Security/CodeQL was still running at the last poll.
 - PR #319 head `b21f8cd7d9697b7c358a25e09e342d3470950248`: clean PostgreSQL 16 migration replay completed successfully, including the two-session dispatcher-toggle/requester-cancellation race. RPC grant contract and Frontend Review passed; the full TACResQ CI and Security workflows were still running at the last poll.
 - Neither PR is merged, and neither migration has been applied to live Supabase.
+
+
+## Supabase advisor and function-ACL recheck — 2026-11-17
+
+This section supersedes the earlier advisor counts and the older workflow-pending statements above where they conflict.
+
+### Live advisor results
+
+Read-only Supabase advisor results on 2026-11-17:
+
+- **Health:** no findings.
+- **Security:** five RLS-enabled tables without policies; 18 authenticated-callable SECURITY DEFINER functions in the exposed `public` schema; leaked-password protection disabled.
+- **Performance:** four unindexed foreign keys; six RLS initplan warnings; eight unused-index candidates.
+- The five no-policy tables are `fcm_delivery_attempts`, `incident_messages`, `incident_request_edit_logs`, `incident_submission_keys`, and `user_notifications`. The advisor finding alone does not establish exposure. Verify table/schema grants and intended access paths before adding policies; a no-policy RLS table can intentionally deny all direct client access.
+- The eight unused-index notices are not grounds for removal. Current table sizes and workload are insufficient to establish that the indexes are unnecessary.
+
+### SECURITY DEFINER ACL and search-path inspection
+
+A read-only catalog query inspected SECURITY DEFINER functions in `public` and `private`, including owners, function settings, and expanded EXECUTE ACLs.
+
+- No inspected SECURITY DEFINER function had EXECUTE granted to `PUBLIC`.
+- The 18 public functions callable by `authenticated` match the security advisor warning count. This is an intentional RPC surface only if each function independently enforces caller authentication, role, ownership, and input constraints; the advisor warning is not itself proof of a vulnerability.
+- `public.api_units()` remains live with `search_path=pg_catalog, public, auth`; the existing repository migration to narrow it remains unapplied.
+- `private.tacresq_is_incident_assignee(bigint)` is SECURITY DEFINER and live with `search_path=pg_catalog, public`. Its current SQL body schema-qualifies the tables it reads and explicitly qualifies `auth.uid()`; no exploit was confirmed. The extra `public` path entry is unnecessary and is a defense-in-depth hardening candidate. Review the repository migration history and dependent policies before preparing a forward-only change.
+- Other inspected SECURITY DEFINER functions used `search_path=pg_catalog`.
+- This catalog review is not a complete semantic audit of all function bodies. Each callable RPC still requires function-specific authorization and negative-test review.
+
+### Exact-head CI status recheck
+
+At the latest poll on 2026-11-17:
+
+- PR #317 head `84a95488872d4808a837bd7d03646b1290de8ab2`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully.
+- PR #319 head `b21f8cd7d9697b7c358a25e09e342d3470950248`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully.
+- PR #322 head `b0e1313c288bf43a5ed9d754cad8ecf7cc033dd7`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully.
+- All three PRs remained open and unmerged at this poll. Passing workflows do not prove the migrations have been applied to live Supabase or that device/runtime checks passed.
