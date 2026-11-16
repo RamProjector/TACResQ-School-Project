@@ -625,3 +625,15 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 
 
 - **CI integration:** Added `tools/test_activity_lifecycle_failure_safety.py` to the Android source-check workflow so the new dispatcher/requester/responder/chat lifecycle regression contract runs on every PR, rather than existing only as an uninvoked test file.
+
+
+---
+
+# Research and audit continuation — 2026-11-17
+
+- **Documentation:** Added [Security and Reliability Control Matrix](docs/project-memory/SECURITY_RELIABILITY_CONTROL_MATRIX.md) and indexed it in project memory. It maps OWASP API Security Top 10/ASVS/MASVS, Android location, Supabase/PostgreSQL, and FCM guidance to TACResQ source paths, confirmed gaps, acceptance tests, and limitations.
+- **Exact PR refresh:** PRs #316–#321 were open, unmerged, and reported mergeable. Exact heads checked: #316 `21e8c5eb3c5013256aa9063ae3736c15c20d057e`; #317 `5ba1727f760aeb2a22f79198e2048db727af69b7`; #318 `1276b6b22473982c7781dbcfac654ff541e6f917`; #319 `02c1e7bb05b6965adae01b811b708a457264f63f`; #320 `21495bfbe7d93c87850ab9151b6cf156c1081d8f`; #321 `f44af2d88a8c822ab911612352a9cf65a114137a`. Returned TACResQ CI, Security, RPC grant contract, and Frontend Review workflows completed successfully for each exact head. PR #316's Render live smoke also completed successfully. These results do not prove live migration application or device behavior.
+- **Live Supabase read-only finding:** migration ledger ends at `20261116042927_responder_incident_claiming`. It does not include the already-committed repository migration `20261116150000_pin_api_units_search_path.sql`. Live `public.api_units()` remains SECURITY DEFINER with `search_path=pg_catalog, public, auth`; repository migration narrows it to `pg_catalog`. This is a pending deployment drift issue. No live migration was applied.
+- **Location trace:** `LocationProvider.kt` uses FusedLocationProviderClient; `Models.kt` GeoFix retains coordinates, accuracy, capture/elapsed timestamps, permission precision, and manual selection. The incident RPC payload sends `location_source` (gps/manual/none), not a provider identifier. Do not add a provider column until the full edit/responder-write path and source semantics are verified.
+- **No production side effects:** no live schema/data/configuration change, deployment, notification send, or PR merge was performed.
+- **Next action:** review PR #316–#321 for unresolved comments and current exact-head checks; then add isolated two-session concurrency coverage where missing. Keep live migrations pending absent explicit approval.
