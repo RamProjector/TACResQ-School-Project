@@ -30,7 +30,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 - Dispatcher assignment claims the busy state synchronously and normalizes unexpected repository exceptions into a visible failure. Failed assignment confirmation invalidates the local freshness gate so the queue must be refreshed before another assignment.
 - Requester incident refresh now normalizes unexpected repository/cache exceptions, always releases its refresh-job slot, and marks live incident status unavailable on unexpected failure. Cached status remains informational and does not authorize new emergency actions.
 - Responder duty/status actions now claim the busy state before launching their coroutine and release it in a finally block, including cancellation and unexpected failures. Resuming location sharing uses the cancellation-safe repository boundary for assignment/identity checks, keeps sharing off on verification failure, and always clears the busy state.
-- Chat refresh, older-message pagination, text sends, and image sends now use the same exception boundary. A monotonically increasing conversation generation scopes every async result to the exact open/close instance, even when the same incident is reopened. Closing cancels all three chat jobs and invalidates their generation. Cancellation remains cancellation; failures continue through the existing user-visible error state.
+- Chat refresh, older-message pagination, text sends, and image sends now use the same exception boundary. A monotonically increasing conversation generation scopes every async result to the exact open/close instance, even when the same incident is reopened. Closing cancels all three chat jobs and invalidates their generation. Cancellation remains cancellation; failures continue through the existing user-visible error state. For text sends, the ViewModel also retains the exact message text, incident ID, and client message ID when close cancels an in-flight send. Reopening that incident restores the original text and retry key; editing it or sending different content is blocked until the uncertain outcome is resolved. This in-memory recovery covers close/reopen while the ViewModel survives, but not process death or ViewModel replacement.
 
 ## Required lifecycle/state contract
 
@@ -53,7 +53,7 @@ Reduce crashes, stuck loading/busy states, stale incident actions, duplicate ope
 - Offline/timeout during dispatcher refresh, requester refresh, chat pagination, and image upload.
 - Permission denied/revoked, device Location disabled, stale GPS fix, foreground service stopped by Android, responder signs out, assignment no longer en route.
 - Navigate away during a chat read/send, reopen the same incident, and ensure old async responses cannot overwrite the new conversation instance.
-- Close a conversation during image upload or text send; verify the old result cannot clear or append to a later draft. Preserve the same client idempotency key when retrying an uncertain send in the still-open conversation.
+- Close a conversation during image upload or text send; verify the old result cannot clear or append to a later draft. For text, simulate server commit followed by a lost response, close and reopen the same incident, then retry the restored exact text with the original client message ID and verify the server returns the original row without inserting a duplicate. The current ViewModel-only recovery does not survive process death; durable encrypted persistence and image-payload recovery remain separate work.
 
 ## Validation boundary
 
