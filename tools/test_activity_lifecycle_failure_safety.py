@@ -59,6 +59,13 @@ act_block = RESPONDER[RESPONDER.index("    private fun act(call: suspend () -> R
 assert act_block.index("it.copy(busy = true, error = null)") < act_block.index("viewModelScope.launch")
 assert "finally {" in act_block and "busy = false" in act_block
 assert "sendJob?.cancel()" in CHAT
+assert "private data class PendingTextMessage(val incidentId: Long, val message: String, val clientMessageId: String)" in CHAT
+assert "private var pendingTextMessage: PendingTextMessage? = null" in CHAT
+assert "pendingTextMessage?.takeIf { it.incidentId == incidentId }?.message" in CHAT
+assert "pendingTextMessage = PendingTextMessage(incidentId, message, it)" in CHAT
+assert "pendingTextMessage?.clientMessageId == clientMessageId" in CHAT
+assert "Do not clear an uncertain text-send identity here" in CHAT
+assert "pending.message != message" in CHAT
 assert "refreshJob = null" in CHAT and "olderJob = null" in CHAT and "sendJob = null" in CHAT
 
 for expected in (
