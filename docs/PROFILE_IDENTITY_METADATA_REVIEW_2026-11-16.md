@@ -12,7 +12,7 @@ Migration `20261116210000_protect_profile_identity_metadata.sql` replaces the cu
 - `NEW.id IS DISTINCT FROM OLD.id` rejection;
 - `NEW.created_at IS DISTINCT FROM OLD.created_at` rejection.
 
-It preserves the existing auth identity/contact protections, admin-only operational role changes, prohibition on admin promotion/demotion through the app, field-unit duty-state validation, active-assignment protections, and server-maintained `updated_at`.
+It preserves the existing auth identity/contact protections, admin-only operational role changes, prohibition on admin promotion/demotion through the app, field-unit duty-state validation, active-assignment protections, and server-maintained `updated_at`. Identity/creation metadata checks now run at every trigger depth. The `pg_trigger_depth() = 1` guard remains only around user-set role/duty checks because the existing incident-status audit trigger performs a trusted nested update of a field unit's duty status; nested system transitions must remain possible without allowing nested identity edits.
 
 ## Validation and limitations
 
