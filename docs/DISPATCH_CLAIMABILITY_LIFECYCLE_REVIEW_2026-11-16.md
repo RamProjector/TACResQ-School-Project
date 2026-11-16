@@ -47,10 +47,12 @@ This is an internal audit record; it does not yet add a dispatcher-facing audit-
 ## Research comparison
 
 - PostgreSQL row-level locking documents `SELECT ... FOR UPDATE` as the mechanism to serialize conflicting writers and lockers on the same row.
+- PostgreSQL fires same-kind triggers in alphabetical trigger-name order; the `zzz_` BEFORE trigger is deliberately ordered after the existing incident guard so the guard validates the caller's original row change before the database clears claimability during status progression.
 - OWASP API Security emphasizes server-side authorization and state validation for privileged API operations.
 - Supabase documents that SECURITY DEFINER functions execute with elevated privileges, making explicit authorization and safe search paths important.
 
 References:
 - PostgreSQL explicit locking: https://www.postgresql.org/docs/current/explicit-locking.html
+- PostgreSQL trigger behavior: https://www.postgresql.org/docs/current/trigger-definition.html
 - OWASP API Security Top 10: https://owasp.org/www-project-api-security/
 - Supabase database functions: https://supabase.com/docs/guides/database/functions
