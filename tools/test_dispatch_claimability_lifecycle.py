@@ -24,6 +24,8 @@ required = (
     "REVOKE ALL ON TABLE public.incident_claimability_logs FROM PUBLIC, anon, authenticated",
     "GRANT SELECT ON TABLE public.incident_claimability_logs TO service_role",
     "REVOKE INSERT, UPDATE, DELETE ON TABLE public.incidents FROM PUBLIC, anon, authenticated",
+    "DO $revoke_incident_column_grants$",
+    "REVOKE INSERT (%1$s), UPDATE (%1$s) ON TABLE public.incidents FROM PUBLIC, anon, authenticated",
     "CREATE OR REPLACE FUNCTION public.tacresq_clear_claimability_on_status_progress()",
     "NEW.status IN ('en_route', 'on_scene', 'transporting', 'resolved', 'cancelled', 'completed')",
     "zzz_tacresq_clear_claimability_on_status_progress",
