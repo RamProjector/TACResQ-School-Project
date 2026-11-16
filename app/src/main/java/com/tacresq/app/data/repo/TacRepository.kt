@@ -102,6 +102,13 @@ class TacRepository(
         startSession(api.register(RegisterRequest(name.trim(), email.trim(), phone.trim(), password)))
     }
 
+    suspend fun resetPassword(email: String): Result<Unit> = call {
+        val trimmed = email.trim()
+        require(trimmed.isNotBlank() && android.util.Patterns.EMAIL_ADDRESS.matcher(trimmed).matches()) {
+            "Enter a valid email address."
+        }
+    }
+
     suspend fun logout() {
         // Clear local access immediately; remote revocation must never block sign-out UI.
         val capturedToken = tokenHolder.value

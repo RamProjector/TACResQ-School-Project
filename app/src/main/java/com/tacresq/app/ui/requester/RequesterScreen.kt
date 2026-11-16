@@ -561,14 +561,7 @@ class RequesterViewModel(
                 val landmark = locationNotes.trim().take(500).ifBlank { null }
                 repositoryCallOrFailure { repo.createIncident(type, report, fix, landmark) }
                     .onSuccess { created ->
-                        viewModelScope.launch {
-                            repositoryCallOrFailure { repo.clearRequesterDraft() }
-                                .onFailure { failure ->
-                                    _state.update {
-                                        it.copy(error = failure.message ?: "The SOS was sent, but the saved draft could not be cleared.")
-                                    }
-                                }
-                        }
+                        viewModelScope.launch { repo.clearRequesterDraft() }
                         val locationConfirmed = locationResponseMatches(fix, landmark, created)
                         val status = when {
                             !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."

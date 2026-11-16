@@ -126,6 +126,26 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
         }
     }
 
+    fun resetPassword(email: String) {
+        val trimmed = email.trim()
+        val emailError = when {
+            trimmed.isBlank() -> "Enter your email address."
+            !Patterns.EMAIL_ADDRESS.matcher(trimmed).matches() -> "Enter a valid email address."
+            else -> null
+        }
+        if (emailError != null) {
+            _state.value = _state.value.copy(emailError = emailError)
+            return
+        }
+        _state.value = AuthUiState(loading = true)
+        viewModelScope.launch {
+            repo.resetPassword(trimmed)
+            _state.value = AuthUiState(
+                info = "If an account exists for $trimmed, a password reset link has been sent. Check your inbox and follow the instructions.",
+            )
+        }
+    }
+
     fun clearError() {
         _state.value = _state.value.copy(
             error = null,
@@ -194,6 +214,8 @@ fun AuthScreen(
     // the Activity saved-instance-state Bundle.
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showForgotPasswordDialog by rememberSaveable { mutableStateOf(false) }
+    var resetEmail by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(state.info) {
         if (state.info != null) {
@@ -390,6 +412,18 @@ fun AuthScreen(
                     },
                 )
 
+                if (!registering) {
+                    TextButton(
+                        onClick = {
+                            resetEmail = email
+                            showForgotPasswordDialog = true
+                        },
+                        modifier = Modifier.align(Alignment.End),
+                    ) {
+                        Text("Forgot password?")
+                    }
+                }
+
                 state.info?.let { message ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -446,5 +480,44 @@ fun AuthScreen(
                 }
             }
         }
+    }
+
+    if (showForgotPasswordDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showForgotPasswordDialog = false },
+            title = { Text("Reset your password") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Enter your registered email address. If an account is found, a password reset link will be sent.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = resetEmail,
+                        onValueChange = { resetEmail = it },
+                        label = { Text("Email address") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showForgotPasswordDialog = false
+                        vm.resetPassword(resetEmail)
+                    },
+                ) {
+                    Text("Send reset link")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showForgotPasswordDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
