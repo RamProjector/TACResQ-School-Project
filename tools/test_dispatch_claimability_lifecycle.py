@@ -32,7 +32,7 @@ for item in required:
     assert item in sql, f"Missing dispatcher claimability lifecycle guard: {item}"
 
 incident_lock = sql.index("FROM public.incidents")
-profile_lock = sql.index("FROM public.profiles\\n  WHERE auth_user_id = v_auth_uid\\n  FOR UPDATE")
+profile_lock = sql.index("FROM public.profiles\n  WHERE auth_user_id = v_auth_uid\n  FOR UPDATE")
 assert sql.index("SELECT role INTO v_actor_role") < incident_lock < profile_lock, "Precheck must precede incident lock; locked profile must follow incident lock"
 assert sql.index("FOR UPDATE;", incident_lock) < profile_lock
 assert sql.index("FOR UPDATE;", profile_lock) < sql.index("v_actor.role IS DISTINCT")
