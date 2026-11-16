@@ -182,3 +182,17 @@ Supabase advisors are deterministic checks, not a substitute for understanding t
 ## Deployment safety
 
 This report and the associated migration are repository artifacts only. No live Supabase migration, Render configuration, secret, deployment, Cron job, notification, or production data was changed.
+
+
+## Cross-RPC lifecycle compatibility finding
+
+The field-claim lifecycle deliberately leaves `incidents.assigned_to` dispatcher-managed while adding the first self-claim to `incident_assignments` and advancing `pending` to `assigned`. The existing private dispatcher assignment RPC previously rejected every `assigned`/ `en_route` incident with a null `assigned_to`, which prevented dispatchers from expanding a field-claimed team.
+
+The field-claim migration now replaces the private dispatcher assignment implementation to:
+- allow `assigned` or `en_route` with a null dispatcher lead only when at least one authoritative team membership already exists;
+- preserve the dispatcher-managed lead for ordinary dispatcher-originated assignment;
+- lock the incident before re-reading and locking the dispatcher profile, matching the claimability-toggle lock order;
+- include a legacy `assigned_to` lead missing from `incident_assignments` when enforcing the five-unit capacity;
+- retain stable sorted locks for selected units, availability checks, and duplicate-safe inserts.
+
+This compatibility correction is covered by the field-claim regression contract. It does not assign a self-claiming responder as a dispatcher leader.
