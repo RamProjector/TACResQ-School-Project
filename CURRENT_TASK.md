@@ -646,3 +646,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Documentation-only scope: standards-to-source control matrix, project-memory index, and this handoff. README index line-break formatting was corrected after diff inspection.
 - PR #322 workflows were observed running at the initial head `74463939626d463c0abdd50d09b011b29caec655`; they must be rechecked for the latest head.
 - No local checkout/content-link validation was run. No live DB migration, deployment, or merge was performed.
+
+
+## Concurrency validation update — 2026-11-17
+
+- PR #317 now has a true two-session PostgreSQL 16 race test for one responder claiming two incidents. Latest-head clean migration replay passed and emitted both expected PASS assertions (one `claimed`, one `UNIT_BUSY`, final one assignment/one assigned incident).
+- PR #319 now has a true two-session race between dispatcher claimability enable and requester cancellation. Latest-head migration replay is still running; verify the final log before marking it passed.
+- Both tests run only against disposable CI PostgreSQL using synthetic accounts. No live Supabase changes.
