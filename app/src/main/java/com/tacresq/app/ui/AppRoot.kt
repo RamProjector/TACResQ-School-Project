@@ -51,6 +51,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tacresq.app.AppContainer
@@ -107,7 +109,11 @@ fun AppRoot(
     var stepUpSecurityEnabled by rememberSaveable { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { }
+    ) { granted ->
+        if (granted && sessionState is SessionState.LoggedIn) {
+            scope.launch { container.pushTokenCoordinator.sync(container.repository) }
+        }
+    }
     val logout: () -> Unit = {
         container.responderLocationTracking.stop("Location sharing stopped because you signed out.")
         scope.launch {
@@ -115,6 +121,14 @@ fun AppRoot(
             container.repository.logout()
             // Remove alerts rendered for the previous account before another account can sign in.
             NotificationManagerCompat.from(context).cancelAll()
+        }
+    }
+
+    // Reconcile notification permission and token ownership whenever the app returns
+    // from Settings; permission can be revoked without changing the auth session.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (sessionState is SessionState.LoggedIn) {
+            scope.launch { container.pushTokenCoordinator.sync(container.repository) }
         }
     }
 
