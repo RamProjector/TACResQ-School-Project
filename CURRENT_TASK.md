@@ -671,3 +671,14 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Direct privilege checks show all five RLS/no-policy tables have zero policies and no anon/authenticated table privileges. Do not add policies merely to silence the advisor.
 - SECURITY DEFINER catalog/ACL review found no EXECUTE grants to PUBLIC among inspected public/private functions. `private.tacresq_is_incident_assignee(bigint)` has an unnecessary `public` search_path entry; schema-qualified body references and no confirmed exploit. `public.api_units()` remains the known live search_path drift.
 - No live migration, data mutation, deployment, FCM send, or merge was performed. Continue function-by-function authorization review and plan any search_path hardening as a forward-only migration after checking repository history and dependencies.
+
+
+## Authenticated RPC review continuation — 2026-11-17
+
+- Reviewed all 18 public SECURITY DEFINER RPC definitions currently executable by `authenticated`, plus the private incident-chat authorization helper.
+- Reviewed access controls include admin-role checks, requester ownership checks, recipient-scoped notification operations, chat participant authorization, bounded message/notification/admin-page inputs, message idempotency, and image MIME/path/size/object verification.
+- Confirmed the current live legacy `api_admin_list_users()` still returns all profile PII without pagination to admin callers. PR #321 removes client EXECUTE and stale dashboard typing; its exact-head four workflows passed. Its clean migration replay now checks that authenticated cannot execute the legacy RPC while the bounded paginated RPC continues to work. A live PostgREST authenticated-session test remains unrun.
+- Live claim RPCs still predate #317 and #319 until those migrations are applied. Do not treat passing CI as production deployment.
+- `api_claimable_incidents()` is currently unpaginated; this is an operational scale concern, not a confirmed exposure, because access is restricted to authenticated on-duty responders/drivers. Add bounded paging only with queue completeness and emergency workflow tests.
+- No confirmed cross-account disclosure or privilege escalation was established by static review.
+- PR #317, #319, #321, and #322 remain open/unmerged; no live database migration or deployment performed.
