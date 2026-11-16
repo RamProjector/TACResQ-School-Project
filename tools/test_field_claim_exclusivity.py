@@ -47,7 +47,7 @@ assignment_end = sql.index("$function$;", assignment_start) + len("$function$;")
 assignment = sql[assignment_start:assignment_end]
 assert "FROM public.incidents WHERE id = p_id FOR UPDATE" in assignment
 assert "FROM public.profiles WHERE auth_user_id = auth.uid() FOR UPDATE" in assignment
-assert assignment.index("FROM public.incidents WHERE id = p_id FOR UPDATE") < assignment.index("FROM public.profiles WHERE auth_user_id = auth.uid() FOR UPDATE")
+assert assignment.index("SELECT role INTO actor_role") < assignment.index("FROM public.incidents WHERE id = p_id FOR UPDATE") < assignment.index("FROM public.profiles WHERE auth_user_id = auth.uid() FOR UPDATE")
 assert "incident_row.status IN ('assigned','en_route')" in assignment
 assert "incident_row.assigned_to IS NULL" in assignment
 assert "FROM public.incident_assignments existing_team" in assignment
