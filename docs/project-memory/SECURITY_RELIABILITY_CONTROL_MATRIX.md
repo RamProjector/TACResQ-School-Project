@@ -117,3 +117,13 @@ At the latest poll on 2026-11-17:
 - PR #319 head `b21f8cd7d9697b7c358a25e09e342d3470950248`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully.
 - PR #322 head `b0e1313c288bf43a5ed9d754cad8ecf7cc033dd7`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully.
 - All three PRs remained open and unmerged at this poll. Passing workflows do not prove the migrations have been applied to live Supabase or that device/runtime checks passed.
+
+
+### RLS no-policy table exposure check
+
+The five advisor-flagged tables were checked directly in PostgreSQL catalogs and with `has_table_privilege`:
+
+- All five have RLS enabled and zero policies.
+- `anon` has no SELECT or INSERT privilege on any of them.
+- `authenticated` has no SELECT, INSERT, UPDATE, or DELETE privilege on any of them.
+- Therefore, the advisor warning is currently a deny-by-default configuration, not evidence that these tables are directly exposed to anon/authenticated through the Data API. Do not add broad policies merely to silence the linter. Revisit only if a supported client access path is intentionally introduced; prefer narrow RPCs and explicit authorization.
