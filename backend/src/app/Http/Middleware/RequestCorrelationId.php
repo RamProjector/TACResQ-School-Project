@@ -1,11 +1,11 @@
 <?php
 
-namespace App\\Http\\Middleware;
+namespace App\Http\Middleware;
 
 use Closure;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Str;
-use Symfony\\Component\\HttpFoundation\\Response;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 
 final class RequestCorrelationId
 {
