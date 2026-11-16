@@ -81,7 +81,7 @@ DECLARE
   v_auth_uid uuid;
   v_actor_id bigint;
   v_actor_role text;
-  v_on_duty boolean;
+  v_duty_status text;
   v_status text;
   v_claimable boolean;
   v_existing_assignment public.incident_assignments;
@@ -93,7 +93,7 @@ BEGIN
     RAISE EXCEPTION 'Authentication required.' USING ERRCODE = '42501';
   END IF;
 
-  SELECT id, role, is_on_duty INTO v_actor_id, v_actor_role, v_on_duty
+  SELECT id, role, duty_status INTO v_actor_id, v_actor_role, v_duty_status
   FROM public.profiles
   WHERE auth_user_id = v_auth_uid;
 
@@ -105,7 +105,7 @@ BEGIN
     );
   END IF;
 
-  IF NOT COALESCE(v_on_duty, false) THEN
+  IF v_duty_status IS DISTINCT FROM 'available' THEN
     RETURN jsonb_build_object(
       'status', 'error',
       'code', 'OFF_DUTY',
@@ -204,7 +204,7 @@ AS $function$
 DECLARE
   v_auth_uid uuid;
   v_actor_role text;
-  v_on_duty boolean;
+  v_duty_status text;
   v_result jsonb;
 BEGIN
   v_auth_uid := auth.uid();
@@ -212,11 +212,11 @@ BEGIN
     RAISE EXCEPTION 'Authentication required.' USING ERRCODE = '42501';
   END IF;
 
-  SELECT role, is_on_duty INTO v_actor_role, v_on_duty
+  SELECT role, duty_status INTO v_actor_role, v_duty_status
   FROM public.profiles
   WHERE auth_user_id = v_auth_uid;
 
-  IF v_actor_role IS NULL OR v_actor_role NOT IN ('responder', 'driver') OR NOT COALESCE(v_on_duty, false) THEN
+  IF v_actor_role IS NULL OR v_actor_role NOT IN ('responder', 'driver') OR v_duty_status IS DISTINCT FROM 'available' THEN
     RETURN '[]'::jsonb;
   END IF;
 
