@@ -28,7 +28,7 @@ Re-fetch PR heads and exact-head checks before continuing. This page is a snapsh
 ### PR #314 — Project memory and documentation reconciliation
 - URL: https://github.com/RamProjector/TACResQ-School-Project/pull/314
 - Branch: `docs/project-memory-and-baseline`
-- Head at last poll: `18c60a551e74c24955164ca90cb9389ead334476`
+- Head: always use the current head shown on the live PR page; this handoff is updated independently and may lag the PR by one documentation commit.
 - Status: open, not merged; checks were running/queued.
 - Adds durable decisions, a 2020–2029 research evidence register, implementation baseline, and next-session handoff.
 - Reconciles the stale `PROJECT_ANALYSIS.md`, corrects the backend routing provider documentation, and links memory from the root README.
