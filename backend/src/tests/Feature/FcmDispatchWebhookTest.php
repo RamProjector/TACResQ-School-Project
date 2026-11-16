@@ -70,7 +70,7 @@ final class FcmDispatchWebhookTest extends TestCase
     public function test_request_id_cannot_be_replayed(): void
     {
         $dispatcher = Mockery::mock(FcmNotificationDispatcher::class);
-        $dispatcher->shouldReceive('dispatch')->once()->with(5)->andReturn($this->stats());
+        $dispatcher->shouldReceive('dispatch')->once()->with(3)->andReturn($this->stats());
         $this->app->instance(FcmNotificationDispatcher::class, $dispatcher);
         $requestId = 'd9b1f9e8-4b91-4c36-9f2e-7b4b1a6e5d22';
 
@@ -112,7 +112,7 @@ final class FcmDispatchWebhookTest extends TestCase
     ) {
         $timestamp ??= (string) time();
         $requestId ??= 'd9b1f9e8-4b91-4c36-9f2e-7b4b1a6e5d23';
-        $signature ??= hash_hmac('sha256', $timestamp."\n".$requestId."\n".$body, self::SECRET);
+        $signature ??= hash_hmac('sha256', $timestamp."\n".$requestId."\n".$body, self::secret());
 
         return $this->call('POST', $uri, [], [], [], [
             'CONTENT_TYPE' => 'application/json',
