@@ -51,3 +51,11 @@ The Android service intentionally renders a generic message and opens TACResQ, w
 ## Verification limits
 
 CI can validate source contracts, migration replay, and application tests. It cannot validate the live Render credential mount, automatic command execution, live Firebase authentication, or physical-device delivery from the repository alone. Before operational delivery is claimed, verify the deployed preflight, automatic invocation, a synthetic non-sensitive push, and foreground/background/closed-app receipt on a dedicated test device.
+
+## Free-compatible automatic trigger
+
+The existing sender can be invoked through the signed, payload-free Render endpoint at /internal/fcm/dispatch. The endpoint is designed for Supabase Cron + pg_net, uses a separate HMAC secret stored in Supabase Vault and Render environment configuration, enforces a five-minute timestamp window and replay protection, and dispatches at most five token deliveries per request. It does not replace the existing queue claim RPC, delivery ledger, or Firebase ADC secret file.
+
+This is not yet enabled in the connected production project. The current live Supabase project did not have pg_cron or pg_net installed at review time, and no HMAC secret or scheduled job was created. Follow [FCM Supabase Cron trigger setup](FCM_SUPABASE_CRON_TRIGGER.md) only after the matching Render code is deployed and the operator approves the one-time secret/extension/job configuration.
+
+The free-tier design remains best-effort: Render may take about a minute to wake after idle, and Supabase Free projects may pause after extended inactivity. FCM remains supplemental; the persistent in-app inbox is authoritative.
