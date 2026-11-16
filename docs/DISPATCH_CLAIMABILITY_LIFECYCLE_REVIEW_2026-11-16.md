@@ -13,7 +13,7 @@ The RPC also did not explicitly reject a null incident ID or null claimability a
 Migration `20261116200000_harden_dispatch_claimability_lifecycle.sql`:
 - validates incident ID and claimability input;
 - locks the incident row with `FOR UPDATE` before reading lifecycle state;
-- locks and re-reads the dispatcher profile after the incident lock;
+- rejects non-dispatchers before allowing them to contend on an incident row, then locks and re-reads the dispatcher profile after the incident lock;
 - rejects callers whose current role is not dispatcher;
 - rejects terminal incidents while holding the incident lock;
 - updates and returns the persisted row values;
