@@ -81,5 +81,4 @@ Route::post('/internal/fcm/dispatch', function (Request $request, FcmNotificatio
     } finally {
         $lock->release();
     }
-})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
-  ->middleware('throttle:5,1');
+})->middleware('throttle:5,1');
