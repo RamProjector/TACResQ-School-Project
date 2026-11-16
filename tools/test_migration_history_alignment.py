@@ -49,10 +49,8 @@ EXPECTED = {
     "20261114153550_fcm_token_account_switch.sql",
     "20261116042927_responder_incident_claiming.sql",
 }
-# Migrations not yet confirmed in the live Supabase migration ledger are
+# Repository migrations not yet confirmed in the live Supabase ledger are
 # allowlisted so independent PRs/deployment batches can proceed in either order.
-# Migrations in open, reviewable PRs are optional until merged. Keep this
-# allowlist broad enough that independent pending PRs can merge in either order.
 PENDING = {
     "20261116150000_pin_api_units_search_path.sql",
     "20261116153000_optimize_rls_policy_initplans.sql",
