@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS public.incident_claimability_logs (
   -- Store historical IDs without foreign keys so account/incident retention
   -- workflows are not blocked by audit history.
   incident_id bigint NOT NULL,
-  actor_profile_id bigint NOT NULL,
-  source_rpc text NOT NULL CHECK (source_rpc = 'api_set_incident_claimable'),
+  actor_profile_id bigint,
+  source_rpc text NOT NULL CHECK (source_rpc IN ('api_set_incident_claimable', 'incident_status_transition')),
   previous_claimable boolean NOT NULL,
   new_claimable boolean NOT NULL,
   incident_status text NOT NULL,
@@ -22,6 +22,76 @@ CREATE INDEX IF NOT EXISTS incident_claimability_logs_incident_created_idx
   ON public.incident_claimability_logs (incident_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS incident_claimability_logs_actor_created_idx
   ON public.incident_claimability_logs (actor_profile_id, created_at DESC);
+
+-- All supported Android and web clients write incidents through SECURITY DEFINER
+-- RPCs. Remove direct authenticated DML so callers cannot bypass validation or
+-- the claimability audit trail through the PostgREST table endpoint.
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.incidents FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.tacresq_clear_claimability_on_status_progress()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog
+AS $function$
+BEGIN
+  IF NEW.status IN ('en_route', 'on_scene', 'transporting', 'resolved', 'cancelled', 'completed') THEN
+    NEW.is_claimable := false;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.tacresq_clear_claimability_on_status_progress() FROM PUBLIC, anon, authenticated;
+
+-- The zzz_ prefix intentionally runs this BEFORE trigger after the existing
+-- incident authorization/transition guard, so responders can advance status
+-- without being treated as directly changing the dispatcher-owned flag.
+DROP TRIGGER IF EXISTS zzz_tacresq_clear_claimability_on_status_progress ON public.incidents;
+CREATE TRIGGER zzz_tacresq_clear_claimability_on_status_progress
+BEFORE UPDATE OF status ON public.incidents
+FOR EACH ROW
+WHEN (OLD.status IS DISTINCT FROM NEW.status)
+EXECUTE FUNCTION public.tacresq_clear_claimability_on_status_progress();
+
+CREATE OR REPLACE FUNCTION public.tacresq_log_claimability_status_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  v_actor_profile_id bigint;
+BEGIN
+  IF OLD.is_claimable IS TRUE AND NEW.is_claimable IS FALSE THEN
+    SELECT id INTO v_actor_profile_id
+    FROM public.profiles
+    WHERE auth_user_id = auth.uid();
+
+    INSERT INTO public.incident_claimability_logs (
+      incident_id, actor_profile_id, source_rpc, previous_claimable,
+      new_claimable, incident_status
+    ) VALUES (
+      NEW.id, v_actor_profile_id, 'incident_status_transition',
+      OLD.is_claimable, NEW.is_claimable, NEW.status
+    );
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.tacresq_log_claimability_status_transition() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS tacresq_log_claimability_status_transition ON public.incidents;
+CREATE TRIGGER tacresq_log_claimability_status_transition
+AFTER UPDATE OF status ON public.incidents
+FOR EACH ROW
+WHEN (OLD.status IS DISTINCT FROM NEW.status)
+EXECUTE FUNCTION public.tacresq_log_claimability_status_transition();
+
+-- Repair legacy rows that remained marked claimable after dispatch progression.
+UPDATE public.incidents
+SET is_claimable = false,
+    updated_at = clock_timestamp()
+WHERE status IN ('en_route', 'on_scene', 'transporting', 'resolved', 'cancelled', 'completed')
+  AND is_claimable IS TRUE;
 
 -- Serialize claimability changes with cancellation, completion, and field claims.
 -- Lock order is incident -> dispatcher profile, matching the field-claim RPC.
@@ -82,8 +152,8 @@ BEGIN
     RAISE EXCEPTION 'Only dispatchers can toggle field claiming for incidents.' USING ERRCODE = '42501';
   END IF;
 
-  IF v_incident.status IN ('cancelled', 'completed', 'resolved') THEN
-    RAISE EXCEPTION 'Closed incidents cannot be made claimable.' USING ERRCODE = '22000';
+  IF p_claimable IS TRUE AND v_incident.status NOT IN ('pending', 'assigned') THEN
+    RAISE EXCEPTION 'Only pending or assigned incidents can be made claimable.' USING ERRCODE = '22000';
   END IF;
 
   v_previous_claimable := v_incident.is_claimable;
