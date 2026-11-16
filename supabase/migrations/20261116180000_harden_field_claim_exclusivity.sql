@@ -263,4 +263,114 @@ $function$;
 REVOKE ALL ON FUNCTION public.api_claimable_incidents() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_claimable_incidents() TO authenticated;
 
+
+
+-- Keep dispatcher expansion compatible with a field-claimed incident. A self-claim
+-- advances status to assigned but intentionally leaves assigned_to dispatcher-managed.
+CREATE OR REPLACE FUNCTION private.tacresq_assign_incident_team(p_id bigint, p_user_ids bigint[])
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $function$
+DECLARE
+  actor public.profiles;
+  incident_row public.incidents;
+  primary_user_id bigint;
+  selected_count integer;
+  assigned_ids jsonb;
+  current_team_count integer := 0;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501';
+  END IF;
+  IF p_user_ids IS NULL OR cardinality(p_user_ids) < 1 OR cardinality(p_user_ids) > 5
+     OR array_position(p_user_ids, NULL) IS NOT NULL
+     OR cardinality(ARRAY(SELECT DISTINCT unnest(p_user_ids))) <> cardinality(p_user_ids) THEN
+    RAISE EXCEPTION 'Select between 1 and 5 different field units' USING ERRCODE = '22023';
+  END IF;
+
+  -- Use the same incident -> dispatcher-profile lock order as the
+  -- claimability toggle, then re-check the dispatcher's current role.
+  SELECT * INTO incident_row FROM public.incidents WHERE id = p_id FOR UPDATE;
+  IF incident_row.id IS NULL THEN
+    RAISE EXCEPTION 'Incident not found' USING ERRCODE = 'P0002';
+  END IF;
+  SELECT * INTO actor FROM public.profiles WHERE auth_user_id = auth.uid() FOR UPDATE;
+  IF actor.id IS NULL OR actor.role IS DISTINCT FROM 'dispatcher' THEN
+    RAISE EXCEPTION 'Only dispatchers can assign incidents' USING ERRCODE = '42501';
+  END IF;
+  IF incident_row.status NOT IN ('pending','assigned','en_route')
+     OR (incident_row.status = 'pending' AND incident_row.assigned_to IS NOT NULL)
+     OR (
+       incident_row.status IN ('assigned','en_route')
+       AND incident_row.assigned_to IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM public.incident_assignments existing_team
+         WHERE existing_team.incident_id = incident_row.id
+       )
+     ) THEN
+    RAISE EXCEPTION 'A response team can only be assigned or expanded before the incident reaches the scene' USING ERRCODE = '22023';
+  END IF;
+  SELECT count(*) + CASE
+      WHEN incident_row.assigned_to IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM public.incident_assignments legacy_lead
+        WHERE legacy_lead.incident_id = incident_row.id
+          AND legacy_lead.user_id = incident_row.assigned_to
+      ) THEN 1
+      ELSE 0
+    END
+    INTO current_team_count
+    FROM public.incident_assignments WHERE incident_id = incident_row.id;
+  IF current_team_count + cardinality(p_user_ids) > 5 THEN
+    RAISE EXCEPTION 'A response team may contain at most 5 field units' USING ERRCODE = '22023';
+  END IF;
+
+  -- Stable lock order prevents competing dispatchers from deadlocking on overlapping teams.
+  PERFORM id FROM public.profiles WHERE id = ANY(p_user_ids) ORDER BY id FOR UPDATE;
+  SELECT count(*) INTO selected_count
+  FROM public.profiles p
+  WHERE p.id = ANY(p_user_ids)
+    AND p.role IN ('responder','driver')
+    AND p.duty_status = 'available'
+    AND NOT EXISTS (
+      SELECT 1 FROM public.incident_assignments a
+      JOIN public.incidents active_i ON active_i.id = a.incident_id
+      WHERE a.user_id = p.id AND active_i.status IN ('assigned','en_route','on_scene','transporting')
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM public.incidents active_i
+      WHERE active_i.assigned_to = p.id AND active_i.status IN ('assigned','en_route','on_scene','transporting')
+    );
+  IF selected_count <> cardinality(p_user_ids) THEN
+    RAISE EXCEPTION 'One or more selected units are no longer available. Refresh the queue and choose again.' USING ERRCODE = '22023';
+  END IF;
+
+  IF incident_row.status = 'pending' THEN
+    primary_user_id := p_user_ids[1];
+    UPDATE public.incidents SET status = 'assigned', assigned_to = primary_user_id
+    WHERE id = incident_row.id RETURNING * INTO incident_row;
+  END IF;
+
+  INSERT INTO public.incident_assignments (incident_id, user_id, assigned_by)
+  SELECT incident_row.id, chosen.user_id, actor.id
+  FROM unnest(p_user_ids) WITH ORDINALITY AS chosen(user_id, position)
+  ORDER BY chosen.position
+  ON CONFLICT (incident_id, user_id) DO NOTHING;
+
+  SELECT coalesce(jsonb_agg(a.user_id ORDER BY a.assigned_at, a.user_id), '[]'::jsonb)
+    INTO assigned_ids FROM public.incident_assignments a WHERE a.incident_id = incident_row.id;
+
+  RETURN jsonb_build_object(
+    'id', incident_row.id, 'type', incident_row.type, 'description', incident_row.description,
+    'latitude', incident_row.latitude, 'longitude', incident_row.longitude, 'accuracy_m', incident_row.accuracy_m,
+    'location_notes', incident_row.location_notes, 'location_recorded_at', incident_row.location_recorded_at,
+    'location_source', incident_row.location_source, 'status', incident_row.status,
+    'requester_name', (SELECT name FROM public.profiles WHERE id = incident_row.requester_id),
+    'requester_phone', (SELECT phone FROM public.profiles WHERE id = incident_row.requester_id),
+    'assigned_to', incident_row.assigned_to, 'assigned_user_ids', assigned_ids,
+    'created_at', incident_row.created_at,
+    'requester_edit_count', incident_row.requester_edit_count,
+    'requester_last_edited_at', incident_row.requester_last_edited_at
+  );
+END;
+$function$;
+
 COMMIT;
