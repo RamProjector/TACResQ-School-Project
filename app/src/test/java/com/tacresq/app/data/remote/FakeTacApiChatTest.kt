@@ -65,6 +65,41 @@ class FakeTacApiChatTest {
     }
 
     @Test
+    fun committedMessageWithLostResponseRetriesAfterConversationReopenWithoutDuplicate() = runBlocking {
+        var currentToken: String? = null
+        val api = FakeTacApi(tokenProvider = { currentToken })
+
+        val requester = api.login(LoginRequest("requester@demo.com", "demo123"))
+        currentToken = requester.token
+        val incident = api.createIncident(
+            CreateIncidentRequest(
+                type = IncidentType.MEDICAL,
+                description = "Synthetic lost chat response test",
+                latitude = 11.247,
+                longitude = 125.006,
+                accuracyM = 8f,
+                clientRequestId = UUID.randomUUID().toString(),
+            ),
+        )
+
+        // The first request reaches the server and commits. Simulate the HTTP response
+        // being lost by intentionally discarding the returned row before the UI can use it.
+        val originalClientMessageId = UUID.randomUUID().toString()
+        val exactPayload = "Unit is at the north entrance."
+        api.sendIncidentMessage(incident.id, exactPayload, originalClientMessageId)
+
+        // The user closes and reopens the same incident. The ViewModel must retain both
+        // the exact payload and this idempotency key while the first outcome is uncertain.
+        val retry = api.sendIncidentMessage(incident.id, exactPayload, originalClientMessageId)
+        val messages = api.myIncidentMessages(incident.id, 50, null)
+
+        assertEquals(1, messages.size)
+        assertEquals(retry.id, messages.single().id)
+        assertEquals(exactPayload, messages.single().message)
+        assertEquals(originalClientMessageId, messages.single().clientMessageId)
+    }
+
+    @Test
     fun incidentChatIsScopedAndClientRetriesAreIdempotent() = runBlocking {
         var currentToken: String? = null
         val api = FakeTacApi(tokenProvider = { currentToken })
