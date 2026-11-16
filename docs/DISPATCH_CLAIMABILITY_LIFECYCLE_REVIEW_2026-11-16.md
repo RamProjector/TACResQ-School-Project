@@ -15,7 +15,10 @@ Migration `20261116200000_harden_dispatch_claimability_lifecycle.sql`:
 - locks the incident row with `FOR UPDATE` before reading lifecycle state;
 - rejects non-dispatchers before allowing them to contend on an incident row, then locks and re-reads the dispatcher profile after the incident lock;
 - rejects callers whose current role is not dispatcher;
-- rejects terminal incidents while holding the incident lock;
+- permits enabling claims only while the incident is `pending` or `assigned`, while allowing dispatchers to clear stale flags;
+- clears `is_claimable` automatically as status progresses to `en_route` or later, and records that transition;
+- repairs existing stale claimability flags;
+- revokes authenticated direct INSERT/UPDATE/DELETE on `incidents`, enforcing the RPC write path used by the Android and web clients;
 - updates and returns the persisted row values;
 - preserves authenticated-only execution grants and a pinned `pg_catalog` search path.
 
@@ -29,7 +32,7 @@ The test now requires all applied migrations, rejects unknown migration files, a
 
 ## Claimability audit trail
 
-The migration adds a restricted `incident_claimability_logs` table. A real state change records the incident, actor profile, exact source RPC (`api_set_incident_claimable`), previous/new claimability values, incident status, and timestamp. No-op requests do not create duplicate state-change entries. RLS is enabled, direct access is revoked from `PUBLIC`, `anon`, and `authenticated`, and only `service_role` receives SELECT access for trusted operational review. The historical numeric IDs are snapshots rather than foreign keys, so audit retention does not block profile or incident deletion. The SECURITY DEFINER RPC writes the row in the same transaction as the state change.
+The migration adds a restricted `incident_claimability_logs` table. A real state change records the incident, actor profile, exact source RPC (`api_set_incident_claimable`), previous/new claimability values, incident status, and timestamp. No-op requests do not touch `updated_at` or create duplicate state-change entries. RLS is enabled, direct access is revoked from `PUBLIC`, `anon`, and `authenticated`, and only `service_role` receives SELECT access for trusted operational review. The historical numeric IDs are snapshots rather than foreign keys, so audit retention does not block profile or incident deletion. The SECURITY DEFINER RPC writes the row in the same transaction as the state change.
 
 This is an internal audit record; it does not yet add a dispatcher-facing audit-history screen or read RPC. Retention and cleanup remain policy decisions and no automatic deletion is introduced.
 
