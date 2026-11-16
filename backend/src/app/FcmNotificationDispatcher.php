@@ -5,7 +5,7 @@ namespace App;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
-final class FcmNotificationDispatcher
+class FcmNotificationDispatcher
 {
     private const CLAIM_LEASE_SECONDS = 600;
 
