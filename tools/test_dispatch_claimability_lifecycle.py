@@ -74,3 +74,18 @@ assert 'getSupabase().rpc(' in web_api
 assert '.from("incidents")' not in web_api
 
 print("PASS: supported Android and web clients use RPCs, so authenticated table DML can be revoked without breaking their write paths.")
+
+
+# Exercise the dispatcher/requester race against two independent authenticated
+# PostgreSQL connections after a clean migration replay.
+race_test = ROOT / "tools/test_claimability_cancellation_concurrency.sh"
+race_sql = race_test.read_text()
+for required in (
+    "public.api_set_incident_claimable($incident_id, true)",
+    "public.api_cancel_my_incident($incident_id)",
+    "pg_sleep(1)",
+    "final_state",
+    "cancelled:false",
+    "SET ROLE authenticated",
+):
+    assert required.lower() in race_sql.lower(), f"Missing claimability/cancellation race assertion: {required}"
