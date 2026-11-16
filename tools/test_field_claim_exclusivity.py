@@ -65,8 +65,8 @@ print("PASS: dispatcher team expansion supports field-claimed incidents while pr
 race_test = ROOT / "tools/test_field_claim_concurrency.sh"
 race_sql = race_test.read_text()
 for required in (
-    "run_claim \"\${incident_ids[0]}\"",
-    "run_claim \"\${incident_ids[1]}\"",
+    "run_claim \"${incident_ids[0]}\"",
+    "run_claim \"${incident_ids[1]}\"",
     "SET ROLE authenticated",
     "SELECT public.api_claim_incident($incident_id)",
     "pg_sleep(1)",
