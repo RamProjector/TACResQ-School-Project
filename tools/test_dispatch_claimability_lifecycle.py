@@ -23,6 +23,8 @@ required = (
     "GRANT SELECT ON TABLE public.incident_claimability_logs TO service_role",
     "incident_claimability_logs_incident_created_idx",
     "incident_claimability_logs_actor_created_idx",
+    "v_previous_claimable IS NOT DISTINCT FROM p_claimable",
+    "A no-op request should not touch updated_at or create audit noise.",
     "v_previous_claimable IS DISTINCT FROM v_incident.is_claimable",
     "'api_set_incident_claimable'",
     "REVOKE ALL ON FUNCTION public.api_set_incident_claimable",
