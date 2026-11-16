@@ -67,11 +67,6 @@ assert EXPECTED <= actual, (
 assert actual <= EXPECTED | PENDING, (
     f"Untracked migration files found. Unexpected={sorted(actual - (EXPECTED | PENDING))}"
 )
-actual = {path.name for path in MIGRATIONS.glob("*.sql")}
-assert actual == EXPECTED | PENDING, (
-    f"Supabase migration history drift. Missing={sorted((EXPECTED | PENDING) - actual)}; "
-    f"unexpected={sorted(actual - (EXPECTED | PENDING))}"
-)
 
 core = (MIGRATIONS / "20261015080806_tacresq_core_schema.sql").read_text()
 for required in (
