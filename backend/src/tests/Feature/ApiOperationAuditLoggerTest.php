@@ -77,7 +77,9 @@ class ApiOperationAuditLoggerTest extends TestCase
         $this->withHeader('X-Request-ID', $valid)->getJson('/up')
             ->assertHeader('X-Request-ID', $valid);
 
-        $this->withHeader('X-Request-ID', 'not-a-uuid')->getJson('/up')
-            ->assertHeaderMissing('X-Request-ID', 'not-a-uuid');
+        $response = $this->withHeader('X-Request-ID', 'not-a-uuid')->getJson('/up');
+        $replacement = $response->headers->get('X-Request-ID');
+        $this->assertNotSame('not-a-uuid', $replacement);
+        $this->assertTrue(\\Illuminate\\Support\\Str::isUuid($replacement));
     }
 }
