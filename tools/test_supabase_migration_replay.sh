@@ -805,8 +805,8 @@ BEGIN
   IF has_function_privilege('anon', 'public.api_admin_list_users()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Anonymous role must not execute the Admin user-list RPC';
   END IF;
-  IF NOT has_function_privilege('authenticated', 'public.api_admin_list_users()', 'EXECUTE') THEN
-    RAISE EXCEPTION 'Authenticated role must have the explicitly granted Admin RPC entry point';
+  IF has_function_privilege('authenticated', 'public.api_admin_list_users()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Legacy unbounded Admin user-list RPC must not be executable by authenticated clients';
   END IF;
   IF has_function_privilege('anon', 'public.api_admin_list_users_page(integer,integer,text,text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Anonymous role must not execute the Admin paginated user-list RPC';
@@ -821,10 +821,6 @@ BEGIN
   END IF;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
-  changed := public.api_admin_list_users();
-  IF jsonb_typeof(changed) <> 'array' OR jsonb_array_length(changed) < 3 THEN
-    RAISE EXCEPTION 'Admin user-list RPC should return profile data for an authorized administrator';
-  END IF;
   -- Search must be case-insensitive and literal (wildcard characters are not SQL patterns).
   changed := public.api_admin_list_users_page(25, 0, 'ADMIN-ROLE-TARGET@example.test', 'requester');
   IF changed->>'total_count' <> '1'
@@ -887,16 +883,6 @@ BEGIN
 
   -- Ordinary authenticated profiles must not list users or change another role.
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000130', true);
-  denied := false;
-  BEGIN
-    PERFORM public.api_admin_list_users();
-  EXCEPTION WHEN insufficient_privilege THEN
-    denied := true;
-  END;
-  IF NOT denied THEN
-    RAISE EXCEPTION 'Ordinary requester must not read the Admin user list';
-  END IF;
-
   denied := false;
   BEGIN
     PERFORM public.api_admin_set_user_role(
@@ -971,16 +957,6 @@ BEGIN
     ) AS ordinary_principals(auth_id, role_name)
   LOOP
     PERFORM set_config('request.jwt.claim.sub', principal.auth_id::text, true);
-
-    denied := false;
-    BEGIN
-      PERFORM public.api_admin_list_users();
-    EXCEPTION WHEN insufficient_privilege THEN
-      denied := true;
-    END;
-    IF NOT denied THEN
-      RAISE EXCEPTION 'Ordinary role % unexpectedly read Admin user list', principal.role_name;
-    END IF;
 
     denied := false;
     BEGIN
