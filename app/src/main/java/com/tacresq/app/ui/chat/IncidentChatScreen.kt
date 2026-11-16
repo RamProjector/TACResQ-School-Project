@@ -108,6 +108,9 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     private var refreshJob: Job? = null
     private var olderJob: Job? = null
     private var sendJob: Job? = null
+    private data class PendingTextMessage(val incidentId: Long, val message: String, val clientMessageId: String)
+    // Retain uncertain sends across conversation close/reopen. Never mint a new key for the same payload.
+    private var pendingTextMessage: PendingTextMessage? = null
     private var pendingClientMessageId: String? = null
     private var pendingImageClientMessageId: String? = null
     private var pendingImageSignature: String? = null
@@ -122,10 +125,8 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             olderJob = null
             sendJob = null
             activeIncidentId = incidentId
-            pendingClientMessageId = null
-            pendingImageClientMessageId = null
-            pendingImageSignature = null
-            _state.value = IncidentChatUiState()
+            val recoverableDraft = pendingTextMessage?.takeIf { it.incidentId == incidentId }?.message.orEmpty()
+            _state.value = IncidentChatUiState(draft = recoverableDraft)
         }
         refresh(incidentId)
     }
@@ -201,8 +202,12 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun updateDraft(value: String) {
         val next = value.take(2000)
+        val pending = pendingTextMessage
+        if (pending != null && next.trim() != pending.message) {
+            _state.update { it.copy(draft = pending.message, sendError = "A previous message may already have been sent. Retry its original text in the same incident before editing it.") }
+            return
+        }
         if (next != _state.value.draft) {
-            pendingClientMessageId = null
             pendingImageClientMessageId = null
             pendingImageSignature = null
         }
@@ -212,8 +217,14 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     fun send(incidentId: Long) {
         val message = _state.value.draft.trim()
         if (activeIncidentId != incidentId || sendJob?.isActive == true || message.isEmpty() || message.length > 2000) return
-        val clientMessageId = pendingClientMessageId ?: UUID.randomUUID().toString().also {
+        val pending = pendingTextMessage
+        if (pending != null && (pending.incidentId != incidentId || pending.message != message)) {
+            _state.update { it.copy(sendError = "Resolve the earlier uncertain message in its original incident before sending different content.") }
+            return
+        }
+        val clientMessageId = pending?.clientMessageId ?: UUID.randomUUID().toString().also {
             pendingClientMessageId = it
+            pendingTextMessage = PendingTextMessage(incidentId, message, it)
         }
         val generation = conversationGeneration
         sendJob = viewModelScope.launch {
@@ -221,6 +232,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             repositoryCallOrFailure { repo.sendIncidentMessage(incidentId, message, clientMessageId) }
                 .onSuccess { sent ->
                     if (!isCurrentConversation(incidentId, generation)) return@onSuccess
+                    if (pendingTextMessage?.clientMessageId == clientMessageId) pendingTextMessage = null
                     pendingClientMessageId = null
                     _state.update { current ->
                         current.copy(
@@ -327,7 +339,8 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         olderJob = null
         sendJob = null
         activeIncidentId = null
-        pendingClientMessageId = null
+        // Do not clear an uncertain text-send identity here: the server may have committed
+        // it even though cancellation prevented the response from reaching this ViewModel.
         pendingImageClientMessageId = null
         pendingImageSignature = null
         _state.value = IncidentChatUiState()
