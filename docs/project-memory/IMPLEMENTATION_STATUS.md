@@ -31,6 +31,8 @@ This is a point-in-time summary, not a live status dashboard. Check the reposito
 - Encrypted DataStore/Keystore outbox persistence after real process death and on physical devices; CI compiles the instrumentation tests, but device execution remains outstanding.
 - Android UI acceptance across representative screen sizes and devices.
 
+The current incident location-source values describe broad capture mode (such as GPS/manual/none), not the underlying sensor/provider. Google documents that the fused provider may combine multiple signals and that apps cannot select the exact sensors. If provider provenance is added, store only a verified API/provider label and do not infer GNSS/Wi-Fi/cellular origin. See [RESEARCH_EVIDENCE.md](RESEARCH_EVIDENCE.md).
+
 ## Deliberately not implemented or not guaranteed
 
 - Guaranteed emergency response or life-critical push delivery.
