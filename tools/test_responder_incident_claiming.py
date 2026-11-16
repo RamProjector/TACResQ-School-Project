@@ -9,7 +9,7 @@ models = (ROOT / "app/src/main/java/com/tacresq/app/data/model/Models.kt").read_
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").read_text()
 repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
-sql = (ROOT / "supabase/migrations/20261115120000_responder_incident_claiming.sql").read_text()
+sql = (ROOT / "supabase/migrations/20261116042927_responder_incident_claiming.sql").read_text()
 
 # Check Android UI
 for required in ("Available for field claiming", "Claim Incident", "claimIncident", "dismissClaimMessage"):
