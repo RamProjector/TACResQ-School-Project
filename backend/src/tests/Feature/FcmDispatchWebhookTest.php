@@ -25,7 +25,7 @@ final class FcmDispatchWebhookTest extends TestCase
     public function test_valid_signed_request_dispatches_only_a_fixed_small_batch(): void
     {
         $dispatcher = Mockery::mock(FcmNotificationDispatcher::class);
-        $dispatcher->shouldReceive('dispatch')->once()->with(5)->andReturn($this->stats());
+        $dispatcher->shouldReceive('dispatch')->once()->with(3)->andReturn($this->stats());
         $this->app->instance(FcmNotificationDispatcher::class, $dispatcher);
 
         $this->signedRequest()
