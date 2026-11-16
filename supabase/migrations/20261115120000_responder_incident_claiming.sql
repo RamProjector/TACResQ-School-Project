@@ -9,6 +9,20 @@ CREATE INDEX IF NOT EXISTS idx_incidents_claimable
   ON public.incidents (status, is_claimable)
   WHERE is_claimable = true;
 
+-- A field claim is represented by incident_assignments rather than the legacy
+-- single-unit assigned_to column. Keep the legacy dispatcher assignment path,
+-- while allowing the guarded claim RPC to set status='assigned' with assigned_to NULL.
+ALTER TABLE public.incidents
+  DROP CONSTRAINT IF EXISTS incidents_check;
+
+ALTER TABLE public.incidents
+  ADD CONSTRAINT incidents_check CHECK (
+    (status = 'pending' AND assigned_to IS NULL)
+    OR status = 'assigned'
+    OR (status NOT IN ('pending', 'assigned', 'cancelled') AND assigned_to IS NOT NULL)
+    OR status = 'cancelled'
+  );
+
 -- Extend the existing incident guard so a responder/driver may complete only
 -- the status transition created by the atomic field-claim RPC. The assignment row
 -- must already exist and the caller must still be available; assigned_to remains
