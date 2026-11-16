@@ -160,3 +160,32 @@ A read-only review examined all 18 public SECURITY DEFINER functions currently e
 - #322 `2212cfe71d64a0231d41944c0a4a81f6a4435030`: TACResQ CI, TACResQ Security, RPC grant contract, Frontend Review passed.
 
 All four PRs remain open/unmerged at this audit point. No live migration was applied.
+
+
+## Location provider provenance trace — 2026-11-17
+
+A source-to-database trace was completed for requester one-time GPS and responder foreground location sharing.
+
+### Confirmed implementation path
+
+- Android capture: `app/src/main/java/com/tacresq/app/location/LocationProvider.kt` calls `FusedLocationProviderClient.getCurrentLocation(...)` for requester fixes and `requestLocationUpdates(...)` for responder foreground fixes.
+- Android model: `app/src/main/java/com/tacresq/app/data/model/Models.kt` defines `GeoFix` with coordinates, accuracy, capture time, elapsed realtime, permission precision, and manual-selection flag. It has no provider field.
+- Incident submission: `SupabaseTacApi.kt` serializes `CreateIncidentV4Rpc` with `p_location_source` (`gps/manual/none`) but no provider field.
+- Responder tracking: `RecordLocationRpc` sends incident ID, coordinates, accuracy, and recorded timestamp only. `ResponderLocationRequest` likewise has no provider field.
+- Live database: `incidents` contains `location_source`, `location_recorded_at`, `accuracy_m`, and coordinates; `location_logs` contains coordinates, accuracy, `recorded_at`, `received_at`, and incident/user IDs. `incident_request_edit_logs` stores before/after JSONB with location source and coordinates. None has a dedicated location-provider or map/geocoding-provider column.
+- `location_source` therefore means the capture mode (GPS vs manually selected pin), not the underlying location provider.
+
+### Recommendation before implementation
+
+Do not label `Location.getProvider()` as proof of GPS hardware or physical presence. TACResQ uses Google's fused-location API, which can combine multiple signals; the provider name is client metadata and may be absent, generalized (for example, fused), spoofed, or changed by device/OEM behavior.
+
+If provider provenance is required for troubleshooting/audit, add separately named fields with precise semantics:
+
+- `capture_provider`: app capture API/provider identifier, such as `google_fused_location`, `manual_map_selection`, or `unknown`; not a claim about the underlying satellite/network source.
+- `capture_method`: keep the existing `location_source` semantics (`gps`, `manual`, `none`) rather than duplicating it under another ambiguous name.
+- `map_data_provider`: only when a map/geocoding/routing provider actually supplied the selected coordinate or address; do not populate this with a tile provider merely because a map was displayed.
+- Retain the existing capture timestamp, accuracy, and server receipt timestamp. For incident creation, `created_at` is the server-side row creation time; for responder tracking, `location_logs.received_at` is already available.
+
+Treat all client-reported provider values as untrusted diagnostics, validate against a small allowlist, and never use them for authorization or emergency dispatch verification. Avoid adding location coordinates or raw provider metadata to the generic API operation log.
+
+No provider column or API payload change was made in this audit; first confirm which provider distinction the client and operational users actually need.
