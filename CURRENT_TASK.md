@@ -1,3 +1,15 @@
+
+
+# Current handoff — 2026-11-16: Android FCM permission reconciliation
+
+- **PR #311:** [Reconcile Android FCM registration with notification permission](https://github.com/RamProjector/TACResQ-School-Project/pull/311) — merged by squash at `ef28bf21d311a480b144c0c39163500282edef58`.
+- **Implementation:** FCM token registration now requires Android runtime notification permission (Android 13+), app-wide notification availability, and an enabled TACResQ alert channel. If alerts are unavailable, the app unregisters the server-side token and retains local retry state if cleanup fails. Registration is reconciled on app resume and immediately after permission is granted.
+- **Validation:** Exact-head TACResQ CI passed Android debug/release builds, source checks, clean PostgreSQL migration replay, and Laravel/dashboard integration. Security guardrails, Android and Web/Actions CodeQL, static UI/UX review, and RPC grant contract all passed. Manual code review found no reason to change the existing data-only payload or recipient-profile guard.
+- **Safety boundary:** No FCM priority increase, auto-rendered notification payload, live notification send, Supabase mutation, production Cron activation, or Render environment change was made. The in-app inbox remains authoritative.
+- **Remaining device gate:** Manually test permission grant, revoke from Android Settings while signed in, app resume/token cleanup, sign-in again after regrant, channel disabled, app-wide notifications disabled, account switching, and Doze on a physical Android device. CI builds do not prove these OS-level behaviors.
+- **Next implementation candidate:** After device validation, assess high-priority data-only FCM for urgent user-visible alerts. Preserve the client-side recipient-profile check; do not use system-rendered notifications unless account-isolation and permission behavior are redesigned and validated first.
+- **Production dispatch remains inactive:** PR #310's endpoint is deployed but fail-closed until the operator explicitly authorizes configuring Render/Vault secrets and enabling conditional Supabase Cron. No production configuration was applied.
+
 # Current handoff — 2026-11-16: FCM queue dispatch trigger
 
 - **Objective completed in code:** add a private, payload-free HMAC-authenticated endpoint at `POST /internal/fcm/dispatch` that invokes the existing FCM delivery-ledger dispatcher with a fixed batch size of three.
