@@ -8,6 +8,7 @@
 - **Free-tier design:** [FCM Supabase Cron trigger guide](docs/FCM_SUPABASE_CRON_TRIGGER.md) documents Supabase Vault + pg_cron + pg_net. Cron checks the delivery ledger every minute but contacts Render only when new, retry-due, or expired-lease work exists, so it does not keep the free Render service awake while idle.
 - **Production configuration intentionally NOT applied:** read-only verification found `pgcrypto` installed but `pg_cron` and `pg_net` absent. No Vault secrets, `FCM_DISPATCH_WEBHOOK_SECRET` Render variable, Cron job, live notification, or database migration was created/applied. The live due-delivery-pair query currently returns 0.
 - **Next gate:** after operator authorization and test-device readiness, add the same high-entropy HMAC secret to Render and Supabase Vault, enable pg_cron/pg_net, create the conditional job, then verify real FCM delivery with a dedicated test account/device. Keep the in-app inbox authoritative; FCM is best-effort only.
+- **Additional Android delivery limitation:** the sender currently uses data-only FCM messages with default normal priority; Firebase notes these may be delayed during Doze. Do not switch to auto-rendered notifications because the Android client validates the recipient profile before display. Review [FCM_SETUP.md](docs/FCM_SETUP.md) before changing priority; notification-permission/token reconciliation and real Doze/device testing are required first.
 
 ---
 
