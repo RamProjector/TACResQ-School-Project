@@ -447,7 +447,7 @@ Route::get('/route-preview/provider', function (Request $request, \App\SupabaseB
 
 // Authenticated route preview. The request goes only to the explicitly configured provider;
 // incident text, profile data, and upstream response details are never forwarded or logged.
-Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $bridge) {
+Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $bridge, \App\ApiOperationAuditLogger $auditLogger) {
     if (!config('tacru.route_preview_enabled', false)) {
         return response()->json(['message' => 'In-app routing is not enabled for this environment.'], 503);
     }
@@ -553,6 +553,7 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
 
         // Geoapify requires the API key in the query string. This fixed EU endpoint
         // receives the two route coordinates; never log the URL or exception details.
+        $providerStartedAt = hrtime(true);
         try {
             $upstream = \Illuminate\Support\Facades\Http::acceptJson()
                 ->connectTimeout(5)
@@ -568,8 +569,19 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
                     'apiKey' => $apiKey,
                 ]);
         } catch (\Throwable) {
+            $auditLogger->record('geoapify', 'route.preview', 'timeout', 502, (int) ((hrtime(true) - $providerStartedAt) / 1_000_000), null, 'upstream_unavailable');
             return response()->json(['message' => 'Geoapify routing is temporarily unavailable.'], 502);
         }
+
+        $auditLogger->record(
+            'geoapify',
+            'route.preview',
+            $upstream->successful() ? 'success' : ($upstream->status() === 429 ? 'rejected' : 'failure'),
+            $upstream->status(),
+            (int) ((hrtime(true) - $providerStartedAt) / 1_000_000),
+            null,
+            $upstream->successful() ? null : 'provider_http_'.$upstream->status(),
+        );
 
         if ($upstream->status() === 429) {
             return response()->json(['message' => 'Geoapify routing is busy or out of credits. Use external Maps instead.'], 503);
@@ -682,6 +694,7 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
         return response()->json(['message' => 'In-app routing is not configured.'], 503);
     }
 
+    $providerStartedAt = hrtime(true);
     try {
         // POST keeps precise coordinates out of the request URL. No bearer token,
         // incident ID, narrative, or personal information is sent to OSRM.
@@ -696,8 +709,18 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
                 'alternatives' => false,
             ]);
     } catch (\Throwable) {
+        $auditLogger->record('private_osrm', 'route.preview', 'timeout', 502, (int) ((hrtime(true) - $providerStartedAt) / 1_000_000), null, 'upstream_unavailable');
         return response()->json(['message' => 'Private route service is temporarily unavailable.'], 502);
     }
+    $auditLogger->record(
+        'private_osrm',
+        'route.preview',
+        $upstream->successful() ? 'success' : ($upstream->status() === 429 ? 'rejected' : 'failure'),
+        $upstream->status(),
+        (int) ((hrtime(true) - $providerStartedAt) / 1_000_000),
+        null,
+        $upstream->successful() ? null : 'provider_http_'.$upstream->status(),
+    );
     $body = $upstream->json();
     if (is_array($body) && in_array($body['code'] ?? null, ['NoRoute', 'NoSegment'], true)) {
         return response()->json(['message' => 'No route could be calculated. Confirm the destination with dispatch or use external Maps.'], 422);
