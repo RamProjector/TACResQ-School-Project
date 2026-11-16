@@ -21,6 +21,8 @@ return [
     'supabase_secret_key' => env('SUPABASE_SECRET_KEY', ''),
     'fcm_project_id' => env('FCM_PROJECT_ID', ''),
     'fcm_batch_limit' => (int) env('FCM_BATCH_LIMIT', 50),
+    // HMAC secret used only by the Supabase Cron -> Render FCM dispatch hook.
+    'fcm_dispatch_webhook_secret' => env('FCM_DISPATCH_WEBHOOK_SECRET', ''),
 
 
     // Explicit RPC allowlist for the additive Render -> Supabase bridge.
