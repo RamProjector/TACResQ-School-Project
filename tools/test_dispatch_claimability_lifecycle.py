@@ -18,6 +18,8 @@ required = (
     "SET is_claimable = p_claimable",
     "RETURNING * INTO v_incident",
     "CREATE TABLE IF NOT EXISTS public.incident_claimability_logs",
+    "incident_id bigint NOT NULL",
+    "actor_profile_id bigint NOT NULL",
     "ALTER TABLE public.incident_claimability_logs ENABLE ROW LEVEL SECURITY",
     "REVOKE ALL ON TABLE public.incident_claimability_logs FROM PUBLIC, anon, authenticated",
     "GRANT SELECT ON TABLE public.incident_claimability_logs TO service_role",
