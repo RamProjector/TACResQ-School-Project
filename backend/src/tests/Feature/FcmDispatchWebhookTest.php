@@ -10,13 +10,16 @@ use Tests\TestCase;
 
 final class FcmDispatchWebhookTest extends TestCase
 {
-    private const SECRET = 'synthetic-fcm-dispatch-hmac-secret-with-more-than-32-bytes';
+    private static function secret(): string
+    {
+        return str_repeat('x', 64);
+    }
 
     protected function setUp(): void
     {
         parent::setUp();
         Cache::flush();
-        config(['tacru.fcm_dispatch_webhook_secret' => self::SECRET]);
+        config(['tacru.fcm_dispatch_webhook_secret' => self::secret()]);
     }
 
     public function test_valid_signed_request_dispatches_only_a_fixed_small_batch(): void
