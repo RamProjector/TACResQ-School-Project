@@ -89,6 +89,7 @@ BEGIN
   IF p_latitude IS NOT NULL AND (
        incident_row.latitude IS DISTINCT FROM p_latitude
        OR incident_row.longitude IS DISTINCT FROM p_longitude
+       OR incident_row.accuracy_m IS DISTINCT FROM p_accuracy_m
        OR incident_row.location_source IS DISTINCT FROM p_location_source
        OR incident_row.location_recorded_at IS DISTINCT FROM p_location_recorded_at
      ) THEN
