@@ -50,10 +50,13 @@ EXPECTED = {
 }
 # Migrations in open, reviewable PRs are optional until merged. Keep this
 # allowlist broad enough that independent pending PRs can merge in either order.
+# Migrations in open, reviewable PRs are optional until merged. Keep this
+# allowlist broad enough that independent pending PRs can merge in either order.
 PENDING = {
     "20261116042927_responder_incident_claiming.sql",
     "20261116150000_pin_api_units_search_path.sql",
     "20261116153000_optimize_rls_policy_initplans.sql",
+    "20261116170000_api_operation_audit_and_fk_indexes.sql",
     "20261116180000_harden_field_claim_exclusivity.sql",
     "20261116190000_validate_requester_location_edits.sql",
     "20261116200000_harden_dispatch_claimability_lifecycle.sql",
