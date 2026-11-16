@@ -23,7 +23,7 @@ It adds:
 - changed location metadata must carry a timestamp;
 - changed-pin timestamp may be at most five minutes in the future and fifteen minutes old.
 
-A text-only edit may retain unchanged existing location metadata, including its original capture time. This avoids forcing the requester to obtain another GPS fix merely to correct the incident description. Any changed coordinate, source, or capture timestamp must satisfy freshness validation.
+A text-only edit may retain unchanged existing location metadata, including its original capture time. This avoids forcing the requester to obtain another GPS fix merely to correct the incident description. Any changed coordinate, accuracy value, source, or capture timestamp must satisfy freshness validation.
 
 ## Validation and limitations
 
