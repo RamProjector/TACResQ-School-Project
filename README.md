@@ -6,7 +6,7 @@ The repository contains a Kotlin/Jetpack Compose Android application with a Grad
 
 See [canonical product scope](docs/PRODUCT_SCOPE.md) for intended roles, safety boundaries, and verified-versus-planned functionality.
 
-See [canonical product scope](docs/PRODUCT_SCOPE.md) for the intended roles, safety boundaries, and verified-versus-planned functionality.
+See [TACResQ project memory](docs/project-memory/README.md) for durable decisions, 2020–2029 research evidence, implementation status, and handoff notes.
 
 > **Safety boundary:** TACResQ is an educational and engineering project, not an emergency-services provider. Do not use it as a substitute for local emergency services or real emergency dispatch.
 

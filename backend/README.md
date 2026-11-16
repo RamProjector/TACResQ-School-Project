@@ -1,5 +1,7 @@
 # TACResQ dispatcher host (Render)
 
+For durable project decisions, current implementation status, and research references, see [`docs/project-memory/`](../docs/project-memory/README.md).
+
 Laravel 13 hosts the TACRU dispatcher console on Render. Supabase is the source of truth for authentication, data, and RPC operations; the temporary Render PostgreSQL database is not required.
 
 ## Deploy on Render
@@ -12,7 +14,9 @@ Laravel 13 hosts the TACRU dispatcher console on Render. Supabase is the source 
    - `APP_DEBUG=false`
    - `LOG_CHANNEL=stderr`
    - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: the browser-safe settings for the TACRU dashboard at `/dispatch/`. Never use a service-role key.
-   - Optional `OSRM_BASE_URL`: the internal URL of a separately hosted private OSRM service (for example, `http://tacresq-osrm:5000`). Do not set this to a public routing API. Route preview stays unavailable if the variable is blank or points to a public host. See [`routing/README.md`](routing/README.md) for the optional service; provisioning requires separate authorization and is not part of this deployment.
+   - `ROUTE_PREVIEW_ENABLED=false`: backend kill switch; leave disabled unless provider configuration, privacy review, synthetic tests, and device validation are complete.
+   - `ROUTE_PROVIDER=geoapify`: current source default when routing is enabled. Add `GEOAPIFY_API_KEY` as a backend-only secret; never expose it to Android, the browser dashboard, or source control. Geoapify receives responder-origin and assigned-incident destination coordinates.
+   - Optional `OSRM_BASE_URL`: only when `ROUTE_PROVIDER=osrm` is explicitly selected. Use a private internal OSRM hostname such as `http://tacresq-osrm:5000`; never point it at a public routing API. See [`routing/README.md`](routing/README.md) for the optional self-hosted service. Provisioning requires separate authorization and may require paid infrastructure.
 4. Deploy. The container clears Laravel's config cache and serves HTTP on Render's assigned `$PORT`; it does not connect to or migrate a Render database.
 5. Check `https://<your-service>.onrender.com/up`; expected response is `200`.
 6. Open `https://<your-service>.onrender.com/dispatch/` for the TACRU dashboard. Its `/runtime-config.json` endpoint returns only the configured Supabase URL and publishable key, with caching disabled. `/dispatch/config.json` remains an alias.
@@ -20,7 +24,7 @@ Laravel 13 hosts the TACRU dispatcher console on Render. Supabase is the source 
 
 Render free instances may spin down when idle; first request after inactivity can take a while. Supabase remains independent of Render instance lifecycle.
 
-The mobile route-preview proxy validates the caller's Supabase session and responder/driver assignment using `api_me` and `api_my_incidents`, then derives the destination from the authorized incident. It posts only the current origin and trusted destination coordinates to a private OSRM service; the body excludes the bearer token, incident ID, narrative, and profile data. Coordinates are not placed in the OSRM URL, and the optional router container disables access logging. With `OSRM_BASE_URL` unset, route previews return an unavailable response; Android routing is also disabled by default and requires an explicit build flag. External Maps remains a user-invoked fallback. No live Render environment variable, private service, graph volume, or deployment was changed.
+The mobile route-preview proxy validates the caller's Supabase session and responder/driver assignment using `api_me` and `api_my_incidents`, then derives the destination from the authorized incident. Provider selection is server-side: Geoapify is the configuration default and receives the origin/destination waypoints plus the backend-only API key; private OSRM is an explicit alternative selected with `ROUTE_PROVIDER=osrm` and a private `OSRM_BASE_URL`. For OSRM, coordinates are sent in a POST JSON body rather than its URL, and the optional router container disables access logging. The proxy does not forward the bearer token, incident ID, narrative, or profile data. No automatic provider failover occurs because it would disclose location coordinates to another provider. Backend `ROUTE_PREVIEW_ENABLED` and Android route preview both default to disabled; Android also requires an explicit build flag. External Maps remains a user-invoked fallback. A preview is static driving guidance, not turn-by-turn navigation or proof of road passability, closures, flooding, emergency-vehicle access, or current traffic. No live Render environment variable, provider secret, private service, graph volume, or deployment was changed.
 
 ## Seed demo users (optional; demo password is not production-safe)
 
