@@ -653,3 +653,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - PR #317 now has a true two-session PostgreSQL 16 race test for one responder claiming two incidents. Latest-head clean migration replay passed and emitted both expected PASS assertions (one `claimed`, one `UNIT_BUSY`, final one assignment/one assigned incident).
 - PR #319 now has a true two-session race between dispatcher claimability enable and requester cancellation. Latest-head migration replay is still running; verify the final log before marking it passed.
 - Both tests run only against disposable CI PostgreSQL using synthetic accounts. No live Supabase changes.
+
+
+## Latest exact-head validation — 2026-11-17
+
+- PR #317: `84a95488872d4808a837bd7d03646b1290de8ab2`. TACResQ CI passed, including clean PostgreSQL migration replay and the cross-incident two-session race; RPC grant contract and Frontend Review passed. Security/CodeQL was still in progress at last poll.
+- PR #319: `b21f8cd7d9697b7c358a25e09e342d3470950248`. Clean PostgreSQL migration replay passed, including the two-session dispatcher-toggle/requester-cancellation race; RPC grant contract and Frontend Review passed. TACResQ CI and Security were still in progress at last poll.
+- Both PRs remain open/unmerged. No live Supabase migrations were applied.
