@@ -30,50 +30,50 @@ BEGIN
       FROM public.profiles p
       WHERE p.auth_user_id = auth.uid();
 
-    IF NEW.role IS DISTINCT FROM OLD.role
-       AND actor_role IS DISTINCT FROM 'admin' THEN
-      RAISE EXCEPTION 'Only an administrator can change account roles'
-        USING ERRCODE = '42501';
-    END IF;
-
-    IF NEW.role IS DISTINCT FROM OLD.role
-       AND (OLD.role = 'admin' OR NEW.role = 'admin') THEN
-      RAISE EXCEPTION 'Administrator promotion and demotion require trusted operator provisioning'
-        USING ERRCODE = '42501';
-    END IF;
-
-    IF NEW.role IN ('responder', 'driver') AND NEW.duty_status IS NULL THEN
-      RAISE EXCEPTION 'Field-unit accounts require an explicit duty status'
-        USING ERRCODE = '22023';
-    ELSIF NEW.role IN ('requester', 'dispatcher', 'admin') AND NEW.duty_status IS NOT NULL THEN
-      RAISE EXCEPTION 'This role cannot have a field-unit duty status'
-        USING ERRCODE = '22023';
-    END IF;
-
-    IF NEW.duty_status IS DISTINCT FROM OLD.duty_status
-       AND NEW.role IN ('responder', 'driver')
-       AND NEW.duty_status NOT IN ('available', 'off_duty') THEN
-      RAISE EXCEPTION 'Invalid user-set duty status'
-        USING ERRCODE = '22023';
-    END IF;
-
-    IF (
-      EXISTS (
-        SELECT 1 FROM public.incidents
-        WHERE assigned_to = OLD.id
-          AND status IN ('assigned', 'en_route', 'on_scene', 'transporting')
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM public.incident_assignments ia
-        JOIN public.incidents i ON i.id = ia.incident_id
-        WHERE ia.user_id = OLD.id
-          AND i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')
-      )
-    ) AND (NEW.role IS DISTINCT FROM OLD.role OR NEW.duty_status IS DISTINCT FROM OLD.duty_status) THEN
-      RAISE EXCEPTION 'Finish the active incident before changing a field unit role or duty status'
-        USING ERRCODE = '22023';
-    END IF;
+      IF NEW.role IS DISTINCT FROM OLD.role
+         AND actor_role IS DISTINCT FROM 'admin' THEN
+        RAISE EXCEPTION 'Only an administrator can change account roles'
+          USING ERRCODE = '42501';
+      END IF;
+  
+      IF NEW.role IS DISTINCT FROM OLD.role
+         AND (OLD.role = 'admin' OR NEW.role = 'admin') THEN
+        RAISE EXCEPTION 'Administrator promotion and demotion require trusted operator provisioning'
+          USING ERRCODE = '42501';
+      END IF;
+  
+      IF NEW.role IN ('responder', 'driver') AND NEW.duty_status IS NULL THEN
+        RAISE EXCEPTION 'Field-unit accounts require an explicit duty status'
+          USING ERRCODE = '22023';
+      ELSIF NEW.role IN ('requester', 'dispatcher', 'admin') AND NEW.duty_status IS NOT NULL THEN
+        RAISE EXCEPTION 'This role cannot have a field-unit duty status'
+          USING ERRCODE = '22023';
+      END IF;
+  
+      IF NEW.duty_status IS DISTINCT FROM OLD.duty_status
+         AND NEW.role IN ('responder', 'driver')
+         AND NEW.duty_status NOT IN ('available', 'off_duty') THEN
+        RAISE EXCEPTION 'Invalid user-set duty status'
+          USING ERRCODE = '22023';
+      END IF;
+  
+      IF (
+        EXISTS (
+          SELECT 1 FROM public.incidents
+          WHERE assigned_to = OLD.id
+            AND status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM public.incident_assignments ia
+          JOIN public.incidents i ON i.id = ia.incident_id
+          WHERE ia.user_id = OLD.id
+            AND i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+        )
+      ) AND (NEW.role IS DISTINCT FROM OLD.role OR NEW.duty_status IS DISTINCT FROM OLD.duty_status) THEN
+        RAISE EXCEPTION 'Finish the active incident before changing a field unit role or duty status'
+          USING ERRCODE = '22023';
+      END IF;
     END IF;
   END IF;
 
