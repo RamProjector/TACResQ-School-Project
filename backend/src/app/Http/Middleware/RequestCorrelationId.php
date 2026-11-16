@@ -15,6 +15,9 @@ final class RequestCorrelationId
         $correlationId = Str::isUuid($provided) ? $provided : (string) Str::uuid();
         $request->attributes->set('correlation_id', $correlationId);
 
-        $response = $next($request);\n        $response->headers->set('X-Request-ID', $correlationId);\n\n        return $response;
+        $response = $next($request);
+        $response->headers->set('X-Request-ID', $correlationId);
+
+        return $response;
     }
 }
