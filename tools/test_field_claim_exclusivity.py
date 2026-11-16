@@ -30,6 +30,7 @@ assert "active_i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')"
 assert "i.status IN ('pending', 'assigned')" in claimable
 assert "own_assignment.user_id = v_actor_id" in claimable
 assert "i.assigned_to IS DISTINCT FROM v_actor_id" in claimable
+assert "legacy_lead.user_id = i.assigned_to" in claimable
 assert "GRANT EXECUTE ON FUNCTION public.api_claim_incident(bigint) TO authenticated" in sql
 assert "GRANT EXECUTE ON FUNCTION public.api_claimable_incidents() TO authenticated" in sql
 assert "REVOKE ALL ON FUNCTION public.api_claim_incident(bigint) FROM PUBLIC, anon" in sql
