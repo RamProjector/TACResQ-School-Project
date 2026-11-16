@@ -47,7 +47,7 @@ The current incident location-source values describe broad capture mode (such as
 
 The connected Supabase project was inspected read-only during the project review:
 
-- The live migration ledger matched checked-in migrations through `20261116042927_responder_incident_claiming` at the time of inspection.
+- The live migration ledger matched checked-in migrations through `20261116042927_responder_incident_claiming` at the time of inspection. PR #313 subsequently merged a forward-only migration that pins `public.api_units()` to `pg_catalog`; that new migration was not applied to the live project as part of this work.
 - The private incident-chat image bucket was configured with a 5 MiB limit and JPEG/PNG/WebP allowlist.
 - `pg_cron` and `pg_net` were absent; Vault was present among the queried dispatch extensions. No production Cron job was active.
 - Security advisor findings included disabled leaked-password protection and function search-path hardening opportunities. See the specific PR/review notes; do not treat advisor counts as proof of exploitable vulnerabilities.
