@@ -573,3 +573,6 @@ jobs:
 
       - name: Replay every migration on a clean database
         run: bash tools/test_supabase_migration_replay.sh
+
+      - name: Validate concurrent field claims on independent PostgreSQL sessions
+        run: bash tools/test_field_claim_concurrency.sh
