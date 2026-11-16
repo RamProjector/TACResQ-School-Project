@@ -71,8 +71,8 @@ Route::post('/internal/fcm/dispatch', function (Request $request, FcmNotificatio
     }
 
     try {
-        // Five token deliveries cap worst-case serial provider waits to ~50 seconds.
-        $stats = $dispatcher->dispatch(5);
+        // Three token deliveries cap worst-case serial provider waits to ~30 seconds.
+        $stats = $dispatcher->dispatch(3);
         $status = ($stats['failed'] ?? 0) > 0 ? 503 : 200;
         return $json(['ok' => $status === 200, 'counts' => $stats], $status);
     } catch (\Throwable) {
