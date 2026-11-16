@@ -86,6 +86,15 @@ BEGIN
 
   v_previous_claimable := v_incident.is_claimable;
 
+  -- A no-op request should not touch updated_at or create audit noise.
+  IF v_previous_claimable IS NOT DISTINCT FROM p_claimable THEN
+    RETURN jsonb_build_object(
+      'id', v_incident.id,
+      'status', v_incident.status,
+      'is_claimable', v_incident.is_claimable
+    );
+  END IF;
+
   UPDATE public.incidents
   SET is_claimable = p_claimable,
       updated_at = clock_timestamp()
