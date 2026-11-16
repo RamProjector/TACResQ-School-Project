@@ -51,7 +51,7 @@ profile_lock = sql.index("FROM public.profiles\n  WHERE auth_user_id = v_auth_ui
 assert sql.index("SELECT role INTO v_actor_role") < incident_lock < profile_lock, "Precheck must precede incident lock; locked profile must follow incident lock"
 assert sql.index("FOR UPDATE;", incident_lock) < profile_lock
 assert sql.index("FOR UPDATE;", profile_lock) < sql.index("v_actor.role IS DISTINCT")
-assert sql.index("p_claimable IS TRUE AND v_incident.status NOT IN") < sql.index("UPDATE public.incidents")
+rpc_start = sql.index("CREATE OR REPLACE FUNCTION public.api_set_incident_claimable(")\nclaimable_guard = sql.index("p_claimable IS TRUE AND v_incident.status NOT IN", rpc_start)\nrpc_update = sql.index("UPDATE public.incidents", rpc_start)\nassert claimable_guard < rpc_update, "Lifecycle allowlist must be checked before the RPC updates the incident"
 
 print("PASS: claimability toggle locks and rechecks incident lifecycle before update.")
 print("PASS: dispatcher role is re-read under profile lock in incident->profile lock order.")
