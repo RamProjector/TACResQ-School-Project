@@ -47,14 +47,14 @@ EXPECTED = {
     "20261112215815_allow_requester_pending_cancellation.sql",
     "20261114153546_fcm_delivery_queue_hardening.sql",
     "20261114153550_fcm_token_account_switch.sql",
+    "20261116042927_responder_incident_claiming.sql",
 }
 # Migrations in open, reviewable PRs are optional until merged. Keep this
 # allowlist broad enough that merging independent pending PRs in either order
 # does not make another PR's migration-history contract fail.
-# Migrations in open, reviewable PRs are optional until merged. Keep this
-# allowlist broad enough that independent pending PRs can merge in either order.
+# Migrations not yet confirmed in the live Supabase migration ledger are
+# allowlisted so independent PRs/deployment batches can proceed in either order.
 PENDING = {
-    "20261116042927_responder_incident_claiming.sql",
     "20261116150000_pin_api_units_search_path.sql",
     "20261116153000_optimize_rls_policy_initplans.sql",
     "20261116170000_api_operation_audit_and_fk_indexes.sql",
