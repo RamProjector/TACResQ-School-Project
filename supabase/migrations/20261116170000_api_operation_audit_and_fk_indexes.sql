@@ -5,7 +5,8 @@ BEGIN;
 -- notification content, or incident narratives.
 CREATE TABLE public.api_operation_logs (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  correlation_id uuid NOT NULL,\n  actor_auth_user_id uuid,
+  correlation_id uuid NOT NULL,
+  actor_auth_user_id uuid,
   provider text NOT NULL CHECK (provider IN ('supabase', 'geoapify', 'private_osrm', 'fcm')),
   operation text NOT NULL CHECK (length(operation) BETWEEN 1 AND 100),
   source text NOT NULL CHECK (source IN ('render_api', 'render_worker')),
