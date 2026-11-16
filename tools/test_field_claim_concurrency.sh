@@ -19,7 +19,8 @@ psql -q -v ON_ERROR_STOP=1 -At <<'SQL' > "$tmp_dir/ids"
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES
   ('00000000-0000-4000-8000-000000000901', 'claim-race-requester@example.test', '{"name":"Claim Race Requester","phone":"+63917000901"}'),
-  ('00000000-0000-4000-8000-000000000902', 'claim-race-responder@example.test', '{"name":"Claim Race Responder","phone":"+63917000902"}');
+  ('00000000-0000-4000-8000-000000000902', 'claim-race-responder@example.test', '{"name":"Claim Race Responder","phone":"+63917000902"}'),
+  ('00000000-0000-4000-8000-000000000903', 'claim-race-requester-b@example.test', '{"name":"Claim Race Requester B","phone":"+63917000903"}');
 
 UPDATE public.profiles
 SET role = 'responder', duty_status = 'available'
@@ -41,7 +42,7 @@ INSERT INTO public.incidents (
 SELECT p.id, 'medical', 'Disposable concurrent field-claim race B',
        11.2444, 125.0031, now(), 'manual', true
 FROM public.profiles p
-WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000901';
+WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000903';
 
 SELECT id
 FROM public.incidents
