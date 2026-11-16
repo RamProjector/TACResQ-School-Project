@@ -49,10 +49,7 @@ EXPECTED = {
     "20261114153550_fcm_token_account_switch.sql",
     "20261116042927_responder_incident_claiming.sql",
 }
-# Migrations in open, reviewable PRs are optional until merged. Keep this
-# allowlist broad enough that merging independent pending PRs in either order
-# does not make another PR's migration-history contract fail.
-# Migrations not yet confirmed in the live Supabase migration ledger are
+# Repository migrations not yet confirmed in the live Supabase ledger are
 # allowlisted so independent PRs/deployment batches can proceed in either order.
 PENDING = {
     "20261116150000_pin_api_units_search_path.sql",
@@ -168,7 +165,7 @@ for required in (
     assert required in attachments, f"Missing private incident-image attachment contract: {required}"
 print("PASS: incident chat image attachments use private Storage policies and server-verified object metadata.")
 
-print(f"PASS: {len(EXPECTED)} applied migration files match history; {len(actual - EXPECTED)} open-PR migration file(s) are explicitly allowlisted and not assumed deployed.")
+print(f"PASS: {len(EXPECTED)} applied migration files match history; {len(actual - EXPECTED)} additional migration file(s) are allowlisted and not assumed applied to live Supabase.")
 hardening = (MIGRATIONS / "20261023082526_harden_dispatch_team_assignment.sql").read_text()
 for required in (
     "ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private",
