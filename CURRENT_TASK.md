@@ -1,3 +1,16 @@
+# Current handoff — 2026-11-16: FCM queue dispatch trigger
+
+- **Objective completed in code:** add a private, payload-free HMAC-authenticated endpoint at `POST /internal/fcm/dispatch` that invokes the existing FCM delivery-ledger dispatcher with a fixed batch size of three.
+- **PR #310:** [Add signed Supabase Cron FCM dispatch trigger](https://github.com/RamProjector/TACResQ-School-Project/pull/310) — merged by squash at `c13dfbb3c3798a84aacdbc732a20aa6985212647`.
+- **Render deployment:** `dep-dbt8pl49v7es73cnk1o0` is live on commit `c13dfbb3c3798a84aacdbc732a20aa6985212647`. Render build and deployment both succeeded.
+- **Security:** the endpoint requires HMAC-SHA256 over a five-minute timestamp, UUID request ID, and exact empty JSON body; rejects caller-supplied query/body parameters and replays; uses a five-per-minute throttle and a single-instance file-cache lock; never accepts notification IDs, recipients, tokens, or message content.
+- **Validation:** exact-head TACResQ CI passed, including Laravel feature tests, dashboard integration, Android debug/release builds and lint, source checks, and clean PostgreSQL migration replay. Security workflow (CodeQL Web/Actions and Android, repository guardrails), RPC grant contract, Render smoke, frontend review, and deterministic automated code review all passed. Automated review reported 0 findings. CodeRabbit did not complete a substantive incremental review.
+- **Free-tier design:** [FCM Supabase Cron trigger guide](docs/FCM_SUPABASE_CRON_TRIGGER.md) documents Supabase Vault + pg_cron + pg_net. Cron checks the delivery ledger every minute but contacts Render only when new, retry-due, or expired-lease work exists, so it does not keep the free Render service awake while idle.
+- **Production configuration intentionally NOT applied:** read-only verification found `pgcrypto` installed but `pg_cron` and `pg_net` absent. No Vault secrets, `FCM_DISPATCH_WEBHOOK_SECRET` Render variable, Cron job, live notification, or database migration was created/applied. The live due-delivery-pair query currently returns 0.
+- **Next gate:** after operator authorization and test-device readiness, add the same high-entropy HMAC secret to Render and Supabase Vault, enable pg_cron/pg_net, create the conditional job, then verify real FCM delivery with a dedicated test account/device. Keep the in-app inbox authoritative; FCM is best-effort only.
+
+---
+
 # Current handoff — 2026-11-15: responder incident claiming & security settings completion
 
 - **Objective:** Complete the responder incident claiming workflow, password recovery, theme switcher, privacy notice (RA 10173), step-up security toggle, and emergency help guide across the TACResQ app.
