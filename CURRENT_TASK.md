@@ -1,3 +1,11 @@
+## Cluster point hit-target and overlap disambiguation — 2026-11-17
+
+- Individual clustered-source points now use a 48dp screen-space query area instead of requiring taps to land inside the small painted circle.
+- When multiple incident points or responder points occupy that touch area, the map presents the existing nearest-first location chooser rather than silently selecting whichever feature is returned first.
+- Chooser targets are revalidated against the latest visible incidents and valid responder reports. Stale responder locations retain their last-known warning.
+- Incident and responder point queries remain separate so a mixed set cannot be mistaken for a single type of cluster.
+- No build, tests, emulator, device validation, or performance profiling run.
+
 ## Cluster source invalidation correction — 2026-11-17
 
 - Added both GeoJSON source references to the annotation/source update effect keys. This ensures the first render and a style reload publish current features after the asynchronous style callback creates the sources; previously a source becoming available alone would not retrigger that effect.

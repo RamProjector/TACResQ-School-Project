@@ -1826,41 +1826,80 @@ fun GpsMapScreen(
             if (expandOrChooseCluster(responderClusterSource, RESPONDER_CLUSTER_LAYER_ID, false)) {
                 return@OnMapClickListener true
             }
-            val incidentFeature = map.queryRenderedFeatures(pixel, arrayOf(INCIDENT_POINT_LAYER_ID)).firstOrNull()
-            if (incidentFeature != null) {
-                val id = incidentFeature.getStringProperty("incident_id")?.toLongOrNull()
-                    ?: return@OnMapClickListener true
-                val incident = latestVisibleIncidents.firstOrNull { it.id == id }
-                    ?: return@OnMapClickListener true
-                val lat = incident.latitude ?: return@OnMapClickListener true
-                val lng = incident.longitude ?: return@OnMapClickListener true
-                latestSelectMarkerTarget(GpsMapMarkerTarget(
-                    type = GpsMapMarkerType.INCIDENT,
-                    position = LatLng(lat, lng),
-                    title = "Incident #${incident.id} · ${incident.type.label}",
-                    summary = "Status: ${incident.status.label} · ${incident.locationAgeStatus().first}",
-                    incidentId = incident.id))
+            // Query a 48dp screen-space target, not only the tiny painted circle.
+            // When multiple points occupy that target, present a nearest-first chooser.
+            val density = mapView.resources.displayMetrics.density
+            val radius = 24f * density
+            val hitArea = RectF(pixel.x - radius, pixel.y - radius, pixel.x + radius, pixel.y + radius)
+            val incidentTargets = map.queryRenderedFeatures(hitArea, arrayOf(INCIDENT_POINT_LAYER_ID))
+                .mapNotNull { feature ->
+                    val id = feature.getStringProperty("incident_id")?.toLongOrNull() ?: return@mapNotNull null
+                    val incident = latestVisibleIncidents.firstOrNull { it.id == id } ?: return@mapNotNull null
+                    val lat = incident.latitude ?: return@mapNotNull null
+                    val lng = incident.longitude ?: return@mapNotNull null
+                    GpsMapMarkerTarget(
+                        type = GpsMapMarkerType.INCIDENT,
+                        position = LatLng(lat, lng),
+                        title = "Incident #${incident.id} · ${incident.type.label}",
+                        summary = "Status: ${incident.status.label} · ${incident.locationAgeStatus().first}",
+                        incidentId = incident.id,
+                    )
+                }
+                .distinctBy { it.incidentId }
+                .sortedBy { target ->
+                    val screen = map.projection.toScreenLocation(target.position)
+                    hypot((screen.x - pixel.x).toDouble(), (screen.y - pixel.y).toDouble())
+                }
+            if (incidentTargets.isNotEmpty()) {
+                if (incidentTargets.size > 1) {
+                    selectedMarkerChoices = incidentTargets
+                    routeSelectionGeneration += 1
+                    selectedIncidentId = null
+                    selectedResponderKey = null
+                    locationStatus = "${incidentTargets.size} incident locations are close together. Choose the correct one."
+                    scope.launch { mapSheetState.bottomSheetState.expand() }
+                } else latestSelectMarkerTarget(incidentTargets.first())
                 return@OnMapClickListener true
             }
-            val unitFeature = map.queryRenderedFeatures(pixel,
-                arrayOf(RESPONDER_POINT_LAYER_ID, RESPONDER_STALE_POINT_LAYER_ID)).firstOrNull()
-            if (unitFeature != null) {
-                val incidentId = unitFeature.getStringProperty("incident_id")?.toLongOrNull()
-                val userId = unitFeature.getStringProperty("user_id")?.toLongOrNull()
-                val unit = latestValidResponderLocations.firstOrNull {
-                    it.incidentId == incidentId && it.userId == userId
-                } ?: return@OnMapClickListener true
-                val age = unit.mapAgeSeconds() ?: return@OnMapClickListener true
-                val freshness = unit.mapFreshness() ?: return@OnMapClickListener true
-                latestSelectMarkerTarget(GpsMapMarkerTarget(
-                    type = GpsMapMarkerType.FIELD_UNIT,
-                    position = LatLng(unit.latitude, unit.longitude),
-                    title = "Responder #${unit.userId} · Incident #${unit.incidentId}",
-                    summary = if (freshness == MapLocationFreshness.STALE) {
-                        "Last known location · ${formatLocationAge(age)} ago · not live"
-                    } else "${freshness.label} · last reported ${formatLocationAge(age)} ago",
-                    incidentId = unit.incidentId, userId = unit.userId,
-                    stale = freshness == MapLocationFreshness.STALE))
+
+            val responderTargets = map.queryRenderedFeatures(
+                hitArea, arrayOf(RESPONDER_POINT_LAYER_ID, RESPONDER_STALE_POINT_LAYER_ID))
+                .mapNotNull { feature ->
+                    val incidentId = feature.getStringProperty("incident_id")?.toLongOrNull()
+                        ?: return@mapNotNull null
+                    val userId = feature.getStringProperty("user_id")?.toLongOrNull()
+                        ?: return@mapNotNull null
+                    val unit = latestValidResponderLocations.firstOrNull {
+                        it.incidentId == incidentId && it.userId == userId
+                    } ?: return@mapNotNull null
+                    val age = unit.mapAgeSeconds() ?: return@mapNotNull null
+                    val freshness = unit.mapFreshness() ?: return@mapNotNull null
+                    GpsMapMarkerTarget(
+                        type = GpsMapMarkerType.FIELD_UNIT,
+                        position = LatLng(unit.latitude, unit.longitude),
+                        title = "Responder #${unit.userId} · Incident #${unit.incidentId}",
+                        summary = if (freshness == MapLocationFreshness.STALE) {
+                            "Last known location · ${formatLocationAge(age)} ago · not live"
+                        } else "${freshness.label} · last reported ${formatLocationAge(age)} ago",
+                        incidentId = unit.incidentId,
+                        userId = unit.userId,
+                        stale = freshness == MapLocationFreshness.STALE,
+                    )
+                }
+                .distinctBy { it.responderKey }
+                .sortedBy { target ->
+                    val screen = map.projection.toScreenLocation(target.position)
+                    hypot((screen.x - pixel.x).toDouble(), (screen.y - pixel.y).toDouble())
+                }
+            if (responderTargets.isNotEmpty()) {
+                if (responderTargets.size > 1) {
+                    selectedMarkerChoices = responderTargets
+                    routeSelectionGeneration += 1
+                    selectedIncidentId = null
+                    selectedResponderKey = null
+                    locationStatus = "${responderTargets.size} field-unit locations are close together. Choose the correct one."
+                    scope.launch { mapSheetState.bottomSheetState.expand() }
+                } else latestSelectMarkerTarget(responderTargets.first())
                 return@OnMapClickListener true
             }
             false

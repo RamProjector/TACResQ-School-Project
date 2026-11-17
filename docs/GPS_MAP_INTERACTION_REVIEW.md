@@ -178,3 +178,13 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Explicit map retry now clears old source references and recreates both cluster sources/layers on the replacement style, matching initial style setup.
 - This is an important lifecycle correction for the new clustering path. No tests/build/device checks run.
 
+
+
+## Cluster point hit-target and overlap disambiguation — 2026-11-17
+
+- Individual clustered-source points now use a 48dp screen-space query area instead of requiring taps to land inside the small painted circle.
+- When multiple incident points or responder points occupy that touch area, the map presents the existing nearest-first location chooser rather than silently selecting whichever feature is returned first.
+- Chooser targets are revalidated against the latest visible incidents and valid responder reports. Stale responder locations retain their last-known warning.
+- Incident and responder point queries remain separate so a mixed set cannot be mistaken for a single type of cluster.
+- No build, tests, emulator, device validation, or performance profiling run.
+
