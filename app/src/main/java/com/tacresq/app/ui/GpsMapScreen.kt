@@ -75,6 +75,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -155,16 +156,14 @@ private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255, scale: Fl
     return IconFactory.getInstance(this).fromBitmap(bitmap)
 }
 
-private fun positionMapCompass(map: MapLibreMap, mapView: MapView, density: Float) {
-    // Keep MapLibre's native compass below the two-row Compose map header,
-    // including the status-bar inset and contextual filter chips.
-    val minimumTop = (180f * density).roundToInt()
-    val maximumTop = (224f * density).roundToInt()
-    val responsiveTop = (mapView.height * 0.24f).roundToInt()
-        .coerceIn(minimumTop, maximumTop)
+private fun positionMapCompass(map: MapLibreMap, headerBottomPx: Int, density: Float) {
+    // The MapView is underneath the Compose header. Position the native compass
+    // from the header's measured bottom edge rather than a guessed screen offset.
+    val topMargin = (headerBottomPx + (12f * density).roundToInt())
+        .coerceAtLeast((72f * density).roundToInt())
     map.uiSettings.setCompassEnabled(true)
     map.uiSettings.setCompassGravity(Gravity.TOP or Gravity.RIGHT)
-    map.uiSettings.setCompassMargins(0, responsiveTop, (12f * density).roundToInt(), 0)
+    map.uiSettings.setCompassMargins(0, topMargin, (12f * density).roundToInt(), 0)
 }
 
 private fun ConnectivityManager.hasValidatedInternet(): Boolean {
@@ -247,7 +246,7 @@ private fun ResponderLocation.mapFreshness(now: Instant = Instant.now()): MapLoc
 }
 
 private fun formatLocationAge(ageSeconds: Long): String = when {
-    ageSeconds < 60L -> "${ageSeconds}s ago"
+    ageSeconds < 60L -> "under 1m ago"
     ageSeconds < 3600L -> "${ageSeconds / 60L}m ago"
     else -> "${ageSeconds / 3600L}h ago"
 }
@@ -375,6 +374,7 @@ fun GpsMapScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val mapDensity = context.resources.displayMetrics.density
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val trackingStatusFlow = remember(trackingController) {
@@ -483,6 +483,21 @@ fun GpsMapScreen(
     val freshResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.FRESH }
     val agingResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.AGING }
     val staleResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.STALE }
+    // Annotation text only changes when its meaningful age bucket or freshness state
+    // changes. The 15-second UI clock can still refresh sheet counts without forcing
+    // every MapLibre marker and route line to be cleared and recreated.
+    val mapAnnotationTimeKey = buildString {
+        visibleIncidents.forEach { incident ->
+            append("incident:").append(incident.id).append(':')
+            append(incident.locationAgeStatus(mapNow).first).append('|')
+        }
+        validResponderLocations.forEach { location ->
+            val ageSeconds = location.mapAgeSeconds(mapNow) ?: -1L
+            append("unit:").append(location.userId).append(':').append(location.incidentId).append(':')
+            append(location.mapFreshness(mapNow)?.name ?: "UNKNOWN").append(':')
+            append(formatLocationAge(ageSeconds)).append('|')
+        }
+    }
     val hasConfirmedIncidentCoordinates = visibleIncidents.any { it.hasValidMapCoordinates() }
     val validResponderPoints = validResponderLocations.map { LatLng(it.latitude, it.longitude) }
     // Keep stale last-known positions visible, but never let them dominate the initial
@@ -609,6 +624,7 @@ fun GpsMapScreen(
     var mapStyleLoaded by remember(context, role) { mutableStateOf(false) }
     var mapDataLoaded by remember(context, role) { mutableStateOf(false) }
     var mapLoadError by remember(context, role) { mutableStateOf(false) }
+    var mapHeaderBottomPx by remember { mutableStateOf(0) }
     val mapView = remember(context, role) {
         MapLibre.getInstance(context)
         MapView(context).apply {
@@ -646,7 +662,11 @@ fun GpsMapScreen(
             }
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
                 mapStyleLoaded = true
-                positionMapCompass(map, mapView, context.resources.displayMetrics.density)
+                positionMapCompass(
+                    map,
+                    mapHeaderBottomPx.takeIf { it > 0 } ?: (180f * mapDensity).roundToInt(),
+                    mapDensity,
+                )
                 map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
                     .target(LatLng(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
                     .zoom(12.0)
@@ -811,7 +831,11 @@ fun GpsMapScreen(
         locationStatus = "Retrying map data…"
         map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
             mapStyleLoaded = true
-            positionMapCompass(map, mapView, context.resources.displayMetrics.density)
+            positionMapCompass(
+                map,
+                mapHeaderBottomPx.takeIf { it > 0 } ?: (180f * mapDensity).roundToInt(),
+                mapDensity,
+            )
         }
     }
 
@@ -1239,7 +1263,7 @@ fun GpsMapScreen(
         trackingStatus.incidentId,
         trackingStatus.navigationActive,
         selectedIncidentId,
-        freshnessTick,
+        mapAnnotationTimeKey,
     ) {
         val map = mapLibreMap
         if (map == null || !mapStyleLoaded) return@LaunchedEffect
@@ -1788,7 +1812,13 @@ fun GpsMapScreen(
                 .align(Alignment.TopStart)
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .onGloballyPositioned { coordinates ->
+                    mapHeaderBottomPx = coordinates.size.height
+                    mapLibreMap?.let { map ->
+                        positionMapCompass(map, coordinates.size.height, mapDensity)
+                    }
+                },
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
