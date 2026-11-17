@@ -193,6 +193,9 @@ BEGIN
 END;
 $function$;
 
+COMMENT ON FUNCTION public.api_update_my_incident(bigint, text, text, double precision, double precision, real, text, timestamptz, text, boolean) IS
+  'Requester-owned incident edit. p_location_recorded_at is client-reported capture/selection time used only for freshness validation; it is not server receipt time, GPS attestation, physical-presence proof, or an authorization signal. Server/database receipt time is a separate trusted timestamp.';
+
 REVOKE ALL ON FUNCTION public.api_update_my_incident(bigint, text, text, double precision, double precision, real, text, timestamptz, text, boolean) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_update_my_incident(bigint, text, text, double precision, double precision, real, text, timestamptz, text, boolean) TO authenticated;
 
