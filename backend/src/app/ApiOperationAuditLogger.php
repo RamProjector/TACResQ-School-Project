@@ -54,16 +54,9 @@ final class ApiOperationAuditLogger
         ];
 
         try {
-            $headers = [
-                'apikey' => $secret,
+            $headers = SupabaseServerHeaders::forSecretKey($secret, [
                 'Prefer' => 'return=minimal',
-            ];
-            // Legacy service_role keys are JWTs and need Authorization to
-            // establish the Postgres role. Modern sb_secret keys are not JWTs;
-            // Supabase requires them on apikey only.
-            if (!str_starts_with($secret, 'sb_secret_')) {
-                $headers['Authorization'] = 'Bearer '.$secret;
-            }
+            ]);
 
             $response = Http::acceptJson()
                 ->asJson()
