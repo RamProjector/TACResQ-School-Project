@@ -1322,10 +1322,6 @@ fun RequesterScreen(
                                                 else MaterialTheme.colorScheme.onSurface,
                                             )
                                             Spacer(Modifier.weight(1f))
-                                            if (type == selectedType) {
-                                                Text("Selected", style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.primary)
-                                            }
                                         }
                                     }
                                 }

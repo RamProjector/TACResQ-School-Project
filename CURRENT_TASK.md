@@ -1,3 +1,9 @@
+## Requester emergency form selection cleanup — 2026-11-17
+
+- Removed the repeated “Selected” label from the selected emergency-type option. The radio state and highlighted card already communicate selection, while the selectable row retains its accessibility selected semantics.
+- No request validation, emergency type, location, SOS, or server behavior changed.
+- Source review only; no build, tests, emulator, or device validation run.
+
 ## Incident chat follow and composer polish — 2026-11-17
 
 - Added conditional auto-follow for incoming messages: new messages scroll into view only when the reader is already at/near the bottom. The screen no longer stays pinned to the first loaded position after polling, and users reviewing older messages are not forcibly repositioned.
