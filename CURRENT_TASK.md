@@ -1,5 +1,12 @@
 ## Latest UI review — 2026-11-17
 
+- Dispatcher field-unit cards now separate role metadata from a clearly labelled contact number. Blank phone values are omitted; no data access or dispatch behavior changed. Commit: pending in this handoff.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
 - Dispatcher active-team summary now presents one precise progress count (“moved beyond Assigned”) instead of a count plus its redundant complement. Expanded member statuses remain unchanged. No assignment/status behavior changed. Commit: `2ce421ba208d6b2b3591731503bc35df4b24a42c`.
 - No build, tests, emulator, or device validation performed.
 

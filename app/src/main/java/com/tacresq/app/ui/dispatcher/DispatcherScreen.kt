@@ -612,10 +612,17 @@ private fun UnitCard(unit: User) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(unit.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    unit.role.label + (unit.phone?.let { " · $it" } ?: ""),
+                    unit.role.label,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                unit.phone?.takeIf { it.isNotBlank() }?.let { phone ->
+                    Text(
+                        "Contact: $phone",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             StatusPill(
                 unit.dutyStatus?.label ?: "Unknown",

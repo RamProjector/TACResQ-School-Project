@@ -101,3 +101,11 @@ This register tracks visible UI findings from source review. A change is not con
 - **Change:** Use one concise, source-accurate line: “N of M responders moved beyond Assigned”. Remove the redundant complement line. Expanded member details and individual status pills remain available.
 - **Safety:** Counts still derive from the same assigned-user status list and the same status-not-ASSIGNED predicate. No team assignment, aggregate incident status, status transition, or backend behavior changed.
 - **Validation:** Source review only. No build, tests, emulator, or device checks run.
+
+
+## Dispatcher field-unit contact readability — 2026-11-17
+
+- **Finding:** Field-unit cards concatenated role and phone into one unlabeled line (`Role · number`). This made a personal contact number look like part of the role metadata and gave role/contact no visual hierarchy.
+- **Change:** Keep role as its own secondary line and show a nonblank phone number separately with an explicit “Contact:” label. Missing or blank phone values remain omitted.
+- **Safety:** The same dispatcher-only unit data is used; no new contact lookup, exposure, dialer action, permission, or backend behavior was added. Existing phone visibility for dispatchers is preserved.
+- **Validation:** Source review only. No build, tests, emulator, or device checks run.
