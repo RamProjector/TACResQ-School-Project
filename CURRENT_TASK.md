@@ -1,3 +1,11 @@
+# GPS dispatcher field-unit list interaction
+
+- Made each dispatcher field-unit location entry a clearly accessible map-centering action. Selecting an entry now centers the map on that responder's reported coordinate and updates the live sheet status.
+- Preserved freshness age, accuracy, and stale-position warnings; stale entries explicitly state that the centered position is last known and must be confirmed with dispatch.
+- If the map/style is not ready, the action reports that state rather than silently appearing to work.
+- Scope: dispatcher GPS presentation and map camera focus only. Location collection, polling, permissions, responder sharing, freshness thresholds, and backend behavior are unchanged.
+- Validation: not run per the incremental-commit cadence; device and accessibility review remain outstanding.
+
 # GPS dispatcher empty-state accuracy
 
 - Corrected the dispatcher map sheet's no-incident message when field-unit location reports are still available. It now directs dispatchers to review field-unit freshness below instead of incorrectly saying there are no incident or field-unit locations.

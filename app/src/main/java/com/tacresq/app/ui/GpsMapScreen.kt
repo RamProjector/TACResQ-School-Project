@@ -1702,7 +1702,33 @@ fun GpsMapScreen(
                                         location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }
                                         if (freshness == MapLocationFreshness.STALE) append(" · last known, not live")
                                     },
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(
+                                            role = androidx.compose.ui.semantics.Role.Button,
+                                            onClickLabel = "Center map on responder ${location.userId}",
+                                        ) {
+                                            if (mapLibreMap == null || !mapStyleLoaded) {
+                                                locationStatus = "Map is still loading. Try centering this field unit again in a moment."
+                                            } else {
+                                                deviceFix = null
+                                                animateToPoint(LatLng(location.latitude, location.longitude), 15.0)
+                                                locationStatus = if (freshness == MapLocationFreshness.STALE) {
+                                                    "Centered on responder #${location.userId}'s stale position. This is last known, not live; confirm with dispatch."
+                                                } else {
+                                                    "Centered on responder #${location.userId} · ${freshness?.label?.lowercase() ?: "freshness unknown"}."
+                                                }
+                                            }
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 7.dp)
+                                        .semantics {
+                                            contentDescription = buildString {
+                                                append("Center map on responder ${location.userId}, incident ${location.incidentId}. ")
+                                                append(freshness?.label ?: "Freshness unavailable")
+                                                if (ageSeconds != null) append(", last reported ${formatLocationAge(ageSeconds)}")
+                                                if (freshness == MapLocationFreshness.STALE) append(". Last known position, not live")
+                                            }
+                                        },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
