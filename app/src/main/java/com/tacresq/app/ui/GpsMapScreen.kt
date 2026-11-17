@@ -670,6 +670,13 @@ fun GpsMapScreen(
     } else {
         emptyList()
     }
+    // Resolve map features by stable domain identity in O(1). Cluster pages can
+    // contain hundreds of leaves; repeatedly scanning the Compose lists per leaf
+    // made dense-cluster selection grow quadratically with page count.
+    val visibleIncidentById = remember(visibleIncidents) { visibleIncidents.associateBy { it.id } }
+    val responderLocationByKey = remember(validResponderLocations) {
+        validResponderLocations.associateBy { it.incidentId to it.userId }
+    }
     val freshResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.FRESH }
     val agingResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.AGING }
     val staleResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.STALE }
@@ -834,7 +841,7 @@ fun GpsMapScreen(
         when (target.type) {
             GpsMapMarkerType.INCIDENT -> {
                 val incidentId = target.incidentId ?: return
-                if (visibleIncidents.none { it.id == incidentId }) {
+                if (incidentId !in visibleIncidentById) {
                     locationStatus = "That incident location is no longer available. Choose a current map pin."
                     return
                 }
@@ -845,8 +852,13 @@ fun GpsMapScreen(
             }
             GpsMapMarkerType.FIELD_UNIT -> {
                 val responderKey = target.responderKey
-                val currentLocation = validResponderLocations.firstOrNull {
-                    "${it.incidentId}:${it.userId}" == responderKey
+                val currentLocation = responderKey?.split(":")?.let { parts ->
+                    if (parts.size != 2) null else {
+                        val incidentId = parts[0].toLongOrNull()
+                        val userId = parts[1].toLongOrNull()
+                        if (incidentId == null || userId == null) null
+                        else responderLocationByKey[incidentId to userId]
+                    }
                 }
                 if (responderKey == null || currentLocation == null) {
                     locationStatus = "That field-unit report is no longer available or has expired. Refresh the map locations."
@@ -890,7 +902,7 @@ fun GpsMapScreen(
                 leaves.forEach leafLoop@{ leaf ->
                     if (cursor.incidents) {
                         val id = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@leafLoop
-                        val incident = visibleIncidents.firstOrNull { it.id == id } ?: return@leafLoop
+                        val incident = visibleIncidentById[id] ?: return@leafLoop
                         val lat = incident.latitude ?: return@leafLoop
                         val lng = incident.longitude ?: return@leafLoop
                         added += GpsMapMarkerTarget(
@@ -902,9 +914,7 @@ fun GpsMapScreen(
                     } else {
                         val incidentId = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@leafLoop
                         val userId = leaf.getStringProperty("user_id")?.toLongOrNull() ?: return@leafLoop
-                        val unit = validResponderLocations.firstOrNull {
-                            it.incidentId == incidentId && it.userId == userId
-                        } ?: return@leafLoop
+                        val unit = responderLocationByKey[incidentId to userId] ?: return@leafLoop
                         val age = unit.mapAgeSeconds() ?: return@leafLoop
                         val freshness = unit.mapFreshness() ?: return@leafLoop
                         added += GpsMapMarkerTarget(
@@ -942,8 +952,8 @@ fun GpsMapScreen(
     // MapLibre installs its click listener once; always dispatch through the latest
     // Compose callback so refreshed incidents and responder reports are revalidated.
     val latestSelectMarkerTarget by rememberUpdatedState(::selectMarkerTarget)
-    val latestVisibleIncidents by rememberUpdatedState(visibleIncidents)
-    val latestValidResponderLocations by rememberUpdatedState(validResponderLocations)
+    val latestVisibleIncidentById by rememberUpdatedState(visibleIncidentById)
+    val latestResponderLocationByKey by rememberUpdatedState(responderLocationByKey)
 
 
 
@@ -1886,7 +1896,7 @@ fun GpsMapScreen(
                 return if (incidents) {
                     leaves.mapNotNull { leaf ->
                         val id = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@mapNotNull null
-                        val incident = latestVisibleIncidents.firstOrNull { it.id == id } ?: return@mapNotNull null
+                        val incident = latestVisibleIncidentById[id] ?: return@mapNotNull null
                         val lat = incident.latitude ?: return@mapNotNull null
                         val lng = incident.longitude ?: return@mapNotNull null
                         GpsMapMarkerTarget(GpsMapMarkerType.INCIDENT, LatLng(lat, lng),
@@ -1900,9 +1910,7 @@ fun GpsMapScreen(
                             ?: return@mapNotNull null
                         val userId = leaf.getStringProperty("user_id")?.toLongOrNull()
                             ?: return@mapNotNull null
-                        val unit = latestValidResponderLocations.firstOrNull {
-                            it.incidentId == incidentId && it.userId == userId
-                        } ?: return@mapNotNull null
+                        val unit = latestResponderLocationByKey[incidentId to userId] ?: return@mapNotNull null
                         val age = unit.mapAgeSeconds() ?: return@mapNotNull null
                         val freshness = unit.mapFreshness() ?: return@mapNotNull null
                         GpsMapMarkerTarget(GpsMapMarkerType.FIELD_UNIT, LatLng(unit.latitude, unit.longitude),
@@ -1988,7 +1996,7 @@ fun GpsMapScreen(
             val incidentTargets = map.queryRenderedFeatures(hitArea, arrayOf(INCIDENT_POINT_LAYER_ID, INCIDENT_SELECTED_POINT_LAYER_ID))
                 .mapNotNull { feature ->
                     val id = feature.getStringProperty("incident_id")?.toLongOrNull() ?: return@mapNotNull null
-                    val incident = latestVisibleIncidents.firstOrNull { it.id == id } ?: return@mapNotNull null
+                    val incident = latestVisibleIncidentById[id] ?: return@mapNotNull null
                     val lat = incident.latitude ?: return@mapNotNull null
                     val lng = incident.longitude ?: return@mapNotNull null
                     GpsMapMarkerTarget(
@@ -2011,9 +2019,7 @@ fun GpsMapScreen(
                         ?: return@mapNotNull null
                     val userId = feature.getStringProperty("user_id")?.toLongOrNull()
                         ?: return@mapNotNull null
-                    val unit = latestValidResponderLocations.firstOrNull {
-                        it.incidentId == incidentId && it.userId == userId
-                    } ?: return@mapNotNull null
+                    val unit = latestResponderLocationByKey[incidentId to userId] ?: return@mapNotNull null
                     val age = unit.mapAgeSeconds() ?: return@mapNotNull null
                     val freshness = unit.mapFreshness() ?: return@mapNotNull null
                     GpsMapMarkerTarget(

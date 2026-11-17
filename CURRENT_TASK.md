@@ -1,3 +1,11 @@
+## Dense-cluster feature lookup optimization — 2026-11-17
+
+- Built remembered indexes for visible incidents and valid responder reports, keyed by incident ID and the incident/user pair respectively.
+- Cluster leaf resolution, page loading, point-hit selection, and selection revalidation now use keyed lookups instead of repeatedly scanning the full Compose lists for every map feature. This changes the per-leaf record lookup from linear to constant-time after each source-list refresh; index construction remains linear.
+- Kept the indexes tied to the current visible lists and exposed their latest versions to the long-lived MapLibre click listener, so refreshed records are still revalidated at interaction time.
+- No map behavior, role visibility, freshness policy, or backend contract changed.
+- No build, tests, emulator, device validation, or profiling run.
+
 ## Cluster chooser consistency and pagination follow-up — 2026-11-17
 
 - Updated the older annotation-overlap chooser to initialize the same count and pagination state as the new style-layer chooser, preventing a misleading “0 of N” count.
