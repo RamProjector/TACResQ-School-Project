@@ -107,10 +107,10 @@ The advisor snapshot was observed around 2026-11-16 06:39 UTC. Re-run advisors a
 
 ## API operation audit — operational limitations and controls
 
-The Laravel logger is deliberately fail-open, but the current implementation writes to Supabase synchronously after the upstream operation. Each log attempt can add up to approximately one second of response-path latency when the audit endpoint is slow or unreachable. A request that performs both Supabase Auth validation and an RPC can incur more than one audit attempt. This is a known reliability trade-off, not a zero-cost operation.
+The Laravel logger is deliberately fail-open, but it writes to Supabase synchronously after the upstream operation. Each audit write now has a 250 ms total HTTP timeout (with a 200 ms connection timeout), bounding one attempt's response-path delay. A request that performs both Supabase Auth validation and an RPC can still incur up to approximately 500 ms of additional delay if both audit writes reach their timeout. This is a deliberate bounded-latency compromise, not asynchronous delivery or a zero-cost operation. It preserves best-effort audit writes without introducing an unconfigured queue whose retries, durability, worker availability, and dead-letter handling would be unknown.
 
 Before enabling this logger broadly in an emergency-response production environment:
-- Measure p50/p95/p99 added latency under normal and failing audit-sink conditions.
+- Measure p50/p95/p99 added latency under normal, slow-success, connection-timeout, read-timeout, and HTTP 5xx conditions. Confirm the configured HTTP client timeout is respected by the deployed runtime.
 - Prefer a durable asynchronous delivery design only after a real queue/worker and retry/dead-letter lifecycle are configured and monitored; an unconfigured queue would silently weaken audit coverage.
 - Define a retention period, authorized reader, export/backup approach, and deletion process for `api_operation_logs`. The migration currently creates an index but does not implement automatic retention or partitioning.
 - Monitor audit write failures without logging request bodies, access tokens, coordinates, URLs, or provider response bodies.
