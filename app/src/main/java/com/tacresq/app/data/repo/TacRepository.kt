@@ -455,6 +455,11 @@ class TacRepository(
         api.assignIncidentTeam(incidentId, AssignIncidentTeamRequest(userIds))
     }
 
+    suspend fun releaseIncidentAssignment(incidentId: Long, userId: Long): Result<Incident> = call {
+        require(incidentId > 0 && userId > 0) { "Incident and field-unit IDs must be positive." }
+        api.releaseIncidentAssignment(incidentId, userId)
+    }
+
     /** Reserved for the explicit foreground tracking lifecycle; callers must gate this on en_route. */
     suspend fun recordResponderLocation(incidentId: Long, fix: GeoFix): Result<Long> = call {
         api.recordLocation(
