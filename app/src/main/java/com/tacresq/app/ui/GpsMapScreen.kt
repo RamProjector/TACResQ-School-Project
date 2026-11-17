@@ -1789,15 +1789,9 @@ fun GpsMapScreen(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            androidx.compose.material3.Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                tonalElevation = 3.dp,
-                shadowElevation = 6.dp,
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 4.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 4.dp),
+
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
@@ -1911,8 +1905,6 @@ fun GpsMapScreen(
                             },
                         )
                     }
-                }
-            }
 
             GpsMapFilterButtons(
                 role = role,

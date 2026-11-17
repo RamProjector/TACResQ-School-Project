@@ -1,3 +1,9 @@
+# Remove GPS map faux-search header container
+
+- Removed the full-width rounded, elevated Surface surrounding the GPS map title and controls. It looked like a search field despite having no search function and visually competed with the map.
+- Kept the back action, map title, offline/retry state, location action, and contextual incident/field-unit filter chips. The controls now sit directly over the map rather than inside a large faux-search bar.
+- Validation: not run per the requested incremental-commit cadence; verify text/control contrast over varied map tiles on-device.
+
 # GPS map filter touch targets
 
 - Increased the Incidents and Field units map filter chips to a 48 dp minimum height, aligning their tap area with the other primary map actions and improving reachability on touch devices.
