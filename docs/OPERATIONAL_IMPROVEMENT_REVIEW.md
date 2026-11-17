@@ -262,3 +262,14 @@ Read-only inspection of the live assignment RPCs and table policies found:
 - The proposed assignment-history DELETE trigger can record a release only when a trusted mutation path actually deletes a membership row. It does not create a user-facing release capability by itself.
 
 **Implementation gap:** team replacement/release needs an explicit dispatcher-authorized transactional RPC with incident/team validation, actor attribution, and a defined effect on the incident's legacy `assigned_to` primary-member field. Do not expose direct client deletes or build a release UI until that server-side contract is implemented. Production was inspected read-only; no database changes were made.
+
+
+### Dispatcher assignment release RPC — 2026-11-18
+
+- Added `api_release_incident_assignment(p_id, p_user_id)` as an authenticated, invoker-safe public wrapper around a dispatcher-checked private implementation.
+- The operation locks the incident row before checking the active state and target membership. This serializes release with the existing team-assignment and incident-progress RPCs that also lock the incident.
+- Release is limited to `assigned` and `en_route` incidents. A team cannot be left empty: the final member cannot be released through this operation. A separate, explicit incident cancellation/unassignment workflow would be needed for that case.
+- If the released member was the legacy `assigned_to` primary, the RPC selects the earliest remaining team member as the new primary. A narrowly scoped incident-update guard permits this handoff only after the former primary is no longer a team member and the replacement is a current member; incident content and shared status must remain unchanged.
+- The existing assignment DELETE trigger records the release actor and timestamp in `incident_assignment_events` within the same transaction. The released profile returns to `available` only if no other active incident still reserves that person.
+- Added a static source contract at `tools/test_dispatcher_release_assignment_contract.py`. It has not been executed. Migration replay, RLS/role behavior, trigger execution, and Android integration remain unverified.
+- This migration is committed to PR #334 only. It has not been applied to production Supabase.
