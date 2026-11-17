@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = (ROOT / "supabase/migrations/20261023031810_requester_single_active_and_cancel.sql").read_text().lower()
 GUARD_FIX = (ROOT / "supabase/migrations/20261112215815_allow_requester_pending_cancellation.sql").read_text().lower()
+DISPATCHER_FIX = (ROOT / "supabase/migrations/20261117234000_dispatch_managed_incident_progress.sql").read_text().lower()
 SCREEN = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 REPO = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 API = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
@@ -20,7 +21,7 @@ checks = {
     "cancellation only succeeds while pending": "incident_row.status <> 'pending'" in MIGRATION and "contact dispatch" in MIGRATION,
     "requester cancellation is permitted by the update guard only for the owned pending unassigned request": all(token in GUARD_FIX for token in ("new.status = 'cancelled'", "old.status = 'pending'", "actor_role = 'requester'", "actor_id = old.requester_id", "old.assigned_to is null", "not exists (", "public.incident_assignments")),
     "requester cancellation exception preserves report fields and assigned-to metadata": all(token in GUARD_FIX for token in ("new.assigned_to is not distinct from old.assigned_to", "new.type is not distinct from old.type", "new.description is not distinct from old.description", "new.latitude is not distinct from old.latitude", "new.location_source is not distinct from old.location_source")),
-    "field-unit status transition validation remains in force": "incident is not assigned to this field unit" in GUARD_FIX and "old.status = 'assigned' and new.status = 'en_route'" in GUARD_FIX and "actor_role not in ('responder','driver')" in GUARD_FIX,
+    "dispatcher owns incident status transitions and legacy responder RPC is retired": "only dispatchers can advance incident progress" in DISPATCHER_FIX and "actor_role = 'dispatcher'" in DISPATCHER_FIX and "revoke all on function public.api_update_my_assignment_status" in DISPATCHER_FIX,
     "cancellation RPC is not executable by anonymous users": "revoke all on function public.api_cancel_my_incident(bigint) from public, anon" in MIGRATION and "grant execute on function public.api_cancel_my_incident(bigint) to authenticated" in MIGRATION,
     "Home hides the form until the emergency request action is pressed": "showrequestform && activeincident == null" in SCREEN.lower() and 'text("request emergency help' in SCREEN.lower(),
     "Home presents the active request instead of a second submission form": '"active emergency"' in SCREEN.lower() and 'if (activeincident != null)' in SCREEN.lower(),
