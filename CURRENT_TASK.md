@@ -1,3 +1,10 @@
+## Notifications refresh race and redundant retry control — 2026-11-17
+
+- Guarded notification refresh success, failure, and exception publication with the active refresh generation. A superseded request can no longer overwrite the latest inbox snapshot if its underlying operation completes after cancellation.
+- Removed the duplicate “Try again” button from the empty-error card; the status panel's Refresh action remains the single retry control.
+- No notification authorization, read-state, deep-link, realtime, or backend behavior changed.
+- Same PR #334. Source review only; no build, tests, emulator, or device validation run.
+
 ## Adaptive history recovery affordance — 2026-11-17
 
 - Added an explicit Refresh history action to stale/unavailable history states in both the adaptive list and detail panes, so a warning is actionable without navigating away.

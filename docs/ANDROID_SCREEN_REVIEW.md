@@ -30,6 +30,10 @@ This register tracks visible UI findings from source review. A change is not con
 - The chat header repeated its incident context in both title and subtitle and consumed additional space with a persistent reminder card. Kept the incident identifier and replaced the subtitle with the access-scope reminder; removed the extra card.
 - Notification header copy was redundant with the push-optional explanation in the status card. The header now names the content of the screen, leaving the practical push/inbox guidance in one place.
 
+### Notifications
+- A forced inbox refresh could supersede an earlier request, but the earlier request's success/failure callbacks did not check the refresh generation. If cancellation was not observed promptly by the underlying call, an older response could overwrite the newer inbox snapshot. Success, failure, and exception publication now require the current generation.
+- The inbox already exposes a Refresh action in its status panel; the empty-error card also showed a second Try again button for the same operation. Removed the duplicate action so there is one consistent refresh affordance.
+
 ## Follow-up review required
 - Implement password recovery through a real Supabase Auth recovery endpoint, including redirect/deep-link handling and a confirmation/error state, before restoring an email-send action.
 - Implement a real account-deletion request workflow only after the authorized operator, request destination, identity verification, audit requirements, retention exceptions, and server-side state transition are defined. Do not restore a success state without a confirmed backend response.

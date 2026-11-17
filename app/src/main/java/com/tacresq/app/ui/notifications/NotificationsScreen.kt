@@ -217,6 +217,7 @@ class NotificationsViewModel(
             try {
                 repo.myNotifications(limit = limit)
                     .onSuccess { items ->
+                        if (generation != refreshGeneration) return@onSuccess
                         _state.update {
                             it.copy(
                                 items = items,
@@ -228,6 +229,7 @@ class NotificationsViewModel(
                         }
                     }
                     .onFailure { failure ->
+                        if (generation != refreshGeneration) return@onFailure
                         _state.update {
                             it.copy(
                                 loading = false,
@@ -239,12 +241,14 @@ class NotificationsViewModel(
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                _state.update {
-                    it.copy(
-                        loading = false,
-                        refreshing = false,
-                        error = "Could not load notifications. Try again.",
-                    )
+                if (generation == refreshGeneration) {
+                    _state.update {
+                        it.copy(
+                            loading = false,
+                            refreshing = false,
+                            error = "Could not load notifications. Try again.",
+                        )
+                    }
                 }
             } finally {
                 // A superseded request must not clear progress owned by a newer refresh.
@@ -449,7 +453,6 @@ fun NotificationsAndSafetyScreen(
                         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Notifications unavailable", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Button(onClick = vm::refresh, enabled = !state.refreshing) { Text("Try again") }
                         }
                     }
                 }
