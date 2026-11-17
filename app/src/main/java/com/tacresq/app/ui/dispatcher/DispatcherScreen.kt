@@ -297,6 +297,12 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             incident.createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: Instant.MIN
         }.thenBy { it.id })
     val activeIncidents = state.incidents.filter { it.status.isActive }
+    val recentClosedIncidents = state.incidents
+        .filter { it.status == IncidentStatus.RESOLVED || it.status == IncidentStatus.CANCELLED }
+        .sortedByDescending { incident ->
+            incident.createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: Instant.MIN
+        }
+        .take(5)
     val active = activeIncidents.size
     val availableUnits = state.units.filter { it.dutyStatus == DutyStatus.AVAILABLE }
     val focusedIncident = focusedIncidentId?.let { targetId -> state.incidents.firstOrNull { it.id == targetId } }
@@ -601,6 +607,81 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (recentClosedIncidents.isNotEmpty()) {
+            item {
+                SectionHeading("Recently closed", "Latest 5 resolved or cancelled incidents · read-only history")
+            }
+            items(recentClosedIncidents, key = { "closed-${it.id}" }) { incident ->
+                var showClosedHistory by remember(incident.id) { mutableStateOf(false) }
+                IncidentCard(incident) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            incident.createdAt?.let(::formatTime) ?: "Submission time unavailable",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        StatusPill(incident.status)
+                    }
+                    TextButton(
+                        onClick = {
+                            showClosedHistory = !showClosedHistory
+                            if (showClosedHistory) vm.loadAssignmentHistory(incident.id)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(if (showClosedHistory) "Hide assignment history" else "View assignment history") }
+                    if (showClosedHistory) {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text("Assignment history", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                when {
+                                    state.assignmentHistoryIncidentId != incident.id || state.assignmentHistoryLoading -> {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                            Text("Loading audit events…", style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                    state.assignmentHistoryError != null -> {
+                                        Text(state.assignmentHistoryError.orEmpty(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                        TextButton(onClick = { vm.loadAssignmentHistory(incident.id) }) { Text("Retry history") }
+                                    }
+                                    state.assignmentHistory.isEmpty() -> {
+                                        Text("No assignment events were returned for this incident.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    else -> state.assignmentHistory.forEach { event ->
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            val eventLabel = when (event.eventType) {
+                                                "assigned" -> "Field unit assigned"
+                                                "released" -> "Field unit released"
+                                                "incident_closed" -> "Incident closed"
+                                                else -> "Assignment event"
+                                            }
+                                            val memberName = state.units.firstOrNull { it.id == event.userId }?.name
+                                                ?: "Field unit #${event.userId}"
+                                            val actorLabel = when (event.actorUserId) {
+                                                null -> "System"
+                                                user.id -> "You"
+                                                else -> "Dispatcher account #${event.actorUserId}"
+                                            }
+                                            Text(eventLabel, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+                                            Text("$memberName · by $actorLabel", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(formatTime(event.occurredAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
                                     }
                                 }
                             }
