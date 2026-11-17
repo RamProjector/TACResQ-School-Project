@@ -1,3 +1,14 @@
+# Current handoff — 2026-11-17: accessible GPS map loading feedback
+
+- **Objective:** Ensure assistive-technology users receive the same map-loading feedback that sighted users see.
+- **Finding:** The centered map loading indicator displayed a message visually, but did not expose the loading message as a polite live-region announcement.
+- **Implementation:** Merge the loading indicator and its text into one polite live region so the loading state is announced without repeatedly interrupting higher-priority speech.
+- **Scope:** Loading-overlay semantics only. Map loading lifecycle, error handling, map interaction, and GPS behavior are unchanged.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI refinements on PR #334; perform consolidated validation after implementation changes are complete.
+
+---
+
 # Current handoff — 2026-11-17: GPS map camera control loading state
 
 - **Objective:** Prevent map camera actions from appearing interactive before the map style is ready to receive them.
