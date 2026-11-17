@@ -30,5 +30,22 @@ assert identity_check < depth_check < role_check, "Identity immutability must ru
 assert "IF auth.uid() IS NOT NULL AND pg_trigger_depth() = 1" not in sql
 assert "CREATE OR REPLACE FUNCTION public.tacresq_guard_profile_update()" in sql
 
+
+# The migration replay must exercise the trigger with the real authenticated role,
+# not merely inspect its source or run all statements as the database owner.
+integration = (ROOT / "tools/test_authenticated_profile_metadata.sql").read_text()
+replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
+for item in (
+    "SET ROLE authenticated",
+    "SET id = id + 1000000",
+    "SET created_at = created_at - interval '1 day'",
+    "SET duty_status = 'off_duty'",
+    "EXCEPTION WHEN insufficient_privilege",
+):
+    assert item in integration, f"Missing authenticated profile integration assertion: {item}"
+assert "tools/test_authenticated_profile_metadata.sql" in replay, (
+    "Authenticated profile metadata integration test must run in migration replay"
+)
+
 print("PASS: authenticated field units cannot change profile IDs or creation timestamps.")
 print("PASS: identity, role, duty-status, and active-assignment protections are preserved.")
