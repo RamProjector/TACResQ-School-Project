@@ -73,7 +73,7 @@ INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES
   ('00000000-0000-4000-8000-000000000972', 'incident-write-requester-972@example.test', '{"name":"Incident Write Requester","phone":"+63917000972"}'),
   ('00000000-0000-4000-8000-000000000973', 'incident-write-responder-973@example.test', '{"name":"Incident Write Responder","phone":"+63917000973"}'),
-  ('00000000-0000-4000-8000-000000000974', 'incident-write-dispatcher-974@example.test', '{"name":"Incident Write Dispatcher","phone":"+63917000974"}');
+  ('00000000-0000-4000-8000-000000000976', 'incident-write-dispatcher-976@example.test', '{"name":"Incident Write Dispatcher","phone":"+63917000976"}');
 
 UPDATE public.profiles
 SET role = 'responder', duty_status = 'available'
@@ -81,7 +81,7 @@ WHERE auth_user_id = '00000000-0000-4000-8000-000000000973';
 
 UPDATE public.profiles
 SET role = 'dispatcher', duty_status = NULL
-WHERE auth_user_id = '00000000-0000-4000-8000-000000000974';
+WHERE auth_user_id = '00000000-0000-4000-8000-000000000976';
 
 INSERT INTO public.incidents (
   requester_id, type, description, latitude, longitude,
@@ -155,7 +155,7 @@ END;
 $responder_write_boundary$;
 
 RESET ROLE;
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000974', false);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000976', false);
 SET ROLE authenticated;
 
 DO $dispatcher_incident_write_boundary$
@@ -198,7 +198,7 @@ DECLARE
 BEGIN
   SELECT id INTO v_actor_id
   FROM public.profiles
-  WHERE auth_user_id = '00000000-0000-4000-8000-000000000974';
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000976';
 
   SELECT id INTO v_incident_id
   FROM public.incidents
