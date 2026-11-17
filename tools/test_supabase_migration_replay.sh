@@ -27,6 +27,10 @@ AS $auth_uid$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $auth_uid$;
 
+-- Match Supabase's auth schema/function visibility for PostgREST roles.
+GRANT USAGE ON SCHEMA auth TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+
 -- Minimal Supabase Storage schema for migration replay. This lets the test
 -- exercise real RLS policies without depending on a running Supabase service.
 CREATE SCHEMA storage;
@@ -1424,3 +1428,9 @@ psql -v ON_ERROR_STOP=1 -f tools/test_responder_incident_claiming.sql
 # Real two-connection races for field self-claim and cross-path assignment.
 bash tools/test_field_claim_concurrency.sh
 bash tools/test_assignment_cross_path_concurrency.sh
+
+# Race dispatcher claimability changes against requester cancellation.
+bash tools/test_claimability_cancellation_concurrency.sh
+
+# Verify authenticated callers cannot bypass the incident RPC write boundary.
+psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_incident_write_boundary.sql
