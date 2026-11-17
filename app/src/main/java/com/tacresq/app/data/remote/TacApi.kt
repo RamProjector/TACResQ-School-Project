@@ -112,6 +112,10 @@ interface TacApi {
     @POST("incidents/{id}/assign-team")
     suspend fun assignIncidentTeam(@Path("id") id: Long, @Body body: AssignIncidentTeamRequest): Incident
 
+    /** Dispatcher: release one assigned field unit before the team reaches the scene. */
+    @POST("rest/v1/rpc/api_release_incident_assignment")
+    suspend fun releaseIncidentAssignment(@Body body: ReleaseIncidentAssignmentRpc): Incident
+
     /** Responder/driver: claim an available open incident. */
     @POST("incidents/{id}/claim")
     suspend fun claimIncident(@Path("id") id: Long): com.tacresq.app.data.model.ClaimIncidentResult
@@ -171,7 +175,7 @@ data class UpdateMyIncidentRequest(
 
 data class AssignIncidentRequest(@SerializedName("user_id") val userId: Long)
 
-data class AssignIncidentTeamRequest(@SerializedName("user_ids") val userIds: List<Long>)
+data class ReleaseIncidentAssignmentRpc(\n    @SerializedName("p_id") val incidentId: Long,\n    @SerializedName("p_user_id") val userId: Long,\n)\n\ndata class AssignIncidentTeamRequest(@SerializedName("user_ids") val userIds: List<Long>)
 
 data class SetClaimableRequest(@SerializedName("claimable") val claimable: Boolean)
 
