@@ -1485,3 +1485,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Updated the source contract to guard the single-panel behavior and removed an obsolete assertion left behind by the prior closed-incident heading clarification.
 - Commits: `0a169fb` (UI), `98783bd` (source contract).
 - Validation: source-level review only; no test execution, Gradle build, emulator/device check, or production backend change performed.
+
+
+## 2026-11-18 — Assignment history chronology
+- The assignment-history endpoint intentionally fetches the newest bounded event window first. The dispatcher now reverses that retained window before rendering, so both active and closed incident timelines read chronologically from the earliest retained event to the latest.
+- This changes presentation only; the incident filter, descending server query, 50-event repository bound, audit records, and authorization remain unchanged.
+- Updated the source contract to guard chronological rendering in both panels.
+- Validation: source-level review only; static test and Android build were not executed. No production backend or migration changes.
