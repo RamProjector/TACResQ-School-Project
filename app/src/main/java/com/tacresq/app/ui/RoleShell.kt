@@ -47,6 +47,17 @@ enum class AppDestination(val label: String) {
     PROFILE("Profile"),
 }
 
+/**
+ * Use bottom navigation in compact/short windows and a navigation rail once
+ * the app has enough room for persistent leading-edge navigation.
+ *
+ * Android adaptive guidance treats medium-width windows as rail-capable;
+ * reserving the rail only for expanded (840dp+) windows leaves tablets and
+ * many foldable/unfolded layouts unnecessarily constrained to a bottom bar.
+ */
+internal fun shouldUseNavigationRail(minWidthDp: Int, minHeightDp: Int): Boolean =
+    minWidthDp >= 600 && minHeightDp >= 480
+
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun RoleShell(
@@ -61,7 +72,7 @@ fun RoleShell(
     // Other destinations switch to a rail only when the window has enough width
     // and height; short landscape and split-screen windows keep the bottom bar.
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
-    val useNavigationRail = windowSizeClass.minWidthDp >= 840 && windowSizeClass.minHeightDp >= 480
+    val useNavigationRail = shouldUseNavigationRail(windowSizeClass.minWidthDp, windowSizeClass.minHeightDp)
 
     if (selected == AppDestination.MAP) {
         Box(modifier = Modifier.fillMaxSize()) {
