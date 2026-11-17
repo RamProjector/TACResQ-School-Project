@@ -505,7 +505,7 @@ fun ResponderScreen(
             ) {
                 item {
                     Text(
-                        "Route previews use the incident pin and your approximate location. If the configured routing service is unavailable, use external Maps and confirm the destination with dispatch.",
+                        "Route previews send your approximate current location and the incident's location to the configured routing service. If it fails, no second provider is contacted; use external Maps and confirm the destination with dispatch.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
