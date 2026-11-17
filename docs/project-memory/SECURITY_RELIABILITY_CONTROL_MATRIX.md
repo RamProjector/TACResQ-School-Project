@@ -667,3 +667,36 @@ The following PR metadata and source diffs were re-read after the bounded-audit 
 - The independently green workflow claims recorded above must not be carried forward to the new #316/#318 heads without exact-head reruns. No tests or CI were started during this implementation pass, in accordance with the instruction to finish implementation commits first.
 - Shared-file integration remains a deliberate merge concern: #316–#321 independently touch some combination of `.github/workflows/ci.yml`, `tools/test_supabase_migration_replay.sh`, and `tools/test_migration_history_alignment.py`. The validated candidate versions preserve the full replay-test union, but the final merge sequence must reapply/retain that union after each base update and rerun checks on the resulting exact head.
 - No production migration, Supabase data mutation, Render configuration/deployment, secret change, FCM send, or PR merge occurred.
+
+
+## Source-level follow-up review — 2026-11-17
+
+This review re-fetched live metadata and the exact current source for PRs #316–#322. All seven remain open, unmerged, and individually reported mergeable. Current heads at review time:
+
+| PR | Head |
+|---|---|
+| #316 | `a26f90f6fc36110deea82cb2843fae855a4dd17d` |
+| #317 | `d4668734f163fcfc5ecab24bf9e4a44c78638636` |
+| #318 | `91fd727fb5e54ecefe313ee8b6664b6b5576bd18` |
+| #319 | `2cb6aa7d2204fbd4ea2086a53c9d5d0a05126247` |
+| #320 | `e5ca8e7a45b490f9cc8195297ebe0d810865b065` |
+| #321 | `bd28f881739de571b024c9baa90a284ac443a280` |
+| #322 | `e5411d1ec6579d08207663dc1526405b62bc41de` |
+
+### Confirmed review outcomes
+
+- **PR #317 claimable queue:** `api_claimable_incidents()` uses an unbounded `jsonb_agg` across all eligible incidents and returns incident details and coordinates. This is a response-size/scalability concern, not a confirmed authorization defect. No arbitrary cap was added because a cap without a continuation contract can hide eligible emergencies. A safe future change needs deterministic keyset pagination, bounded page size, continuation state, caller updates, and completeness tests. The current unpaginated behavior remains a documented scale risk.
+- **PR #320 nested profile updates:** the core migration's incident-status audit trigger performs a nested update to the assigned field unit's `duty_status`. The incident update guard validates caller assignment and allowed lifecycle transitions; transaction failure rolls back nested writes. The PR's immutable identity checks execute at every trigger depth, while only operational role/duty validation is skipped for the nested system transition. No arbitrary user-controlled nested role mutation was found in the inspected trigger path. This remains subject to complete migration replay and authenticated SQL verification; it is not a claim that every live trigger has been exhaustively enumerated.
+- **PR #316 audit latency:** remains synchronous and fail-open with 200 ms connect / 250 ms total HTTP timeouts per attempt. No durable queue/worker/retry/dead-letter path was found, so replacing it with an ungrounded asynchronous mechanism would weaken audit durability. An Auth-plus-RPC request may still incur two bounded attempts.
+- **PR #318 location timestamp:** remains client-reported capture/selection time, not server receipt time or GPS attestation.
+
+### Research basis
+
+- PostgreSQL aggregate functions: `jsonb_agg` collects all input values into a JSON array; it does not supply pagination by itself. https://www.postgresql.org/docs/current/functions-aggregate.html
+- Supabase database functions: RPC functions execute database logic and their input/output contract must explicitly support pagination. https://supabase.com/docs/guides/database/functions
+- PostgreSQL trigger functions: https://www.postgresql.org/docs/current/plpgsql-trigger.html
+- Supabase SECURITY DEFINER guidance: pin search_path, schema-qualify relations, and narrowly grant EXECUTE. https://supabase.com/docs/guides/database/functions
+
+### Validation sequencing
+
+No tests or CI were triggered during this implementation/review phase, per instruction to finish all implementation commits first. The historical integrated candidate predates the latest #316/#318 commits and does not validate the current seven-PR heads. After implementation closure, rerun exact-head workflows and the integrated replay against the reconciled shared CI/replay/history files. No merge, live Supabase migration, production data mutation, or Render deployment occurred.
