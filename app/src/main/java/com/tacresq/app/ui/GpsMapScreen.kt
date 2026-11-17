@@ -827,68 +827,6 @@ fun GpsMapScreen(
     val latestVisibleIncidents by rememberUpdatedState(visibleIncidents)
     val latestValidResponderLocations by rememberUpdatedState(validResponderLocations)
 
-    DisposableEffect(mapLibreMap, incidentClusterSource, responderClusterSource) {
-        val map = mapLibreMap
-        if (map == null) return@DisposableEffect onDispose {}
-        val listener = MapLibreMap.OnMapClickListener { coordinate ->
-            val pixel = map.projection.toScreenLocation(coordinate)
-            fun expandCluster(source: GeoJsonSource?, layerId: String): Boolean {
-                val feature = map.queryRenderedFeatures(pixel, arrayOf(layerId)).firstOrNull() ?: return false
-                if (!feature.hasProperty("point_count")) return false
-                try {
-                    val zoom = source?.getClusterExpansionZoom(feature) ?: return true
-                    val point = feature.geometry() as? Point ?: return true
-                    val position = point.coordinates()
-                    val targetZoom = maxOf(map.cameraPosition.zoom + 1.0, zoom.toDouble()).coerceAtMost(20.0)
-                    map.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                        LatLng(position.latitude(), position.longitude()), targetZoom), 420)
-                } catch (_: RuntimeException) {
-                    // A cluster may have been replaced by a source refresh between render and tap.
-                }
-                return true
-            }
-            if (expandCluster(incidentClusterSource, INCIDENT_CLUSTER_LAYER_ID)) return@OnMapClickListener true
-            if (expandCluster(responderClusterSource, RESPONDER_CLUSTER_LAYER_ID)) return@OnMapClickListener true
-            val incidentFeature = map.queryRenderedFeatures(pixel, arrayOf(INCIDENT_POINT_LAYER_ID)).firstOrNull()
-            if (incidentFeature != null) {
-                val id = incidentFeature.getStringProperty("incident_id")?.toLongOrNull()
-                    ?: return@OnMapClickListener true
-                val incident = latestVisibleIncidents.firstOrNull { it.id == id }
-                    ?: return@OnMapClickListener true
-                latestSelectMarkerTarget(GpsMapMarkerTarget(
-                    type = GpsMapMarkerType.INCIDENT,
-                    position = LatLng(incident.latitude!!, incident.longitude!!),
-                    title = "Incident #${incident.id} · ${incident.type.label}",
-                    summary = "Status: ${incident.status.label} · ${incident.locationAgeStatus().first}",
-                    incidentId = incident.id))
-                return@OnMapClickListener true
-            }
-            val unitFeature = map.queryRenderedFeatures(pixel,
-                arrayOf(RESPONDER_POINT_LAYER_ID, RESPONDER_STALE_POINT_LAYER_ID)).firstOrNull()
-            if (unitFeature != null) {
-                val incidentId = unitFeature.getStringProperty("incident_id")?.toLongOrNull()
-                val userId = unitFeature.getStringProperty("user_id")?.toLongOrNull()
-                val unit = latestValidResponderLocations.firstOrNull {
-                    it.incidentId == incidentId && it.userId == userId
-                } ?: return@OnMapClickListener true
-                val age = unit.mapAgeSeconds() ?: return@OnMapClickListener true
-                val freshness = unit.mapFreshness() ?: return@OnMapClickListener true
-                latestSelectMarkerTarget(GpsMapMarkerTarget(
-                    type = GpsMapMarkerType.FIELD_UNIT,
-                    position = LatLng(unit.latitude, unit.longitude),
-                    title = "Responder #${unit.userId} · Incident #${unit.incidentId}",
-                    summary = if (freshness == MapLocationFreshness.STALE) {
-                        "Last known location · ${formatLocationAge(age)} ago · not live"
-                    } else "${freshness.label} · last reported ${formatLocationAge(age)} ago",
-                    incidentId = unit.incidentId, userId = unit.userId,
-                    stale = freshness == MapLocationFreshness.STALE))
-                return@OnMapClickListener true
-            }
-            false
-        }
-        map.addOnMapClickListener(listener)
-        onDispose { map.removeOnMapClickListener(listener) }
-    }
 
 
     var mapLibreMap by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
@@ -1791,6 +1729,136 @@ fun GpsMapScreen(
         }
     }
 
+
+    DisposableEffect(mapLibreMap, incidentClusterSource, responderClusterSource) {
+        val map = mapLibreMap
+        if (map == null) return@DisposableEffect onDispose {}
+        val listener = MapLibreMap.OnMapClickListener { coordinate ->
+            val pixel = map.projection.toScreenLocation(coordinate)
+            fun expandOrChooseCluster(source: GeoJsonSource?, layerId: String, incidents: Boolean): Boolean {
+                val feature = map.queryRenderedFeatures(pixel, arrayOf(layerId)).firstOrNull() ?: return false
+                if (!feature.hasProperty("point_count")) return false
+                try {
+                    val activeSource = source ?: return true
+                    val expansionZoom = activeSource.getClusterExpansionZoom(feature)
+                    val point = feature.geometry() as? Point ?: return true
+                    val position = point.coordinates()
+                    val canExpand = expansionZoom > map.cameraPosition.zoom && map.cameraPosition.zoom < 20.0
+                    if (canExpand) {
+                        map.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                            LatLng(position.latitude(), position.longitude()),
+                            expansionZoom.toDouble().coerceAtMost(20.0)), 420)
+                    } else {
+                        // At maximum expansion, expose a bounded, validated chooser instead
+                        // of leaving a dense cluster permanently untappable.
+                        val leaves = activeSource.getClusterLeaves(feature, 50L, 0L).features().orEmpty()
+                        val choices = if (incidents) {
+                            leaves.mapNotNull { leaf ->
+                                val id = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@mapNotNull null
+                                val incident = latestVisibleIncidents.firstOrNull { it.id == id } ?: return@mapNotNull null
+                                val lat = incident.latitude ?: return@mapNotNull null
+                                val lng = incident.longitude ?: return@mapNotNull null
+                                GpsMapMarkerTarget(
+                                    type = GpsMapMarkerType.INCIDENT,
+                                    position = LatLng(lat, lng),
+                                    title = "Incident #${incident.id} · ${incident.type.label}",
+                                    summary = "Status: ${incident.status.label} · ${incident.locationAgeStatus().first}",
+                                    incidentId = incident.id,
+                                )
+                            }
+                        } else {
+                            leaves.mapNotNull { leaf ->
+                                val incidentId = leaf.getStringProperty("incident_id")?.toLongOrNull()
+                                    ?: return@mapNotNull null
+                                val userId = leaf.getStringProperty("user_id")?.toLongOrNull()
+                                    ?: return@mapNotNull null
+                                val unit = latestValidResponderLocations.firstOrNull {
+                                    it.incidentId == incidentId && it.userId == userId
+                                } ?: return@mapNotNull null
+                                val age = unit.mapAgeSeconds() ?: return@mapNotNull null
+                                val freshness = unit.mapFreshness() ?: return@mapNotNull null
+                                GpsMapMarkerTarget(
+                                    type = GpsMapMarkerType.FIELD_UNIT,
+                                    position = LatLng(unit.latitude, unit.longitude),
+                                    title = "Responder #${unit.userId} · Incident #${unit.incidentId}",
+                                    summary = if (freshness == MapLocationFreshness.STALE) {
+                                        "Last known location · ${formatLocationAge(age)} ago · not live"
+                                    } else "${freshness.label} · last reported ${formatLocationAge(age)} ago",
+                                    incidentId = unit.incidentId,
+                                    userId = unit.userId,
+                                    stale = freshness == MapLocationFreshness.STALE,
+                                )
+                            }
+                        }.distinctBy { "${it.type}:${it.incidentId}:${it.userId}" }
+                        if (choices.isNotEmpty()) {
+                            selectedMarkerChoices = choices
+                            routeSelectionGeneration += 1
+                            selectedIncidentId = null
+                            selectedResponderKey = null
+                            locationStatus = if (leaves.size > choices.size) {
+                                "Showing ${choices.size} available locations from this cluster. Some reports may have expired."
+                            } else {
+                                "Showing ${choices.size} locations in this dense cluster."
+                            }
+                            scope.launch { mapSheetState.bottomSheetState.expand() }
+                        } else {
+                            locationStatus = "These clustered locations have changed. Refresh the map and try again."
+                        }
+                    }
+                } catch (_: RuntimeException) {
+                    // Native cluster IDs can expire when GeoJSON is replaced concurrently.
+                    locationStatus = "Map locations refreshed. Tap the updated cluster again."
+                }
+                return true
+            }
+            if (expandOrChooseCluster(incidentClusterSource, INCIDENT_CLUSTER_LAYER_ID, true)) {
+                return@OnMapClickListener true
+            }
+            if (expandOrChooseCluster(responderClusterSource, RESPONDER_CLUSTER_LAYER_ID, false)) {
+                return@OnMapClickListener true
+            }
+            val incidentFeature = map.queryRenderedFeatures(pixel, arrayOf(INCIDENT_POINT_LAYER_ID)).firstOrNull()
+            if (incidentFeature != null) {
+                val id = incidentFeature.getStringProperty("incident_id")?.toLongOrNull()
+                    ?: return@OnMapClickListener true
+                val incident = latestVisibleIncidents.firstOrNull { it.id == id }
+                    ?: return@OnMapClickListener true
+                val lat = incident.latitude ?: return@OnMapClickListener true
+                val lng = incident.longitude ?: return@OnMapClickListener true
+                latestSelectMarkerTarget(GpsMapMarkerTarget(
+                    type = GpsMapMarkerType.INCIDENT,
+                    position = LatLng(lat, lng),
+                    title = "Incident #${incident.id} · ${incident.type.label}",
+                    summary = "Status: ${incident.status.label} · ${incident.locationAgeStatus().first}",
+                    incidentId = incident.id))
+                return@OnMapClickListener true
+            }
+            val unitFeature = map.queryRenderedFeatures(pixel,
+                arrayOf(RESPONDER_POINT_LAYER_ID, RESPONDER_STALE_POINT_LAYER_ID)).firstOrNull()
+            if (unitFeature != null) {
+                val incidentId = unitFeature.getStringProperty("incident_id")?.toLongOrNull()
+                val userId = unitFeature.getStringProperty("user_id")?.toLongOrNull()
+                val unit = latestValidResponderLocations.firstOrNull {
+                    it.incidentId == incidentId && it.userId == userId
+                } ?: return@OnMapClickListener true
+                val age = unit.mapAgeSeconds() ?: return@OnMapClickListener true
+                val freshness = unit.mapFreshness() ?: return@OnMapClickListener true
+                latestSelectMarkerTarget(GpsMapMarkerTarget(
+                    type = GpsMapMarkerType.FIELD_UNIT,
+                    position = LatLng(unit.latitude, unit.longitude),
+                    title = "Responder #${unit.userId} · Incident #${unit.incidentId}",
+                    summary = if (freshness == MapLocationFreshness.STALE) {
+                        "Last known location · ${formatLocationAge(age)} ago · not live"
+                    } else "${freshness.label} · last reported ${formatLocationAge(age)} ago",
+                    incidentId = unit.incidentId, userId = unit.userId,
+                    stale = freshness == MapLocationFreshness.STALE))
+                return@OnMapClickListener true
+            }
+            false
+        }
+        map.addOnMapClickListener(listener)
+        onDispose { map.removeOnMapClickListener(listener) }
+    }
 
     BottomSheetScaffold(
         modifier = Modifier.fillMaxSize().semantics { paneTitle = "GPS Map" },

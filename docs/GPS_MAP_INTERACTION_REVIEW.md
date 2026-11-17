@@ -160,3 +160,13 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - **Known limitations:** Native cluster bubbles currently use category-specific colors and counts; individual pin artwork is replaced by colored circles. A bounded leaf chooser for clusters that cannot expand further is outstanding. Verify density, tap targeting, style reload, and source-update races on devices before calling this complete.
 - **Validation:** No Gradle build, JVM tests, emulator/device run, or profiling performed, in accordance with the instruction not to run checks after each commit.
 
+
+
+## Cluster interaction and lifecycle follow-up — 2026-11-17
+
+- Moved the map click listener effect below MapView and cluster-source state declarations so it is owned only after its dependencies exist; listener registration remains paired with removal.
+- Cluster taps now zoom to MapLibre's expansion level when that level is available. At maximum expansion, the tap retrieves up to 50 leaves and builds a chooser from only currently visible incidents and still-valid responder reports. Stale responder entries remain explicitly marked last-known.
+- Expired cluster features and reports are handled as recoverable refresh states rather than selecting stale records. Native cluster API runtime errors are caught because cluster IDs can expire during source replacement.
+- The chooser is bounded to 50 records to avoid unbounded synchronous work on the UI thread; when records have expired, the user is told that only currently available reports are shown.
+- No build, tests, emulator, device validation, or performance profiling run.
+
