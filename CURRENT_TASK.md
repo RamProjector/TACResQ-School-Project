@@ -1,6 +1,6 @@
 ## Latest UI review — 2026-11-17
 
-- Dispatcher pending empty state now distinguishes a confirmed empty queue, an in-progress check, and a failed refresh with a retained cached snapshot. It no longer presents an unverified cached empty subset as current fact. No queue or assignment behavior changed. Commit: pending in this handoff.
+- Dispatcher pending empty state now distinguishes a confirmed empty queue, an in-progress check, and a failed refresh with a retained cached snapshot. It no longer presents an unverified cached empty subset as current fact. No queue or assignment behavior changed. Commit: `876f5f4850338346082f3c2f2e7376371e33d65b`.
 - No build, tests, emulator, or device validation performed.
 
 ---
