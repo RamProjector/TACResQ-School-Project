@@ -129,6 +129,9 @@ jobs:
       - name: Check requester location edit validation
         run: python3 tools/test_requester_location_edit_validation.py
 
+      - name: Check legacy Admin user-list RPC restriction
+        run: python3 tools/test_legacy_admin_user_list_rpc.py
+
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 

@@ -27,6 +27,10 @@ AS $auth_uid$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $auth_uid$;
 
+-- Match Supabase's auth schema/function visibility for PostgREST roles.
+GRANT USAGE ON SCHEMA auth TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+
 -- Minimal Supabase Storage schema for migration replay. This lets the test
 -- exercise real RLS policies without depending on a running Supabase service.
 CREATE SCHEMA storage;
@@ -805,8 +809,8 @@ BEGIN
   IF has_function_privilege('anon', 'public.api_admin_list_users()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Anonymous role must not execute the Admin user-list RPC';
   END IF;
-  IF NOT has_function_privilege('authenticated', 'public.api_admin_list_users()', 'EXECUTE') THEN
-    RAISE EXCEPTION 'Authenticated role must have the explicitly granted Admin RPC entry point';
+  IF has_function_privilege('authenticated', 'public.api_admin_list_users()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Legacy unbounded Admin user-list RPC must not be executable by authenticated clients';
   END IF;
   IF has_function_privilege('anon', 'public.api_admin_list_users_page(integer,integer,text,text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Anonymous role must not execute the Admin paginated user-list RPC';
@@ -1427,3 +1431,6 @@ bash tools/test_assignment_cross_path_concurrency.sh
 
 # Verify requester location edit authorization and validation as authenticated.
 psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_requester_location_edit.sql
+
+# Verify legacy and paginated Admin list RPC access as authenticated.
+psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_admin_user_list_boundary.sql
