@@ -1715,6 +1715,7 @@ fun GpsMapScreen(
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
                                         .clickable(
                                             role = androidx.compose.ui.semantics.Role.Button,
                                             onClickLabel = "Center map on responder ${location.userId}",

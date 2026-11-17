@@ -1,3 +1,9 @@
+# GPS field-unit list touch targets
+
+- Raised each actionable dispatcher field-unit location row to a minimum 48 dp height so its map-centering action is reliably reachable on compact screens and easier to tap without changing the freshness details or interaction.
+- Scope: GPS map sheet presentation only. Responder location data, freshness rules, camera behavior, permissions, routing, and backend contracts are unchanged.
+- Validation: not run per the requested incremental-commit cadence; device and accessibility review remain outstanding.
+
 # GPS camera actions wait for map readiness
 
 - Added a shared readiness guard for camera-focused actions from the Incidents and Field units controls and incident detail cards.
