@@ -250,6 +250,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
     PollWhileStarted { vm.refresh() }
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
     var selectedUnitIds by remember { mutableStateOf(setOf<Long>()) }
+    var releaseCandidate by remember { mutableStateOf<Pair<Incident, Long>?>(null) }
     var queueClock by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -463,6 +464,22 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (incident.status in listOf(IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE) && teamIds.distinct().size > 1) {
+                    teamIds.distinct().forEach { memberId ->
+                        val memberName = state.units.firstOrNull { it.id == memberId }?.name ?: "Field unit #$memberId"
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(memberName, style = MaterialTheme.typography.bodySmall)
+                            TextButton(
+                                onClick = { releaseCandidate = incident to memberId },
+                                enabled = !state.busy && state.assignmentDataFresh,
+                            ) { Text("Release") }
+                        }
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -583,6 +600,29 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             },
             dismissButton = {
                 TextButton(onClick = { assignmentCandidate = null; selectedUnitIds = emptySet() }, enabled = !state.busy) { Text("Cancel") }
+            },
+        )
+    }
+
+    releaseCandidate?.let { (incident, memberId) ->
+        val memberName = state.units.firstOrNull { it.id == memberId }?.name ?: "this field unit"
+        AlertDialog(
+            onDismissRequest = { if (!state.busy) releaseCandidate = null },
+            title = { Text("Release field unit?") },
+            text = {
+                Text("Remove $memberName from incident #${incident.id}? The remaining response team will stay assigned. This cannot be undone automatically.")
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !state.busy && state.assignmentDataFresh,
+                    onClick = {
+                        releaseCandidate = null
+                        vm.releaseAssignment(incident, memberId)
+                    },
+                ) { Text(if (state.busy) "Releasing…" else "Release unit") }
+            },
+            dismissButton = {
+                TextButton(onClick = { releaseCandidate = null }, enabled = !state.busy) { Text("Keep assigned") }
             },
         )
     }
