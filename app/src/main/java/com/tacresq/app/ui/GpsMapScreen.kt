@@ -343,7 +343,7 @@ private fun GpsMapCameraControls(
         shape = RoundedCornerShape(20.dp),
     ) {
         androidx.compose.material3.Icon(
-            imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+            imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
             contentDescription = null,
             modifier = Modifier.size(24.dp),
         )

@@ -1,3 +1,8 @@
+# GPS map control icon refinement
+
+- The single fit-all control now uses the map-location pin icon rather than the device “my location” reticle. This better communicates that it frames all currently visible map points, not just the user's device position.
+- No camera behavior or GPS capture behavior changed. Validation not run per the incremental-commit workflow.
+
 # GPS map follow-up — visible tile-load failure state
 
 - **Finding:** A MapLibre style/tile load failure updated the bottom-sheet status, but the full-screen map header only showed an error chip when Android reported no validated internet. A provider/style failure while the device remained online could therefore leave a blank map without a visible explanation.
