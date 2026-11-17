@@ -93,3 +93,11 @@ This register tracks visible UI findings from source review. A change is not con
 - **Change:** Track the controller's explicit starting state, show “Starting” until the first confirmed location send, reserve “Needs attention” for messages after a confirmed send, and scope the card's message/attention styling to the incident whose ID is actually being tracked. Direct start/resume verification failures are also surfaced through the existing screen error banner so they are not silently lost when no session is active.
 - **Safety:** No location collection, permission, service, assignment verification, or sharing lifecycle behavior changed. The change only corrects status presentation and surfaces existing failure results.
 - **Validation:** Source review only. No build, tests, emulator, or device checks run.
+
+
+## Dispatcher active-team progress density — 2026-11-17
+
+- **Finding:** The active-team summary showed both “N of M responders have started their response” and “K still marked Assigned”. The second line repeated the exact complement of the first, while “started” was less precise than the actual rule being counted (any individual status other than ASSIGNED).
+- **Change:** Use one concise, source-accurate line: “N of M responders moved beyond Assigned”. Remove the redundant complement line. Expanded member details and individual status pills remain available.
+- **Safety:** Counts still derive from the same assigned-user status list and the same status-not-ASSIGNED predicate. No team assignment, aggregate incident status, status transition, or backend behavior changed.
+- **Validation:** Source review only. No build, tests, emulator, or device checks run.

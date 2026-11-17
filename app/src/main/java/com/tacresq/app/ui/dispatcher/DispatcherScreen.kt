@@ -377,7 +377,6 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         it.status != IncidentStatus.ASSIGNED
                     }
                     val teamCount = incident.assignedUserStatuses.size
-                    val stillAssignedCount = teamCount - updatedMemberCount
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -386,17 +385,10 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("Team progress", style = MaterialTheme.typography.labelLarge)
                             Text(
-                                "$updatedMemberCount of $teamCount responders have started their response",
+                                "$updatedMemberCount of $teamCount responders moved beyond Assigned",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            if (stillAssignedCount > 0) {
-                                Text(
-                                    "$stillAssignedCount still marked Assigned",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
                         }
                         StatusPill(incident.status)
                     }

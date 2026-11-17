@@ -1,5 +1,12 @@
 ## Latest UI review — 2026-11-17
 
+- Dispatcher active-team summary now presents one precise progress count (“moved beyond Assigned”) instead of a count plus its redundant complement. Expanded member statuses remain unchanged. No assignment/status behavior changed. Commit: pending in this handoff.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
 - Responder location-sharing status now distinguishes startup from attention-required messages and only shows tracking status on the incident actually being shared. Direct start/resume verification failures use the existing error banner. No tracking or assignment behavior changed. Commit: `4bd7a664a7c15e687a0be70f010bb60566875d40`.
 - No build, tests, emulator, or device validation performed.
 
