@@ -175,7 +175,12 @@ data class UpdateMyIncidentRequest(
 
 data class AssignIncidentRequest(@SerializedName("user_id") val userId: Long)
 
-data class ReleaseIncidentAssignmentRpc(\n    @SerializedName("p_id") val incidentId: Long,\n    @SerializedName("p_user_id") val userId: Long,\n)\n\ndata class AssignIncidentTeamRequest(@SerializedName("user_ids") val userIds: List<Long>)
+data class ReleaseIncidentAssignmentRpc(
+    @SerializedName("p_id") val incidentId: Long,
+    @SerializedName("p_user_id") val userId: Long,
+)
+
+data class AssignIncidentTeamRequest(@SerializedName("user_ids") val userIds: List<Long>)
 
 data class SetClaimableRequest(@SerializedName("claimable") val claimable: Boolean)
 
