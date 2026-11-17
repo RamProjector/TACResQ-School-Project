@@ -1,3 +1,12 @@
+## Assignment event history security contract — 2026-11-18
+
+- **Review:** The migration records assignment, release, and incident-closure events through database triggers. Authenticated clients receive SELECT only; row-level security restricts reads to dispatcher/admin profiles. Trigger writers are private SECURITY DEFINER functions with a fixed `pg_catalog` search path and no client EXECUTE grant.
+- **Change:** Added `tools/test_assignment_event_history_contract.py` to guard the event types, trigger coverage, actor attribution, and dispatcher/admin read boundary against accidental regression.
+- **Scope:** This adds a static source contract only. Android retrieval/display is still not implemented; the event ledger migration remains unapplied to production.
+- **Validation:** Test source was added but not executed in this continuation. No database replay, Android build, emulator/device test, or production mutation was performed.
+
+---
+
 ## Web dispatch retirement — 2026-11-18
 
 - **Decision:** Dispatch operations are centralized in the TACResQ Android app to avoid competing web and mobile dispatch surfaces.
