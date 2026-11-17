@@ -27,6 +27,10 @@ AS $auth_uid$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $auth_uid$;
 
+-- Match Supabase's auth schema/function visibility for PostgREST roles.
+GRANT USAGE ON SCHEMA auth TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+
 -- Minimal Supabase Storage schema for migration replay. This lets the test
 -- exercise real RLS policies without depending on a running Supabase service.
 CREATE SCHEMA storage;
