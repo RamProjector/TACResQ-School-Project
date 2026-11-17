@@ -1731,17 +1731,21 @@ fun GpsMapScreen(
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (hasValidatedInternet == false) {
+                    if (hasValidatedInternet == false || mapLoadError) {
                         androidx.compose.material3.Surface(
                             shape = RoundedCornerShape(50),
                             color = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ) {
                             Text(
-                                "Offline",
+                                if (mapLoadError) "Map unavailable" else "Offline",
                                 modifier = Modifier
                                     .semantics {
-                                        contentDescription = "Internet unavailable. Map tiles may not load; incident details remain available."
+                                        contentDescription = if (mapLoadError) {
+                                            "Map data could not be loaded. Incident details remain available."
+                                        } else {
+                                            "Internet unavailable. Map tiles may not load; incident details remain available."
+                                        }
                                     }
                                     .padding(horizontal = 9.dp, vertical = 5.dp),
                                 style = MaterialTheme.typography.labelSmall,

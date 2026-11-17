@@ -1,3 +1,10 @@
+# GPS map follow-up — visible tile-load failure state
+
+- **Finding:** A MapLibre style/tile load failure updated the bottom-sheet status, but the full-screen map header only showed an error chip when Android reported no validated internet. A provider/style failure while the device remained online could therefore leave a blank map without a visible explanation.
+- **Change:** The header now also displays a compact “Map unavailable” error chip whenever the existing MapLibre load-failure state is active. Its accessibility description explains that incident details remain available. The existing “Offline” chip remains for connectivity loss.
+- **Scope:** Reuses the existing map-load listener state; no retry loop, provider switch, tile-source change, pin behavior, or network policy was introduced.
+- **Validation:** Not run per the incremental-commit workflow.
+
 # Current handoff — 2026-11-17: GPS map interaction simplification
 
 - **Finding:** The full-screen map exposed separate zoom-in and zoom-out buttons alongside a fit-locations action. This added three stacked controls and duplicated gestures already available directly on the map; the zoom buttons were also a previously identified UI distraction.
