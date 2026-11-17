@@ -1,6 +1,6 @@
 ## Latest UI review — 2026-11-17
 
-- Dispatcher overview now shows only actionable counts (Pending, Active, Ready units); removed the ambiguous all-record “Incidents” metric that could include completed/cancelled records. The queue and assignment filters are unchanged. Commit: pending in this handoff.
+- Dispatcher overview now shows only actionable counts (Pending, Active, Ready units); removed the ambiguous all-record “Incidents” metric that could include completed/cancelled records. The queue and assignment filters are unchanged. Commit: `a981104419eb2a098c7b79d8837a755b7f5428e9`.
 - No build, tests, emulator, or device validation performed.
 
 ---
