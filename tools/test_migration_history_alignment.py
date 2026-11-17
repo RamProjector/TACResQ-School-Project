@@ -60,6 +60,8 @@ PENDING = {
     "20261116200000_harden_dispatch_claimability_lifecycle.sql",
     "20261116210000_protect_profile_identity_metadata.sql",
     "20261117010000_restrict_legacy_admin_user_list_rpc.sql",
+    "20261117234000_dispatch_managed_incident_progress.sql",
+    "20261118001000_allow_dispatcher_progress_duty_sync.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
