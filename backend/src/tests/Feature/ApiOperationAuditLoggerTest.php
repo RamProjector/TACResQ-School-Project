@@ -60,7 +60,7 @@ class ApiOperationAuditLoggerTest extends TestCase
 
         app(ApiOperationAuditLogger::class)->record('supabase', 'rpc.api_me', 'success', 200, 1);
 
-        Http::assertSent(function ($request): bool {
+        Http::assertSent(function ($request) use ($modernSecret): bool {
             return $request->hasHeader('apikey', $modernSecret)
                 && !$request->hasHeader('Authorization');
         });
