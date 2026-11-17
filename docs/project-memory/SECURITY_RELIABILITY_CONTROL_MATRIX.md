@@ -419,3 +419,16 @@ The latest #321 `tools/test_migration_history_alignment.py` contains 42 EXPECTED
 - After each approved merge, rerun the migration replay and relevant exact-head checks against the updated mainline; do not reuse standalone branch results as integration proof.
 
 No migration was applied to the live Supabase project. No PR was merged.
+
+
+### Concurrency-test coverage limitations
+
+Review of #317's `tools/test_field_claim_concurrency.sh` confirms it uses two independent authenticated PostgreSQL sessions and checks two valuable invariants: one field unit cannot win claims on two different active incidents, and two different field units can join the same incident. The script deliberately holds transactions for one second after the claim call to widen contention.
+
+Two limitations remain:
+- The shell test does not use an explicit database start barrier. The one-second lock hold increases the chance of overlap, but it does not prove both sessions reached the contested operation before the first transaction committed. Treat it as a real concurrency test with a scheduling-determinism limitation, not a fully deterministic race harness.
+- It does not exercise dispatcher assignment racing a field claim for the same unit, nor two dispatchers assigning the same unit to different incidents. The migration's incident/profile lock order and active-assignment recheck are designed to serialize those paths, but the specific cross-path races remain unproven by this fixture.
+
+Recommended next test improvement: add synchronized two-session cases for (a) dispatcher assignment versus field claim and (b) dispatcher-versus-dispatcher selection of the same unit, then assert exactly one active incident membership for that unit. Prefer a database-coordinated barrier or explicit readiness handshake over relying only on process launch timing. Do not claim these cases are covered until the fixture runs successfully on a disposable clean replay.
+
+Latest documentation commit workflow state at this review: Frontend Review succeeded; TACResQ CI, TACResQ Security, and RPC grant contract were still running. No merge or live migration was performed.
