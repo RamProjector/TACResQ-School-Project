@@ -37,6 +37,7 @@ import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
+import com.tacresq.app.data.model.nextSteps
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
@@ -152,6 +153,34 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
         }
     }
 
+    fun advanceIncident(incident: Incident, to: IncidentStatus) {
+        if (_state.value.busy || !_state.value.assignmentDataFresh) return
+        if (to !in incident.status.nextSteps()) return
+        _state.update { it.copy(busy = true, error = null, notice = null) }
+        viewModelScope.launch {
+            repo.updateIncidentStatus(incident.id, to)
+                .onSuccess { updated ->
+                    _state.update { current ->
+                        current.copy(
+                            busy = false,
+                            notice = "Incident #${updated.id} updated to ${to.label}.",
+                            incidents = current.incidents.map { if (it.id == updated.id) updated else it },
+                        )
+                    }
+                    refresh()
+                }
+                .onFailure { failure ->
+                    _state.update {
+                        it.copy(
+                            busy = false,
+                            error = failure.message ?: "Incident progress could not be updated. Refresh before retrying.",
+                            assignmentDataFresh = false,
+                        )
+                    }
+                }
+        }
+    }
+
     fun setIncidentClaimable(incidentId: Long, claimable: Boolean) {
         if (_state.value.busy) return
         viewModelScope.launch {
@@ -189,8 +218,6 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
     PollWhileStarted { vm.refresh() }
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
     var selectedUnitIds by remember { mutableStateOf(setOf<Long>()) }
-    // Keep the dispatcher overview concise; individual check-ins are available on demand.
-    var expandedTeamStatusIds by remember { mutableStateOf(setOf<Long>()) }
     var queueClock by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -388,93 +415,36 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
                 val teamNames = state.units.filter { it.id in teamIds }.joinToString(", ") { it.name }
                 val remainingTeamSlots = (5 - teamIds.distinct().size).coerceAtLeast(0)
-                val reportedMemberStatuses = incident.assignedUserStatuses
-                    .filter { it.userId in teamIds }
-                    .distinctBy { it.userId }
-                if (reportedMemberStatuses.isEmpty()) {
-                    Text("Team: ${teamNames.ifBlank { "Not assigned" }}")
-                    if (teamIds.isNotEmpty()) {
-                        Text(
-                            "Individual responder status updates are unavailable.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    val updatedMemberCount = reportedMemberStatuses.count {
-                        it.status != IncidentStatus.ASSIGNED
-                    }
-                    val reportedMemberCount = reportedMemberStatuses.size
-                    val missingMemberCount = (teamIds.size - reportedMemberCount).coerceAtLeast(0)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("Team progress", style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                "$updatedMemberCount of ${teamIds.size} assigned responders moved beyond Assigned",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            if (missingMemberCount > 0) {
-                                Text(
-                                    "Status unavailable for $missingMemberCount assigned ${if (missingMemberCount == 1) "member" else "members"}.",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        StatusPill(incident.status)
-                    }
-                    TextButton(
-                        onClick = {
-                            expandedTeamStatusIds = if (incident.id in expandedTeamStatusIds) {
-                                expandedTeamStatusIds - incident.id
-                            } else {
-                                expandedTeamStatusIds + incident.id
-                            }
-                        },
+                Text("Response team", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    if (teamIds.isEmpty()) "No response team assigned"
+                    else "${teamIds.distinct().size} assigned · ${teamNames.ifBlank { "Member details unavailable" }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("Incident progress", style = MaterialTheme.typography.labelLarge)
+                    StatusPill(incident.status)
+                }
+                incident.status.nextSteps().forEach { next ->
+                    OutlinedButton(
+                        onClick = { vm.advanceIncident(incident, next) },
+                        enabled = !state.busy && state.assignmentDataFresh,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     ) {
                         Text(
-                            if (incident.id in expandedTeamStatusIds) {
-                                "Hide member details"
-                            } else {
-                                "View member details"
+                            when (next) {
+                                IncidentStatus.EN_ROUTE -> "Mark team deployed"
+                                IncidentStatus.ON_SCENE -> "Mark team on scene"
+                                IncidentStatus.TRANSPORTING -> "Mark transport in progress"
+                                IncidentStatus.RESOLVED -> "Complete incident"
+                                else -> next.label
                             }
                         )
-                    }
-                    if (incident.id in expandedTeamStatusIds) {
-                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            reportedMemberStatuses.forEach { memberStatus ->
-                                val unit = state.units.firstOrNull { it.id == memberStatus.userId }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                                    ) {
-                                        Text(
-                                            unit?.name ?: "Unit #${memberStatus.userId}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.Medium,
-                                        )
-                                        Text(
-                                            memberStatus.statusUpdatedAt?.let { "Updated ${formatTime(it)}" }
-                                                ?: "Update time unavailable",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    StatusPill(memberStatus.status)
-                                }
-                            }
-                        }
                     }
                 }
                 if (incident.status == IncidentStatus.ASSIGNED || incident.status == IncidentStatus.EN_ROUTE) {
