@@ -625,3 +625,96 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 
 
 - **CI integration:** Added `tools/test_activity_lifecycle_failure_safety.py` to the Android source-check workflow so the new dispatcher/requester/responder/chat lifecycle regression contract runs on every PR, rather than existing only as an uninvoked test file.
+
+
+---
+
+# Research and audit continuation — 2026-11-17
+
+- **Documentation:** Added [Security and Reliability Control Matrix](docs/project-memory/SECURITY_RELIABILITY_CONTROL_MATRIX.md) and indexed it in project memory. It maps OWASP API Security Top 10/ASVS/MASVS, Android location, Supabase/PostgreSQL, and FCM guidance to TACResQ source paths, confirmed gaps, acceptance tests, and limitations.
+- **Exact PR refresh:** PRs #316–#321 were open, unmerged, and reported mergeable. Exact heads checked: #316 `21e8c5eb3c5013256aa9063ae3736c15c20d057e`; #317 `5ba1727f760aeb2a22f79198e2048db727af69b7`; #318 `1276b6b22473982c7781dbcfac654ff541e6f917`; #319 `02c1e7bb05b6965adae01b811b708a457264f63f`; #320 `21495bfbe7d93c87850ab9151b6cf156c1081d8f`; #321 `f44af2d88a8c822ab911612352a9cf65a114137a`. Returned TACResQ CI, Security, RPC grant contract, and Frontend Review workflows completed successfully for each exact head. PR #316's Render live smoke also completed successfully. These results do not prove live migration application or device behavior.
+- **Live Supabase read-only finding:** migration ledger ends at `20261116042927_responder_incident_claiming`. It does not include the already-committed repository migration `20261116150000_pin_api_units_search_path.sql`. Live `public.api_units()` remains SECURITY DEFINER with `search_path=pg_catalog, public, auth`; repository migration narrows it to `pg_catalog`. This is a pending deployment drift issue. No live migration was applied.
+- **Location trace:** `LocationProvider.kt` uses FusedLocationProviderClient; `Models.kt` GeoFix retains coordinates, accuracy, capture/elapsed timestamps, permission precision, and manual selection. The incident RPC payload sends `location_source` (gps/manual/none), not a provider identifier. Do not add a provider column until the full edit/responder-write path and source semantics are verified.
+- **No production side effects:** no live schema/data/configuration change, deployment, notification send, or PR merge was performed.
+- **Next action:** review PR #316–#321 for unresolved comments and current exact-head checks; then add isolated two-session concurrency coverage where missing. Keep live migrations pending absent explicit approval.
+
+
+## PR #322 follow-up — 2026-11-17
+
+- Opened [PR #322 — Document TACResQ security and reliability control matrix](https://github.com/RamProjector/TACResQ-School-Project/pull/322).
+- Branch: `agent/security-reliability-control-matrix`; latest observed head before this handoff update: `6e2eefbe3f18b0a3570f2abf45326dc3dea2ab90`.
+- Documentation-only scope: standards-to-source control matrix, project-memory index, and this handoff. README index line-break formatting was corrected after diff inspection.
+- PR #322 workflows were observed running at the initial head `74463939626d463c0abdd50d09b011b29caec655`; they must be rechecked for the latest head.
+- No local checkout/content-link validation was run. No live DB migration, deployment, or merge was performed.
+
+
+## Concurrency validation update — 2026-11-17
+
+- PR #317 now has a true two-session PostgreSQL 16 race test for one responder claiming two incidents. Latest-head clean migration replay passed and emitted both expected PASS assertions (one `claimed`, one `UNIT_BUSY`, final one assignment/one assigned incident).
+- PR #319 now has a true two-session race between dispatcher claimability enable and requester cancellation. Latest-head migration replay is still running; verify the final log before marking it passed.
+- Both tests run only against disposable CI PostgreSQL using synthetic accounts. No live Supabase changes.
+
+
+## Latest exact-head validation — 2026-11-17
+
+- PR #317: `84a95488872d4808a837bd7d03646b1290de8ab2`. TACResQ CI passed, including clean PostgreSQL migration replay and the cross-incident two-session race; RPC grant contract and Frontend Review passed. Security/CodeQL was still in progress at last poll.
+- PR #319: `b21f8cd7d9697b7c358a25e09e342d3470950248`. Clean PostgreSQL migration replay passed, including the two-session dispatcher-toggle/requester-cancellation race; RPC grant contract and Frontend Review passed. TACResQ CI and Security were still in progress at last poll.
+- Both PRs remain open/unmerged. No live Supabase migrations were applied.
+
+
+## TACResQ audit continuation — 2026-11-17 (latest)
+
+- PR #317 exact head `84a95488872d4808a837bd7d03646b1290de8ab2`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. Open/unmerged.
+- PR #319 exact head `b21f8cd7d9697b7c358a25e09e342d3470950248`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. Open/unmerged. Runtime authenticated DML-denial/RPC-success integration check remains pending.
+- PR #322 latest documentation head `d701f9f9164c8fc3056b89dee3ebaa41304c9e8f`: audit matrix refreshed with live advisor, function ACL/search-path, and RLS no-policy table grant evidence. Exact-head workflows are pending/not yet returned at the latest poll. Compare reports 12 commits ahead and 0 behind main; PR currently reports mergeable.
+- Live Supabase read-only advisor recheck: health 0; security 5 RLS-enabled/no-policy tables, 18 authenticated-callable public SECURITY DEFINER functions, leaked-password protection disabled; performance 4 missing FK indexes, 6 RLS initplan warnings, 8 unused-index candidates.
+- Direct privilege checks show all five RLS/no-policy tables have zero policies and no anon/authenticated table privileges. Do not add policies merely to silence the advisor.
+- SECURITY DEFINER catalog/ACL review found no EXECUTE grants to PUBLIC among inspected public/private functions. `private.tacresq_is_incident_assignee(bigint)` has an unnecessary `public` search_path entry; schema-qualified body references and no confirmed exploit. `public.api_units()` remains the known live search_path drift.
+- No live migration, data mutation, deployment, FCM send, or merge was performed. Continue function-by-function authorization review and plan any search_path hardening as a forward-only migration after checking repository history and dependencies.
+
+
+## Authenticated RPC review continuation — 2026-11-17
+
+- Reviewed all 18 public SECURITY DEFINER RPC definitions currently executable by `authenticated`, plus the private incident-chat authorization helper.
+- Reviewed access controls include admin-role checks, requester ownership checks, recipient-scoped notification operations, chat participant authorization, bounded message/notification/admin-page inputs, message idempotency, and image MIME/path/size/object verification.
+- Confirmed the current live legacy `api_admin_list_users()` still returns all profile PII without pagination to admin callers. PR #321 removes client EXECUTE and stale dashboard typing; its exact-head four workflows passed. Its clean migration replay now checks that authenticated cannot execute the legacy RPC while the bounded paginated RPC continues to work. A live PostgREST authenticated-session test remains unrun.
+- Live claim RPCs still predate #317 and #319 until those migrations are applied. Do not treat passing CI as production deployment.
+- `api_claimable_incidents()` is currently unpaginated; this is an operational scale concern, not a confirmed exposure, because access is restricted to authenticated on-duty responders/drivers. Add bounded paging only with queue completeness and emergency workflow tests.
+- No confirmed cross-account disclosure or privilege escalation was established by static review.
+- PR #317, #319, #321, and #322 remain open/unmerged; no live database migration or deployment performed.
+
+
+## Location provider provenance trace — 2026-11-17
+
+- Traced Android requester/responder location capture through `LocationProvider.kt`, `GeoFix`, Supabase RPC request DTOs, and live PostgreSQL columns.
+- No provider name is currently captured or stored. `location_source` means GPS/manual/none; it is not the provider identity.
+- Requester capture uses Google Play services `FusedLocationProviderClient.getCurrentLocation`; responder sharing uses fused `requestLocationUpdates`. `GeoFix`, `CreateIncidentV4Rpc`, `RecordLocationRpc`, and the database schemas omit provider metadata.
+- Live `location_logs.received_at` already records server receipt time; incident `created_at` provides server row creation time.
+- Recommendation: if operationally needed, store a constrained `capture_provider` diagnostic value such as `google_fused_location` or `manual_map_selection`, distinct from existing `location_source`; keep `map_data_provider` separate and only set it when that provider actually supplies a selected coordinate/address. Treat client values as untrusted diagnostics, never proof of physical presence.
+- No payload or schema changes made pending confirmation of which provider distinction is required.
+
+
+---
+
+# Implementation phase closeout — 2026-11-17 12:27 PHT
+
+## Scope and execution boundary
+
+- The active implementation set remains PRs #316–#322. Do not add UI redesign scope, unrelated features, or replacement PRs during this closeout.
+- The seven-PR integration candidate is recorded as `cef63fa713dc3488b76952791742d91ebd0cf4bf`, assembled from the reviewed PR snapshots with the shared CI workflow, migration replay harness, migration-history inventory, and project-memory index reconciled.
+- The candidate record reports successful combined TACResQ CI, TACResQ Security, and RPC grant-contract workflows. It includes the six timestamp-ordered migrations, authenticated-role SQL checks, concurrency suites, Android builds/JVM checks/lint, dashboard build/type checks, and Laravel integration (77 tests / 229 assertions).
+- This evidence is historical candidate evidence, not proof that a later PR head or production environment has been validated. Preserve exact-head checks after any subsequent source change and do not describe CI as device or production acceptance.
+
+## Implementation disposition
+
+- Review-thread refresh found no outstanding inline review threads on PRs #316–#322.
+- The recorded combined candidate resolves the known cross-PR replay/CI/history-file integration concern for the snapshots it contains. Do not make speculative changes to already-integrated migrations or tests merely to create more commits.
+- Keep the existing PR scopes and merge order: #316 → #317 → #318 → #319 → #320 → #321, then #322 documentation. This is a sequencing recommendation only, not merge authorization.
+- Remaining items are acceptance/operational gates rather than reasons to expand the current implementation set: isolated live PostgREST verification, physical-device GPS and OEM behavior, notification/FCM delivery behavior, live routing-provider behavior, production migration planning, and operator review of leaked-password protection.
+- The live `api_units()` search_path drift remains a deployment-history issue: the repository hardening migration exists, but the live migration ledger had not recorded it at the last read-only inspection. Do not apply migrations or mutate live data as part of this PR work.
+
+## Validation sequencing instruction
+
+- Finish and record any justified source/documentation commits across the active PRs before starting a new validation cycle.
+- No tests or CI were started for this closeout commit. The next validation cycle must target the final exact heads after the implementation commit set is frozen.
+- No PR merge, live Supabase migration, Render change/deployment, secret change, FCM send, or production data mutation was performed.
