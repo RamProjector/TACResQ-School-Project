@@ -1,5 +1,12 @@
 ## Latest UI review — 2026-11-17
 
+- Responder active-incident cards now separate requester name and phone under a clear “Requester contact” label. Contact remains visible to the assigned responder; no dialer or authorization behavior changed. Commit: pending in this handoff.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
 - Dispatcher field-unit list now displays AVAILABLE units first to reduce scan effort; all other statuses remain visible and preserve their relative order. Assignment eligibility still uses the existing fresh snapshot filter. Commit: pending in this handoff.
 - No build, tests, emulator, or device validation performed.
 

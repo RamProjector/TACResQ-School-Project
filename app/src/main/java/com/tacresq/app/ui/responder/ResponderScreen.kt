@@ -552,9 +552,21 @@ fun ResponderScreen(
                     val ownStatus = incident.statusFor(user.id)
                     StatusPill(ownStatus.label, ownStatus.pillColor())
                 }
-                val contact = listOfNotNull(incident.requesterName, incident.requesterPhone)
-                    .joinToString(", ")
-                if (contact.isNotBlank()) Text("Requester: $contact")
+                if (incident.requesterName != null || incident.requesterPhone != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "Requester contact",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        incident.requesterName?.let { name ->
+                            Text(name, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        incident.requesterPhone?.let { phone ->
+                            Text(phone, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
 
                 val latitude = incident.latitude
                 val longitude = incident.longitude
