@@ -596,7 +596,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                         val actorLabel = when (event.actorUserId) {
                                             null -> "System"
                                             user.id -> "You"
-                                            else -> "Dispatcher account #${event.actorUserId}"
+                                            else -> "Another dispatcher/admin"
                                         }
                                         Text(eventLabel, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
                                         Text(
@@ -678,7 +678,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                             val actorLabel = when (event.actorUserId) {
                                                 null -> "System"
                                                 user.id -> "You"
-                                                else -> "Dispatcher account #${event.actorUserId}"
+                                                else -> "Another dispatcher/admin"
                                             }
                                             Text(eventLabel, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
                                             Text("$memberName · by $actorLabel", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
