@@ -10,7 +10,7 @@ assert 'else Text("Send SOS", fontWeight = FontWeight.Bold)' in source
 assert 'onClick = { selectedType?.let { vm.sendSos(it, description, locationNotes) } }' in source
 assert 'enabled = selectedType != null && requesterActionsEnabled &&' in source
 assert '!state.pendingSosCheckInProgress && state.pendingSosCheckError == null' in source
-assert 'This one-time pin is sent with the SOS; ongoing tracking is not.' in source
+assert 'This one-time pin is sent; ongoing tracking is not.' in source
 assert 'Text("Only send if help is needed now."' in source
 assert "import androidx.compose.material3.Checkbox" in source
 assert 'Checkbox(checked = locationSharingAcknowledged, onCheckedChange = null)' in source
