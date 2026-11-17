@@ -64,6 +64,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
+import com.tacresq.app.data.local.SessionStore
 import com.tacresq.app.data.model.IncidentMessage
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
@@ -83,6 +84,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
+import java.security.MessageDigest
 
 data class IncidentChatUiState(
     val items: List<IncidentMessage> = emptyList(),
@@ -117,6 +119,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     private var pendingClientMessageId: String? = null
     private var pendingImageClientMessageId: String? = null
     private var pendingImageSignature: String? = null
+    private var pendingImageRecord: SessionStore.PendingChatImage? = null
 
     fun open(incidentId: Long) {
         if (activeIncidentId != incidentId) {
@@ -139,13 +142,33 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                         pendingClientMessageId = saved?.clientMessageId
                         if (saved != null && saved.incidentId != incidentId) {
                             _state.update { it.copy(restoringPending = true, sendError = "A previous message is unresolved in another incident. Open that incident and retry it first.") }
-                        } else {
-                            _state.update { it.copy(draft = saved?.message.orEmpty(), restoringPending = false) }
+                            return@onSuccess
                         }
+                        repo.pendingChatImage()
+                            .onSuccess { image ->
+                                if (!isCurrentConversation(incidentId, conversationGeneration)) return@onSuccess
+                                pendingImageRecord = image
+                                pendingImageClientMessageId = image?.clientMessageId
+                                pendingImageSignature = image?.sha256
+                                if (image != null && image.incidentId != incidentId) {
+                                    _state.update { it.copy(restoringPending = true, sendError = "An earlier image message is unresolved in another incident. Open that incident and reselect the same image to retry it.") }
+                                } else {
+                                    _state.update {
+                                        it.copy(
+                                            draft = saved?.message ?: image?.caption.orEmpty(),
+                                            restoringPending = false,
+                                            sendError = if (image != null) "An earlier image send is unconfirmed. Re-select the exact same image to safely retry it." else null,
+                                        )
+                                    }
+                                }
+                            }
+                            .onFailure { failure ->
+                                if (!isCurrentConversation(incidentId, conversationGeneration)) return@onFailure
+                                _state.update { it.copy(restoringPending = true, sendError = failure.message ?: "Could not safely restore the pending image. Sending is blocked.") }
+                            }
                     }
                     .onFailure { failure ->
                         if (!isCurrentConversation(incidentId, conversationGeneration)) return@onFailure
-                        // Fail closed if the pending record's owner or integrity cannot be verified.
                         _state.update { it.copy(restoringPending = true, sendError = failure.message ?: "Could not safely restore the pending message. Sending is blocked.") }
                     }
             }
@@ -296,10 +319,20 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             _state.update { it.copy(sendError = "Choose a JPG, PNG, or WebP image up to 5 MB.") }
             return
         }
-        pendingImageClientMessageId = null
-        pendingImageSignature = null
+        val restored = pendingImageRecord
+        val digest = sha256(bytes)
+        val matchesPending = restored == null ||
+            (restored.sha256 == digest && restored.mimeType == mimeType && restored.incidentId == activeIncidentId)
         _state.update {
-            it.copy(attachmentBytes = bytes.copyOf(), attachmentMimeType = mimeType, sendError = null)
+            it.copy(
+                attachmentBytes = bytes.copyOf(),
+                attachmentMimeType = mimeType,
+                sendError = when {
+                    !matchesPending -> "This is not the same image as the unconfirmed send. Re-select the original image to avoid creating a duplicate."
+                    restored != null -> "Original image restored. Retry to confirm the earlier send."
+                    else -> null
+                },
+            )
         }
     }
 
@@ -315,27 +348,49 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         val mimeType = current.attachmentMimeType ?: return
         val caption = current.draft.trim()
         if (activeIncidentId != incidentId || senderId < 1 || sendJob?.isActive == true || caption.length > 2000) return
-        val signature = "$mimeType:${bytes.contentHashCode()}:$caption"
-        val clientMessageId = if (pendingImageSignature == signature) {
-            pendingImageClientMessageId ?: UUID.randomUUID().toString().also {
-                pendingImageClientMessageId = it
-                pendingImageSignature = signature
-            }
-        } else {
-            UUID.randomUUID().toString().also {
-                pendingImageClientMessageId = it
-                pendingImageSignature = signature
-            }
+        val digest = sha256(bytes)
+        val restored = pendingImageRecord
+        if (restored != null && (
+                restored.incidentId != incidentId ||
+                    restored.caption != caption ||
+                    restored.mimeType != mimeType ||
+                    restored.sha256 != digest
+            )
+        ) {
+            _state.update { it.copy(sendError = "This does not match the unconfirmed image. Re-select the original image and keep its original caption before retrying.") }
+            return
         }
+        val clientMessageId = restored?.clientMessageId ?: UUID.randomUUID().toString()
         val generation = conversationGeneration
         sendJob = viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null, error = null) }
+            if (restored == null) {
+                repositoryCallOrFailure {
+                    repo.persistPendingChatImage(incidentId, caption, clientMessageId, mimeType, digest)
+                }.onFailure { failure ->
+                    if (isCurrentConversation(incidentId, generation)) {
+                        _state.update { it.copy(sending = false, sendError = failure.message ?: "Could not safely save this image retry. Image was not sent.") }
+                    }
+                    return@launch
+                }
+                pendingImageRecord = SessionStore.PendingChatImage(
+                    incidentId, caption, clientMessageId, mimeType, digest, senderId,
+                )
+                pendingImageClientMessageId = clientMessageId
+                pendingImageSignature = digest
+            }
             repositoryCallOrFailure { repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes) }
                 .onSuccess { sent ->
                     if (!isCurrentConversation(incidentId, generation)) return@onSuccess
+                    val cleared = repo.clearPendingChatImage(clientMessageId)
+                    if (cleared.isFailure) {
+                        _state.update { it.copy(sending = false, sendError = "Image was sent, but its retry record could not be cleared. Refresh the conversation before retrying; the same message ID is retained.") }
+                        refresh(incidentId)
+                        return@onSuccess
+                    }
+                    pendingImageRecord = null
                     pendingImageClientMessageId = null
                     pendingImageSignature = null
-                    pendingClientMessageId = null
                     _state.update { state ->
                         state.copy(
                             items = (state.items + sent).distinctBy { it.id }.sortedBy { it.id },
@@ -352,12 +407,15 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     _state.update {
                         it.copy(
                             sending = false,
-                            sendError = failure.message ?: "Image was not confirmed. Retry safely.",
+                            sendError = failure.message ?: "Image was not confirmed. Re-select the same image and retry safely.",
                         )
                     }
                 }
         }
     }
+
+    private fun sha256(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     suspend fun downloadImage(path: String): ByteArray? =
         repo.downloadIncidentImage(path).getOrNull()
@@ -379,6 +437,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         // it even though cancellation prevented the response from reaching this ViewModel.
         pendingImageClientMessageId = null
         pendingImageSignature = null
+        // Keep the encrypted retry identity in SessionStore; it must survive navigation.
         _state.value = IncidentChatUiState()
     }
 }
