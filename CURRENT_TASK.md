@@ -1,3 +1,10 @@
+# GPS camera actions wait for map readiness
+
+- Added a shared readiness guard for camera-focused actions from the Incidents and Field units controls and incident detail cards.
+- When map data/style is still initializing or recovering, the action now announces that state instead of silently issuing a camera animation against an unavailable map.
+- Empty-list feedback and selection behavior remain unchanged; map loading, retry, permissions, location sharing, routing, and backend behavior are untouched.
+- Validation: not run per the incremental-commit cadence; build and device review remain outstanding.
+
 # GPS dispatcher field-unit list interaction
 
 - Made each dispatcher field-unit location entry a clearly accessible map-centering action. Selecting an entry now centers the map on that responder's reported coordinate and updates the live sheet status.

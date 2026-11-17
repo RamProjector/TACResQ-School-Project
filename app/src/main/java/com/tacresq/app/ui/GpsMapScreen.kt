@@ -683,6 +683,14 @@ fun GpsMapScreen(
         )
     }
 
+    fun ensureMapReadyForCamera(): Boolean {
+        if (mapLibreMap == null || !mapStyleLoaded) {
+            locationStatus = "Map is still loading. Try centering this location again in a moment."
+            return false
+        }
+        return true
+    }
+
     fun fitMapPoints(points: List<LatLng>) {
         val map = mapLibreMap ?: return
         if (points.isEmpty()) return
@@ -709,6 +717,7 @@ fun GpsMapScreen(
     }
 
     fun showIncidentPins() {
+        if (validIncidentPoints.isNotEmpty() && !ensureMapReadyForCamera()) return
         when (validIncidentPoints.size) {
             0 -> locationStatus = "There are no valid incident coordinates to center on yet."
             1 -> {
@@ -733,12 +742,14 @@ fun GpsMapScreen(
             locationStatus = "Incident #${incident.id} has no usable map coordinates."
             return
         }
+        if (!ensureMapReadyForCamera()) return
         deviceFix = null
         animateToPoint(LatLng(latitude, longitude), 15.0)
         locationStatus = "Centered on incident #${incident.id}. Check the recorded location time before navigating."
     }
 
     fun showActiveUnits() {
+        if (validResponderPoints.isNotEmpty() && !ensureMapReadyForCamera()) return
         when (validResponderPoints.size) {
             0 -> locationStatus = "No valid field-unit location reports are available. Units must be en route and explicitly sharing foreground location."
             1 -> {
