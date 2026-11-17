@@ -724,7 +724,7 @@ fun GpsMapScreen(
     val renderedMarkerSignatures = remember(context, role) { mutableMapOf<String, String>() }
     var renderedMapOwner by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
     var renderedRoutePolyline by remember(context, role) { mutableStateOf<Polyline?>(null) }
-    var renderedRouteSignature by remember(context, role) { mutableStateOf<Int?>(null) }
+    var renderedRouteSignature by remember(context, role) { mutableStateOf<List<Pair<Double, Double>>?>(null) }
     val mapView = remember(context, role) {
         MapLibre.getInstance(context)
         MapView(context).apply {
@@ -1502,7 +1502,7 @@ fun GpsMapScreen(
                 title = title,
                 snippet = snippet,
                 signature = listOf(
-                    location.latitude, location.longitude, freshness.name, icon.hashCode(), title, snippet,
+                    location.latitude, location.longitude, freshness.name, title, snippet,
                 ).joinToString("|"),
             )
             markerTargets[marker.id] = GpsMapMarkerTarget(
@@ -1535,7 +1535,9 @@ fun GpsMapScreen(
                 summary = "One-time preview only · not uploaded or continuously tracked",
             )
         }
-        val routeSignature = displayedRoute?.geometry?.hashCode()
+        // Compare the full ordered geometry, not hashCode(): a collision must never
+        // leave an obsolete route visible after a genuine route change.
+        val routeSignature = displayedRoute?.geometry?.map { it.latitude to it.longitude }
         if (renderedRouteSignature != routeSignature) {
             renderedRoutePolyline?.let(map::removePolyline)
             renderedRoutePolyline = displayedRoute?.let { route ->

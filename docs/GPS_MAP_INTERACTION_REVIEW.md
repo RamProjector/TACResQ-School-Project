@@ -82,3 +82,11 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Update GeoJSON source data rather than clearing/rebuilding all map annotations on every refresh.
 - Before release, test zero/one/two points, dense same-type points, incident/responder coordinates that overlap, stale/fresh field units, selected marker changes, source refresh during a cluster tap, cluster leaf pagination, route visibility, style reload, offline tiles, and compact/foldable layouts.
 - No cluster renderer has been implemented in this documentation commit. The current PR implementation remains incremental reconciliation of legacy annotations; actual cluster rollout requires a separate renderer implementation and exact-head validation.
+
+
+## Renderer signature correctness follow-up — 2026-11-17
+
+- Replaced route geometry hash invalidation with an exact ordered list of latitude/longitude pairs. A hash collision could otherwise leave an obsolete route displayed; exact value equality avoids that correctness risk.
+- Removed icon-object hash from responder marker signatures. Freshness is already an explicit signature component and determines stale versus normal pin styling, so object hash was redundant and could cause needless updates if icon instances changed.
+- Research confirmation: MapLibre Android 13.7.1 documents mutable Marker position/icon/title/snippet properties, updateMarker, and individual marker/polyline removal. These APIs validate the incremental reconciliation calls, while remaining deprecated legacy annotations. References: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.annotations/-marker/index.html and https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/index.html.
+- No build or runtime validation performed.

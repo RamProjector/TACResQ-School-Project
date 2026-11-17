@@ -1062,3 +1062,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Cluster taps should expand by native expansion zoom, falling back to a bounded leaf chooser only when expansion cannot separate points. Preserve selected-feature state through data/style updates.
 - Keep renderer clustering and legacy Annotation Plugin migration as separate changes. Current PR source change only reduces redraw churn; this research does not claim clustering is implemented.
 - References: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-options/index.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-source/get-cluster-expansion-zoom.html ; https://maplibre.org/maplibre-native/android/examples/styling/circle-layer/.
+
+
+## Exact renderer invalidation signatures — 2026-11-17
+
+- Replaced route geometry hash with exact ordered coordinate pairs to avoid hash-collision false equality and stale route display.
+- Removed responder icon hash from marker signatures; freshness state already fully determines the current stale/normal icon class.
+- Confirmed MapLibre 13.7.1 API documentation supports the marker mutation/update and individual removal methods used by the incremental reconciler. These are legacy deprecated APIs; no claim of migration made.
+- References: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.annotations/-marker/index.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/index.html.
+- No tests/build/device checks run.
