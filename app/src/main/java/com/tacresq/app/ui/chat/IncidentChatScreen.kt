@@ -726,7 +726,7 @@ fun IncidentChatScreen(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
                         if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
-                        else if (pendingImageRecord == null) vm.send(incidentId)
+                        else if (!state.pendingImageRetry) vm.send(incidentId)
                     }),
                     enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null && pendingImageRecord == null,
                     shape = RoundedCornerShape(22.dp),
