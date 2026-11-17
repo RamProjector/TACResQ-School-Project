@@ -251,7 +251,7 @@ unit_location_contract = {
     "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt": ("activeResponderLocations(): List<ResponderLocation>",),
     "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt": ("Only dispatchers can view responder locations.", "emptyList()"),
     "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt": ("rest/v1/rpc/api_active_responder_locations",),
-    "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": ("age <= 120L", "Dispatcher-only, consented foreground location.", "STALE — last known position"),
+    "app/src/main/java/com/tacresq/app/ui/GpsMapScreen.kt": ("age <= 120L", "Consent-based foreground report; see the highlighted field-unit entry for age and accuracy.", "Stale pins are not live."),
 }
 for relative_path, required_text in unit_location_contract.items():
     source = (ROOT / relative_path).read_text(encoding="utf-8")
