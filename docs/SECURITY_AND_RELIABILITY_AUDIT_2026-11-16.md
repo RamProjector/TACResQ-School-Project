@@ -49,13 +49,15 @@ Correction:
 - Keep the five-member limit, including a legacy lead assignment that has not yet been backfilled.
 - Exclude busy and already-assigned units from claimable-incident discovery.
 
-Concurrency validation now covers both sides of the intended policy:
+Concurrency validation now covers four distinct invariants:
 - One responder racing to claim two different incidents: exactly one claim succeeds and the competing request returns `UNIT_BUSY`.
-- Two distinct available responders racing to join the same incident: both valid memberships succeed, while the incident advances from `pending` to `assigned` once. This preserves multi-responder team formation instead of incorrectly treating every same-incident contention as a conflict.
+- Two distinct available responders racing to join the same incident: both valid memberships succeed, while the incident advances from `pending` to `assigned` once.
+- A field self-claim racing a dispatcher assignment for the same responder on different incidents: exactly one operation commits.
+- Two dispatchers assigning the same responder to different incidents: exactly one operation commits.
 
-Both scenarios use separate authenticated PostgreSQL sessions against the disposable replay database. They are database concurrency tests, not live PostgREST or physical-device tests.
+The tests use independent authenticated PostgreSQL sessions against the disposable PostgreSQL 16 replay database. The cross-path tests hold the shared responder profile row in a coordinator transaction and wait until both workers are observed in PostgreSQL's lock queue before releasing it. This makes the start condition deterministic and tests the actual database lock behavior. These are database concurrency tests, not live PostgREST or physical-device tests.
 
-PostgreSQL documents that `SELECT ... FOR UPDATE` blocks conflicting lockers/writers on the same row until transaction end. The profile lock provides the shared serialization point for claims against different incident rows. The migration replay and source-contract checks are included in CI.
+PostgreSQL documents that `SELECT ... FOR UPDATE` blocks conflicting lockers/writers on the same row until transaction end, and recommends consistent lock ordering to reduce deadlocks. The responder profile row is the shared serialization point for operations targeting different incidents. The migration replay and source-contract checks are included in CI; all four scenarios passed on exact PR head `c8100543efd73626b765c8c160bb0cfe48dea0a7`.
 
 ### F-02 — Live database still has pending hardening migrations
 **Severity: Medium | Status: Outstanding; requires separately approved deployment**
@@ -163,7 +165,7 @@ Supabase advisors are deterministic checks, not a substitute for understanding t
 ## Prioritized follow-up work
 
 1. Complete per-function authorization review and role/object negative tests for the 18 SECURITY DEFINER functions.
-2. Add true two-session PostgreSQL concurrency tests for self-claim, dispatcher assignment, and requester SOS idempotency.
+2. Extend the two-session PostgreSQL race matrix to duty-status changes and cancellation/assignment interactions; retain the existing concurrent SOS idempotency regression test.
 3. Reduce audit write latency and define audit retention/access policy.
 4. Validate FCM batch lease timing and actual device delivery.
 5. Add explicit location freshness states and test the Android foreground tracking lifecycle on physical devices.
@@ -216,4 +218,4 @@ Expected result:
 
 The test deliberately holds the first transaction open briefly after its claim so the competing session must contend on the shared responder profile lock. This validates a real PostgreSQL lock race rather than merely asserting SQL source order. It runs only against the disposable PostgreSQL database in CI; it does not touch live Supabase.
 
-**Status:** harness committed; latest-head execution is pending. The first CI attempt exposed a fixture-design mistake (two active requests for one requester), not an application regression. The fixture was corrected to use two requester accounts; rerun is required before treating the test as passed.
+**Status:** passed on exact PR head `c8100543efd73626b765c8c160bb0cfe48dea0a7` in the clean PostgreSQL 16 migration-replay job. The CI log confirms the cross-incident claim race, same-incident multi-responder race, field-claim-versus-dispatcher race, and two-dispatcher race. The first attempted fixture had reused one requester for two active requests; that test-fixture defect was corrected by assigning separate requester accounts before the passing run.
