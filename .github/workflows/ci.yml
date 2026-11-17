@@ -63,6 +63,8 @@ jobs:
         run: python3 tools/test_responder_sync_feedback.py
       - name: Check requester primary feedback hierarchy
         run: python3 tools/test_requester_feedback_hierarchy.py
+      - name: Check single requester SOS review action
+        run: python3 tools/test_requester_sos_single_review_action.py
       - name: Check pending SOS retry action label
         run: python3 tools/test_pending_sos_retry_label.py
       - name: Check pending SOS verification state
