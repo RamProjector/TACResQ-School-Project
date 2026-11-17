@@ -65,3 +65,9 @@ assert "expandedHistoryIncidentId = if (showClosedHistory) null else incident.id
 
 print("PASS: the dispatcher UI consumes the read-only event stream with loading, error, and retry states.")
 print("PASS: recent resolved/cancelled incidents retain bounded, read-only assignment-history access.")
+
+# The API returns newest-first; render the retained event window chronologically.
+assert dispatcher.count("state.assignmentHistory.asReversed().forEach { event ->") == 2
+assert "state.assignmentHistory.forEach { event ->" not in dispatcher
+
+print("PASS: both active and closed incident timelines render retained events oldest-first.")
