@@ -1437,14 +1437,16 @@ fun RequesterScreen(
                             Text("Emergency type: ${selectedType?.label ?: "Not selected"}", fontWeight = FontWeight.SemiBold)
                             description.trim().takeIf { it.isNotEmpty() }?.let { Text("Details: $it") }
                             if (freshFix != null) LocationFixCard(freshFix, onClear = { vm.clearLocationFix(); requestStep = 2 })
+                            if (freshFix != null) Text("This one-time pin is sent with the SOS; ongoing tracking is not.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             else LocationNoticeCard("Sending without a GPS pin", "Dispatch may need to call you to confirm the exact location.")
                             locationNotes.trim().takeIf { it.isNotEmpty() }?.let { Text("Landmark/access detail: $it") }
                             Text("Only send if help is needed now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { requestStep = 2 }, enabled = !state.sending, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
                                 Button(
                                     onClick = { selectedType?.let { vm.sendSos(it, description, locationNotes) } },
-                                    enabled = !state.sending && !state.capturingLocation &&
+                                    enabled = selectedType != null && requesterActionsEnabled &&
+                                        !state.sending && !state.capturingLocation &&
                                         !state.pendingSosCheckInProgress && state.pendingSosCheckError == null,
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                                     modifier = Modifier.weight(1f).height(52.dp),
@@ -1784,21 +1786,6 @@ private fun LocationNoticeCard(title: String, text: String) {
             Text(text, style = MaterialTheme.typography.bodySmall)
         }
     }
-}
-
-private fun locationSummary(fix: GeoFix): String {
-    val accuracy = fix.accuracyM?.let { "reported accuracy ±${ceil(it.toDouble()).toInt()} m" }
-        ?: "accuracy not reported"
-    val timestamp = runCatching { formatTime(Instant.ofEpochMilli(fix.capturedAtEpochMillis).toString()) }
-        .getOrDefault("just now")
-    if (fix.manuallySelected) {
-        return "Your manually selected map pin (" +
-            String.format(Locale.US, "%.5f", fix.latitude) + ", " +
-            String.format(Locale.US, "%.5f", fix.longitude) +
-            "), selected $timestamp, will be sent to dispatch."
-    }
-    val precision = if (fix.hasPrecisePermission) "GPS pin" else "approximate GPS pin"
-    return "One $precision ($accuracy), captured $timestamp, will be sent to dispatch."
 }
 
 
