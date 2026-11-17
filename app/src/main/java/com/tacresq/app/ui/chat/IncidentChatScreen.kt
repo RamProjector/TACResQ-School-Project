@@ -94,6 +94,7 @@ data class IncidentChatUiState(
     val loadingOlder: Boolean = false,
     val sending: Boolean = false,
     val restoringPending: Boolean = false,
+    val pendingImageRetry: Boolean = false,
     val hasOlder: Boolean = true,
     val error: String? = null,
     val sendError: String? = null,
@@ -157,6 +158,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                                         it.copy(
                                             draft = saved?.message ?: image?.caption.orEmpty(),
                                             restoringPending = false,
+                                            pendingImageRetry = image != null,
                                             sendError = if (image != null) "An earlier image send is unconfirmed. Re-select the exact same image to safely retry it." else null,
                                         )
                                     }
@@ -301,6 +303,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                             draft = "",
                             sending = false,
                             sendError = null,
+                            pendingImageRetry = false,
                         )
                     }
                 }
@@ -388,6 +391,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                 )
                 pendingImageClientMessageId = clientMessageId
                 pendingImageSignature = digest
+                _state.update { it.copy(pendingImageRetry = true) }
             }
             repositoryCallOrFailure { repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes) }
                 .onSuccess { sent ->
