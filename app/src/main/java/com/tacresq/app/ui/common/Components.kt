@@ -232,6 +232,7 @@ fun IncidentCard(
     incident: Incident,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
+    statusLabel: String? = null,
     actions: @Composable ColumnScope.() -> Unit = {},
 ) {
     Card(
@@ -259,7 +260,8 @@ fun IncidentCard(
                     maxLines = 2,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
-                StatusPill(incident.status)
+                if (statusLabel == null) StatusPill(incident.status)
+                else StatusPill(statusLabel, incident.status.pillColor())
             }
             val time = formatTime(incident.createdAt)
             if (time.isNotEmpty()) {
