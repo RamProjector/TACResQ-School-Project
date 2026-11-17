@@ -53,11 +53,15 @@ assert 'formatTime(event.occurredAt)' in dispatcher
 assert "Retry history" in dispatcher
 assert 'SectionHeading("Closed incidents"' in dispatcher
 assert '"Latest 5 by request date · resolved or cancelled · read-only history"' in dispatcher
-assert "Latest 5 resolved or cancelled incidents" in dispatcher
 assert "IncidentStatus.RESOLVED || it.status == IncidentStatus.CANCELLED" in dispatcher
 assert ".take(5)" in dispatcher
 assert 'key = { "closed-${it.id}" }' in dispatcher
 assert "vm.loadAssignmentHistory(incident.id)" in dispatcher
+assert "var expandedHistoryIncidentId by remember { mutableStateOf<Long?>(null) }" in dispatcher
+assert "var showHistory by remember(incident.id)" not in dispatcher
+assert "var showClosedHistory by remember(incident.id)" not in dispatcher
+assert "expandedHistoryIncidentId = if (showHistory) null else incident.id" in dispatcher
+assert "expandedHistoryIncidentId = if (showClosedHistory) null else incident.id" in dispatcher
 
 print("PASS: the dispatcher UI consumes the read-only event stream with loading, error, and retry states.")
 print("PASS: recent resolved/cancelled incidents retain bounded, read-only assignment-history access.")
