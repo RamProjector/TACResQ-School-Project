@@ -7,9 +7,11 @@ This register tracks visible UI findings from source review. A change is not con
 ## Implemented on PR #334
 
 ### Requester
+- The adaptive request/response history pane previously treated an empty list as “Nothing here yet” even when the ViewModel had retained no live records because refresh failed, or when only cached requester statuses were available. It now distinguishes loading, confirmed empty, and stale/unavailable states, and warns in both list and detail panes when the last-loaded snapshot is not current.
 - When live request refresh failed, the UI could still render “No requests yet” because the failed state intentionally clears live incidents and exposes cached statuses separately. The empty state and section heading now appear only after a successful live status check (or during initial loading); cached/unknown states no longer masquerade as a confirmed empty list.
 
 ### Responder and dispatcher
+- The adaptive history pane now distinguishes initial loading from a confirmed empty list and marks retained last-loaded records as potentially stale when refresh fails.
 - Shared team-status guidance was repeated inside each active responder/dispatcher incident card. Moved it to the section heading.
 - Arrival-versus-GPS-sharing guidance repeated in each en-route responder card. It now appears once when an en-route response exists.
 - The no-available-unit message repeated on every pending dispatcher incident. It now appears once above the queue; assignment actions remain gated on available units.

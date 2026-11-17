@@ -297,6 +297,14 @@ fun AppRoot(
                                     onOpenNotifications = openNotifications,
                                     onRefreshIncidents = vm::refresh,
                                     selectedIncidentId = selectedIncidentId,
+                                    historyLoading = vmState.loading && vmState.incidents.isEmpty(),
+                                    historyStatusMessage = when {
+                                        vmState.isShowingCachedIncidentStatuses ->
+                                            "Live request history could not be refreshed. Last-confirmed statuses are shown on Home; refresh before relying on this list."
+                                        !vmState.hasCurrentIncidentStatus && !vmState.loading ->
+                                            "Current request history could not be confirmed. Reconnect and refresh before relying on an empty list."
+                                        else -> null
+                                    },
                                 )
                             }
                         }
@@ -326,6 +334,10 @@ fun AppRoot(
                                     onOpenNotifications = openNotifications,
                                     onRefreshIncidents = vm::refresh,
                                     selectedIncidentId = selectedIncidentId,
+                                    historyLoading = vmState.loading && vmState.incidents.isEmpty(),
+                                    historyStatusMessage = if (vmState.syncError != null)
+                                        "The latest response history could not be confirmed. This list may be out of date; refresh before relying on it."
+                                    else null,
                                 )
                             }
                         }
@@ -355,6 +367,10 @@ fun AppRoot(
                                     onOpenNotifications = openNotifications,
                                     onRefreshIncidents = vm::refresh,
                                     selectedIncidentId = selectedIncidentId,
+                                    historyLoading = vmState.loading && vmState.incidents.isEmpty(),
+                                    historyStatusMessage = if (vmState.syncError != null)
+                                        "The latest dispatch history could not be confirmed. This list may be out of date; refresh before relying on it."
+                                    else null,
                                 )
                             }
                         }
@@ -453,6 +469,8 @@ internal fun RoleSectionScreen(
     selectedIncidentId: Long? = null,
     themeMode: com.tacresq.app.ui.theme.ThemeMode = com.tacresq.app.ui.theme.ThemeMode.SYSTEM,
     onThemeModeChanged: (com.tacresq.app.ui.theme.ThemeMode) -> Unit = {},
+    historyLoading: Boolean = false,
+    historyStatusMessage: String? = null,
 ) {
     if (user.role == Role.ADMIN) return
     if (destination == AppDestination.ALERTS) {
@@ -503,6 +521,8 @@ internal fun RoleSectionScreen(
                 completedCount = completedCount,
                 onRefresh = onRefreshIncidents,
                 onOpenChat = onOpenChat,
+                historyLoading = historyLoading,
+                historyStatusMessage = historyStatusMessage,
             )
         }
         return
@@ -847,6 +867,8 @@ private fun IncidentHistoryAdaptiveScaffold(
     completedCount: Int,
     onRefresh: () -> Unit,
     onOpenChat: (Long) -> Unit,
+    historyLoading: Boolean = false,
+    historyStatusMessage: String? = null,
 ) {
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     val windowSizeClass = adaptiveInfo.windowSizeClass
@@ -903,11 +925,29 @@ private fun IncidentHistoryAdaptiveScaffold(
                         AdaptivePaneHeader(
                             eyebrow = "INCIDENT HISTORY",
                             title = if (role == Role.REQUESTER) "Your requests" else "Your responses",
-                            supportingText = "$activeCount active · $completedCount completed",
+                            supportingText = when {
+                                historyStatusMessage != null -> "Last loaded snapshot · current status unconfirmed"
+                                historyLoading -> "Checking latest incident history…"
+                                else -> "$activeCount active · $completedCount completed"
+                            },
                             count = sortedIncidents.size,
                         )
                     }
-                    if (sortedIncidents.isEmpty()) {
+                    if (historyStatusMessage != null) {
+                        item {
+                            EmptySectionCard(
+                                if (sortedIncidents.isEmpty()) "History unavailable" else "Last loaded history",
+                                historyStatusMessage,
+                            )
+                        }
+                    } else if (historyLoading && sortedIncidents.isEmpty()) {
+                        item {
+                            EmptySectionCard(
+                                "Loading incident history",
+                                "Checking the latest role-scoped incident records.",
+                            )
+                        }
+                    } else if (sortedIncidents.isEmpty()) {
                         item {
                             EmptySectionCard(
                                 "Nothing here yet",
@@ -948,6 +988,9 @@ private fun IncidentHistoryAdaptiveScaffold(
                         .padding(horizontal = horizontalGutter, vertical = verticalGutter),
                     verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 12.dp),
                 ) {
+                    if (historyStatusMessage != null) {
+                        EmptySectionCard("Status may be out of date", historyStatusMessage)
+                    }
                     if (!expandedWindow) {
                         TextButton(
                             onClick = {

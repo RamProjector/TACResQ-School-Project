@@ -1,3 +1,10 @@
+## Adaptive history stale-state handling — 2026-11-17
+
+- The adaptive requester/responder/dispatcher history pane now receives role-specific loading and freshness context from its ViewModel.
+- It distinguishes initial loading, confirmed empty history, and stale/unavailable history. It no longer labels a failed or cached-only request/response list as “Nothing here yet.”
+- A stale-snapshot warning is shown in both list and detail panes while preserving read access to the last-loaded details.
+- No backend, assignment, status, or incident visibility behavior changed. Same PR #334; source review only, no build/tests/device validation.
+
 ## Requester and dispatcher stale-state clarity — 2026-11-17
 
 - Requester “No requests yet” and the My requests heading now require a successful live status check (or initial loading). Cached-only and unknown states no longer appear as a confirmed empty request history.
