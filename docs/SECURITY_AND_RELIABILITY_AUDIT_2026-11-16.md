@@ -49,6 +49,12 @@ Correction:
 - Keep the five-member limit, including a legacy lead assignment that has not yet been backfilled.
 - Exclude busy and already-assigned units from claimable-incident discovery.
 
+Concurrency validation now covers both sides of the intended policy:
+- One responder racing to claim two different incidents: exactly one claim succeeds and the competing request returns `UNIT_BUSY`.
+- Two distinct available responders racing to join the same incident: both valid memberships succeed, while the incident advances from `pending` to `assigned` once. This preserves multi-responder team formation instead of incorrectly treating every same-incident contention as a conflict.
+
+Both scenarios use separate authenticated PostgreSQL sessions against the disposable replay database. They are database concurrency tests, not live PostgREST or physical-device tests.
+
 PostgreSQL documents that `SELECT ... FOR UPDATE` blocks conflicting lockers/writers on the same row until transaction end. The profile lock provides the shared serialization point for claims against different incident rows. The migration replay and source-contract checks are included in CI.
 
 ### F-02 — Live database still has pending hardening migrations
