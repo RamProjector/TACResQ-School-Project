@@ -1386,3 +1386,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Confirmed MapLibre 13.7.1 API documentation supports the marker mutation/update and individual removal methods used by the incremental reconciler. These are legacy deprecated APIs; no claim of migration made.
 - References: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.annotations/-marker/index.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/index.html.
 - No tests/build/device checks run.
+
+
+## PR #334 — Dispatcher incident-list freshness cues (2026-11-17)
+
+- Updated pending and active incident section subtitles to identify the displayed queue as the last loaded, unconfirmed snapshot while refresh is in progress or incident/unit data is stale.
+- Cached incident cards remain visible. No queue, assignment, or dispatch behavior changed.
+- Commit: pending at handoff; source review only. No build/tests/emulator/device validation performed.

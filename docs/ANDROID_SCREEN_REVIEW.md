@@ -133,3 +133,11 @@ This register tracks visible UI findings from source review. A change is not con
 - **Change:** The field-unit section now labels retained records as “Last loaded availability · unconfirmed” whenever assignment data is not fresh. The overview metric changes to “Ready*” with an explanatory note. The no-available-units helper distinguishes a confirmed empty availability result from an unconfirmed cached snapshot.
 - **Safety:** Cached records remain visible for continuity. No unit statuses, sorting, assignment eligibility, refresh behavior, or backend calls changed. Existing assignment freshness guards remain authoritative.
 - **Validation:** Source review only. No build, tests, emulator, or device checks run.
+
+
+## Dispatcher incident-list freshness — 2026-11-17
+
+- **Finding:** Cached pending and active incident cards remain visible while a refresh is running or after a failed refresh. The global sync row explains the issue, but each queue section still presents its ordinary subtitle, making the cached list easy to mistake for a current snapshot during a quick scan.
+- **Fix:** Pending and active section subtitles now switch to “Last loaded queue · unconfirmed” whenever the incident/unit assignment snapshot is not fresh. The normal oldest-first and team-progress descriptions return after a successful incident/unit refresh.
+- **Scope:** Display-only. Cached records remain visible; queue filtering, sorting, incident visibility, assignment eligibility, and dispatch actions are unchanged.
+- **Validation:** Source inspection only. No build, automated tests, emulator, or device validation performed.

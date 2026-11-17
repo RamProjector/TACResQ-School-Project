@@ -280,7 +280,12 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         state.notice?.let { item { Banner(it, isError = false, onDismiss = vm::dismissMessages) } }
         state.error?.let { item { Banner(it, isError = true, onDismiss = vm::dismissMessages) } }
 
-        item { SectionHeading("Pending incidents", "Oldest requests first") }
+        item {
+            SectionHeading(
+                "Pending incidents",
+                if (state.assignmentDataFresh) "Oldest requests first" else "Last loaded queue · unconfirmed",
+            )
+        }
         if (pending.isNotEmpty() && availableUnits.isEmpty()) {
             item {
                 Text(
@@ -358,7 +363,11 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         item {
             SectionHeading(
                 "Active incidents",
-                "Combined team progress; each responder updates their own status",
+                if (state.assignmentDataFresh) {
+                    "Combined team progress; each responder updates their own status"
+                } else {
+                    "Last loaded queue · unconfirmed"
+                },
             )
         }
         if (!state.loading && activeIncidents.isEmpty()) {
