@@ -16,6 +16,8 @@ import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.model.IncidentMessage
 import com.tacresq.app.data.model.toCachedRequesterIncidentStatus
 import com.tacresq.app.data.remote.AuthResponse
+import com.tacresq.app.data.remote.AssignmentHistoryEvent
+import com.tacresq.app.data.remote.TacAssignmentHistoryApi
 import com.tacresq.app.data.remote.AssignIncidentTeamRequest
 import com.tacresq.app.data.remote.CreateIncidentRequest
 import com.tacresq.app.data.remote.DutyStatusRequest
@@ -152,6 +154,18 @@ class TacRepository(
     suspend fun units(): Result<List<User>> = call { api.units() }
 
     suspend fun activeResponderLocations(): Result<List<ResponderLocation>> = call { api.activeResponderLocations() }
+
+    /** Dispatcher audit history; the Supabase table's RLS policy remains the authorization boundary. */
+    suspend fun incidentAssignmentHistory(
+        incidentId: Long,
+        limit: Int = 50,
+    ): Result<List<AssignmentHistoryEvent>> = call {
+        val historyApi = api as? TacAssignmentHistoryApi
+            ?: throw ApiException("Assignment history is not available with the configured backend.")
+        require(incidentId > 0) { "Incident ID must be positive." }
+        require(limit in 1..100) { "Assignment history page size must be between 1 and 100." }
+        historyApi.incidentAssignmentHistory(incidentId, limit)
+    }
 
     override suspend fun myNotifications(limit: Int): Result<List<UserNotification>> = call {
         val notificationApi = api as? TacNotificationApi
