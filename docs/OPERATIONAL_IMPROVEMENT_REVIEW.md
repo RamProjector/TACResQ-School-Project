@@ -113,6 +113,35 @@ The inspected live `user_notifications.event_type` constraint currently allows `
 
 Review whether dispatch receives a sufficiently prominent notification when a requester changes critical details after assignment. If not, add narrowly defined event types and transactional notification creation; avoid duplicate pushes and avoid placing sensitive patient details in push payloads.
 
+
+#### Request-change notification implementation notes
+
+The requester edit path currently verifies the server-returned values and tells the requester that dispatch can see the corrected details. That confirms the request update response, but does not itself establish that a dispatcher received an actionable notification.
+
+Before adding notification events, trace the actual requester-edit RPC and database trigger path end-to-end. The notification work should satisfy these conditions:
+
+- Create the notification in the same database transaction as the accepted incident edit, so an edit cannot commit while its dispatch alert silently fails.
+- Notify only the authorized dispatch audience for the current deployment model. Do not invent organization-scoped recipients while the live schema has no organization identifier.
+- Include incident reference, event type, actor category, and event timestamp; keep descriptions, patient details, phone numbers, and precise coordinates out of push payloads.
+- Generate an event only when a meaningful reviewed field changes. A no-op save must not create another notification.
+- Give each event a stable identity so retries and push-delivery retries do not create duplicate in-app notifications.
+- Preserve the incident's original report and edit history. Notification delivery must not be the source of truth for the corrected incident data.
+- Keep in-app notification creation separate from push delivery. A failed push must leave the in-app event available for later retrieval.
+- Verify read-state authorization so one dispatcher cannot mark another user's notification as read unless the product explicitly defines shared read state.
+
+Suggested regression coverage:
+
+1. A pending incident edit creates one dispatch-visible event.
+2. An assigned/in-progress incident correction creates one event with the same incident reference.
+3. A no-op edit creates no event.
+4. A rejected edit creates no event.
+5. A transaction failure rolls back both the incident edit and its notification.
+6. Retrying push delivery does not duplicate the in-app notification.
+7. Sensitive request details are not copied into push payloads.
+8. A requester cannot read or mutate dispatch-only notification records.
+
+Do not implement this as a client-side notification call after the edit RPC. The server transaction must own event creation.
+
 ### B. Resource release and reassignment
 
 The current assignment model has assignment time and progress timestamps, but no explicit release/demobilization timestamp or assignment-event history in the inspected columns. Review whether incident closure and team replacement leave enough information to reconstruct who was assigned, when they were released, and why.
