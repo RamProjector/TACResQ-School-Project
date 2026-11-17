@@ -94,7 +94,7 @@ class NavigationInstrumentedTest {
         }
 
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
-        listOf("Home", "Requests", "GPS Map", "Alerts", "Profile").forEach { label ->
+        listOf("Home", "Requests", "GPS Map", "Messages", "Profile").forEach { label ->
             val item = composeRule.onNode(hasText(label) and hasClickAction())
                 .fetchSemanticsNode()
             val widthDp = item.boundsInRoot.width / density
@@ -187,9 +187,9 @@ class NavigationInstrumentedTest {
             }
         }
 
-        // The current requester shell calls this destination "Alerts"; "Safety" was
+        // The current requester shell calls this destination "Messages"; "Safety" was
         // an obsolete label and made the emulator suite fail despite a valid navigation item.
-        listOf("Home", "Requests", "GPS Map", "Alerts", "Profile").forEach { label ->
+        listOf("Home", "Requests", "GPS Map", "Messages", "Profile").forEach { label ->
             composeRule.onNodeWithText(label).assertIsDisplayed()
         }
     }
