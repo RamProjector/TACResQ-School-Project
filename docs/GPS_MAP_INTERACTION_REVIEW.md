@@ -112,3 +112,10 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Route requests now validate their generation and selected incident after asynchronous location capture and again after the routing provider returns.
 - Late results cannot replace the selected route/status or move the camera. Posted camera work and exception messages are guarded too, covering non-cooperative cancellation and rapid incident switching.
 - This is a source-level race guard; delayed-provider device verification remains outstanding. No tests/build/device checks run.
+
+
+## MapView listener cleanup — 2026-11-17
+
+- Map load success/failure listeners are now retained and explicitly removed when the GPS screen disposes.
+- Listener callbacks ignore events after disposal; the asynchronous `getMapAsync` callback also exits if the screen was already disposed.
+- This closes a lifecycle cleanup gap. Repeated navigation and delayed initialization still require device verification. No tests/build checks run.

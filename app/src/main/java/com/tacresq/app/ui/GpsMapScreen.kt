@@ -747,17 +747,25 @@ fun GpsMapScreen(
     }
 
     DisposableEffect(mapView) {
-        mapView.addOnDidFailLoadingMapListener {
-            mapDataLoaded = false
-            mapLoadError = true
-            locationStatus = MAP_DATA_UNAVAILABLE_STATUS
+        var disposed = false
+        val failLoadingListener = MapView.OnDidFailLoadingMapListener {
+            if (!disposed) {
+                mapDataLoaded = false
+                mapLoadError = true
+                locationStatus = MAP_DATA_UNAVAILABLE_STATUS
+            }
         }
-        mapView.addOnDidFinishLoadingMapListener {
-            mapDataLoaded = true
-            mapLoadError = false
-            if (locationStatus == MAP_DATA_UNAVAILABLE_STATUS) locationStatus = null
+        val finishLoadingListener = MapView.OnDidFinishLoadingMapListener {
+            if (!disposed) {
+                mapDataLoaded = true
+                mapLoadError = false
+                if (locationStatus == MAP_DATA_UNAVAILABLE_STATUS) locationStatus = null
+            }
         }
+        mapView.addOnDidFailLoadingMapListener(failLoadingListener)
+        mapView.addOnDidFinishLoadingMapListener(finishLoadingListener)
         mapView.getMapAsync { map ->
+            if (disposed) return@getMapAsync
             mapLibreMap = map
             map.setOnMarkerClickListener { marker ->
                 // Resolve behavior from the annotation ID, never from editable display text.
@@ -811,6 +819,9 @@ fun GpsMapScreen(
             }
         }
         onDispose {
+            disposed = true
+            mapView.removeOnDidFailLoadingMapListener(failLoadingListener)
+            mapView.removeOnDidFinishLoadingMapListener(finishLoadingListener)
             mapView.onDestroy()
             mapLibreMap = null
             mapStyleLoaded = false

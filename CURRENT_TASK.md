@@ -1,3 +1,10 @@
+## MapView listener and disposal cleanup — 2026-11-17
+
+- **Finding:** The MapView registered map-load success/failure listeners without removing them on composable disposal. Its asynchronous `getMapAsync` callback also had no disposed-screen guard.
+- **Fix on PR #334:** Retain both listener instances, guard their state updates, unregister both listeners in `onDispose`, mark the effect disposed before teardown, and ignore a late map-ready callback after disposal.
+- **Why:** MapLibre 13.x exposes matching `removeOnDidFailLoadingMapListener` and `removeOnDidFinishLoadingMapListener` APIs. This prevents stale callbacks and avoids retaining disposed screen state unnecessarily.
+- **Validation:** No build/test/device checks run. Verify repeated navigation into/out of GPS and delayed map initialization on device.
+
 ## GPS route-request stale-result protection — 2026-11-17
 
 - **Finding:** Route cancellation alone did not protect against a provider that returns after cancellation or a user changing the selected incident while location capture/routing is suspended. A late result could update route state/status or post a camera move for an incident no longer selected.
