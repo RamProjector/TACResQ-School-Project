@@ -1420,3 +1420,7 @@ psql -v ON_ERROR_STOP=1 -f tools/test_notification_rpc_security.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_delivery_queue.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_token_account_switch.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_responder_incident_claiming.sql
+
+# Real two-connection races for field self-claim and cross-path assignment.
+bash tools/test_field_claim_concurrency.sh
+bash tools/test_assignment_cross_path_concurrency.sh
