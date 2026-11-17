@@ -124,8 +124,17 @@ fun RoleShell(
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background)
                         .padding(padding),
+                    contentAlignment = Alignment.TopCenter,
                 ) {
-                    content()
+                    // This also constrains wide, short-height windows that retain
+                    // bottom navigation instead of switching to a rail.
+                    Box(
+                        modifier = Modifier
+                            .widthIn(max = 960.dp)
+                            .fillMaxSize(),
+                    ) {
+                        content()
+                    }
                 }
             }
         }
