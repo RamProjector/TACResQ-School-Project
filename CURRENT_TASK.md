@@ -1,3 +1,9 @@
+## GPS marker signature correctness — 2026-11-17
+
+- **Finding:** Incremental marker reconciliation stored signatures as delimiter-joined strings. Incident notes and other display text can contain the delimiter, making state comparison ambiguous.
+- **Fix on PR #334:** Replaced string signatures with a typed immutable data class containing exact coordinates, explicit icon variant, title, and snippet. Incident selection and responder freshness are represented explicitly; device preview uses the same signature shape.
+- **Scope:** Marker keys, selection behavior, freshness rules, and displayed text are unchanged. This is correctness hardening, not a measured performance claim. No tests/build/device checks run.
+
 ## GPS style reload and route invalidation correction — 2026-11-17
 
 - **Finding:** The renderer's internal route comparison used exact coordinates, but the Compose effect that triggers reconciliation still depended on `geometry.hashCode()`. A collision could prevent the exact comparison from running. Style replacement/retry also left the remembered annotation owner unchanged, risking stale marker/polyline references after a style reload.

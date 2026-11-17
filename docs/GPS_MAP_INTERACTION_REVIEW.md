@@ -98,3 +98,10 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - The effect key now uses ordered coordinate pairs, matching the exact route signature used by reconciliation.
 - Initial style completion and retry style completion invalidate the annotation owner; the next render clears stale references and recreates markers and route against the new style.
 - Device verification is still required for style reload/retry and route restoration. No tests/build/device checks run.
+
+
+## Structural marker signatures — 2026-11-17
+
+- Marker reconciliation now compares typed immutable signatures (coordinates, explicit icon variant, title, snippet) instead of delimiter-joined strings.
+- This removes ambiguity from incident notes containing separator characters and makes icon-state dependencies explicit without object hashes.
+- No behavioral thresholds or marker identity rules changed. No tests/build/device checks run.

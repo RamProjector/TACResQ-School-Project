@@ -196,6 +196,15 @@ private enum class GpsMapMarkerType {
 }
 
 /** Stable interaction metadata kept separately from user-facing marker titles. */
+/** Structural marker equality avoids delimiter collisions in user-controlled text. */
+private data class GpsMapMarkerRenderSignature(
+    val latitude: Double,
+    val longitude: Double,
+    val iconVariant: String,
+    val title: String,
+    val snippet: String,
+)
+
 private data class GpsMapMarkerTarget(
     val type: GpsMapMarkerType,
     val position: LatLng,
@@ -721,7 +730,7 @@ fun GpsMapScreen(
     val markerTargets = remember(context, role) { mutableMapOf<Long, GpsMapMarkerTarget>() }
     // Keep annotation instances across refreshes; reconcile only changed features.
     val renderedMarkers = remember(context, role) { mutableMapOf<String, Marker>() }
-    val renderedMarkerSignatures = remember(context, role) { mutableMapOf<String, String>() }
+    val renderedMarkerSignatures = remember(context, role) { mutableMapOf<String, GpsMapMarkerRenderSignature>() }
     var renderedMapOwner by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
     var renderedRoutePolyline by remember(context, role) { mutableStateOf<Polyline?>(null) }
     var renderedRouteSignature by remember(context, role) { mutableStateOf<List<Pair<Double, Double>>?>(null) }
@@ -1420,7 +1429,7 @@ fun GpsMapScreen(
             icon: Icon,
             title: String,
             snippet: String,
-            signature: String,
+            signature: GpsMapMarkerRenderSignature,
         ): Marker {
             desiredMarkerKeys += key
             val existing = renderedMarkers[key]
@@ -1473,9 +1482,13 @@ fun GpsMapScreen(
                     icon = if (incident.id == selectedIncidentId) selectedIncidentPinIcon else incidentPinIcon,
                     title = title,
                     snippet = snippet,
-                    signature = listOf(
-                        latitude, longitude, incident.id == selectedIncidentId, title, snippet,
-                    ).joinToString("|"),
+                    signature = GpsMapMarkerRenderSignature(
+                        latitude = latitude,
+                        longitude = longitude,
+                        iconVariant = if (incident.id == selectedIncidentId) "selected-incident" else "incident",
+                        title = title,
+                        snippet = snippet,
+                    ),
                 )
                 markerTargets[marker.id] = GpsMapMarkerTarget(
                     type = GpsMapMarkerType.INCIDENT,
@@ -1509,9 +1522,13 @@ fun GpsMapScreen(
                 icon = icon,
                 title = title,
                 snippet = snippet,
-                signature = listOf(
-                    location.latitude, location.longitude, freshness.name, title, snippet,
-                ).joinToString("|"),
+                signature = GpsMapMarkerRenderSignature(
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    iconVariant = if (freshness == MapLocationFreshness.STALE) "stale-field-unit" else "field-unit",
+                    title = title,
+                    snippet = snippet,
+                ),
             )
             markerTargets[marker.id] = GpsMapMarkerTarget(
                 type = GpsMapMarkerType.FIELD_UNIT,
@@ -1534,7 +1551,13 @@ fun GpsMapScreen(
                 icon = myLocationPinIcon,
                 title = "Your location · this device only",
                 snippet = "One-time location preview. Not uploaded or continuously tracked.",
-                signature = "${fix.latitude}|${fix.longitude}",
+                signature = GpsMapMarkerRenderSignature(
+                    latitude = fix.latitude,
+                    longitude = fix.longitude,
+                    iconVariant = "device-location",
+                    title = "Your location · this device only",
+                    snippet = "One-time location preview. Not uploaded or continuously tracked.",
+                ),
             )
             markerTargets[marker.id] = GpsMapMarkerTarget(
                 type = GpsMapMarkerType.DEVICE_LOCATION,
