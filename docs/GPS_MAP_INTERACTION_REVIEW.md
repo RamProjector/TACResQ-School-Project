@@ -316,3 +316,11 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Incident, fresh/aging responder, and stale responder sources remain separate; overlapping source categories still feed the existing mixed-location chooser.
 - Added a focused source contract and CI step. No cluster radius, feature count, map data, location-sharing, assignment, API, or database behavior changed.
 - Validation: source inspection only; the contract test, Gradle build, emulator, and physical-device touch-target checks have not been run.
+
+
+## GPS cluster count-label contrast — 2026-11-18
+
+- Increased cluster count text from 12px to 14px and added a 1.25px black halo around white numerals to improve legibility over the category-colored cluster bubbles and varied map backgrounds.
+- Kept the existing exact point count, bubble colors, overlap behavior, and cluster hit-testing unchanged.
+- Added a focused source contract and CI step.
+- Validation: source inspection only; contract execution, Android build, emulator, and physical-device contrast checks have not been run.
