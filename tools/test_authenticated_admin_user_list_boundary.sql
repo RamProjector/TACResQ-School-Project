@@ -1,12 +1,27 @@
 -- Verify the Admin list RPC boundary under the actual authenticated role.
--- Fixtures 128 (admin) and 130 (requester) are provisioned earlier in replay.
--- Reassert the trusted Admin fixture immediately before the authenticated session.
+-- Use fixtures owned by this test: the broader replay suite deliberately deletes
+-- its earlier Admin/audit fixtures to verify audit-history retention.
+INSERT INTO auth.users (id, email, raw_user_meta_data)
+VALUES
+  (
+    '00000000-0000-4000-8000-000000000145',
+    'admin-user-list-boundary@example.test',
+    '{"name":"Admin User List Boundary","phone":"+63917000145","role":"requester"}'::jsonb
+  ),
+  (
+    '00000000-0000-4000-8000-000000000146',
+    'requester-user-list-boundary@example.test',
+    '{"name":"Requester User List Boundary","phone":"+63917000146","role":"requester"}'::jsonb
+  );
+
+-- Provision the trusted role as the migration-test database owner, before
+-- switching to the authenticated API role.
 UPDATE public.profiles
 SET role = 'admin', duty_status = NULL
-WHERE auth_user_id = '00000000-0000-4000-8000-000000000128';
+WHERE auth_user_id = '00000000-0000-4000-8000-000000000145';
 
 SET ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', false);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000145', false);
 
 DO $admin_user_list_authenticated$
 DECLARE
@@ -32,7 +47,7 @@ BEGIN
   denied := false;
   PERFORM set_config(
     'request.jwt.claim.sub',
-    '00000000-0000-4000-8000-000000000130',
+    '00000000-0000-4000-8000-000000000146',
     false
   );
   BEGIN
