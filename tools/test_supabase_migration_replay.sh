@@ -265,7 +265,7 @@ DECLARE
   dispatcher_id bigint;
   responder_one_id bigint;
   responder_two_id bigint;
-  incident_id bigint;
+  test_incident_id bigint;
   response jsonb;
   stale_assignment_count integer;
   stale_duty_count integer;
@@ -285,10 +285,10 @@ BEGIN
     requester_id, type, description, latitude, longitude, location_recorded_at, location_source
   )
   VALUES (requester_id, 'medical', 'Synthetic dispatcher progress test', 11.244, 125.003, now(), 'manual')
-  RETURNING id INTO incident_id;
+  RETURNING id INTO test_incident_id;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
-  PERFORM public.api_assign_incident_team(incident_id, ARRAY[responder_one_id, responder_two_id]);
+  PERFORM public.api_assign_incident_team(test_incident_id, ARRAY[responder_one_id, responder_two_id]);
 
   IF has_function_privilege('authenticated', 'public.api_update_my_assignment_status(bigint,text)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'private.tacresq_update_my_assignment_status(bigint,text)', 'EXECUTE') THEN
@@ -299,7 +299,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
   rejected := false;
   BEGIN
-    PERFORM public.api_update_incident_status(incident_id, 'en_route');
+    PERFORM public.api_update_incident_status(test_incident_id, 'en_route');
   EXCEPTION WHEN insufficient_privilege THEN
     rejected := true;
   END;
@@ -309,14 +309,14 @@ BEGIN
 
   -- Only the dispatcher advances the incident; all assigned members inherit the milestone.
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
-  response := public.api_update_incident_status(incident_id, 'en_route');
+  response := public.api_update_incident_status(test_incident_id, 'en_route');
   IF response->>'status' <> 'en_route' THEN
     RAISE EXCEPTION 'Dispatcher should advance assigned incident to en_route';
   END IF;
 
   SELECT count(*) INTO stale_assignment_count
     FROM public.incident_assignments
-   WHERE incident_id = incident_id AND responder_status <> 'en_route';
+   WHERE test_incident_id = test_incident_id AND responder_status <> 'en_route';
   IF stale_assignment_count <> 0 THEN
     RAISE EXCEPTION 'All assigned members must inherit en_route; stale assignment rows=%', stale_assignment_count;
   END IF;
@@ -327,13 +327,13 @@ BEGIN
     RAISE EXCEPTION 'All assigned member duty snapshots must inherit en_route; stale profiles=%', stale_duty_count;
   END IF;
 
-  response := public.api_update_incident_status(incident_id, 'on_scene');
+  response := public.api_update_incident_status(test_incident_id, 'on_scene');
   IF response->>'status' <> 'on_scene' THEN
     RAISE EXCEPTION 'Dispatcher should advance incident to on_scene';
   END IF;
   SELECT count(*) INTO stale_assignment_count
     FROM public.incident_assignments
-   WHERE incident_id = incident_id AND responder_status <> 'on_scene';
+   WHERE test_incident_id = test_incident_id AND responder_status <> 'on_scene';
   IF stale_assignment_count <> 0 THEN
     RAISE EXCEPTION 'All assigned members must inherit on_scene; stale assignment rows=%', stale_assignment_count;
   END IF;
@@ -342,7 +342,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
   rejected := false;
   BEGIN
-    PERFORM public.api_record_location_v2(incident_id, 11.244, 125.003, 10, now());
+    PERFORM public.api_record_location_v2(test_incident_id, 11.244, 125.003, 10, now());
   EXCEPTION WHEN insufficient_privilege THEN
     rejected := true;
   END;
@@ -351,16 +351,16 @@ BEGIN
   END IF;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
-  response := public.api_update_incident_status(incident_id, 'transporting');
+  response := public.api_update_incident_status(test_incident_id, 'transporting');
   IF response->>'status' <> 'transporting' THEN
     RAISE EXCEPTION 'Dispatcher should advance incident to transporting';
   END IF;
-  response := public.api_update_incident_status(incident_id, 'resolved');
+  response := public.api_update_incident_status(test_incident_id, 'resolved');
   IF response->>'status' <> 'resolved' THEN
     RAISE EXCEPTION 'Dispatcher should complete the incident';
   END IF;
 
-  SELECT status INTO final_status FROM public.incidents WHERE id = incident_id;
+  SELECT status INTO final_status FROM public.incidents WHERE id = test_incident_id;
   IF final_status <> 'resolved' THEN
     RAISE EXCEPTION 'Expected final incident status resolved, found %', final_status;
   END IF;
