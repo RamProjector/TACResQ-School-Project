@@ -1,3 +1,10 @@
+## Cross-category GPS overlap handling — 2026-11-17
+
+- Fixed an interaction gap where an incident cluster could consume taps intended for a responder cluster at the same screen position. When incident, fresh/aging responder, and stale responder clusters overlap, the map now builds one explicitly typed chooser from the current validated leaves rather than prioritizing one category.
+- Individual incident and responder pins now share the same 48dp hit-area chooser. A responder marker can no longer become inaccessible merely because an incident pin occupies the same touch area (or vice versa).
+- Cluster leaves and point features are revalidated against the latest visible incident and responder collections before presentation. Stale units remain labelled as last known.
+- No build/tests/device checks run.
+
 ## Restore emergency pin artwork on clustered points — 2026-11-17
 
 - Reused the app's existing incident, selected-incident, responder, and stale-responder drawable artwork as MapLibre style images, instead of leaving individual points as generic circles after clustering was introduced.
