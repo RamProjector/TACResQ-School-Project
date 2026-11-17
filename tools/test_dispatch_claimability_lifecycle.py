@@ -112,7 +112,12 @@ race_sql = race_test.read_text()
 for required in (
     "public.api_set_incident_claimable($incident_id, true)",
     "public.api_cancel_my_incident($incident_id)",
-    "pg_sleep(1)",
+    "pg_sleep(30)",
+    "pg_stat_activity",
+    "pg_blocking_pids",
+    "wait_for_two_lock_waiters",
+    "application_name",
+    "FOR UPDATE",
     "final_state",
     "cancelled:false",
     "SET ROLE authenticated",
