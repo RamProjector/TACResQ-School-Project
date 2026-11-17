@@ -50,6 +50,23 @@ interface TacChatApi {
     suspend fun downloadIncidentImage(path: String): ByteArray
 }
 
+/** Supabase-only dispatcher audit read; authorization is enforced by table RLS. */
+interface TacAssignmentHistoryApi {
+    suspend fun incidentAssignmentHistory(incidentId: Long, limit: Int): List<AssignmentHistoryEvent>
+}
+
+data class AssignmentHistoryEvent(
+    val id: Long,
+    @SerializedName("incident_id") val incidentId: Long,
+    @SerializedName("user_id") val userId: Long,
+    @SerializedName("event_type") val eventType: String,
+    @SerializedName("actor_user_id") val actorUserId: Long?,
+    val source: String,
+    @SerializedName("assignment_status") val assignmentStatus: String?,
+    @SerializedName("incident_status") val incidentStatus: String,
+    @SerializedName("occurred_at") val occurredAt: String,
+)
+
 interface TacApi {
     @POST("login")
     suspend fun login(@Body body: LoginRequest): AuthResponse
