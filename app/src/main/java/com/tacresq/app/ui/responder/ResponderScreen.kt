@@ -177,29 +177,6 @@ class ResponderViewModel(
 
     fun setDuty(status: DutyStatus) = act { repo.setDutyStatus(status) }
 
-    fun startResponse(incident: Incident, shareLocation: Boolean) {
-        act {
-            val result = repo.updateIncidentStatus(incident.id, IncidentStatus.EN_ROUTE)
-            if (result.isSuccess) {
-                if (shareLocation) {
-                    tracking.start(incident.id).onFailure { failure ->
-                        _state.update {
-                            it.copy(
-                                trackingIncidentId = null,
-                                trackingStarting = false,
-                                trackingError = failure.message ?: "Location sharing could not start. Resume it explicitly.",
-                                error = failure.message ?: "Location sharing could not start. Resume it explicitly.",
-                            )
-                        }
-                    }
-                } else {
-                    tracking.stop("Response started without sharing responder location.")
-                }
-            }
-            result
-        }
-    }
-
     fun resumeTracking(incidentId: Long) {
         if (_state.value.busy) return
         // Claim the action synchronously so rapid taps cannot start duplicate verification/tracking.
@@ -254,11 +231,6 @@ class ResponderViewModel(
                 _state.update { it.copy(busy = false) }
             }
         }
-    }
-
-    fun advance(incident: Incident, to: IncidentStatus) {
-        if (to != IncidentStatus.EN_ROUTE) stopTracking("Location sharing stopped as the incident advanced to ${to.label.lowercase()}.")
-        act { repo.updateIncidentStatus(incident.id, to) }
     }
 
     fun stopTracking(message: String = "Location sharing stopped.") {
@@ -352,7 +324,6 @@ fun ResponderScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
     val context = LocalContext.current
-    var responseToStart by remember { mutableStateOf<Incident?>(null) }
     var permissionActionIncident by remember { mutableStateOf<Incident?>(null) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -360,8 +331,7 @@ fun ResponderScreen(
         val incident = permissionActionIncident
         permissionActionIncident = null
         if (incident != null) {
-            if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, granted)
-            else if (granted) vm.resumeTracking(incident.id)
+            if (granted) vm.resumeTracking(incident.id)
             else vm.stopTracking("Approximate location permission was denied; location sharing remains off.")
         }
     }
@@ -372,15 +342,13 @@ fun ResponderScreen(
         if (incident != null && granted) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                 permissionActionIncident = null
-                if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = true)
-                else vm.resumeTracking(incident.id)
+                vm.resumeTracking(incident.id)
             } else {
                 locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
             }
         } else if (incident != null) {
             permissionActionIncident = null
-            if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = false)
-            else vm.stopTracking("Notifications are required to show the active location-sharing service.")
+            vm.stopTracking("Notifications are required to show the active location-sharing service.")
         }
     }
 
@@ -392,8 +360,7 @@ fun ResponderScreen(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             permissionActionIncident = null
-            if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = true)
-            else vm.resumeTracking(incident.id)
+            vm.resumeTracking(incident.id)
         } else {
             locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
@@ -410,7 +377,7 @@ fun ResponderScreen(
         item {
             ScreenHeader(
                 title = "Current call",
-                subtitle = "Review assignments, update your status, and manage location sharing.",
+                subtitle = "Review assignments and manage optional location sharing. Dispatch maintains incident progress.",
                 onOpenNotifications = onOpenNotifications,
             )
         }
@@ -553,7 +520,7 @@ fun ResponderScreen(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("Your response", style = MaterialTheme.typography.labelLarge,
+                    Text("Team progress", style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val ownStatus = incident.statusFor(user.id)
                     StatusPill(ownStatus.label, ownStatus.pillColor())
@@ -677,10 +644,16 @@ fun ResponderScreen(
                                 OutlinedButton(onClick = { vm.stopTracking("Location sharing stopped by you.") }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                                     Text("Stop location sharing")
                                 }
-                            } else {
-                                Button(onClick = { responseToStart = incident }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                            } else if (ownStatus == IncidentStatus.EN_ROUTE) {
+                                Button(onClick = { beginOrResumeWithPermission(incident) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                                     Text("Resume location sharing")
                                 }
+                            } else {
+                                Text(
+                                    "Location sharing becomes available after dispatch records the team as en route.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
@@ -696,45 +669,7 @@ fun ResponderScreen(
         }
     }
 
-    responseToStart?.let { incident ->
-        val startingResponse = incident.statusFor(user.id) == IncidentStatus.ASSIGNED
-        AlertDialog(
-            onDismissRequest = { if (!state.busy) responseToStart = null },
-            title = { Text(if (startingResponse) "Start response?" else "Resume location sharing?") },
-            text = {
-                Text(
-                    if (startingResponse) {
-                        "With your permission, TACResQ will share approximate location with authorized dispatch for this assignment while your response is en route, including when you switch apps or lock your screen. A persistent notification shows sharing is active and lets you stop it. Updates can be delayed or unavailable; sharing stops when the assignment advances or you sign out. You can start without sharing."
-                    } else {
-                        "With your permission, TACResQ will resume sharing approximate location with authorized dispatch for this en-route assignment, including when you switch apps or lock your screen. A persistent notification shows sharing is active and lets you stop it. Updates can be delayed or unavailable; sharing stops when the assignment advances or you sign out."
-                    },
-                )
-            },
-            confirmButton = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Button(
-                        onClick = {
-                            responseToStart = null
-                            beginOrResumeWithPermission(incident)
-                        },
-                        enabled = !state.busy,
-                    ) { Text(if (startingResponse) "Share location & start" else "Resume sharing") }
-                    if (startingResponse) {
-                        TextButton(
-                            onClick = {
-                                responseToStart = null
-                                vm.startResponse(incident, shareLocation = false)
-                            },
-                            enabled = !state.busy,
-                        ) { Text("Start without sharing") }
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { responseToStart = null }, enabled = !state.busy) { Text("Go back") }
-            },
-        )
-    }
+
 }
 
 @Composable
