@@ -78,7 +78,7 @@ wait_for_coordinator_pid() {
       LIMIT 1
     ")"
     if [[ "$observed_pid" =~ ^[0-9]+$ ]]; then
-      printf '%s\\n' "$observed_pid"
+      printf '%s\n' "$observed_pid"
       return 0
     fi
     sleep 0.05
@@ -135,13 +135,13 @@ SELECT set_config('application_name', '$app_name', false);
 SELECT set_config('request.jwt.claim.sub', '$dispatcher_uuid', false);
 SET ROLE authenticated;
 BEGIN;
-DO \\$claimability_race\\$
+DO \$claimability_race\$
 BEGIN
   PERFORM public.api_set_incident_claimable($incident_id, true);
 EXCEPTION WHEN SQLSTATE '22000' THEN
   RAISE NOTICE 'Claimability correctly rejected after terminal transition.';
 END;
-\\$claimability_race\\$;
+\$claimability_race\$;
 COMMIT;
 RESET ROLE;
 SQL
