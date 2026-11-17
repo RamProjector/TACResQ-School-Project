@@ -728,16 +728,16 @@ fun IncidentChatScreen(
                         if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
                         else if (!state.pendingImageRetry) vm.send(incidentId)
                     }),
-                    enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null && pendingImageRecord == null,
+                    enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null && !state.pendingImageRetry,
                     shape = RoundedCornerShape(22.dp),
                 )
                 androidx.compose.material3.FilledIconButton(
                     onClick = {
                         if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
-                        else if (pendingImageRecord == null) vm.send(incidentId)
+                        else if (!state.pendingImageRetry) vm.send(incidentId)
                     },
                     enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null &&
-                        (state.attachmentBytes != null || (pendingImageRecord == null && state.draft.trim().isNotEmpty())),
+                        (state.attachmentBytes != null || (!state.pendingImageRetry && state.draft.trim().isNotEmpty())),
                     modifier = Modifier.size(54.dp),
                 ) {
                     if (state.sending) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
