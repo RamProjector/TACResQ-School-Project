@@ -21,18 +21,18 @@ cleanup() {
 }
 trap cleanup EXIT
 
-requester_uuid="00000000-0000-4000-8000-000000000911"
-dispatcher_uuid="00000000-0000-4000-8000-000000000912"
+requester_uuid="00000000-0000-4000-8000-000000000974"
+dispatcher_uuid="00000000-0000-4000-8000-000000000975"
 
 psql -q -v ON_ERROR_STOP=1 -At <<'SQL' > "$tmp_dir/incident-id"
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES
-  ('00000000-0000-4000-8000-000000000911', 'claimability-race-requester@example.test', '{"name":"Claimability Race Requester","phone":"+63917000911"}'),
-  ('00000000-0000-4000-8000-000000000912', 'claimability-race-dispatcher@example.test', '{"name":"Claimability Race Dispatcher","phone":"+63917000912"}');
+  ('00000000-0000-4000-8000-000000000974', 'claimability-race-requester-974@example.test', '{"name":"Claimability Race Requester","phone":"+63917000974"}'),
+  ('00000000-0000-4000-8000-000000000975', 'claimability-race-dispatcher-975@example.test', '{"name":"Claimability Race Dispatcher","phone":"+63917000975"}');
 
 UPDATE public.profiles
 SET role = 'dispatcher', duty_status = NULL
-WHERE auth_user_id = '00000000-0000-4000-8000-000000000912';
+WHERE auth_user_id = '00000000-0000-4000-8000-000000000975';
 
 INSERT INTO public.incidents (
   requester_id, type, description, latitude, longitude,
@@ -41,7 +41,7 @@ INSERT INTO public.incidents (
 SELECT p.id, 'medical', 'Disposable claimability-cancellation race',
        11.2445, 125.0032, now(), 'manual', false
 FROM public.profiles p
-WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000911';
+WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000974';
 
 SELECT id
 FROM public.incidents
