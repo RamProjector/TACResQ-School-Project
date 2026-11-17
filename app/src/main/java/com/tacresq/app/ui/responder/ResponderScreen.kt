@@ -76,6 +76,7 @@ data class ResponderUiState(
     val error: String? = null,
     val claimMessage: String? = null,
     val trackingIncidentId: Long? = null,
+    val trackingStarting: Boolean = false,
     val trackingError: String? = null,
     val lastLocationSentAt: Long? = null,
     val lastLocationAccuracyM: Float? = null,
@@ -100,6 +101,7 @@ class ResponderViewModel(
                 _state.update {
                     it.copy(
                         trackingIncidentId = status.incidentId,
+                        trackingStarting = status.starting,
                         trackingError = status.message,
                         lastLocationSentAt = status.lastSentAtEpochMillis,
                         lastLocationAccuracyM = status.lastAccuracyMeters,
@@ -184,7 +186,9 @@ class ResponderViewModel(
                         _state.update {
                             it.copy(
                                 trackingIncidentId = null,
+                                trackingStarting = false,
                                 trackingError = failure.message ?: "Location sharing could not start. Resume it explicitly.",
+                                error = failure.message ?: "Location sharing could not start. Resume it explicitly.",
                             )
                         }
                     }
@@ -228,12 +232,14 @@ class ResponderViewModel(
                             _state.update {
                                 it.copy(
                                     trackingIncidentId = null,
+                                    trackingStarting = false,
                                     trackingError = startFailure.message ?: "Location sharing could not start. Resume it explicitly.",
+                                    error = startFailure.message ?: "Location sharing could not start. Resume it explicitly.",
                                 )
                             }
                         }
                 } else {
-                    _state.update { it.copy(trackingError = failure) }
+                    _state.update { it.copy(trackingError = failure, error = failure) }
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
@@ -241,6 +247,7 @@ class ResponderViewModel(
                 _state.update {
                     it.copy(
                         trackingError = failure.message ?: "Could not verify the active assignment. Location sharing remains off.",
+                        error = failure.message ?: "Could not verify the active assignment. Location sharing remains off.",
                     )
                 }
             } finally {
@@ -606,14 +613,16 @@ fun ResponderScreen(
                 }
                 if (incident.statusFor(user.id) == IncidentStatus.EN_ROUTE) {
                     val sharing = state.trackingIncidentId == incident.id
+                    val trackingMessage = state.trackingError.takeIf { sharing }
+                    val trackingNeedsAttention = sharing && trackingMessage != null && !state.trackingStarting
                     val trackingStatusLabel = when {
-                        state.trackingError != null -> "Needs attention"
-                        sharing && state.lastLocationSentAt == null -> "Starting"
+                        trackingNeedsAttention -> "Needs attention"
+                        sharing && (state.trackingStarting || state.lastLocationSentAt == null) -> "Starting"
                         sharing -> "Enabled"
                         else -> "Off"
                     }
                     val trackingTint = when {
-                        state.trackingError != null -> MaterialTheme.colorScheme.error
+                        trackingNeedsAttention -> MaterialTheme.colorScheme.error
                         sharing -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
@@ -623,14 +632,14 @@ fun ResponderScreen(
                         border = BorderStroke(
                             1.dp,
                             when {
-                                state.trackingError != null -> MaterialTheme.colorScheme.error.copy(alpha = 0.45f)
+                                trackingNeedsAttention -> MaterialTheme.colorScheme.error.copy(alpha = 0.45f)
                                 sharing -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
                                 else -> MaterialTheme.colorScheme.outlineVariant
                             },
                         ),
                         colors = androidx.compose.material3.CardDefaults.cardColors(
                             containerColor = when {
-                                state.trackingError != null -> MaterialTheme.colorScheme.errorContainer
+                                trackingNeedsAttention -> MaterialTheme.colorScheme.errorContainer
                                 sharing -> MaterialTheme.colorScheme.primaryContainer
                                 else -> MaterialTheme.colorScheme.surfaceVariant
                             },
@@ -657,12 +666,12 @@ fun ResponderScreen(
                             Text(
                                 when {
                                     !sharing -> "Location sharing is off."
-                                    lastLocationSentAt == null && state.trackingError != null ->
+                                    lastLocationSentAt == null && trackingMessage != null ->
                                         "Waiting for the first confirmed location update."
                                     lastLocationSentAt == null ->
                                         "Waiting for location…"
-                                    state.trackingError != null ->
-                                        "Last location update failed."
+                                    trackingMessage != null ->
+                                        trackingMessage
                                     else ->
                                         "Sharing approximate location for this en-route response, including when TACResQ is in the background."
                                 },
@@ -677,8 +686,8 @@ fun ResponderScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            state.trackingError?.let {
-                                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            trackingMessage?.let {
+                                Text(it, color = if (trackingNeedsAttention) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             }
                             if (sharing) {
                                 OutlinedButton(onClick = { vm.stopTracking("Location sharing stopped by you.") }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {

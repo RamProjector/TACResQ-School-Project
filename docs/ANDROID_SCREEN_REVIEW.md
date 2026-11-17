@@ -85,3 +85,11 @@ This register tracks visible UI findings from source review. A change is not con
 - **Change:** Disable each chip when it already represents the current status, while retaining the existing busy guard. The alternative status remains selectable only when the screen's existing assignment/freshness checks allow duty changes.
 - **Safety:** No duty-state rules, active-assignment restrictions, backend behavior, or status mapping changed. The UI only avoids submitting a no-op selection.
 - **Validation:** Source review only. No build, tests, emulator, or device checks run.
+
+
+## Responder location-sharing status clarity — 2026-11-17
+
+- **Finding:** The tracking controller publishes informational messages as well as failures (including “Starting location sharing…” and the normal “Sharing approximate location…” message). The screen treated every non-null message as “Needs attention”, even while a session was starting successfully. It also applied one tracking message to every en-route incident card, including cards unrelated to the active sharing session.
+- **Change:** Track the controller's explicit starting state, show “Starting” during startup, and scope the card's message/attention styling to the incident whose ID is actually being tracked. Direct start/resume verification failures are also surfaced through the existing screen error banner so they are not silently lost when no session is active.
+- **Safety:** No location collection, permission, service, assignment verification, or sharing lifecycle behavior changed. The change only corrects status presentation and surfaces existing failure results.
+- **Validation:** Source review only. No build, tests, emulator, or device checks run.

@@ -1,5 +1,12 @@
 ## Latest UI review — 2026-11-17
 
+- Responder location-sharing status now distinguishes startup from attention-required messages and only shows tracking status on the incident actually being shared. Direct start/resume verification failures use the existing error banner. No tracking or assignment behavior changed. Commit: pending in this handoff.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
 - Responder duty-status chips are now disabled when already selected, preventing no-op duty updates and unnecessary refreshes. The existing busy and active-assignment/freshness guards remain unchanged. Commit: `4479382f7c58faa56adbec367591dbabe209b04c`.
 - No build, tests, emulator, or device validation performed.
 
