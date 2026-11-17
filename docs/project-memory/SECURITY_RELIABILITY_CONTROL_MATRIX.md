@@ -390,3 +390,32 @@ The important integration requirement is to preserve all of these independent te
 ### Current gate
 
 Do not merge based solely on the green exact-head workflows. Before merging the group, create or otherwise validate a combined integration candidate that preserves the #317–#321 replay tests and CI steps, runs the complete clean PostgreSQL migration replay, validates migration-history alignment against the live ledger snapshot, and executes the relevant backend/frontend/Android checks. Then rerun the same checks on the actual updated mainline after each approved merge. No live Supabase migration or production deployment is authorized by these checks.
+
+
+## Migration-order and inventory review — 2026-11-17
+
+### Ordered implementation migrations
+
+The six implementation migrations are uniquely timestamped and sort in a deterministic sequence under the repository's filename-glob replay:
+
+1. #316 — `20261116170000_api_operation_audit_and_fk_indexes.sql`
+2. #317 — `20261116180000_harden_field_claim_exclusivity.sql`
+3. #318 — `20261116190000_validate_requester_location_edits.sql`
+4. #319 — `20261116200000_harden_dispatch_claimability_lifecycle.sql`
+5. #320 — `20261116210000_protect_profile_identity_metadata.sql`
+6. #321 — `20261117010000_restrict_legacy_admin_user_list_rpc.sql`
+
+Static review found no duplicate migration filename and no obvious forward reference from these new migrations to a later migration. Their principal objects are based on earlier schema/functions: the audit migration adds a new table and indexes existing FK columns; field-claim and location-edit migrations replace existing RPCs; claimability adds a log table, trigger functions, and RPC replacement; profile metadata replaces an existing profile guard; the Admin migration revokes execution on the existing legacy function. This is a source-level dependency assessment, not proof of successful PostgreSQL execution.
+
+### Migration-history inventory
+
+The latest #321 `tools/test_migration_history_alignment.py` contains 42 EXPECTED filenames and 8 PENDING filenames. The sets are disjoint. EXPECTED includes the responder-claim migration confirmed in the live ledger; PENDING includes the two earlier un-applied hardening migrations, the six implementation migrations above, and the #321 legacy Admin RPC migration. The revised assertions require every EXPECTED file to exist and require every repository migration to be either EXPECTED or PENDING. They intentionally do not require every pending sibling migration to exist on each independent PR branch.
+
+### Remaining proof required
+
+- Run the actual replay from a clean disposable PostgreSQL database with all six migration files present.
+- Preserve the five distinct PR-specific CI test commands and all five replay-script test invocations across #317–#321.
+- Verify migration replay, authenticated-role tests, and RPC grants on the same combined candidate commit.
+- After each approved merge, rerun the migration replay and relevant exact-head checks against the updated mainline; do not reuse standalone branch results as integration proof.
+
+No migration was applied to the live Supabase project. No PR was merged.
