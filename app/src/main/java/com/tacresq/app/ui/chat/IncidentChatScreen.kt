@@ -142,7 +142,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     // Retain uncertain sends across conversation close/reopen. Never mint a new key for the same payload.
     private var pendingTextMessage: PendingTextMessage? = null
     private var pendingClientMessageId: String? = null
-    private var     private var     private var pendingImageRecord: SessionStore.PendingChatImage? = null
+    private var pendingImageRecord: SessionStore.PendingChatImage? = null
 
     fun open(incidentId: Long) {
         if (activeIncidentId != incidentId) {
@@ -379,7 +379,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         val mimeType = current.attachmentMimeType ?: return
         val caption = current.draft.trim()
         if (activeIncidentId != incidentId || senderId < 1 || sendJob?.isActive == true || caption.length > 2000) return
-        val digest = sha256(bytes)
+        val digest = chatImageSha256(bytes)
         val restored = pendingImageRecord
         if (restored != null && (
                 restored.incidentId != incidentId ||
@@ -689,9 +689,9 @@ fun IncidentChatScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            if (selectedImageBitmap != null) {
+                            selectedImageBitmap?.let { bitmap ->
                                 Image(
-                                    bitmap = selectedImageBitmap,
+                                    bitmap = bitmap,
                                     contentDescription = "Selected image preview",
                                     modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)),
                                     contentScale = ContentScale.Crop,
