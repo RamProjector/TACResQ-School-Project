@@ -26,8 +26,8 @@ import java.util.UUID
  * Fake server used when AppConfig.USE_FAKE_API = true. It follows the same rules as docs/API.md,
  * so the UI can be built and demoed before the Laravel API exists.
  *
- * Default demo flow: requester sends SOS -> dispatcher manually assigns an AVAILABLE unit ->
- * that unit steps the incident through its statuses. Optional auto-dispatch is controlled by
+ * Default demo flow: requester sends SOS -> dispatcher assigns an AVAILABLE team ->
+ * dispatcher records shared incident milestones. Optional auto-dispatch is controlled by
  * AppConfig.FAKE_AUTO_DISPATCH and is off by default.
  * Demo accounts (password demo123): requester@, responder@, driver@, dispatcher@demo.com
  */
@@ -439,59 +439,41 @@ class FakeTacApi(
         }
     }
 
-    override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident =
-        updateMyAssignmentStatus(id, body)
-
-    override suspend fun updateMyAssignmentStatus(id: Long, body: UpdateStatusRequest): Incident {
+    override suspend fun updateIncidentStatus(id: Long, body: UpdateStatusRequest): Incident {
         delay(300)
         val updated = synchronized(lock) {
             val me = current()
-            if (me.role != Role.RESPONDER && me.role != Role.DRIVER) {
-                throw httpError(403, "Only assigned field units can update their response status.")
+            if (me.role != Role.DISPATCHER) {
+                throw httpError(403, "Only dispatchers can update shared incident progress.")
             }
             val index = incidents.indexOfFirst { it.id == id }
             if (index < 0) throw httpError(404, "Incident not found.")
             val incident = incidents[index]
             val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
-            if (me.id !in teamIds) throw httpError(403, "This incident is not assigned to your unit.")
-            if (incident.status == IncidentStatus.RESOLVED || incident.status == IncidentStatus.CANCELLED) {
-                throw httpError(422, "A closed incident cannot accept further unit status updates.")
+            if (teamIds.isEmpty()) throw httpError(422, "Assign a response team before advancing incident progress.")
+            if (body.status !in incident.status.nextSteps()) {
+                throw httpError(422, "Cannot advance incident from ${incident.status.label} to ${body.status.label}.")
             }
-            val existingStatuses = incident.assignedUserStatuses.ifEmpty {
-                teamIds.map { unitId -> ResponderAssignmentStatus(unitId, incident.status) }
-            }
-            val own = existingStatuses.firstOrNull { it.userId == me.id }
-                ?: throw httpError(403, "Your unit assignment could not be verified.")
-            if (body.status !in own.status.nextSteps()) {
-                throw httpError(422, "Cannot change your unit status from ${own.status.label} to ${body.status.label}.")
-            }
+
             val timestamp = Instant.now().toString()
-            val nextStatuses = existingStatuses.map {
-                if (it.userId == me.id) it.copy(status = body.status, statusUpdatedAt = timestamp) else it
+            val nextStatuses = teamIds.map { unitId ->
+                ResponderAssignmentStatus(unitId, body.status, timestamp)
             }
-            val statuses = nextStatuses.map { it.status }
-            val aggregate = when {
-                statuses.all { it == IncidentStatus.RESOLVED } -> IncidentStatus.RESOLVED
-                statuses.all { it in listOf(IncidentStatus.ON_SCENE, IncidentStatus.TRANSPORTING, IncidentStatus.RESOLVED) } &&
-                    statuses.any { it == IncidentStatus.TRANSPORTING } -> IncidentStatus.TRANSPORTING
-                statuses.all { it in listOf(IncidentStatus.ON_SCENE, IncidentStatus.TRANSPORTING, IncidentStatus.RESOLVED) } -> IncidentStatus.ON_SCENE
-                statuses.any { it in listOf(IncidentStatus.EN_ROUTE, IncidentStatus.ON_SCENE, IncidentStatus.TRANSPORTING, IncidentStatus.RESOLVED) } -> IncidentStatus.EN_ROUTE
-                else -> IncidentStatus.ASSIGNED
-            }
-            val result = incident.copy(status = aggregate, assignedUserStatuses = nextStatuses)
+            val result = incident.copy(status = body.status, assignedUserStatuses = nextStatuses)
             incidents[index] = result
-            if (result.status != incident.status) {
-                emitStatusNotifications(result, me.id)
+            emitStatusNotifications(result, me.id)
+
+            val nextDutyStatus = if (body.status == IncidentStatus.RESOLVED) {
+                DutyStatus.AVAILABLE
+            } else {
+                when (body.status) {
+                    IncidentStatus.EN_ROUTE -> DutyStatus.EN_ROUTE
+                    IncidentStatus.ON_SCENE -> DutyStatus.ON_SCENE
+                    IncidentStatus.TRANSPORTING -> DutyStatus.TRANSPORTING
+                    else -> DutyStatus.ASSIGNED
+                }
             }
-            val duty = when (body.status) {
-                IncidentStatus.ASSIGNED -> DutyStatus.ASSIGNED
-                IncidentStatus.EN_ROUTE -> DutyStatus.EN_ROUTE
-                IncidentStatus.ON_SCENE -> DutyStatus.ON_SCENE
-                IncidentStatus.TRANSPORTING -> DutyStatus.TRANSPORTING
-                IncidentStatus.RESOLVED -> DutyStatus.RESOLVED
-                else -> null
-            }
-            if (duty != null) setDuty(me.id, duty)
+            teamIds.forEach { setDuty(it, nextDutyStatus) }
             result
         }
         if (updated.status == IncidentStatus.RESOLVED) dispatchLater(3_000)
