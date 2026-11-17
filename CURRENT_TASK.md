@@ -1,3 +1,18 @@
+# Current handoff — 2026-11-17: responder status transition confirmations
+
+- **Objective:** Align the native responder/driver status UI with the repository's role-based wireframe specification.
+- **Branch:** `agent/responder-status-confirmations`.
+- **Finding:** The current UI required a confirmation before starting an en-route response (which also handles location-sharing permission), but advanced later statuses directly through `vm.advance`.
+- **Implementation:** Every later transition now opens a confirmation dialog before calling `vm.advance`. The resolved transition has a distinct “Confirm response completion?” title and explicit instruction to mark resolved only when the responder's assigned response is complete. The dialog explains that per-unit status is shared with dispatch and the requester, while the overall request reflects team progress. The specialized en-route/location-sharing dialog remains unchanged.
+- **Regression coverage:** Added `tools/test_responder_status_confirmation.py` and wired it into `.github/workflows/ci.yml`.
+- **Research basis:** The repository's `docs/wireframes/DESIGN_SPEC.md` requires deliberate confirmation for responder status progression and stronger confirmation for resolution. ITU-T F.760.2 (2024) recommends clear feedback, role/task-contextualized information, and reduced cognitive workload for emergency-response systems: https://www.itu.int/epublications/fr/publication/itu-t-f-760-2-2024-04-guidelines-for-user-interface-in-emergency-response-support-systems
+- **Commits:** `61d75bf18eeae97aea29f085d3a5d248e18e76dc` (status confirmation UI); `c51f35396c78c6dfb2b74f1e6594d26e0946257f` (regression contract); `a9fde3b4048405de2155dba4c9be8c2d69a41f38` (CI integration).
+- **Validation:** Pending exact-head CI and Android build. No emulator/device UX test has been run.
+- **Scope boundary:** No backend status rules, assignment permissions, location sharing, database, production, or deployment behavior changed.
+- **Next action:** Validate exact PR head, then inspect dispatcher and remaining role-specific wireframe gaps.
+
+---
+
 # Current handoff — 2026-11-16: comprehensive review + durable chat outbox tests
 
 - **Active PR:** [#312 Persist incident chat text retries across app restarts](https://github.com/RamProjector/TACResQ-School-Project/pull/312).
