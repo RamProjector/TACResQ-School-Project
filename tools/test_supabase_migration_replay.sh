@@ -315,8 +315,8 @@ BEGIN
   END IF;
 
   SELECT count(*) INTO stale_assignment_count
-    FROM public.incident_assignments
-   WHERE test_incident_id = test_incident_id AND responder_status <> 'en_route';
+    FROM public.incident_assignments a
+   WHERE a.incident_id = test_incident_id AND a.responder_status <> 'en_route';
   IF stale_assignment_count <> 0 THEN
     RAISE EXCEPTION 'All assigned members must inherit en_route; stale assignment rows=%', stale_assignment_count;
   END IF;
@@ -332,8 +332,8 @@ BEGIN
     RAISE EXCEPTION 'Dispatcher should advance incident to on_scene';
   END IF;
   SELECT count(*) INTO stale_assignment_count
-    FROM public.incident_assignments
-   WHERE test_incident_id = test_incident_id AND responder_status <> 'on_scene';
+    FROM public.incident_assignments a
+   WHERE a.incident_id = test_incident_id AND a.responder_status <> 'on_scene';
   IF stale_assignment_count <> 0 THEN
     RAISE EXCEPTION 'All assigned members must inherit on_scene; stale assignment rows=%', stale_assignment_count;
   END IF;
