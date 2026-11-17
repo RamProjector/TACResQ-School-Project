@@ -406,7 +406,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                 pendingImageRecord = SessionStore.PendingChatImage(
                     incidentId, caption, clientMessageId, mimeType, digest, senderId,
                 )
-                                                _state.update { it.copy(pendingImageRetry = true) }
+                _state.update { it.copy(pendingImageRetry = true) }
             }
             repositoryCallOrFailure { repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes) }
                 .onSuccess { sent ->
