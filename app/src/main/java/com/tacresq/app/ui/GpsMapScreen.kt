@@ -532,7 +532,11 @@ fun GpsMapScreen(
     val emptyMapMessage = when (role) {
         Role.REQUESTER -> "No active incident locations are available right now. You can still explore the map."
         Role.RESPONDER, Role.DRIVER -> "No active response locations are available right now."
-        Role.DISPATCHER -> "No incident or field-unit locations are available right now."
+        Role.DISPATCHER -> if (validResponderLocations.isNotEmpty()) {
+            "No incident locations are available. Review field-unit freshness below."
+        } else {
+            "No incident or field-unit locations are available right now."
+        }
         Role.ADMIN -> "No incident locations are available right now."
     }
 

@@ -1,3 +1,9 @@
+# GPS dispatcher empty-state accuracy
+
+- Corrected the dispatcher map sheet's no-incident message when field-unit location reports are still available. It now directs dispatchers to review field-unit freshness below instead of incorrectly saying there are no incident or field-unit locations.
+- Scope: empty-state copy only. Field-unit visibility, freshness classification, map pins, camera framing, permissions, location sharing, and backend behavior are unchanged.
+- Validation: not run per the incremental-commit cadence.
+
 # GPS map accessibility description accuracy
 
 - Updated the MapLibre view's screen-reader description so it no longer claims the map is centered on Tacloban City after users pan, zoom, or the app frames other incident locations.
