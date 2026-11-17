@@ -51,7 +51,8 @@ assert '"released" -> "Field unit released"' in dispatcher
 assert '"incident_closed" -> "Incident closed"' in dispatcher
 assert 'formatTime(event.occurredAt)' in dispatcher
 assert "Retry history" in dispatcher
-assert 'SectionHeading("Recently closed"' in dispatcher
+assert 'SectionHeading("Closed incidents"' in dispatcher
+assert '"Latest 5 by request date · resolved or cancelled · read-only history"' in dispatcher
 assert "Latest 5 resolved or cancelled incidents" in dispatcher
 assert "IncidentStatus.RESOLVED || it.status == IncidentStatus.CANCELLED" in dispatcher
 assert ".take(5)" in dispatcher
