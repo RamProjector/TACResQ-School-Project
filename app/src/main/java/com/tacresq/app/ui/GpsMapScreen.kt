@@ -186,6 +186,27 @@ private enum class MapLocationFreshness(val label: String) {
     STALE("Stale"),
 }
 
+private enum class GpsMapMarkerType {
+    INCIDENT,
+    FIELD_UNIT,
+    DEVICE_LOCATION,
+}
+
+/** Stable interaction metadata kept separately from user-facing marker titles. */
+private data class GpsMapMarkerTarget(
+    val type: GpsMapMarkerType,
+    val incidentId: Long? = null,
+    val userId: Long? = null,
+    val stale: Boolean = false,
+) {
+    val responderKey: String?
+        get() = if (type == GpsMapMarkerType.FIELD_UNIT && incidentId != null && userId != null) {
+            "$incidentId:$userId"
+        } else {
+            null
+        }
+}
+
 @Composable
 private fun RowScope.MapFreshnessChip(
     freshness: MapLocationFreshness,
@@ -413,6 +434,7 @@ fun GpsMapScreen(
     var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }
     var freshnessTick by remember { mutableStateOf(0) }
     var locationStatus by remember { mutableStateOf<String?>(null) }
+    var selectedResponderKey by remember { mutableStateOf<String?>(null) }
     var isLocationRequestInProgress by remember { mutableStateOf(false) }
     var retryLocationAfterSettings by remember { mutableStateOf(false) }
     var showAppSettingsAction by remember { mutableStateOf(false) }
@@ -558,9 +580,17 @@ fun GpsMapScreen(
         Role.ADMIN -> "No incident locations are available right now."
     }
 
-    // Clear stale action text when the incident set changes; the default is derived from current map data.
+    // Keep a selected field-unit row highlighted while its report remains available.
+    androidx.compose.runtime.LaunchedEffect(validResponderLocations) {
+        val selectedKey = selectedResponderKey ?: return@LaunchedEffect
+        if (validResponderLocations.none { "${it.incidentId}:${it.userId}" == selectedKey }) {
+            selectedResponderKey = null
+        }
+    }
+
+    // Clear incident selection only when the selected incident is no longer visible.
+    // Routine incident refreshes must not erase a marker selection or map action status.
     androidx.compose.runtime.LaunchedEffect(visibleIncidents) {
-        locationStatus = null
         if (selectedIncidentId != null && visibleIncidents.none { it.id == selectedIncidentId }) {
             selectedIncidentId = null
         }
@@ -626,6 +656,7 @@ fun GpsMapScreen(
     var mapDataLoaded by remember(context, role) { mutableStateOf(false) }
     var mapLoadError by remember(context, role) { mutableStateOf(false) }
     var mapHeaderBottomPx by remember { mutableStateOf(0) }
+    val markerTargets = remember(context, role) { mutableMapOf<Long, GpsMapMarkerTarget>() }
     val mapView = remember(context, role) {
         MapLibre.getInstance(context)
         MapView(context).apply {
@@ -652,36 +683,42 @@ fun GpsMapScreen(
         mapView.getMapAsync { map ->
             mapLibreMap = map
             map.setOnMarkerClickListener { marker ->
-                val markerTitle = marker.title.orEmpty()
-                val incidentId = markerTitle
-                    .removePrefix("Incident #")
-                    .substringBefore(" ·")
-                    .toLongOrNull()
-                when {
-                    incidentId != null -> {
-                        selectedIncidentId = incidentId
-                        locationStatus = null
-                        scope.launch { mapSheetState.bottomSheetState.expand() }
-                        true
-                    }
-                    markerTitle.contains("field-unit location", ignoreCase = true) -> {
-                        // Keep the sheet summary short enough to remain readable in its
-                        // two-line status slot. Detailed age and accuracy stay in the
-                        // field-unit list; stale markers get the safety-critical warning.
-                        locationStatus = if (markerTitle.startsWith("STALE", ignoreCase = true)) {
-                            "$markerTitle · Last known only; confirm with dispatch."
-                        } else {
-                            "$markerTitle · Consent-based foreground location; see field-unit details for age and accuracy."
+                // Resolve behavior from the annotation ID, never from editable display text.
+                when (val target = markerTargets[marker.id]) {
+                    is GpsMapMarkerTarget -> when (target.type) {
+                        GpsMapMarkerType.INCIDENT -> {
+                            val incidentId = target.incidentId
+                            if (incidentId == null) {
+                                false
+                            } else {
+                                selectedResponderKey = null
+                                selectedIncidentId = incidentId
+                                locationStatus = null
+                                scope.launch { mapSheetState.bottomSheetState.expand() }
+                                true
+                            }
                         }
-                        scope.launch { mapSheetState.bottomSheetState.expand() }
-                        true
+                        GpsMapMarkerType.FIELD_UNIT -> {
+                            selectedResponderKey = target.responderKey
+                            // Keep the sheet summary short enough to remain readable in its
+                            // two-line status slot. Detailed age and accuracy stay in the
+                            // matching field-unit row; stale markers get the safety warning.
+                            locationStatus = if (target.stale) {
+                                "Responder location · Last known only; confirm with dispatch."
+                            } else {
+                                "Responder location · Consent-based foreground report; see the highlighted field-unit entry for age and accuracy."
+                            }
+                            scope.launch { mapSheetState.bottomSheetState.expand() }
+                            true
+                        }
+                        GpsMapMarkerType.DEVICE_LOCATION -> {
+                            selectedResponderKey = null
+                            locationStatus = "Your location · One-time preview on this device only; not uploaded or continuously tracked."
+                            scope.launch { mapSheetState.bottomSheetState.expand() }
+                            true
+                        }
                     }
-                    markerTitle.startsWith("Your location", ignoreCase = true) -> {
-                        locationStatus = "Your location · One-time preview on this device only; not uploaded or continuously tracked."
-                        scope.launch { mapSheetState.bottomSheetState.expand() }
-                        true
-                    }
-                    else -> false
+                    null -> false
                 }
             }
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
@@ -780,6 +817,7 @@ fun GpsMapScreen(
     }
 
     fun focusIncidentOnMap(incident: Incident) {
+        selectedResponderKey = null
         selectedIncidentId = incident.id
         scope.launch { mapSheetState.bottomSheetState.expand() }
         val latitude = incident.latitude
@@ -1294,6 +1332,7 @@ fun GpsMapScreen(
 
         // The map's annotations are a render of current, validated app state.
         map.clear()
+        markerTargets.clear()
         visibleIncidents.forEach { incident ->
             val latitude = incident.latitude
             val longitude = incident.longitude
@@ -1309,7 +1348,7 @@ fun GpsMapScreen(
                 } else null
                 val note = incident.locationNotes?.takeIf { it.isNotBlank() }
                 val locationAgeLabel = incident.locationAgeStatus(mapNow).first
-                map.addMarker(
+                val marker = map.addMarker(
                     MarkerOptions()
                         .position(LatLng(latitude, longitude))
                         .icon(if (incident.id == selectedIncidentId) selectedIncidentPinIcon else incidentPinIcon)
@@ -1324,6 +1363,10 @@ fun GpsMapScreen(
                             ).joinToString(" · "),
                         ),
                 )
+                markerTargets[marker.id] = GpsMapMarkerTarget(
+                    type = GpsMapMarkerType.INCIDENT,
+                    incidentId = incident.id,
+                )
             }
         }
         validResponderLocations.forEach { location ->
@@ -1337,7 +1380,7 @@ fun GpsMapScreen(
             } else {
                 "${freshness.label} location · last reported $age$accuracy. Dispatcher-only, consented foreground location."
             }
-            map.addMarker(
+            val marker = map.addMarker(
                 MarkerOptions()
                     .position(LatLng(location.latitude, location.longitude))
                     .icon(icon)
@@ -1350,15 +1393,22 @@ fun GpsMapScreen(
                     )
                     .snippet(snippet),
             )
+            markerTargets[marker.id] = GpsMapMarkerTarget(
+                type = GpsMapMarkerType.FIELD_UNIT,
+                incidentId = location.incidentId,
+                userId = location.userId,
+                stale = freshness == MapLocationFreshness.STALE,
+            )
         }
         deviceFix?.let { fix ->
-            map.addMarker(
+            val marker = map.addMarker(
                 MarkerOptions()
                     .position(LatLng(fix.latitude, fix.longitude))
                     .icon(myLocationPinIcon)
                     .title("Your location · this device only")
                     .snippet("One-time location preview. Not uploaded or continuously tracked."),
             )
+            markerTargets[marker.id] = GpsMapMarkerTarget(type = GpsMapMarkerType.DEVICE_LOCATION)
         }
         displayedRoute?.let { route ->
             map.addPolyline(
@@ -1755,14 +1805,9 @@ fun GpsMapScreen(
                             ) { _, location ->
                                 val ageSeconds = location.mapAgeSeconds(mapNow)
                                 val freshness = location.mapFreshness(mapNow)
-                                Text(
-                                    text = buildString {
-                                        append("Responder #${location.userId} · Incident #${location.incidentId} · ")
-                                        append(freshness?.label ?: "Freshness unavailable")
-                                        if (ageSeconds != null) append(" · last reported ${formatLocationAge(ageSeconds)}")
-                                        location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }
-                                        if (freshness == MapLocationFreshness.STALE) append(" · last known, not live")
-                                    },
+                                val responderKey = "${location.incidentId}:${location.userId}"
+                                val isSelectedResponder = selectedResponderKey == responderKey
+                                Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(min = 48.dp)
@@ -1770,6 +1815,7 @@ fun GpsMapScreen(
                                             role = androidx.compose.ui.semantics.Role.Button,
                                             onClickLabel = "Center map on responder ${location.userId}",
                                         ) {
+                                            selectedResponderKey = responderKey
                                             if (mapLibreMap == null || !mapStyleLoaded) {
                                                 locationStatus = "Map is still loading. Try centering this field unit again in a moment."
                                             } else {
@@ -1781,10 +1827,29 @@ fun GpsMapScreen(
                                                     "Centered on responder #${location.userId} · ${freshness?.label?.lowercase() ?: "freshness unknown"}."
                                                 }
                                             }
-                                        }
+                                        },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelectedResponder) {
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f)
+                                    },
+                                ) {
+                                    Text(
+                                    text = buildString {
+                                        append("Responder #${location.userId} · Incident #${location.incidentId} · ")
+                                        append(freshness?.label ?: "Freshness unavailable")
+                                        if (ageSeconds != null) append(" · last reported ${formatLocationAge(ageSeconds)}")
+                                        location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }
+                                        if (freshness == MapLocationFreshness.STALE) append(" · last known, not live")
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
                                         .padding(horizontal = 10.dp, vertical = 7.dp)
                                         .semantics {
                                             contentDescription = buildString {
+                                                append(if (isSelectedResponder) "Selected. " else "")
                                                 append("Center map on responder ${location.userId}, incident ${location.incidentId}. ")
                                                 append(freshness?.label ?: "Freshness unavailable")
                                                 if (ageSeconds != null) append(", last reported ${formatLocationAge(ageSeconds)}")
@@ -1792,8 +1857,13 @@ fun GpsMapScreen(
                                             }
                                         },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = if (isSelectedResponder) {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                 )
+                                }
                             }
                         }
                     }

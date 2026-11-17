@@ -1,3 +1,12 @@
+# GPS marker identity and dispatcher selection linkage
+
+- Replaced marker click behavior based on parsing the visible title with a registry keyed by MapLibre's stable annotation ID. Incident, field-unit, and device-preview marker behavior now resolves from typed metadata kept separately from display text.
+- Tapping a dispatcher field-unit marker highlights its matching field-unit row in the expanded map sheet; tapping a row also selects/highlights it. The highlight clears when that location report is no longer available or another marker type is selected.
+- Routine incident-list refreshes no longer clear map action/marker status text. Incident selection still clears if its incident is no longer visible.
+- Preserved marker titles/snippets for user-facing map metadata, stale-location warnings, coordinate data, camera behavior, route rendering, permissions, location sharing, and backend contracts.
+- Research: MapLibre's current Android API exposes marker annotation IDs, while its legacy Marker/MarkerOptions/Annotation APIs are deprecated from 7.0. This change uses the existing dependency's marker ID rather than attempting a renderer migration in the same patch. The Annotation Plugin migration remains a separate, coordinated task.
+- Validation: not run per the requested commit cadence. Review marker taps, row highlighting, report refresh/removal, and screen-reader announcements on-device.
+
 # GPS marker summary readability
 
 - Shortened the status text shown after tapping field-unit and device-location markers so it fits the map sheet's compact two-line summary instead of concatenating the full marker snippet and risking truncation.
