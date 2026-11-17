@@ -1,5 +1,169 @@
 BEGIN;
 
+-- Permit only the primary-member handoff caused by the release RPC:
+-- the former primary must already be absent from membership and the replacement
+-- must already be a member. All incident content and shared progress stay fixed.
+CREATE OR REPLACE FUNCTION public.tacresq_guard_incident_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  actor_role text;
+  actor_id bigint;
+  unit_status text;
+BEGIN
+  SELECT role, id INTO actor_role, actor_id
+  FROM public.profiles WHERE auth_user_id = auth.uid();
+
+  IF actor_role = 'dispatcher'
+     AND NEW.assigned_to IS DISTINCT FROM OLD.assigned_to
+     AND OLD.assigned_to IS NOT NULL
+     AND NEW.assigned_to IS NOT NULL
+     AND OLD.status IN ('assigned', 'en_route')
+     AND NEW.status IS NOT DISTINCT FROM OLD.status
+     AND NEW.id IS NOT DISTINCT FROM OLD.id
+     AND NEW.requester_id IS NOT DISTINCT FROM OLD.requester_id
+     AND NEW.type IS NOT DISTINCT FROM OLD.type
+     AND NEW.description IS NOT DISTINCT FROM OLD.description
+     AND NEW.latitude IS NOT DISTINCT FROM OLD.latitude
+     AND NEW.longitude IS NOT DISTINCT FROM OLD.longitude
+     AND NEW.accuracy_m IS NOT DISTINCT FROM OLD.accuracy_m
+     AND NEW.location_notes IS NOT DISTINCT FROM OLD.location_notes
+     AND NEW.location_recorded_at IS NOT DISTINCT FROM OLD.location_recorded_at
+     AND NEW.location_source IS NOT DISTINCT FROM OLD.location_source
+     AND NEW.created_at IS NOT DISTINCT FROM OLD.created_at
+     AND NEW.requester_edit_count IS NOT DISTINCT FROM OLD.requester_edit_count
+     AND NEW.requester_last_edited_at IS NOT DISTINCT FROM OLD.requester_last_edited_at
+     AND NEW.is_claimable IS NOT DISTINCT FROM OLD.is_claimable
+     AND NOT EXISTS (
+       SELECT 1 FROM public.incident_assignments a
+       WHERE a.incident_id = OLD.id AND a.user_id = OLD.assigned_to
+     )
+     AND EXISTS (
+       SELECT 1 FROM public.incident_assignments a
+       WHERE a.incident_id = OLD.id AND a.user_id = NEW.assigned_to
+     ) THEN
+    RETURN NEW;
+  END IF;
+
+  -- Existing dispatcher-owned incident milestone contract.
+  IF actor_role = 'dispatcher'
+     AND NEW.status IS DISTINCT FROM OLD.status
+     AND NEW.id IS NOT DISTINCT FROM OLD.id
+     AND NEW.requester_id IS NOT DISTINCT FROM OLD.requester_id
+     AND NEW.type IS NOT DISTINCT FROM OLD.type
+     AND NEW.description IS NOT DISTINCT FROM OLD.description
+     AND NEW.latitude IS NOT DISTINCT FROM OLD.latitude
+     AND NEW.longitude IS NOT DISTINCT FROM OLD.longitude
+     AND NEW.accuracy_m IS NOT DISTINCT FROM OLD.accuracy_m
+     AND NEW.location_notes IS NOT DISTINCT FROM OLD.location_notes
+     AND NEW.location_recorded_at IS NOT DISTINCT FROM OLD.location_recorded_at
+     AND NEW.location_source IS NOT DISTINCT FROM OLD.location_source
+     AND NEW.assigned_to IS NOT DISTINCT FROM OLD.assigned_to
+     AND NEW.created_at IS NOT DISTINCT FROM OLD.created_at
+     AND NEW.requester_edit_count IS NOT DISTINCT FROM OLD.requester_edit_count
+     AND NEW.requester_last_edited_at IS NOT DISTINCT FROM OLD.requester_last_edited_at
+     AND NEW.is_claimable IS NOT DISTINCT FROM OLD.is_claimable
+     AND (
+          (OLD.status = 'assigned' AND NEW.status = 'en_route')
+       OR (OLD.status = 'en_route' AND NEW.status = 'on_scene')
+       OR (OLD.status = 'on_scene' AND NEW.status IN ('transporting','resolved'))
+       OR (OLD.status = 'transporting' AND NEW.status = 'resolved')
+     ) THEN
+    RETURN NEW;
+  END IF;
+
+  IF actor_role IN ('responder', 'driver') AND (
+       NEW.id IS DISTINCT FROM OLD.id
+    OR NEW.requester_id IS DISTINCT FROM OLD.requester_id
+    OR NEW.type IS DISTINCT FROM OLD.type
+    OR NEW.description IS DISTINCT FROM OLD.description
+    OR NEW.latitude IS DISTINCT FROM OLD.latitude
+    OR NEW.longitude IS DISTINCT FROM OLD.longitude
+    OR NEW.accuracy_m IS DISTINCT FROM OLD.accuracy_m
+    OR NEW.location_notes IS DISTINCT FROM OLD.location_notes
+    OR NEW.location_recorded_at IS DISTINCT FROM OLD.location_recorded_at
+    OR NEW.location_source IS DISTINCT FROM OLD.location_source
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at
+    OR NEW.is_claimable IS DISTINCT FROM OLD.is_claimable
+  ) THEN
+    RAISE EXCEPTION 'Assigned field units cannot modify the original emergency report'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NEW.status IS DISTINCT FROM OLD.status
+     AND NEW.status = 'cancelled'
+     AND OLD.status = 'pending'
+     AND actor_role = 'requester'
+     AND actor_id = OLD.requester_id
+     AND OLD.assigned_to IS NULL
+     AND NEW.assigned_to IS NOT DISTINCT FROM OLD.assigned_to
+     AND NEW.id IS NOT DISTINCT FROM OLD.id
+     AND NEW.requester_id IS NOT DISTINCT FROM OLD.requester_id
+     AND NEW.type IS NOT DISTINCT FROM OLD.type
+     AND NEW.description IS NOT DISTINCT FROM OLD.description
+     AND NEW.latitude IS NOT DISTINCT FROM OLD.latitude
+     AND NEW.longitude IS NOT DISTINCT FROM OLD.longitude
+     AND NEW.accuracy_m IS NOT DISTINCT FROM OLD.accuracy_m
+     AND NEW.location_notes IS NOT DISTINCT FROM OLD.location_notes
+     AND NEW.location_recorded_at IS NOT DISTINCT FROM OLD.location_recorded_at
+     AND NEW.location_source IS NOT DISTINCT FROM OLD.location_source
+     AND NEW.created_at IS NOT DISTINCT FROM OLD.created_at
+     AND NEW.is_claimable IS NOT DISTINCT FROM OLD.is_claimable
+     AND NOT EXISTS (SELECT 1 FROM public.incident_assignments a WHERE a.incident_id = OLD.id) THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.status IS DISTINCT FROM OLD.status
+     AND NEW.status = 'assigned'
+     AND OLD.status = 'pending'
+     AND actor_role IN ('responder', 'driver')
+     AND OLD.is_claimable IS TRUE
+     AND NEW.assigned_to IS NOT DISTINCT FROM OLD.assigned_to
+     AND NEW.is_claimable IS NOT DISTINCT FROM OLD.is_claimable
+     AND NEW.id IS NOT DISTINCT FROM OLD.id
+     AND NEW.requester_id IS NOT DISTINCT FROM OLD.requester_id
+     AND NEW.type IS NOT DISTINCT FROM OLD.type
+     AND NEW.description IS NOT DISTINCT FROM OLD.description
+     AND NEW.latitude IS NOT DISTINCT FROM OLD.latitude
+     AND NEW.longitude IS NOT DISTINCT FROM OLD.longitude
+     AND NEW.accuracy_m IS NOT DISTINCT FROM OLD.accuracy_m
+     AND NEW.location_notes IS NOT DISTINCT FROM OLD.location_notes
+     AND NEW.location_recorded_at IS NOT DISTINCT FROM OLD.location_recorded_at
+     AND NEW.location_source IS NOT DISTINCT FROM OLD.location_source
+     AND NEW.created_at IS NOT DISTINCT FROM OLD.created_at
+     AND NEW.requester_edit_count IS NOT DISTINCT FROM OLD.requester_edit_count
+     AND NEW.requester_last_edited_at IS NOT DISTINCT FROM OLD.requester_last_edited_at
+     AND EXISTS (SELECT 1 FROM public.incident_assignments a WHERE a.incident_id = OLD.id AND a.user_id = actor_id)
+     AND EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = actor_id AND p.duty_status = 'available') THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.assigned_to IS DISTINCT FROM OLD.assigned_to THEN
+    SELECT duty_status INTO unit_status FROM public.profiles WHERE id = NEW.assigned_to;
+    IF actor_role <> 'dispatcher' OR OLD.status <> 'pending'
+       OR NEW.status <> 'assigned' OR unit_status <> 'available' THEN
+      RAISE EXCEPTION 'Only a dispatcher may assign a pending incident to an available unit'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  IF NEW.status IS DISTINCT FROM OLD.status THEN
+    IF NEW.status = 'assigned' THEN
+      IF actor_role <> 'dispatcher' OR OLD.status <> 'pending' OR NEW.assigned_to IS NULL THEN
+        RAISE EXCEPTION 'Invalid assignment' USING ERRCODE = '42501';
+      END IF;
+    ELSE
+      RAISE EXCEPTION 'Only dispatchers can advance incident progress'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
 -- Release one member from an active pre-arrival team without leaving an
 -- incident orphaned. The incident row lock serializes this with team assignment
 -- and dispatcher progress updates.
