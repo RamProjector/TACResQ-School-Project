@@ -164,6 +164,35 @@ class SupabaseBridgeTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_unlisted_rpc_attempt_is_audited_without_forwarding(): void
+    {
+        config([
+            'tacru.supabase_secret_key' => 'synthetic-server-secret',
+        ]);
+        Http::fake([
+            'https://tacresq-bridge.example.test/rest/v1/api_operation_logs' => Http::response(null, 201),
+        ]);
+
+        $result = app(\\App\\SupabaseBridge::class)->callRpc(
+            'valid-looking-token',
+            'arbitrary_function',
+            [],
+        );
+
+        $this->assertSame(404, $result['status']);
+        $this->assertSame(['message' => 'RPC endpoint not found.'], $result['body']);
+        Http::assertSentCount(1);
+        Http::assertSent(function ($request): bool {
+            $payload = $request->data();
+            return str_ends_with($request->url(), '/rest/v1/api_operation_logs')
+                && ($payload['provider'] ?? null) === 'supabase'
+                && ($payload['operation'] ?? null) === 'rpc.arbitrary_function'
+                && ($payload['outcome'] ?? null) === 'rejected'
+                && ($payload['error_code'] ?? null) === 'rpc_not_allowlisted';
+        });
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/rest/v1/rpc/arbitrary_function'));
+    }
+
     public function test_upstream_server_errors_are_sanitized(): void
     {
         Http::fake([
