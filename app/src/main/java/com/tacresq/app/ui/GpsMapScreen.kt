@@ -421,6 +421,8 @@ fun GpsMapScreen(
     // Keep the latest callback without restarting the polling coroutine on recomposition.
     val refreshResponderLocations by rememberUpdatedState(onRefreshResponderLocations)
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
+    // Increment on every selection transition so A → B → A cannot revive A's old route.
+    var routeSelectionGeneration by remember { mutableStateOf(0) }
     var selectedIncidentId by rememberSaveable { mutableStateOf<Long?>(null) }
     var appliedInitialSelectionId by rememberSaveable { mutableStateOf<Long?>(null) }
     val mapSheetState = rememberBottomSheetScaffoldState(
@@ -431,6 +433,7 @@ fun GpsMapScreen(
     androidx.compose.runtime.LaunchedEffect(initialSelectedIncidentId) {
         val requestedId = initialSelectedIncidentId
         if (requestedId != null && requestedId != appliedInitialSelectionId) {
+            routeSelectionGeneration += 1
             selectedIncidentId = requestedId
             appliedInitialSelectionId = requestedId
             mapSheetState.bottomSheetState.expand()
@@ -616,6 +619,7 @@ fun GpsMapScreen(
     // Routine incident refreshes must not erase a marker selection or map action status.
     androidx.compose.runtime.LaunchedEffect(visibleIncidents) {
         if (selectedIncidentId != null && visibleIncidents.none { it.id == selectedIncidentId }) {
+            routeSelectionGeneration += 1
             selectedIncidentId = null
         }
     }
@@ -685,6 +689,7 @@ fun GpsMapScreen(
                     return
                 }
                 selectedResponderKey = null
+                routeSelectionGeneration += 1
                 selectedIncidentId = incidentId
                 locationStatus = null
             }
@@ -697,6 +702,7 @@ fun GpsMapScreen(
                     locationStatus = "That field-unit report is no longer available or has expired. Refresh the map locations."
                     return
                 }
+                routeSelectionGeneration += 1
                 selectedIncidentId = null
                 selectedResponderKey = responderKey
                 locationStatus = if (currentLocation.mapFreshness(mapNow) == MapLocationFreshness.STALE) {
@@ -714,6 +720,7 @@ fun GpsMapScreen(
                     locationStatus = "That one-time device location preview has changed. Use Locate me to refresh it."
                     return
                 }
+                routeSelectionGeneration += 1
                 selectedIncidentId = null
                 selectedResponderKey = null
                 locationStatus = "Your location · One-time preview on this device only; not uploaded or continuously tracked."
@@ -729,6 +736,11 @@ fun GpsMapScreen(
     var mapStyleLoaded by remember(context, role) { mutableStateOf(false) }
     var mapDataLoaded by remember(context, role) { mutableStateOf(false) }
     var mapLoadError by remember(context, role) { mutableStateOf(false) }
+    var savedCameraLatitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var savedCameraLongitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var savedCameraZoom by rememberSaveable { mutableStateOf<Double?>(null) }
+    var savedCameraBearing by rememberSaveable { mutableStateOf<Double?>(null) }
+    var savedCameraTilt by rememberSaveable { mutableStateOf<Double?>(null) }
     var mapHeaderBottomPx by remember { mutableStateOf(0) }
     val markerTargets = remember(context, role) { mutableMapOf<Long, GpsMapMarkerTarget>() }
     // Keep annotation instances across refreshes; reconcile only changed features.
@@ -751,6 +763,7 @@ fun GpsMapScreen(
 
     DisposableEffect(mapView, lifecycleOwner) {
         var disposed = false
+        var cameraIdleListener: MapLibreMap.OnCameraIdleListener? = null
         var mapIsStarted = false
         var mapIsResumed = false
         val lifecycle = lifecycleOwner.lifecycle
@@ -796,6 +809,22 @@ fun GpsMapScreen(
                 else -> Unit
             }
         }
+        val memoryCallbacks = object : android.content.ComponentCallbacks2 {
+            override fun onConfigurationChanged(newConfig: android.content.res.Configuration) = Unit
+            override fun onLowMemory() {
+                if (Looper.myLooper() == Looper.getMainLooper()) {
+                    if (!disposed) mapView.onLowMemory()
+                } else {
+                    Handler(Looper.getMainLooper()).post {
+                        if (!disposed) mapView.onLowMemory()
+                    }
+                }
+            }
+            override fun onTrimMemory(level: Int) {
+                if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) onLowMemory()
+            }
+        }
+        context.applicationContext.registerComponentCallbacks(memoryCallbacks)
         lifecycle.addObserver(lifecycleObserver)
         if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && !mapIsStarted) {
             mapView.onStart()
@@ -824,6 +853,23 @@ fun GpsMapScreen(
         mapView.getMapAsync { map ->
             if (disposed) return@getMapAsync
             mapLibreMap = map
+            val cameraListener = MapLibreMap.OnCameraIdleListener {
+                if (!disposed) {
+                    val camera = map.cameraPosition
+                    val target = camera.target
+                    if (target != null && target.latitude.isFinite() && target.longitude.isFinite() &&
+                        camera.zoom.isFinite()
+                    ) {
+                        savedCameraLatitude = target.latitude
+                        savedCameraLongitude = target.longitude
+                        savedCameraZoom = camera.zoom
+                        savedCameraBearing = camera.bearing
+                        savedCameraTilt = camera.tilt
+                    }
+                }
+            }
+            cameraIdleListener = cameraListener
+            map.addOnCameraIdleListener(cameraListener)
             map.setOnMarkerClickListener { marker ->
                 // Resolve behavior from the annotation ID, never from editable display text.
                 val target = markerTargets[marker.id] ?: return@setOnMarkerClickListener false
@@ -850,6 +896,7 @@ fun GpsMapScreen(
                     .distinctBy { listOf(it.type.name, it.incidentId?.toString().orEmpty(), it.userId?.toString().orEmpty()).joinToString(":") }
                 if (nearbyTargets.size > 1) {
                     selectedMarkerChoices = nearbyTargets
+                    routeSelectionGeneration += 1
                     selectedIncidentId = null
                     selectedResponderKey = null
                     locationStatus = "${nearbyTargets.size} map locations overlap here. Choose the location you need."
@@ -869,9 +916,20 @@ fun GpsMapScreen(
                     mapHeaderBottomPx.takeIf { it > 0 } ?: (180f * mapDensity).roundToInt(),
                     mapDensity,
                 )
+                val restoredTarget = if (
+                    savedCameraLatitude != null && savedCameraLongitude != null &&
+                    savedCameraLatitude!!.isFinite() && savedCameraLongitude!!.isFinite() &&
+                    savedCameraLatitude!! in -90.0..90.0 && savedCameraLongitude!! in -180.0..180.0
+                ) {
+                    LatLng(savedCameraLatitude!!, savedCameraLongitude!!)
+                } else {
+                    LatLng(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE)
+                }
                 map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
-                    .target(LatLng(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
-                    .zoom(12.0)
+                    .target(restoredTarget)
+                    .zoom(savedCameraZoom?.takeIf { it.isFinite() } ?: 12.0)
+                    .bearing(savedCameraBearing?.takeIf { it.isFinite() } ?: 0.0)
+                    .tilt(savedCameraTilt?.takeIf { it.isFinite() } ?: 0.0)
                     .build()
             }
         }
@@ -880,6 +938,11 @@ fun GpsMapScreen(
             mapView.removeOnDidFailLoadingMapListener(failLoadingListener)
             mapView.removeOnDidFinishLoadingMapListener(finishLoadingListener)
             lifecycle.removeObserver(lifecycleObserver)
+            context.applicationContext.unregisterComponentCallbacks(memoryCallbacks)
+            cameraIdleListener?.let { listener ->
+                mapLibreMap?.removeOnCameraIdleListener(listener)
+            }
+            cameraIdleListener = null
             if (mapIsResumed) mapView.onPause()
             if (mapIsStarted) mapView.onStop()
             mapView.onDestroy()
@@ -965,6 +1028,7 @@ fun GpsMapScreen(
 
     fun focusIncidentOnMap(incident: Incident) {
         selectedResponderKey = null
+        routeSelectionGeneration += 1
         selectedIncidentId = incident.id
         scope.launch { mapSheetState.bottomSheetState.expand() }
         val latitude = incident.latitude
@@ -1254,6 +1318,11 @@ fun GpsMapScreen(
         routeJob?.cancel()
         routeRequestGeneration += 1
         val generation = routeRequestGeneration
+        val selectionGeneration = routeSelectionGeneration
+        fun isCurrentRequest(): Boolean =
+            generation == routeRequestGeneration &&
+                selectionGeneration == routeSelectionGeneration &&
+                selectedIncidentId == incident.id
         routeResult = null
         routeIncidentId = incident.id
         isRouteLoading = false
@@ -1287,7 +1356,9 @@ fun GpsMapScreen(
                 routeStatus = "Getting a fresh location and calculating a road-route estimate…"
                 routeJob = scope.launch {
                     try {
-                        when (val settings = locationProvider.checkLocationSettings()) {
+                        val settings = locationProvider.checkLocationSettings()
+                        if (!isCurrentRequest()) return@launch
+                        when (settings) {
                             LocationSettingsCheck.Ready -> Unit
                             is LocationSettingsCheck.NeedsResolution -> {
                                 pendingRouteIncident = incident
@@ -1302,7 +1373,9 @@ fun GpsMapScreen(
                                 return@launch
                             }
                         }
-                        val fix = when (val capture = locationProvider.currentFix()) {
+                        val capture = locationProvider.currentFix()
+                        if (!isCurrentRequest()) return@launch
+                        val fix = when (capture) {
                             is LocationCaptureResult.Success -> capture.fix
                             LocationCaptureResult.PermissionDenied -> {
                                 routeStatus = "Approximate location permission is required for a current route origin."
@@ -1322,7 +1395,7 @@ fun GpsMapScreen(
                         }
                         // Selection can change while location capture is suspended. Do not
                         // send a route request for an incident the user has left.
-                        if (generation != routeRequestGeneration || selectedIncidentId != incident.id) {
+                        if (!isCurrentRequest()) {
                             return@launch
                         }
                         val result = provider.route(
@@ -1350,7 +1423,7 @@ fun GpsMapScreen(
                         routeStatus = "Route preview only. No live traffic, flooding, road closures, or emergency-vehicle access is verified."
                         val routePoints = route.geometry.map { LatLng(it.latitude, it.longitude) }
                         mapView.post {
-                            if (generation == routeRequestGeneration && selectedIncidentId == incident.id) {
+                            if (isCurrentRequest()) {
                                 fitMapPoints(routePoints)
                             }
                         }

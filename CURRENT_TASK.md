@@ -1,3 +1,10 @@
+## GPS route identity, camera restoration, and memory pressure — 2026-11-17
+
+- **Route ABA race:** A route for incident A could pass the old ID check after the user selected B and then A again. Added a monotonic selection generation captured by each route request; every incident-selection transition invalidates prior generations. Checks now cover location-settings completion, fresh-fix completion, provider completion, result/error publication, and the posted camera move.
+- **Camera restoration:** Persisted validated camera target, zoom, bearing, and tilt with saveable Compose state. A MapLibre camera-idle listener records settled camera state and is removed on disposal. Recreated map screens restore the user's last camera rather than always resetting to Tacloban; invalid saved coordinates fall back safely.
+- **Memory pressure:** Registered application-level ComponentCallbacks2 for the lifetime of the MapView effect and forwarded low-memory / running-low trim callbacks to MapView.onLowMemory on the main thread. The callback is unregistered during teardown and ignores events after disposal.
+- **Validation:** No tests/build/device checks run. Verify A→B→A with delayed providers, rotate/recreate while zoomed/panned, and background/foreground under memory pressure on physical devices.
+
 ## GPS marker callback freshness — 2026-11-17
 
 - **Finding:** The MapLibre marker click listener is installed once when the map becomes ready, but it called a selection function that closed over the then-current Compose lists and freshness clock. After data refreshes, a tap could validate a responder/incident against stale screen data.

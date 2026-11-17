@@ -133,3 +133,12 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - The MapLibre marker listener now calls the latest Compose marker-selection callback via `rememberUpdatedState` rather than retaining the callback created during initial map setup.
 - This ensures marker taps validate against current visible incidents, responder reports, device preview, and freshness state after recomposition/data refresh.
 - Device verification remains required; no tests/build checks run.
+
+
+## Route identity, camera restoration, and memory pressure — 2026-11-17
+
+- Route requests now carry both request generation and selection generation. This closes the A → B → A stale-result gap that incident-ID comparison alone cannot detect. The guard covers asynchronous settings checks, location capture, routing responses, status/error publication, and queued camera updates.
+- Camera target, zoom, bearing, and tilt are saved when MapLibre becomes idle and restored when the screen/map is recreated. Invalid saved targets fall back to the established Tacloban default. Listener cleanup is explicit.
+- MapView now receives Android low-memory and running-low trim callbacks through a lifecycle-scoped ComponentCallbacks2 registration, dispatched on the main thread and unregistered at disposal.
+- MapLibre 13.7.1 documents `MapView.onLowMemory()` as required from the host Activity/Fragment low-memory callback; `MapLibreMap` provides add/remove camera-idle listeners. References: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-view/on-low-memory.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/add-on-camera-idle-listener.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/remove-on-camera-idle-listener.html.
+- No tests/build/device checks run; verify rapid selection changes, process recreation, camera gestures, and memory-pressure transitions on device.
