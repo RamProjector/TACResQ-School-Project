@@ -227,3 +227,18 @@ This is a partial automation model, not a duty-session model. It correctly avoid
 - Existing incident progression, assignment locks, and role-based RLS remain intact.
 
 No schema or application changes are made by this review entry. This is a source-verified implementation gap and a design plan, not a claim that duty sessions already exist.
+
+
+## 10. Assignment event history — 2026-11-18
+
+Implemented on the PR branch in migration `20261118010000_incident_assignment_event_history.sql`:
+
+- Keeps `incident_assignments` as the current-membership table; it does not replace or duplicate active assignment state.
+- Adds append-only `incident_assignment_events` records for team-member assignment, explicit membership removal, and incident closure/cancellation.
+- Captures the assigned-by profile for assignment events, the authenticated actor for explicit removal and incident closure when available, the member, incident, prior unit status, incident status, source, and database timestamp.
+- Uses database triggers so the event is written in the same transaction as the assignment or incident status change.
+- Enables RLS and permits reads only to authenticated dispatcher/admin profiles. Client-side insert, update, and delete privileges are not granted.
+- Does not add an organization identifier or imply agency-level isolation. Dispatcher/admin visibility remains global in the current single-organization schema.
+- Does not invent a release reason or automatically delete assignments when an incident closes. Closure is recorded as a distinct event for each current team member; explicit removal is recorded separately.
+
+**Remaining work:** inspect every assignment mutation path and UI consumer, then expose a readable incident team timeline in dispatch. Validate migration replay and RLS behavior on a disposable database before production deployment. This migration has only been committed to PR #334; production Supabase remains unchanged. No build or tests were run for this commit.
