@@ -392,15 +392,6 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         }
         items(pending, key = { it.id }) { incident ->
             IncidentCard(incident) {
-                val waitSeconds = waitingAgeSeconds(incident.createdAt, queueClock)
-                if (waitSeconds != null && waitSeconds >= LONG_WAIT_REVIEW_THRESHOLD_SECONDS) {
-                    Text(
-                        "Long wait — review this request",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
                 Text(
                     waitingAgeLabel(incident.createdAt, queueClock),
                     style = MaterialTheme.typography.bodySmall,
@@ -723,15 +714,6 @@ private fun UnitCard(unit: User) {
             )
         }
     }
-}
-
-// A dispatcher review reminder only; this is not a clinical triage rule or response-time SLA.
-private const val LONG_WAIT_REVIEW_THRESHOLD_SECONDS = 15 * 60
-
-private fun waitingAgeSeconds(createdAt: String?, now: Instant): Long? {
-    val submittedAt = createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: return null
-    val seconds = Duration.between(submittedAt, now).seconds
-    return seconds.takeIf { it >= 0L }
 }
 
 private fun waitingAgeLabel(createdAt: String?, now: Instant): String {
