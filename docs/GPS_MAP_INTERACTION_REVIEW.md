@@ -282,3 +282,12 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - **Behavior preserved:** no assignment, claimability, duty, status-transition, location-sharing, routing, API, or database logic changed. The dispatcher still only offers team assignment when available units exist.
 - **Rationale:** reduce repeated card content and keep guidance at the section level while leaving incident-specific actions and status visible at the point of use.
 - **Validation:** source review only. No Gradle build, tests, emulator, or device checks run.
+
+
+## Accurate mixed-cluster totals — 2026-11-18
+
+- The map chooser now totals all overlapping cluster sources using each hit feature's point_count. Previously, the displayed total could omit a small overlapping cluster when another source required pagination.
+- Single-source cluster totals now use the source feature count directly; pagination remains limited to sources above the existing 50-leaf page size.
+- Added a focused source contract and wired it into CI.
+- No map selection, source validation, paging size, API, or database behavior changed.
+- Static source inspection only. Contract test, Android build, emulator, and physical-device validation were not run.
