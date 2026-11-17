@@ -1474,7 +1474,7 @@ fun RequesterScreen(
                             Text("Emergency type: ${selectedType?.label ?: "Not selected"}", fontWeight = FontWeight.SemiBold)
                             description.trim().takeIf { it.isNotEmpty() }?.let { Text("Details: $it") }
                             if (freshFix != null) LocationFixCard(freshFix, onClear = { vm.clearLocationFix(); requestStep = 2 })
-                            if (freshFix != null) Text("This one-time pin is sent with the SOS; ongoing tracking is not.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (freshFix != null) Text("This one-time pin is sent; ongoing tracking is not.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             else LocationNoticeCard("Sending without a GPS pin", "Dispatch may need to call you to confirm the exact location.")
                             locationNotes.trim().takeIf { it.isNotEmpty() }?.let { Text("Landmark/access detail: $it") }
                             Text("Only send if help is needed now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
