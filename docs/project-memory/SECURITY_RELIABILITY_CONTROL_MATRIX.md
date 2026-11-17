@@ -562,3 +562,24 @@ These are independent branch checks, not a combined merge-candidate result. Befo
 - Re-run all relevant CI/security checks on the combined candidate and record exact commit hashes.
 
 No PR has been merged. No production migration, Supabase data change, Render configuration change, or deployment was performed. This document update itself is documentation-only and does not close the integration gate.
+
+
+## Integrated review correction — 2026-11-17
+
+The prior sections preserve historical snapshots. The authoritative seven-PR refresh immediately above is the current independent-check snapshot. Additional source inspection confirmed:
+
+- PR #319's direct-write revocation is paired with a clean-replay authenticated-role test: direct requester and responder incident UPDATE is denied, while requester cancellation and the legacy responder status RPC remain usable. The status transition also produces exactly one actor-attributed claimability audit event.
+- PR #319's source contract checks the Android Retrofit RPC surface and dashboard Supabase client for direct `incidents` table writes. The currently inspected production Android transport uses RPC endpoints for incident create/edit/status/claim/claimability, and the dashboard uses RPC calls for incident reads and operations. The separate Laravel-owned backend routes operate against their own backend database workflow and are not the Supabase `public.incidents` PostgREST path affected by this migration.
+- PR #321's SQL integration test is explicitly invoked by the migration replay script. It executes under `SET ROLE authenticated`: an authenticated admin is denied the legacy unbounded list function, can still use the bounded paginated RPC, and an ordinary requester is denied that paginated RPC.
+- PR #317's latest exact head after the audit-document reconciliation is `d4668734f163fcfc5ecab24bf9e4a44c78638636`; all four standard workflows passed on that head. PR #322's previous head is superseded by this documentation update and must be rechecked after the resulting commit.
+
+### Review status versus merge recommendation
+
+The PRs are not yet approved as one integrated release. They contain meaningful security and lifecycle improvements, and their latest independent CI results are green. The current evidence does not justify merging all of them simultaneously without an integrated candidate because:
+
+1. Several branches independently modify the same replay harness, CI workflow, and migration-history inventory.
+2. The six SQL migrations have a timestamped order and are expected to compose, but the complete union has not yet been executed as one candidate.
+3. Independent CI can miss an interaction where one PR changes a shared function or privilege assumption consumed by another PR's tests.
+4. Green automated builds do not establish physical GPS, notification display, FCM delivery, production secrets, or live Supabase migration safety.
+
+**Recommendation:** keep all PRs open until the integrated replay/test gate is run and the exact combined commit is reviewed. Do not merge based only on the green PR-by-PR checks. Do not apply any pending migration to live Supabase as part of this code-review stage.
