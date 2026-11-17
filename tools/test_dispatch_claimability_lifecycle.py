@@ -76,6 +76,25 @@ assert '.from("incidents")' not in web_api
 print("PASS: supported Android and web clients use RPCs, so authenticated table DML can be revoked without breaking their write paths.")
 
 
+# Verify the migration replay executes the privilege boundary as authenticated:
+# direct table UPDATE must fail, while the requester cancellation RPC succeeds.
+integration = (ROOT / "tools/test_authenticated_incident_write_boundary.sql").read_text()
+replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
+for required in (
+    "SET ROLE authenticated",
+    "UPDATE public.incidents",
+    "EXCEPTION WHEN insufficient_privilege",
+    "public.api_cancel_my_incident(incident_id)",
+    "persisted_status",
+):
+    assert required.lower() in integration.lower(), (
+        f"Missing authenticated incident write-boundary assertion: {required}"
+    )
+assert "tools/test_authenticated_incident_write_boundary.sql" in replay, (
+    "Authenticated incident write-boundary test must run in migration replay"
+)
+
+
 # Exercise the dispatcher/requester race against two independent authenticated
 # PostgreSQL connections after a clean migration replay.
 race_test = ROOT / "tools/test_claimability_cancellation_concurrency.sh"
