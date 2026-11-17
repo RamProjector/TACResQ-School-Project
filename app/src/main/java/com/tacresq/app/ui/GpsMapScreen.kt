@@ -652,13 +652,31 @@ fun GpsMapScreen(
         mapView.getMapAsync { map ->
             mapLibreMap = map
             map.setOnMarkerClickListener { marker ->
-                val incidentId = marker.title.removePrefix("Incident #").substringBefore(" ·").toLongOrNull()
-                if (incidentId != null) {
-                    selectedIncidentId = incidentId
-                    scope.launch { mapSheetState.bottomSheetState.expand() }
-                    true
-                } else {
-                    false
+                val markerTitle = marker.title.orEmpty()
+                val incidentId = markerTitle
+                    .removePrefix("Incident #")
+                    .substringBefore(" ·")
+                    .toLongOrNull()
+                when {
+                    incidentId != null -> {
+                        selectedIncidentId = incidentId
+                        locationStatus = null
+                        scope.launch { mapSheetState.bottomSheetState.expand() }
+                        true
+                    }
+                    markerTitle.contains("field-unit location", ignoreCase = true) ||
+                        markerTitle.startsWith("Your location", ignoreCase = true) -> {
+                        // Keep marker interaction inside the app's existing details
+                        // sheet instead of allowing MapLibre's default InfoWindow.
+                        // This also keeps stale-position warnings visible in one place.
+                        locationStatus = listOfNotNull(
+                            markerTitle.takeIf { it.isNotBlank() },
+                            marker.snippet?.takeIf { it.isNotBlank() },
+                        ).joinToString(" · ")
+                        scope.launch { mapSheetState.bottomSheetState.expand() }
+                        true
+                    }
+                    else -> false
                 }
             }
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {

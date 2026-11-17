@@ -1,3 +1,10 @@
+# GPS map marker interaction consistency
+
+- Unified marker taps with the existing in-app bottom sheet. Incident pins continue to select the incident and expand its details; dispatcher field-unit pins and the one-time device-location preview now show their title and explanatory snippet in the map status area and expand the same sheet.
+- Prevented MapLibre's default InfoWindow from appearing for responder/device markers, avoiding a second, inconsistent detail surface. Stale responder text remains explicit that the coordinate is last known and must be confirmed with dispatch.
+- Unknown marker types remain unhandled rather than being assigned invented behavior. Marker data, freshness thresholds, location permissions/sharing, camera behavior, routing, and backend contracts are unchanged.
+- Validation: not run per the requested commit cadence. Review marker taps, stale warnings, and screen-reader announcements on-device before merge.
+
 # GPS map header — remove remaining search-field silhouette
 
 - **Review finding:** After removing the full-width header container, the title still sat inside a weighted, elongated rounded Surface. On a narrow map header it continued to resemble an inactive search field, recreating the same misleading visual affordance at a smaller scale.
