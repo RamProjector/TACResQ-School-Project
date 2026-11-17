@@ -37,3 +37,10 @@ Chooser entries are full-width, at least 52 dp high, expose button semantics, an
 ## Explicitly unverified
 
 No Gradle build, unit tests, emulator/device run, map-tile/network test, or performance profile was run for this change. The change does not establish that all map collisions are eliminated on physical devices.
+
+
+## Follow-up: avoid redraws on routine collection refreshes
+
+The map annotation effect previously depended directly on the incident and responder lists, plus route result objects. A refreshed list instance could therefore clear and recreate every annotation even when the rendered content had not changed. The effect now depends on a render signature containing the fields that affect marker position, title/snippet state, freshness bucket, and age label, plus compact device-coordinate and route-geometry signatures. Selection and navigation state remain explicit effect keys because they change the selected pin or active route. The signature deliberately excludes unrelated incident fields and backing-object identity.
+
+This reduces avoidable annotation churn but is not a measured performance claim: no profiler or device run was performed. The route signature uses the geometry list hash; if route geometry becomes very large or collision-safe incremental identity is needed, replace it with an explicit route revision/key supplied by the routing layer.

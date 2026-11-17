@@ -1036,3 +1036,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Remaining:** Device validation across zoom/pitch/compact layouts, marker icon footprint review, annotation redraw profiling, and a separately researched renderer/GeoJSON clustering migration. No build, tests, emulator, device, or performance checks run.
 
 - **Follow-up safety guard:** Chooser selections are checked against the latest visible incident, current validated responder reports, or current one-time device fix before opening details. Expired/replaced entries show a refresh/retry message rather than selecting stale marker metadata.
+
+
+## GPS annotation redraw invalidation — 2026-11-17
+
+- **Finding:** The MapLibre annotation effect watched raw incident/responder collections and route result objects. Routine refreshes could clear and recreate all markers and route lines even when visible marker content was unchanged.
+- **Implementation on PR #334:** Replaced raw collection/object dependencies with a render signature for incident coordinates/type/status/location source/accuracy/notes/age; responder coordinates/accuracy/freshness/age; device coordinates; and displayed route geometry. Map instance/style, selected incident, and live-navigation state remain explicit dependencies.
+- **Scope:** No renderer migration, data-model change, tracking behavior change, or freshness-threshold change. No profiling or tests run; improvement is an invalidation reduction by code inspection, not a measured performance result.

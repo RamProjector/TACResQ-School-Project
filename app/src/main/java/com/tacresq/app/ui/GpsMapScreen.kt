@@ -517,15 +517,23 @@ fun GpsMapScreen(
     val mapAnnotationTimeKey = buildString {
         visibleIncidents.forEach { incident ->
             append("incident:").append(incident.id).append(':')
+            append(incident.latitude).append(',').append(incident.longitude).append(':')
+            append(incident.type.label).append(':').append(incident.status.label).append(':')
+            append(incident.locationSource).append(':').append(incident.accuracyM).append(':')
+            append(incident.locationNotes).append(':')
             append(incident.locationAgeStatus(mapNow).first).append('|')
         }
         validResponderLocations.forEach { location ->
             val ageSeconds = location.mapAgeSeconds(mapNow) ?: -1L
             append("unit:").append(location.userId).append(':').append(location.incidentId).append(':')
+            append(location.latitude).append(',').append(location.longitude).append(':')
+            append(location.accuracyM).append(':')
             append(location.mapFreshness(mapNow)?.name ?: "UNKNOWN").append(':')
             append(formatLocationAge(ageSeconds)).append('|')
         }
     }
+    // Device and route signatures track only the geometry actually drawn on the map.
+    val deviceFixMapKey = deviceFix?.let { "${it.latitude}:${it.longitude}" }
     val hasConfirmedIncidentCoordinates = visibleIncidents.any { it.hasValidMapCoordinates() }
     val validResponderPoints = validResponderLocations.map { LatLng(it.latitude, it.longitude) }
     // Keep stale last-known positions visible, but never let them dominate the initial
@@ -1361,15 +1369,13 @@ fun GpsMapScreen(
             routeIncidentId == selectedIncidentId && it.isUsable(System.currentTimeMillis())
         }
     }
+    val displayedRouteMapKey = displayedRoute?.geometry?.hashCode()
 
     androidx.compose.runtime.LaunchedEffect(
         mapLibreMap,
         mapStyleLoaded,
-        visibleIncidents,
-        validResponderLocations,
-        deviceFix,
-        routeResult,
-        displayedRoute,
+        deviceFixMapKey,
+        displayedRouteMapKey,
         trackingStatus.incidentId,
         trackingStatus.navigationActive,
         selectedIncidentId,
