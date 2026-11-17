@@ -102,7 +102,7 @@ Allowed transitions (anything else is 422):
 | on_scene | transporting, resolved |
 | transporting | resolved |
 
-The server mirrors the incident milestone to assigned-member compatibility fields and updates their computed duty status. GPS remains optional and separately permissioned; a location fix never changes incident progress. Only dispatcher accounts may call this endpoint.
+The server mirrors the incident milestone to the assigned unit's duty status for availability reporting. The Supabase team-assignment RPC applies the same incident milestone to every assigned member. GPS remains optional and separately permissioned; a location fix never changes incident progress. Only dispatcher accounts may call this endpoint. GPS remains optional and separately permissioned; a location fix never changes incident progress. Only dispatcher accounts may call this endpoint.
 
 ## Dispatcher endpoints used by the prototype
 
