@@ -175,6 +175,9 @@ jobs:
       - name: Check GPS camera restoration bounds
         run: python3 tools/test_gps_camera_restore_contract.py
 
+      - name: Check GPS location loading accessibility
+        run: python3 tools/test_gps_location_loading_accessibility.py
+
       - name: Check stale GPS cluster page feedback
         run: python3 tools/test_gps_cluster_stale_page_contract.py
 
