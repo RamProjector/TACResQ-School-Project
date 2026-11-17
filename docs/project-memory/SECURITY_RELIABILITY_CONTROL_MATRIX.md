@@ -308,3 +308,26 @@ This is a snapshot of the seven related open PRs, not a claim that the changes a
 - Do not merge a later PR using stale green checks from its pre-integration base. Re-run the full relevant suite on the resulting mainline after each integration.
 - Live Supabase migration application, Auth setting changes, Render secret provisioning, and production deployment remain separately approved operator actions. CI success does not authorize them.
 - CodeRabbit's OSS manual-review skip is not an approval. The umbrella CodeQL neutral result is disclosed; the language-specific CodeQL checks are the relevant passed results where noted.
+
+
+## Exact-head review refresh — 2026-11-17 (latest poll)
+
+This snapshot supersedes earlier PR-head and workflow snapshots above.
+
+| PR | Exact head | State / mergeability | Reported PR workflows |
+|---|---|---|---|
+| #316 API operation audit and FK indexes | `362d99b7a60ddd43a0d4c2b419bc13307b0d2e06` | Open, unmerged, mergeable | TACResQ CI, RPC grant contract, Frontend Review, and Render live smoke succeeded; TACResQ Security was still in progress at the latest poll. |
+| #317 Field-claim exclusivity | `cada32949128d4368b95826d8cc16ce00cf6ff9b` | Open, unmerged, mergeable | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review succeeded. |
+| #318 Requester location edit validation | `82adab4d341fcd371194b5164eaeafad9a6d3a55` | Open, unmerged, mergeable | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review succeeded. |
+| #319 Dispatcher claimability lifecycle | `24a16ef271d5b94fcb84769505a116872f986ed1` | Open, unmerged, mergeable | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review succeeded. |
+| #320 Profile identity metadata | `e5ca8e7a45b490f9cc8195297ebe0d810865b065` | Open, unmerged, mergeable | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review succeeded. |
+| #321 Legacy Admin list RPC | `c7df0bb56d6cc7da7e8b46768fdd788f1ea66c42` | Open, unmerged, mergeable | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review succeeded. |
+| #322 Control matrix documentation | `038ef43f19277840083ad035e678eb601a4587be` | Open, unmerged, mergeable | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review succeeded. |
+
+### Profile editing regression review
+
+PR #320's migration retains the existing protections on `name`, `email`, and `phone`; it adds immutability checks for `id` and `created_at`. The migration's purpose is not to newly disable profile contact editing. The existing guard already rejected contact-field changes through direct `profiles` updates, and the new authenticated-role test preserves that behavior while checking the new metadata restrictions. A separate, trusted profile/contact update flow was not demonstrated by this PR's evidence; if self-service contact editing is a required product feature, it must be implemented through an explicit validated Auth/profile update path rather than by weakening the table guard.
+
+### Current integration gate
+
+The exact-head workflows above are independent PR runs. They do not validate a combined seven-branch migration replay. The PRs still overlap in shared migration-history, replay-script, and CI files; #316 also has a newer head than the previous checkpoint and its Security workflow was not complete at this poll. Keep all PRs open until #316's exact-head Security run finishes, the combined migration history and replay are validated on an integration candidate, and manual device checks cover the changed GPS/incident flows. No PR was merged and no live Supabase migration or production deployment was performed.
