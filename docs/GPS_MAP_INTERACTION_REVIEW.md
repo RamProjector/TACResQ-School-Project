@@ -1,3 +1,10 @@
+## GPS map failure messaging — 2026-11-17
+
+- Reviewed the existing MapLibre load-failure callback and connectivity monitor. The map already exposed a generic failure state and an Offline indicator, but the failure message did not distinguish an offline failure from a map-data failure while connectivity was validated.
+- The failure listener now reads the latest validated-connectivity state (rather than a stale captured value) and explains when missing internet likely prevented map tiles/data from loading. Incident records remain available and retry is explicit.
+- Successful map-load completion clears either corresponding transient failure message. The independent Offline indicator remains governed by Android's validated-network state; this does not claim that a validated connection guarantees the tile provider is healthy.
+- No distinction is inferred between style and individual tile failures because the current listener reports map-load failure at the MapView level, not a reliable per-tile diagnostic. No build/tests/emulator/device validation run.
+
 ## GPS selection invalidation feedback — 2026-11-17
 
 - Reviewed selection behavior during incident and responder refreshes.

@@ -1,5 +1,11 @@
 ## Latest GPS continuation — 2026-11-17
 
+- Map-load failure feedback now distinguishes a known offline condition from a generic map-data load failure using the latest validated connectivity state.
+- Successful load clears the transient error. Offline badge remains independent. Did not label individual tile/style failures because current callback does not provide reliable per-tile diagnosis.
+- Same PR #334; no validation checks run.
+
+## Latest GPS continuation — 2026-11-17
+
 - Improved selection invalidation: expired/removed field-unit reports and incidents now produce explicit feedback rather than silently dropping the selected detail.
 - When a selected incident leaves the visible active set, pending route work is cancelled and late results invalidated; the obsolete route preview is cleared.
 - Same PR #334 branch. No build/tests/device validation run.

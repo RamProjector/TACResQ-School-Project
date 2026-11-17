@@ -619,6 +619,7 @@ fun GpsMapScreen(
     var routeRequestGeneration by remember { mutableStateOf(0) }
     var requestRoute: (Incident) -> Unit = {}
     var hasValidatedInternet by remember { mutableStateOf<Boolean?>(null) }
+    val latestValidatedInternet by rememberUpdatedState(hasValidatedInternet)
     val connectivityManager = remember(context) {
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
     }
@@ -1076,14 +1077,20 @@ fun GpsMapScreen(
             if (!disposed) {
                 mapDataLoaded = false
                 mapLoadError = true
-                locationStatus = MAP_DATA_UNAVAILABLE_STATUS
+                locationStatus = if (latestValidatedInternet == false) {
+                    "Map tiles could not load because this device has no validated internet connection. Incident records remain available; reconnect and retry the map."
+                } else {
+                    MAP_DATA_UNAVAILABLE_STATUS
+                }
             }
         }
         val finishLoadingListener = MapView.OnDidFinishLoadingMapListener {
             if (!disposed) {
                 mapDataLoaded = true
                 mapLoadError = false
-                if (locationStatus == MAP_DATA_UNAVAILABLE_STATUS) locationStatus = null
+                if (locationStatus == MAP_DATA_UNAVAILABLE_STATUS ||
+                    locationStatus?.startsWith("Map tiles could not load because this device has no validated internet connection.") == true
+                ) locationStatus = null
             }
         }
         mapView.addOnDidFailLoadingMapListener(failLoadingListener)
