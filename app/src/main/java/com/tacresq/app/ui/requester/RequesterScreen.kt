@@ -1558,7 +1558,7 @@ fun RequesterScreen(
             }
         }
         items(state.incidents, key = { it.id }) { incident ->
-            IncidentCard(incident) {
+            IncidentCard(incident, statusLabel = incident.status.requesterLabel) {
                 Text(
                     requesterRequestLabel(incident.id, state.incidents),
                     style = MaterialTheme.typography.labelSmall,
