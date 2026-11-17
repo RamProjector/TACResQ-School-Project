@@ -80,6 +80,7 @@ hold_profile_lock() {
   local profile_id="$1"
   local app_name="$2"
   PGAPPNAME="$app_name" psql -q -v ON_ERROR_STOP=1 >/dev/null <<SQL
+SELECT set_config('application_name', '$app_name', false);
 BEGIN;
 SELECT id FROM public.profiles WHERE id = $profile_id FOR UPDATE;
 SELECT pg_sleep(12);
@@ -144,6 +145,7 @@ run_claim_worker() {
   local output_file="$4"
   local error_file="$5"
   PGAPPNAME="$app_name" psql -qAt -v ON_ERROR_STOP=1 >"$output_file" 2>"$error_file" <<SQL
+SELECT set_config('application_name', '$app_name', false);
 SELECT set_config('request.jwt.claim.sub', '$actor_uuid', false);
 SET ROLE authenticated;
 BEGIN;
@@ -161,6 +163,7 @@ run_dispatch_worker() {
   local output_file="$5"
   local error_file="$6"
   PGAPPNAME="$app_name" psql -qAt -v ON_ERROR_STOP=1 >"$output_file" 2>"$error_file" <<SQL
+SELECT set_config('application_name', '$app_name', false);
 SELECT set_config('request.jwt.claim.sub', '$dispatcher_uuid', false);
 SET ROLE authenticated;
 BEGIN;
