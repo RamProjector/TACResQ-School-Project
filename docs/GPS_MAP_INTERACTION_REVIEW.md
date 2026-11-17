@@ -307,3 +307,12 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - When a returned page contains records whose incident/responder location is no longer available, the chooser reports that some records are stale while retaining valid locations already loaded.
 - Added a focused source contract and CI step. No API, backend, database, assignment, or location-sharing behavior changed.
 - Validation: source-level change only; contract execution, Gradle build, emulator, and physical-device checks have not yet been run.
+
+
+## GPS cluster tap-target accessibility — 2026-11-18
+
+- Cluster bubbles now use a 48dp square screen-space hit area, matching the forgiving touch target already used for individual map pins.
+- When more than one cluster from the same source falls inside that area, the nearest cluster bubble is selected instead of relying on render order.
+- Incident, fresh/aging responder, and stale responder sources remain separate; overlapping source categories still feed the existing mixed-location chooser.
+- Added a focused source contract and CI step. No cluster radius, feature count, map data, location-sharing, assignment, API, or database behavior changed.
+- Validation: source inspection only; the contract test, Gradle build, emulator, and physical-device touch-target checks have not been run.
