@@ -1472,3 +1472,9 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Extended `tools/test_assignment_history_api_contract.py` to guard the closed-incident access and five-item bound.
 - Commits: a0a107d (UI), c4eeab2 (source contract).
 - Validation: source-level review only; the static test and Android build have not been executed locally. The latest GitHub Actions run must confirm compilation and test results. No production migration or Supabase mutation was performed.
+
+## 2026-11-18 — Closed-incident ordering clarity
+- Corrected the dispatcher section label: the five displayed resolved/cancelled incidents are ordered by `created_at` (request time), not by closure time. The UI now calls them “Closed incidents” and explicitly says “Latest 5 by request date”.
+- Updated `tools/test_assignment_history_api_contract.py` to guard the accurate label. No incident timestamps, API fields, database schema, ordering logic, or history access behavior changed.
+- Commits: `df8c4c4` (UI copy), `8f84a49` (source contract).
+- Validation: source review only; the static contract test and Android build have not been executed. No production Supabase or Render changes were made.
