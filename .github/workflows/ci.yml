@@ -169,6 +169,9 @@ jobs:
       - name: Check GPS map empty-state messaging
         run: python3 tools/test_gps_map_empty_state.py
 
+      - name: Check GPS cluster location counts
+        run: python3 tools/test_gps_map_cluster_count_contract.py
+
       - name: Check draggable GPS incident sheet
         run: python3 tools/test_gps_map_draggable_sheet.py
 
