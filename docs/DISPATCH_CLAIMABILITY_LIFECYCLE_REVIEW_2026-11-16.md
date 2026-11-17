@@ -38,11 +38,13 @@ This is an internal audit record; it does not yet add a dispatcher-facing audit-
 
 ## Validation and limitations
 
-- A focused Python source-contract test is added to CI.
-- Exact-head CI and PostgreSQL migration replay must pass before merge.
+- A focused Python source-contract test is included in CI.
+- A two-session PostgreSQL race test runs an authenticated dispatcher claimability toggle against an authenticated requester cancellation. It asserts the terminal state is `cancelled:false`, independent of which transaction obtains the incident lock first.
+- An authenticated-role write-boundary integration test verifies that direct incident UPDATE is denied while the requester cancellation RPC succeeds.
+- The same integration test verifies that a responder can still advance an assigned incident through the legacy public status RPC wrapper after direct table DML is revoked. It also verifies that the status-triggered claimability closure writes exactly one audit event attributed to the responder.
+- These tests run on the disposable PostgreSQL 16 migration-replay database; they do not prove live PostgREST deployment behavior or physical-device behavior.
 - This PR does not apply any migration to live Supabase.
 - No production data, Render configuration, secrets, notifications, or infrastructure were changed.
-- Static source-contract tests do not replace a two-session PostgreSQL race test. That remains a follow-up validation.
 
 ## Research comparison
 
