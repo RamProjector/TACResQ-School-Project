@@ -51,7 +51,7 @@ class ApiOperationAuditLoggerTest extends TestCase
     public function test_modern_supabase_secret_key_is_sent_only_as_apikey(): void
     {
         // Build a synthetic modern-key-shaped fixture without embedding a credential-like literal.
-        $modernSecret = 'sb'.chr(95).'secret-synthetic-key';
+        $modernSecret = 'sb'.chr(95).'secret'.chr(95).'synthetic-key';
         config([
             'tacru.supabase_url' => 'https://tacresq-audit.example.test',
             'tacru.supabase_secret_key' => $modernSecret,
