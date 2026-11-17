@@ -907,6 +907,7 @@ fun GpsMapScreen(
         val added = mutableListOf<GpsMapMarkerTarget>()
         val remaining = mutableListOf<GpsMapClusterPageCursor>()
         var sourceChanged = false
+        var unavailablePage = false
         clusterPageCursors.forEach { cursor ->
             try {
                 val leaves = cursor.source.getClusterLeaves(cursor.feature, 50L, cursor.nextOffset)
@@ -950,7 +951,7 @@ fun GpsMapScreen(
                     remaining += cursor.copy(nextOffset = nextOffset)
                 }
                 if (leaves.isNotEmpty() && added.size == addedBeforeCursor) {
-                    locationStatus = "This page contains no locations that are still available. Refresh the map to see current reports."
+                    unavailablePage = true
                 }
             } catch (_: RuntimeException) {
                 sourceChanged = true
@@ -963,7 +964,9 @@ fun GpsMapScreen(
             selectedMarkerChoices = (selectedMarkerChoices + added)
                 .distinctBy { "${it.type}:${it.incidentId}:${it.userId}" }
             clusterPageCursors = remaining
-            if (added.isEmpty() && remaining.isNotEmpty()) {
+            if (unavailablePage) {
+                locationStatus = "Some clustered records are no longer available. Displayed locations are current records only."
+            } else if (added.isEmpty() && remaining.isNotEmpty()) {
                 locationStatus = "More cluster records exist, but their locations are no longer available."
             }
         }
