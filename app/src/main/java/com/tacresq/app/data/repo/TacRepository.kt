@@ -385,8 +385,9 @@ class TacRepository(
         store.clearRequesterDraft(ownerUserId)
     }
 
+    /** Dispatcher: advance the shared incident milestone. Field responders do not update this state. */
     suspend fun updateIncidentStatus(id: Long, status: IncidentStatus): Result<Incident> = call {
-        api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))
+        api.updateIncidentStatus(id, UpdateStatusRequest(status))
     }
 
     suspend fun cancelMyIncident(id: Long): Result<Incident> = call {
