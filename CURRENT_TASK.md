@@ -1,3 +1,14 @@
+# Current handoff — 2026-11-17: GPS map camera control loading state
+
+- **Objective:** Prevent map camera actions from appearing interactive before the map style is ready to receive them.
+- **Finding:** Zoom and fit-visible-locations controls remained enabled while MapLibre was loading; tapping them only produced a transient “map is still loading” message.
+- **Implementation:** Tie all three camera buttons to the existing `mapStyleLoaded` state. They remain visible in their stable map positions but are disabled until camera operations are available.
+- **Scope:** Camera-control interaction state only. Map rendering, GPS capture, incident pins, camera framing, routing, and sheet navigation are unchanged.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI refinements on PR #334; perform consolidated validation after implementation changes are complete.
+
+---
+
 # Current handoff — 2026-11-17: authentication form wide-screen readability
 
 - **Objective:** Keep sign-in and requester registration fields comfortably readable on tablets and desktop-sized Android windows.

@@ -329,6 +329,7 @@ private fun GpsMapFilterButtons(
 @Composable
 private fun GpsMapCameraControls(
     modifier: Modifier = Modifier,
+    enabled: Boolean,
     onZoomIn: () -> Unit,
     onZoomOut: () -> Unit,
     onShowAll: () -> Unit,
@@ -346,6 +347,7 @@ private fun GpsMapCameraControls(
         ) {
             androidx.compose.material3.IconButton(
                 onClick = onZoomIn,
+                enabled = enabled,
                 modifier = Modifier.size(48.dp).semantics {
                     contentDescription = "Zoom in on map"
                 },
@@ -357,6 +359,7 @@ private fun GpsMapCameraControls(
             }
             androidx.compose.material3.IconButton(
                 onClick = onZoomOut,
+                enabled = enabled,
                 modifier = Modifier.size(48.dp).semantics {
                     contentDescription = "Zoom out on map"
                 },
@@ -368,6 +371,7 @@ private fun GpsMapCameraControls(
             }
             androidx.compose.material3.IconButton(
                 onClick = onShowAll,
+                enabled = enabled,
                 modifier = Modifier.size(48.dp).semantics {
                     contentDescription = "Fit all visible map locations"
                 },
@@ -1878,6 +1882,7 @@ fun GpsMapScreen(
                 .align(Alignment.BottomStart)
                 .navigationBarsPadding()
                 .padding(start = 12.dp, bottom = 136.dp),
+            enabled = mapStyleLoaded,
             onZoomIn = ::zoomMapIn,
             onZoomOut = ::zoomMapOut,
             onShowAll = ::showAllVisiblePoints,
