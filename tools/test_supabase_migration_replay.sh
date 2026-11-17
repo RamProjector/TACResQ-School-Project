@@ -523,9 +523,9 @@ BEGIN
     RAISE EXCEPTION 'Marking an already-read notification should be safely idempotent';
   END IF;
 
-  -- A field-unit status transition should notify the requester, not expose other users' rows.
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000133', true);
-  PERFORM public.api_update_my_assignment_status(test_incident_id, 'en_route');
+  -- A dispatcher-owned milestone should notify the requester without exposing other users' rows.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000131', true);
+  PERFORM public.api_update_incident_status(test_incident_id, 'en_route');
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000132', true);
   requester_notifications := public.api_my_notifications(10);
