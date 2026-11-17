@@ -34,6 +34,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -762,6 +763,8 @@ fun RequesterScreen(
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
     var locationRequirementError by rememberSaveable { mutableStateOf<String?>(null) }
+    var locationSharingAcknowledged by remember { mutableStateOf(false) }
+    var locationAcknowledgementError by remember { mutableStateOf(false) }
     var showDiscardConfirmation by remember { mutableStateOf(false) }
     var showPendingSosDiscardConfirmation by remember { mutableStateOf(false) }
     var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -834,6 +837,8 @@ fun RequesterScreen(
             description = ""
             locationNotes = ""
             requestStep = 1
+            locationSharingAcknowledged = false
+            locationAcknowledgementError = false
             showRequestForm = false
         }
     }
@@ -1222,6 +1227,8 @@ fun RequesterScreen(
                                 if (hasDraft) showDiscardConfirmation = true
                                 else {
                                     showRequestForm = false
+                                    locationSharingAcknowledged = false
+                                    locationAcknowledgementError = false
                                 }
                             },
                             enabled = !state.sending && !state.capturingLocation,
@@ -1414,6 +1421,32 @@ fun RequesterScreen(
                                 maxLines = 3,
                                 modifier = Modifier.fillMaxWidth(),
                             )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().selectable(
+                                    selected = locationSharingAcknowledged,
+                                    role = Role.Checkbox,
+                                    onClick = {
+                                        locationSharingAcknowledged = !locationSharingAcknowledged
+                                        locationAcknowledgementError = false
+                                    },
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Checkbox(checked = locationSharingAcknowledged, onCheckedChange = null)
+                                Text(
+                                    "I understand that the one-time pin or landmark I provide will be shared with dispatch and the assigned response team for this request.",
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            if (locationAcknowledgementError) {
+                                Text(
+                                    "Acknowledge how your location will be shared before continuing.",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { requestStep = 1 }, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
                                 Button(
@@ -1421,8 +1454,12 @@ fun RequesterScreen(
                                         val hasFreshPin = state.locationFix?.let(vm::isFresh) == true
                                         if (!hasFreshPin && locationNotes.isBlank()) {
                                             locationRequirementError = "Add a location pin or a landmark/access detail before continuing."
+                                        } else if (!locationSharingAcknowledged) {
+                                            locationRequirementError = null
+                                            locationAcknowledgementError = true
                                         } else {
                                             locationRequirementError = null
+                                            locationAcknowledgementError = false
                                             vm.expireStaleLocation()
                                             requestStep = 3
                                         }
@@ -1727,6 +1764,8 @@ fun RequesterScreen(
                     vm.clearLocationFix()
                     vm.clearRequesterDraft()
                     showRequestForm = false
+                    locationSharingAcknowledged = false
+                    locationAcknowledgementError = false
                 }) { Text("Discard draft") }
             },
             dismissButton = {
