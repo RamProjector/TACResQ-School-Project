@@ -11,6 +11,9 @@ This register tracks visible UI findings from source review. A change is not con
 - Arrival-versus-GPS-sharing guidance repeated in each en-route responder card. It now appears once when an en-route response exists.
 - The no-available-unit message repeated on every pending dispatcher incident. It now appears once above the queue; assignment actions remain gated on available units.
 
+### Authentication
+- The password-reset UI claimed a reset link had been sent, but the repository method only validated the email and returned success; no auth recovery request existed. Replaced the fake send flow with a clear unavailable-state message and removed the unused success-returning stub.
+
 ### Profile
 - Name, email, and role were repeated in both the identity header and the account-details list. Removed the duplicate rows while retaining the optional mobile number.
 - Step-Up Security / OTP was a local-only switch with no verification backend or security effect. Removed it rather than implying that sensitive operations were protected.
@@ -22,6 +25,7 @@ This register tracks visible UI findings from source review. A change is not con
 - Notification header copy was redundant with the push-optional explanation in the status card. The header now names the content of the screen, leaving the practical push/inbox guidance in one place.
 
 ## Follow-up review required
+- Implement password recovery through a real Supabase Auth recovery endpoint, including redirect/deep-link handling and a confirmation/error state, before restoring an email-send action.
 - Implement a real account-deletion request workflow only after the authorized operator, request destination, identity verification, audit requirements, retention exceptions, and server-side state transition are defined. Do not restore a success state without a confirmed backend response.
 - Add step-up verification only when a real server-enforced challenge flow exists; a local preference is not a security control.
 - Review privacy-notice statements about controller identity, retention, lawful basis, encryption, and contact channels with the responsible organization before treating the notice as legally approved.

@@ -1,3 +1,10 @@
+## Authentication honesty follow-up — 2026-11-17
+
+- Found that the password-reset UI claimed a link was sent, while the repository implementation only validated the email and returned success without contacting an auth recovery endpoint.
+- Removed the fake send flow and unused repository stub. The Forgot password dialog now explicitly says no email was sent and directs the user to the organization's official support channel.
+- Real password recovery remains a follow-up requiring Supabase Auth recovery endpoint integration and app deep-link/redirect handling.
+- Same PR #334. No backend/auth provider change, build, tests, or device validation run.
+
 ## Profile, messages, and notifications continuation — 2026-11-17
 
 - Removed the local-only Step-Up Security / OTP switch; it did not enforce verification or call a security service.
