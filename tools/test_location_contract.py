@@ -36,7 +36,7 @@ checks = {
     "dispatcher RPC returns active members of multi-unit assignments": "i.status = 'en_route'" in read_rpc and "l.user_id = a.user_id" in read_rpc and "a.responder_status = 'en_route'" in read_rpc,
     "current dispatcher RPC filters malformed coordinates and future timestamps": "l.latitude between -90 and 90" in read_rpc and "l.longitude between -180 and 180" in read_rpc and "l.recorded_at <= now() + interval '5 minutes'" in read_rpc,
     "current RLS policy limits location reads to the active assigned unit": "i.status = 'en_route'" in read_policy and "a.user_id = location_logs.user_id" in read_policy and "a.responder_status = 'en_route'" in read_policy,
-    "dashboard exposes freshness and missing/configuration states": all(text in dashboard for text in ('ageMs < 30_000', 'ageMs <= 120_000', 'unavailable', 'no live marker is shown')),
+    "web dashboard remains admin-only after dispatch retirement": all(text in dashboard for text in ('profile.role === "admin"', 'Dispatch is handled in the Android app.', 'web dispatch dashboard has been retired')) and 'ageMs < 30_000' not in dashboard,
     "API 37 precise one-time location uses the secure AndroidX Location Button": (
         "targetSdk = 37" in gradle
         and "androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01" in gradle
