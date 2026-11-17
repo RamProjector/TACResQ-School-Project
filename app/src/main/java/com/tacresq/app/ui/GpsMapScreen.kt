@@ -911,6 +911,11 @@ fun GpsMapScreen(
             try {
                 val leaves = cursor.source.getClusterLeaves(cursor.feature, 50L, cursor.nextOffset)
                     .features().orEmpty()
+                if (leaves.isEmpty() && cursor.nextOffset < cursor.totalCount) {
+                    sourceChanged = true
+                    return@forEach
+                }
+                val addedBeforeCursor = added.size
                 leaves.forEach leafLoop@{ leaf ->
                     if (cursor.incidents) {
                         val id = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@leafLoop
@@ -943,6 +948,9 @@ fun GpsMapScreen(
                 val nextOffset = cursor.nextOffset + leaves.size
                 if (leaves.isNotEmpty() && nextOffset < cursor.totalCount) {
                     remaining += cursor.copy(nextOffset = nextOffset)
+                }
+                if (leaves.isNotEmpty() && added.size == addedBeforeCursor) {
+                    locationStatus = "This page contains no locations that are still available. Refresh the map to see current reports."
                 }
             } catch (_: RuntimeException) {
                 sourceChanged = true
