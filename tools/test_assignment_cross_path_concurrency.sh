@@ -118,11 +118,24 @@ wait_for_two_lock_waiters() {
   local attempt
   for attempt in $(seq 1 200); do
     observed="$(psql -qAt -v ON_ERROR_STOP=1 -c "
-      SELECT count(*)
-      FROM pg_stat_activity a
-      WHERE a.application_name IN ('$app_a', '$app_b')
-        AND a.wait_event_type = 'Lock'
-        AND $coordinator_pid = ANY(pg_blocking_pids(a.pid))
+      WITH workers AS (
+        SELECT pid, pg_blocking_pids(pid) AS blockers
+        FROM pg_stat_activity
+        WHERE application_name IN ('$app_a', '$app_b')
+          AND wait_event_type = 'Lock'
+      )
+      SELECT CASE
+        WHEN count(*) = 2 AND bool_and(
+          EXISTS (
+            SELECT 1
+            FROM unnest(workers.blockers) AS blocker(pid)
+            WHERE blocker.pid = $coordinator_pid
+               OR blocker.pid IN (SELECT pid FROM workers)
+          )
+        ) THEN 2
+        ELSE 0
+      END
+      FROM workers
     ")"
     if [[ "$observed" -eq 2 ]]; then return 0; fi
     sleep 0.1
