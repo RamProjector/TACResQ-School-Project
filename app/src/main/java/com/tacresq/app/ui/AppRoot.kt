@@ -935,10 +935,16 @@ private fun IncidentHistoryAdaptiveScaffold(
                     }
                     if (historyStatusMessage != null) {
                         item {
-                            EmptySectionCard(
-                                if (sortedIncidents.isEmpty()) "History unavailable" else "Last loaded history",
-                                historyStatusMessage,
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                EmptySectionCard(
+                                    if (sortedIncidents.isEmpty()) "History unavailable" else "Last loaded history",
+                                    historyStatusMessage,
+                                )
+                                androidx.compose.material3.OutlinedButton(
+                                    onClick = onRefresh,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                ) { Text("Refresh history") }
+                            }
                         }
                     } else if (historyLoading && sortedIncidents.isEmpty()) {
                         item {
@@ -989,7 +995,13 @@ private fun IncidentHistoryAdaptiveScaffold(
                     verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 12.dp),
                 ) {
                     if (historyStatusMessage != null) {
-                        EmptySectionCard("Status may be out of date", historyStatusMessage)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            EmptySectionCard("Status may be out of date", historyStatusMessage)
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = onRefresh,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            ) { Text("Refresh history") }
+                        }
                     }
                     if (!expandedWindow) {
                         TextButton(

@@ -1,3 +1,8 @@
+## Adaptive history recovery affordance — 2026-11-17
+
+- Added an explicit Refresh history action to stale/unavailable history states in both the adaptive list and detail panes, so a warning is actionable without navigating away.
+- Same PR #334. No build/tests/device validation run.
+
 ## Adaptive history stale-state handling — 2026-11-17
 
 - The adaptive requester/responder/dispatcher history pane now receives role-specific loading and freshness context from its ViewModel.
