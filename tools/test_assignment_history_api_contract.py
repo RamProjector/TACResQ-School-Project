@@ -6,6 +6,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt").read_text()
 supabase = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
+repository = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
+dispatcher = (ROOT / "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt").read_text()
 
 assert "interface TacAssignmentHistoryApi" in api
 for field in (
@@ -38,3 +40,16 @@ assert "incidentAssignmentHistory" not in bridge
 
 print("PASS: assignment history uses a bounded, incident-scoped, read-only PostgREST query.")
 print("PASS: the optional bridge does not expose an unreviewed history route.")
+
+# The repository keeps the capability optional and validates the request bounds.
+assert "api as? TacAssignmentHistoryApi" in repository
+assert "repo.incidentAssignmentHistory(incidentId, 50)" in dispatcher
+assert "assignmentHistoryLoading" in dispatcher
+assert "assignmentHistoryError" in dispatcher
+assert '"assigned" -> "Field unit assigned"' in dispatcher
+assert '"released" -> "Field unit released"' in dispatcher
+assert '"incident_closed" -> "Incident closed"' in dispatcher
+assert 'formatTime(event.occurredAt)' in dispatcher
+assert "Retry history" in dispatcher
+
+print("PASS: the dispatcher UI consumes the read-only event stream with loading, error, and retry states.")
