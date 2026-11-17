@@ -51,5 +51,12 @@ assert '"released" -> "Field unit released"' in dispatcher
 assert '"incident_closed" -> "Incident closed"' in dispatcher
 assert 'formatTime(event.occurredAt)' in dispatcher
 assert "Retry history" in dispatcher
+assert 'SectionHeading("Recently closed"' in dispatcher
+assert "Latest 5 resolved or cancelled incidents" in dispatcher
+assert "IncidentStatus.RESOLVED || it.status == IncidentStatus.CANCELLED" in dispatcher
+assert ".take(5)" in dispatcher
+assert 'key = { "closed-${it.id}" }' in dispatcher
+assert "vm.loadAssignmentHistory(incident.id)" in dispatcher
 
 print("PASS: the dispatcher UI consumes the read-only event stream with loading, error, and retry states.")
+print("PASS: recent resolved/cancelled incidents retain bounded, read-only assignment-history access.")
