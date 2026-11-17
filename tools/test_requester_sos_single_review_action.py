@@ -12,6 +12,13 @@ assert 'enabled = selectedType != null && requesterActionsEnabled &&' in source
 assert '!state.pendingSosCheckInProgress && state.pendingSosCheckError == null' in source
 assert 'This one-time pin is sent with the SOS; ongoing tracking is not.' in source
 assert 'Text("Only send if help is needed now."' in source
+assert "import androidx.compose.material3.Checkbox" in source
+assert 'Checkbox(checked = locationSharingAcknowledged, onCheckedChange = null)' in source
+assert "locationSharingAcknowledged = !locationSharingAcknowledged" in source
+assert "else if (!locationSharingAcknowledged)" in source
+assert "locationAcknowledgementError = true" in source
+assert "locationSharingAcknowledged = false" in source
+assert "I understand that the one-time pin or landmark I provide will be shared with dispatch and the assigned response team for this request." in source
 
 # The final review is the single explicit confirmation. Keep draft-discard and
 # other unrelated dialogs, but do not reopen a second SOS confirmation dialog.
