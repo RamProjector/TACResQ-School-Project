@@ -1,3 +1,14 @@
+# Current handoff — 2026-11-17: shared client UI polish
+
+- **Objective:** Establish a more consistent, readable visual and accessibility baseline across requester, responder/driver, and dispatcher screens through shared Compose components.
+- **Branch:** `agent/client-ui-polish-2026-11-17`.
+- **Implementation:** Refine shared screen-header hierarchy and allow two-line supporting text; expose screen and section titles as accessibility headings; increase section and banner spacing; remove persistent neutral borders from unselected incident cards while retaining a clear selected state; use theme-aware incident status pills in cards and history rows; add subtle resting card elevation; constrain long incident-type titles without truncating emergency descriptions or location/access notes.
+- **Scope:** Shared Android UI components only. No role permissions, incident workflow, GPS behavior, API, database, routing provider, or production configuration changed.
+- **Validation:** Not run by request; this incremental UI task is being committed without running checks. No emulator/device visual review is claimed.
+- **Next action:** Continue screen-specific requester, responder/driver, dispatcher, and adaptive-pane refinements on this dedicated PR branch. Keep GPS map full-screen and preserve all emergency-critical content.
+
+---
+
 # Current handoff — 2026-11-17: constrain wide-screen role content
 
 - **Objective:** Improve Android large-window readability across requester, responder/driver, and dispatcher screens without changing compact phone layouts or the full-screen map.
