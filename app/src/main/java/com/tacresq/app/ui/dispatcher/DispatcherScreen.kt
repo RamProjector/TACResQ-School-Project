@@ -318,7 +318,6 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         }
         items(pending, key = { it.id }) { incident ->
             IncidentCard(incident) {
-                val waitSeconds = waitingAgeSeconds(incident.createdAt, queueClock)
                 Text(
                     waitingAgeLabel(incident.createdAt, queueClock),
                     style = MaterialTheme.typography.bodySmall,
