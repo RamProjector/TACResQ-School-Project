@@ -264,6 +264,9 @@ jobs:
       - name: Check SECURITY DEFINER trigger search paths
         run: python3 tools/test_trigger_search_paths.py
 
+      - name: Check Android-only web dispatch boundary
+        run: python3 tools/test_web_admin_only_contract.py
+
       - name: Install dashboard dependencies
         working-directory: backend/web
         run: pnpm install --frozen-lockfile
