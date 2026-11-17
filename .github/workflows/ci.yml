@@ -133,6 +133,9 @@ jobs:
       - name: Check dispatcher claimability lifecycle
         run: python3 tools/test_dispatch_claimability_lifecycle.py
 
+      - name: Check profile identity metadata immutability
+        run: python3 tools/test_profile_identity_metadata.py
+
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 
