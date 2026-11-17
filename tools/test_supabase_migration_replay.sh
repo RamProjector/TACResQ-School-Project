@@ -251,15 +251,15 @@ END;
 $requester_cancel_guard_test$;
 
 
--- End-to-end SQL regression: team members advance independently, the aggregate
--- stays en_route until all units arrive, and GPS is rejected for an arrived unit.
+-- End-to-end SQL regression: dispatch owns incident milestones and all
+-- assigned members inherit the same shared progress snapshot.
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-000000000124', 'dispatch-regression@example.test', '{"name":"Dispatch Regression","phone":"+63917000002"}'),
-  ('00000000-0000-4000-8000-000000000127', 'per-responder-requester@example.test', '{"name":"Per Responder Requester","phone":"+63917000003"}'),
+  ('00000000-0000-4000-8000-000000000127', 'dispatcher-progress-requester@example.test', '{"name":"Dispatcher Progress Requester","phone":"+63917000003"}'),
   ('00000000-0000-4000-8000-000000000125', 'responder-one@example.test', '{"name":"Responder One","phone":"+63917000004"}'),
   ('00000000-0000-4000-8000-000000000126', 'responder-two@example.test', '{"name":"Responder Two","phone":"+63917000005"}');
 
-DO $per_responder_test$
+DO $dispatcher_progress_test$
 DECLARE
   requester_id bigint;
   dispatcher_id bigint;
@@ -267,8 +267,10 @@ DECLARE
   responder_two_id bigint;
   incident_id bigint;
   response jsonb;
-  other_status text;
-  aggregate_status text;
+  stale_assignment_count integer;
+  stale_duty_count integer;
+  final_status text;
+  rejected boolean;
 BEGIN
   SELECT id INTO requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000127';
   SELECT id INTO dispatcher_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000124';
@@ -282,65 +284,94 @@ BEGIN
   INSERT INTO public.incidents (
     requester_id, type, description, latitude, longitude, location_recorded_at, location_source
   )
-  VALUES (requester_id, 'medical', 'Synthetic per-responder status test', 11.244, 125.003, now(), 'manual')
+  VALUES (requester_id, 'medical', 'Synthetic dispatcher progress test', 11.244, 125.003, now(), 'manual')
   RETURNING id INTO incident_id;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
   PERFORM public.api_assign_incident_team(incident_id, ARRAY[responder_one_id, responder_two_id]);
 
+  IF has_function_privilege('authenticated', 'public.api_update_my_assignment_status(bigint,text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'private.tacresq_update_my_assignment_status(bigint,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Legacy per-responder status RPCs must not be executable by authenticated clients';
+  END IF;
+
+  -- A field unit may not advance shared incident progress through the dispatcher RPC.
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
-  response := public.api_update_my_assignment_status(incident_id, 'en_route');
-  IF response->>'status' <> 'en_route' THEN
-    RAISE EXCEPTION 'Expected incident aggregate to become en_route after first unit departs';
+  rejected := false;
+  BEGIN
+    PERFORM public.api_update_incident_status(incident_id, 'en_route');
+  EXCEPTION WHEN insufficient_privilege THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Responder must not advance dispatcher-owned incident progress';
   END IF;
 
-  response := public.api_update_my_assignment_status(incident_id, 'on_scene');
+  -- Only the dispatcher advances the incident; all assigned members inherit the milestone.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
+  response := public.api_update_incident_status(incident_id, 'en_route');
   IF response->>'status' <> 'en_route' THEN
-    RAISE EXCEPTION 'Incident must remain en_route while another assigned unit has not arrived';
-  END IF;
-  SELECT item->>'status' INTO other_status
-  FROM jsonb_array_elements(response->'assigned_user_statuses') item
-  WHERE (item->>'user_id')::bigint = responder_two_id;
-  IF other_status <> 'assigned' THEN
-    RAISE EXCEPTION 'One responder arrival must not overwrite another unit status; found %', other_status;
+    RAISE EXCEPTION 'Dispatcher should advance assigned incident to en_route';
   END IF;
 
+  SELECT count(*) INTO stale_assignment_count
+    FROM public.incident_assignments
+   WHERE incident_id = incident_id AND responder_status <> 'en_route';
+  IF stale_assignment_count <> 0 THEN
+    RAISE EXCEPTION 'All assigned members must inherit en_route; stale assignment rows=%', stale_assignment_count;
+  END IF;
+  SELECT count(*) INTO stale_duty_count
+    FROM public.profiles
+   WHERE id IN (responder_one_id, responder_two_id) AND duty_status <> 'en_route';
+  IF stale_duty_count <> 0 THEN
+    RAISE EXCEPTION 'All assigned member duty snapshots must inherit en_route; stale profiles=%', stale_duty_count;
+  END IF;
+
+  response := public.api_update_incident_status(incident_id, 'on_scene');
+  IF response->>'status' <> 'on_scene' THEN
+    RAISE EXCEPTION 'Dispatcher should advance incident to on_scene';
+  END IF;
+  SELECT count(*) INTO stale_assignment_count
+    FROM public.incident_assignments
+   WHERE incident_id = incident_id AND responder_status <> 'on_scene';
+  IF stale_assignment_count <> 0 THEN
+    RAISE EXCEPTION 'All assigned members must inherit on_scene; stale assignment rows=%', stale_assignment_count;
+  END IF;
+
+  -- GPS is no longer accepted as an en-route location update once dispatch records arrival.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
+  rejected := false;
   BEGIN
     PERFORM public.api_record_location_v2(incident_id, 11.244, 125.003, 10, now());
-    RAISE EXCEPTION 'Expected GPS update to be rejected after this unit arrived';
   EXCEPTION WHEN insufficient_privilege THEN
-    NULL;
+    rejected := true;
   END;
-
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
-  PERFORM public.api_update_incident_status(incident_id, 'en_route');
-  response := public.api_update_my_assignment_status(incident_id, 'on_scene');
-  IF response->>'status' <> 'on_scene' THEN
-    RAISE EXCEPTION 'Incident should move to on_scene once every assigned unit has arrived';
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'GPS update should be rejected after dispatcher records on_scene';
   END IF;
 
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
-  response := public.api_update_my_assignment_status(incident_id, 'transporting');
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
+  response := public.api_update_incident_status(incident_id, 'transporting');
   IF response->>'status' <> 'transporting' THEN
-    RAISE EXCEPTION 'Incident should reflect transporting once all units arrived and one transports';
+    RAISE EXCEPTION 'Dispatcher should advance incident to transporting';
   END IF;
-
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
-  PERFORM public.api_update_my_assignment_status(incident_id, 'transporting');
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
-  PERFORM public.api_update_my_assignment_status(incident_id, 'resolved');
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000126', true);
-  response := public.api_update_my_assignment_status(incident_id, 'resolved');
+  response := public.api_update_incident_status(incident_id, 'resolved');
   IF response->>'status' <> 'resolved' THEN
-    RAISE EXCEPTION 'Incident should resolve only after every assigned unit resolves';
+    RAISE EXCEPTION 'Dispatcher should complete the incident';
   END IF;
 
-  SELECT status INTO aggregate_status FROM public.incidents WHERE id = incident_id;
-  IF aggregate_status <> 'resolved' THEN
-    RAISE EXCEPTION 'Expected final incident status resolved, found %', aggregate_status;
+  SELECT status INTO final_status FROM public.incidents WHERE id = incident_id;
+  IF final_status <> 'resolved' THEN
+    RAISE EXCEPTION 'Expected final incident status resolved, found %', final_status;
+  END IF;
+  SELECT count(*) INTO stale_duty_count
+    FROM public.profiles
+   WHERE id IN (responder_one_id, responder_two_id) AND duty_status <> 'available';
+  IF stale_duty_count <> 0 THEN
+    RAISE EXCEPTION 'Resolved incident should release assigned members without other active assignments';
   END IF;
 END;
-$per_responder_test$;
+$dispatcher_progress_test$;
 SQL
 
 psql -v ON_ERROR_STOP=1 <<'SQL'
