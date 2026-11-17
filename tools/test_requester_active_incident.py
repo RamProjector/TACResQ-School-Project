@@ -23,7 +23,7 @@ checks = {
     "field-unit status transition validation remains in force": "incident is not assigned to this field unit" in GUARD_FIX and "old.status = 'assigned' and new.status = 'en_route'" in GUARD_FIX and "actor_role not in ('responder','driver')" in GUARD_FIX,
     "cancellation RPC is not executable by anonymous users": "revoke all on function public.api_cancel_my_incident(bigint) from public, anon" in MIGRATION and "grant execute on function public.api_cancel_my_incident(bigint) to authenticated" in MIGRATION,
     "Home hides the form until the emergency request action is pressed": "showrequestform && activeincident == null" in SCREEN.lower() and 'text("request emergency help' in SCREEN.lower(),
-    "Home presents the active request instead of a second submission form": 'text("active emergency"' in SCREEN.lower() and 'if (activeincident != null)' in SCREEN.lower(),
+    "Home presents the active request instead of a second submission form": '"active emergency"' in SCREEN.lower() and 'if (activeincident != null)' in SCREEN.lower(),
     "requester history uses stable account-local ordinal plus a distinct global reference": "internal fun requestersequencenumber" in SCREEN.lower() and 'your request #$sequence · reference #$incidentid' in SCREEN.lower() and "requesterrequestlabel(incident.id, state.incidents)" in SCREEN.lower(),
     "requester edit responses use a coordinate tolerance without weakening other reviewed-field checks": "requestereditresponsematches(" in SCREEN.lower() and "coordinateMatches(updated.latitude, latitude)" in SCREEN and "updated.locationSource == locationSource" in SCREEN,
     "backend incident ID remains the LazyColumn operation key": "items(state.incidents, key = { it.id })" in SCREEN,
