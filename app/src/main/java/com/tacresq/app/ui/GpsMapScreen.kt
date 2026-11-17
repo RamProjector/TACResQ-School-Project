@@ -3086,6 +3086,7 @@ private fun MapIncidentCard(
         )
     }
 }
+}
 
 private fun openExternalMaps(context: Context, latitude: Double, longitude: Double) {
     val navigation = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$latitude,$longitude&mode=d"))
