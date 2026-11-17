@@ -249,3 +249,16 @@ Implemented on the PR branch in migration `20261118010000_incident_assignment_ev
 Read-only review against the connected production schema confirms the migration's referenced assignment and incident columns and foreign-key targets. Existing production RLS policies allow dispatcher incident/profile reads and participant assignment reads. The proposed event-history policy is narrower: authenticated users must resolve to a dispatcher/admin profile through `profiles.auth_user_id = auth.uid()`. The migration grants authenticated clients SELECT only and revokes direct table mutation privileges; trigger functions are placed in the non-exposed `private` schema with a locked search path and explicit execute revocation.
 
 This is a source/schema review only. The new table, policy, and trigger functions do not exist in production because the PR migration has not been applied. Trigger execution, policy behavior, and migration replay still require validation in a disposable database before deployment. Production remains unchanged.
+
+
+### Assignment mutation-path review — 2026-11-18
+
+Read-only inspection of the live assignment RPCs and table policies found:
+
+- Team assignment is performed through `api_assign_incident_team`, backed by `private.tacresq_assign_incident_team`. It requires dispatcher role, locks the incident and selected profile rows, checks current duty/active assignments, and inserts current team membership rows.
+- The legacy single-member assignment RPC delegates to the team RPC.
+- No dedicated dispatcher release/remove-member RPC was found in the inspected public/private function catalog.
+- `incident_assignments` has authenticated table-level DELETE privilege, but the inspected RLS policy set contains only a SELECT policy. Therefore that grant alone does not provide an authenticated dispatcher a permitted delete path.
+- The proposed assignment-history DELETE trigger can record a release only when a trusted mutation path actually deletes a membership row. It does not create a user-facing release capability by itself.
+
+**Implementation gap:** team replacement/release needs an explicit dispatcher-authorized transactional RPC with incident/team validation, actor attribution, and a defined effect on the incident's legacy `assigned_to` primary-member field. Do not expose direct client deletes or build a release UI until that server-side contract is implemented. Production was inspected read-only; no database changes were made.
