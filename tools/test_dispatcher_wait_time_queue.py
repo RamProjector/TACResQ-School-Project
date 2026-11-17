@@ -10,7 +10,7 @@ checks = {
     "missing or malformed submission timestamps are explicitly surfaced": "Waiting time unavailable — verify submission time." in screen,
     "future submission timestamps are not shown as negative wait": "Submission time is in the future — verify timestamp." in screen and "seconds < 0L" in screen,
     "wait timer refreshes without requiring a network request": "LaunchedEffect(Unit)" in screen and "delay(30_000)" in screen and "queueClock = Instant.now()" in screen,
-    "long-wait incidents are visually flagged after 15 minutes": "waitSeconds >= LONG_WAIT_REVIEW_THRESHOLD_SECONDS" in screen and "LONG_WAIT_REVIEW_THRESHOLD_SECONDS = 15 * 60" in screen and "not a clinical triage rule or response-time SLA" in screen and "MaterialTheme.colorScheme.error" in screen,
+    "queue wait display does not invent a 15-minute escalation policy": "LONG_WAIT_REVIEW_THRESHOLD_SECONDS" not in screen and "Long wait — review this request" not in screen and "waitingAgeLabel(incident.createdAt, queueClock)" in screen,
     "wait age is displayed on pending incident cards": "waitingAgeLabel(incident.createdAt, queueClock)" in screen,
     "elapsed wait labels support seconds, minutes, hours, and days": all(token in screen for token in ("Waiting ${seconds}s", "Waiting ${seconds / 60L}m", "Waiting ${seconds / 3_600L}h", "Waiting ${seconds / 86_400L}d")),
 }
