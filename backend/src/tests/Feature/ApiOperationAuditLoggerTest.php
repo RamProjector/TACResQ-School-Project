@@ -90,6 +90,20 @@ class ApiOperationAuditLoggerTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_audit_connection_failure_does_not_break_the_business_operation(): void
+    {
+        config([
+            'tacru.supabase_url' => 'https://tacresq-audit.example.test',
+            'tacru.supabase_secret_key' => 'synthetic-server-secret',
+        ]);
+        Http::fake(['*' => Http::failedConnection()]);
+
+        // The audit sink is best-effort; a transport outage must not escape.
+        app(ApiOperationAuditLogger::class)->record('supabase', 'rpc.api_me', 'success', 200, 1);
+
+        Http::assertSentCount(1);
+    }
+
     public function test_api_responses_use_server_generated_correlation_ids(): void
     {
         $supplied = 'e6c3bb0c-04e7-4e69-9d44-b65e0a3c7123';
