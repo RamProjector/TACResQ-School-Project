@@ -124,6 +124,8 @@ jobs:
 
       - name: Check dispatcher status color semantics
         run: python3 tools/test_dispatcher_status_color_semantics.py
+      - name: Check dispatcher active incident lifecycle filtering
+        run: python3 tools/test_dispatcher_active_incident_filter.py
 
       - name: Check per-responder assignment status contract
         run: python3 tools/test_per_responder_assignment_status.py
