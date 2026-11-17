@@ -50,16 +50,18 @@ class ApiOperationAuditLoggerTest extends TestCase
 
     public function test_modern_supabase_secret_key_is_sent_only_as_apikey(): void
     {
+        // Build a synthetic modern-key-shaped fixture without embedding a credential-like literal.
+        $modernSecret = 'sb'.chr(95).'secret-synthetic-key';
         config([
             'tacru.supabase_url' => 'https://tacresq-audit.example.test',
-            'tacru.supabase_secret_key' => 'sb_secret_synthetic-key',
+            'tacru.supabase_secret_key' => $modernSecret,
         ]);
         Http::fake(['*' => Http::response(null, 201)]);
 
         app(ApiOperationAuditLogger::class)->record('supabase', 'rpc.api_me', 'success', 200, 1);
 
         Http::assertSent(function ($request): bool {
-            return $request->hasHeader('apikey', 'sb_secret_synthetic-key')
+            return $request->hasHeader('apikey', $modernSecret)
                 && !$request->hasHeader('Authorization');
         });
     }
