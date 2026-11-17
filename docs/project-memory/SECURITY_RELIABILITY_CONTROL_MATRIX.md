@@ -453,3 +453,29 @@ No PR was merged and no live Supabase migration or production deployment was per
 - Explicit row-level locking and transaction-end lock release: https://www.postgresql.org/docs/16/explicit-locking.html
 - `pg_blocking_pids()` hard and soft blockers: https://www.postgresql.org/docs/16/functions-info.html
 - `pg_stat_activity` wait events: https://www.postgresql.org/docs/16/monitoring-stats.html
+
+## Exact-head PR status refresh — 2026-11-17 02:15 UTC
+
+All seven implementation/documentation PRs #316–#322 remain open and unmerged. The current main base is `4405127e96973e1fdb902a0c37d6fbed3c4f3014`. The following is a per-head snapshot; a passing independent PR does not prove combined migration replay.
+
+| PR | Current head | Exact-head workflow evidence at this refresh |
+|---|---|---|
+| #316 API operation audit/FK indexes | `362d99b7a60ddd43a0d4c2b419bc13307b0d2e06` | TACResQ CI, TACResQ Security, RPC grant contract, Frontend Review, and Render live smoke passed. |
+| #317 Field-claim exclusivity | `d4668734f163fcfc5ecab24bf9e4a44c78638636` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. Clean PostgreSQL 16 replay includes cross-incident claims, same-incident multi-responder join, field-claim-vs-dispatcher, and two-dispatcher races. |
+| #318 Requester location edit/provenance | `3b9c08f5e498c86620e14a4b8f18ac20027a1303` | Frontend Review and RPC grant contract passed; TACResQ CI and Security were still running at this poll after a documentation-only provider-provenance update. |
+| #319 Dispatcher claimability lifecycle | `92dc24e9da6124b3a465fd88d2bb0294e2afe146` | Frontend Review, RPC grant contract, TACResQ CI, and Security are being rerun after adding an explicit database lock barrier to the dispatcher-vs-requester race. Previous head `152a97e484fe5d8f92c7269026e248c96c537a25` passed RPC grant contract including the authenticated responder-status and claimability-audit assertions. |
+| #320 Profile identity metadata | `e5ca8e7a45b490f9cc8195297ebe0d810865b065` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. |
+| #321 Legacy Admin user-list RPC restriction | `bd28f881739de571b024c9baa90a284ac443a280` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. |
+| #322 Security/reliability control matrix | `8ec303248e418a3f75a446586cb5246ea5750804` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. |
+
+### New test and provenance findings
+
+- PR #317's deterministic cross-path test uses a coordinator transaction to hold the shared responder profile row and waits until both authenticated sessions are visible in PostgreSQL's lock queue before release. Its CI replay passed on PR #317 head `c8100543...`; the later `d4668734...` commit only reconciles documentation and passed all four workflows.
+- The original PR #317 field-vs-field tests still do not have an explicit start barrier. They remain valid two-session concurrency tests, but scheduling determinism is weaker than the newer cross-path fixture.
+- PR #319 now has an explicit coordinator-held incident-row barrier for dispatcher claimability versus requester cancellation. The current head is under validation; do not mark that strengthened fixture passed until the exact-head replay logs show success.
+- PR #319's authenticated write-boundary test now also verifies that direct responder incident UPDATE is denied, the legacy status RPC wrapper still advances the assigned responder, and automatic claimability clearing creates one attributable audit event. The RPC grant-contract run passed this test on head `152a97e...`.
+- PR #318's provider trace confirms that `location_source` is only `gps/manual/none`; `GeoFix` does not preserve `Location.provider`, and responder `location_logs` has no provider or recording-RPC field. Provider metadata remains a documented follow-up, not an implemented schema contract. Google documents that fused requests may combine sensors and clients cannot select exact sensors; any `fused` label is diagnostic and not proof of GNSS origin.
+
+### Integration gate remains open
+
+The PRs continue to overlap in `.github/workflows/ci.yml`, `tools/test_supabase_migration_replay.sh`, and `tools/test_migration_history_alignment.py`. The combined replay must preserve every distinct SQL/Python/shell regression invocation exactly once, apply all six implementation migrations in timestamp order, and execute authenticated-role tests only after the mock `auth` schema/function grants are established. Do not infer integration readiness from the individual mergeable flags or green PR workflows. No merge or live Supabase migration has been performed.
