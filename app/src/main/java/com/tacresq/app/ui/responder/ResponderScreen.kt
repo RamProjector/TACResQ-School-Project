@@ -522,7 +522,7 @@ fun ResponderScreen(
             if (active.any { it.statusFor(user.id) == IncidentStatus.EN_ROUTE }) {
                 item {
                     Text(
-                        "Incident progress is maintained by dispatch. GPS sharing is optional and only reports your location.",
+                        "Incident progress is maintained by dispatch. GPS sharing is optional; it reports your location but does not confirm arrival or change incident status.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
