@@ -2011,7 +2011,7 @@ fun GpsMapScreen(
             val density = mapView.resources.displayMetrics.density
             val radius = 24f * density
             val hitArea = RectF(pixel.x - radius, pixel.y - radius, pixel.x + radius, pixel.y + radius)
-            val incidentTargets = map.queryRenderedFeatures(hitArea, arrayOf(INCIDENT_POINT_LAYER_ID, INCIDENT_SELECTED_POINT_LAYER_ID))
+            val incidentTargets = map.queryRenderedFeatures(hitArea, INCIDENT_POINT_LAYER_ID, INCIDENT_SELECTED_POINT_LAYER_ID)
                 .mapNotNull { feature ->
                     val id = feature.getStringProperty("incident_id")?.toLongOrNull() ?: return@mapNotNull null
                     val incident = latestVisibleIncidentById[id] ?: return@mapNotNull null
@@ -2031,7 +2031,7 @@ fun GpsMapScreen(
                     hypot((screen.x - pixel.x).toDouble(), (screen.y - pixel.y).toDouble())
                 }
             val responderTargets = map.queryRenderedFeatures(
-                hitArea, arrayOf(RESPONDER_POINT_LAYER_ID, RESPONDER_STALE_POINT_LAYER_ID))
+                hitArea, RESPONDER_POINT_LAYER_ID, RESPONDER_STALE_POINT_LAYER_ID)
                 .mapNotNull { feature ->
                     val incidentId = feature.getStringProperty("incident_id")?.toLongOrNull()
                         ?: return@mapNotNull null
