@@ -170,3 +170,44 @@ FEMA's NIMS material distinguishes resource tracking and status accountability f
 - No production migration, destructive SQL, or account/data mutation without explicit authorization.
 - No builds, tests, emulator, or device checks after commits unless the user changes that instruction. GitHub Actions may run automatically; inspect its results but do not claim locally executed validation.
 - Never claim a fix is validated solely because source was edited.
+
+## 9. Verified duty-control gap — 2026-11-18
+
+Repository inspection of PR #334 confirms that incident milestone ownership has moved to dispatch, but personnel duty availability is still manually controlled in the responder UI.
+
+### Current implementation
+
+- `ResponderScreen.kt` exposes an Available / Off Duty control through `setDuty`.
+- `DispatcherScreen.kt` derives its available-unit list from profiles whose `duty_status` is `AVAILABLE`.
+- `Models.kt` still models duty as a profile-level `DutyStatus`.
+- The dispatcher-owned incident progression migration synchronizes assigned personnel duty values as incident milestones advance.
+- The follow-up migration permits only the limited user-set duty values `available` and `off_duty`, while protecting personnel attached to active incidents.
+
+### Assessment
+
+This is a partial automation model, not a duty-session model. It correctly avoids asking each assigned responder to advance the shared incident milestone, but still requires a person to manually declare availability. Authentication or online presence must not be substituted for duty authorization.
+
+### Recommended next design
+
+1. Inspect the existing organization, profile, assignment, and roster schema before adding any table.
+2. Define who is authorized to start and end a duty period (individual, supervisor, or organization roster), based on the actual operating procedure.
+3. Represent duty periods with auditable start/end events and an explicit source/authorizer.
+4. Derive assignment eligibility from active duty, role/qualification, organization membership, account eligibility, and active-assignment constraints.
+5. Keep connectivity freshness as a separate signal. A disconnected deployed responder must not become assignable.
+6. Make assignment and eligibility checks atomic in PostgreSQL to prevent concurrent dispatchers from double-booking personnel.
+7. Preserve the current dispatcher-owned incident milestone flow; do not reintroduce per-responder incident status controls.
+8. Migrate existing `available` / `off_duty` values with an explicit compatibility strategy. Do not infer historical duty periods from login sessions.
+9. Remove the responder selector only after the replacement duty workflow is available end-to-end and authorized users can manage exceptions.
+
+### Acceptance criteria
+
+- Login alone never makes personnel assignable.
+- A duty session is attributable to an authorized actor or approved roster process.
+- Personnel with an active deployment cannot be assigned to a conflicting incident.
+- Temporary network loss does not release an assignment or silently end duty.
+- Dispatch sees whether eligibility is confirmed, stale, or unavailable.
+- Ending duty is blocked or requires an explicit operational handoff when an active assignment exists.
+- Every duty and assignment change is auditable.
+- Existing incident progression, assignment locks, and role-based RLS remain intact.
+
+No schema or application changes are made by this review entry. This is a source-verified implementation gap and a design plan, not a claim that duty sessions already exist.
