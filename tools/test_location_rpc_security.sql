@@ -104,13 +104,15 @@ SELECT public.api_assign_incident_team(
   (SELECT max(i.id) FROM public.incidents i WHERE i.description = 'Disposable GPS RPC authorization contract'),
   ARRAY[(SELECT p.id FROM public.profiles p WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000152')]
 );
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000152', false);
-SELECT public.api_update_my_assignment_status(
+-- Dispatch records the shared deployment milestone; field units do not advance it.
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000151', false);
+SELECT public.api_update_incident_status(
   (SELECT max(i.id) FROM public.incidents i WHERE i.description = 'Disposable GPS RPC authorization contract'),
   'en_route'
 );
 
--- Exercise the real invoker wrapper as authenticated, not as the migration owner.
+-- Exercise the real location invoker wrapper as the assigned responder.
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000152', false);
 SET ROLE authenticated;
 SELECT public.api_record_location_v2(
   (SELECT max(i.id) FROM public.incidents i WHERE i.description = 'Disposable GPS RPC authorization contract'),
