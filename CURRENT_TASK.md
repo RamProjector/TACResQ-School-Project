@@ -1,3 +1,13 @@
+# Current handoff — 2026-11-17: responder active-response hierarchy
+
+- **Objective:** Make the responder's active incident workload easier to scan without changing assignment or response workflows.
+- **Implementation:** Add a distinct section heading before the active response cards, with concise supporting text that explains what the section contains.
+- **Scope:** Presentation-only change in the responder screen. No claiming, status transitions, location sharing, routing, permissions, API, or database behavior changed.
+- **Validation:** Not run by request for incremental commits; no emulator/device review is claimed.
+- **Next action:** Continue refining role-specific client screens and preserve emergency-critical details.
+
+---
+
 # Current handoff — 2026-11-17: requester active-emergency accessibility
 
 - **Objective:** Make the requester's current emergency state easier to navigate with assistive technology without changing incident actions or status rules.

@@ -506,6 +506,15 @@ fun ResponderScreen(
             }
         }
 
+        if (active.isNotEmpty()) {
+            item {
+                SectionHeading(
+                    "Your active responses",
+                    "Incidents assigned to you and your current response status",
+                )
+            }
+        }
+
         items(active, key = { it.id }) { incident ->
             IncidentCard(incident) {
                 Row(
