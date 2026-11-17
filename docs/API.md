@@ -87,11 +87,9 @@ Manual map pin: send the selected latitude/longitude, `accuracy_m: null`, the pi
 Response 201: `{ Incident }` with `status: "pending"`.
 Coordinates must be a valid pair; capture time and accuracy require a coordinate pair. The app reads one current fix only after the requester taps Android's system location button; that fix is transmitted only if the requester later confirms the SOS. No background or continuous requester tracking is implemented.
 
-### PATCH /incidents/{id}/status (dispatcher)
+### PATCH /incidents/{id}/status (the assigned responder or driver)
 
 Request: `{ "status": "en_route" }`. Response: `{ Incident }`.
-
-The dispatcher records the shared incident milestone after coordinating deployment through the organization's existing procedures. Responders do not need to tap through duplicate per-person status steps in TACResQ.
 
 Allowed transitions (anything else is 422):
 
@@ -102,7 +100,9 @@ Allowed transitions (anything else is 422):
 | on_scene | transporting, resolved |
 | transporting | resolved |
 
-The server mirrors the incident milestone to assigned-member compatibility fields and updates their computed duty status. GPS remains optional and separately permissioned; a location fix never changes incident progress. Only dispatcher accounts may call this endpoint.
+Side effects the server must apply to the unit's `duty_status`:
+`en_route` -> `en_route`, `on_scene` -> `on_scene`, `transporting` -> `transporting`, `resolved` -> `available`.
+Only the user in `assigned_to` may change an incident's status (403 otherwise).
 
 ## Dispatcher endpoints used by the prototype
 
