@@ -100,7 +100,7 @@ wait_for_coordinator_pid() {
       LIMIT 1
     ")"
     if [[ "$observed_pid" =~ ^[0-9]+$ ]]; then
-      printf '%s\\n' "$observed_pid"
+      printf '%s\n' "$observed_pid"
       return 0
     fi
     sleep 0.05
