@@ -1249,27 +1249,46 @@ fun GpsMapScreen(
                                 return@launch
                             }
                         }
+                        // Selection can change while location capture is suspended. Do not
+                        // send a route request for an incident the user has left.
+                        if (generation != routeRequestGeneration || selectedIncidentId != incident.id) {
+                            return@launch
+                        }
                         val result = provider.route(
                             RouteCoordinate(fix.latitude, fix.longitude),
                             RouteCoordinate(destinationLatitude, destinationLongitude),
                             RouteMode.DRIVING,
                             incident.id,
                         )
+                        // Providers may not cooperate with coroutine cancellation. Reject
+                        // late results before they can replace route, status, or camera state.
+                        if (generation != routeRequestGeneration || selectedIncidentId != incident.id) {
+                            return@launch
+                        }
                         val route = result.getOrNull()
                         if (route == null || !route.isUsable(System.currentTimeMillis())) {
                             routeStatus = result.exceptionOrNull()?.message
                                 ?: "The routing service returned no current usable route."
                             return@launch
                         }
+                        if (generation != routeRequestGeneration || selectedIncidentId != incident.id) {
+                            return@launch
+                        }
                         routeResult = route
                         routeIncidentId = incident.id
                         routeStatus = "Route preview only. No live traffic, flooding, road closures, or emergency-vehicle access is verified."
                         val routePoints = route.geometry.map { LatLng(it.latitude, it.longitude) }
-                        mapView.post { fitMapPoints(routePoints) }
+                        mapView.post {
+                            if (generation == routeRequestGeneration && selectedIncidentId == incident.id) {
+                                fitMapPoints(routePoints)
+                            }
+                        }
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                         throw cancelled
                     } catch (_: Exception) {
-                        routeStatus = "Could not calculate a route. Check connectivity and confirm the destination with dispatch."
+                        if (generation == routeRequestGeneration && selectedIncidentId == incident.id) {
+                            routeStatus = "Could not calculate a route. Check connectivity and confirm the destination with dispatch."
+                        }
                     } finally {
                         if (generation == routeRequestGeneration) isRouteLoading = false
                     }

@@ -1,3 +1,10 @@
+## GPS route-request stale-result protection — 2026-11-17
+
+- **Finding:** Route cancellation alone did not protect against a provider that returns after cancellation or a user changing the selected incident while location capture/routing is suspended. A late result could update route state/status or post a camera move for an incident no longer selected.
+- **Fix on PR #334:** Validate both request generation and selected incident before sending the route request, after the provider returns, before publishing route state, inside the posted camera callback, and before publishing exception status. Late results are discarded.
+- **Safety:** A changed selection prevents the old incident destination from being sent to the routing provider after the fresh-location step. No provider, permission, routing mode, or backend behavior changed.
+- **Validation:** No tests/build/device checks run, per instruction. Verify rapid incident switching with delayed/non-cooperative routing responses on device.
+
 ## GPS marker signature correctness — 2026-11-17
 
 - **Finding:** Incremental marker reconciliation stored signatures as delimiter-joined strings. Incident notes and other display text can contain the delimiter, making state comparison ambiguous.

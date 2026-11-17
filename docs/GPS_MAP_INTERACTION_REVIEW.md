@@ -105,3 +105,10 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Marker reconciliation now compares typed immutable signatures (coordinates, explicit icon variant, title, snippet) instead of delimiter-joined strings.
 - This removes ambiguity from incident notes containing separator characters and makes icon-state dependencies explicit without object hashes.
 - No behavioral thresholds or marker identity rules changed. No tests/build/device checks run.
+
+
+## Route request lifecycle guard — 2026-11-17
+
+- Route requests now validate their generation and selected incident after asynchronous location capture and again after the routing provider returns.
+- Late results cannot replace the selected route/status or move the camera. Posted camera work and exception messages are guarded too, covering non-cooperative cancellation and rapid incident switching.
+- This is a source-level race guard; delayed-provider device verification remains outstanding. No tests/build/device checks run.
