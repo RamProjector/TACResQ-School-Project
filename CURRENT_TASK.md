@@ -1,3 +1,10 @@
+## Dispatcher sync-warning consolidation — 2026-11-17
+
+- **Finding:** Dispatcher refresh failure could render the shared sync-status surface and a second “Assignment paused” error card. Both repeated that the retained incident/unit snapshot might be stale.
+- **Change:** Removed the duplicate card and incorporated the assignment-safety consequence into the existing sync message whenever the incident/unit snapshot is not fresh. The sync panel remains the single place to see freshness and invoke Refresh.
+- **Safety:** Assignment and field-claim controls remain gated by the existing `assignmentDataFresh` state. No dispatch, assignment, claimability, refresh, or backend behavior changed.
+- **Validation:** Source review only. No Gradle build, tests, emulator, or device validation run.
+
 ## Responder route guidance consolidation — 2026-11-17
 
 - Removed repeated routing-provider/fallback paragraphs from each active incident card.

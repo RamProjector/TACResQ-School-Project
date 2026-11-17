@@ -21,7 +21,7 @@ This register tracks visible UI findings from source review. A change is not con
 - Shared team-status guidance was repeated inside each active responder/dispatcher incident card. Moved it to the section heading.
 - Arrival-versus-GPS-sharing guidance repeated in each en-route responder card. It now appears once when an en-route response exists.
 - The no-available-unit message repeated on every pending dispatcher incident. It now appears once above the queue; assignment actions remain gated on available units.
-- Dispatcher refresh failures retain the last loaded incident/unit snapshot. The warning now explicitly labels those lists as potentially out of date, and the empty active-queue message no longer claims there are currently no active incidents when sync has failed.
+- Dispatcher refresh failures retain the last loaded incident/unit snapshot. The warning now explicitly labels those lists as potentially out of date, and the empty active-queue message no longer claims there are currently no active incidents when sync has failed. The separate “Assignment paused” card duplicated the shared sync warning, so its operational consequence is now appended to the same sync panel; the existing Refresh action remains the single recovery affordance.
 
 ### Authentication
 - The password-reset UI claimed a reset link had been sent, but the repository method only validated the email and returned success; no auth recovery request existed. Replaced the fake send flow with a clear unavailable-state message and removed the unused success-returning stub.

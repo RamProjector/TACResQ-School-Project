@@ -1,6 +1,5 @@
 package com.tacresq.app.ui.dispatcher
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -180,6 +179,13 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
 @Composable
 fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, focusedIncidentId: Long? = null, onOpenChat: (Long) -> Unit = {}, onOpenNotifications: () -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val syncStatusError = state.syncError?.let { message ->
+        if (!state.loading && !state.assignmentDataFresh) {
+            "$message Assignment actions are paused until incident and field-unit data refresh successfully."
+        } else message
+    } ?: if (!state.loading && !state.assignmentDataFresh) {
+        "Assignment actions are paused until incident and field-unit data refresh successfully."
+    } else null
     PollWhileStarted { vm.refresh() }
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
     var selectedUnitIds by remember { mutableStateOf(setOf<Long>()) }
@@ -257,32 +263,11 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         item {
             SyncStatus(
                 lastSyncedAtEpochMs = state.lastSyncedAtEpochMs,
-                error = state.syncError,
+                error = syncStatusError,
                 actionLabel = if (state.loading) "Refreshing…" else "Refresh",
                 actionEnabled = !state.busy && !state.loading,
                 onAction = vm::refresh,
             )
-        }
-        if (!state.loading && !state.assignmentDataFresh) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f)),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                    ),
-                    elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Assignment paused", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "The incident and unit lists below may be out of date. Refresh before relying on them for operational decisions.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-            }
         }
         item {
             SummaryCard(
