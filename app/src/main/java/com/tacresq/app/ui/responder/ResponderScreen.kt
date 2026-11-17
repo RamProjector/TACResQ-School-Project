@@ -562,7 +562,8 @@ fun ResponderScreen(
                     )
                 }
 
-                if (incident.statusFor(user.id) == IncidentStatus.EN_ROUTE) {
+                val ownStatus = incident.statusFor(user.id)
+                if (ownStatus == IncidentStatus.ASSIGNED || ownStatus == IncidentStatus.EN_ROUTE) {
                     val sharing = state.trackingIncidentId == incident.id
                     val trackingMessage = state.trackingError.takeIf { sharing }
                     val trackingNeedsAttention = sharing && trackingMessage != null && state.lastLocationSentAt != null && !state.trackingStarting
