@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.graphics.Color
+import android.graphics.RectF
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
