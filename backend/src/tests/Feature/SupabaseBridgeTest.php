@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\SupabaseBridge;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -173,7 +174,7 @@ class SupabaseBridgeTest extends TestCase
             'https://tacresq-bridge.example.test/rest/v1/api_operation_logs' => Http::response(null, 201),
         ]);
 
-        $result = app(\\App\\SupabaseBridge::class)->callRpc(
+        $result = app(SupabaseBridge::class)->callRpc(
             'valid-looking-token',
             'arbitrary_function',
             [],
