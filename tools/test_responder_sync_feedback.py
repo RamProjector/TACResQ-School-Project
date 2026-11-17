@@ -21,7 +21,7 @@ assert 'trackingNeedsAttention -> "Needs attention"' in source
 assert 'sharing && (state.trackingStarting || state.lastLocationSentAt == null) -> "Starting"' in source
 assert 'sharing -> "Enabled"' in source
 assert 'else -> "Off"' in source
-assert "GPS sharing reports your location; it does not confirm arrival." in source
+assert "GPS sharing reports your location; it does not confirm arrival" in source
 assert '"Last sent $time' in source
 assert 'Text("Stop location sharing")' in source
 
