@@ -1,3 +1,15 @@
+## Dispatcher-managed incident progress — 2026-11-17
+
+- Reframed status ownership: the dispatcher advances shared incident milestones; responders no longer tap through per-person Assigned → En route → On scene → Transporting → Resolved steps.
+- Dispatcher active-incident cards now show the assigned roster summary and meaningful incident-level actions. The per-member progress count and expandable member status list were removed.
+- Responder cards retain assignment visibility and optional GPS sharing, but no longer ask field personnel to update progress. GPS is not treated as proof of arrival or completion.
+- Repository status updates now call the dispatcher status API. Added migration `20261117234000_dispatch_managed_incident_progress.sql` to authorize dispatcher-only incident transitions, mirror the milestone to legacy assignment fields for GPS/older-client compatibility, and synchronize assigned personnel duty status.
+- Supabase production schema was inspected read-only. The migration is committed to the PR branch but has **not** been applied to the production database; applying it before the Android release would make old responder status clients incompatible.
+- Research basis: Supabase database-function guidance recommends explicit execution grants and secure search paths; the new RPC checks the authenticated profile role and validates allowed transitions. Existing incident status audit trigger remains in place.
+- Validation: source inspection and live schema/function inspection only. No Gradle build, automated tests, emulator, or device validation run.
+
+---
+
 ## Latest UI review — 2026-11-17
 
 - Dispatcher field-unit availability is now explicitly marked as unconfirmed during refresh or after refresh failure. The ready-unit overview metric and no-available-unit guidance no longer present retained cached data as current fact. Assignment behavior is unchanged. Commit: `96a9e29652d282be495f8e72cceeabf71448ab29`.
