@@ -371,7 +371,7 @@ fun NotificationsAndSafetyScreen(
             item {
                 ScreenHeader(
                     title = "Notifications",
-                    subtitle = "Push alerts bring you here; this inbox is the source of truth.",
+                    subtitle = "Incident updates and account alerts.",
                 )
             }
             item {

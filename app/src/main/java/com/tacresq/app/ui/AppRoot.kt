@@ -104,9 +104,6 @@ fun AppRoot(
     }
     var showNotificationPermissionRationale by rememberSaveable { mutableStateOf(false) }
     var unsupportedAccountInfo by rememberSaveable { mutableStateOf<String?>(null) }
-    var showPrivacyPolicyDialog by rememberSaveable { mutableStateOf(false) }
-    var showAccountDeletionDialog by rememberSaveable { mutableStateOf(false) }
-    var stepUpSecurityEnabled by rememberSaveable { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -466,8 +463,6 @@ internal fun RoleSectionScreen(
     var showPrivacyPolicyDialog by remember(user.id) { mutableStateOf(false) }
     var showAccountDeletionDialog by remember(user.id) { mutableStateOf(false) }
     var showHelpGuideDialog by remember(user.id) { mutableStateOf(false) }
-    var stepUpSecurityEnabled by remember(user.id) { mutableStateOf(false) }
-    var unsupportedAccountInfo by remember(user.id) { mutableStateOf<String?>(null) }
     val role = user.role
     val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER && role != Role.ADMIN
     val title = when (destination) {
@@ -667,10 +662,7 @@ internal fun RoleSectionScreen(
 
                         androidx.compose.material3.HorizontalDivider()
 
-                        // Account Details
-                        ProfileDetail("Full name", user.name)
-                        ProfileDetail("Email", user.email)
-                        ProfileDetail("Role", role.label)
+                        // The identity header already contains name, email, and role.
                         user.phone?.takeIf { it.isNotBlank() }?.let { ProfileDetail("Mobile", it) }
 
                         androidx.compose.material3.HorizontalDivider()
@@ -697,31 +689,12 @@ internal fun RoleSectionScreen(
 
                         androidx.compose.material3.HorizontalDivider()
 
-                        // Security & Privacy (RA 10173 & TACRU Standards)
+                        // Privacy and account actions. Only expose controls that have a real action.
                         Text(
-                            "Security & Privacy (RA 10173 & TACRU)",
+                            "Privacy & account",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Step-Up Security / OTP Toggle", style = MaterialTheme.typography.labelLarge)
-                                Text(
-                                    "Require step-up verification for sensitive account operations.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            androidx.compose.material3.Switch(
-                                checked = stepUpSecurityEnabled,
-                                onCheckedChange = { stepUpSecurityEnabled = it },
-                            )
-                        }
 
                         androidx.compose.material3.OutlinedButton(
                             onClick = { showPrivacyPolicyDialog = true },
@@ -734,7 +707,7 @@ internal fun RoleSectionScreen(
                             onClick = { showAccountDeletionDialog = true },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Request account deletion (Google Play policy)")
+                            Text("Account deletion information")
                         }
 
                         androidx.compose.material3.HorizontalDivider()
@@ -743,7 +716,7 @@ internal fun RoleSectionScreen(
                         Text("Safety & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         ProfileDetail("Emergency help", "For immediate danger, contact local emergency services. Do not wait for an app update.")
                         ProfileDetail("Confirm your location", "Check the map pin against a landmark. GPS can drift indoors or near tall buildings.")
-                        ProfileDetail("Location sharing", "Sharing is visible to authorized dispatch while the app is open. Stop sharing when it is no longer needed.")
+                        ProfileDetail("Location sharing", "When an en-route response has location sharing enabled, approximate location may continue to be sent while TACResQ is in the background. Stop sharing when it is no longer needed.")
                         ProfileDetail("Personal information", "Share only details needed for the response. Keep medical and contact details private.")
 
                         androidx.compose.material3.OutlinedButton(
@@ -792,28 +765,20 @@ internal fun RoleSectionScreen(
                     )
                 }
 
-                // Account Deletion Dialog (Google Play Compliant)
+                // Information only: no deletion request is sent by this dialog.
                 if (showAccountDeletionDialog) {
                     androidx.compose.material3.AlertDialog(
                         onDismissRequest = { showAccountDeletionDialog = false },
-                        title = { Text("Request Account Deletion") },
+                        title = { Text("Account deletion information") },
                         text = {
                             Text(
-                                "Per Google Play User Data Policy and RA 10173, you may request account deletion. Official emergency dispatch audit records will be retained in accordance with Philippine disaster response regulations (RA 10121)."
+                                "An in-app deletion request is not connected yet. This dialog does not submit or register a request. Contact the TACResQ administrator through your organization's official support channel and wait for confirmation. Emergency response records may be retained where legally required."
                             )
                         },
                         confirmButton = {
                             androidx.compose.material3.TextButton(
-                                onClick = {
-                                    showAccountDeletionDialog = false
-                                    unsupportedAccountInfo = "Deletion request submitted. Your account details will be processed by TACRU administration."
-                                },
-                            ) { Text("Confirm Request") }
-                        },
-                        dismissButton = {
-                            androidx.compose.material3.TextButton(
                                 onClick = { showAccountDeletionDialog = false },
-                            ) { Text("Cancel") }
+                            ) { Text("Close") }
                         },
                     )
                 }

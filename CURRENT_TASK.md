@@ -1,3 +1,14 @@
+## Profile, messages, and notifications continuation — 2026-11-17
+
+- Removed the local-only Step-Up Security / OTP switch; it did not enforce verification or call a security service.
+- Removed duplicate name/email/role rows already present in the Profile identity header.
+- Corrected Profile location-sharing copy to acknowledge background updates during an active en-route response when sharing is enabled.
+- Replaced the false account-deletion success message with an explicit information-only dialog; it now says in-app submission is not connected and does not claim a request was received.
+- Reduced chat header height by removing the persistent reminder card and redundant subtitle; the subtitle now identifies the authorized-participant visibility scope.
+- Simplified the Notifications header subtitle without removing push/inbox guidance.
+- Added `docs/ANDROID_SCREEN_REVIEW.md` with implemented findings and outstanding workflow/device/legal-review items.
+- Same PR #334. Source review only; no build/tests/device validation or backend deletion implementation.
+
 ## Role-screen continuation — 2026-11-17
 
 - Simplified responder and dispatcher information hierarchy: shared operational guidance is now shown once at section level rather than repeated in every incident card.
