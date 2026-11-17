@@ -887,12 +887,12 @@ fun GpsMapScreen(
             try {
                 val leaves = cursor.source.getClusterLeaves(cursor.feature, 50L, cursor.nextOffset)
                     .features().orEmpty()
-                leaves.forEach { leaf ->
+                leaves.forEach leafLoop@{ leaf ->
                     if (cursor.incidents) {
-                        val id = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@forEach
-                        val incident = visibleIncidents.firstOrNull { it.id == id } ?: return@forEach
-                        val lat = incident.latitude ?: return@forEach
-                        val lng = incident.longitude ?: return@forEach
+                        val id = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@leafLoop
+                        val incident = visibleIncidents.firstOrNull { it.id == id } ?: return@leafLoop
+                        val lat = incident.latitude ?: return@leafLoop
+                        val lng = incident.longitude ?: return@leafLoop
                         added += GpsMapMarkerTarget(
                             GpsMapMarkerType.INCIDENT, LatLng(lat, lng),
                             "Incident #${incident.id} · ${incident.type.label}",
@@ -900,13 +900,13 @@ fun GpsMapScreen(
                             incidentId = incident.id,
                         )
                     } else {
-                        val incidentId = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@forEach
-                        val userId = leaf.getStringProperty("user_id")?.toLongOrNull() ?: return@forEach
+                        val incidentId = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@leafLoop
+                        val userId = leaf.getStringProperty("user_id")?.toLongOrNull() ?: return@leafLoop
                         val unit = validResponderLocations.firstOrNull {
                             it.incidentId == incidentId && it.userId == userId
-                        } ?: return@forEach
-                        val age = unit.mapAgeSeconds() ?: return@forEach
-                        val freshness = unit.mapFreshness() ?: return@forEach
+                        } ?: return@leafLoop
+                        val age = unit.mapAgeSeconds() ?: return@leafLoop
+                        val freshness = unit.mapFreshness() ?: return@leafLoop
                         added += GpsMapMarkerTarget(
                             GpsMapMarkerType.FIELD_UNIT, LatLng(unit.latitude, unit.longitude),
                             "Responder #${unit.userId} · Incident #${unit.incidentId}",
@@ -1113,6 +1113,8 @@ fun GpsMapScreen(
                     .mapNotNull(candidates::getOrNull)
                     .distinctBy { listOf(it.type.name, it.incidentId?.toString().orEmpty(), it.userId?.toString().orEmpty()).joinToString(":") }
                 if (nearbyTargets.size > 1) {
+                    clusterPageCursors = emptyList()
+                    clusterChoiceTotalCount = nearbyTargets.size.toLong()
                     selectedMarkerChoices = nearbyTargets
                     routeSelectionGeneration += 1
                     selectedIncidentId = null
@@ -2156,14 +2158,20 @@ fun GpsMapScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
+                            val isPagedCluster = clusterPageCursors.isNotEmpty() ||
+                                clusterChoiceTotalCount > selectedMarkerChoices.size
                             Text(
-                                "Overlapping map locations",
+                                if (isPagedCluster) "Clustered map locations" else "Overlapping map locations",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.semantics { heading() },
                             )
                             Text(
-                                "These pins are too close to select reliably on the map. Choose one to open its details.",
+                                if (isPagedCluster) {
+                                    "Choose a location to inspect, or load more results."
+                                } else {
+                                    "These locations are close together. Choose the correct one to inspect."
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

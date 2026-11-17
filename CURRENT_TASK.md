@@ -1,3 +1,10 @@
+## Cluster chooser consistency and pagination follow-up — 2026-11-17
+
+- Updated the older annotation-overlap chooser to initialize the same count and pagination state as the new style-layer chooser, preventing a misleading “0 of N” count.
+- Gave nested page iteration an explicit leaf label so invalid records skip only the current leaf, not the enclosing source page.
+- Cluster chooser copy now distinguishes a dense cluster from ordinary overlapping pins and gives a concise next action.
+- No build, tests, emulator, device validation, or profiling run.
+
 ## Dense cluster pagination — 2026-11-17
 
 - Added paged cluster-leaf retrieval for dense incident and responder clusters. The chooser initially loads up to 50 leaves per source and now exposes a clear “Load more locations” action while more leaves remain.

@@ -235,3 +235,12 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Selecting or dismissing a choice clears paging cursors so stale cluster references are not reused.
 - No build, tests, emulator, device validation, or profiling run.
 
+
+
+## Cluster chooser consistency and pagination follow-up — 2026-11-17
+
+- Updated the older annotation-overlap chooser to initialize the same count and pagination state as the new style-layer chooser, preventing a misleading “0 of N” count.
+- Gave nested page iteration an explicit leaf label so invalid records skip only the current leaf, not the enclosing source page.
+- Cluster chooser copy now distinguishes a dense cluster from ordinary overlapping pins and gives a concise next action.
+- No build, tests, emulator, device validation, or profiling run.
+
