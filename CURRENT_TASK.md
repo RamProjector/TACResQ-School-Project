@@ -692,3 +692,29 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Live `location_logs.received_at` already records server receipt time; incident `created_at` provides server row creation time.
 - Recommendation: if operationally needed, store a constrained `capture_provider` diagnostic value such as `google_fused_location` or `manual_map_selection`, distinct from existing `location_source`; keep `map_data_provider` separate and only set it when that provider actually supplies a selected coordinate/address. Treat client values as untrusted diagnostics, never proof of physical presence.
 - No payload or schema changes made pending confirmation of which provider distinction is required.
+
+
+---
+
+# Implementation phase closeout — 2026-11-17 12:27 PHT
+
+## Scope and execution boundary
+
+- The active implementation set remains PRs #316–#322. Do not add UI redesign scope, unrelated features, or replacement PRs during this closeout.
+- The seven-PR integration candidate is recorded as `cef63fa713dc3488b76952791742d91ebd0cf4bf`, assembled from the reviewed PR snapshots with the shared CI workflow, migration replay harness, migration-history inventory, and project-memory index reconciled.
+- The candidate record reports successful combined TACResQ CI, TACResQ Security, and RPC grant-contract workflows. It includes the six timestamp-ordered migrations, authenticated-role SQL checks, concurrency suites, Android builds/JVM checks/lint, dashboard build/type checks, and Laravel integration (77 tests / 229 assertions).
+- This evidence is historical candidate evidence, not proof that a later PR head or production environment has been validated. Preserve exact-head checks after any subsequent source change and do not describe CI as device or production acceptance.
+
+## Implementation disposition
+
+- Review-thread refresh found no outstanding inline review threads on PRs #316–#322.
+- The recorded combined candidate resolves the known cross-PR replay/CI/history-file integration concern for the snapshots it contains. Do not make speculative changes to already-integrated migrations or tests merely to create more commits.
+- Keep the existing PR scopes and merge order: #316 → #317 → #318 → #319 → #320 → #321, then #322 documentation. This is a sequencing recommendation only, not merge authorization.
+- Remaining items are acceptance/operational gates rather than reasons to expand the current implementation set: isolated live PostgREST verification, physical-device GPS and OEM behavior, notification/FCM delivery behavior, live routing-provider behavior, production migration planning, and operator review of leaked-password protection.
+- The live `api_units()` search_path drift remains a deployment-history issue: the repository hardening migration exists, but the live migration ledger had not recorded it at the last read-only inspection. Do not apply migrations or mutate live data as part of this PR work.
+
+## Validation sequencing instruction
+
+- Finish and record any justified source/documentation commits across the active PRs before starting a new validation cycle.
+- No tests or CI were started for this closeout commit. The next validation cycle must target the final exact heads after the implementation commit set is frozen.
+- No PR merge, live Supabase migration, Render change/deployment, secret change, FCM send, or production data mutation was performed.
