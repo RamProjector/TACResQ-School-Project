@@ -407,8 +407,13 @@ fun IncidentChatScreen(
             else vm.setImageAttachment(bytes, mimeType)
         }
     }
-    val selectedImageBitmap = remember(state.attachmentBytes) {
-        state.attachmentBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+    val selectedImageBitmap by produceState<ImageBitmap?>(initialValue = null, state.attachmentBytes) {
+        val bytes = state.attachmentBytes
+        value = bytes?.let {
+            withContext(Dispatchers.Default) {
+                BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
+            }
+        }
     }
     var didInitialScroll by remember(incidentId) { mutableStateOf(false) }
 

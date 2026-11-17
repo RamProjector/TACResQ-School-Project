@@ -1,3 +1,14 @@
+# Current handoff — 2026-11-17: chat attachment preview responsiveness
+
+- **Objective:** Keep image selection responsive by avoiding bitmap decoding on the Compose UI thread.
+- **Finding:** The selected chat attachment preview decoded up to the accepted 5 MB image payload synchronously inside composition, which could cause a visible pause on slower devices.
+- **Implementation:** Move preview bitmap decoding into a keyed `produceState` coroutine on `Dispatchers.Default`; changing or clearing the attachment cancels/restarts the keyed work and updates the preview state.
+- **Scope:** Local attachment-preview rendering only. Image validation, upload, message identity/retry behavior, and conversation permissions are unchanged.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI refinements on PR #334; perform consolidated validation after implementation changes are complete.
+
+---
+
 # Current handoff — 2026-11-17: notification refresh timestamp readability
 
 - **Objective:** Keep notification synchronization information readable and consistent with the inbox's localized date formatting.
