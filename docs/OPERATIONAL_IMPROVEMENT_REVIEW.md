@@ -114,33 +114,20 @@ The inspected live `user_notifications.event_type` constraint currently allows `
 Review whether dispatch receives a sufficiently prominent notification when a requester changes critical details after assignment. If not, add narrowly defined event types and transactional notification creation; avoid duplicate pushes and avoid placing sensitive patient details in push payloads.
 
 
-#### Request-change notification implementation notes
+#### Request-change notification implementation
 
-The requester edit path currently verifies the server-returned values and tells the requester that dispatch can see the corrected details. That confirms the request update response, but does not itself establish that a dispatcher received an actionable notification.
+Implemented on the PR branch in migration `20261118003000_dispatch_request_edit_notifications.sql`:
 
-Before adding notification events, trace the actual requester-edit RPC and database trigger path end-to-end. The notification work should satisfy these conditions:
+- An `AFTER INSERT` trigger on `incident_request_edit_logs` creates the notification in the same transaction as the requester edit RPC. If the notification insert fails, the edit transaction rolls back.
+- The current schema has no organization or dispatcher-team key. The migration therefore notifies all profiles whose role is `dispatcher`; it does not pretend to provide agency-scoped routing.
+- The notification uses a generic title/body and carries only the incident reference, event type, and source edit-log identity. It does not copy the request narrative, contact details, or coordinates into the notification or push event.
+- `source_event_id` references the durable edit-log row. A partial unique index on recipient + source event prevents duplicate inbox alerts for the same correction.
+- Existing notification insert triggers continue to provide the user-scoped Realtime hint, and the existing FCM worker can discover the new unread event through the shared notification table. Push delivery remains separate from the edit transaction.
+- The Android notification model already treats `event_type` as a string, and the generic notification action opens the incident by its ID; no client enum migration was required.
 
-- Create the notification in the same database transaction as the accepted incident edit, so an edit cannot commit while its dispatch alert silently fails.
-- Notify only the authorized dispatch audience for the current deployment model. Do not invent organization-scoped recipients while the live schema has no organization identifier.
-- Include incident reference, event type, actor category, and event timestamp; keep descriptions, patient details, phone numbers, and precise coordinates out of push payloads.
-- Generate an event only when a meaningful reviewed field changes. A no-op save must not create another notification.
-- Give each event a stable identity so retries and push-delivery retries do not create duplicate in-app notifications.
-- Preserve the incident's original report and edit history. Notification delivery must not be the source of truth for the corrected incident data.
-- Keep in-app notification creation separate from push delivery. A failed push must leave the in-app event available for later retrieval.
-- Verify read-state authorization so one dispatcher cannot mark another user's notification as read unless the product explicitly defines shared read state.
+Regression contract added at `tools/test_requester_edit_dispatch_notifications.py`. It checks trigger source, dispatcher-only recipients, event constraint, deduplication, locked-down trigger execution, and absence of sensitive field copying. The script has not been executed in this continuation.
 
-Suggested regression coverage:
-
-1. A pending incident edit creates one dispatch-visible event.
-2. An assigned/in-progress incident correction creates one event with the same incident reference.
-3. A no-op edit creates no event.
-4. A rejected edit creates no event.
-5. A transaction failure rolls back both the incident edit and its notification.
-6. Retrying push delivery does not duplicate the in-app notification.
-7. Sensitive request details are not copied into push payloads.
-8. A requester cannot read or mutate dispatch-only notification records.
-
-Do not implement this as a client-side notification call after the edit RPC. The server transaction must own event creation.
+**Scope and remaining verification:** the existing requester edit RPC only permits edits while an incident is pending and unassigned, so this event currently covers accepted pre-assignment corrections—not edits to an assigned/in-progress incident. Production Supabase was inspected read-only; this migration has not been applied there. Before deployment, replay the complete migration chain on a disposable database, execute the new contract and database integration tests, and confirm the Render FCM worker does not filter event types to the previous allowlist.
 
 ### B. Resource release and reassignment
 
