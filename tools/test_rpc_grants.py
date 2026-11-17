@@ -55,7 +55,6 @@ ACTIVE_CLIENT_RPCS = {
     "api_units",
     "api_unregister_fcm_token",
     "api_update_incident_status",
-    "api_update_my_assignment_status",
 }
 
 for name in ACTIVE_CLIENT_RPCS:
@@ -75,6 +74,25 @@ for name in ACTIVE_CLIENT_RPCS:
     assert grant.search(MIGRATION_SQL), (
         f"Missing explicit authenticated EXECUTE grant across migrations for {name}"
     )
+
+# Per-responder progress is intentionally retired: the dispatcher owns the
+# shared incident milestone. Keep the historical RPC names revoked rather than
+# treating them as active client APIs merely because older migrations granted them.
+LEGACY_DISABLED_RPCS = {
+    "public.api_update_my_assignment_status": r"\(bigint,\s*text\)",
+    "private.tacresq_update_my_assignment_status": r"\(bigint,\s*text\)",
+}
+
+for name, signature in LEGACY_DISABLED_RPCS.items():
+    revoke = re.compile(
+        rf"REVOKE\s+ALL(?:\s+PRIVILEGES)?\s+ON\s+FUNCTION\s+{re.escape(name)}{signature}\s+"
+        rf"FROM\s+PUBLIC,\s*anon,\s*authenticated\s*;",
+        re.IGNORECASE | re.DOTALL,
+    )
+    assert revoke.search(MIGRATION_SQL), (
+        f"Legacy per-responder RPC {name} must be explicitly revoked from authenticated clients"
+    )
+
 
 # The Render bridge is an additional network boundary: every RPC it exposes must
 # belong to the reviewed client RPC inventory above, whose explicit anon/PUBLIC
