@@ -618,7 +618,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
 
         if (recentClosedIncidents.isNotEmpty()) {
             item {
-                SectionHeading("Recently closed", "Latest 5 resolved or cancelled incidents · read-only history")
+                SectionHeading("Closed incidents", "Latest 5 by request date · resolved or cancelled · read-only history")
             }
             items(recentClosedIncidents, key = { "closed-${it.id}" }) { incident ->
                 var showClosedHistory by remember(incident.id) { mutableStateOf(false) }
