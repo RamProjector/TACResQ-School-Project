@@ -44,3 +44,13 @@ No Gradle build, unit tests, emulator/device run, map-tile/network test, or perf
 The map annotation effect previously depended directly on the incident and responder lists, plus route result objects. A refreshed list instance could therefore clear and recreate every annotation even when the rendered content had not changed. The effect now depends on a render signature containing the fields that affect marker position, title/snippet state, freshness bucket, and age label, plus compact device-coordinate and route-geometry signatures. Selection and navigation state remain explicit effect keys because they change the selected pin or active route. The signature deliberately excludes unrelated incident fields and backing-object identity.
 
 This reduces avoidable annotation churn but is not a measured performance claim: no profiler or device run was performed. The route signature uses the geometry list hash; if route geometry becomes very large or collision-safe incremental identity is needed, replace it with an explicit route revision/key supplied by the routing layer.
+
+
+## GPS annotation reconciliation — 2026-11-17
+
+- **Finding:** The prior redraw-key improvement reduced how often the annotation effect runs, but every run still called `map.clear()`, then recreated every incident/responder/device marker and the route. A change to one visible marker therefore rebuilt unrelated annotations.
+- **Implementation on PR #334:** Replaced whole-map clearing on ordinary refresh with stable-key reconciliation. Incident keys use incident IDs; field-unit keys use the incident/user pair; the one-time device fix has its own key. Existing marker objects update only when their rendered signature changes, disappeared markers alone are removed, and unchanged markers retain their MapLibre annotation IDs.
+- **Route isolation:** The route polyline is tracked separately and replaced only when the displayed route geometry signature changes. Marker changes no longer require recreating the route.
+- **Lifecycle boundary:** A full clear remains only when the underlying MapLibre map instance changes, preventing annotation references from being reused against a different map.
+- **Limitations:** This optimizes the existing legacy annotation renderer; it is not the clustering implementation or a migration away from deprecated APIs. The route signature still uses a geometry hash, so exact geometry comparison and profiling remain follow-up work.
+- **Validation:** No build, JVM tests, emulator, physical-device run, or profiling was performed for this commit, in accordance with the current instruction not to run checks after each commit.

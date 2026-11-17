@@ -1043,3 +1043,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Finding:** The MapLibre annotation effect watched raw incident/responder collections and route result objects. Routine refreshes could clear and recreate all markers and route lines even when visible marker content was unchanged.
 - **Implementation on PR #334:** Replaced raw collection/object dependencies with a render signature for incident coordinates/type/status/location source/accuracy/notes/age; responder coordinates/accuracy/freshness/age; device coordinates; and displayed route geometry. Map instance/style, selected incident, and live-navigation state remain explicit dependencies.
 - **Scope:** No renderer migration, data-model change, tracking behavior change, or freshness-threshold change. No profiling or tests run; improvement is an invalidation reduction by code inspection, not a measured performance result.
+
+
+## GPS renderer incremental reconciliation — 2026-11-17
+
+- Researched MapLibre Native Android 13.7.1 marker APIs. Existing markers expose mutable position/icon/title/snippet and MapLibreMap.updateMarker; individual markers and polylines can be removed without clearing the whole map. Official references: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.annotations/-marker/index.html and https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/index.html.
+- PR #334 now reconciles incident, field-unit, and device markers by stable domain keys. Unchanged markers retain their annotation objects/IDs; changed markers update in place; removed records remove only their own marker.
+- Route rendering is tracked independently and only replaced when the displayed route geometry hash changes. A full clear remains for a changed MapLibre map instance.
+- This reduces work by code-path inspection; no runtime profiling or device evidence is claimed. Route hash collision risk remains theoretical and should be eliminated by exact geometry signatures if this optimization is extended.
+- No clustering migration, API/provider change, database change, location-sharing change, or backend change was made. No tests/build/emulator/device checks run per user instruction.

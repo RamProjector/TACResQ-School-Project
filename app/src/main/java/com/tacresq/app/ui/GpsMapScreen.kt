@@ -99,7 +99,9 @@ import com.tacresq.app.ui.common.incidentLocationText
 import org.maplibre.android.MapLibre
 import org.maplibre.android.annotations.Icon
 import org.maplibre.android.annotations.IconFactory
+import org.maplibre.android.annotations.Marker
 import org.maplibre.android.annotations.MarkerOptions
+import org.maplibre.android.annotations.Polyline
 import org.maplibre.android.annotations.PolylineOptions
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -717,6 +719,12 @@ fun GpsMapScreen(
     var mapLoadError by remember(context, role) { mutableStateOf(false) }
     var mapHeaderBottomPx by remember { mutableStateOf(0) }
     val markerTargets = remember(context, role) { mutableMapOf<Long, GpsMapMarkerTarget>() }
+    // Keep annotation instances across refreshes; reconcile only changed features.
+    val renderedMarkers = remember(context, role) { mutableMapOf<String, Marker>() }
+    val renderedMarkerSignatures = remember(context, role) { mutableMapOf<String, String>() }
+    var renderedMapOwner by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
+    var renderedRoutePolyline by remember(context, role) { mutableStateOf<Polyline?>(null) }
+    var renderedRouteSignature by remember(context, role) { mutableStateOf<Int?>(null) }
     val mapView = remember(context, role) {
         MapLibre.getInstance(context)
         MapView(context).apply {
@@ -1384,9 +1392,49 @@ fun GpsMapScreen(
         val map = mapLibreMap
         if (map == null || !mapStyleLoaded) return@LaunchedEffect
 
-        // The map's annotations are a render of current, validated app state.
-        map.clear()
+        // Clear once when the underlying MapLibre map instance changes. Normal
+        // data refreshes are reconciled incrementally and retain unchanged annotations.
+        if (renderedMapOwner !== map) {
+            map.clear()
+            renderedMarkers.clear()
+            renderedMarkerSignatures.clear()
+            markerTargets.clear()
+            renderedRoutePolyline = null
+            renderedRouteSignature = null
+            renderedMapOwner = map
+        }
         markerTargets.clear()
+        val desiredMarkerKeys = mutableSetOf<String>()
+
+        fun upsertMarker(
+            key: String,
+            position: LatLng,
+            icon: Icon,
+            title: String,
+            snippet: String,
+            signature: String,
+        ): Marker {
+            desiredMarkerKeys += key
+            val existing = renderedMarkers[key]
+            if (existing == null) {
+                return map.addMarker(
+                    MarkerOptions().position(position).icon(icon).title(title).snippet(snippet),
+                ).also {
+                    renderedMarkers[key] = it
+                    renderedMarkerSignatures[key] = signature
+                }
+            }
+            if (renderedMarkerSignatures[key] != signature) {
+                existing.position = position
+                existing.icon = icon
+                existing.title = title
+                existing.snippet = snippet
+                map.updateMarker(existing)
+                renderedMarkerSignatures[key] = signature
+            }
+            return existing
+        }
+
         visibleIncidents.forEach { incident ->
             val latitude = incident.latitude
             val longitude = incident.longitude
@@ -1402,20 +1450,24 @@ fun GpsMapScreen(
                 } else null
                 val note = incident.locationNotes?.takeIf { it.isNotBlank() }
                 val locationAgeLabel = incident.locationAgeStatus(mapNow).first
-                val marker = map.addMarker(
-                    MarkerOptions()
-                        .position(LatLng(latitude, longitude))
-                        .icon(if (incident.id == selectedIncidentId) selectedIncidentPinIcon else incidentPinIcon)
-                        .title("Incident #${incident.id} · ${incident.type.label}")
-                        .snippet(
-                            listOfNotNull(
-                                source,
-                                accuracy,
-                                "Status: ${incident.status.label}",
-                                locationAgeLabel,
-                                note,
-                            ).joinToString(" · "),
-                        ),
+                val position = LatLng(latitude, longitude)
+                val title = "Incident #${incident.id} · ${incident.type.label}"
+                val snippet = listOfNotNull(
+                    source,
+                    accuracy,
+                    "Status: ${incident.status.label}",
+                    locationAgeLabel,
+                    note,
+                ).joinToString(" · ")
+                val marker = upsertMarker(
+                    key = "incident:${incident.id}",
+                    position = position,
+                    icon = if (incident.id == selectedIncidentId) selectedIncidentPinIcon else incidentPinIcon,
+                    title = title,
+                    snippet = snippet,
+                    signature = listOf(
+                        latitude, longitude, incident.id == selectedIncidentId, title, snippet,
+                    ).joinToString("|"),
                 )
                 markerTargets[marker.id] = GpsMapMarkerTarget(
                     type = GpsMapMarkerType.INCIDENT,
@@ -1437,18 +1489,21 @@ fun GpsMapScreen(
             } else {
                 "${freshness.label} location · last reported $age$accuracy. Dispatcher-only, consented foreground location."
             }
-            val marker = map.addMarker(
-                MarkerOptions()
-                    .position(LatLng(location.latitude, location.longitude))
-                    .icon(icon)
-                    .title(
-                        if (freshness == MapLocationFreshness.STALE) {
-                            "STALE field-unit location · Incident #${location.incidentId}"
-                        } else {
-                            "${freshness.label} field-unit location · Incident #${location.incidentId}"
-                        },
-                    )
-                    .snippet(snippet),
+            val position = LatLng(location.latitude, location.longitude)
+            val title = if (freshness == MapLocationFreshness.STALE) {
+                "STALE field-unit location · Incident #${location.incidentId}"
+            } else {
+                "${freshness.label} field-unit location · Incident #${location.incidentId}"
+            }
+            val marker = upsertMarker(
+                key = "field-unit:${location.incidentId}:${location.userId}",
+                position = position,
+                icon = icon,
+                title = title,
+                snippet = snippet,
+                signature = listOf(
+                    location.latitude, location.longitude, freshness.name, icon.hashCode(), title, snippet,
+                ).joinToString("|"),
             )
             markerTargets[marker.id] = GpsMapMarkerTarget(
                 type = GpsMapMarkerType.FIELD_UNIT,
@@ -1465,12 +1520,13 @@ fun GpsMapScreen(
             )
         }
         deviceFix?.let { fix ->
-            val marker = map.addMarker(
-                MarkerOptions()
-                    .position(LatLng(fix.latitude, fix.longitude))
-                    .icon(myLocationPinIcon)
-                    .title("Your location · this device only")
-                    .snippet("One-time location preview. Not uploaded or continuously tracked."),
+            val marker = upsertMarker(
+                key = "device-location",
+                position = LatLng(fix.latitude, fix.longitude),
+                icon = myLocationPinIcon,
+                title = "Your location · this device only",
+                snippet = "One-time location preview. Not uploaded or continuously tracked.",
+                signature = "${fix.latitude}|${fix.longitude}",
             )
             markerTargets[marker.id] = GpsMapMarkerTarget(
                 type = GpsMapMarkerType.DEVICE_LOCATION,
@@ -1479,13 +1535,24 @@ fun GpsMapScreen(
                 summary = "One-time preview only · not uploaded or continuously tracked",
             )
         }
-        displayedRoute?.let { route ->
-            map.addPolyline(
-                PolylineOptions()
-                    .addAll(route.geometry.map { LatLng(it.latitude, it.longitude) })
-                    .color(Color.rgb(0, 119, 182))
-                    .width(6f),
-            )
+        val routeSignature = displayedRoute?.geometry?.hashCode()
+        if (renderedRouteSignature != routeSignature) {
+            renderedRoutePolyline?.let(map::removePolyline)
+            renderedRoutePolyline = displayedRoute?.let { route ->
+                map.addPolyline(
+                    PolylineOptions()
+                        .addAll(route.geometry.map { LatLng(it.latitude, it.longitude) })
+                        .color(Color.rgb(0, 119, 182))
+                        .width(6f),
+                )
+            }
+            renderedRouteSignature = routeSignature
+        }
+
+        // Remove only records no longer present in the validated visible set.
+        (renderedMarkers.keys - desiredMarkerKeys).forEach { key ->
+            renderedMarkers.remove(key)?.let(map::removeMarker)
+            renderedMarkerSignatures.remove(key)
         }
 
         val shouldFrameInitialUnits = !hasAutoFramedInitialMapPoints &&
