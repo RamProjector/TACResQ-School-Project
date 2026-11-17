@@ -9,6 +9,8 @@ use Throwable;
 
 final class ApiOperationAuditLogger
 {
+    // Bound best-effort telemetry on emergency request paths. One audit write
+    // can wait at most 250 ms; Auth plus RPC may incur two such attempts.
     /**
      * Persist metadata-only telemetry with the server-side Supabase secret.
      * Logging is fail-open: an audit outage must not break an operational API
@@ -61,8 +63,8 @@ final class ApiOperationAuditLogger
             $response = Http::acceptJson()
                 ->asJson()
                 ->withHeaders($headers)
-                ->connectTimeout(1)
-                ->timeout(1)
+                ->connectTimeout(0.2)
+                ->timeout(0.25)
                 ->post($baseUrl.'/rest/v1/api_operation_logs', $payload);
 
             if (!$response->successful()) {
