@@ -302,7 +302,7 @@ private fun GpsMapFilterButtons(
         if (hasIncidents) {
             androidx.compose.material3.AssistChip(
                 onClick = onShowIncidents,
-                modifier = Modifier.heightIn(min = 44.dp).semantics {
+                modifier = Modifier.heightIn(min = 48.dp).semantics {
                     contentDescription = "Center map on active incidents"
                 },
                 label = { Text("Incidents", maxLines = 1) },
@@ -318,7 +318,7 @@ private fun GpsMapFilterButtons(
         if (role == Role.DISPATCHER && hasActiveUnits) {
             androidx.compose.material3.AssistChip(
                 onClick = onShowActiveUnits,
-                modifier = Modifier.heightIn(min = 44.dp).semantics {
+                modifier = Modifier.heightIn(min = 48.dp).semantics {
                     contentDescription = "Center map on responder field units"
                 },
                 label = { Text("Field units", maxLines = 1) },

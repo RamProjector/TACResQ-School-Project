@@ -1,3 +1,9 @@
+# GPS map filter touch targets
+
+- Increased the Incidents and Field units map filter chips to a 48 dp minimum height, aligning their tap area with the other primary map actions and improving reachability on touch devices.
+- Scope: filter control sizing only. Filter behavior, map camera actions, incident visibility, and responder data are unchanged.
+- Validation: not run per the requested incremental-commit cadence; device review remains outstanding.
+
 # GPS field-unit list touch targets
 
 - Raised each actionable dispatcher field-unit location row to a minimum 48 dp height so its map-centering action is reliably reachable on compact screens and easier to tap without changing the freshness details or interaction.
