@@ -1,3 +1,13 @@
+# Current handoff — 2026-11-17: preserve GPS map status context in collapsed sheet
+
+- **Finding:** The collapsed map sheet forced its status/supporting message onto one line. Longer operational messages (such as location-permission guidance and dispatcher field-unit freshness) were routinely ellipsized.
+- **Implementation:** Allow the collapsed map summary up to two lines while retaining ellipsis for narrow windows and unusually long messages.
+- **Scope:** Summary text layout only. Map state, GPS permissions, incident visibility, routing, and sheet expansion behavior are unchanged.
+- **Validation:** Not run per incremental-commit instruction; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI refinements on PR #334; consolidate validation after implementation changes are complete.
+
+---
+
 # Current handoff — 2026-11-17: accessible GPS map loading feedback
 
 - **Objective:** Ensure assistive-technology users receive the same map-loading feedback that sighted users see.
