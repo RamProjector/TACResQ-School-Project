@@ -119,3 +119,10 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Map load success/failure listeners are now retained and explicitly removed when the GPS screen disposes.
 - Listener callbacks ignore events after disposal; the asynchronous `getMapAsync` callback also exits if the screen was already disposed.
 - This closes a lifecycle cleanup gap. Repeated navigation and delayed initialization still require device verification. No tests/build checks run.
+
+
+## Unified MapView lifecycle ownership — 2026-11-17
+
+- MapView setup, load listeners, lifecycle observer, and destruction now share one Compose effect rather than relying on disposal ordering between two effects.
+- Teardown order is explicit: mark disposed, unregister map listeners, remove lifecycle observer, pause/stop active states, then destroy MapView. The map-ready callback checks the same effect-scoped disposed flag.
+- No build/test/device checks run; lifecycle transition testing remains required.

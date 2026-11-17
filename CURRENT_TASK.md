@@ -1,3 +1,9 @@
+## Unified MapView lifecycle ownership — 2026-11-17
+
+- **Finding:** MapView destruction and lifecycle pause/stop were split across two independent Compose effects. Their disposal ordering was not explicit, so teardown could destroy the native map before its pause/stop callbacks.
+- **Fix on PR #334:** Consolidated map load listeners, asynchronous map-ready callback, lifecycle observer, and native MapView destruction under one `DisposableEffect`. Teardown now removes listeners, unregisters the observer, pauses/stops only if active, then destroys the view exactly once.
+- **Validation:** No tests/build/device checks run. Verify screen exit while resumed, while paused, and during map initialization; also verify returning from background.
+
 ## MapView listener and disposal cleanup — 2026-11-17
 
 - **Finding:** The MapView registered map-load success/failure listeners without removing them on composable disposal. Its asynchronous `getMapAsync` callback also had no disposed-screen guard.

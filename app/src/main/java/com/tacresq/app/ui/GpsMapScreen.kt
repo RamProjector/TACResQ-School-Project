@@ -746,8 +746,62 @@ fun GpsMapScreen(
         }
     }
 
-    DisposableEffect(mapView) {
+    DisposableEffect(mapView, lifecycleOwner) {
         var disposed = false
+        var mapIsStarted = false
+        var mapIsResumed = false
+        val lifecycle = lifecycleOwner.lifecycle
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> {
+                    if (!mapIsStarted) {
+                        mapView.onStart()
+                        mapIsStarted = true
+                    }
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    if (!mapIsStarted) {
+                        mapView.onStart()
+                        mapIsStarted = true
+                    }
+                    if (!mapIsResumed) {
+                        mapView.onResume()
+                        mapIsResumed = true
+                    }
+                    if (!locationProvider.hasPermission() && latestDeviceFix != null) {
+                        deviceFix = null
+                        locationStatus = "Location permission is off. Previous preview cleared. Grant permission to locate again."
+                    }
+                    if (locationProvider.hasPermission()) showAppSettingsAction = false
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    if (mapIsResumed) {
+                        mapView.onPause()
+                        mapIsResumed = false
+                    }
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    if (mapIsResumed) {
+                        mapView.onPause()
+                        mapIsResumed = false
+                    }
+                    if (mapIsStarted) {
+                        mapView.onStop()
+                        mapIsStarted = false
+                    }
+                }
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(lifecycleObserver)
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && !mapIsStarted) {
+            mapView.onStart()
+            mapIsStarted = true
+        }
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !mapIsResumed) {
+            mapView.onResume()
+            mapIsResumed = true
+        }
         val failLoadingListener = MapView.OnDidFailLoadingMapListener {
             if (!disposed) {
                 mapDataLoaded = false
@@ -822,6 +876,9 @@ fun GpsMapScreen(
             disposed = true
             mapView.removeOnDidFailLoadingMapListener(failLoadingListener)
             mapView.removeOnDidFinishLoadingMapListener(finishLoadingListener)
+            lifecycle.removeObserver(lifecycleObserver)
+            if (mapIsResumed) mapView.onPause()
+            if (mapIsStarted) mapView.onStop()
             mapView.onDestroy()
             mapLibreMap = null
             mapStyleLoaded = false
@@ -1346,68 +1403,6 @@ fun GpsMapScreen(
             locateOnce()
         } else {
             locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
-        }
-    }
-
-    DisposableEffect(mapView, lifecycleOwner) {
-        val lifecycle = lifecycleOwner.lifecycle
-        var mapIsStarted = false
-        var mapIsResumed = false
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> {
-                    if (!mapIsStarted) {
-                        mapView.onStart()
-                        mapIsStarted = true
-                    }
-                }
-                Lifecycle.Event.ON_RESUME -> {
-                    if (!mapIsStarted) {
-                        mapView.onStart()
-                        mapIsStarted = true
-                    }
-                    if (!mapIsResumed) {
-                        mapView.onResume()
-                        mapIsResumed = true
-                    }
-                    if (!locationProvider.hasPermission() && latestDeviceFix != null) {
-                        deviceFix = null
-                        locationStatus = "Location permission is off. Previous preview cleared. Grant permission to locate again."
-                    }
-                    if (locationProvider.hasPermission()) showAppSettingsAction = false
-                }
-                Lifecycle.Event.ON_PAUSE -> {
-                    if (mapIsResumed) {
-                        mapView.onPause()
-                        mapIsResumed = false
-                    }
-                }
-                Lifecycle.Event.ON_STOP -> {
-                    if (mapIsResumed) {
-                        mapView.onPause()
-                        mapIsResumed = false
-                    }
-                    if (mapIsStarted) {
-                        mapView.onStop()
-                        mapIsStarted = false
-                    }
-                }
-                else -> Unit
-            }
-        }
-        lifecycle.addObserver(observer)
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && !mapIsStarted) {
-            mapView.onStart()
-            mapIsStarted = true
-        }
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !mapIsResumed) {
-            mapView.onResume()
-            mapIsResumed = true
-        }
-        onDispose {
-            lifecycle.removeObserver(observer)
-            if (mapIsResumed) mapView.onPause()
-            if (mapIsStarted) mapView.onStop()
         }
     }
 
