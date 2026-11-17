@@ -1179,11 +1179,19 @@ fun GpsMapScreen(
                 } else {
                     LatLng(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE)
                 }
+                // Saved camera state can outlive map/provider changes or be corrupted.
+                // Keep restored values inside MapLibre's supported camera ranges.
+                val restoredZoom = savedCameraZoom
+                    ?.takeIf { it.isFinite() && it in 0.0..22.0 } ?: 12.0
+                val restoredBearing = savedCameraBearing
+                    ?.takeIf { it.isFinite() }?.let { ((it % 360.0) + 360.0) % 360.0 } ?: 0.0
+                val restoredTilt = savedCameraTilt
+                    ?.takeIf { it.isFinite() }?.coerceIn(0.0, 60.0) ?: 0.0
                 map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
                     .target(restoredTarget)
-                    .zoom(savedCameraZoom?.takeIf { it.isFinite() } ?: 12.0)
-                    .bearing(savedCameraBearing?.takeIf { it.isFinite() } ?: 0.0)
-                    .tilt(savedCameraTilt?.takeIf { it.isFinite() } ?: 0.0)
+                    .zoom(restoredZoom)
+                    .bearing(restoredBearing)
+                    .tilt(restoredTilt)
                     .build()
             }
         }
