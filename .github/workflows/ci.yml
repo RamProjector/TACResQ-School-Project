@@ -268,10 +268,10 @@ jobs:
         working-directory: backend/web
         run: pnpm install --frozen-lockfile
 
-      - name: Type-check and build dashboard for /dispatch/
+      - name: Type-check and build admin portal for /admin/
         working-directory: backend/web
         env:
-          VITE_BASE_PATH: /dispatch/
+          VITE_BASE_PATH: /admin/
         run: pnpm build
 
       - name: Check RPC and table privilege grants
@@ -507,33 +507,33 @@ jobs:
       - name: Verify dashboard document and static assets
         working-directory: backend
         run: |
-          curl --fail --silent --show-error http://127.0.0.1:8000/dispatch/ --output /tmp/dispatch.html
-          curl --fail --silent --show-error http://127.0.0.1:8000/dispatch/tacru-mark.svg --output /dev/null
+          curl --fail --silent --show-error http://127.0.0.1:8000/admin/ --output /tmp/admin.html
+          curl --fail --silent --show-error http://127.0.0.1:8000/admin/tacru-mark.svg --output /dev/null
           python3 - <<'PY'
           import re
           from pathlib import Path
 
-          html = Path('/tmp/dispatch.html').read_text()
+          html = Path('/tmp/admin.html').read_text()
           source = Path('web/index.html').read_text()
           title_match = re.search(r'<title>.*?</title>', source)
-          assert title_match, 'Dashboard title missing from source index'
+          assert title_match, 'Admin portal title missing from source index'
           expected_title = title_match.group(0)
           print(f'Expected dashboard title from source: {expected_title}')
           assert expected_title in html, f'Served dashboard title differs from source: {expected_title}'
-          assert '/dispatch/assets/' in html, 'Dashboard asset base path missing'
-          print('Dashboard document and logo were served successfully.')
+          assert '/admin/assets/' in html, 'Admin portal asset base path missing'
+          print('Admin portal document and logo were served successfully.')
           PY
 
       - name: Verify runtime configuration endpoint
         working-directory: backend
         run: |
           curl --fail --silent --show-error --dump-header /tmp/config-headers.txt \
-            http://127.0.0.1:8000/runtime-config.json --output /tmp/dispatch-config.json
+            http://127.0.0.1:8000/runtime-config.json --output /tmp/admin-config.json
           python3 - <<'PY'
           import json
           from pathlib import Path
 
-          config = json.loads(Path('/tmp/dispatch-config.json').read_text())
+          config = json.loads(Path('/tmp/admin-config.json').read_text())
           headers = Path('/tmp/config-headers.txt').read_text().lower().replace('\r', '')
           expected = {
               'supabaseUrl': 'https://tacresq-ci.example.test',
