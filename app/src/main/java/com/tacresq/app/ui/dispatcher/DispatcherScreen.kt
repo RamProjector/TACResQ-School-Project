@@ -566,7 +566,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                 }
                                 state.assignmentHistoryError != null -> {
                                     Text(
-                                        state.assignmentHistoryError,
+                                        state.assignmentHistoryError.orEmpty(),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.error,
                                     )
