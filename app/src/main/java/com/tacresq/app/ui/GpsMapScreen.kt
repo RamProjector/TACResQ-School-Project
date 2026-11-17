@@ -1968,7 +1968,7 @@ fun GpsMapScreen(
                 Triple(staleResponderClusterSource, STALE_RESPONDER_CLUSTER_LAYER_ID, false),
             )
             val clusterHits = clusterLayers.mapNotNull { (source, layerId, incidents) ->
-                val feature = map.queryRenderedFeatures(pixel, arrayOf(layerId)).firstOrNull()
+                val feature = map.queryRenderedFeatures(pixel, layerId).firstOrNull()
                     ?: return@mapNotNull null
                 if (!feature.hasProperty("point_count") || source == null) return@mapNotNull null
                 Triple(source, feature, incidents)
