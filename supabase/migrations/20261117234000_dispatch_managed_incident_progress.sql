@@ -255,4 +255,7 @@ $function$;
 REVOKE ALL ON FUNCTION public.api_update_incident_status(bigint,text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_update_incident_status(bigint,text) TO authenticated;
 
+-- New clients must not call the legacy per-responder status mutation.
+REVOKE ALL ON FUNCTION public.api_update_my_assignment_status(bigint,text) FROM PUBLIC, anon, authenticated;
+
 COMMIT;
