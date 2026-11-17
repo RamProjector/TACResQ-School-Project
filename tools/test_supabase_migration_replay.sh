@@ -295,6 +295,32 @@ BEGIN
     RAISE EXCEPTION 'Legacy per-responder status RPCs must not be executable by authenticated clients';
   END IF;
 
+  -- Field units cannot self-assert operational duty states; dispatch cannot
+  -- write a duty state that does not match the assigned incident milestone.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
+  rejected := false;
+  BEGIN
+    UPDATE public.profiles SET duty_status = 'en_route' WHERE id = responder_one_id;
+    RAISE EXCEPTION 'Responder must not self-assert en_route duty status';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Responder self-set duty status unexpectedly succeeded';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', true);
+  rejected := false;
+  BEGIN
+    UPDATE public.profiles SET duty_status = 'on_scene' WHERE id = responder_one_id;
+    RAISE EXCEPTION 'Dispatcher must not set a duty status ahead of the incident milestone';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Dispatcher mismatched duty status unexpectedly succeeded';
+  END IF;
+
   -- A field unit may not advance shared incident progress through the dispatcher RPC.
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000125', true);
   rejected := false;
