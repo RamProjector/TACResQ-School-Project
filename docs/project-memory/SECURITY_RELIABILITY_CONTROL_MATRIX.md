@@ -275,3 +275,13 @@ Recommended coverage model:
 5. **Sensitive reads:** avoid indiscriminately logging every location/chat read as a domain audit event. If access auditing is required, define which high-risk reads matter, minimize target metadata, and validate event volume and retention first.
 
 This design preserves atomicity for successful business changes without promising complete failed-attempt coverage from a table that shares the business transaction. No schema, migration, live setting, or application behavior was changed during this review.
+## Claimable-queue index and plan evidence — 2026-11-17
+
+Read-only catalog and EXPLAIN review of the live claimable-queue query found:
+
+- `incidents` has approximately two estimated rows in the current live statistics and is only 88 kB; `incident_assignments` is 48 kB (its row estimate is unavailable in the returned statistics). This is far too small a workload to justify index changes based on estimates alone.
+- Existing indexes include `idx_incidents_claimable` on `(status, is_claimable)` with a partial predicate `is_claimable = true`, and the `incident_assignments` primary key `(incident_id, user_id)` plus `(user_id, incident_id)`.
+- The EXPLAIN plan uses `idx_incidents_claimable` for the incident filter and the assignment primary-key index for the correlated count and member lookup. It performs an explicit sort for oldest-first incident ordering and another small sort for assigned-member ordering.
+- The current plan is inexpensive at current scale; this does not demonstrate acceptable latency or memory use for a large operational queue.
+
+Recommendation: do not add speculative indexes or remove existing indexes now. If queue pagination is designed later, benchmark with realistic synthetic volume and compare plans for the exact cursor predicate/order. A candidate partial ordered index may be evaluated only if the benchmark shows a material sort/filter bottleneck. Preserve the existing assignment index coverage unless measured evidence supports a change. No indexes or query functions were modified.
