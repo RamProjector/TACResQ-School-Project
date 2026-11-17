@@ -67,6 +67,7 @@ class SessionStore(
     // Fake/test API mode must never write pending SOS state into the real app's DataStore.
     private var inMemoryPendingIncident: PendingIncidentSubmission? = null
     private var inMemoryPendingChatMessage: PendingChatMessage? = null
+    private var inMemoryPendingChatImage: PendingChatImage? = null
     private var inMemoryRequesterDraft: RequesterDraft? = null
     private var inMemoryRequesterIncidents: CachedRequesterIncidents? = null
 
@@ -289,6 +290,9 @@ class SessionStore(
             if (saved != record) throw PendingIncidentConflictException("Resolve the earlier unconfirmed message in its original incident before sending different content.")
         }
         if (!persistSessions) {
+            if (inMemoryPendingChatImage != null) {
+                throw PendingIncidentConflictException("An image message is awaiting confirmation. Resolve it before sending another message.")
+            }
             val saved = inMemoryPendingChatMessage
             if (saved != null) verify(saved) else inMemoryPendingChatMessage = record
             return@withLock
@@ -316,8 +320,10 @@ class SessionStore(
         require(record.sha256.matches(Regex("^[a-f0-9]{64}$")))
         UUID.fromString(record.clientMessageId)
         if (!persistSessions) {
-            val existing = inMemoryPendingChatMessage
-            if (existing != null) throw PendingIncidentConflictException("A text message is awaiting confirmation. Resolve it before sending an image.")
+            if (inMemoryPendingChatMessage != null) throw PendingIncidentConflictException("A text message is awaiting confirmation. Resolve it before sending an image.")
+            val saved = inMemoryPendingChatImage
+            if (saved != null && saved != record) throw PendingIncidentConflictException("Resolve the earlier unconfirmed image before sending different content.")
+            inMemoryPendingChatImage = record
             return@withLock
         }
         dataStore.edit { prefs ->
@@ -339,7 +345,11 @@ class SessionStore(
 
     suspend fun getPendingChatImage(ownerUserId: Long): PendingChatImage? = pendingChatMessageMutex.withLock {
         require(ownerUserId > 0L)
-        if (!persistSessions) return@withLock null
+        if (!persistSessions) {
+            val saved = inMemoryPendingChatImage ?: return@withLock null
+            if (saved.ownerUserId != ownerUserId) throw PendingIncidentConflictException("A saved image retry belongs to another account on this device.")
+            return@withLock saved
+        }
         val encoded = dataStore.data.first()[pendingChatImageKey] ?: return@withLock null
         val saved = runCatching { gson.fromJson(decrypt(encoded), PendingChatImage::class.java) }
             .getOrElse { throw PendingIncidentConflictException("The saved image retry could not be restored safely.") }
@@ -350,7 +360,14 @@ class SessionStore(
 
     suspend fun clearPendingChatImage(clientMessageId: String, ownerUserId: Long): Unit = pendingChatMessageMutex.withLock {
         require(ownerUserId > 0L)
-        if (!persistSessions) return@withLock
+        if (!persistSessions) {
+            val saved = inMemoryPendingChatImage
+            if (saved?.clientMessageId == clientMessageId) {
+                if (saved.ownerUserId != ownerUserId) throw PendingIncidentConflictException("This image retry belongs to another account.")
+                inMemoryPendingChatImage = null
+            }
+            return@withLock
+        }
         dataStore.edit { prefs ->
             val encoded = prefs[pendingChatImageKey] ?: return@edit
             val saved = runCatching { gson.fromJson(decrypt(encoded), PendingChatImage::class.java) }
