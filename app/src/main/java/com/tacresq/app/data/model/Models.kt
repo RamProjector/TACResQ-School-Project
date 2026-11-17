@@ -67,7 +67,7 @@ enum class IncidentStatus(val label: String) {
             ASSIGNED -> "Dispatch has assigned a response team. Deployment has not yet been recorded."
             EN_ROUTE -> "Dispatch has recorded that the assigned team has been deployed."
             ON_SCENE -> "Dispatch has recorded that the team has arrived at the incident location."
-            TRANSPORTING -> "Dispatch has recorded that patient or assisted-person transport is in progress."
+            TRANSPORTING -> "Dispatch has recorded that transport is in progress for this incident."
             RESOLVED -> "Dispatch has marked this response as completed."
             CANCELLED -> "This emergency request has been cancelled."
         }
