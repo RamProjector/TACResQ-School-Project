@@ -825,15 +825,8 @@ BEGIN
   END IF;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
-  denied := false;
-  BEGIN
-    PERFORM public.api_admin_list_users();
-  EXCEPTION WHEN insufficient_privilege THEN
-    denied := true;
-  END;
-  IF NOT denied THEN
-    RAISE EXCEPTION 'Authenticated Admin must not execute the legacy unbounded user-list RPC';
-  END IF;
+  -- Function EXECUTE revocation is asserted above via has_function_privilege.
+  -- The dedicated SET ROLE authenticated test below verifies runtime denial.
 
   changed := public.api_admin_list_users_page(25, 0, '', 'all');
   IF jsonb_typeof(changed) IS DISTINCT FROM 'object'
