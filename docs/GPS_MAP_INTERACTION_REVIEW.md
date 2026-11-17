@@ -291,3 +291,11 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Added a focused source contract and wired it into CI.
 - No map selection, source validation, paging size, API, or database behavior changed.
 - Static source inspection only. Contract test, Android build, emulator, and physical-device validation were not run.
+
+
+## GPS camera-state restoration bounds — 2026-11-18
+
+- Sanitized persisted MapLibre camera values before restoring them: zoom must be finite and within 0–22, bearing is normalized to 0–360, and tilt is clamped to 0–60 degrees. Invalid zoom/tilt/bearing values fall back to safe defaults.
+- This protects map reopening from stale or malformed saved camera state without changing valid user camera positions, map data, location permissions, or incident coordinates.
+- Added a focused source contract and CI step.
+- Validation: source-level change only; contract execution, Gradle build, emulator, and physical-device camera checks have not yet been run.
