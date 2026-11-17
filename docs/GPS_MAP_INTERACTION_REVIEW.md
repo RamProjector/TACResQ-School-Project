@@ -54,3 +54,31 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - **Lifecycle boundary:** A full clear remains only when the underlying MapLibre map instance changes, preventing annotation references from being reused against a different map.
 - **Limitations:** This optimizes the existing legacy annotation renderer; it is not the clustering implementation or a migration away from deprecated APIs. The route signature still uses a geometry hash, so exact geometry comparison and profiling remain follow-up work.
 - **Validation:** No build, JVM tests, emulator, physical-device run, or profiling was performed for this commit, in accordance with the current instruction not to run checks after each commit.
+
+
+## GeoJSON clustering research and design constraints — 2026-11-17
+
+### Confirmed MapLibre Android capability
+
+- The app currently uses `org.maplibre.gl:android-sdk-opengl:13.7.1`. The Android GeoJSON source API exposes `GeoJsonOptions.withCluster`, `withClusterMaxZoom`, `withClusterMinPoints`, `withClusterRadius`, and custom cluster properties. GeoJSON clustering has been supported by MapLibre Native Android since 4.2.0, so the current SDK line is new enough for the core feature.
+- Cluster features expose `cluster_id` and `point_count`. The Android `GeoJsonSource` API exposes `getClusterExpansionZoom(feature)`, `getClusterChildren(feature)`, and `getClusterLeaves(feature, limit, offset)`. Use expansion zoom for normal taps; use bounded leaf retrieval only when a chooser is actually needed.
+- **Radius unit correction:** Android's `GeoJsonOptions.withClusterRadius(Int)` documentation describes the radius in 1/512ths of a tile. Do not treat the numeric value as Android dp or blindly copy it as a fixed screen-pixel radius. Validate visual density/zoom behavior on device.
+- Official references: [GeoJsonOptions](https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-options/index.html), [withClusterRadius](https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-options/with-cluster-radius.html), [getClusterExpansionZoom](https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-source/get-cluster-expansion-zoom.html), [getClusterLeaves](https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-source/get-cluster-leaves.html), and [official Android clustering example](https://maplibre.org/maplibre-native/android/examples/styling/circle-layer/).
+
+### TACResQ source/layer architecture
+
+- Keep **incident** and **field-unit** points in separate GeoJSON sources. A combined count would be operationally ambiguous and could imply responder availability/assignment that the data does not establish.
+- Keep the one-time device fix outside both cluster sources. It is device-local preview state, not an incident or responder report.
+- Split fresh/aging and stale field-unit reports into separate render groups unless the UI can clearly communicate freshness composition for every cluster. Never render a mixed cluster as if all reports are live.
+- Keep stable domain IDs in feature properties (incident ID; incident ID + user ID for field-unit reports). Never recover identity from a visible title or cluster count.
+- Cluster circles/count labels and unclustered symbols should be separate style layers per source. Selected incident/field-unit state must remain visible and be re-applied after source updates/style reloads.
+- Cluster taps should animate to `getClusterExpansionZoom`; if zoom cannot separate the cluster, open a bounded chooser backed by `getClusterLeaves`. Revalidate selected feature IDs against current app state before opening details.
+- Routes remain a separate line source/layer or existing route annotation; they must not participate in point clustering.
+
+### Migration and validation gates
+
+- Do not combine clustering migration with the annotation-plugin migration. Legacy `Marker` APIs are deprecated from MapLibre 7.0, but replacing the renderer and changing interaction semantics simultaneously would enlarge regression risk.
+- Build and style sources only after the map style has loaded; recreate source/layer registrations on style reload while retaining the current app-state feature data.
+- Update GeoJSON source data rather than clearing/rebuilding all map annotations on every refresh.
+- Before release, test zero/one/two points, dense same-type points, incident/responder coordinates that overlap, stale/fresh field units, selected marker changes, source refresh during a cluster tap, cluster leaf pagination, route visibility, style reload, offline tiles, and compact/foldable layouts.
+- No cluster renderer has been implemented in this documentation commit. The current PR implementation remains incremental reconciliation of legacy annotations; actual cluster rollout requires a separate renderer implementation and exact-head validation.

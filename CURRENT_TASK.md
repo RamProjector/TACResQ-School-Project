@@ -1052,3 +1052,13 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Route rendering is tracked independently and only replaced when the displayed route geometry hash changes. A full clear remains for a changed MapLibre map instance.
 - This reduces work by code-path inspection; no runtime profiling or device evidence is claimed. Route hash collision risk remains theoretical and should be eliminated by exact geometry signatures if this optimization is extended.
 - No clustering migration, API/provider change, database change, location-sharing change, or backend change was made. No tests/build/emulator/device checks run per user instruction.
+
+
+## MapLibre clustering research — 2026-11-17
+
+- Confirmed the current MapLibre Android 13.7.1 SDK supports native GeoJSON clustering; core Android support dates to 4.2.0. APIs include cluster enablement/radius/max zoom/min points, cluster expansion zoom, child retrieval, and leaf retrieval.
+- Corrected cluster-radius interpretation: `withClusterRadius` is measured in 1/512ths of a tile in the Android API documentation, not Android dp. Do not reuse a numeric default as a dp/screen-pixel specification.
+- Architecture decision: separate incident and field-unit sources; keep device preview and routes outside clusters; keep stale responder locations distinguishable from fresh/aging reports; use stable domain IDs and revalidate tapped leaves against current state.
+- Cluster taps should expand by native expansion zoom, falling back to a bounded leaf chooser only when expansion cannot separate points. Preserve selected-feature state through data/style updates.
+- Keep renderer clustering and legacy Annotation Plugin migration as separate changes. Current PR source change only reduces redraw churn; this research does not claim clustering is implemented.
+- References: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-options/index.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-source/get-cluster-expansion-zoom.html ; https://maplibre.org/maplibre-native/android/examples/styling/circle-layer/.
