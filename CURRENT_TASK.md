@@ -1478,3 +1478,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Updated `tools/test_assignment_history_api_contract.py` to guard the accurate label. No incident timestamps, API fields, database schema, ordering logic, or history access behavior changed.
 - Commits: `df8c4c4` (UI copy), `8f84a49` (source contract).
 - Validation: source review only; the static contract test and Android build have not been executed. No production Supabase or Render changes were made.
+
+## 2026-11-18 — Assignment-history panel state
+- Fixed a dispatcher UI state mismatch: the screen stores one assignment-history result in the ViewModel, but each incident card previously kept an independent expanded flag. Expanding multiple cards could leave earlier cards showing a permanent loading state while the shared result belonged to the most recently opened incident.
+- Active and closed incident cards now share one expanded incident ID, so opening another timeline closes the previous panel and the visible panel always matches the single loaded history result. History remains read-only.
+- Updated the source contract to guard the single-panel behavior and removed an obsolete assertion left behind by the prior closed-incident heading clarification.
+- Commits: `0a169fb` (UI), `98783bd` (source contract).
+- Validation: source-level review only; no test execution, Gradle build, emulator/device check, or production backend change performed.
