@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
@@ -104,8 +105,17 @@ fun RoleShell(
                             .weight(1f)
                             .fillMaxSize()
                             .background(MaterialTheme.colorScheme.background),
+                        contentAlignment = Alignment.TopCenter,
                     ) {
-                        content()
+                        // Keep operational cards and text readable on large windows
+                        // instead of stretching every role screen across the full tablet width.
+                        Box(
+                            modifier = Modifier
+                                .widthIn(max = 960.dp)
+                                .fillMaxSize(),
+                        ) {
+                            content()
+                        }
                     }
                 }
             } else {
