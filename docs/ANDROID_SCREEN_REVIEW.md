@@ -141,3 +141,11 @@ This register tracks visible UI findings from source review. A change is not con
 - **Fix:** Pending and active section subtitles now switch to “Last loaded queue · unconfirmed” whenever the incident/unit assignment snapshot is not fresh. The normal oldest-first and team-progress descriptions return after a successful incident/unit refresh.
 - **Scope:** Display-only. Cached records remain visible; queue filtering, sorting, incident visibility, assignment eligibility, and dispatch actions are unchanged.
 - **Validation:** Source inspection only. No build, automated tests, emulator, or device validation performed.
+
+
+## Dispatcher team progress completeness — 2026-11-17
+
+- **Finding:** Team progress used the number of returned per-member status rows as its denominator. If `assigned_user_statuses` omitted one or more assigned members, the UI could present a smaller team as though it were the full response team; unrelated status rows could also inflate the count.
+- **Fix:** Progress is now calculated only from distinct status rows whose user IDs belong to the incident's assigned team. The denominator uses the assigned team IDs, and missing status rows are explicitly reported as unavailable. When no matching status rows exist, the UI says individual updates are unavailable instead of hiding that limitation.
+- **Scope:** Display-only. No assignment roster, status transition, backend query, or dispatch behavior changed.
+- **Validation:** Source inspection only. No build, automated tests, emulator, or device validation performed.

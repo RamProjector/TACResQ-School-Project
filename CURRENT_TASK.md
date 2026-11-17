@@ -1393,3 +1393,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Updated pending and active incident section subtitles to identify the displayed queue as the last loaded, unconfirmed snapshot while refresh is in progress or incident/unit data is stale.
 - Cached incident cards remain visible. No queue, assignment, or dispatch behavior changed.
 - Commit: pending at handoff; source review only. No build/tests/emulator/device validation performed.
+
+
+## PR #334 — Dispatcher team progress completeness (2026-11-17)
+
+- Team progress now uses the assigned-user roster as its denominator and counts only distinct per-member status rows belonging to that roster.
+- Missing per-member status rows are identified as unavailable; no assignment or status behavior changed.
+- Commit: pending at handoff; source review only. No build/tests/emulator/device validation performed.

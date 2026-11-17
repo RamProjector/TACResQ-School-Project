@@ -388,13 +388,24 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
                 val teamNames = state.units.filter { it.id in teamIds }.joinToString(", ") { it.name }
                 val remainingTeamSlots = (5 - teamIds.distinct().size).coerceAtLeast(0)
-                if (incident.assignedUserStatuses.isEmpty()) {
+                val reportedMemberStatuses = incident.assignedUserStatuses
+                    .filter { it.userId in teamIds }
+                    .distinctBy { it.userId }
+                if (reportedMemberStatuses.isEmpty()) {
                     Text("Team: ${teamNames.ifBlank { "Not assigned" }}")
+                    if (teamIds.isNotEmpty()) {
+                        Text(
+                            "Individual responder status updates are unavailable.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 } else {
-                    val updatedMemberCount = incident.assignedUserStatuses.count {
+                    val updatedMemberCount = reportedMemberStatuses.count {
                         it.status != IncidentStatus.ASSIGNED
                     }
-                    val teamCount = incident.assignedUserStatuses.size
+                    val reportedMemberCount = reportedMemberStatuses.size
+                    val missingMemberCount = (teamIds.size - reportedMemberCount).coerceAtLeast(0)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -403,10 +414,17 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("Team progress", style = MaterialTheme.typography.labelLarge)
                             Text(
-                                "$updatedMemberCount of $teamCount responders moved beyond Assigned",
+                                "$updatedMemberCount of ${teamIds.size} assigned responders moved beyond Assigned",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            if (missingMemberCount > 0) {
+                                Text(
+                                    "Status unavailable for $missingMemberCount assigned ${if (missingMemberCount == 1) "member" else "members"}.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                         StatusPill(incident.status)
                     }
@@ -430,7 +448,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     }
                     if (incident.id in expandedTeamStatusIds) {
                         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            incident.assignedUserStatuses.forEach { memberStatus ->
+                            reportedMemberStatuses.forEach { memberStatus ->
                                 val unit = state.units.firstOrNull { it.id == memberStatus.userId }
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
