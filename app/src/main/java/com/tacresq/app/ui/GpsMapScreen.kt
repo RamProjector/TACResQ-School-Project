@@ -664,15 +664,20 @@ fun GpsMapScreen(
                         scope.launch { mapSheetState.bottomSheetState.expand() }
                         true
                     }
-                    markerTitle.contains("field-unit location", ignoreCase = true) ||
-                        markerTitle.startsWith("Your location", ignoreCase = true) -> {
-                        // Keep marker interaction inside the app's existing details
-                        // sheet instead of allowing MapLibre's default InfoWindow.
-                        // This also keeps stale-position warnings visible in one place.
-                        locationStatus = listOfNotNull(
-                            markerTitle.takeIf { it.isNotBlank() },
-                            marker.snippet?.takeIf { it.isNotBlank() },
-                        ).joinToString(" · ")
+                    markerTitle.contains("field-unit location", ignoreCase = true) -> {
+                        // Keep the sheet summary short enough to remain readable in its
+                        // two-line status slot. Detailed age and accuracy stay in the
+                        // field-unit list; stale markers get the safety-critical warning.
+                        locationStatus = if (markerTitle.startsWith("STALE", ignoreCase = true)) {
+                            "$markerTitle · Last known only; confirm with dispatch."
+                        } else {
+                            "$markerTitle · Consent-based foreground location; see field-unit details for age and accuracy."
+                        }
+                        scope.launch { mapSheetState.bottomSheetState.expand() }
+                        true
+                    }
+                    markerTitle.startsWith("Your location", ignoreCase = true) -> {
+                        locationStatus = "Your location · One-time preview on this device only; not uploaded or continuously tracked."
                         scope.launch { mapSheetState.bottomSheetState.expand() }
                         true
                     }

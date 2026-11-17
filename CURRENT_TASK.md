@@ -1,3 +1,10 @@
+# GPS marker summary readability
+
+- Shortened the status text shown after tapping field-unit and device-location markers so it fits the map sheet's compact two-line summary instead of concatenating the full marker snippet and risking truncation.
+- Stale field-unit selections prioritize the safety-critical “last known only; confirm with dispatch” warning. Fresh/aging selections direct dispatchers to the field-unit detail list for exact age and accuracy; the one-time device preview retains its not-uploaded/not-tracked disclosure.
+- Full age, accuracy, and freshness details remain in the existing field-unit list and marker metadata. No location data, permissions, sharing, routing, or backend behavior changed.
+- Validation: not run per the requested commit cadence; verify summary readability with long incident IDs and stale/fresh markers on-device.
+
 # GPS map marker interaction consistency
 
 - Unified marker taps with the existing in-app bottom sheet. Incident pins continue to select the incident and expand its details; dispatcher field-unit pins and the one-time device-location preview now show their title and explanatory snippet in the map status area and expand the same sheet.
