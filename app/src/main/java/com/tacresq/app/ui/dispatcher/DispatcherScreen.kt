@@ -274,6 +274,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 pending = pending.size,
                 active = active,
                 available = availableUnits.size,
+                availabilityConfirmed = state.assignmentDataFresh,
             )
         }
         state.notice?.let { item { Banner(it, isError = false, onDismiss = vm::dismissMessages) } }
@@ -283,7 +284,11 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         if (pending.isNotEmpty() && availableUnits.isEmpty()) {
             item {
                 Text(
-                    "No responders or drivers are currently available. Team assignment and field claiming must wait until a unit goes on duty.",
+                    if (state.assignmentDataFresh) {
+                        "No responders or drivers are currently available. Team assignment and field claiming must wait until a unit goes on duty."
+                    } else {
+                        "No units were marked available in the last loaded snapshot. Current availability is unconfirmed; refresh before relying on it."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -463,7 +468,12 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             }
         }
 
-        item { SectionHeading("Field units", "Current availability") }
+        item {
+            SectionHeading(
+                "Field units",
+                if (state.assignmentDataFresh) "Current availability" else "Last loaded availability · unconfirmed",
+            )
+        }
         if (state.loading && state.units.isEmpty()) {
             item { Text("Loading field-unit availability…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else if (state.units.isEmpty()) {
@@ -541,7 +551,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
 }
 
 @Composable
-private fun SummaryCard(pending: Int, active: Int, available: Int) {
+private fun SummaryCard(pending: Int, active: Int, available: Int, availabilityConfirmed: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -561,7 +571,14 @@ private fun SummaryCard(pending: Int, active: Int, available: Int) {
             ) {
                 DispatchMetric(pending, "Pending")
                 DispatchMetric(active, "Active")
-                DispatchMetric(available, "Ready units")
+                DispatchMetric(available, if (availabilityConfirmed) "Ready units" else "Ready*")
+            }
+            if (!availabilityConfirmed) {
+                Text(
+                    "* Last loaded count; current availability is unconfirmed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
             }
         }
     }

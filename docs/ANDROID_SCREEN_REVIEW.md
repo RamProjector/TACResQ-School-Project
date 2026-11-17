@@ -125,3 +125,11 @@ This register tracks visible UI findings from source review. A change is not con
 - **Change:** The pending empty state now distinguishes an unconfirmed last-loaded snapshot, an in-progress check, and a successfully refreshed empty queue. A failed refresh explicitly says the current status is unconfirmed regardless of whether other cached incidents exist.
 - **Safety:** No cached records are cleared or reclassified. Assignment freshness gates, queue filters, ordering, and backend calls remain unchanged.
 - **Validation:** Source review only. No build, tests, emulator, or device checks run.
+
+
+## Dispatcher field-unit snapshot freshness — 2026-11-17
+
+- **Finding:** The dispatcher retained the last successful field-unit list when a refresh failed or was in progress. Although assignment actions were paused, the Field units subtitle still said “Current availability,” the Ready units metric looked current, and the pending-queue helper could state that nobody was available as a present fact.
+- **Change:** The field-unit section now labels retained records as “Last loaded availability · unconfirmed” whenever assignment data is not fresh. The overview metric changes to “Ready*” with an explanatory note. The no-available-units helper distinguishes a confirmed empty availability result from an unconfirmed cached snapshot.
+- **Safety:** Cached records remain visible for continuity. No unit statuses, sorting, assignment eligibility, refresh behavior, or backend calls changed. Existing assignment freshness guards remain authoritative.
+- **Validation:** Source review only. No build, tests, emulator, or device checks run.
