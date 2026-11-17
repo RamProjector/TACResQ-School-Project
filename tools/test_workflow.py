@@ -120,10 +120,10 @@ class LocalPrototypeBackend:
         return updated
 
     def update_status(self, incident_id: int, status: str) -> Incident:
-        user = self.require("responder", "driver")
+        dispatcher = self.require("dispatcher")
         incident = self._incident(incident_id)
-        if incident.assigned_to != user.id:
-            raise WorkflowError("incident is not assigned to this unit")
+        if incident.assigned_to is None:
+            raise WorkflowError("assign a response unit before advancing incident progress")
         allowed = {
             "assigned": {"en_route"},
             "en_route": {"on_scene"},
@@ -134,8 +134,12 @@ class LocalPrototypeBackend:
             raise WorkflowError(f"invalid transition {incident.status} -> {status}")
         updated = replace(incident, status=status)
         self._replace(updated)
-        self.users[user.email] = replace(user, duty_status="available" if status == "resolved" else status)
-        self.session = self.users[user.email]
+        unit = next((u for u in self.users.values() if u.id == incident.assigned_to), None)
+        if unit is not None:
+            self.users[unit.email] = replace(
+                unit,
+                duty_status="available" if status == "resolved" else status,
+            )
         return updated
 
     def _incident(self, incident_id: int) -> Incident:
@@ -230,15 +234,24 @@ def run(client: WorkflowClient) -> None:
     check(assigned.status == "assigned" and assigned.assigned_to == responder.id, "dispatcher assigns the incident")
 
     client.login("responder@demo.com", "demo123")
-    check(client.update_status(created.id, "en_route").status == "en_route", "responder marks en route")
-    check(client.update_status(created.id, "on_scene").status == "on_scene", "responder marks on scene")
+    try:
+        client.update_status(created.id, "en_route")
+    except WorkflowError:
+        check(True, "responder cannot advance dispatcher-owned incident progress")
+    else:
+        raise WorkflowError("responder unexpectedly advanced shared incident progress")
+
+    client.login("dispatcher@demo.com", "demo123")
+    check(client.update_status(created.id, "en_route").status == "en_route", "dispatcher records team deployed")
+    check(client.update_status(created.id, "on_scene").status == "on_scene", "dispatcher records team arrival")
+    check(client.update_status(created.id, "transporting").status == "transporting", "dispatcher records transport in progress")
     resolved = client.update_status(created.id, "resolved")
-    check(resolved.status == "resolved", "responder resolves the incident")
+    check(resolved.status == "resolved", "dispatcher completes the incident")
 
     client.login("requester@demo.com", "demo123")
     visible = client.list_incidents() if isinstance(client, HttpApiClient) else client.incidents
     check(any(i.id == created.id and i.status == "resolved" for i in visible), "requester can see the resolved status")
-    print("\nWORKFLOW PASS: requester -> dispatcher -> responder -> requester")
+    print("\nWORKFLOW PASS: requester -> dispatcher -> requester; field-unit availability remains separate")
 
 
 def main() -> int:
