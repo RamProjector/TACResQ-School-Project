@@ -322,11 +322,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 Text(
                     waitingAgeLabel(incident.createdAt, queueClock),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (waitSeconds != null && waitSeconds >= 15 * 60)
-                        MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (waitSeconds != null && waitSeconds >= 15 * 60)
-                        FontWeight.SemiBold else FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (availableUnits.isNotEmpty()) {
                     OutlinedButton(

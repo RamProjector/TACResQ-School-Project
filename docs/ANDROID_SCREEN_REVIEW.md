@@ -14,6 +14,8 @@ This register tracks visible UI findings from source review. A change is not con
 
 - Pending dispatcher cards presented “Select response team” and the claimability toggle as two equally prominent outlined buttons, competing for attention. Kept team selection as the primary outlined action and demoted the reversible field-claiming toggle to a full-width text action; both remain gated by the same busy/freshness checks.
 
+- Pending-queue waiting age was colored as an error after an undocumented 15-minute threshold. Removed that arbitrary escalation cue; elapsed time remains visible and the queue remains oldest-first. A red urgency threshold should be introduced only when an approved dispatch/SLA policy defines it.
+
 ### Responder active responses
 - The same routing-provider and fallback explanation appeared inside every active incident card with valid coordinates. Consolidated it into one note beneath the active-response heading whenever at least one active incident has a valid pin; individual cards retain their route-preview action and missing-pin warning.
 

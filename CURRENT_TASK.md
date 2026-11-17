@@ -1,3 +1,10 @@
+## Dispatcher queue-age urgency cue — 2026-11-17
+
+- **Finding:** Waiting age switched to the error color at 15 minutes, but no dispatch policy or service-level target in the reviewed screen defines 15 minutes as an escalation threshold.
+- **Change:** Kept the elapsed waiting-time label but removed the unsupported error-color threshold. Oldest-first ordering and timestamp handling remain unchanged.
+- **Safety:** No queue ordering, incident priority, dispatch assignment, or status behavior changed. Add a semantic urgency cue only after an authorized policy defines its threshold and meaning.
+- **Validation:** Source review only. No Gradle build, tests, emulator, or device validation run.
+
 ## Dispatcher pending-action hierarchy — 2026-11-17
 
 - **Finding:** Each pending incident card showed team selection and field-claiming configuration as equally prominent outlined buttons, although team assignment is the main dispatch action and claimability is a secondary configuration toggle.
