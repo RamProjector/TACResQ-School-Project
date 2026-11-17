@@ -167,6 +167,14 @@ private const val RESPONDER_COUNT_LAYER_ID = "tacresq-responder-cluster-count"
 private const val STALE_RESPONDER_CLUSTER_LAYER_ID = "tacresq-stale-responder-clusters"
 private const val STALE_RESPONDER_COUNT_LAYER_ID = "tacresq-stale-responder-cluster-count"
 
+private data class GpsMapClusterPageCursor(
+    val source: GeoJsonSource,
+    val feature: Feature,
+    val incidents: Boolean,
+    val nextOffset: Long,
+    val totalCount: Long,
+)
+
 private data class GpsMapClusterSources(
     val incidents: GeoJsonSource,
     val responders: GeoJsonSource,
@@ -592,6 +600,8 @@ fun GpsMapScreen(
     var locationStatus by remember { mutableStateOf<String?>(null) }
     var selectedResponderKey by remember { mutableStateOf<String?>(null) }
     var selectedMarkerChoices by remember { mutableStateOf<List<GpsMapMarkerTarget>>(emptyList()) }
+    var clusterPageCursors by remember { mutableStateOf<List<GpsMapClusterPageCursor>>(emptyList()) }
+    var clusterChoiceTotalCount by remember { mutableStateOf(0L) }
     var isLocationRequestInProgress by remember { mutableStateOf(false) }
     var retryLocationAfterSettings by remember { mutableStateOf(false) }
     var showAppSettingsAction by remember { mutableStateOf(false) }
@@ -819,6 +829,8 @@ fun GpsMapScreen(
 
     fun selectMarkerTarget(target: GpsMapMarkerTarget) {
         selectedMarkerChoices = emptyList()
+        clusterPageCursors = emptyList()
+        clusterChoiceTotalCount = 0L
         when (target.type) {
             GpsMapMarkerType.INCIDENT -> {
                 val incidentId = target.incidentId ?: return
@@ -866,6 +878,67 @@ fun GpsMapScreen(
         }
         scope.launch { mapSheetState.bottomSheetState.expand() }
     }
+    fun loadMoreClusterLocations() {
+        if (clusterPageCursors.isEmpty()) return
+        val added = mutableListOf<GpsMapMarkerTarget>()
+        val remaining = mutableListOf<GpsMapClusterPageCursor>()
+        var sourceChanged = false
+        clusterPageCursors.forEach { cursor ->
+            try {
+                val leaves = cursor.source.getClusterLeaves(cursor.feature, 50L, cursor.nextOffset)
+                    .features().orEmpty()
+                leaves.forEach { leaf ->
+                    if (cursor.incidents) {
+                        val id = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@forEach
+                        val incident = visibleIncidents.firstOrNull { it.id == id } ?: return@forEach
+                        val lat = incident.latitude ?: return@forEach
+                        val lng = incident.longitude ?: return@forEach
+                        added += GpsMapMarkerTarget(
+                            GpsMapMarkerType.INCIDENT, LatLng(lat, lng),
+                            "Incident #${incident.id} · ${incident.type.label}",
+                            "Status: ${incident.status.label} · ${incident.locationAgeStatus().first}",
+                            incidentId = incident.id,
+                        )
+                    } else {
+                        val incidentId = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@forEach
+                        val userId = leaf.getStringProperty("user_id")?.toLongOrNull() ?: return@forEach
+                        val unit = validResponderLocations.firstOrNull {
+                            it.incidentId == incidentId && it.userId == userId
+                        } ?: return@forEach
+                        val age = unit.mapAgeSeconds() ?: return@forEach
+                        val freshness = unit.mapFreshness() ?: return@forEach
+                        added += GpsMapMarkerTarget(
+                            GpsMapMarkerType.FIELD_UNIT, LatLng(unit.latitude, unit.longitude),
+                            "Responder #${unit.userId} · Incident #${unit.incidentId}",
+                            if (freshness == MapLocationFreshness.STALE) {
+                                "Last known location · ${formatLocationAge(age)} ago · not live"
+                            } else "${freshness.label} · last reported ${formatLocationAge(age)} ago",
+                            incidentId = unit.incidentId, userId = unit.userId,
+                            stale = freshness == MapLocationFreshness.STALE,
+                        )
+                    }
+                }
+                val nextOffset = cursor.nextOffset + leaves.size
+                if (leaves.isNotEmpty() && nextOffset < cursor.totalCount) {
+                    remaining += cursor.copy(nextOffset = nextOffset)
+                }
+            } catch (_: RuntimeException) {
+                sourceChanged = true
+            }
+        }
+        if (sourceChanged) {
+            clusterPageCursors = emptyList()
+            locationStatus = "The map refreshed while loading more locations. Tap the current cluster again."
+        } else {
+            selectedMarkerChoices = (selectedMarkerChoices + added)
+                .distinctBy { "${it.type}:${it.incidentId}:${it.userId}" }
+            clusterPageCursors = remaining
+            if (added.isEmpty() && remaining.isNotEmpty()) {
+                locationStatus = "More cluster records exist, but their locations are no longer available."
+            }
+        }
+    }
+
     // MapLibre installs its click listener once; always dispatch through the latest
     // Compose callback so refreshed incidents and responder reports are revalidated.
     val latestSelectMarkerTarget by rememberUpdatedState(::selectMarkerTarget)
@@ -1801,8 +1874,13 @@ fun GpsMapScreen(
         if (map == null) return@DisposableEffect onDispose {}
         val listener = MapLibreMap.OnMapClickListener { coordinate ->
             val pixel = map.projection.toScreenLocation(coordinate)
-            fun clusterTargets(source: GeoJsonSource, feature: Feature, incidents: Boolean): List<GpsMapMarkerTarget> {
-                val leaves = source.getClusterLeaves(feature, 50L, 0L).features().orEmpty()
+            fun clusterTargets(
+                source: GeoJsonSource,
+                feature: Feature,
+                incidents: Boolean,
+                offset: Long = 0L,
+            ): List<GpsMapMarkerTarget> {
+                val leaves = source.getClusterLeaves(feature, 50L, offset).features().orEmpty()
                 return if (incidents) {
                     leaves.mapNotNull { leaf ->
                         val id = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@mapNotNull null
@@ -1835,19 +1913,25 @@ fun GpsMapScreen(
                     }
                 }
             }
-            fun showClusterChoices(choices: List<GpsMapMarkerTarget>, mixedSources: Boolean) {
+            fun showClusterChoices(
+                choices: List<GpsMapMarkerTarget>,
+                mixedSources: Boolean,
+                pageCursors: List<GpsMapClusterPageCursor> = emptyList(),
+            ) {
                 val unique = choices.distinctBy { "${it.type}:${it.incidentId}:${it.userId}" }
                 if (unique.isEmpty()) {
                     locationStatus = "These clustered locations have changed. Refresh the map and try again."
                     return
                 }
                 selectedMarkerChoices = unique
+                clusterPageCursors = pageCursors
+                clusterChoiceTotalCount = pageCursors.sumOf { it.totalCount }.takeIf { it > 0L } ?: unique.size.toLong()
                 routeSelectionGeneration += 1
                 selectedIncidentId = null
                 selectedResponderKey = null
                 locationStatus = if (mixedSources) {
                     "Incident and field-unit clusters overlap. Choose the exact location."
-                } else "Showing up to ${unique.size} locations in this dense cluster."
+                } else "Showing ${unique.size} of ${clusterChoiceTotalCount} locations in this dense cluster."
                 scope.launch { mapSheetState.bottomSheetState.expand() }
             }
             val clusterLayers = listOf(
@@ -1861,11 +1945,18 @@ fun GpsMapScreen(
                 if (!feature.hasProperty("point_count") || source == null) return@mapNotNull null
                 Triple(source, feature, incidents)
             }
+            fun pageCursorsForHits(
+                hits: List<Triple<GeoJsonSource, Feature, Boolean>>,
+            ): List<GpsMapClusterPageCursor> = hits.mapNotNull { (source, feature, incidents) ->
+                val total = feature.getNumberProperty("point_count")?.toLong() ?: return@mapNotNull null
+                if (total <= 50L) return@mapNotNull null
+                GpsMapClusterPageCursor(source, feature, incidents, nextOffset = 50L, totalCount = total)
+            }
             if (clusterHits.size > 1) {
                 val choices = try {
                     clusterHits.flatMap { (source, feature, incidents) -> clusterTargets(source, feature, incidents) }
                 } catch (_: RuntimeException) { emptyList() }
-                showClusterChoices(choices, true)
+                showClusterChoices(choices, true, pageCursorsForHits(clusterHits))
                 return@OnMapClickListener true
             }
             if (clusterHits.size == 1) {
@@ -1878,7 +1969,10 @@ fun GpsMapScreen(
                         map.animateCamera(CameraUpdateFactory.newLatLngZoom(
                             LatLng(position.latitude(), position.longitude()),
                             expansionZoom.toDouble().coerceAtMost(20.0)), 420)
-                    } else showClusterChoices(clusterTargets(source, feature, incidents), false)
+                    } else showClusterChoices(
+                        clusterTargets(source, feature, incidents), false,
+                        pageCursorsForHits(listOf(Triple(source, feature, incidents))),
+                    )
                 } catch (_: RuntimeException) {
                     locationStatus = "Map locations refreshed. Tap the updated cluster again."
                 }
@@ -1944,6 +2038,8 @@ fun GpsMapScreen(
                 }
             if (nearbyTargets.isNotEmpty()) {
                 if (nearbyTargets.size > 1) {
+                    clusterPageCursors = emptyList()
+                    clusterChoiceTotalCount = nearbyTargets.size.toLong()
                     selectedMarkerChoices = nearbyTargets
                     routeSelectionGeneration += 1
                     selectedIncidentId = null
@@ -2071,6 +2167,11 @@ fun GpsMapScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            Text(
+                                "Showing ${selectedMarkerChoices.size} of ${clusterChoiceTotalCount} locations",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             selectedMarkerChoices.forEachIndexed { index, choice ->
                                 Surface(
                                     modifier = Modifier
@@ -2103,8 +2204,19 @@ fun GpsMapScreen(
                                     }
                                 }
                             }
+                            if (clusterPageCursors.isNotEmpty()) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = { loadMoreClusterLocations() },
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                ) {
+                                    val remaining = clusterPageCursors.sumOf {
+                                        (it.totalCount - it.nextOffset).coerceAtLeast(0L)
+                                    }
+                                    Text("Load more locations ($remaining remaining)")
+                                }
+                            }
                             androidx.compose.material3.TextButton(
-                                onClick = { selectedMarkerChoices = emptyList(); locationStatus = null },
+                                onClick = { selectedMarkerChoices = emptyList(); clusterPageCursors = emptyList(); clusterChoiceTotalCount = 0L; locationStatus = null },
                                 modifier = Modifier.heightIn(min = 48.dp),
                             ) { Text("Dismiss location choices") }
                         }

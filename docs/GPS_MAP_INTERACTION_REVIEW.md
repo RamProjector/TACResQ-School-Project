@@ -225,3 +225,13 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - MapLibre's style specification defines bottom anchoring as placing the image's bottom edge at the feature anchor; see the official Android/style API documentation.
 - No build, tests, emulator, device validation, or visual pin-alignment check run.
 
+
+
+## Dense cluster pagination — 2026-11-17
+
+- Added paged cluster-leaf retrieval for dense incident and responder clusters. The chooser initially loads up to 50 leaves per source and now exposes a clear “Load more locations” action while more leaves remain.
+- Pagination tracks each overlapping cluster source independently, so a mixed incident/responder overlap can page both without merging their source semantics. The displayed count reflects the underlying cluster counts.
+- Every loaded page is resolved against the latest visible incident and valid responder records; stale responder details remain labelled as last known. Expired cluster IDs are caught and the chooser asks the user to tap the refreshed cluster again.
+- Selecting or dismissing a choice clears paging cursors so stale cluster references are not reused.
+- No build, tests, emulator, device validation, or profiling run.
+
