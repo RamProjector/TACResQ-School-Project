@@ -28,6 +28,21 @@ assert "FOR UPDATE" in sql
 assert "requester_edit_count" in sql
 assert "urgent_location_correction" in sql
 
+integration = (ROOT / "tools/test_authenticated_requester_location_edit.sql").read_text()
+replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
+for required in (
+    "SET ROLE authenticated",
+    "other_requester_incident_id",
+    "Manual pin with GPS accuracy was not rejected",
+    "Stale location timestamp was not rejected",
+    "Future location timestamp was not rejected",
+    "Out-of-range latitude was not rejected",
+    "Confirmed urgent location correction did not persist",
+    "tools/test_authenticated_requester_location_edit.sql",
+):
+    source = replay if required.startswith("tools/") else integration
+    assert required in source, f"Missing authenticated requester edit integration assertion: {required}"
+
 print("PASS: requester edits validate location provenance, accuracy bounds, and changed-pin timestamp freshness.")
 print("PASS: unchanged existing location metadata can be retained during text-only edits.")
 print("PASS: requester ownership, row locking, urgent correction workflow, and RPC grants are preserved.")
