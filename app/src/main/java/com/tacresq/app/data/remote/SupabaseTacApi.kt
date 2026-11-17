@@ -35,7 +35,7 @@ class SupabaseTacApi private constructor(
     private val rpc: SupabaseRpcWire,
     private val storage: SupabaseStorageWire,
     private val bridgeRpc: SupabaseBridgeRpcWire?,
-) : TacApi, TacNotificationApi, TacPushApi, TacChatApi {
+) : TacApi, TacNotificationApi, TacPushApi, TacChatApi, TacAssignmentHistoryApi {
     override suspend fun login(body: LoginRequest): AuthResponse = authenticate {
         auth.login(body)
     }
@@ -165,6 +165,19 @@ class SupabaseTacApi private constructor(
     override suspend fun unregisterFcmToken(token: String) {
         require(token.length in 20..4096) { "FCM token is invalid." }
         rpc.unregisterFcmToken(FcmTokenRpc(token))
+    }
+
+    override suspend fun incidentAssignmentHistory(incidentId: Long, limit: Int): List<AssignmentHistoryEvent> {
+        require(incidentId > 0) { "Incident ID must be positive." }
+        require(limit in 1..100) { "Assignment history page size must be between 1 and 100." }
+        // Read the RLS-protected event table directly. This endpoint is intentionally
+        // not added to the optional Render bridge until its authorization contract exists.
+        return rpc.incidentAssignmentHistory(
+            columns = "id,incident_id,user_id,event_type,actor_user_id,source,assignment_status,incident_status,occurred_at",
+            incidentIdFilter = "eq.$incidentId",
+            order = "occurred_at.desc,id.desc",
+            limit = limit,
+        )
     }
 
     override suspend fun myIncidentMessages(incidentId: Long, limit: Int, beforeId: Long?): List<IncidentMessage> {
@@ -350,6 +363,15 @@ private interface SupabaseBridgeRpcWire {
 }
 
 private interface SupabaseRpcWire {
+    @GET("rest/v1/incident_assignment_events")
+    suspend fun incidentAssignmentHistory(
+        @Query("select") columns: String,
+        @Query("incident_id") incidentIdFilter: String,
+        @Query("order") order: String,
+        @Query("limit") limit: Int,
+    ): List<AssignmentHistoryEvent>
+
+
     @POST("rest/v1/rpc/api_me")
     suspend fun me(@Header("Authorization") authorization: String? = null, @Body body: EmptyRpcBody = EmptyRpcBody()): User
 
