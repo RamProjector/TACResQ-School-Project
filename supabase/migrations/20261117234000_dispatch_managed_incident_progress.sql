@@ -150,7 +150,7 @@ $function$;
 -- Keep the legacy RPC name for the Android/API contract, but make it
 -- dispatcher-only. All assigned members receive the same incident milestone
 -- so existing GPS authorization and older clients remain consistent.
-CREATE OR REPLACE FUNCTION public.api_update_incident_status(p_id bigint, p_status text)
+CREATE OR REPLACE FUNCTION private.tacresq_dispatch_update_incident_status(p_id bigint, p_status text)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -252,10 +252,24 @@ BEGIN
 END;
 $function$;
 
+REVOKE ALL ON FUNCTION private.tacresq_dispatch_update_incident_status(bigint,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.tacresq_dispatch_update_incident_status(bigint,text) TO authenticated;
+
+-- Keep the REST-facing wrapper invoker-safe. The private implementation checks
+-- the authenticated caller's dispatcher role before performing privileged writes.
+CREATE OR REPLACE FUNCTION public.api_update_incident_status(p_id bigint, p_status text)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = pg_catalog
+AS $function$
+  SELECT private.tacresq_dispatch_update_incident_status(p_id, p_status);
+$function$;
 REVOKE ALL ON FUNCTION public.api_update_incident_status(bigint,text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_update_incident_status(bigint,text) TO authenticated;
 
 -- New clients must not call the legacy per-responder status mutation.
 REVOKE ALL ON FUNCTION public.api_update_my_assignment_status(bigint,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION private.tacresq_update_my_assignment_status(bigint,text) FROM PUBLIC, anon, authenticated;
 
 COMMIT;
