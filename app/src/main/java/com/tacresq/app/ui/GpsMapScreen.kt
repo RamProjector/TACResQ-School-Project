@@ -1946,6 +1946,7 @@ fun GpsMapScreen(
                 choices: List<GpsMapMarkerTarget>,
                 mixedSources: Boolean,
                 pageCursors: List<GpsMapClusterPageCursor> = emptyList(),
+                totalCount: Long? = null,
             ) {
                 val unique = choices.distinctBy { "${it.type}:${it.incidentId}:${it.userId}" }
                 if (unique.isEmpty()) {
@@ -1954,7 +1955,10 @@ fun GpsMapScreen(
                 }
                 selectedMarkerChoices = unique
                 clusterPageCursors = pageCursors
-                clusterChoiceTotalCount = pageCursors.sumOf { it.totalCount }.takeIf { it > 0L } ?: unique.size.toLong()
+                // Count every overlapping source, including clusters small enough not to page.
+                clusterChoiceTotalCount = totalCount?.takeIf { it > 0L }
+                    ?: pageCursors.sumOf { it.totalCount }.takeIf { it > 0L }
+                    ?: unique.size.toLong()
                 routeSelectionGeneration += 1
                 selectedIncidentId = null
                 selectedResponderKey = null
@@ -1985,7 +1989,10 @@ fun GpsMapScreen(
                 val choices = try {
                     clusterHits.flatMap { (source, feature, incidents) -> clusterTargets(source, feature, incidents) }
                 } catch (_: RuntimeException) { emptyList() }
-                showClusterChoices(choices, true, pageCursorsForHits(clusterHits))
+                val totalCount = clusterHits.sumOf { hit ->
+                    hit.second.getNumberProperty("point_count")?.toLong() ?: 0L
+                }
+                showClusterChoices(choices, true, pageCursorsForHits(clusterHits), totalCount)
                 return@OnMapClickListener true
             }
             if (clusterHits.size == 1) {
@@ -2002,6 +2009,7 @@ fun GpsMapScreen(
                     } else showClusterChoices(
                         clusterTargets(source, feature, incidents), false,
                         pageCursorsForHits(listOf(Triple(source, feature, incidents))),
+                        feature.getNumberProperty("point_count")?.toLong(),
                     )
                 } catch (_: RuntimeException) {
                     locationStatus = "Map locations refreshed. Tap the updated cluster again."
