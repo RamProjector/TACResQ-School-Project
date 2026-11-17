@@ -510,3 +510,13 @@ The per-branch `tools/test_supabase_migration_replay.sh` inspection confirms the
 - PR #321: `test_authenticated_admin_user_list_boundary.sql`.
 
 PR #316 adds Laravel feature tests rather than a new replay SQL fixture. Ensure the integration workflow also retains its Laravel test suite. The replay script on each independent branch contains only its own PR's appended tests; merging branches without reconciling the script would silently omit sibling coverage or create conflicts.
+## Exact-head check delta — 2026-11-17 02:29 UTC
+
+- **PR #316** latest docs head `efe28e42934784c852e9435199ad22c8ed09a88a`: code-bearing head `2589af93...` passed TACResQ CI (75 Laravel tests/224 assertions, Android builds, clean migration replay), Security/CodeQL, RPC contract, Frontend Review, Render smoke, and automated review. The latest docs-only head has Frontend Review, Render smoke, RPC contract, and automated review passed; its CI and Security reruns are still in progress.
+- **PR #317** head `d4668734...`: all four required workflows passed.
+- **PR #318** head `3b9c08f5...`: all four required workflows passed.
+- **PR #319** head `2cb6aa7d...`: all four required workflows passed, including Android builds, clean PostgreSQL replay, Laravel/dashboard integration, CodeQL, and the deterministic cancellation lock barrier.
+- **PR #320** head `e5ca8e7a...` and **PR #321** head `bd28f881...`: all four required workflows passed.
+- **PR #322** latest documentation head `c4593aa1...`: RPC grant contract, Frontend Review, and automated review passed; CI and Security are running.
+
+All seven PRs remain open and individually mergeable. The combined replay candidate remains the outstanding integration gate; no merge or live deployment has been performed.
