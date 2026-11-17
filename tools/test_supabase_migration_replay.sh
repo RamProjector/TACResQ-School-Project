@@ -27,6 +27,10 @@ AS $auth_uid$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $auth_uid$;
 
+-- Match Supabase's auth schema/function visibility for PostgREST roles.
+GRANT USAGE ON SCHEMA auth TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+
 -- Minimal Supabase Storage schema for migration replay. This lets the test
 -- exercise real RLS policies without depending on a running Supabase service.
 CREATE SCHEMA storage;
@@ -1396,3 +1400,6 @@ psql -v ON_ERROR_STOP=1 -f tools/test_notification_rpc_security.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_delivery_queue.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_token_account_switch.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_responder_incident_claiming.sql
+
+# Verify legacy and paginated Admin list RPC access as authenticated.
+psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_admin_user_list_boundary.sql
