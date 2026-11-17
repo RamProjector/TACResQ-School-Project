@@ -16,6 +16,16 @@ VALUES
     '{"name":"Requester Location Edit B","phone":"+63917000152","role":"requester"}'::jsonb
   );
 
+-- Terminal requests remain visible in the fixture but are not editable.
+INSERT INTO public.incidents (
+  requester_id, type, description, latitude, longitude, accuracy_m,
+  location_notes, location_recorded_at, location_source, status
+)
+SELECT id, 'medical', 'Cancelled report', 10.3200, 123.9200, 10,
+       'Front gate', clock_timestamp(), 'gps', 'cancelled'
+FROM public.profiles
+WHERE auth_user_id = '00000000-0000-4000-8000-000000000151';
+
 INSERT INTO public.incidents (
   requester_id, type, description, latitude, longitude, accuracy_m,
   location_notes, location_recorded_at, location_source, status
@@ -34,16 +44,6 @@ SELECT id, 'fire', 'Other requester report', 10.3100, 123.9100, 10,
        'Side entrance', clock_timestamp(), 'gps', 'pending'
 FROM public.profiles
 WHERE auth_user_id = '00000000-0000-4000-8000-000000000152';
-
--- Terminal requests remain visible in the fixture but are not editable.
-INSERT INTO public.incidents (
-  requester_id, type, description, latitude, longitude, accuracy_m,
-  location_notes, location_recorded_at, location_source, status
-)
-SELECT id, 'medical', 'Cancelled report', 10.3200, 123.9200, 10,
-       'Front gate', clock_timestamp(), 'gps', 'cancelled'
-FROM public.profiles
-WHERE auth_user_id = '00000000-0000-4000-8000-000000000151';
 
 SELECT set_config(
   'tacresq.test.other_requester_incident_id',
