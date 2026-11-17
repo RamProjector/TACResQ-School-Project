@@ -499,3 +499,14 @@ PR #319's deterministic incident-lock barrier and the isolated fixture IDs are u
 - **PR #322** control-matrix documentation head is `a5eb0a401c68980943efe2ddc50ea273b3644f3b`; its CI and Security workflows are still running after the fixture-collision documentation update.
 
 All seven PRs remain open/unmerged. The individual PR heads are mergeable, but the shared replay/CI/history files and the full combined migration candidate remain unvalidated. No merge or live Supabase migration has been performed.
+### Required replay-test union when reconciling PR branches
+
+The per-branch `tools/test_supabase_migration_replay.sh` inspection confirms the combined candidate must preserve these invocations exactly once:
+- Existing baseline: `test_incident_chat_storage_policies.sql`, `test_notification_rpc_security.sql`, `test_fcm_delivery_queue.sql`, `test_fcm_token_account_switch.sql`, and `test_responder_incident_claiming.sql`.
+- PR #317: `test_field_claim_concurrency.sh` and `test_assignment_cross_path_concurrency.sh`.
+- PR #318: `test_authenticated_requester_location_edit.sql`.
+- PR #319: `test_claimability_cancellation_concurrency.sh` and `test_authenticated_incident_write_boundary.sql`.
+- PR #320: `test_authenticated_profile_metadata.sql`.
+- PR #321: `test_authenticated_admin_user_list_boundary.sql`.
+
+PR #316 adds Laravel feature tests rather than a new replay SQL fixture. Ensure the integration workflow also retains its Laravel test suite. The replay script on each independent branch contains only its own PR's appended tests; merging branches without reconciling the script would silently omit sibling coverage or create conflicts.
