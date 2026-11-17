@@ -1,3 +1,14 @@
+# Current handoff — 2026-11-17: notification refresh timestamp readability
+
+- **Objective:** Keep notification synchronization information readable and consistent with the inbox's localized date formatting.
+- **Finding:** When realtime was connected, the status panel displayed the raw ISO-8601 server-refresh timestamp, unlike the human-readable timestamps used on notification cards.
+- **Implementation:** Format the last successful server refresh through the existing locale- and device-time-zone-aware notification time formatter; retain the existing fallback when no refresh has succeeded.
+- **Scope:** Notification status presentation only. No realtime lifecycle, refresh cadence, notification read state, navigation, or backend behavior changed.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI improvements on PR #334; perform consolidated validation after implementation changes are complete.
+
+---
+
 # Current handoff — 2026-11-17: dispatcher active-queue accuracy
 
 - **Objective:** Make the dispatcher's “Active incidents” section match the actual active-incident count and provide a useful empty state.

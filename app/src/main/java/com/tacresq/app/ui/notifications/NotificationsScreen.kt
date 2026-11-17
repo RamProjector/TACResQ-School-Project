@@ -400,7 +400,7 @@ fun NotificationsAndSafetyScreen(
                         Text(
                             when {
                                 state.realtimeStartError -> "Realtime unavailable; the inbox remains available through server refresh."
-                                realtimeState == RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt ?: "not yet recorded"}."
+                                realtimeState == RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt?.let(::formatNotificationTime) ?: "not yet recorded"}."
                                 realtimeState == RealtimeConnectionState.CONNECTING ||
                                     realtimeState == RealtimeConnectionState.RECONNECTING -> "Realtime reconnecting; the inbox is using server refresh fallback."
                                 else -> "Realtime unavailable; the inbox remains available through server refresh."
