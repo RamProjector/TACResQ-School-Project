@@ -8,7 +8,9 @@ source = (root / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen
 assert 'Text("Review before sending"' in source
 assert 'else Text("Send SOS", fontWeight = FontWeight.Bold)' in source
 assert 'onClick = { selectedType?.let { vm.sendSos(it, description, locationNotes) } }' in source
+assert 'enabled = selectedType != null && requesterActionsEnabled &&' in source
 assert '!state.pendingSosCheckInProgress && state.pendingSosCheckError == null' in source
+assert 'This one-time pin is sent with the SOS; ongoing tracking is not.' in source
 assert 'Text("Only send if help is needed now."' in source
 
 # The final review is the single explicit confirmation. Keep draft-discard and
