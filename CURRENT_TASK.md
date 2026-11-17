@@ -1,3 +1,8 @@
+## Latest GPS continuation — 2026-11-17
+
+- Fixed an explicit map-retry omission: stale responder clusters now reconnect to the newly recreated style source alongside incident and fresh/aging responder clusters.
+- Same PR #334 branch; no validation checks run. Next inspect selected-location persistence and map load/error recovery without changing emergency location-sharing semantics.
+
 ## Dense-cluster feature lookup optimization — 2026-11-17
 
 - Built remembered indexes for visible incidents and valid responder reports, keyed by incident ID and the incident/user pair respectively.

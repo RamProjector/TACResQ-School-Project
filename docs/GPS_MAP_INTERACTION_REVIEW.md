@@ -1,3 +1,9 @@
+## GPS style-retry stale-source recovery — 2026-11-17
+
+- Found a retry-only lifecycle omission: the initial style-load path registered the stale-responder GeoJSON source, but the explicit retry path restored only incident and fresh/aging responder sources.
+- Fixed retry to reattach the stale-responder source reference from the newly installed style as well. Without this, stale responder cluster taps could stop working after a manual map retry even though their layer/source had been recreated.
+- No changes to freshness thresholds, stale-location presentation, or source contents. No build, tests, emulator, or device validation run.
+
 ## Dense-cluster feature lookup optimization — 2026-11-17
 
 - Built remembered indexes for visible incidents and valid responder reports, keyed by incident ID and the incident/user pair respectively.

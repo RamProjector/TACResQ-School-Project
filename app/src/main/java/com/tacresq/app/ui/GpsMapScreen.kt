@@ -1346,6 +1346,7 @@ fun GpsMapScreen(
                 val sources = style.installGpsMapClusterLayers(context)
                 incidentClusterSource = sources.incidents
                 responderClusterSource = sources.responders
+                staleResponderClusterSource = sources.staleResponders
             }
             // Retry replaces the style too; never keep references to annotations
             // created against the previous style.
