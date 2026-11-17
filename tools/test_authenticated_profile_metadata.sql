@@ -53,6 +53,68 @@ BEGIN
     RAISE EXCEPTION 'Authenticated profile created_at mutation was not rejected by the trigger';
   END IF;
 
+  -- Auth identity and contact fields are immutable through profile table updates.
+  denied := false;
+  BEGIN
+    UPDATE public.profiles
+       SET auth_user_id = '00000000-0000-4000-8000-000000000143'
+     WHERE auth_user_id = auth.uid();
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Authenticated auth_user_id mutation was not rejected by the trigger';
+  END IF;
+
+  denied := false;
+  BEGIN
+    UPDATE public.profiles
+       SET name = 'Tampered Profile Name'
+     WHERE auth_user_id = auth.uid();
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Authenticated profile name mutation was not rejected by the trigger';
+  END IF;
+
+  denied := false;
+  BEGIN
+    UPDATE public.profiles
+       SET email = 'tampered-profile@example.test'
+     WHERE auth_user_id = auth.uid();
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Authenticated profile email mutation was not rejected by the trigger';
+  END IF;
+
+  denied := false;
+  BEGIN
+    UPDATE public.profiles
+       SET phone = '+63917000999'
+     WHERE auth_user_id = auth.uid();
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Authenticated profile phone mutation was not rejected by the trigger';
+  END IF;
+
+  -- Field-unit users must not be able to change their own role.
+  denied := false;
+  BEGIN
+    UPDATE public.profiles
+       SET role = 'requester'
+     WHERE auth_user_id = auth.uid();
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Authenticated field-unit role mutation was not rejected by the trigger';
+  END IF;
+
   -- A supported self-service duty update must still work for a field unit.
   UPDATE public.profiles
      SET duty_status = 'off_duty'
