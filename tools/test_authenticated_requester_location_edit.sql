@@ -6,14 +6,14 @@ GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES
   (
-    '00000000-0000-4000-8000-000000000151',
+    '00000000-0000-4000-8000-000000000991',
     'requester-location-edit-a@example.test',
-    '{"name":"Requester Location Edit A","phone":"+63917000151","role":"requester"}'::jsonb
+    '{"name":"Requester Location Edit A","phone":"+63917000991","role":"requester"}'::jsonb
   ),
   (
-    '00000000-0000-4000-8000-000000000152',
+    '00000000-0000-4000-8000-000000000992',
     'requester-location-edit-b@example.test',
-    '{"name":"Requester Location Edit B","phone":"+63917000152","role":"requester"}'::jsonb
+    '{"name":"Requester Location Edit B","phone":"+63917000992","role":"requester"}'::jsonb
   );
 
 -- Terminal requests remain visible in the fixture but are not editable.
@@ -24,7 +24,7 @@ INSERT INTO public.incidents (
 SELECT id, 'medical', 'Cancelled report', 10.3200, 123.9200, 10,
        'Front gate', clock_timestamp(), 'gps', 'cancelled'
 FROM public.profiles
-WHERE auth_user_id = '00000000-0000-4000-8000-000000000151';
+WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
 
 INSERT INTO public.incidents (
   requester_id, type, description, latitude, longitude, accuracy_m,
@@ -33,7 +33,7 @@ INSERT INTO public.incidents (
 SELECT id, 'medical', 'Original report', 10.3000, 123.9000, 12,
        'Main entrance', clock_timestamp(), 'gps', 'pending'
 FROM public.profiles
-WHERE auth_user_id = '00000000-0000-4000-8000-000000000151';
+WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
 
 -- A second request owned by another account proves object-level ownership.
 INSERT INTO public.incidents (
@@ -43,7 +43,7 @@ INSERT INTO public.incidents (
 SELECT id, 'fire', 'Other requester report', 10.3100, 123.9100, 10,
        'Side entrance', clock_timestamp(), 'gps', 'pending'
 FROM public.profiles
-WHERE auth_user_id = '00000000-0000-4000-8000-000000000152';
+WHERE auth_user_id = '00000000-0000-4000-8000-000000000992';
 
 SELECT set_config(
   'tacresq.test.other_requester_incident_id',
@@ -51,7 +51,7 @@ SELECT set_config(
     SELECT i.id::text
     FROM public.incidents i
     JOIN public.profiles p ON p.id = i.requester_id
-    WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000152'
+    WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000992'
     ORDER BY i.id DESC
     LIMIT 1
   ),
@@ -63,7 +63,7 @@ SELECT set_config(
     SELECT i.id::text
     FROM public.incidents i
     JOIN public.profiles p ON p.id = i.requester_id
-    WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000151'
+    WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000991'
       AND i.status = 'cancelled'
     ORDER BY i.id DESC
     LIMIT 1
@@ -72,7 +72,7 @@ SELECT set_config(
 );
 
 SET ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000151', false);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000991', false);
 
 DO $requester_location_edit_authenticated$
 DECLARE
@@ -218,7 +218,7 @@ BEGIN
   SELECT i.id INTO v_incident_id
   FROM public.incidents i
   JOIN public.profiles p ON p.id = i.requester_id
-  WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000151'
+  WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000991'
     AND i.status = 'pending'
   ORDER BY i.id DESC
   LIMIT 1;
