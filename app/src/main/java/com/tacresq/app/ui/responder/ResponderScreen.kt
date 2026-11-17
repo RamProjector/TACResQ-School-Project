@@ -674,35 +674,52 @@ fun ResponderScreen(
 
     pendingStatusChange?.let { (incident, nextStatus) ->
         val resolving = nextStatus == IncidentStatus.RESOLVED
+        val currentIncident = state.incidents.firstOrNull { it.id == incident.id }
+        val currentStatus = currentIncident?.statusFor(user.id)
+        val transitionStillAllowed = currentStatus == incident.statusFor(user.id) &&
+            currentStatus?.nextSteps()?.contains(nextStatus) == true
+        val checkingAssignment = state.loading || state.refreshing
+        val canConfirm = !state.busy && !checkingAssignment && transitionStillAllowed
         AlertDialog(
             onDismissRequest = { if (!state.busy) pendingStatusChange = null },
             title = {
-                Text(if (resolving) "Confirm response completion?" else "Confirm status update?")
+                Text(
+                    when {
+                        checkingAssignment -> "Checking assignment…"
+                        !transitionStillAllowed -> "Assignment changed"
+                        resolving -> "Confirm response completion?"
+                        else -> "Confirm status update?"
+                    },
+                )
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        if (resolving) {
-                            "Only mark this response resolved when your assigned response is complete."
-                        } else {
-                            "Update your response to ${nextStatus.label.lowercase()}?"
+                        when {
+                            checkingAssignment -> "Wait for the latest assignment status before confirming this change."
+                            !transitionStillAllowed -> "This unit's status changed while the confirmation was open. Close this message and refresh assignments before taking another action."
+                            resolving -> "Only mark this response resolved when your assigned response is complete."
+                            else -> "Update your response to ${nextStatus.label.lowercase()}?"
                         },
-                        fontWeight = if (resolving) FontWeight.SemiBold else FontWeight.Normal,
+                        fontWeight = if (resolving && transitionStillAllowed) FontWeight.SemiBold else FontWeight.Normal,
                     )
-                    Text(
-                        "This unit status is shared with dispatch and the requester. The overall request status reflects the assigned team's progress.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (transitionStillAllowed) {
+                        Text(
+                            "This unit status is shared with dispatch and the requester. The overall request status reflects the assigned team's progress.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
+                        val latest = currentIncident
                         pendingStatusChange = null
-                        vm.advance(incident, nextStatus)
+                        if (latest != null && canConfirm) vm.advance(latest, nextStatus)
                     },
-                    enabled = !state.busy,
+                    enabled = canConfirm,
                 ) {
                     Text(if (resolving) "Mark my response resolved" else nextStatus.actionLabel())
                 }
@@ -712,7 +729,7 @@ fun ResponderScreen(
                     onClick = { pendingStatusChange = null },
                     enabled = !state.busy,
                 ) {
-                    Text("Keep current status")
+                    Text(if (transitionStillAllowed) "Keep current status" else "Close")
                 }
             },
         )
