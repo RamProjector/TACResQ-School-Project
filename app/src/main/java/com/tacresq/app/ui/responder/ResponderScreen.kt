@@ -346,6 +346,7 @@ fun ResponderScreen(
     PollWhileStarted { vm.refresh() }
     val context = LocalContext.current
     var responseToStart by remember { mutableStateOf<Incident?>(null) }
+    var pendingStatusChange by remember { mutableStateOf<Pair<Incident, IncidentStatus>?>(null) }
     var permissionActionIncident by remember { mutableStateOf<Incident?>(null) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -558,7 +559,7 @@ fun ResponderScreen(
                             if (next == IncidentStatus.EN_ROUTE) {
                                 responseToStart = incident
                             } else {
-                                vm.advance(incident, next)
+                                pendingStatusChange = incident to next
                             }
                         },
                         enabled = !state.busy,
@@ -669,6 +670,52 @@ fun ResponderScreen(
                 IncidentCard(incident)
             }
         }
+    }
+
+    pendingStatusChange?.let { (incident, nextStatus) ->
+        val resolving = nextStatus == IncidentStatus.RESOLVED
+        AlertDialog(
+            onDismissRequest = { if (!state.busy) pendingStatusChange = null },
+            title = {
+                Text(if (resolving) "Confirm response completion?" else "Confirm status update?")
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        if (resolving) {
+                            "Only mark this response resolved when your assigned response is complete."
+                        } else {
+                            "Update your response to ${nextStatus.label.lowercase()}?"
+                        },
+                        fontWeight = if (resolving) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                    Text(
+                        "This unit status is shared with dispatch and the requester. The overall request status reflects the assigned team's progress.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingStatusChange = null
+                        vm.advance(incident, nextStatus)
+                    },
+                    enabled = !state.busy,
+                ) {
+                    Text(if (resolving) "Mark resolved" else nextStatus.actionLabel())
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { pendingStatusChange = null },
+                    enabled = !state.busy,
+                ) {
+                    Text("Keep current status")
+                }
+            },
+        )
     }
 
     responseToStart?.let { incident ->
