@@ -172,6 +172,9 @@ jobs:
       - name: Check GPS cluster location counts
         run: python3 tools/test_gps_map_cluster_count_contract.py
 
+      - name: Check GPS camera restoration bounds
+        run: python3 tools/test_gps_camera_restore_contract.py
+
       - name: Check draggable GPS incident sheet
         run: python3 tools/test_gps_map_draggable_sheet.py
 
