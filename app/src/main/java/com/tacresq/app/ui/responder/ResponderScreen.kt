@@ -522,6 +522,22 @@ fun ResponderScreen(
                     )
                 }
             }
+            if (active.any { incident ->
+                    val latitude = incident.latitude
+                    val longitude = incident.longitude
+                    latitude != null && longitude != null &&
+                        latitude.isFinite() && longitude.isFinite() &&
+                        latitude in -90.0..90.0 && longitude in -180.0..180.0
+                }
+            ) {
+                item {
+                    Text(
+                        "Route previews use the incident pin and your approximate location. If the configured routing service is unavailable, use external Maps and confirm the destination with dispatch.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
         items(active, key = { it.id }) { incident ->
@@ -547,11 +563,6 @@ fun ResponderScreen(
                     latitude.isFinite() && longitude.isFinite() &&
                     latitude in -90.0..90.0 && longitude in -180.0..180.0
                 ) {
-                    Text(
-                        "This preview sends your approximate current location and this incident's location to TACResQ's configured routing service (Geoapify when enabled). If it fails, no second provider is contacted; you can choose external Maps.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                     OutlinedButton(
                         onClick = { onOpenMap(incident.id) },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),

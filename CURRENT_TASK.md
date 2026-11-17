@@ -1,3 +1,11 @@
+## Responder route guidance consolidation — 2026-11-17
+
+- Removed repeated routing-provider/fallback paragraphs from each active incident card.
+- Added one shared explanation below the active-response heading when at least one active incident has a valid map pin.
+- Kept each card's route-preview action and invalid/missing-pin warning intact.
+- No routing provider, coordinate, location-sharing, or status logic changed.
+- Source review only; no build, tests, emulator, or device validation run.
+
 ## Requester emergency form selection cleanup — 2026-11-17
 
 - Removed the repeated “Selected” label from the selected emergency-type option. The radio state and highlighted card already communicate selection, while the selectable row retains its accessibility selected semantics.

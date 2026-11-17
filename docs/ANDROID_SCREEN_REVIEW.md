@@ -10,6 +10,9 @@ This register tracks visible UI findings from source review. A change is not con
 - The adaptive request/response history pane previously treated an empty list as “Nothing here yet” even when the ViewModel had retained no live records because refresh failed, or when only cached requester statuses were available. It now distinguishes loading, confirmed empty, and stale/unavailable states, warns in both list and detail panes when the last-loaded snapshot is not current, and provides an explicit refresh action from either pane.
 - When live request refresh failed, the UI could still render “No requests yet” because the failed state intentionally clears live incidents and exposes cached statuses separately. The empty state and section heading now appear only after a successful live status check (or during initial loading); cached/unknown states no longer masquerade as a confirmed empty list.
 
+### Responder active responses
+- The same routing-provider and fallback explanation appeared inside every active incident card with valid coordinates. Consolidated it into one note beneath the active-response heading whenever at least one active incident has a valid pin; individual cards retain their route-preview action and missing-pin warning.
+
 ### Requester emergency form
 - Emergency-type options already communicate selection through the radio control and selected-card styling. Removed the additional “Selected” text label repeated on the active option; the selectable row continues to expose its selected state to accessibility services.
 
