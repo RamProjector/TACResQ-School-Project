@@ -102,6 +102,9 @@ data class IncidentChatUiState(
     val attachmentMimeType: String? = null,
 )
 
+internal fun chatImageSha256(bytes: ByteArray): String =
+    MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+
 class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     private val _state = MutableStateFlow(IncidentChatUiState())
     val state: StateFlow<IncidentChatUiState> = _state.asStateFlow()
@@ -327,7 +330,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             return
         }
         val restored = pendingImageRecord
-        val digest = sha256(bytes)
+        val digest = chatImageSha256(bytes)
         val matchesPending = restored == null ||
             (restored.sha256 == digest && restored.mimeType == mimeType && restored.incidentId == activeIncidentId)
         _state.update {
@@ -413,6 +416,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                             attachmentMimeType = null,
                             sending = false,
                             sendError = null,
+                            pendingImageRetry = false,
                         )
                     }
                 }
@@ -427,9 +431,6 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                 }
         }
     }
-
-    private fun sha256(bytes: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     suspend fun downloadImage(path: String): ByteArray? =
         repo.downloadIncidentImage(path).getOrNull()
