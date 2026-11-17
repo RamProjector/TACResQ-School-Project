@@ -11,7 +11,10 @@ assert "if (next == IncidentStatus.EN_ROUTE)" in source
 start = source.index("pendingStatusChange?.let { (incident, nextStatus) ->")
 end = source.index("responseToStart?.let { incident ->", start)
 dialog = source[start:end]
-assert 'Text(if (resolving) "Confirm response completion?" else "Confirm status update?")' in dialog
+assert '"Confirm response completion?"' in dialog
+assert '"Confirm status update?"' in dialog
+assert "Assignment changed" in dialog
+assert "Checking assignment…" in dialog
 assert "Only mark this response resolved when your assigned response is complete." in dialog
 assert "This unit status is shared with dispatch and the requester." in dialog
 assert "vm.advance(latest, nextStatus)" in dialog
