@@ -2781,6 +2781,7 @@ fun GpsMapScreen(
       }
     }
 }
+}
 
 @Composable
 private fun IncidentMapActions(
@@ -3086,7 +3087,6 @@ private fun MapIncidentCard(
             },
         )
     }
-}
 }
 
 private fun openExternalMaps(context: Context, latitude: Double, longitude: Double) {
