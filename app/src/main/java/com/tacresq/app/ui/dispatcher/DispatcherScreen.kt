@@ -277,7 +277,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Assignment paused", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Latest queue or unit availability could not be confirmed. Refresh before assigning responders.",
+                            "The incident and unit lists below may be out of date. Refresh before relying on them for operational decisions.",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -375,7 +375,11 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         if (!state.loading && activeIncidents.isEmpty()) {
             item {
                 Text(
-                    "No active incidents right now. Newly submitted requests will appear in the pending queue.",
+                    if (state.syncError != null) {
+                        "No active incidents in the last loaded queue. Current status is unconfirmed; refresh before relying on this list."
+                    } else {
+                        "No active incidents right now. Newly submitted requests will appear in the pending queue."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

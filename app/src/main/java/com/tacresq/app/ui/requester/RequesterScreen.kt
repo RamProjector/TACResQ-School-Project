@@ -1514,7 +1514,9 @@ fun RequesterScreen(
             }
         }
 
-        item { SectionHeading("My requests") }
+        if (state.loading || (state.hasCurrentIncidentStatus && !state.isShowingCachedIncidentStatuses)) {
+            item { SectionHeading("My requests") }
+        }
         if (state.loading && state.incidents.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -1538,7 +1540,11 @@ fun RequesterScreen(
                     }
                 }
             }
-        } else if (state.incidents.isEmpty()) {
+        } else if (
+            state.incidents.isEmpty() &&
+            state.hasCurrentIncidentStatus &&
+            !state.isShowingCachedIncidentStatuses
+        ) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(

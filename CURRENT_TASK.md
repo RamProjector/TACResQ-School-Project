@@ -1,3 +1,10 @@
+## Requester and dispatcher stale-state clarity — 2026-11-17
+
+- Requester “No requests yet” and the My requests heading now require a successful live status check (or initial loading). Cached-only and unknown states no longer appear as a confirmed empty request history.
+- Dispatcher refresh failures retain the last loaded lists; the warning now explicitly says those lists may be out of date. An empty active list during sync failure is described as an unconfirmed last-loaded snapshot, not a current empty queue.
+- No request, assignment, cancellation, status-transition, or backend logic changed.
+- Same PR #334. Source review only; no build/tests/device validation run.
+
 ## Authentication honesty follow-up — 2026-11-17
 
 - Found that the password-reset UI claimed a link was sent, while the repository implementation only validated the email and returned success without contacting an auth recovery endpoint.
