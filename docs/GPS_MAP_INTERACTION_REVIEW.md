@@ -142,3 +142,10 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - MapView now receives Android low-memory and running-low trim callbacks through a lifecycle-scoped ComponentCallbacks2 registration, dispatched on the main thread and unregistered at disposal.
 - MapLibre 13.7.1 documents `MapView.onLowMemory()` as required from the host Activity/Fragment low-memory callback; `MapLibreMap` provides add/remove camera-idle listeners. References: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-view/on-low-memory.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/add-on-camera-idle-listener.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/remove-on-camera-idle-listener.html.
 - No tests/build/device checks run; verify rapid selection changes, process recreation, camera gestures, and memory-pressure transitions on device.
+
+
+## Camera restoration and route failure follow-up — 2026-11-17
+
+- Initial automatic fit-to-pins now runs only when there is no saved camera target, preventing restored pan/zoom from being immediately overwritten by the initial-data framing effect.
+- Route exception publication checks both request and selection identity, closing the remaining stale-error path. Latest-request loading cleanup remains keyed to request generation so an older request cannot clear a newer request's spinner.
+- No tests/build/device checks run; confirm on device after rotation/process recreation and rapid incident switching.

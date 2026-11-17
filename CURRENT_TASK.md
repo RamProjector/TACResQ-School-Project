@@ -1,3 +1,10 @@
+## GPS camera restoration and route failure follow-up — 2026-11-17
+
+- Prevented initial-data auto-framing from immediately overriding a restored camera after screen recreation.
+- Tightened the route exception path to require both request and selection generations before publishing a failure message. A route failure from a previously selected incident can no longer overwrite the current selection's status.
+- The request-generation-only `finally` guard remains intentional: it clears loading only for the latest route request, while selection changes invalidate results through the separate selection generation.
+- No tests/build/device checks run.
+
 ## GPS route identity, camera restoration, and memory pressure — 2026-11-17
 
 - **Route ABA race:** A route for incident A could pass the old ID check after the user selected B and then A again. Added a monotonic selection generation captured by each route request; every incident-selection transition invalidates prior generations. Checks now cover location-settings completion, fresh-fix completion, provider completion, result/error publication, and the posted camera move.

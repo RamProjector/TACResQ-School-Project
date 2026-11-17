@@ -1430,7 +1430,7 @@ fun GpsMapScreen(
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                         throw cancelled
                     } catch (_: Exception) {
-                        if (generation == routeRequestGeneration && selectedIncidentId == incident.id) {
+                        if (isCurrentRequest()) {
                             routeStatus = "Could not calculate a route. Check connectivity and confirm the destination with dispatch."
                         }
                     } finally {
@@ -1689,9 +1689,10 @@ fun GpsMapScreen(
             renderedMarkerSignatures.remove(key)
         }
 
-        val shouldFrameInitialUnits = !hasAutoFramedInitialMapPoints &&
+        val hasRestorableCamera = savedCameraLatitude != null && savedCameraLongitude != null
+        val shouldFrameInitialUnits = !hasRestorableCamera && !hasAutoFramedInitialMapPoints &&
             validIncidentPoints.isEmpty() && responderPointsForInitialFrame.isNotEmpty()
-        val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()
+        val shouldFrameIncidentPoints = !hasRestorableCamera && !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()
         if (deviceFix == null && (shouldFrameInitialUnits || shouldFrameIncidentPoints)) {
             hasAutoFramedInitialMapPoints = true
             if (shouldFrameIncidentPoints) hasAutoFramedIncidentPoints = true
