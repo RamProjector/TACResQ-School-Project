@@ -24,7 +24,7 @@ assert "currentStatus?.nextSteps()?.contains(nextStatus) == true" in dialog
 assert "enabled = canConfirm" in dialog
 assert "This unit's status changed while the confirmation was open." in dialog
 assert 'Text(if (resolving) "Mark my response resolved" else nextStatus.actionLabel())' in dialog
-assert 'Text("Keep current status")' in dialog
+assert 'Text(if (transitionStillAllowed) "Keep current status" else "Close")' in dialog
 assert "enabled = !state.busy" in dialog
 
 # The only status advance from the UI must happen after explicit confirmation.
