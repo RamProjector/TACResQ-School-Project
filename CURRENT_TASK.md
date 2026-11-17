@@ -1,3 +1,11 @@
+## Incident chat follow and composer polish — 2026-11-17
+
+- Added conditional auto-follow for incoming messages: new messages scroll into view only when the reader is already at/near the bottom. The screen no longer stays pinned to the first loaded position after polling, and users reviewing older messages are not forcibly repositioned.
+- Disabled the composer while pending-message restoration is unresolved.
+- Hid the draft character counter until the user reaches 1,800 of the 2,000-character limit.
+- Targeted UI-only behavior; message persistence, server delivery, authorization, and image upload logic are unchanged.
+- Source review only; no build, tests, emulator, or device validation run.
+
 ## Notifications refresh race and redundant retry control — 2026-11-17
 
 - Guarded notification refresh success, failure, and exception publication with the active refresh generation. A superseded request can no longer overwrite the latest inbox snapshot if its underlying operation completes after cancellation.

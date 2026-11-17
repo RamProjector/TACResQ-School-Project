@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.animateScrollToItem
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -434,6 +435,18 @@ fun IncidentChatScreen(
         }
     }
 
+    // Follow newly received messages only while the reader is already near the bottom.
+    // Do not pull someone away from older messages while they are reviewing the thread.
+    LaunchedEffect(state.items.lastOrNull()?.id, state.items.size, state.hasOlder) {
+        if (didInitialScroll && state.items.isNotEmpty()) {
+            val layout = listState.layoutInfo
+            val lastVisibleIndex = layout.visibleItemsInfo.lastOrNull()?.index ?: -1
+            if (lastVisibleIndex >= layout.totalItemsCount - 2) {
+                listState.animateScrollToItem(state.items.lastIndex + if (state.hasOlder) 1 else 0)
+            }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
             Column(
@@ -637,13 +650,15 @@ fun IncidentChatScreen(
                     minLines = 1,
                     placeholder = { Text("Message the incident team…") },
                     maxLines = 4,
-                    supportingText = { Text("${state.draft.length}/2000") },
+                    supportingText = if (state.draft.length >= 1800) {
+                        { Text("${state.draft.length}/2000") }
+                    } else null,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
                         if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
                         else vm.send(incidentId)
                     }),
-                    enabled = !state.sending && !state.loading && state.error == null,
+                    enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null,
                     shape = RoundedCornerShape(22.dp),
                 )
                 androidx.compose.material3.FilledIconButton(

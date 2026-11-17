@@ -30,6 +30,11 @@ This register tracks visible UI findings from source review. A change is not con
 - The chat header repeated its incident context in both title and subtitle and consumed additional space with a persistent reminder card. Kept the incident identifier and replaced the subtitle with the access-scope reminder; removed the extra card.
 - Notification header copy was redundant with the push-optional explanation in the status card. The header now names the content of the screen, leaving the practical push/inbox guidance in one place.
 
+### Incident chat
+- Incoming messages were merged into the conversation during polling, but the list only scrolled to the bottom once on initial load. It now follows newly received messages only when the reader is already near the bottom; reading older messages no longer gets interrupted by incoming updates.
+- The composer is disabled while a saved pending message is being restored, preventing an editable-looking input during the integrity/recovery check.
+- The character counter is hidden during ordinary typing and appears near the 2,000-character limit to reduce persistent composer clutter.
+
 ### Notifications
 - A forced inbox refresh could supersede an earlier request, but the earlier request's success/failure callbacks did not check the refresh generation. If cancellation was not observed promptly by the underlying call, an older response could overwrite the newer inbox snapshot. Success, failure, and exception publication now require the current generation.
 - The inbox already exposes a Refresh action in its status panel; the empty-error card also showed a second Try again button for the same operation. Removed the duplicate action so there is one consistent refresh affordance.
