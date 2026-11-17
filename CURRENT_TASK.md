@@ -1,3 +1,14 @@
+# Current handoff — 2026-11-17: authentication form wide-screen readability
+
+- **Objective:** Keep sign-in and requester registration fields comfortably readable on tablets and desktop-sized Android windows.
+- **Finding:** The authentication card expanded to the full available width on large windows, creating unnecessarily long form fields and scan lines.
+- **Implementation:** Constrain the centered authentication card to a 520 dp maximum while retaining full available width on narrower phones.
+- **Scope:** Authentication layout only. Validation, account roles, password handling, session state, and repository behavior are unchanged.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI refinements on PR #334; perform consolidated validation after implementation changes are complete.
+
+---
+
 # Current handoff — 2026-11-17: chat attachment preview responsiveness
 
 - **Objective:** Keep image selection responsive by avoiding bitmap decoding on the Compose UI thread.
