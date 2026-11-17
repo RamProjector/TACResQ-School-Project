@@ -44,3 +44,32 @@ References:
 - Android location APIs: https://developer.android.com/develop/sensors-and-location/location
 - OWASP API Security Top 10: https://owasp.org/www-project-api-security/
 - PostgreSQL constraints: https://www.postgresql.org/docs/current/ddl-constraints.html
+
+## Additional provenance audit — provider identity and recording API
+
+A source-level review of the Android location path found that the current schema records capture mode, not the actual platform provider or the API path that persisted a coordinate.
+
+Confirmed:
+- `incidents.location_source` distinguishes `gps`, `manual`, and `none`. It does not identify the Android provider implementation.
+- `LocationProvider.kt` obtains fixes through `FusedLocationProviderClient` and converts them to `GeoFix` using latitude, longitude, accuracy, wall-clock capture time, elapsed-realtime time, and permission precision. The conversion does not preserve `Location.provider`.
+- The responder tracking service sends fixes through `api_record_location_v2`. The RPC and `location_logs` row do not store a provider identifier or a recording-operation identifier.
+- The existing server receipt timestamp (where present) is distinct from the device capture timestamp; it does not identify which RPC or external provider supplied the coordinate.
+
+Do not conflate these provenance dimensions:
+1. **Capture method:** GPS-backed device fix versus manual map selection.
+2. **Platform location provider:** a client-reported Android provider label such as `fused`. This is diagnostic metadata, not proof of GNSS hardware origin or an attested location.
+3. **Recording operation:** the server-known RPC/function that accepted the write. This should be recorded server-side as a fixed operation identifier, not accepted as arbitrary client text.
+4. **Map-content provider:** the map/tile service used to render a map or support manual selection.
+5. **Routing provider:** the external route service that may receive origin/destination coordinates. It is a recipient of location data, not the source of the device fix.
+
+Recommended follow-up:
+- Keep capture method as a constrained field.
+- If provider diagnostics are required, add a separate short, allowlisted `platform_location_provider` field to location records and define whether it applies to requester incident pins, responder tracking, or both.
+- Record the recording RPC/action as a server-assigned constant or controlled audit event. Do not trust a caller-supplied `rpc_name` field.
+- Record map and routing providers separately only where the app actually invokes them; do not infer a map provider from a GPS fix.
+- Bound any provider label (for example, 64 characters), normalize it to an allowlist, and treat it as untrusted client metadata. It must never influence authorization, dispatch eligibility, or emergency status.
+- Preserve server receipt time separately from client capture time, and define retention/access rules because location coordinates and provider metadata are sensitive.
+
+The present schema has no provider-name field, so there is currently no provider-name length limit to report. The existing `location_source` domain is constrained to the supported capture-mode values; it is not a free-form provider-name column. Adding provider metadata requires a separately reviewed schema/API/client change and compatibility tests; this validation PR does not silently introduce an unverified provider contract.
+
+This limitation is consistent with Android's fused-location model: the app requests location through Google Play services' fused provider, which may combine available device signals. A provider label alone cannot establish which underlying sensors contributed to a fix. Keep it as diagnostic provenance only.
