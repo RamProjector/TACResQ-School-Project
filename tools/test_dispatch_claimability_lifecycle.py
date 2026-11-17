@@ -85,6 +85,9 @@ for required in (
     "UPDATE public.incidents",
     "EXCEPTION WHEN insufficient_privilege",
     "public.api_cancel_my_incident(incident_id)",
+    "public.api_update_incident_status(incident_id, 'en_route')",
+    "Authenticated responder status RPC boundary fixture",
+    "final_claimable",
     "persisted_status",
 ):
     assert required.lower() in integration.lower(), (
@@ -93,6 +96,10 @@ for required in (
 assert "tools/test_authenticated_incident_write_boundary.sql" in replay, (
     "Authenticated incident write-boundary test must run in migration replay"
 )
+
+assert "public.api_update_incident_status" in integration
+assert "SET ROLE authenticated" in integration
+assert "UPDATE public.incidents SET status = 'cancelled'" in integration
 
 
 # Exercise the dispatcher/requester race against two independent authenticated
