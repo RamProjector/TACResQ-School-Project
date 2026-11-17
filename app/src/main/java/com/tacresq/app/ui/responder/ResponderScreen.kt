@@ -704,7 +704,7 @@ fun ResponderScreen(
                     },
                     enabled = !state.busy,
                 ) {
-                    Text(if (resolving) "Mark resolved" else nextStatus.actionLabel())
+                    Text(if (resolving) "Mark my response resolved" else nextStatus.actionLabel())
                 }
             },
             dismissButton = {
