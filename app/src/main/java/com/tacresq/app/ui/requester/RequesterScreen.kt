@@ -34,6 +34,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -762,7 +763,8 @@ fun RequesterScreen(
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
     var locationRequirementError by rememberSaveable { mutableStateOf<String?>(null) }
-    var confirmingSos by remember { mutableStateOf(false) }
+    var locationSharingAcknowledged by remember { mutableStateOf(false) }
+    var locationAcknowledgementError by remember { mutableStateOf(false) }
     var showDiscardConfirmation by remember { mutableStateOf(false) }
     var showPendingSosDiscardConfirmation by remember { mutableStateOf(false) }
     var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -835,6 +837,8 @@ fun RequesterScreen(
             description = ""
             locationNotes = ""
             requestStep = 1
+            locationSharingAcknowledged = false
+            locationAcknowledgementError = false
             showRequestForm = false
         }
     }
@@ -1223,7 +1227,8 @@ fun RequesterScreen(
                                 if (hasDraft) showDiscardConfirmation = true
                                 else {
                                     showRequestForm = false
-                                    confirmingSos = false
+                                    locationSharingAcknowledged = false
+                                    locationAcknowledgementError = false
                                 }
                             },
                             enabled = !state.sending && !state.capturingLocation,
@@ -1416,6 +1421,32 @@ fun RequesterScreen(
                                 maxLines = 3,
                                 modifier = Modifier.fillMaxWidth(),
                             )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().selectable(
+                                    selected = locationSharingAcknowledged,
+                                    role = Role.Checkbox,
+                                    onClick = {
+                                        locationSharingAcknowledged = !locationSharingAcknowledged
+                                        locationAcknowledgementError = false
+                                    },
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Checkbox(checked = locationSharingAcknowledged, onCheckedChange = null)
+                                Text(
+                                    "I understand that the one-time pin or landmark I provide will be shared with dispatch and the assigned response team for this request.",
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            if (locationAcknowledgementError) {
+                                Text(
+                                    "Acknowledge how your location will be shared before continuing.",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { requestStep = 1 }, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
                                 Button(
@@ -1423,8 +1454,12 @@ fun RequesterScreen(
                                         val hasFreshPin = state.locationFix?.let(vm::isFresh) == true
                                         if (!hasFreshPin && locationNotes.isBlank()) {
                                             locationRequirementError = "Add a location pin or a landmark/access detail before continuing."
+                                        } else if (!locationSharingAcknowledged) {
+                                            locationRequirementError = null
+                                            locationAcknowledgementError = true
                                         } else {
                                             locationRequirementError = null
+                                            locationAcknowledgementError = false
                                             vm.expireStaleLocation()
                                             requestStep = 3
                                         }
@@ -1439,15 +1474,22 @@ fun RequesterScreen(
                             Text("Emergency type: ${selectedType?.label ?: "Not selected"}", fontWeight = FontWeight.SemiBold)
                             description.trim().takeIf { it.isNotEmpty() }?.let { Text("Details: $it") }
                             if (freshFix != null) LocationFixCard(freshFix, onClear = { vm.clearLocationFix(); requestStep = 2 })
+                            if (freshFix != null) Text("This one-time pin is sent; ongoing tracking is not.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             else LocationNoticeCard("Sending without a GPS pin", "Dispatch may need to call you to confirm the exact location.")
                             locationNotes.trim().takeIf { it.isNotEmpty() }?.let { Text("Landmark/access detail: $it") }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Only send if help is needed now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { requestStep = 2 }, enabled = !state.sending, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
-                                Button(onClick = { confirmingSos = true }, enabled = !state.sending && !state.capturingLocation,
+                                Button(
+                                    onClick = { selectedType?.let { vm.sendSos(it, description, locationNotes) } },
+                                    enabled = selectedType != null && requesterActionsEnabled &&
+                                        !state.sending && !state.capturingLocation &&
+                                        !state.pendingSosCheckInProgress && state.pendingSosCheckError == null,
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                    modifier = Modifier.weight(1f).height(52.dp)) {
+                                    modifier = Modifier.weight(1f).height(52.dp),
+                                ) {
                                     if (state.sending) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                    else Text("Confirm SOS", fontWeight = FontWeight.Bold)
+                                    else Text("Send SOS", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -1712,7 +1754,6 @@ fun RequesterScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showDiscardConfirmation = false
-                    confirmingSos = false
                     showManualPinPicker = false
                     selectedType = null
                     emergencyTypeError = false
@@ -1723,6 +1764,8 @@ fun RequesterScreen(
                     vm.clearLocationFix()
                     vm.clearRequesterDraft()
                     showRequestForm = false
+                    locationSharingAcknowledged = false
+                    locationAcknowledgementError = false
                 }) { Text("Discard draft") }
             },
             dismissButton = {
@@ -1731,44 +1774,6 @@ fun RequesterScreen(
         )
     }
 
-    if (confirmingSos) {
-        AlertDialog(
-            onDismissRequest = { confirmingSos = false },
-            title = { Text("Send emergency request?") },
-            text = {
-                Column(
-                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text("Dispatch will receive a ${selectedType?.label?.lowercase() ?: "unselected"} emergency.")
-                    description.trim().takeIf { it.isNotEmpty() }?.let { Text(it) }
-                    if (freshFix != null) {
-                        Text(locationSummary(freshFix))
-                        Text("This one-time pin is sent; ongoing tracking is not.", style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        Text("No GPS pin. Dispatch may call to confirm the location.")
-                    }
-                    locationNotes.trim().takeIf { it.isNotEmpty() }?.let {
-                        Text("Landmark: $it")
-                    }
-                    Text("Only send if help is needed now.", style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = !state.sending && !state.capturingLocation &&
-                        !state.pendingSosCheckInProgress && state.pendingSosCheckError == null,
-                    onClick = {
-                        confirmingSos = false
-                        selectedType?.let { vm.sendSos(it, description, locationNotes) }
-                    },
-                ) { Text(if (state.sending) "Sending…" else "Send SOS") }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmingSos = false }) { Text("Go back") }
-            },
-        )
-    }
 }
 
 @Composable
@@ -1820,21 +1825,6 @@ private fun LocationNoticeCard(title: String, text: String) {
             Text(text, style = MaterialTheme.typography.bodySmall)
         }
     }
-}
-
-private fun locationSummary(fix: GeoFix): String {
-    val accuracy = fix.accuracyM?.let { "reported accuracy ±${ceil(it.toDouble()).toInt()} m" }
-        ?: "accuracy not reported"
-    val timestamp = runCatching { formatTime(Instant.ofEpochMilli(fix.capturedAtEpochMillis).toString()) }
-        .getOrDefault("just now")
-    if (fix.manuallySelected) {
-        return "Your manually selected map pin (" +
-            String.format(Locale.US, "%.5f", fix.latitude) + ", " +
-            String.format(Locale.US, "%.5f", fix.longitude) +
-            "), selected $timestamp, will be sent to dispatch."
-    }
-    val precision = if (fix.hasPrecisePermission) "GPS pin" else "approximate GPS pin"
-    return "One $precision ($accuracy), captured $timestamp, will be sent to dispatch."
 }
 
 
