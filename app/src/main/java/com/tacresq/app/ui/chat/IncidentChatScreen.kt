@@ -86,6 +86,27 @@ import java.util.Locale
 import java.util.UUID
 import java.security.MessageDigest
 
+
+private const val MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024
+
+/** Read a selected image with a hard byte limit before allocating the full payload. */
+private fun readChatImageBytes(context: android.content.Context, uri: android.net.Uri): ByteArray? =
+    runCatching {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8 * 1024)
+            var total = 0
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                total += count
+                if (total > MAX_CHAT_IMAGE_BYTES) return null
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        }
+    }.getOrNull()
+
 data class IncidentChatUiState(
     val items: List<IncidentMessage> = emptyList(),
     val draft: String = "",
@@ -475,9 +496,7 @@ fun IncidentChatScreen(
     ) { uri ->
         if (uri != null) {
             val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
-            val bytes = runCatching {
-                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            }.getOrNull()
+            val bytes = readChatImageBytes(context, uri)
             if (bytes == null) vm.setImageAttachment(byteArrayOf(), mimeType)
             else vm.setImageAttachment(bytes, mimeType)
         }
