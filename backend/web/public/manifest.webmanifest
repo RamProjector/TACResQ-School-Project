@@ -1,7 +1,7 @@
 {
   "name": "TACResQ",
   "short_name": "TACResQ",
-  "description": "Emergency-response coordination and dispatch workspace.",
+  "description": "Administrator account management and audit portal.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
