@@ -1492,3 +1492,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - This changes presentation only; the incident filter, descending server query, 50-event repository bound, audit records, and authorization remain unchanged.
 - Updated the source contract to guard chronological rendering in both panels.
 - Validation: source-level review only; static test and Android build were not executed. No production backend or migration changes.
+
+
+## 2026-11-18 — Assignment history actor labels
+- Replaced raw numeric account-ID labels for other audit actors with “Another dispatcher/admin” in both active and closed incident timelines. The current operator remains “You” and system-generated events remain “System”.
+- This is a presentation/privacy improvement only; the immutable event still retains actor_user_id for authorized audit retrieval. No schema, API, or authorization changes.
+- Added a source contract to prevent raw actor account IDs from reappearing in the UI.
+- Validation: source-level review only; contract test and Android build were not executed. No production backend changes.
