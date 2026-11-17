@@ -1,3 +1,10 @@
+# Current handoff — 2026-11-17: GPS map interaction simplification
+
+- **Finding:** The full-screen map exposed separate zoom-in and zoom-out buttons alongside a fit-locations action. This added three stacked controls and duplicated gestures already available directly on the map; the zoom buttons were also a previously identified UI distraction.
+- **Change:** Replaced the stack with one 56 dp floating fit-locations control using the familiar location-target icon. It remains disabled until the map style is ready and continues to frame the same role-appropriate visible locations. Removed the now-unused explicit zoom handlers.
+- **Scope:** Presentation and map-camera affordance only. Pin rendering, map gestures, GPS capture, route previews, incident selection, and location permissions are unchanged.
+- **Validation:** Not run per the incremental-commit workflow; verify on a device that the single control is reachable above the sheet and frames the expected pins for each role.
+
 # Current handoff — 2026-11-17: remove duplicate full-screen map attribution overlay
 
 - **Finding:** The GPS map manually overlaid a second `© OpenMapTiles · © OpenStreetMap contributors` label while the map drawer already provided a detailed attribution link. The map uses MapLibre with OpenFreeMap; OpenFreeMap documents that MapLibre automatically displays the required attribution control.

@@ -330,58 +330,23 @@ private fun GpsMapFilterButtons(
 private fun GpsMapCameraControls(
     modifier: Modifier = Modifier,
     enabled: Boolean,
-    onZoomIn: () -> Unit,
-    onZoomOut: () -> Unit,
     onShowAll: () -> Unit,
 ) {
-    androidx.compose.material3.Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-        tonalElevation = 3.dp,
-        shadowElevation = 6.dp,
+    androidx.compose.material3.FilledTonalIconButton(
+        onClick = onShowAll,
+        enabled = enabled,
+        modifier = modifier
+            .size(56.dp)
+            .semantics {
+                contentDescription = "Fit all visible map locations"
+            },
+        shape = RoundedCornerShape(20.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            androidx.compose.material3.IconButton(
-                onClick = onZoomIn,
-                enabled = enabled,
-                modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = "Zoom in on map"
-                },
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Add,
-                    contentDescription = null,
-                )
-            }
-            androidx.compose.material3.IconButton(
-                onClick = onZoomOut,
-                enabled = enabled,
-                modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = "Zoom out on map"
-                },
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Remove,
-                    contentDescription = null,
-                )
-            }
-            androidx.compose.material3.IconButton(
-                onClick = onShowAll,
-                enabled = enabled,
-                modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = "Fit all visible map locations"
-                },
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
-                    contentDescription = null,
-                )
-            }
-        }
+        androidx.compose.material3.Icon(
+            imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 
@@ -768,24 +733,6 @@ fun GpsMapScreen(
                 locationStatus = "Showing field-unit locations: $freshResponderCount fresh, $agingResponderCount aging, $staleResponderCount stale. Stale pins are not live."
             }
         }
-    }
-
-    fun zoomMapIn() {
-        if (mapLibreMap == null || !mapStyleLoaded) {
-            locationStatus = "Map is still loading. Try again in a moment."
-            return
-        }
-        mapLibreMap?.animateCamera(CameraUpdateFactory.zoomIn(), 180)
-        locationStatus = "Map zoomed in."
-    }
-
-    fun zoomMapOut() {
-        if (mapLibreMap == null || !mapStyleLoaded) {
-            locationStatus = "Map is still loading. Try again in a moment."
-            return
-        }
-        mapLibreMap?.animateCamera(CameraUpdateFactory.zoomOut(), 180)
-        locationStatus = "Map zoomed out."
     }
 
     fun showAllVisiblePoints() {
@@ -1883,8 +1830,6 @@ fun GpsMapScreen(
                 .navigationBarsPadding()
                 .padding(start = 12.dp, bottom = 136.dp),
             enabled = mapStyleLoaded,
-            onZoomIn = ::zoomMapIn,
-            onZoomOut = ::zoomMapOut,
             onShowAll = ::showAllVisiblePoints,
         )
 
