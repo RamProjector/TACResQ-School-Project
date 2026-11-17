@@ -340,7 +340,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         Text("Select response team")
                     }
                 }
-                OutlinedButton(
+                TextButton(
                     onClick = { vm.setIncidentClaimable(incident.id, !incident.isClaimable) },
                     enabled = !state.busy && state.assignmentDataFresh,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),

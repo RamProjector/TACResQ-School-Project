@@ -12,6 +12,8 @@ This register tracks visible UI findings from source review. A change is not con
 
 - Dispatcher summary metrics previously labelled the incident total only as “Total”, the available-unit count only as “Available”, and the panel “Live overview” even when the retained snapshot could be stale. Renamed these to “Incidents”, “Ready units”, and “Dispatch overview” so each count has a clear subject and the heading does not imply guaranteed live freshness.
 
+- Pending dispatcher cards presented “Select response team” and the claimability toggle as two equally prominent outlined buttons, competing for attention. Kept team selection as the primary outlined action and demoted the reversible field-claiming toggle to a full-width text action; both remain gated by the same busy/freshness checks.
+
 ### Responder active responses
 - The same routing-provider and fallback explanation appeared inside every active incident card with valid coordinates. Consolidated it into one note beneath the active-response heading whenever at least one active incident has a valid pin; individual cards retain their route-preview action and missing-pin warning.
 

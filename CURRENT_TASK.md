@@ -1,3 +1,10 @@
+## Dispatcher pending-action hierarchy — 2026-11-17
+
+- **Finding:** Each pending incident card showed team selection and field-claiming configuration as equally prominent outlined buttons, although team assignment is the main dispatch action and claimability is a secondary configuration toggle.
+- **Change:** Kept “Select response team” as the primary outlined action and changed the claimability toggle to a full-width text action. The conversation action remains secondary.
+- **Safety:** Existing busy and assignment-freshness guards are unchanged. No dispatch, team assignment, claimability, or messaging behavior changed.
+- **Validation:** Source review only. No Gradle build, tests, emulator, or device validation run.
+
 ## Dispatcher summary metric labels — 2026-11-17
 
 - **Finding:** The summary mixed incident counts and available-unit counts, but labels “Total” and “Available” did not name their subjects. “Live overview” also overstated freshness when the retained snapshot could be stale.
