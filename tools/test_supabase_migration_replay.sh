@@ -1425,3 +1425,6 @@ psql -v ON_ERROR_STOP=1 -f tools/test_responder_incident_claiming.sql
 # Run a real two-connection race against the disposable database after all
 # migrations and sequential lifecycle fixtures have completed.
 bash tools/test_field_claim_concurrency.sh
+
+# Deterministic races across field-claim and dispatcher-assignment entry points.
+bash tools/test_assignment_cross_path_concurrency.sh
