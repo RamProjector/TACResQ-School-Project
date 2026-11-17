@@ -150,22 +150,22 @@ SELECT set_config('request.jwt.claim.sub', '', false);
 
 DO $claimability_audit_boundary$
 DECLARE
-  incident_id bigint;
-  actor_id bigint;
+  v_incident_id bigint;
+  v_actor_id bigint;
   matching_events integer;
 BEGIN
-  SELECT id INTO actor_id
+  SELECT id INTO v_actor_id
   FROM public.profiles
   WHERE auth_user_id = '00000000-0000-4000-8000-000000000145';
 
-  SELECT id INTO incident_id
+  SELECT id INTO v_incident_id
   FROM public.incidents
   WHERE description = 'Authenticated responder status RPC boundary fixture';
 
   SELECT count(*) INTO matching_events
   FROM public.incident_claimability_logs
-  WHERE incident_id = claimability_audit_boundary.incident_id
-    AND actor_profile_id = claimability_audit_boundary.actor_id
+  WHERE incident_id = v_incident_id
+    AND actor_profile_id = v_actor_id
     AND source_rpc = 'incident_status_transition'
     AND previous_claimable IS TRUE
     AND new_claimable IS FALSE
