@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -1840,16 +1841,18 @@ fun GpsMapScreen(
                         )
                     }
                     Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        // Keep the title's contrast backing content-sized. A weighted,
+                        // full-row surface reads like a search field even though it is not one.
+                        modifier = Modifier.widthIn(max = 180.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.94f),
                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ) {
                         Text(
                             if (role == Role.REQUESTER) "Map" else "GPS Map",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis,

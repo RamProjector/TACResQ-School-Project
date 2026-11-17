@@ -1,3 +1,11 @@
+# GPS map header — remove remaining search-field silhouette
+
+- **Review finding:** After removing the full-width header container, the title still sat inside a weighted, elongated rounded Surface. On a narrow map header it continued to resemble an inactive search field, recreating the same misleading visual affordance at a smaller scale.
+- **Change:** Made the title backing content-sized with a maximum width, reduced its padding and corner radius, and retained a high-contrast local surface for legibility over both light and dark map tiles. The back, retry/offline, and locate actions remain separate controls with their existing touch targets.
+- **Layout behavior:** The title no longer expands to consume all remaining row width; actual header height continues to drive native compass placement, so the compass follows the compacted layout.
+- **Preserved:** GPS capture, permissions, marker rendering, map gestures, route previews, attribution, role visibility, and backend contracts.
+- **Validation:** Not run per the requested commit cadence. Verify the header at 320 dp width, with/without Retry map, and over light/dark tiles on-device before merge.
+
 # GPS map research and rendering refinement
 
 - **Compass placement:** Replaced the fixed 180–224 dp guess with placement derived from the measured bottom edge of the actual Compose header plus a small gap. This adapts automatically when filter chips appear/disappear, the device rotates, or available window height changes. A safe initial fallback is retained until the first layout measurement; style retry reuses the latest measured position.
