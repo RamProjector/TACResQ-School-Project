@@ -63,7 +63,12 @@ checks = {
         and "LocationManager" not in location_provider
     ),
     "Android unregisters callback on flow cancellation": "awaitClose()" in location_provider and "finally {\n            client.removeLocationUpdates(callback)" in location_provider,
-    "responder consent permits start without sharing and requests permission in context": "Share location & start" in responder_screen and "Start without sharing" in responder_screen and "ACCESS_COARSE_LOCATION" in responder_screen,
+    "responder location sharing is optional and only available after dispatcher deployment": (
+        "Location sharing becomes available after dispatch records the team as en route." in responder_screen
+        and "ownStatus != IncidentStatus.EN_ROUTE" in responder_screen
+        and "GPS sharing reports your location; it does not confirm arrival" in responder_screen
+        and "ACCESS_COARSE_LOCATION" in responder_screen
+    ),
     "responder sharing uses an explicit location foreground service with a user stop action": all(text in tracking_service for text in ("ServiceCompat.startForeground(", "FOREGROUND_SERVICE_TYPE_LOCATION", "ACTION_STOP", '"Stop sharing"', "serviceScope.launch { trackAssignment(incidentId) }")),
     "service revalidates the en-route assignment and session without relying on GPS callbacks": all(text in tracking_service for text in ("assignmentMonitorJob", "monitorAssignment(incidentId)", "repository.myIncidents()", "statusFor(user.id) == IncidentStatus.EN_ROUTE", "is HttpException -> code()", "is ApiException -> httpCode", "failure.hasHttpStatus(401, 403)", "active assignment could not be verified")),
     "foreground service stops on location or notification permission withdrawal": all(text in tracking_service for text in ("hasRequiredPermissions(this)", "ACCESS_COARSE_LOCATION", "POST_NOTIFICATIONS", "permission was withdrawn")),
@@ -78,7 +83,7 @@ checks = {
     "Geoapify route previews disclose external coordinate processing and never silently retry another provider": all(text in responder_screen for text in ("approximate current location", "incident's location", "configured routing service", "If it fails, no second provider is contacted")) and "No automatic failover to a second provider occurs" in (ROOT / "docs/IN_APP_ROUTING_FOUNDATION.md").read_text(),
     "OSRM service is pinned, requires an external graph volume, and suppresses coordinate-bearing access logs": all(text in osrm_docker for text in ("ghcr.io/project-osrm/osrm-backend:v26.10.0", "DISABLE_ACCESS_LOGGING=1")) and all(text in osrm_start for text in ("${GRAPH_PREFIX}.osrm", "osrm-routed --algorithm mld")) and "Coordinates are sent in OSRM's JSON POST body, not in the URL" in osrm_docs,
     "Android dispatcher map distinguishes fresh, aging, and stale locations": all(text in map_screen for text in ("MapLocationFreshness.FRESH", "MapLocationFreshness.AGING", "MapLocationFreshness.STALE", "age <= 120L", "else -> MapLocationFreshness.STALE")),
-    "Android map rejects future timestamps and warns stale pins are not live": all(text in map_screen for text in ("if (recorded.isAfter(now)) return null", "if (recordedAt.isAfter(now))", "STALE — last known position", "Do not treat this marker as live", "Stale markers are last-known positions, not live.")),
+    "Android map rejects future timestamps and labels stale pins as last-known, not live": all(text in map_screen for text in ("if (recorded.isAfter(now)) return null", "if (recordedAt.isAfter(now))", "Last known location · ${formatLocationAge(age)} ago · not live", "Stale pins are not live.", "Last known position, not live")),
     "Android map refreshes incident-location ages for every role without polling responder locations for non-dispatchers": (
         all(text in map_screen for text in (
             "remember(freshnessTick) { Instant.now() }",
