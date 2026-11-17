@@ -551,6 +551,36 @@ class FakeTacApi(
         }
     }
 
+    override suspend fun releaseIncidentAssignment(incidentId: Long, userId: Long): Incident {
+        delay(180)
+        return synchronized(lock) {
+            if (current().role != Role.DISPATCHER) throw httpError(403, "Only dispatchers can release assignments.")
+            val index = incidents.indexOfFirst { it.id == incidentId }
+            if (index < 0) throw httpError(404, "Incident not found.")
+            val incident = incidents[index]
+            if (incident.status !in listOf(IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE)) {
+                throw httpError(422, "Team members can only be released before the incident reaches the scene.")
+            }
+            val team = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+            if (userId !in team) throw httpError(404, "The selected field unit is not assigned to this incident.")
+            if (team.size <= 1) throw httpError(422, "The last assigned field unit cannot be released.")
+            val remaining = team.filterNot { it == userId }
+            val oldStatuses = incident.assignedUserStatuses.ifEmpty {
+                team.map { ResponderAssignmentStatus(it, incident.status, incident.createdAt) }
+            }
+            val updated = incident.copy(
+                assignedTo = if (incident.assignedTo == userId) remaining.first() else incident.assignedTo,
+                assignedUserIds = remaining,
+                assignedUserStatuses = oldStatuses.filterNot { it.userId == userId },
+            )
+            incidents[index] = updated
+            accounts.firstOrNull { it.user.id == userId }?.let { account ->
+                if (!hasActiveIncident(userId)) setDuty(userId, DutyStatus.AVAILABLE)
+            }
+            updated
+        }
+    }
+
     override suspend fun claimIncident(id: Long): com.tacresq.app.data.model.ClaimIncidentResult {
         delay(300)
         return synchronized(lock) {
