@@ -73,7 +73,7 @@ assert "GPS sharing reports your location; it does not confirm arrival" in respo
 # Dispatcher and requester surfaces use the shared incident milestone.
 assert "StatusPill(incident.status)" in dispatcher
 assert "memberStatus" not in dispatcher
-assert "Team progress" in dispatcher
+assert "Dispatch records one shared progress milestone for the assigned team." in dispatcher
 assert "val requesterLabel: String" in models
 assert 'PENDING -> "Request received"' in models
 assert 'ASSIGNED -> "Team assigned"' in models
