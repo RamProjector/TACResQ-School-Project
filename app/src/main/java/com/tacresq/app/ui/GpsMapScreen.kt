@@ -2751,7 +2751,9 @@ fun GpsMapScreen(
                         androidx.compose.material3.FilledTonalIconButton(
                             onClick = {},
                             enabled = false,
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(48.dp).semantics {
+                                contentDescription = "Getting your location"
+                            },
                         ) {
                             androidx.compose.material3.CircularProgressIndicator(
                                 modifier = Modifier
