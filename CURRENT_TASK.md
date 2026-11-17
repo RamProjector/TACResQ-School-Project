@@ -1,3 +1,9 @@
+## Dispatcher summary metric labels — 2026-11-17
+
+- **Finding:** The summary mixed incident counts and available-unit counts, but labels “Total” and “Available” did not name their subjects. “Live overview” also overstated freshness when the retained snapshot could be stale.
+- **Change:** Renamed the labels to “Incidents” and “Ready units”, and the heading to “Dispatch overview”. Count calculations and sync/freshness indicators are unchanged.
+- **Validation:** Source review only. No Gradle build, tests, emulator, or device validation run.
+
 ## Dispatcher sync-warning consolidation — 2026-11-17
 
 - **Finding:** Dispatcher refresh failure could render the shared sync-status surface and a second “Assignment paused” error card. Both repeated that the retained incident/unit snapshot might be stale.
