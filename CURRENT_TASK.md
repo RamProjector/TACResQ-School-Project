@@ -1,3 +1,13 @@
+## Web dispatch retirement — 2026-11-18
+
+- **Decision:** Dispatch operations are centralized in the TACResQ Android app to avoid competing web and mobile dispatch surfaces.
+- **Implemented on PR #334:** Removed the web incident queue, field-unit board, and assignment controls. The web frontend is now an administrator-only portal for user management and administrative audit review. Dispatcher accounts receive a clear message directing them to Android.
+- **Routing:** The portal is served at `/admin/`; the service root redirects there. The former `/dispatch/` static dashboard path is no longer built or served.
+- **Preserved:** Supabase dispatcher authorization, assignment/status RPCs, backend APIs, and Android dispatcher workflows remain unchanged. This is a web UI scope change, not a removal of the dispatcher role or backend capabilities.
+- **Validation:** Updated Docker build path, frontend base path, runtime-config alias, CI smoke-test path, and deployment documentation. No CI run, web build, Render deployment, or production Supabase change has been performed in this continuation.
+
+---
+
 ## Dispatcher-managed incident progress — 2026-11-17
 
 - Reframed status ownership: the dispatcher advances shared incident milestones; responders no longer tap through per-person Assigned → En route → On scene → Transporting → Resolved steps.
@@ -964,7 +974,7 @@ Artifacts were generated and uploaded by CI: demo-mode debug APK, Supabase-mode 
 
 ## Product intent and deployment boundary
 
-- **Intended product:** TACResQ is being developed as a real emergency-response service requested by TACRU, not merely as a school-project demo. The engineering target is a polished, reliable Android client backed by Supabase and the TACRU dispatcher dashboard.
+- **Intended product:** TACResQ is being developed as a real emergency-response service requested by TACRU, not merely as a school-project demo. The engineering target is a polished, reliable Android client backed by Supabase, with dispatch operations centralized in Android and a separate administrator-only web portal.
 - **Do not misrepresent readiness:** A working build or passing CI does not establish operational readiness. Before real emergency use, TACRU must validate workflows and staffing, and the team must complete security/privacy review, field/device testing, reliability checks, deployment and incident-response procedures. Until those gates are verified, do not claim the service is production-ready or encourage real emergency reports during QA.
 - **Testing discipline:** Use clearly labeled synthetic incidents and test accounts while validating. Never substitute mock behavior for live backend behavior without labeling it clearly.
 
