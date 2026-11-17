@@ -215,3 +215,13 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Cluster leaves and point features are revalidated against the latest visible incident and responder collections before presentation. Stale units remain labelled as last known.
 - No build/tests/device checks run.
 
+
+
+## Cluster style retry and pin anchor correction — 2026-11-17
+
+- Corrected the explicit map-retry style callback to pass the required Android context when rebuilding cluster sources and style images. This keeps retry behavior aligned with initial style installation.
+- Separated legacy annotation bitmap padding from GeoJSON style-symbol bitmaps. Style symbols are now created at the drawable's actual bounds, so `icon-anchor=bottom` anchors the rendered pin tip to its geographic coordinate rather than to an invisible padded region.
+- Retained the existing padded bitmap helper for legacy device-location and annotation markers to avoid changing their established anchor behavior.
+- MapLibre's style specification defines bottom anchoring as placing the image's bottom edge at the feature anchor; see the official Android/style API documentation.
+- No build, tests, emulator, device validation, or visual pin-alignment check run.
+

@@ -174,10 +174,10 @@ private data class GpsMapClusterSources(
 )
 
 private fun Style.installGpsMapClusterLayers(context: Context): GpsMapClusterSources {
-    addImage("tacresq-incident-pin", context.mapLibrePinBitmap(com.tacresq.app.R.drawable.ic_map_incident_pin))
-    addImage("tacresq-selected-incident-pin", context.mapLibrePinBitmap(com.tacresq.app.R.drawable.ic_map_incident_pin, scale = 0.98f))
-    addImage("tacresq-responder-pin", context.mapLibrePinBitmap(com.tacresq.app.R.drawable.ic_map_responder_pin))
-    addImage("tacresq-stale-responder-pin", context.mapLibrePinBitmap(com.tacresq.app.R.drawable.ic_map_responder_pin, alpha = 110))
+    addImage("tacresq-incident-pin", context.mapLibreStylePinBitmap(com.tacresq.app.R.drawable.ic_map_incident_pin))
+    addImage("tacresq-selected-incident-pin", context.mapLibreStylePinBitmap(com.tacresq.app.R.drawable.ic_map_incident_pin, scale = 0.98f))
+    addImage("tacresq-responder-pin", context.mapLibreStylePinBitmap(com.tacresq.app.R.drawable.ic_map_responder_pin))
+    addImage("tacresq-stale-responder-pin", context.mapLibreStylePinBitmap(com.tacresq.app.R.drawable.ic_map_responder_pin, alpha = 110))
     fun newClusterSource(id: String) = GeoJsonSource(
         id,
         FeatureCollection.fromFeatures(emptyArray<Feature>()),
@@ -276,6 +276,20 @@ private fun Context.mapLibrePinBitmap(resourceId: Int, alpha: Int = 255, scale: 
     val canvas = Canvas(bitmap)
     drawable.alpha = alpha.coerceIn(0, 255)
     drawable.setBounds(0, 0, width, iconHeight)
+    drawable.draw(canvas)
+    return bitmap
+}
+
+private fun Context.mapLibreStylePinBitmap(resourceId: Int, alpha: Int = 255, scale: Float = 0.75f): Bitmap {
+    val drawable = requireNotNull(ContextCompat.getDrawable(this, resourceId)).mutate()
+    val safeScale = scale.takeIf { it.isFinite() && it > 0f } ?: 0.75f
+    val width = ((drawable.intrinsicWidth.takeIf { it > 0 } ?: 48) * safeScale).roundToInt().coerceAtLeast(1)
+    val height = ((drawable.intrinsicHeight.takeIf { it > 0 } ?: 56) * safeScale).roundToInt().coerceAtLeast(1)
+    // Style symbols use icon-anchor=bottom, so the actual bitmap edge must be the pin tip.
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    drawable.alpha = alpha.coerceIn(0, 255)
+    drawable.setBounds(0, 0, width, height)
     drawable.draw(canvas)
     return bitmap
 }
@@ -1244,7 +1258,7 @@ fun GpsMapScreen(
         staleResponderClusterSource = null
         map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
             map.getStyle { style ->
-                val sources = style.installGpsMapClusterLayers()
+                val sources = style.installGpsMapClusterLayers(context)
                 incidentClusterSource = sources.incidents
                 responderClusterSource = sources.responders
             }

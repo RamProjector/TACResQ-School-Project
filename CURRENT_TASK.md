@@ -1,3 +1,11 @@
+## Cluster style retry and pin anchor correction — 2026-11-17
+
+- Corrected the explicit map-retry style callback to pass the required Android context when rebuilding cluster sources and style images. This keeps retry behavior aligned with initial style installation.
+- Separated legacy annotation bitmap padding from GeoJSON style-symbol bitmaps. Style symbols are now created at the drawable's actual bounds, so `icon-anchor=bottom` anchors the rendered pin tip to its geographic coordinate rather than to an invisible padded region.
+- Retained the existing padded bitmap helper for legacy device-location and annotation markers to avoid changing their established anchor behavior.
+- MapLibre's style specification defines bottom anchoring as placing the image's bottom edge at the feature anchor; see the official Android/style API documentation.
+- No build, tests, emulator, device validation, or visual pin-alignment check run.
+
 ## Cross-category GPS overlap handling — 2026-11-17
 
 - Fixed an interaction gap where an incident cluster could consume taps intended for a responder cluster at the same screen position. When incident, fresh/aging responder, and stale responder clusters overlap, the map now builds one explicitly typed chooser from the current validated leaves rather than prioritizing one category.
