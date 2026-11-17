@@ -13,6 +13,21 @@
 
 ---
 
+# Current handoff — 2026-11-17: requester SOS review simplification
+
+- **Objective:** Improve the actual Android requester emergency-reporting UI against the repository's own wireframe specification.
+- **Branch:** `agent/requester-sos-single-review-action`.
+- **Finding:** The review stage already displayed the emergency type, details, location source/freshness, and landmark. Its `Confirm SOS` button then opened a second modal that repeated those same details before `Send SOS`.
+- **Implementation:** The review screen now contains the single explicit `Send SOS` action. The redundant second confirmation dialog was removed; the safety warning “Only send if help is needed now” remains on the review screen. The one-time-location disclosure was retained on the review page. The location step now requires an explicit acknowledgement that the one-time pin or landmark will be shared with dispatch and the assigned response team; the acknowledgement resets after a confirmed SOS or discarded draft and is not restored from draft data. Sending remains disabled unless an emergency type is selected, current incident status is confirmed, no refresh is running, location capture is inactive, and pending-SOS verification is complete without error.
+- **Regression coverage:** Added `tools/test_requester_sos_single_review_action.py` and wired it into `.github/workflows/ci.yml`.
+- **Research basis:** The repository's `docs/wireframes/DESIGN_SPEC.md` defines a review-and-confirmation stage with a separate deliberate send action. ITU-T F.760.2 (2024) recommends simplified information presentation and reduced cognitive workload in emergency-response interfaces. Material Design confirmation guidance supports meaningful confirmations but says not all actions warrant another confirmation; this screen already provides a complete final review. Sources: https://www.itu.int/epublications/fr/publication/itu-t-f-760-2-2024-04-guidelines-for-user-interface-in-emergency-response-support-systems ; https://m1.material.io/patterns/confirmation-acknowledgement.html
+- **Commits:** `32a2d4342b011b5f031a08a2683df3fed04482c6` (single review action); `db73b611f4e13d72170ee9967308df3a482ad8e4` (keep safety warning); `13d2b9b6892fcd7ed2924ee46618d9d7ffab57e4` (initial regression contract); `8c93642d9a73b0f85726703bdbcc3c47a76ec894` (CI integration); `83e01e84e6df4c038d5b3080c5a3c0ad6f788082` (retain one-time location disclosure and current-status gating); `dd39197c84f7ade543704441e3d0b9f3fd15d0a3` (extend regression assertions); `18ca920a2061a672f1060a4bd43b923521e2aae1` (location-sharing acknowledgement); `4efaa427ec4fdf77355cb85b460a343da7d98c6c` (acknowledgement regression assertions); `17118cfd89e060eb04bdf50a683021cfbe3b65e0` and `ef97e1405de2b4864b0d227727f63c959dfec5bb` (preserve the existing canonical location-disclosure wording required by the provenance regression contract).
+- **Validation:** Pending exact-head CI and Android build. No emulator/device UX test has been run.
+- **Scope boundary:** No backend, database, production, permissions, or deployment changes.
+- **Next action:** Inspect exact-head checks and review, then continue role-screen improvements using the in-repository wireframes.
+
+---
+
 # Current handoff — 2026-11-17: adaptive navigation and role-shell UI refinement
 
 - **Objective:** Improve the actual Android application UI using the existing Kotlin/Jetpack Compose source and the uploaded TACResQ wireframe design references.
