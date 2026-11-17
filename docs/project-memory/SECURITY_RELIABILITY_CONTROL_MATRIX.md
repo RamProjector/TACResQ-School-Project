@@ -364,3 +364,29 @@ The replay script changes include multiple additions at the same end-of-file loc
 - #322 `dce8efa79a954b828a94729b6d9d19472ca00afa`: Frontend Review and RPC grant contract succeeded; CI and Security were still running at the latest poll.
 
 No PR was merged. No live database migration, Auth setting change, or production deployment was performed.
+
+
+## Exact-head and replay-script review refresh — 2026-11-17
+
+This section supersedes earlier status snapshots above where the exact commit or workflow state differs.
+
+### Exact-head workflow results
+
+- PR #321 head `bd28f881739de571b024c9baa90a284ac443a280`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully.
+- PR #322 head `1181f88b8b647e3a89f465eb4fd29d1a31c60962`: TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully.
+- Both PRs remain open and unmerged. These are independent-branch results, not a combined integration run.
+
+### Replay-script comparison
+
+A line-level comparison of `tools/test_supabase_migration_replay.sh` across #317–#321 confirms additive test tails are not identical snapshots:
+- #317 runs the field-claim two-connection race.
+- #318 adds the authenticated requester location-edit SQL test.
+- #319 adds the auth schema/function grants required by authenticated-role tests, the dispatcher claimability/cancellation race, and the authenticated incident-write boundary test.
+- #320 adds the authenticated profile-metadata test.
+- #321 adds the authenticated Admin user-list boundary test and includes the preceding role-grant setup.
+
+The important integration requirement is to preserve all of these independent test invocations exactly once in the final replay script, with the auth schema/function grants established before tests that execute as `authenticated`. A merge that keeps only one branch's end-of-file tail would silently drop coverage. The final script must also retain all migration replay steps and fail-fast `ON_ERROR_STOP` behavior. This comparison identifies a real test-preservation risk; it does not claim a merge conflict has already occurred or that a combined replay has passed.
+
+### Current gate
+
+Do not merge based solely on the green exact-head workflows. Before merging the group, create or otherwise validate a combined integration candidate that preserves the #317–#321 replay tests and CI steps, runs the complete clean PostgreSQL migration replay, validates migration-history alignment against the live ledger snapshot, and executes the relevant backend/frontend/Android checks. Then rerun the same checks on the actual updated mainline after each approved merge. No live Supabase migration or production deployment is authorized by these checks.
