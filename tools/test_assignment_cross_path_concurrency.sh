@@ -127,6 +127,13 @@ wait_for_two_lock_waiters() {
     sleep 0.1
   done
   echo "Expected both workers to be blocked by coordinator PID $coordinator_pid; observed $observed." >&2
+  psql -x -v ON_ERROR_STOP=1 -c "
+    SELECT pid, application_name, state, wait_event_type, wait_event,
+           pg_blocking_pids(pid) AS blockers, left(query, 200) AS query
+    FROM pg_stat_activity
+    WHERE application_name LIKE 'tacresq-%'
+    ORDER BY application_name
+  " >&2
   return 1
 }
 
