@@ -136,6 +136,9 @@ jobs:
       - name: Check profile identity metadata immutability
         run: python3 tools/test_profile_identity_metadata.py
 
+      - name: Check legacy Admin user-list RPC restriction
+        run: python3 tools/test_legacy_admin_user_list_rpc.py
+
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
 

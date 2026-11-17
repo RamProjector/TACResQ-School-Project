@@ -1440,3 +1440,6 @@ psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_incident_write_boundary.sql
 
 # Verify immutable profile identity metadata and trusted nested status synchronization.
 psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_profile_metadata.sql
+
+# Verify legacy and paginated Admin list RPC access as authenticated.
+psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_admin_user_list_boundary.sql
