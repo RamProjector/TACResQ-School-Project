@@ -208,10 +208,9 @@ class FcmNotificationDispatcher
     {
         return Http::acceptJson()
             ->asJson()
-            ->withHeaders([
-                'apikey' => (string) config('tacru.supabase_secret_key'),
-                'Authorization' => 'Bearer '.(string) config('tacru.supabase_secret_key'),
-            ])
+            ->withHeaders(SupabaseServerHeaders::forSecretKey(
+                (string) config('tacru.supabase_secret_key'),
+            ))
             ->timeout(10);
     }
 
