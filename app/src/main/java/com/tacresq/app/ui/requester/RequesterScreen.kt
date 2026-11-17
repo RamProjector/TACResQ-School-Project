@@ -762,7 +762,6 @@ fun RequesterScreen(
     var description by rememberSaveable { mutableStateOf("") }
     var locationNotes by rememberSaveable { mutableStateOf("") }
     var locationRequirementError by rememberSaveable { mutableStateOf<String?>(null) }
-    var confirmingSos by remember { mutableStateOf(false) }
     var showDiscardConfirmation by remember { mutableStateOf(false) }
     var showPendingSosDiscardConfirmation by remember { mutableStateOf(false) }
     var incidentToCancel by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -1223,7 +1222,6 @@ fun RequesterScreen(
                                 if (hasDraft) showDiscardConfirmation = true
                                 else {
                                     showRequestForm = false
-                                    confirmingSos = false
                                 }
                             },
                             enabled = !state.sending && !state.capturingLocation,
@@ -1443,11 +1441,15 @@ fun RequesterScreen(
                             locationNotes.trim().takeIf { it.isNotEmpty() }?.let { Text("Landmark/access detail: $it") }
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = { requestStep = 2 }, enabled = !state.sending, modifier = Modifier.weight(1f).height(52.dp)) { Text("Back") }
-                                Button(onClick = { confirmingSos = true }, enabled = !state.sending && !state.capturingLocation,
+                                Button(
+                                    onClick = { selectedType?.let { vm.sendSos(it, description, locationNotes) } },
+                                    enabled = !state.sending && !state.capturingLocation &&
+                                        !state.pendingSosCheckInProgress && state.pendingSosCheckError == null,
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                    modifier = Modifier.weight(1f).height(52.dp)) {
+                                    modifier = Modifier.weight(1f).height(52.dp),
+                                ) {
                                     if (state.sending) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                    else Text("Confirm SOS", fontWeight = FontWeight.Bold)
+                                    else Text("Send SOS", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -1712,7 +1714,6 @@ fun RequesterScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showDiscardConfirmation = false
-                    confirmingSos = false
                     showManualPinPicker = false
                     selectedType = null
                     emergencyTypeError = false
@@ -1731,44 +1732,6 @@ fun RequesterScreen(
         )
     }
 
-    if (confirmingSos) {
-        AlertDialog(
-            onDismissRequest = { confirmingSos = false },
-            title = { Text("Send emergency request?") },
-            text = {
-                Column(
-                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text("Dispatch will receive a ${selectedType?.label?.lowercase() ?: "unselected"} emergency.")
-                    description.trim().takeIf { it.isNotEmpty() }?.let { Text(it) }
-                    if (freshFix != null) {
-                        Text(locationSummary(freshFix))
-                        Text("This one-time pin is sent; ongoing tracking is not.", style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        Text("No GPS pin. Dispatch may call to confirm the location.")
-                    }
-                    locationNotes.trim().takeIf { it.isNotEmpty() }?.let {
-                        Text("Landmark: $it")
-                    }
-                    Text("Only send if help is needed now.", style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = !state.sending && !state.capturingLocation &&
-                        !state.pendingSosCheckInProgress && state.pendingSosCheckError == null,
-                    onClick = {
-                        confirmingSos = false
-                        selectedType?.let { vm.sendSos(it, description, locationNotes) }
-                    },
-                ) { Text(if (state.sending) "Sending…" else "Send SOS") }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmingSos = false }) { Text("Go back") }
-            },
-        )
-    }
 }
 
 @Composable
