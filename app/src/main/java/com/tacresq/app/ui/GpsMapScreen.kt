@@ -2768,15 +2768,17 @@ fun GpsMapScreen(
             )
         }
 
-        if (mapSheetState.bottomSheetState.currentValue != SheetValue.Expanded) {
-            GpsMapCameraControls(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .navigationBarsPadding()
-                    .padding(start = 12.dp, bottom = 136.dp),
-                enabled = mapStyleLoaded,
-                onShowAll = ::showAllVisiblePoints,
-            )
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (mapSheetState.bottomSheetState.currentValue != SheetValue.Expanded) {
+                GpsMapCameraControls(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .navigationBarsPadding()
+                        .padding(start = 12.dp, bottom = 136.dp),
+                    enabled = mapStyleLoaded,
+                    onShowAll = ::showAllVisiblePoints,
+                )
+            }
         }
 
       }
