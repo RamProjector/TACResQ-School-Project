@@ -12,7 +12,6 @@ DECLARE
   actor_role text;
   actor_id bigint;
   unit_status text;
-  actor_is_assigned boolean := false;
 BEGIN
   SELECT role, id INTO actor_role, actor_id
   FROM public.profiles WHERE auth_user_id = auth.uid();
@@ -126,21 +125,11 @@ BEGIN
         RAISE EXCEPTION 'Invalid assignment' USING ERRCODE = '42501';
       END IF;
     ELSE
-      SELECT EXISTS (
-        SELECT 1 FROM public.incident_assignments a
-        WHERE a.incident_id = OLD.id AND a.user_id = actor_id
-      ) INTO actor_is_assigned;
-      IF NOT actor_is_assigned AND actor_id IS DISTINCT FROM OLD.assigned_to THEN
-        RAISE EXCEPTION 'Incident is not assigned to this field unit' USING ERRCODE = '42501';
-      END IF;
-      IF actor_role NOT IN ('responder','driver') OR NOT (
-           (OLD.status = 'assigned' AND NEW.status = 'en_route')
-        OR (OLD.status = 'en_route' AND NEW.status = 'on_scene')
-        OR (OLD.status = 'on_scene' AND NEW.status IN ('transporting','resolved'))
-        OR (OLD.status = 'transporting' AND NEW.status = 'resolved')
-      ) THEN
-        RAISE EXCEPTION 'Invalid incident status transition' USING ERRCODE = '42501';
-      END IF;
+      -- Responder/driver progress writes are retired. The dispatcher-only
+      -- milestone branch above and requester cancellation are the only
+      -- permitted incident-status changes beyond a responder claim.
+      RAISE EXCEPTION 'Only dispatchers can advance incident progress'
+        USING ERRCODE = '42501';
     END IF;
   END IF;
   RETURN NEW;
