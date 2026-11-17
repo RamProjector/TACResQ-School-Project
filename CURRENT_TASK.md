@@ -1,3 +1,10 @@
+## Separate stale responder clustering — 2026-11-17
+
+- Split responder map data into independent fresh/aging and stale GeoJSON cluster sources. Stale last-known reports now form grey clusters with their own counts instead of being mixed into the teal live/aging cluster count.
+- Individual stale points remain grey and are only queried from the stale point layer. Fresh/aging responder points retain their separate layer and cluster source.
+- Cluster tap handling supports both responder sources and still resolves individual leaves against the latest validated responder list before opening details.
+- This avoids a potentially misleading cluster that visually implied all grouped responder locations were current. No build/tests/device checks run.
+
 ## Cluster point hit-target and overlap disambiguation — 2026-11-17
 
 - Individual clustered-source points now use a 48dp screen-space query area instead of requiring taps to land inside the small painted circle.

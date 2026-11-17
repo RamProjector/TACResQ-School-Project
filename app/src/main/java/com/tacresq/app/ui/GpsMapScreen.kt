@@ -154,6 +154,7 @@ private const val MAP_DATA_UNAVAILABLE_STATUS = "Map data is temporarily unavail
 
 private const val INCIDENT_CLUSTER_SOURCE_ID = "tacresq-incident-clusters-source"
 private const val RESPONDER_CLUSTER_SOURCE_ID = "tacresq-responder-clusters-source"
+private const val STALE_RESPONDER_CLUSTER_SOURCE_ID = "tacresq-stale-responder-clusters-source"
 private const val INCIDENT_CLUSTER_LAYER_ID = "tacresq-incident-clusters"
 private const val INCIDENT_POINT_LAYER_ID = "tacresq-incident-points"
 private const val INCIDENT_COUNT_LAYER_ID = "tacresq-incident-cluster-count"
@@ -161,18 +162,28 @@ private const val RESPONDER_CLUSTER_LAYER_ID = "tacresq-responder-clusters"
 private const val RESPONDER_POINT_LAYER_ID = "tacresq-responder-points"
 private const val RESPONDER_STALE_POINT_LAYER_ID = "tacresq-responder-stale-points"
 private const val RESPONDER_COUNT_LAYER_ID = "tacresq-responder-cluster-count"
+private const val STALE_RESPONDER_CLUSTER_LAYER_ID = "tacresq-stale-responder-clusters"
+private const val STALE_RESPONDER_COUNT_LAYER_ID = "tacresq-stale-responder-cluster-count"
 
-private data class GpsMapClusterSources(val incidents: GeoJsonSource, val responders: GeoJsonSource)
+private data class GpsMapClusterSources(
+    val incidents: GeoJsonSource,
+    val responders: GeoJsonSource,
+    val staleResponders: GeoJsonSource,
+)
 
 private fun Style.installGpsMapClusterLayers(): GpsMapClusterSources {
-    val incidentSource = GeoJsonSource(INCIDENT_CLUSTER_SOURCE_ID,
+    fun newClusterSource(id: String) = GeoJsonSource(
+        id,
         FeatureCollection.fromFeatures(emptyArray<Feature>()),
-        GeoJsonOptions().withCluster(true).withClusterMaxZoom(14).withClusterRadius(50))
-    val responderSource = GeoJsonSource(RESPONDER_CLUSTER_SOURCE_ID,
-        FeatureCollection.fromFeatures(emptyArray<Feature>()),
-        GeoJsonOptions().withCluster(true).withClusterMaxZoom(14).withClusterRadius(50))
+        GeoJsonOptions().withCluster(true).withClusterMaxZoom(14).withClusterRadius(50),
+    )
+    val incidentSource = newClusterSource(INCIDENT_CLUSTER_SOURCE_ID)
+    val responderSource = newClusterSource(RESPONDER_CLUSTER_SOURCE_ID)
+    val staleResponderSource = newClusterSource(STALE_RESPONDER_CLUSTER_SOURCE_ID)
     addSource(incidentSource)
     addSource(responderSource)
+    addSource(staleResponderSource)
+
     fun addClusterCircle(id: String, sourceId: String, color: Int) {
         addLayer(CircleLayer(id, sourceId).apply {
             setProperties(PropertyFactory.circleColor(color), PropertyFactory.circleRadius(20f),
@@ -188,24 +199,23 @@ private fun Style.installGpsMapClusterLayers(): GpsMapClusterSources {
             setFilter(Expression.has("point_count"))
         })
     }
-    fun addPointCircle(id: String, sourceId: String, color: Int, filter: Expression) {
+    fun addPointCircle(id: String, sourceId: String, color: Int) {
         addLayer(CircleLayer(id, sourceId).apply {
             setProperties(PropertyFactory.circleColor(color), PropertyFactory.circleRadius(9f),
                 PropertyFactory.circleStrokeColor(Color.WHITE), PropertyFactory.circleStrokeWidth(2f))
-            setFilter(filter)
+            setFilter(Expression.neq(Expression.get("cluster"), true))
         })
     }
-    val unclustered = Expression.neq(Expression.get("cluster"), true)
     addClusterCircle(INCIDENT_CLUSTER_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID, Color.rgb(183, 28, 28))
     addClusterCount(INCIDENT_COUNT_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID)
-    addPointCircle(INCIDENT_POINT_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID, Color.rgb(198, 40, 40), unclustered)
+    addPointCircle(INCIDENT_POINT_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID, Color.rgb(198, 40, 40))
     addClusterCircle(RESPONDER_CLUSTER_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(0, 105, 92))
     addClusterCount(RESPONDER_COUNT_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID)
-    addPointCircle(RESPONDER_POINT_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(0, 121, 107),
-        Expression.all(unclustered, Expression.neq(Expression.get("freshness"), "stale")))
-    addPointCircle(RESPONDER_STALE_POINT_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(117, 117, 117),
-        Expression.all(unclustered, Expression.eq(Expression.get("freshness"), "stale")))
-    return GpsMapClusterSources(incidentSource, responderSource)
+    addPointCircle(RESPONDER_POINT_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(0, 121, 107))
+    addClusterCircle(STALE_RESPONDER_CLUSTER_LAYER_ID, STALE_RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(97, 97, 97))
+    addClusterCount(STALE_RESPONDER_COUNT_LAYER_ID, STALE_RESPONDER_CLUSTER_SOURCE_ID)
+    addPointCircle(RESPONDER_STALE_POINT_LAYER_ID, STALE_RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(117, 117, 117))
+    return GpsMapClusterSources(incidentSource, responderSource, staleResponderSource)
 }
 
 private fun Incident.toGpsClusterFeature(): Feature? {
@@ -848,6 +858,7 @@ fun GpsMapScreen(
     var renderedRouteSignature by remember(context, role) { mutableStateOf<List<Pair<Double, Double>>?>(null) }
     var incidentClusterSource by remember(context, role) { mutableStateOf<GeoJsonSource?>(null) }
     var responderClusterSource by remember(context, role) { mutableStateOf<GeoJsonSource?>(null) }
+    var staleResponderClusterSource by remember(context, role) { mutableStateOf<GeoJsonSource?>(null) }
     val mapView = remember(context, role) {
         MapLibre.getInstance(context)
         MapView(context).apply {
@@ -1010,6 +1021,7 @@ fun GpsMapScreen(
                 val sources = style.installGpsMapClusterLayers()
                 incidentClusterSource = sources.incidents
                 responderClusterSource = sources.responders
+                staleResponderClusterSource = sources.staleResponders
             }
                 // A style replacement invalidates style-backed annotations. Force the
                 // renderer effect to rebuild markers and route on the newly loaded style.
@@ -1208,6 +1220,7 @@ fun GpsMapScreen(
         locationStatus = "Retrying map data…"
         incidentClusterSource = null
         responderClusterSource = null
+        staleResponderClusterSource = null
         map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
             map.getStyle { style ->
                 val sources = style.installGpsMapClusterLayers()
@@ -1613,6 +1626,7 @@ fun GpsMapScreen(
         mapStyleLoaded,
         incidentClusterSource,
         responderClusterSource,
+        staleResponderClusterSource,
         deviceFixMapKey,
         displayedRouteMapKey,
         trackingStatus.incidentId,
@@ -1669,8 +1683,16 @@ fun GpsMapScreen(
         // Publish independently clustered emergency incidents and field-unit reports.
         val incidentFeatures = visibleIncidents.mapNotNull(Incident::toGpsClusterFeature)
         incidentClusterSource?.setGeoJson(FeatureCollection.fromFeatures(incidentFeatures.toTypedArray()))
-        val responderFeatures = validResponderLocations.mapNotNull { it.toGpsClusterFeature(mapNow) }
+        val responderFeatures = validResponderLocations
+            .filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }
+            .mapNotNull { it.toGpsClusterFeature(mapNow) }
         responderClusterSource?.setGeoJson(FeatureCollection.fromFeatures(responderFeatures.toTypedArray()))
+        val staleResponderFeatures = validResponderLocations
+            .filter { it.mapFreshness(mapNow) == MapLocationFreshness.STALE }
+            .mapNotNull { it.toGpsClusterFeature(mapNow) }
+        staleResponderClusterSource?.setGeoJson(
+            FeatureCollection.fromFeatures(staleResponderFeatures.toTypedArray()),
+        )
 
         deviceFix?.let { fix ->
             val marker = upsertMarker(
@@ -1739,7 +1761,7 @@ fun GpsMapScreen(
     }
 
 
-    DisposableEffect(mapLibreMap, incidentClusterSource, responderClusterSource) {
+    DisposableEffect(mapLibreMap, incidentClusterSource, responderClusterSource, staleResponderClusterSource) {
         val map = mapLibreMap
         if (map == null) return@DisposableEffect onDispose {}
         val listener = MapLibreMap.OnMapClickListener { coordinate ->
@@ -1824,6 +1846,9 @@ fun GpsMapScreen(
                 return@OnMapClickListener true
             }
             if (expandOrChooseCluster(responderClusterSource, RESPONDER_CLUSTER_LAYER_ID, false)) {
+                return@OnMapClickListener true
+            }
+            if (expandOrChooseCluster(staleResponderClusterSource, STALE_RESPONDER_CLUSTER_LAYER_ID, false)) {
                 return@OnMapClickListener true
             }
             // Query a 48dp screen-space target, not only the tiny painted circle.
