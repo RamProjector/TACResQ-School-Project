@@ -1,3 +1,10 @@
+# GPS map overlay contrast and compass clearance
+
+- **Review finding:** Removing the faux-search container also removed the only backing surface behind the back affordance and map title. Those controls were left directly on variable map imagery, making their contrast dependent on whichever tile happened to sit underneath. The native MapLibre compass also used a top margin that could intrude into the two-row header/filter area on shorter map windows.
+- **Implementation:** Kept the full-width faux-search bar removed. Restored contrast only where needed: a compact tonal back button, a small title surface, and a tonal retry action. Existing location action and contextual filter chips retain their own compact surfaces. Moved the native compass lower and made its responsive bounds account for the header and filter row.
+- **Scope:** GPS map overlay presentation and compass placement only. Map content, map gestures, camera behavior, attribution, GPS capture, permissions, routing, and incident data are unchanged.
+- **Validation:** Not run per the requested incremental-commit cadence; inspect contrast, compass clearance, and overlap on short and tall devices before merging.
+
 # Remove GPS map faux-search header container
 
 - Removed the full-width rounded, elevated Surface surrounding the GPS map title and controls. It looked like a search field despite having no search function and visually competed with the map.

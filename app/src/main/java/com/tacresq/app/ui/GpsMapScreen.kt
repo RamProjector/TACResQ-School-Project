@@ -156,9 +156,11 @@ private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255, scale: Fl
 }
 
 private fun positionMapCompass(map: MapLibreMap, mapView: MapView, density: Float) {
-    val minimumTop = (144f * density).roundToInt()
-    val maximumTop = (196f * density).roundToInt()
-    val responsiveTop = (mapView.height * 0.22f).roundToInt()
+    // Keep MapLibre's native compass below the two-row Compose map header,
+    // including the status-bar inset and contextual filter chips.
+    val minimumTop = (180f * density).roundToInt()
+    val maximumTop = (224f * density).roundToInt()
+    val responsiveTop = (mapView.height * 0.24f).roundToInt()
         .coerceIn(minimumTop, maximumTop)
     map.uiSettings.setCompassEnabled(true)
     map.uiSettings.setCompassGravity(Gravity.TOP or Gravity.RIGHT)
@@ -1795,7 +1797,7 @@ fun GpsMapScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    androidx.compose.material3.IconButton(
+                    androidx.compose.material3.FilledTonalIconButton(
                         onClick = onBack,
                         modifier = Modifier.size(48.dp).semantics {
                             contentDescription = "Back from GPS map"
@@ -1807,18 +1809,24 @@ fun GpsMapScreen(
                             modifier = Modifier.size(21.dp),
                         )
                     }
-                    Text(
-                        if (role == Role.REQUESTER) "Map" else "GPS Map",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold,
+                    Surface(
                         modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ) {
+                        Text(
+                            if (role == Role.REQUESTER) "Map" else "GPS Map",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     if (mapLoadError) {
-                        androidx.compose.material3.TextButton(
+                        androidx.compose.material3.FilledTonalButton(
                             onClick = ::retryMapLoad,
                             modifier = Modifier.heightIn(min = 48.dp),
                         ) {
