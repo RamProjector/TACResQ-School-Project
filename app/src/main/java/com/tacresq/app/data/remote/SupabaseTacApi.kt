@@ -116,6 +116,12 @@ class SupabaseTacApi private constructor(
         return if (bridgeRpc != null) bridgeRpc.assignIncidentTeam(request) else rpc.assignIncidentTeam(request)
     }
 
+    override suspend fun releaseIncidentAssignment(incidentId: Long, userId: Long): Incident {
+        require(incidentId > 0 && userId > 0) { "Incident and field-unit IDs must be positive." }
+        // This security-sensitive RPC is called directly with the authenticated Supabase session.
+        return rpc.releaseIncidentAssignment(ReleaseIncidentAssignmentRpc(incidentId, userId))
+    }
+
     override suspend fun claimIncident(id: Long): com.tacresq.app.data.model.ClaimIncidentResult {
         require(id > 0) { "Incident ID must be positive." }
         val request = ClaimIncidentRpc(id)
