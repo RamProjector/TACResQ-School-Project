@@ -15,7 +15,9 @@ assert 'Text("Assignments unavailable")' not in empty_state
 assert 'Text("Refresh before assuming there are no active calls.")' not in empty_state
 
 assert '"Location sharing",' in source
-assert 'state.trackingError != null -> "Needs attention"' in source
+assert "val trackingMessage = state.trackingError.takeIf { sharing }" in source
+assert "val trackingNeedsAttention = sharing && trackingMessage != null && state.lastLocationSentAt != null && !state.trackingStarting" in source
+assert 'trackingNeedsAttention -> "Needs attention"' in source
 assert 'sharing && state.lastLocationSentAt == null -> "Starting"' in source
 assert 'sharing -> "Enabled"' in source
 assert 'else -> "Off"' in source
