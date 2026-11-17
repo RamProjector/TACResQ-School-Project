@@ -149,3 +149,14 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Initial automatic fit-to-pins now runs only when there is no saved camera target, preventing restored pan/zoom from being immediately overwritten by the initial-data framing effect.
 - Route exception publication checks both request and selection identity, closing the remaining stale-error path. Latest-request loading cleanup remains keyed to request generation so an older request cannot clear a newer request's spinner.
 - No tests/build/device checks run; confirm on device after rotation/process recreation and rapid incident switching.
+
+
+## Native GeoJSON clustering — 2026-11-17
+
+- **Implemented on PR #334:** Replaced independent incident and responder marker annotations with two native MapLibre GeoJSON cluster sources. Each source has its own cluster circles, count labels, and unclustered point layer. Fresh/aging responder points and stale last-known points have separate visual treatments; device preview and route rendering remain outside the clusters.
+- **Interaction:** Tapping a cluster requests MapLibre's expansion zoom. Tapping an individual point resolves its stable domain ID against the latest Compose data and opens the existing incident/field-unit selection flow. Cluster lookups catch runtime failures caused by stale cluster features during source refresh.
+- **Refresh/style lifecycle:** Cluster source data is updated from the current validated visible incident and responder sets. Both sources and layers are recreated after initial style load and explicit style retry.
+- **Research:** MapLibre Android's official example uses `GeoJsonSource` with `GeoJsonOptions.withCluster(true)`, `point_count` filters, and `SymbolLayer` count labels. Android clustering is supported from MapLibre Native 4.2.0; this app uses 13.7.1. References: https://maplibre.org/maplibre-native/android/examples/styling/circle-layer/ ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-source/get-cluster-expansion-zoom.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/query-rendered-features.html.
+- **Known limitations:** Native cluster bubbles currently use category-specific colors and counts; individual pin artwork is replaced by colored circles. A bounded leaf chooser for clusters that cannot expand further is outstanding. Verify density, tap targeting, style reload, and source-update races on devices before calling this complete.
+- **Validation:** No Gradle build, JVM tests, emulator/device run, or profiling performed, in accordance with the instruction not to run checks after each commit.
+
