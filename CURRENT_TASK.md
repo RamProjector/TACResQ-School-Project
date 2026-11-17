@@ -1,3 +1,13 @@
+# Current handoff — 2026-11-17: requester active-emergency accessibility
+
+- **Objective:** Make the requester's current emergency state easier to navigate with assistive technology without changing incident actions or status rules.
+- **Implementation:** Expose the active-emergency card as a polite live region so status/description changes can be announced, and mark its title as a semantic heading for screen-reader navigation.
+- **Scope:** Requester presentation semantics only. No SOS submission, editing/cancellation, messaging, status polling, GPS, API, or database behavior changed.
+- **Validation:** Not run by request for incremental commits; no emulator/device accessibility review is claimed.
+- **Next action:** Continue requester form and role-specific screen refinements on this dedicated PR branch while preserving emergency-critical information.
+
+---
+
 # Current handoff — 2026-11-17: shared client UI polish
 
 - **Objective:** Establish a more consistent, readable visual and accessibility baseline across requester, responder/driver, and dispatcher screens through shared Compose components.
