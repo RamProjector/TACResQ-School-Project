@@ -1459,3 +1459,9 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Updated the dispatcher wait-time source contract to match the intended neutral elapsed-wait display; it no longer expects the removed 15-minute escalation warning.
 - Commits: e4bee7a, 342ec65, 4fbf3a3, f971a43, b903eb5.
 - Validation pending: GitHub Actions must rebuild the latest branch head. No local Gradle build, emulator/device test, migration deployment, or production Supabase mutation was performed.
+
+## 2026-11-18 — Location contract CI follow-up
+- Fixed the failing responder-location source contract: the test still expected freshness/missing-marker copy in the retired web dispatcher dashboard.
+- The web dashboard is intentionally admin-only; dispatch operations and responder-location freshness UI remain in the Android app. The updated contract now asserts the web role boundary rather than obsolete dispatcher-dashboard markup.
+- Commit: e5823ff.
+- Validation: confirmed the updated assertion matches the current Home.tsx role gate and dispatcher retirement copy. Full source-check job and Android builds must be rerun on the new head; no local Gradle build, device test, or production change was performed.
