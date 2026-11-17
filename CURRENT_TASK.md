@@ -1,3 +1,18 @@
+# Current handoff — 2026-11-17: requester SOS review simplification
+
+- **Objective:** Improve the actual Android requester emergency-reporting UI against the repository's own wireframe specification.
+- **Branch:** `agent/requester-sos-single-review-action`.
+- **Finding:** The review stage already displayed the emergency type, details, location source/freshness, and landmark. Its `Confirm SOS` button then opened a second modal that repeated those same details before `Send SOS`.
+- **Implementation:** The review screen now contains the single explicit `Send SOS` action. The redundant second confirmation dialog was removed; the safety warning “Only send if help is needed now” remains on the review screen. Sending remains disabled while a request is already sending, location capture is active, pending-SOS verification is running, or that verification has failed.
+- **Regression coverage:** Added `tools/test_requester_sos_single_review_action.py` and wired it into `.github/workflows/ci.yml`.
+- **Research basis:** The repository's `docs/wireframes/DESIGN_SPEC.md` defines a review-and-confirmation stage with a separate deliberate send action. ITU-T F.760.2 (2024) recommends simplified information presentation and reduced cognitive workload in emergency-response interfaces. Material Design confirmation guidance supports meaningful confirmations but says not all actions warrant another confirmation; this screen already provides a complete final review. Sources: https://www.itu.int/epublications/fr/publication/itu-t-f-760-2-2024-04-guidelines-for-user-interface-in-emergency-response-support-systems ; https://m1.material.io/patterns/confirmation-acknowledgement.html
+- **Commits:** `32a2d4342b011b5f031a08a2683df3fed04482c6` (single review action); `db73b611f4e13d72170ee9967308df3a482ad8e4` (keep safety warning); `13d2b9b6892fcd7ed2924ee46618d9d7ffab57e4` (regression contract); `8c93642d9a73b0f85726703bdbcc3c47a76ec894` (CI integration).
+- **Validation:** Pending exact-head CI and Android build. No emulator/device UX test has been run.
+- **Scope boundary:** No backend, database, production, permissions, or deployment changes.
+- **Next action:** Inspect exact-head checks and review, then continue role-screen improvements using the in-repository wireframes.
+
+---
+
 # Current handoff — 2026-11-16: comprehensive review + durable chat outbox tests
 
 - **Active PR:** [#312 Persist incident chat text retries across app restarts](https://github.com/RamProjector/TACResQ-School-Project/pull/312).
