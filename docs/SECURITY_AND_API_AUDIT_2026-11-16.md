@@ -18,7 +18,7 @@ TACResQ has a substantial role-based foundation: requester SOS, dispatcher assig
 
 This PR adds `public.api_operation_logs` with correlation ID, verified authenticated actor UUID when available, provider, operation, source, outcome, HTTP status, duration, provider request ID, error code, and timestamp. RLS is enabled; no policies or direct `anon`/`authenticated` grants exist; the service role receives SELECT/INSERT only. No request/response body, credential, token, coordinate, incident narrative, URL, or contact detail is stored.
 
-Laravel now generates its own UUID `X-Request-ID` (it does not trust a caller-supplied value), returns it in the response, and records Supabase Auth/RPC calls plus Geoapify/private OSRM route-preview outcomes. The audit writer supports both legacy JWT-based `service_role` keys and modern `sb_secret_` keys; modern secret keys are sent on `apikey` only, not as a bearer JWT. The logger is fail-open: telemetry failure does not break the operational request. Database writes are skipped if the server-only Supabase secret is not configured. This PR does not add or configure that secret. No automatic retention/deletion job is introduced; define a retention period and approved cleanup process before sustained production use.
+Laravel now generates its own UUID `X-Request-ID` (it does not trust a caller-supplied value), returns it in the response, and records Supabase Auth/RPC calls plus Geoapify/private OSRM route-preview outcomes. Rejected unallowlisted bridge RPC attempts are also recorded with a validated operation name and fixed rejection code; the attempted RPC is never forwarded. The audit writer supports both legacy JWT-based `service_role` keys and modern `sb_secret_` keys; modern secret keys are sent on `apikey` only, not as a bearer JWT. The logger is fail-open: telemetry failure does not break the operational request. Database writes are skipped if the server-only Supabase secret is not configured. This PR does not add or configure that secret. No automatic retention/deletion job is introduced; define a retention period and approved cleanup process before sustained production use.
 
 **Coverage limitation:** Android and dispatcher web call Supabase directly for many operations. Those requests bypass Laravel and are not written to this application table by this change; Supabase platform/API logs remain the source for those direct requests. FCM remains covered by its existing delivery ledger. This is not complete end-to-end API tracing.
 
@@ -92,7 +92,7 @@ The advisor snapshot was observed around 2026-11-16 06:39 UTC. Re-run advisors a
 ## Validation requirements
 
 - Clean PostgreSQL migration replay includes the new migration.
-- Laravel tests cover correlation IDs, metadata-only payloads, missing-secret behavior, and fail-open audit writes.
+- Laravel tests cover correlation IDs, metadata-only payloads, missing-secret behavior, fail-open audit writes, and actor-attributed auditing of rejected unallowlisted RPC attempts without forwarding them.
 - Android, dashboard, Laravel integration, source/security guardrails, and RPC grant contract pass on the exact PR head.
 - Live migration application, live Auth configuration, Render secret provisioning, real provider calls, and device/UI validation are outside this PR.
 
