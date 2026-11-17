@@ -324,3 +324,10 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Kept the existing exact point count, bubble colors, overlap behavior, and cluster hit-testing unchanged.
 - Added a focused source contract and CI step.
 - Validation: source inspection only; contract execution, Android build, emulator, and physical-device contrast checks have not been run.
+
+## GPS location loading accessibility — 2026-11-18
+
+- The disabled location-in-progress control now exposes its own button-level accessible name ("Getting your location"), rather than relying only on the nested progress indicator's semantics.
+- This keeps the action understandable to screen-reader users while a one-time location request is running; the control remains disabled until the request completes.
+- Added a focused source contract and CI step.
+- Validation: source changes and CI wiring only; the contract has not yet been executed, and no Android build or TalkBack/device check has been run.
