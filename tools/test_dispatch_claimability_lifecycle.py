@@ -88,6 +88,9 @@ for required in (
     "public.api_update_incident_status(incident_id, 'en_route')",
     "Authenticated responder status RPC boundary fixture",
     "final_claimable",
+    "incident_claimability_logs",
+    "source_rpc = 'incident_status_transition'",
+    "matching_events",
     "persisted_status",
 ):
     assert required.lower() in integration.lower(), (
