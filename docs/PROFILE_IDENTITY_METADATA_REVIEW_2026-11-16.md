@@ -31,3 +31,24 @@ References:
 - PostgreSQL privileges: https://www.postgresql.org/docs/current/ddl-priv.html
 - PostgreSQL row security: https://www.postgresql.org/docs/current/ddl-rowsecurity.html
 - OWASP API Security Top 10: https://owasp.org/www-project-api-security/
+
+
+## Nested profile-trigger path review — 2026-11-17
+
+The `pg_trigger_depth() = 1` exception was traced against the repository's core migration and the PR's replacement guard.
+
+Confirmed nested path:
+1. An authenticated responder/driver advances an incident through the permitted status RPC/transition path.
+2. `tacresq_guard_incident_update()` validates that the caller is the currently assigned field unit and that the status transition is allowed.
+3. `tacresq_log_incident_status()` performs the existing nested update of `profiles.duty_status` for the assigned unit when the incident moves to `en_route`, `on_scene`, `transporting`, or `resolved`.
+4. The profile trigger therefore executes at nested trigger depth; it must allow this trusted operational status synchronization.
+
+The new guard keeps identity checks (`id`, `auth_user_id`, `created_at`, `name`, `email`, `phone`) outside the depth condition, so those properties remain immutable even on nested updates. The depth condition skips only user-set role/duty validation for the nested system transition. The traced incident trigger path validates actor identity and allowed status transitions before the incident statement can commit; an invalid transition raises and rolls back the transaction, including nested profile writes.
+
+No separate authenticated RPC path that can arbitrarily choose a nested profile role/duty update was confirmed in the inspected trigger chain. This is a source-path review, not a proof that no other trigger exists in the full live schema. The exact migration replay and authenticated SQL test should enumerate/verify the relevant trigger behavior before merge. Do not remove the depth exception without replacing the trusted incident-status synchronization path.
+
+Research basis:
+- PostgreSQL trigger execution and trigger depth are part of server-side trigger execution semantics: https://www.postgresql.org/docs/current/plpgsql-trigger.html
+- Supabase recommends tightly scoped SECURITY DEFINER functions, pinned search_path, and explicit execute grants: https://supabase.com/docs/guides/database/functions
+
+No live database changes, tests, or CI were run in this review.
