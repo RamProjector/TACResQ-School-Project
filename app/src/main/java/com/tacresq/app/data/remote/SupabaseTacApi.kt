@@ -106,11 +106,6 @@ class SupabaseTacApi private constructor(
         return if (bridgeRpc != null) bridgeRpc.updateIncidentStatus(request) else rpc.updateIncidentStatus(request)
     }
 
-    override suspend fun updateMyAssignmentStatus(id: Long, body: UpdateStatusRequest): Incident {
-        val request = UpdateMyAssignmentStatusRpc(id, body.status.wireValue)
-        return if (bridgeRpc != null) bridgeRpc.updateMyAssignmentStatus(request) else rpc.updateMyAssignmentStatus(request)
-    }
-
     override suspend fun assignIncident(id: Long, body: AssignIncidentRequest): Incident {
         val request = AssignIncidentRpc(id, body.userId)
         return if (bridgeRpc != null) bridgeRpc.assignIncident(request) else rpc.assignIncident(request)
@@ -326,9 +321,6 @@ private interface SupabaseBridgeRpcWire {
     @POST("bridge/rpc/api_update_incident_status")
     suspend fun updateIncidentStatus(@Body body: UpdateIncidentRpc): Incident
 
-    @POST("bridge/rpc/api_update_my_assignment_status")
-    suspend fun updateMyAssignmentStatus(@Body body: UpdateMyAssignmentStatusRpc): Incident
-
     @POST("bridge/rpc/api_assign_incident")
     suspend fun assignIncident(@Body body: AssignIncidentRpc): Incident
 
@@ -381,9 +373,6 @@ private interface SupabaseRpcWire {
 
     @POST("rest/v1/rpc/api_update_incident_status")
     suspend fun updateIncidentStatus(@Body body: UpdateIncidentRpc): Incident
-
-    @POST("rest/v1/rpc/api_update_my_assignment_status")
-    suspend fun updateMyAssignmentStatus(@Body body: UpdateMyAssignmentStatusRpc): Incident
 
     @POST("rest/v1/rpc/api_assign_incident")
     suspend fun assignIncident(@Body body: AssignIncidentRpc): Incident
@@ -463,10 +452,6 @@ private data class CreateIncidentV4Rpc(
 )
 private data class CancelIncidentRpc(@SerializedName("p_id") val id: Long)
 private data class UpdateIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_status") val status: String)
-private data class UpdateMyAssignmentStatusRpc(
-    @SerializedName("p_incident_id") val incidentId: Long,
-    @SerializedName("p_status") val status: String,
-)
 private data class AssignIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_id") val userId: Long)
 private data class AssignIncidentTeamRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_ids") val userIds: List<Long>)
 private data class ClaimIncidentRpc(@SerializedName("p_incident_id") val incidentId: Long)
