@@ -2,7 +2,7 @@ name: RPC grant contract
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'integration/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
