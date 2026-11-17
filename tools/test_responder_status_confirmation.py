@@ -14,13 +14,18 @@ dialog = source[start:end]
 assert 'Text(if (resolving) "Confirm response completion?" else "Confirm status update?")' in dialog
 assert "Only mark this response resolved when your assigned response is complete." in dialog
 assert "This unit status is shared with dispatch and the requester." in dialog
-assert "vm.advance(incident, nextStatus)" in dialog
+assert "vm.advance(latest, nextStatus)" in dialog
+assert "val currentIncident = state.incidents.firstOrNull { it.id == incident.id }" in dialog
+assert "currentStatus == incident.statusFor(user.id)" in dialog
+assert "currentStatus?.nextSteps()?.contains(nextStatus) == true" in dialog
+assert "enabled = canConfirm" in dialog
+assert "This unit's status changed while the confirmation was open." in dialog
 assert 'Text(if (resolving) "Mark my response resolved" else nextStatus.actionLabel())' in dialog
 assert 'Text("Keep current status")' in dialog
 assert "enabled = !state.busy" in dialog
 
 # The only status advance from the UI must happen after explicit confirmation.
 assert source.count("vm.advance(incident, next)") == 0
-assert source.count("vm.advance(incident, nextStatus)") == 1
+assert source.count("vm.advance(latest, nextStatus)") == 1
 
 print("Responder status changes require confirmation, with a distinct resolution warning.")
