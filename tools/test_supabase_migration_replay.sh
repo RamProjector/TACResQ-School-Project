@@ -322,7 +322,7 @@ BEGIN
   END IF;
   SELECT count(*) INTO stale_duty_count
     FROM public.profiles
-   WHERE id IN (responder_one_id, responder_two_id) AND duty_status <> 'en_route';
+   WHERE id IN (responder_one_id, responder_two_id) AND duty_status IS DISTINCT FROM 'en_route';
   IF stale_duty_count <> 0 THEN
     RAISE EXCEPTION 'All assigned member duty snapshots must inherit en_route; stale profiles=%', stale_duty_count;
   END IF;
@@ -366,7 +366,7 @@ BEGIN
   END IF;
   SELECT count(*) INTO stale_duty_count
     FROM public.profiles
-   WHERE id IN (responder_one_id, responder_two_id) AND duty_status <> 'available';
+   WHERE id IN (responder_one_id, responder_two_id) AND duty_status IS DISTINCT FROM 'available';
   IF stale_duty_count <> 0 THEN
     RAISE EXCEPTION 'Resolved incident should release assigned members without other active assignments';
   END IF;
