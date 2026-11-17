@@ -85,6 +85,22 @@ final class SupabaseBridge
     {
         $allowlist = config('tacru.bridge_rpc_allowlist', []);
         if (!in_array($function, $allowlist, true)) {
+            // Record rejected bridge RPC attempts without trusting arbitrary path
+            // text as an operation name or forwarding it to PostgREST.
+            $operation = preg_match('/^[A-Za-z][A-Za-z0-9_]{0,63}$/D', $function) === 1
+                ? 'rpc.'.$function
+                : 'rpc.invalid_name';
+            app(ApiOperationAuditLogger::class)->record(
+                'supabase',
+                $operation,
+                'rejected',
+                404,
+                0,
+                null,
+                'rpc_not_allowlisted',
+                $this->correlationId(),
+            );
+
             return ['status' => 404, 'body' => ['message' => 'RPC endpoint not found.']];
         }
 
