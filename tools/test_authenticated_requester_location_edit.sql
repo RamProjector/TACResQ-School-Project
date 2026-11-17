@@ -211,11 +211,11 @@ SELECT set_config('request.jwt.claim.sub', '', false);
 
 DO $requester_location_edit_audit$
 DECLARE
-  incident_id bigint;
+  v_incident_id bigint;
   edit_count integer;
   urgent_count integer;
 BEGIN
-  SELECT i.id INTO incident_id
+  SELECT i.id INTO v_incident_id
   FROM public.incidents i
   JOIN public.profiles p ON p.id = i.requester_id
   WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000151'
@@ -226,7 +226,7 @@ BEGIN
   SELECT count(*), count(*) FILTER (WHERE urgent_location_correction)
     INTO edit_count, urgent_count
   FROM public.incident_request_edit_logs
-  WHERE incident_request_edit_logs.incident_id = requester_location_edit_audit.incident_id;
+  WHERE incident_request_edit_logs.incident_id = v_incident_id;
 
   IF edit_count <> 2 OR urgent_count <> 1 THEN
     RAISE EXCEPTION 'Expected two edit audit records with one urgent correction; found total %, urgent %', edit_count, urgent_count;
