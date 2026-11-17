@@ -242,3 +242,10 @@ Implemented on the PR branch in migration `20261118010000_incident_assignment_ev
 - Does not invent a release reason or automatically delete assignments when an incident closes. Closure is recorded as a distinct event for each current team member; explicit removal is recorded separately.
 
 **Remaining work:** inspect every assignment mutation path and UI consumer, then expose a readable incident team timeline in dispatch. Validate migration replay and RLS behavior on a disposable database before production deployment. This migration has only been committed to PR #334; production Supabase remains unchanged. No build or tests were run for this commit.
+
+
+### Assignment event-history security review — 2026-11-18
+
+Read-only review against the connected production schema confirms the migration's referenced assignment and incident columns and foreign-key targets. Existing production RLS policies allow dispatcher incident/profile reads and participant assignment reads. The proposed event-history policy is narrower: authenticated users must resolve to a dispatcher/admin profile through `profiles.auth_user_id = auth.uid()`. The migration grants authenticated clients SELECT only and revokes direct table mutation privileges; trigger functions are placed in the non-exposed `private` schema with a locked search path and explicit execute revocation.
+
+This is a source/schema review only. The new table, policy, and trigger functions do not exist in production because the PR migration has not been applied. Trigger execution, policy behavior, and migration replay still require validation in a disposable database before deployment. Production remains unchanged.
