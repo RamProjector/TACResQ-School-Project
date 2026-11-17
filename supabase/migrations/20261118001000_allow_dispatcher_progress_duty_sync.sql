@@ -51,7 +51,7 @@ BEGIN
           USING ERRCODE = '22023';
       END IF;
 
-      dispatcher_progress_sync :=
+      dispatcher_progress_sync := coalesce(
         actor_role = 'dispatcher'
         AND NEW.role IN ('responder', 'driver')
         AND NEW.duty_status IN ('en_route', 'on_scene', 'transporting')
@@ -69,7 +69,9 @@ BEGIN
             WHERE ia.user_id = OLD.id
               AND i.status = NEW.duty_status
           )
-        );
+        ),
+        false
+      );
 
       IF NEW.duty_status IS DISTINCT FROM OLD.duty_status
          AND NEW.role IN ('responder', 'driver')
