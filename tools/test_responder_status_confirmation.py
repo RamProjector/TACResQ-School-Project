@@ -15,7 +15,7 @@ assert 'Text(if (resolving) "Confirm response completion?" else "Confirm status 
 assert "Only mark this response resolved when your assigned response is complete." in dialog
 assert "This unit status is shared with dispatch and the requester." in dialog
 assert "vm.advance(incident, nextStatus)" in dialog
-assert 'Text(if (resolving) "Mark resolved" else nextStatus.actionLabel())' in dialog
+assert 'Text(if (resolving) "Mark my response resolved" else nextStatus.actionLabel())' in dialog
 assert 'Text("Keep current status")' in dialog
 assert "enabled = !state.busy" in dialog
 
