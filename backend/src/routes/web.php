@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', static function () {
-    return response()->file(public_path('admin/index.html'));
+    return redirect('/admin/');
 });
 
 $runtimeConfig = static function () {
