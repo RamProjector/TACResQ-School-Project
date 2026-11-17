@@ -57,6 +57,7 @@ class SessionStore(
     private val encryptedSessionKey = stringPreferencesKey("encrypted_session_v1")
     private val pendingIncidentEnvelopeKey = stringPreferencesKey("pending_incident_envelope_v1")
     private val pendingChatMessageKey = stringPreferencesKey("pending_chat_message_v1")
+    private val pendingChatImageKey = stringPreferencesKey("pending_chat_image_v1")
     private val encryptedRequesterDraftKey = stringPreferencesKey("requester_draft_v1")
     private val encryptedRequesterIncidentsKey = stringPreferencesKey("requester_incidents_v1")
     private val pendingIncidentMutex = Mutex()
@@ -151,6 +152,19 @@ class SessionStore(
     )
 
     data class PendingChatMessage(val incidentId: Long, val message: String, val clientMessageId: String, val ownerUserId: Long)
+
+    /**
+     * Stores only retry identity and a content digest, never image bytes. The user must
+     * reselect the exact same image after process death before an uncertain upload is retried.
+     */
+    data class PendingChatImage(
+        val incidentId: Long,
+        val caption: String,
+        val clientMessageId: String,
+        val mimeType: String,
+        val sha256: String,
+        val ownerUserId: Long,
+    )
 
     data class RequesterDraft(
         val ownerUserId: Long,
@@ -280,6 +294,9 @@ class SessionStore(
             return@withLock
         }
         dataStore.edit { prefs ->
+            if (prefs.contains(pendingChatImageKey)) {
+                throw PendingIncidentConflictException("An image message is awaiting confirmation. Resolve it before sending another message.")
+            }
             val encoded = prefs[pendingChatMessageKey]
             if (encoded != null) {
                 val saved = runCatching { gson.fromJson(decrypt(encoded), PendingChatMessage::class.java) }
@@ -288,6 +305,60 @@ class SessionStore(
                 verify(saved)
             } else {
                 prefs[pendingChatMessageKey] = encrypt(gson.toJson(record))
+            }
+        }
+    }
+
+    suspend fun savePendingChatImage(record: PendingChatImage): Unit = pendingChatMessageMutex.withLock {
+        require(record.incidentId > 0L && record.ownerUserId > 0L)
+        require(record.caption == record.caption.trim() && record.caption.length <= 2000)
+        require(record.mimeType in setOf("image/jpeg", "image/png", "image/webp"))
+        require(record.sha256.matches(Regex("^[a-f0-9]{64}$")))
+        UUID.fromString(record.clientMessageId)
+        if (!persistSessions) {
+            val existing = inMemoryPendingChatMessage
+            if (existing != null) throw PendingIncidentConflictException("A text message is awaiting confirmation. Resolve it before sending an image.")
+            return@withLock
+        }
+        dataStore.edit { prefs ->
+            if (prefs.contains(pendingChatMessageKey)) {
+                throw PendingIncidentConflictException("A text message is awaiting confirmation. Resolve it before sending an image.")
+            }
+            val encoded = prefs[pendingChatImageKey]
+            if (encoded != null) {
+                val saved = runCatching { gson.fromJson(decrypt(encoded), PendingChatImage::class.java) }
+                    .getOrElse { throw PendingIncidentConflictException("The saved image retry could not be restored safely.") }
+                    ?: throw PendingIncidentConflictException("The saved image retry could not be restored safely.")
+                if (saved.ownerUserId != record.ownerUserId) throw PendingIncidentConflictException("A pending image belongs to another account on this device.")
+                if (saved != record) throw PendingIncidentConflictException("Resolve the earlier unconfirmed image in its original incident before sending different content.")
+            } else {
+                prefs[pendingChatImageKey] = encrypt(gson.toJson(record))
+            }
+        }
+    }
+
+    suspend fun getPendingChatImage(ownerUserId: Long): PendingChatImage? = pendingChatMessageMutex.withLock {
+        require(ownerUserId > 0L)
+        if (!persistSessions) return@withLock null
+        val encoded = dataStore.data.first()[pendingChatImageKey] ?: return@withLock null
+        val saved = runCatching { gson.fromJson(decrypt(encoded), PendingChatImage::class.java) }
+            .getOrElse { throw PendingIncidentConflictException("The saved image retry could not be restored safely.") }
+            ?: throw PendingIncidentConflictException("The saved image retry could not be restored safely.")
+        if (saved.ownerUserId != ownerUserId) throw PendingIncidentConflictException("A saved image retry belongs to another account on this device.")
+        saved
+    }
+
+    suspend fun clearPendingChatImage(clientMessageId: String, ownerUserId: Long): Unit = pendingChatMessageMutex.withLock {
+        require(ownerUserId > 0L)
+        if (!persistSessions) return@withLock
+        dataStore.edit { prefs ->
+            val encoded = prefs[pendingChatImageKey] ?: return@edit
+            val saved = runCatching { gson.fromJson(decrypt(encoded), PendingChatImage::class.java) }
+                .getOrElse { throw PendingIncidentConflictException("The saved image retry could not be cleared safely.") }
+                ?: throw PendingIncidentConflictException("The saved image retry could not be cleared safely.")
+            if (saved.clientMessageId == clientMessageId) {
+                if (saved.ownerUserId != ownerUserId) throw PendingIncidentConflictException("This image retry belongs to another account.")
+                prefs.remove(pendingChatImageKey)
             }
         }
     }
