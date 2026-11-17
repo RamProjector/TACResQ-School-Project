@@ -1993,9 +1993,10 @@ fun GpsMapScreen(
                     val expansionZoom = source.getClusterExpansionZoom(feature)
                     val point = feature.geometry() as? Point ?: return@OnMapClickListener true
                     val position = point.coordinates()
+                    if (position.size < 2) return@OnMapClickListener true
                     if (expansionZoom > map.cameraPosition.zoom && map.cameraPosition.zoom < 20.0) {
                         map.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                            LatLng(position.latitude(), position.longitude()),
+                            LatLng(position[1], position[0]),
                             expansionZoom.toDouble().coerceAtMost(20.0)), 420)
                     } else showClusterChoices(
                         clusterTargets(source, feature, incidents), false,
