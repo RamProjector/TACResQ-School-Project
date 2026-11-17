@@ -763,19 +763,29 @@ fun GpsMapScreen(
     }
 
     // Keep a selected field-unit row highlighted while its report remains available.
+    // If it expires or is removed during refresh, explain why the selection disappeared.
     androidx.compose.runtime.LaunchedEffect(validResponderLocations) {
         val selectedKey = selectedResponderKey ?: return@LaunchedEffect
         if (validResponderLocations.none { "${it.incidentId}:${it.userId}" == selectedKey }) {
             selectedResponderKey = null
+            locationStatus = "This field-unit location is no longer available or has expired. Refresh the map for current reports."
         }
     }
 
-    // Clear incident selection only when the selected incident is no longer visible.
-    // Routine incident refreshes must not erase a marker selection or map action status.
+    // Routine incident refreshes must not erase a valid selection. When the selected
+    // incident is actually removed from the visible set, clear its route and explain it.
     androidx.compose.runtime.LaunchedEffect(visibleIncidents) {
-        if (selectedIncidentId != null && visibleIncidents.none { it.id == selectedIncidentId }) {
+        val selectedId = selectedIncidentId ?: return@LaunchedEffect
+        if (visibleIncidents.none { it.id == selectedId }) {
             routeSelectionGeneration += 1
+            routeJob?.cancel()
+            routeRequestGeneration += 1
+            isRouteLoading = false
+            routeResult = null
+            routeIncidentId = null
+            routeStatus = null
             selectedIncidentId = null
+            locationStatus = "Incident #$selectedId is no longer active or visible. Its selection and route preview were cleared."
         }
     }
 

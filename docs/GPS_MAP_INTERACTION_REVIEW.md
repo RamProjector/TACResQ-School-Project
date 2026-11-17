@@ -1,3 +1,11 @@
+## GPS selection invalidation feedback — 2026-11-17
+
+- Reviewed selection behavior during incident and responder refreshes.
+- A selected field-unit report previously disappeared silently when its report expired or was removed. The map now clears that selection with an explicit status message explaining that the report is unavailable/expired.
+- A selected incident previously cleared silently when it left the role-visible active set. The map now cancels pending route work, invalidates late route responses, clears the route preview, and explains that the incident is no longer active or visible.
+- Routine refreshes still preserve selections while their records remain visible. No changes to responder tracking consent or emergency status rules.
+- No build, tests, emulator, or device validation run.
+
 ## GPS style-retry stale-source recovery — 2026-11-17
 
 - Found a retry-only lifecycle omission: the initial style-load path registered the stale-responder GeoJSON source, but the explicit retry path restored only incident and fresh/aging responder sources.

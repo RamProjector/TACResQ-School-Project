@@ -1,5 +1,11 @@
 ## Latest GPS continuation — 2026-11-17
 
+- Improved selection invalidation: expired/removed field-unit reports and incidents now produce explicit feedback rather than silently dropping the selected detail.
+- When a selected incident leaves the visible active set, pending route work is cancelled and late results invalidated; the obsolete route preview is cleared.
+- Same PR #334 branch. No build/tests/device validation run.
+
+## Latest GPS continuation — 2026-11-17
+
 - Fixed an explicit map-retry omission: stale responder clusters now reconnect to the newly recreated style source alongside incident and fresh/aging responder clusters.
 - Same PR #334 branch; no validation checks run. Next inspect selected-location persistence and map load/error recovery without changing emergency location-sharing semantics.
 
