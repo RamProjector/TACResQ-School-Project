@@ -140,11 +140,11 @@ private const val MAP_DATA_UNAVAILABLE_STATUS = "Map data is temporarily unavail
  * Converts the app's vector pin drawables to MapLibre marker icons. Icons are
  * created once per map screen and reused for all annotations.
  */
-private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255): Icon {
+private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255, scale: Float = 0.75f): Icon {
     val drawable = requireNotNull(ContextCompat.getDrawable(this, resourceId)).mutate()
-    val scale = 0.75f
-    val width = ((drawable.intrinsicWidth.takeIf { it > 0 } ?: 48) * scale).roundToInt().coerceAtLeast(1)
-    val iconHeight = ((drawable.intrinsicHeight.takeIf { it > 0 } ?: 56) * scale).roundToInt().coerceAtLeast(1)
+    val safeScale = scale.takeIf { it.isFinite() && it > 0f } ?: 0.75f
+    val width = ((drawable.intrinsicWidth.takeIf { it > 0 } ?: 48) * safeScale).roundToInt().coerceAtLeast(1)
+    val iconHeight = ((drawable.intrinsicHeight.takeIf { it > 0 } ?: 56) * safeScale).roundToInt().coerceAtLeast(1)
     // MapLibre's legacy Marker annotation anchors icons at their center. Keep the
     // pin tip at the geographic coordinate by adding transparent space below it.
     val bitmap = Bitmap.createBitmap(width, iconHeight * 2, Bitmap.Config.ARGB_8888)
@@ -658,6 +658,9 @@ fun GpsMapScreen(
 
     val incidentPinIcon = remember(context) {
         context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_incident_pin)
+    }
+    val selectedIncidentPinIcon = remember(context) {
+        context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_incident_pin, scale = 0.98f)
     }
     val responderPinIcon = remember(context) {
         context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_responder_pin)
@@ -1218,6 +1221,7 @@ fun GpsMapScreen(
         displayedRoute,
         trackingStatus.incidentId,
         trackingStatus.navigationActive,
+        selectedIncidentId,
         freshnessTick,
     ) {
         val map = mapLibreMap
@@ -1243,7 +1247,7 @@ fun GpsMapScreen(
                 map.addMarker(
                     MarkerOptions()
                         .position(LatLng(latitude, longitude))
-                        .icon(incidentPinIcon)
+                        .icon(if (incident.id == selectedIncidentId) selectedIncidentPinIcon else incidentPinIcon)
                         .title("Incident #${incident.id} · ${incident.type.label}")
                         .snippet(
                             listOfNotNull(
@@ -1396,6 +1400,19 @@ fun GpsMapScreen(
                                 },
                                 contentDescription = null,
                             )
+                        }
+                        if (sheetExpanded) {
+                            androidx.compose.material3.IconButton(
+                                onClick = ::showAllVisiblePoints,
+                                modifier = Modifier.size(48.dp).semantics {
+                                    contentDescription = "Fit all visible map locations"
+                                },
+                            ) {
+                                androidx.compose.material3.Icon(
+                                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                )
+                            }
                         }
                         if (selectedIncident != null) {
                             androidx.compose.material3.TextButton(
@@ -1864,14 +1881,16 @@ fun GpsMapScreen(
             )
         }
 
-        GpsMapCameraControls(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .navigationBarsPadding()
-                .padding(start = 12.dp, bottom = 136.dp),
-            enabled = mapStyleLoaded,
-            onShowAll = ::showAllVisiblePoints,
-        )
+        if (mapSheetState.bottomSheetState.currentValue != SheetValue.Expanded) {
+            GpsMapCameraControls(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .navigationBarsPadding()
+                    .padding(start = 12.dp, bottom = 136.dp),
+                enabled = mapStyleLoaded,
+                onShowAll = ::showAllVisiblePoints,
+            )
+        }
 
       }
     }

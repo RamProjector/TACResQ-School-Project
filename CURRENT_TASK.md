@@ -1,3 +1,10 @@
+# GPS map selection and expanded-sheet controls
+
+- Selected incident markers now use a larger pin asset variant. The annotation renderer observes selectedIncidentId, so selection changes redraw the marker immediately and the active pin is easier to distinguish when several incidents are nearby.
+- The floating fit-all control is hidden while the details sheet is expanded, avoiding a control that would otherwise sit beneath the sheet. An equivalent accessible fit-all action is placed in the expanded sheet header, where it remains reachable.
+- Marker tap behavior, incident selection, map framing, sheet navigation, permissions, location sharing, stale-location handling, routing, and backend contracts remain unchanged.
+- Validation: not run per the requested commit cadence; visual/device review is still needed for overlapping markers and narrow sheet headers.
+
 # GPS map research implementation — camera, compass, recovery
 
 - Camera framing: Replaced the uniform bounds inset with asymmetric, density-aware pixel insets. The top reserves room for the header/filter controls; the bottom reserves the measured bottom-sheet obstruction plus breathing room. Insets are capped to preserve a usable viewport on short windows and expanded sheets. If sheet measurement is not ready, the calculation falls back to the existing 120 dp collapsed-sheet height.
