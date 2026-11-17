@@ -181,6 +181,9 @@ jobs:
       - name: Check GPS cluster tap targets
         run: python3 tools/test_gps_cluster_hit_target_contract.py
 
+      - name: Check GPS cluster count-label contrast
+        run: python3 tools/test_gps_cluster_count_label_contract.py
+
       - name: Check draggable GPS incident sheet
         run: python3 tools/test_gps_map_draggable_sheet.py
 
