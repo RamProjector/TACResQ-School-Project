@@ -170,6 +170,7 @@ class SupabaseBridgeTest extends TestCase
         config([
             'tacru.supabase_secret_key' => 'synthetic-server-secret',
         ]);
+        request()->attributes->set('auth_user_id', 'ab7d4ac2-2e0f-4b88-a1e1-0d8c7d7f1001');
         Http::fake([
             'https://tacresq-bridge.example.test/rest/v1/api_operation_logs' => Http::response(null, 201),
         ]);
@@ -189,7 +190,8 @@ class SupabaseBridgeTest extends TestCase
                 && ($payload['provider'] ?? null) === 'supabase'
                 && ($payload['operation'] ?? null) === 'rpc.arbitrary_function'
                 && ($payload['outcome'] ?? null) === 'rejected'
-                && ($payload['error_code'] ?? null) === 'rpc_not_allowlisted';
+                && ($payload['error_code'] ?? null) === 'rpc_not_allowlisted'
+                && ($payload['actor_auth_user_id'] ?? null) === 'ab7d4ac2-2e0f-4b88-a1e1-0d8c7d7f1001';
         });
         Http::assertNotSent(fn ($request) => str_contains($request->url(), '/rest/v1/rpc/arbitrary_function'));
     }
