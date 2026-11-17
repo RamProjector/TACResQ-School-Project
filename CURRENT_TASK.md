@@ -1,3 +1,14 @@
+# Current handoff — 2026-11-17: dispatcher active-queue accuracy
+
+- **Objective:** Make the dispatcher's “Active incidents” section match the actual active-incident count and provide a useful empty state.
+- **Finding:** The overview counted only statuses marked active, but the list displayed every non-pending incident, which could place completed or cancelled records under an “Active incidents” heading.
+- **Implementation:** Derive one active-incident collection from the model's existing `isActive` status rule, use it for both the overview count and active list, clarify the section subtitle, and show a calm empty-state explanation when no active incidents exist.
+- **Scope:** Dispatcher presentation/filtering only, reusing the existing status classification. No incident status transitions, assignment, claiming, API, database, or dispatch permissions changed.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused role-screen UI refinements on PR #334; run a consolidated validation cycle after the implementation set is frozen.
+
+---
+
 # Current handoff — 2026-11-17: responder active-response hierarchy
 
 - **Objective:** Make the responder's active incident workload easier to scan without changing assignment or response workflows.

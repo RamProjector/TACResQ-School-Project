@@ -200,7 +200,8 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         .sortedWith(compareBy<Incident> { incident ->
             incident.createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: Instant.MIN
         }.thenBy { it.id })
-    val active = state.incidents.count { it.status.isActive }
+    val activeIncidents = state.incidents.filter { it.status.isActive }
+    val active = activeIncidents.size
     val availableUnits = state.units.filter { it.dutyStatus == DutyStatus.AVAILABLE }
     val focusedIncident = focusedIncidentId?.let { targetId -> state.incidents.firstOrNull { it.id == targetId } }
     // The dialog must use the latest queue snapshot, not the Incident object captured
@@ -358,8 +359,17 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             }
         }
 
-        item { SectionHeading("Active incidents") }
-        items(state.incidents.filter { it.status != IncidentStatus.PENDING }, key = { it.id }) { incident ->
+        item { SectionHeading("Active incidents", "Assigned and in-progress responses") }
+        if (!state.loading && activeIncidents.isEmpty()) {
+            item {
+                Text(
+                    "No active incidents right now. Newly submitted requests will appear in the pending queue.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        items(activeIncidents, key = { it.id }) { incident ->
             IncidentCard(incident) {
                 val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
                 val teamNames = state.units.filter { it.id in teamIds }.joinToString(", ") { it.name }
