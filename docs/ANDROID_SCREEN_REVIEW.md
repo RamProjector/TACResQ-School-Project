@@ -61,3 +61,11 @@ This register tracks visible UI findings from source review. A change is not con
 
 ## Validation boundary
 - Changes are source-reviewed only. No Gradle build, unit tests, emulator, physical-device, backend, or legal review was performed for this screen pass.
+
+
+## Dispatcher field-unit scan order — 2026-11-17
+
+- **Finding:** The field-unit section was labelled “Current availability” but rendered units in repository/API order. Dispatchers had to scan the entire list to find available responders/drivers, even though available units are the immediately actionable group.
+- **Change:** Stable-sort the displayed field-unit list so units with `AVAILABLE` duty status appear first. All other units remain visible in their existing relative order; unknown/off-duty/assigned/in-progress states are not collapsed or reclassified.
+- **Safety boundary:** This is presentation-only. The assignment dialog and its fresh-data guard continue to derive eligibility from the existing `availableUnits` filter; the display sort does not grant eligibility or alter backend ordering/state.
+- **Validation:** No build, tests, emulator, or device checks run.

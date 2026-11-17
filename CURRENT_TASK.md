@@ -1,3 +1,10 @@
+## Latest UI review — 2026-11-17
+
+- Dispatcher field-unit list now displays AVAILABLE units first to reduce scan effort; all other statuses remain visible and preserve their relative order. Assignment eligibility still uses the existing fresh snapshot filter. Commit: pending in this handoff.
+- No build, tests, emulator, or device validation performed.
+
+---
+
 ## Dispatcher queue-age urgency cue — 2026-11-17
 
 - **Finding:** Waiting age switched to the error color at 15 minutes, but no dispatch policy or service-level target in the reviewed screen defines 15 minutes as an escalation threshold.

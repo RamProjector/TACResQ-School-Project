@@ -480,7 +480,10 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 )
             }
         }
-        items(state.units, key = { it.id }) { unit -> UnitCard(unit) }
+        // Put actionable units first without hiding other statuses or changing assignment eligibility.
+        items(state.units.sortedBy { it.dutyStatus != DutyStatus.AVAILABLE }, key = { it.id }) { unit ->
+            UnitCard(unit)
+        }
     }
 
     currentAssignmentCandidate?.let { incident ->
