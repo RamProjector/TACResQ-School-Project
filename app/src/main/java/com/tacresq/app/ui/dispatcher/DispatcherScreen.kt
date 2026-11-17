@@ -359,7 +359,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         }
 
         item { SectionHeading("Active incidents") }
-        items(state.incidents.filter { it.status != IncidentStatus.PENDING }, key = { it.id }) { incident ->
+        items(state.incidents.filter { it.status.isActive }, key = { it.id }) { incident ->
             IncidentCard(incident) {
                 val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
                 val teamNames = state.units.filter { it.id in teamIds }.joinToString(", ") { it.name }
