@@ -1991,10 +1991,34 @@ fun GpsMapScreen(
                 Triple(responderClusterSource, RESPONDER_CLUSTER_LAYER_ID, false),
                 Triple(staleResponderClusterSource, STALE_RESPONDER_CLUSTER_LAYER_ID, false),
             )
+            // Give cluster bubbles the same forgiving 48dp touch target as individual pins.
+            // If multiple clusters from one source fall inside it, resolve the nearest bubble.
+            val clusterHitRadius = 24f * mapView.resources.displayMetrics.density
+            val clusterHitArea = RectF(
+                pixel.x - clusterHitRadius,
+                pixel.y - clusterHitRadius,
+                pixel.x + clusterHitRadius,
+                pixel.y + clusterHitRadius,
+            )
             val clusterHits = clusterLayers.mapNotNull { (source, layerId, incidents) ->
-                val feature = map.queryRenderedFeatures(pixel, layerId).firstOrNull()
-                    ?: return@mapNotNull null
-                if (!feature.hasProperty("point_count") || source == null) return@mapNotNull null
+                if (source == null) return@mapNotNull null
+                val feature = map.queryRenderedFeatures(clusterHitArea, layerId)
+                    .filter { it.hasProperty("point_count") }
+                    .minByOrNull { candidate ->
+                        val point = candidate.geometry() as? Point
+                        val coordinates = point?.coordinates()
+                        if (coordinates == null || coordinates.size < 2) {
+                            Double.POSITIVE_INFINITY
+                        } else {
+                            val screen = map.projection.toScreenLocation(
+                                LatLng(coordinates[1], coordinates[0]),
+                            )
+                            hypot(
+                                (screen.x - pixel.x).toDouble(),
+                                (screen.y - pixel.y).toDouble(),
+                            )
+                        }
+                    } ?: return@mapNotNull null
                 Triple(source, feature, incidents)
             }
             fun pageCursorsForHits(
