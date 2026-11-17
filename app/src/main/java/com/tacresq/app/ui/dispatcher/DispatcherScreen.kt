@@ -630,12 +630,6 @@ private fun UnitCard(unit: User) {
     }
 }
 
-private fun waitingAgeSeconds(createdAt: String?, now: Instant): Long? {
-    val submittedAt = createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: return null
-    val age = Duration.between(submittedAt, now).seconds
-    return age.takeIf { it >= 0L }
-}
-
 private fun waitingAgeLabel(createdAt: String?, now: Instant): String {
     val submittedAt = createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() }
         ?: return "Waiting time unavailable — verify submission time."
