@@ -261,6 +261,10 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun send(incidentId: Long) {
         val message = _state.value.draft.trim()
+        if (pendingImageRecord != null) {
+            _state.update { it.copy(sendError = "An image send is still unresolved. Re-select the original image before retrying.") }
+            return
+        }
         if (activeIncidentId != incidentId || _state.value.restoringPending || sendJob?.isActive == true || message.isEmpty() || message.length > 2000) return
         val pending = pendingTextMessage
         if (pending != null && (pending.incidentId != incidentId || pending.message != message)) {
@@ -337,9 +341,15 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     }
 
     fun clearImageAttachment() {
-        pendingImageClientMessageId = null
-        pendingImageSignature = null
-        _state.update { it.copy(attachmentBytes = null, attachmentMimeType = null, sendError = null) }
+        _state.update {
+            it.copy(
+                attachmentBytes = null,
+                attachmentMimeType = null,
+                sendError = if (pendingImageRecord != null)
+                    "The earlier image send is still unresolved. Re-select the original image to retry it safely."
+                else null,
+            )
+        }
     }
 
     fun sendImage(incidentId: Long, senderId: Long) {
@@ -643,9 +653,10 @@ fun IncidentChatScreen(
                     TextButton(
                         onClick = {
                             if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
-                            else vm.send(incidentId)
+                            else if (vm.state.value.sendError?.contains("image", ignoreCase = true) != true) vm.send(incidentId)
                         },
-                        enabled = !state.sending && (state.draft.isNotBlank() || state.attachmentBytes != null),
+                        enabled = !state.sending && if (state.attachmentBytes != null) true
+                            else state.draft.isNotBlank() && !state.sendError.orEmpty().contains("image", ignoreCase = true),
                     ) { Text("Retry") }
                 }
             }
@@ -715,18 +726,18 @@ fun IncidentChatScreen(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
                         if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
-                        else vm.send(incidentId)
+                        else if (pendingImageRecord == null) vm.send(incidentId)
                     }),
-                    enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null,
+                    enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null && pendingImageRecord == null,
                     shape = RoundedCornerShape(22.dp),
                 )
                 androidx.compose.material3.FilledIconButton(
                     onClick = {
                         if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
-                        else vm.send(incidentId)
+                        else if (pendingImageRecord == null) vm.send(incidentId)
                     },
                     enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null &&
-                        (state.draft.trim().isNotEmpty() || state.attachmentBytes != null),
+                        (state.attachmentBytes != null || (pendingImageRecord == null && state.draft.trim().isNotEmpty())),
                     modifier = Modifier.size(54.dp),
                 ) {
                     if (state.sending) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
