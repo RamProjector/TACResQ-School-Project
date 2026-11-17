@@ -1,6 +1,6 @@
 ## Latest UI review — 2026-11-17
 
-- Responder duty-status chips are now disabled when already selected, preventing no-op duty updates and unnecessary refreshes. The existing busy and active-assignment/freshness guards remain unchanged. Commit: pending in this handoff.
+- Responder duty-status chips are now disabled when already selected, preventing no-op duty updates and unnecessary refreshes. The existing busy and active-assignment/freshness guards remain unchanged. Commit: `4479382f7c58faa56adbec367591dbabe209b04c`.
 - No build, tests, emulator, or device validation performed.
 
 ---
