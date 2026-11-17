@@ -1,3 +1,10 @@
+## Role-screen continuation — 2026-11-17
+
+- Simplified responder and dispatcher information hierarchy: shared operational guidance is now shown once at section level rather than repeated in every incident card.
+- Responder arrival-vs-GPS-sharing reminder appears once only when an en-route response exists.
+- Dispatcher no-available-units explanation appears once above the pending queue; team assignment action remains absent unless at least one unit is available.
+- No operational/business logic changed. Same PR #334 branch. No build/tests/device validation run.
+
 ## Latest GPS continuation — 2026-11-17
 
 - Map-load failure feedback now distinguishes a known offline condition from a generic map-data load failure using the latest validated connectivity state.

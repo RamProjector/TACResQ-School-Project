@@ -296,6 +296,15 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         state.error?.let { item { Banner(it, isError = true, onDismiss = vm::dismissMessages) } }
 
         item { SectionHeading("Pending incidents", "Oldest requests first") }
+        if (pending.isNotEmpty() && availableUnits.isEmpty()) {
+            item {
+                Text(
+                    "No responders or drivers are currently available. Team assignment and field claiming must wait until a unit goes on duty.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         if (state.loading && state.incidents.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -334,9 +343,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     fontWeight = if (waitSeconds != null && waitSeconds >= 15 * 60)
                         FontWeight.SemiBold else FontWeight.Normal,
                 )
-                if (availableUnits.isEmpty()) {
-                    Text("No responder or driver is currently marked Available.")
-                } else {
+                if (availableUnits.isNotEmpty()) {
                     OutlinedButton(
                         onClick = {
                             selectedUnitIds = emptySet()
@@ -359,7 +366,12 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             }
         }
 
-        item { SectionHeading("Active incidents", "Assigned and in-progress responses") }
+        item {
+            SectionHeading(
+                "Active incidents",
+                "Combined team progress; each responder updates their own status",
+            )
+        }
         if (!state.loading && activeIncidents.isEmpty()) {
             item {
                 Text(
@@ -401,11 +413,6 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            Text(
-                                "The request status reflects the team's combined progress. Each responder updates their own status.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
                         }
                         StatusPill(incident.status)
                     }

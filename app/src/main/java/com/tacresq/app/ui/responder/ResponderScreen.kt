@@ -513,6 +513,15 @@ fun ResponderScreen(
                     "Incidents assigned to you and your current response status",
                 )
             }
+            if (active.any { it.statusFor(user.id) == IncidentStatus.EN_ROUTE }) {
+                item {
+                    Text(
+                        "GPS sharing reports location, not arrival. Update your response status when you reach the scene.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
         items(active, key = { it.id }) { incident ->
@@ -527,11 +536,6 @@ fun ResponderScreen(
                     val ownStatus = incident.statusFor(user.id)
                     StatusPill(ownStatus.label, ownStatus.pillColor())
                 }
-                Text(
-                    "Your status updates are shared with dispatch and the requester. The overall request status reflects the assigned team's progress.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 val contact = listOfNotNull(incident.requesterName, incident.requesterPhone)
                     .joinToString(", ")
                 if (contact.isNotBlank()) Text("Requester: $contact")
@@ -627,11 +631,6 @@ fun ResponderScreen(
                                 StatusPill(trackingStatusLabel, trackingTint)
                             }
                             val lastLocationSentAt = state.lastLocationSentAt
-                            Text(
-                                "GPS sharing reports your location; it does not confirm arrival. Update your response status when you reach the scene.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
                             Text(
                                 when {
                                     !sharing -> "Location sharing is off."

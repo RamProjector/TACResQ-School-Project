@@ -273,3 +273,12 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Cluster chooser copy now distinguishes a dense cluster from ordinary overlapping pins and gives a concise next action.
 - No build, tests, emulator, device validation, or profiling run.
 
+
+
+## Role-screen information hierarchy pass — 2026-11-17
+
+- **Responder:** moved the shared explanation of individual responder status versus combined incident status out of every active-response card. The arrival-versus-GPS-sharing safety reminder now appears once when at least one response is en route, rather than being repeated in every location-sharing panel.
+- **Dispatcher:** moved the combined-team-progress explanation into the Active incidents section heading. When pending incidents exist but no units are available, the availability constraint is shown once above the queue instead of repeating on every incident card.
+- **Behavior preserved:** no assignment, claimability, duty, status-transition, location-sharing, routing, API, or database logic changed. The dispatcher still only offers team assignment when available units exist.
+- **Rationale:** reduce repeated card content and keep guidance at the section level while leaving incident-specific actions and status visible at the point of use.
+- **Validation:** source review only. No Gradle build, tests, emulator, or device checks run.
