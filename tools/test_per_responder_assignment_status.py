@@ -35,8 +35,8 @@ for required in (
     "status_updated_at = now()",
     "CREATE OR REPLACE FUNCTION public.api_update_incident_status",
     "private.tacresq_dispatch_update_incident_status",
-    "REVOKE ALL ON FUNCTION public.api_update_my_assignment_status(bigint, text) FROM PUBLIC, anon, authenticated",
-    "REVOKE ALL ON FUNCTION private.tacresq_update_my_assignment_status(bigint, text) FROM PUBLIC, anon, authenticated",
+    "REVOKE ALL ON FUNCTION public.api_update_my_assignment_status(bigint,text) FROM PUBLIC, anon, authenticated",
+    "REVOKE ALL ON FUNCTION private.tacresq_update_my_assignment_status(bigint,text) FROM PUBLIC, anon, authenticated",
 ):
     assert required in dispatcher_sql, f"Missing dispatcher-owned status contract: {required}"
 
