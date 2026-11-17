@@ -40,6 +40,7 @@ import com.tacresq.app.data.model.IncidentStatus
 import com.tacresq.app.data.model.nextSteps
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.remote.AssignmentHistoryEvent
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
@@ -72,6 +73,10 @@ data class DispatcherUiState(
     // Assignment is safe only when queue and unit availability are fresh.
     val assignmentDataFresh: Boolean = false,
     val lastSyncedAtEpochMs: Long? = null,
+    val assignmentHistoryIncidentId: Long? = null,
+    val assignmentHistory: List<AssignmentHistoryEvent> = emptyList(),
+    val assignmentHistoryLoading: Boolean = false,
+    val assignmentHistoryError: String? = null,
 )
 
 class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
@@ -79,6 +84,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
     val state: StateFlow<DispatcherUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
     private var refreshRequested = false
+    private var historyJob: Job? = null
 
     fun refresh() {
         if (refreshJob?.isActive == true) {
@@ -231,6 +237,30 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
                     refresh()
                 }
                 .onFailure { e -> _state.update { it.copy(busy = false, error = e.message) } }
+        }
+    }
+
+    fun loadAssignmentHistory(incidentId: Long) {
+        if (incidentId <= 0) return
+        historyJob?.cancel()
+        _state.update {
+            it.copy(
+                assignmentHistoryIncidentId = incidentId,
+                assignmentHistory = emptyList(),
+                assignmentHistoryLoading = true,
+                assignmentHistoryError = null,
+            )
+        }
+        historyJob = viewModelScope.launch {
+            val result = repo.incidentAssignmentHistory(incidentId, 50)
+            _state.update { current ->
+                if (current.assignmentHistoryIncidentId != incidentId) current
+                else current.copy(
+                    assignmentHistory = result.getOrNull().orEmpty(),
+                    assignmentHistoryLoading = false,
+                    assignmentHistoryError = result.exceptionOrNull()?.message,
+                )
+            }
         }
     }
 
@@ -511,6 +541,72 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     }
                 }
                 TextButton(onClick = { onOpenChat(incident.id) }) { Text("Open conversation") }
+                var showHistory by remember(incident.id) { mutableStateOf(false) }
+                TextButton(
+                    onClick = {
+                        showHistory = !showHistory
+                        if (showHistory) vm.loadAssignmentHistory(incident.id)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(if (showHistory) "Hide assignment history" else "View assignment history") }
+                if (showHistory) {
+                    val historyForIncident = state.assignmentHistoryIncidentId == incident.id
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("Assignment history", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            when {
+                                !historyForIncident || state.assignmentHistoryLoading -> {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        Text("Loading audit events…", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                                state.assignmentHistoryError != null -> {
+                                    Text(
+                                        state.assignmentHistoryError,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                    TextButton(onClick = { vm.loadAssignmentHistory(incident.id) }) { Text("Retry history") }
+                                }
+                                state.assignmentHistory.isEmpty() -> {
+                                    Text("No assignment events were returned for this incident.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                else -> state.assignmentHistory.forEach { event ->
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        val eventLabel = when (event.eventType) {
+                                            "assigned" -> "Field unit assigned"
+                                            "released" -> "Field unit released"
+                                            "incident_closed" -> "Incident closed"
+                                            else -> "Assignment event"
+                                        }
+                                        val memberName = state.units.firstOrNull { it.id == event.userId }?.name
+                                            ?: "Field unit #${event.userId}"
+                                        val actorLabel = when (event.actorUserId) {
+                                            null -> "System"
+                                            user.id -> "You"
+                                            else -> "Dispatcher account #${event.actorUserId}"
+                                        }
+                                        Text(eventLabel, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            "$memberName · by $actorLabel",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Text(
+                                            formatTime(event.occurredAt),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
