@@ -1888,28 +1888,6 @@ fun GpsMapScreen(
             onShowAll = ::showAllVisiblePoints,
         )
 
-        // Keep OSM attribution visible on the map even while the sheet is collapsed.
-        Text(
-            text = "© OpenMapTiles · © OpenStreetMap contributors",
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .navigationBarsPadding()
-                .padding(end = 12.dp, bottom = 136.dp)
-                .heightIn(min = 48.dp)
-                .clickable(onClickLabel = "Open OpenFreeMap map data and attribution details") {
-                    runCatching {
-                        context.startActivity(
-                            Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://openfreemap.org/"),
-                            )
-                        )
-                    }
-                }
-                .padding(horizontal = 8.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
       }
     }
 }

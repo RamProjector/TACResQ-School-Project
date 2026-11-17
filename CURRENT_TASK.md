@@ -1,3 +1,14 @@
+# Current handoff — 2026-11-17: remove duplicate full-screen map attribution overlay
+
+- **Finding:** The GPS map manually overlaid a second `© OpenMapTiles · © OpenStreetMap contributors` label while the map drawer already provided a detailed attribution link. The map uses MapLibre with OpenFreeMap; OpenFreeMap documents that MapLibre automatically displays the required attribution control.
+- **Implementation:** Removed only the app-authored bottom-right duplicate text overlay. Kept the drawer's detailed attribution link and left MapLibre's native attribution control enabled. This preserves map-data credit without stacking a redundant app-level label over the emergency map.
+- **Scope:** Removed duplicate presentation only. No map style, provider, tile source, attribution settings, navigation, or GPS behavior changed.
+- **Validation:** Not run per incremental-commit instruction; no build, emulator, or device behavior is claimed.
+- **References:** OpenFreeMap attribution guidance; OpenMapTiles attribution guidance.
+- **Next action:** Continue focused client UI refinements on PR #334; consolidate validation after implementation changes are complete.
+
+---
+
 # Current handoff — 2026-11-17: preserve GPS map status context in collapsed sheet
 
 - **Finding:** The collapsed map sheet forced its status/supporting message onto one line. Longer operational messages (such as location-permission guidance and dispatcher field-unit freshness) were routinely ellipsized.
