@@ -1,6 +1,6 @@
 ## Latest UI review — 2026-11-17
 
-- Dispatcher field-unit availability is now explicitly marked as unconfirmed during refresh or after refresh failure. The ready-unit overview metric and no-available-unit guidance no longer present retained cached data as current fact. Assignment behavior is unchanged. Commit: pending in this handoff.
+- Dispatcher field-unit availability is now explicitly marked as unconfirmed during refresh or after refresh failure. The ready-unit overview metric and no-available-unit guidance no longer present retained cached data as current fact. Assignment behavior is unchanged. Commit: `96a9e29652d282be495f8e72cceeabf71448ab29`.
 - No build, tests, emulator, or device validation performed.
 
 ---
