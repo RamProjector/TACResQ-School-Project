@@ -239,3 +239,39 @@ This is an operational scalability and data-minimization concern, not a confirme
 Do not add a simple LIMIT that silently hides older or urgent incidents. A safe pagination design needs explicit product semantics: stable ordering, cursor behavior under newly arriving/claimed/cancelled incidents, a maximum page size, and a visible way to load more while preserving emergency priority. Consider whether the app should receive a compact claim-list projection first and fetch full incident details only after a responder opens or claims an item. Any projection must still provide enough information to decide whether to respond safely.
 
 Before implementation, add tests for stable cursor ordering, newly inserted incidents, rows becoming non-claimable between pages, assignment-capacity changes, role/duty changes, and no duplicate/missing eligible incidents across pages. Benchmark the query with representative synthetic queue sizes and inspect indexes for the join/filter path. No live function was changed and no migration was applied.
+## Audit migration state and transaction semantics — 2026-11-17
+
+### Live migration state
+
+A fresh read-only migration-ledger query returned the live migration history through `20261116042927_responder_incident_claiming`. It does not contain:
+
+- `20261116170000_api_operation_audit_and_fk_indexes.sql` from PR #316;
+- `20261116180000_harden_field_claim_exclusivity.sql` from PR #317;
+- `20261116200000_harden_dispatch_claimability_lifecycle.sql` from PR #319;
+- `20261116210000_protect_profile_identity_metadata.sql` from PR #320; or
+- `20261117010000_restrict_legacy_admin_user_list_rpc.sql` from PR #321.
+
+These migrations are still pending PR review/merge and have not been applied to the live database. In particular, `public.api_operation_logs` is not yet a live table. Do not describe PR #316 audit persistence as active production coverage.
+
+### Distinguish operation telemetry from business audit history
+
+- `api_operation_logs` in PR #316 is server-mediated transport telemetry: provider, operation, source, outcome, HTTP status, duration, correlation ID, and limited error metadata. It is not a complete business event history and its writer depends on a configured backend server secret.
+- `admin_audit_logs` is a domain-specific history for privileged role changes.
+- `incident_request_edit_logs` captures requester edits and before/after values; those JSONB values contain sensitive location/request data and should remain access-restricted.
+- `incident_claimability_logs` in pending PR #319 is a domain-specific record of dispatcher claimability changes and automatic lifecycle clearing.
+
+Do not collapse these tables into one generic audit log or copy their sensitive payloads into `api_operation_logs`. Keep purpose, field minimization, authorization, and retention distinct.
+
+### Transaction semantics that affect the next design
+
+A database audit INSERT executed inside a business RPC transaction commits or rolls back with that transaction. This is desirable for successful state-change history: a committed incident assignment should have its corresponding audit event, and a rolled-back assignment should not leave a false success record. However, a rejected RPC that raises an exception also rolls back any audit row inserted earlier in that same transaction. Therefore an in-transaction audit table cannot, by itself, record every denied/failed attempt.
+
+Recommended coverage model:
+
+1. **Committed business changes:** insert a minimal domain event in the same transaction as the state mutation, deriving actor identity from `auth.uid()` and target IDs from the locked/changed row. Prefer explicit inserts in the existing authorized RPC or a tightly scoped trigger when all supported write paths must be covered.
+2. **Rejected/failed attempts:** rely on gateway/Postgres/platform logs or a separate external append-only telemetry sink with verified retention and actor correlation. Do not falsely imply that a transactionally rolled-back row is durable evidence.
+3. **Server-mediated calls:** retain PR #316's Laravel telemetry for Render API/worker paths once its migration and configuration are deployed. Keep its coverage label explicit.
+4. **Direct client calls:** do not let clients write audit rows directly or submit their own actor identity/outcome. Database functions must derive actor and event outcome server-side.
+5. **Sensitive reads:** avoid indiscriminately logging every location/chat read as a domain audit event. If access auditing is required, define which high-risk reads matter, minimize target metadata, and validate event volume and retention first.
+
+This design preserves atomicity for successful business changes without promising complete failed-attempt coverage from a table that shares the business transaction. No schema, migration, live setting, or application behavior was changed during this review.
