@@ -462,7 +462,7 @@ All seven implementation/documentation PRs #316–#322 remain open and unmerged.
 |---|---|---|
 | #316 API operation audit/FK indexes | `362d99b7a60ddd43a0d4c2b419bc13307b0d2e06` | TACResQ CI, TACResQ Security, RPC grant contract, Frontend Review, and Render live smoke passed. |
 | #317 Field-claim exclusivity | `d4668734f163fcfc5ecab24bf9e4a44c78638636` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. Clean PostgreSQL 16 replay includes cross-incident claims, same-incident multi-responder join, field-claim-vs-dispatcher, and two-dispatcher races. |
-| #318 Requester location edit/provenance | `3b9c08f5e498c86620e14a4b8f18ac20027a1303` | Frontend Review and RPC grant contract passed; TACResQ CI and Security were still running at this poll after a documentation-only provider-provenance update. |
+| #318 Requester location edit/provenance | `3dacdc39edcb77f335080581891573c053a4ae39` | Frontend Review and RPC grant contract passed; TACResQ CI and Security were still running at this poll after a documentation-only provider-provenance update. |
 | #319 Dispatcher claimability lifecycle | `92dc24e9da6124b3a465fd88d2bb0294e2afe146` | Frontend Review, RPC grant contract, TACResQ CI, and Security are being rerun after adding an explicit database lock barrier to the dispatcher-vs-requester race. Previous head `152a97e484fe5d8f92c7269026e248c96c537a25` passed RPC grant contract including the authenticated responder-status and claimability-audit assertions. |
 | #320 Profile identity metadata | `e5ca8e7a45b490f9cc8195297ebe0d810865b065` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. |
 | #321 Legacy Admin user-list RPC restriction | `bd28f881739de571b024c9baa90a284ac443a280` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review passed. |
@@ -512,7 +512,7 @@ The per-branch `tools/test_supabase_migration_replay.sh` inspection confirms the
 PR #316 adds Laravel feature tests rather than a new replay SQL fixture. Ensure the integration workflow also retains its Laravel test suite. The replay script on each independent branch contains only its own PR's appended tests; merging branches without reconciling the script would silently omit sibling coverage or create conflicts.
 ## Exact-head check delta — 2026-11-17 02:29 UTC
 
-- **PR #316** latest docs head `efe28e42934784c852e9435199ad22c8ed09a88a`: code-bearing head `2589af93...` passed TACResQ CI (75 Laravel tests/224 assertions, Android builds, clean migration replay), Security/CodeQL, RPC contract, Frontend Review, Render smoke, and automated review. The latest docs-only head has Frontend Review, Render smoke, RPC contract, and automated review passed; its CI and Security reruns are still in progress.
+- **PR #316** latest docs head `366825dc910e014b838f495d87ecd90cfd96f26e`: code-bearing head `2589af93...` passed TACResQ CI (75 Laravel tests/224 assertions, Android builds, clean migration replay), Security/CodeQL, RPC contract, Frontend Review, Render smoke, and automated review. The latest docs-only head has Frontend Review, Render smoke, RPC contract, and automated review passed; its CI and Security reruns are still in progress.
 - **PR #317** head `d4668734...`: all four required workflows passed.
 - **PR #318** head `3b9c08f5...`: all four required workflows passed.
 - **PR #319** head `2cb6aa7d...`: all four required workflows passed, including Android builds, clean PostgreSQL replay, Laravel/dashboard integration, CodeQL, and the deterministic cancellation lock barrier.
@@ -583,3 +583,46 @@ The PRs are not yet approved as one integrated release. They contain meaningful 
 4. Green automated builds do not establish physical GPS, notification display, FCM delivery, production secrets, or live Supabase migration safety.
 
 **Recommendation:** keep all PRs open until the integrated replay/test gate is run and the exact combined commit is reviewed. Do not merge based only on the green PR-by-PR checks. Do not apply any pending migration to live Supabase as part of this code-review stage.
+
+
+## Combined PR integration candidate — 2026-11-17
+
+**Temporary review branch:** `integration/review-pr-316-322-20261117`  
+**Integrated candidate commit:** `cef63fa713dc3488b76952791742d91ebd0cf4bf`  
+**Base:** `main` at `4405127e96973e1fdb902a0c37d6fbed3c4f3014`
+
+The candidate tree was assembled from the current heads of PRs #316–#322. The four shared files were reconciled explicitly rather than taking an arbitrary branch version: CI workflow, migration replay script, migration-history alignment inventory, and project-memory README. The candidate includes all 42 changed paths across the seven PR snapshots and the six implementation migrations in timestamp order.
+
+To validate a non-PR branch, the candidate-only copies of `ci.yml`, `security.yml`, and `rpc-grant-contract.yml` temporarily include `integration/**` in their push filters. This trigger adjustment exists only on the temporary branch; it is not part of any PR and must not be copied into production branches without a separate decision.
+
+### Integrated validation results
+
+All three workflows completed successfully on the exact candidate commit:
+
+| Workflow | Result | Evidence |
+|---|---|---|
+| TACResQ CI | Success | Source checks, Android builds/tests/lint, clean PostgreSQL replay, Laravel/dashboard integration |
+| TACResQ Security | Success | Repository security guardrails, CodeQL Web/GitHub Actions, CodeQL Android |
+| RPC grant contract | Success | Anonymous grant checks, clean migration replay, runtime GPS RPC privilege/authorization checks |
+
+Detailed evidence:
+- All six migrations applied in timestamp order: API audit/FK indexes, field-claim exclusivity, requester location-edit validation, dispatcher claimability lifecycle, profile identity metadata protection, and legacy Admin RPC restriction.
+- Clean PostgreSQL replay completed with the combined migration history and all replay-invoked authenticated SQL/concurrency suites.
+- Four assignment concurrency dimensions passed: one responder versus two incidents; two responders joining one incident; field claim versus dispatcher assignment; and two dispatchers assigning one responder. The dispatcher-claimability versus requester-cancellation race also passed.
+- The replay logs confirmed the expected losing operations were rejected as unavailable; the final-state assertions passed.
+- Laravel/dashboard integration passed **77 PHP tests and 229 assertions**, including `SupabaseServerHeadersTest` and API audit tests.
+- Android demo debug and Supabase debug builds, release APK build, JVM tests, instrumentation-test compilation, and debug lint passed. The release-signature verification step was skipped because no signing credentials were configured; no signing secret was introduced.
+- Dashboard type-check/build, runtime configuration, and static asset smoke checks passed.
+- Security guardrails and both language-specific CodeQL analyses passed.
+
+### Interpretation and limitations
+
+This is the first validation that demonstrates the union of the seven PR snapshots passes the shared clean-database and application integration workflows. It materially reduces the risk that the PRs' overlapping replay/CI changes conflict or that the six migrations fail when replayed together.
+
+It is not a production deployment or a physical-device acceptance test. Android UI instrumentation tests were compiled but not executed; GPS behavior, OEM background restrictions, FCM device delivery, notification presentation, live routing-provider behavior, and physical map UX still require manual/device testing. The prototype-browser workflow is advisory and does not replace the user's manual UI acceptance. The candidate did not run the separate Render live smoke workflow or the PR-only Frontend Review workflow; PR #316's own latest head separately passed Render smoke.
+
+The temporary candidate branch is not a PR and was not merged into `main`. No live Supabase migration, production data change, Render setting, secret, deployment, or notification was changed. All seven PRs remain open and unmerged.
+
+### Merge recommendation after integrated evidence
+
+The code-bearing PRs #316–#321 are now **technically worth merging**, subject to a final human diff review and the remaining manual/device checks relevant to release. Recommended merge order follows migration chronology: #316 → #317 → #318 → #319 → #320 → #321. Merge one at a time, wait for exact-head CI after each base update, and resolve shared CI/replay/history files using the validated integration-candidate versions. Merge #322 documentation after the code PRs or keep it as the release-control record. This is a recommendation, not authorization to merge; no merge was performed.
