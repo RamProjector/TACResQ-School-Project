@@ -153,6 +153,38 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
         }
     }
 
+    fun releaseAssignment(incident: Incident, userId: Long) {
+        if (_state.value.busy || !_state.value.assignmentDataFresh) return
+        val team = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+        if (incident.status !in listOf(IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE) ||
+            userId !in team || team.size <= 1
+        ) return
+        _state.update { it.copy(busy = true, error = null, notice = null) }
+        viewModelScope.launch {
+            repo.releaseIncidentAssignment(incident.id, userId)
+                .onSuccess { updated ->
+                    val releasedName = _state.value.units.firstOrNull { it.id == userId }?.name ?: "Selected unit"
+                    _state.update { current ->
+                        current.copy(
+                            busy = false,
+                            notice = "$releasedName released from incident #${updated.id}.",
+                            incidents = current.incidents.map { if (it.id == updated.id) updated else it },
+                        )
+                    }
+                    refresh()
+                }
+                .onFailure { failure ->
+                    _state.update {
+                        it.copy(
+                            busy = false,
+                            error = failure.message ?: "The field unit could not be released. Refresh before retrying.",
+                            assignmentDataFresh = false,
+                        )
+                    }
+                }
+        }
+    }
+
     fun advanceIncident(incident: Incident, to: IncidentStatus) {
         if (_state.value.busy || !_state.value.assignmentDataFresh) return
         if (to !in incident.status.nextSteps()) return
