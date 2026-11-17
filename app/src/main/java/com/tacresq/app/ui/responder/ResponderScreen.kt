@@ -845,13 +845,13 @@ private fun DutyCard(
                     FilterChip(
                         selected = current == DutyStatus.AVAILABLE,
                         onClick = { onChange(DutyStatus.AVAILABLE) },
-                        enabled = !busy,
+                        enabled = !busy && current != DutyStatus.AVAILABLE,
                         label = { Text("Available") },
                     )
                     FilterChip(
                         selected = current == DutyStatus.OFF_DUTY,
                         onClick = { onChange(DutyStatus.OFF_DUTY) },
-                        enabled = !busy,
+                        enabled = !busy && current != DutyStatus.OFF_DUTY,
                         label = { Text("Off duty") },
                     )
                 }

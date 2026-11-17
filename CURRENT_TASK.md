@@ -1,5 +1,12 @@
 ## Latest UI review — 2026-11-17
 
+- Responder duty-status chips are now disabled when already selected, preventing no-op duty updates and unnecessary refreshes. The existing busy and active-assignment/freshness guards remain unchanged. Commit: pending in this handoff.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
 - Responder active-incident cards now separate requester name and phone under a clear “Requester contact” label. Contact remains visible to the assigned responder; no dialer or authorization behavior changed. Commit: pending in this handoff.
 - No build, tests, emulator, or device validation performed.
 

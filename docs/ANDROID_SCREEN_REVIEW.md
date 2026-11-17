@@ -77,3 +77,11 @@ This register tracks visible UI findings from source review. A change is not con
 - **Change:** Present a “Requester contact” label, then the available name and phone number on separate lines. Missing name/phone values are omitted independently; the remaining contact detail stays visible.
 - **Privacy/operations boundary:** Did not hide or remove the phone number. It remains directly available to the assigned responder because contact may be operationally necessary. No dialer, clipboard, authorization, data-fetch, or backend behavior was added or changed. Existing assigned-incident scope remains the access boundary.
 - **Validation:** No build, tests, emulator, or device checks run.
+
+
+## Responder duty-status controls — 2026-11-17
+
+- **Finding:** The selected duty-status FilterChip remained enabled. Tapping the already-selected “Available” or “Off duty” option could submit the same status again, creating an unnecessary repository request and refresh with no visible state change.
+- **Change:** Disable each chip when it already represents the current status, while retaining the existing busy guard. The alternative status remains selectable only when the screen's existing assignment/freshness checks allow duty changes.
+- **Safety:** No duty-state rules, active-assignment restrictions, backend behavior, or status mapping changed. The UI only avoids submitting a no-op selection.
+- **Validation:** Source review only. No build, tests, emulator, or device checks run.
