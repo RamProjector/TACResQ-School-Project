@@ -285,3 +285,26 @@ Read-only catalog and EXPLAIN review of the live claimable-queue query found:
 - The current plan is inexpensive at current scale; this does not demonstrate acceptable latency or memory use for a large operational queue.
 
 Recommendation: do not add speculative indexes or remove existing indexes now. If queue pagination is designed later, benchmark with realistic synthetic volume and compare plans for the exact cursor predicate/order. A candidate partial ordered index may be evaluated only if the benchmark shows a material sort/filter bottleneck. Preserve the existing assignment index coverage unless measured evidence supports a change. No indexes or query functions were modified.
+
+## Pre-merge evidence checkpoint — 2026-11-17
+
+This is a snapshot of the seven related open PRs, not a claim that the changes are integrated or deployed. Each PR is tested on its own head and base; those results do not establish that the combined migration/application state is conflict-free.
+
+| PR | Exact head at checkpoint | Independent validation | Remaining gate |
+|---|---|---|---|
+| #316 API operation audit and FK indexes | `56f3dc1be63b85759fe42a492a62045231ba6484` | Source checks, static security review, RPC contract, migration replay, Render smoke passed on earlier/current stages; synthetic audit connection-failure test added | Re-run Laravel integration after fixing test closure capture; current head's full CI still running |
+| #317 Field-claim exclusivity | `cada32949128d4368b95826d8cc16ce00cf6ff9b` | Source checks and PostgreSQL replay/RPC contract passed, including same-responder/different-incident and two-responder/same-incident races | Android build, Android CodeQL, and Laravel integration still running |
+| #318 Requester location edit validation | `82adab4d341fcd371194b5164eaeafad9a6d3a55` | Clean PostgreSQL replay includes authenticated owner/other-owner, manual-accuracy, stale/future timestamp, invalid-coordinate, cancelled-request, urgent-correction, and edit-audit checks; remaining exact-head checks passed | Umbrella CodeQL is neutral due configuration-history warnings; language-specific checks passed |
+| #319 Dispatcher claimability lifecycle | `24a16ef271d5b94fcb84769505a116872f986ed1` | Exact-head CI, PostgreSQL replay, authenticated incident-write boundary, cancellation race, RPC grants, Android builds, and language-specific CodeQL passed | No live migration or production deployment |
+| #320 Profile identity metadata | `e5ca8e7a45b490f9cc8195297ebe0d810865b065` | Authenticated replay rejects profile ID, auth ID, creation timestamp, contact, and field-unit role mutation while preserving supported duty update; other exact-head checks passed | Umbrella CodeQL is neutral due configuration-history warnings |
+| #321 Legacy Admin list RPC | `c7df0bb56d6cc7da7e8b46768fdd788f1ea66c42` | Authenticated replay proves legacy unbounded RPC denial, bounded Admin page access, and requester denial; other exact-head checks passed | Umbrella CodeQL is neutral due configuration-history warnings |
+| #322 Control matrix documentation | `348fc22d8dd3a114e3e6f4c9daea345ce5e640a7` | Documentation PR's CI, replay, source, security, Android, and language-specific CodeQL checks passed | Umbrella CodeQL is neutral due configuration-history warnings |
+
+### Integration and deployment gates
+
+- All seven PRs were open and unmerged at this checkpoint. No migration in these PRs is considered applied to live Supabase.
+- The branches overlap in `tools/test_supabase_migration_replay.sh`, `tools/test_migration_history_alignment.py`, and `.github/workflows/ci.yml`; #316 and #322 also both touch `docs/project-memory/README.md`. GitHub's individual `mergeable` signal does not prove the seven-way result will merge cleanly.
+- A provisional integration order is #316 → #317 → #318 → #319 → #320 → #321 → #322, but every step must re-check conflicts, migration order, clean replay, authenticated-role tests, and exact-head workflows after the previous PR is integrated.
+- Do not merge a later PR using stale green checks from its pre-integration base. Re-run the full relevant suite on the resulting mainline after each integration.
+- Live Supabase migration application, Auth setting changes, Render secret provisioning, and production deployment remain separately approved operator actions. CI success does not authorize them.
+- CodeRabbit's OSS manual-review skip is not an approval. The umbrella CodeQL neutral result is disclosed; the language-specific CodeQL checks are the relevant passed results where noted.
