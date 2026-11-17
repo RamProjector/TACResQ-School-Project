@@ -432,3 +432,24 @@ Two limitations remain:
 Recommended next test improvement: add synchronized two-session cases for (a) dispatcher assignment versus field claim and (b) dispatcher-versus-dispatcher selection of the same unit, then assert exactly one active incident membership for that unit. Prefer a database-coordinated barrier or explicit readiness handshake over relying only on process launch timing. Do not claim these cases are covered until the fixture runs successfully on a disposable clean replay.
 
 Latest documentation commit workflow state at this review: Frontend Review succeeded; TACResQ CI, TACResQ Security, and RPC grant contract were still running. No merge or live migration was performed.
+
+
+## Deterministic cross-path concurrency update — 2026-11-17
+
+This section supersedes the earlier statement that PR #317 lacked a database-coordinated start barrier.
+
+PR #317 exact head `c8100543efd73626b765c8c160bb0cfe48dea0a7` adds `tools/test_assignment_cross_path_concurrency.sh` to the clean migration replay and shell lint checks. On disposable PostgreSQL 16, the RPC grant contract job completed successfully and logged both new PASS assertions:
+
+- Field self-claim versus dispatcher assignment for the same responder on different incidents: exactly one assignment committed.
+- Two distinct dispatchers assigning the same responder to different incidents: exactly one assignment committed.
+
+The test uses a coordinator transaction holding the shared responder profile row. It verifies both independent authenticated sessions are waiting in the lock queue before the coordinator releases the row. The barrier accounts for PostgreSQL's hard blockers and soft blockers (a session ahead in the wait queue can itself block a later waiter), rather than requiring both workers to be directly blocked by the coordinator PID. The existing two field-claim tests also passed in the same replay.
+
+This proves the tested database paths serialize correctly under these controlled CI scenarios. It does not prove every possible concurrency interleaving, production Supabase behavior, physical-device behavior, or full seven-PR integration. TACResQ CI and TACResQ Security/CodeQL were still running at the latest poll; Frontend Review and RPC grant contract passed.
+
+No PR was merged and no live Supabase migration or production deployment was performed.
+
+**Relevant PostgreSQL 16 references:**
+- Explicit row-level locking and transaction-end lock release: https://www.postgresql.org/docs/16/explicit-locking.html
+- `pg_blocking_pids()` hard and soft blockers: https://www.postgresql.org/docs/16/functions-info.html
+- `pg_stat_activity` wait events: https://www.postgresql.org/docs/16/monitoring-stats.html
