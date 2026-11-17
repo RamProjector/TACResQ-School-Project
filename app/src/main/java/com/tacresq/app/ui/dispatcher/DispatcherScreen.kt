@@ -583,7 +583,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                 state.assignmentHistory.isEmpty() -> {
                                     Text("No assignment events were returned for this incident.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                else -> state.assignmentHistory.forEach { event ->
+                                else -> state.assignmentHistory.asReversed().forEach { event ->
                                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         val eventLabel = when (event.eventType) {
                                             "assigned" -> "Field unit assigned"
@@ -665,7 +665,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                                     state.assignmentHistory.isEmpty() -> {
                                         Text("No assignment events were returned for this incident.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    else -> state.assignmentHistory.forEach { event ->
+                                    else -> state.assignmentHistory.asReversed().forEach { event ->
                                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                             val eventLabel = when (event.eventType) {
                                                 "assigned" -> "Field unit assigned"
