@@ -27,6 +27,10 @@ AS $auth_uid$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $auth_uid$;
 
+-- Match Supabase's auth schema/function visibility for PostgREST roles.
+GRANT USAGE ON SCHEMA auth TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+
 -- Minimal Supabase Storage schema for migration replay. This lets the test
 -- exercise real RLS policies without depending on a running Supabase service.
 CREATE SCHEMA storage;
@@ -1427,3 +1431,6 @@ bash tools/test_assignment_cross_path_concurrency.sh
 
 # Verify requester location edit authorization and validation as authenticated.
 psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_requester_location_edit.sql
+
+# Verify immutable profile identity metadata and trusted nested status synchronization.
+psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_profile_metadata.sql
