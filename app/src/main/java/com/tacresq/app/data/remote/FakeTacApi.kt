@@ -551,7 +551,9 @@ class FakeTacApi(
         }
     }
 
-    override suspend fun releaseIncidentAssignment(incidentId: Long, userId: Long): Incident {
+    override suspend fun releaseIncidentAssignment(body: ReleaseIncidentAssignmentRpc): Incident {
+        val incidentId = body.incidentId
+        val userId = body.userId
         delay(180)
         return synchronized(lock) {
             if (current().role != Role.DISPATCHER) throw httpError(403, "Only dispatchers can release assignments.")
