@@ -1,0 +1,136 @@
+# TACResQ security, API, and database audit
+
+**Audit date:** 2026-11-16  
+**Repository:** `RamProjector/TACResQ-School-Project`  
+**Scope:** Android, Laravel/Render, Supabase, routing, notifications, and operational readiness.
+
+This is a point-in-time engineering audit, not a penetration test or production-readiness certification. All Supabase inspection was read-only. No migration, data mutation, Auth setting, Render configuration, notification, or infrastructure was changed.
+
+## Executive summary
+
+TACResQ has a substantial role-based foundation: requester SOS, dispatcher assignments, per-unit status, consent-gated location, incident chat, persistent inbox, FCM delivery bookkeeping, routing proxy, and protected administrative role changes. The most important gaps are observability across API boundaries, individual review of privileged RPCs, unverified production configuration, and several database performance warnings.
+
+## Findings and this PR's changes
+
+### API operation auditing — implemented for server-mediated calls
+
+`admin_audit_logs` records privileged role changes; it is not a general API audit trail. `fcm_delivery_attempts` already records notification/token delivery attempts and provider outcomes.
+
+This PR adds `public.api_operation_logs` with correlation ID, verified authenticated actor UUID when available, provider, operation, source, outcome, HTTP status, duration, provider request ID, error code, and timestamp. RLS is enabled; no policies or direct `anon`/`authenticated` grants exist; the service role receives SELECT/INSERT only. No request/response body, credential, token, coordinate, incident narrative, URL, or contact detail is stored.
+
+Laravel now generates its own UUID `X-Request-ID` (it does not trust a caller-supplied value), returns it in the response, and records Supabase Auth/RPC calls plus Geoapify/private OSRM route-preview outcomes. Rejected unallowlisted bridge RPC attempts are also recorded with a validated operation name and fixed rejection code; the attempted RPC is never forwarded. The audit writer supports both legacy JWT-based `service_role` keys and modern `sb_secret_` keys; modern secret keys are sent on `apikey` only, not as a bearer JWT. The logger is fail-open: telemetry failure does not break the operational request. Database writes are skipped if the server-only Supabase secret is not configured. This PR does not add or configure that secret. No automatic retention/deletion job is introduced; define a retention period and approved cleanup process before sustained production use.
+
+**Coverage limitation:** Android and dispatcher web call Supabase directly for many operations. Those requests bypass Laravel and are not written to this application table by this change; Supabase platform/API logs remain the source for those direct requests. FCM remains covered by its existing delivery ledger. This is not complete end-to-end API tracing.
+
+### Foreign-key indexes — migration added
+
+The live performance advisor identified four unindexed FK columns:
+- `fcm_delivery_attempts.profile_id`
+- `incident_assignments.assigned_by`
+- `incident_request_edit_logs.requester_id`
+- `user_notifications.incident_id`
+
+The migration adds a btree index for each. They support referencing-row lookups and relevant filters, but the inspected dataset was very small, so no measurable latency improvement is claimed.
+
+Nine unused-index candidates were also reported. None is removed: low traffic does not establish that an index is safe to drop.
+
+## Broader audit findings
+
+### RLS and SECURITY DEFINER
+
+The live security advisor reported five RLS-enabled tables without policies: `fcm_delivery_attempts`, `incident_messages`, `incident_request_edit_logs`, `incident_submission_keys`, and `user_notifications`. A read-only grants inspection confirmed that these tables had no direct table privileges granted to `anon` or `authenticated`; they are intended to be accessed through scoped RPCs or trusted server operations. Do not add broad policies merely to silence the advisor.
+
+The advisor also reported 18 authenticated-callable SECURITY DEFINER functions. Authenticated-callable SECURITY DEFINER functions are not automatically vulnerabilities. Each needs an individual review of owner, fixed search path, explicit EXECUTE grants, actor/role checks, and row/object scoping. This PR does not blanket-revoke them or change their security mode. A pinned search path does not replace authorization.
+
+The merged repository migrations for `api_units()` search-path hardening and RLS InitPlan optimization were not yet applied to live Supabase at the time of inspection.
+
+### Auth password security
+
+The Auth advisor reports leaked-password protection disabled. This is a project Auth setting, not a schema migration. Supabase's current password-security documentation says leaked-password protection is available on Pro and above; do not upgrade or enable a paid feature without approval. It is documented for operator review; this PR does not change live Auth settings.
+
+### Routing and location privacy
+
+- Geoapify is the configured hosted routing option; private OSRM is an explicit alternative.
+- The routing proxy sends responder-origin and assigned-incident destination coordinates to the selected provider. It does not forward the bearer token, incident ID, narrative, requester identity, or profile data.
+- Geoapify requires its API key in the query string. Application code must continue suppressing full URL and exception logging; provider-side handling remains a separate data-recipient consideration.
+- No automatic provider failover is appropriate because it would disclose the same coordinates to another recipient without a new user decision.
+- The live `incidents` schema stores `location_source` (`gps`/`manual`), accuracy, and a client-supplied capture timestamp; `location_logs` stores coordinates, accuracy, client `recorded_at`, and server `received_at`. Neither table currently stores a location-provider identifier. Android fused location may report a provider label such as `fused`, but that is client-reported metadata, not proof of which GNSS/Wi-Fi/cellular sensor produced a fix. A future change should add an explicitly named, allowlisted `reported_location_provider` field only if the Android capture path can supply it consistently, and retain server `received_at` as the trusted receipt time.
+- Route preview remains disabled by default and is not turn-by-turn navigation, live traffic, flood/closure data, or proof of road passability.
+
+### Notifications and emergency safety
+
+- `user_notifications` is the durable in-app inbox; FCM is supplementary and best-effort.
+- `fcm_delivery_attempts` already records attempts, status, provider message names, and sanitized error codes.
+- The Render FCM dispatcher is not proof of successful device delivery. Production scheduling and physical-device delivery remain unverified.
+- FCM must not be treated as a life-critical alert channel or delivery SLA.
+
+### Documentation drift
+
+`docs/API.md` describes an older optional Laravel REST adapter proposal and suggested tables. The current Android production path is Supabase RPC; the dashboard uses Supabase Auth/RPC directly, while Laravel hosts the dashboard, optional bridge, routing proxy, and FCM worker. Use `docs/SUPABASE_BACKEND.md`, `backend/README.md`, and `docs/IN_APP_ROUTING_FOUNDATION.md` for current contracts rather than treating the proposal's suggested tables as the live schema.
+
+## Live database observations
+
+The read-only migration ledger contained migrations through `20261116042927_responder_incident_claiming`. The merged `api_units()` search-path migration, merged RLS InitPlan migration, and this PR's migration are repository changes only until separately applied by an authorized operator.
+
+The advisor snapshot was observed around 2026-11-16 06:39 UTC. Re-run advisors after approved migration application; advisor output is time-sensitive.
+
+## Prioritized follow-up backlog
+
+| Priority | Follow-up | Reason |
+|---|---|---|
+| P0 | Individually review all authenticated-callable SECURITY DEFINER RPCs | Blanket privilege changes could break or expose workflows |
+| P0 | Review and enable leaked-password protection | Live project Auth setting; operator-controlled |
+| P1 | Extend audit coverage to direct Android/dashboard Supabase calls | These calls bypass Laravel |
+| P1 | Add append-only assignment lifecycle event history | Separate business audit model requiring transaction and visibility design |
+| P1 | Validate FCM scheduling/device delivery with synthetic accounts | CI cannot prove external delivery |
+| P1 | Validate location freshness and foreground lifecycle on physical devices | OEM, permission, battery, and process behavior |
+| P1 | Add optional reported location-provider metadata end-to-end | Current incident/location-log schema has no provider field; any client-reported label must not be presented as verified sensor provenance |
+| P2 | Evaluate unit presence and explicit location-sharing sessions | Requires agreed semantics and retention policy |
+| P2 | Add durable image attachment retry after process death | Client encrypted-storage/lifecycle work |
+| P2 | Revisit index utilization after representative staging workload | Avoid decisions from a nearly empty dataset |
+
+## Validation requirements
+
+- Clean PostgreSQL migration replay includes the new migration.
+- Laravel tests cover correlation IDs, metadata-only payloads, missing-secret behavior, fail-open audit writes, and actor-attributed auditing of rejected unallowlisted RPC attempts without forwarding them.
+- Android, dashboard, Laravel integration, source/security guardrails, and RPC grant contract pass on the exact PR head.
+- Live migration application, live Auth configuration, Render secret provisioning, real provider calls, and device/UI validation are outside this PR.
+
+## Research references
+
+- OWASP, [Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html), accessed 2026-11-16. Supports consistent interaction identifiers, event outcome/context, restricted log access, masking of tokens and sensitive data, and testing logging failures without disrupting application behavior.
+- Supabase, [Database Functions](https://supabase.com/docs/guides/database/functions), accessed 2026-11-16. Supports defaulting to SECURITY INVOKER, pinning SECURITY DEFINER search paths, and separately reviewing execute grants and row-level authorization.
+- Supabase, [Advisors](https://supabase.com/docs/guides/observability/advisors), updated 2026-10-02. Explains that advisor findings are deterministic checks and may be intentional; verify them against the actual access model before changing policies.
+- Supabase, [Password Security](https://supabase.com/docs/guides/auth/password-security), updated 2026-10-01. Documents leaked-password protection and its plan availability (Pro and above).
+- PostgreSQL, [Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html), accessed 2026-11-16. Explains that referencing FK columns are not automatically indexed and that indexes should be chosen according to workload.
+
+
+## API operation audit — operational limitations and controls
+
+The Laravel logger is deliberately fail-open, but the current implementation writes to Supabase synchronously after the upstream operation. Each log attempt can add up to approximately one second of response-path latency when the audit endpoint is slow or unreachable. A request that performs both Supabase Auth validation and an RPC can incur more than one audit attempt. This is a known reliability trade-off, not a zero-cost operation.
+
+Before enabling this logger broadly in an emergency-response production environment:
+- Measure p50/p95/p99 added latency under normal and failing audit-sink conditions.
+- Prefer a durable asynchronous delivery design only after a real queue/worker and retry/dead-letter lifecycle are configured and monitored; an unconfigured queue would silently weaken audit coverage.
+- Define a retention period, authorized reader, export/backup approach, and deletion process for `api_operation_logs`. The migration currently creates an index but does not implement automatic retention or partitioning.
+- Monitor audit write failures without logging request bodies, access tokens, coordinates, URLs, or provider response bodies.
+- Keep the coverage statement limited to Laravel-mediated requests. Android and dashboard direct-to-Supabase calls, direct Storage operations, and the FCM worker are not comprehensively represented by this logger.
+
+The audit table is not a complete security event ledger. Rejected database operations that roll back cannot be durably recorded by an audit insert in the same transaction; use platform/gateway telemetry for those events and separately designed domain events for successful state changes.
+
+
+### Modern Supabase secret-key compatibility in the FCM worker
+
+A follow-up source review found that the FCM delivery worker sent the configured server key in both `apikey` and `Authorization: Bearer` for every key format. That is correct for the legacy JWT-based `service_role` key, but modern `sb_secret_*` keys are opaque API keys, not JWTs, and Supabase's current key-migration guidance says to send them on `apikey`, not as bearer tokens. If the Render worker is configured with a modern secret key, the old header combination could cause downstream JWT validation failures; the actual Render secret format was not inspected.
+
+Correction in this PR:
+- Add a shared `SupabaseServerHeaders` helper.
+- Use `apikey` only for modern `sb_secret_*` keys.
+- Preserve `apikey` plus bearer authorization for legacy JWT `service_role` keys during migration.
+- Use the same helper in the Laravel API audit writer and FCM queue worker.
+- Add unit tests for both modern and legacy key header behavior.
+
+This is a compatibility hardening change. No live Render secret was read or changed, and no FCM message was sent during validation.
+
+Research reference:
+- Supabase, [Migrating to publishable and secret API keys](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys), updated 2026-10-29. It states that modern secret keys are not JWTs and should be sent on the `apikey` header rather than `Authorization: Bearer`.

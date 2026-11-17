@@ -9,6 +9,8 @@ This directory is the repository's concise, version-controlled memory. It is not
 
 - [Decisions and constraints](DECISIONS.md) — durable product requirements, user-approved constraints, and architectural choices.
 - [Research evidence](RESEARCH_EVIDENCE.md) — credible 2020–2029 sources, the claims they support, and the boundaries they impose.
+- [Security and reliability control matrix](SECURITY_RELIABILITY_CONTROL_MATRIX.md) — standards mapped to current source, pending PRs, live Supabase drift, acceptance tests, and remaining limitations.
+- [Security and API audit (2026-11-16)](../SECURITY_AND_API_AUDIT_2026-11-16.md) — read-only Supabase findings, API audit implementation, database index remediation, and prioritized follow-ups.
 - [Implementation baseline](IMPLEMENTATION_STATUS.md) — implemented, partially verified, and unverified capabilities as of the snapshot date.
 - [Next-session handoff](NEXT_SESSION_HANDOFF.md) — active PRs, exact heads, current gates, and the next safe actions.
 

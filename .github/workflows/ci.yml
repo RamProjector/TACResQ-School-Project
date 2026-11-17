@@ -35,9 +35,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y shellcheck
           bash -n tools/test_supabase_migration_replay.sh
-          shellcheck --severity=error tools/test_supabase_migration_replay.sh
+          bash -n tools/test_field_claim_concurrency.sh
+          bash -n tools/test_assignment_cross_path_concurrency.sh
+          bash -n tools/test_claimability_cancellation_concurrency.sh
+          shellcheck --severity=error tools/test_supabase_migration_replay.sh tools/test_field_claim_concurrency.sh tools/test_assignment_cross_path_concurrency.sh tools/test_claimability_cancellation_concurrency.sh
           # Keep the exact leading-dash command failure from recurring (SC2215).
-          shellcheck --include=SC2215 tools/test_supabase_migration_replay.sh
+          shellcheck --include=SC2215 tools/test_supabase_migration_replay.sh tools/test_field_claim_concurrency.sh tools/test_assignment_cross_path_concurrency.sh tools/test_claimability_cancellation_concurrency.sh
 
       - name: Test TACResQ automated code reviewer
         run: python3 tools/test_tacresq_code_reviewer.py
@@ -108,6 +111,8 @@ jobs:
 
       - name: Check dispatcher multi-responder assignment
         run: python3 tools/test_dispatch_team_assignment.py
+      - name: Check field-claim exclusivity and lifecycle safety
+        run: python3 tools/test_field_claim_exclusivity.py
       - name: Check dispatcher assignment freshness safety
         run: python3 tools/test_dispatcher_assignment_freshness.py
       - name: Check dispatcher queue wait-time prioritization
@@ -121,6 +126,15 @@ jobs:
 
       - name: Check urgent location correction cooldown bypass
         run: python3 tools/test_requester_urgent_location_correction.py
+      - name: Check requester location edit validation
+        run: python3 tools/test_requester_location_edit_validation.py
+      - name: Check dispatcher claimability lifecycle
+        run: python3 tools/test_dispatch_claimability_lifecycle.py
+      - name: Check profile identity metadata immutability
+        run: python3 tools/test_profile_identity_metadata.py
+
+      - name: Check legacy Admin user-list RPC restriction
+        run: python3 tools/test_legacy_admin_user_list_rpc.py
 
       - name: Check responder-location SQL contract
         run: python3 tools/test_location_contract.py
