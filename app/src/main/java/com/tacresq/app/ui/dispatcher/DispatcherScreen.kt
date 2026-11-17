@@ -271,7 +271,6 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         }
         item {
             SummaryCard(
-                total = state.incidents.size,
                 pending = pending.size,
                 active = active,
                 available = availableUnits.size,
@@ -537,7 +536,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
 }
 
 @Composable
-private fun SummaryCard(total: Int, pending: Int, active: Int, available: Int) {
+private fun SummaryCard(pending: Int, active: Int, available: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -555,13 +554,7 @@ private fun SummaryCard(total: Int, pending: Int, active: Int, available: Int) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                DispatchMetric(total, "Incidents")
                 DispatchMetric(pending, "Pending")
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
                 DispatchMetric(active, "Active")
                 DispatchMetric(available, "Ready units")
             }

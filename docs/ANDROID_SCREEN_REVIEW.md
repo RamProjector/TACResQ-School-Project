@@ -109,3 +109,11 @@ This register tracks visible UI findings from source review. A change is not con
 - **Change:** Keep role as its own secondary line and show a nonblank phone number separately with an explicit “Contact:” label. Missing or blank phone values remain omitted.
 - **Safety:** The same dispatcher-only unit data is used; no new contact lookup, exposure, dialer action, permission, or backend behavior was added. Existing phone visibility for dispatchers is preserved.
 - **Validation:** Source review only. No build, tests, emulator, or device checks run.
+
+
+## Dispatcher overview metric relevance — 2026-11-17
+
+- **Finding:** The overview counted every incident returned by the dispatch queue as “Incidents”, while the actionable queue below separates only Pending and Active incidents. That total can include completed/cancelled records and is not a useful immediate dispatch metric; it also consumed a full extra metric cell and made the overview taller.
+- **Change:** Remove the ambiguous all-record count. Keep the three operationally useful counts—Pending, Active, and Ready units—in one compact row. The counts continue to use the same pending/active filters and the same available-duty filter used by the corresponding sections/actions.
+- **Safety:** No incidents are hidden or filtered differently; only the overview metric was removed. Queue contents, assignment eligibility, duty status, and backend calls are unchanged.
+- **Validation:** Source review only. No build, tests, emulator, or device checks run.

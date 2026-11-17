@@ -1,5 +1,12 @@
 ## Latest UI review — 2026-11-17
 
+- Dispatcher overview now shows only actionable counts (Pending, Active, Ready units); removed the ambiguous all-record “Incidents” metric that could include completed/cancelled records. The queue and assignment filters are unchanged. Commit: pending in this handoff.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
 - Dispatcher field-unit cards now separate role metadata from a clearly labelled contact number. Blank phone values are omitted; no data access or dispatch behavior changed. Commit: `0a3ed42bcd989b5747c41fa2c8136d7aa0d034c0`.
 - No build, tests, emulator, or device validation performed.
 
