@@ -1,3 +1,13 @@
+# GPS map research implementation — camera, compass, recovery
+
+- Camera framing: Replaced the uniform bounds inset with asymmetric, density-aware pixel insets. The top reserves room for the header/filter controls; the bottom reserves the measured bottom-sheet obstruction plus breathing room. Insets are capped to preserve a usable viewport on short windows and expanded sheets. If sheet measurement is not ready, the calculation falls back to the existing 120 dp collapsed-sheet height.
+- Compass: Extracted compass positioning into a shared helper and made its top margin respond to rendered map height, bounded between 144 dp and 196 dp, rather than always using a fixed 176 dp.
+- Map recovery: Added a user-triggered “Retry map” action when MapLibre reports a style/data loading failure. It reuses the existing OpenFreeMap style, resets existing loading/error flags, and restores compass setup after style reload. It does not change providers or network policy.
+- Regression coverage added: Pure unit tests cover normal camera insets, expanded-sheet capping, fallback sheet geometry, and invalid dimensions/density.
+- Research basis: MapLibre documents asymmetric newLatLngBounds padding and states that bounds padding does not persist to later camera transformations; Android documents that bottom-sheet offsets are pixel values initialized after layout; Android adaptive guidance recommends adapting layouts to available window dimensions. Sources: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.camera/-camera-update-factory/new-lat-lng-bounds.html ; https://developer.android.com/reference/kotlin/androidx/compose/material3/SheetState.html ; https://developer.android.com/develop/adaptive-apps/guides/use-window-size-classes
+- Scope: No incident data, GPS permission, consent, location-sharing, routing, backend, role visibility, or marker freshness rules changed.
+- Validation: Not run per the incremental-commit workflow. Device review remains necessary for actual overlay geometry and retry behavior.
+
 # GPS map control icon refinement
 
 - The single fit-all control now uses the map-location pin icon rather than the device “my location” reticle. This better communicates that it frames all currently visible map points, not just the user's device position.

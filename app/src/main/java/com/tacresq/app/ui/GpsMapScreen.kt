@@ -60,8 +60,6 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -155,6 +153,16 @@ private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255): Icon {
     drawable.setBounds(0, 0, width, iconHeight)
     drawable.draw(canvas)
     return IconFactory.getInstance(this).fromBitmap(bitmap)
+}
+
+private fun positionMapCompass(map: MapLibreMap, mapView: MapView, density: Float) {
+    val minimumTop = (144f * density).roundToInt()
+    val maximumTop = (196f * density).roundToInt()
+    val responsiveTop = (mapView.height * 0.22f).roundToInt()
+        .coerceIn(minimumTop, maximumTop)
+    map.uiSettings.setCompassEnabled(true)
+    map.uiSettings.setCompassGravity(Gravity.TOP or Gravity.RIGHT)
+    map.uiSettings.setCompassMargins(0, responsiveTop, (12f * density).roundToInt(), 0)
 }
 
 private fun ConnectivityManager.hasValidatedInternet(): Boolean {
@@ -632,10 +640,7 @@ fun GpsMapScreen(
             }
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
                 mapStyleLoaded = true
-                map.uiSettings.setCompassEnabled(true)
-                map.uiSettings.setCompassGravity(Gravity.TOP or Gravity.RIGHT)
-                val density = context.resources.displayMetrics.density
-                map.uiSettings.setCompassMargins(0, (176f * density).toInt(), (12f * density).toInt(), 0)
+                positionMapCompass(map, mapView, context.resources.displayMetrics.density)
                 map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
                     .target(LatLng(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
                     .zoom(12.0)
@@ -681,7 +686,19 @@ fun GpsMapScreen(
         val bounds = LatLngBounds.Builder()
             .includes(points)
             .build()
-        map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 64), 480)
+        val density = context.resources.displayMetrics.density
+        val sheetTop = runCatching { mapSheetState.bottomSheetState.requireOffset() }.getOrNull()
+        val insets = gpsMapCameraInsets(mapView.width, mapView.height, density, sheetTop)
+        map.animateCamera(
+            CameraUpdateFactory.newLatLngBounds(
+                bounds,
+                insets.left,
+                insets.top,
+                insets.right,
+                insets.bottom,
+            ),
+            480,
+        )
     }
 
     fun showIncidentPins() {
@@ -759,6 +776,22 @@ fun GpsMapScreen(
             "Showing the available map location."
         } else {
             "Showing all available incident locations."
+        }
+    }
+
+    fun retryMapLoad() {
+        val map = mapLibreMap
+        if (map == null) {
+            locationStatus = "Map is still initializing. Try again in a moment."
+            return
+        }
+        mapLoadError = false
+        mapDataLoaded = false
+        mapStyleLoaded = false
+        locationStatus = "Retrying map data…"
+        map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
+            mapStyleLoaded = true
+            positionMapCompass(map, mapView, context.resources.displayMetrics.density)
         }
     }
 
@@ -1731,21 +1764,24 @@ fun GpsMapScreen(
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (hasValidatedInternet == false || mapLoadError) {
+                    if (mapLoadError) {
+                        androidx.compose.material3.TextButton(
+                            onClick = ::retryMapLoad,
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text("Retry map")
+                        }
+                    } else if (hasValidatedInternet == false) {
                         androidx.compose.material3.Surface(
                             shape = RoundedCornerShape(50),
                             color = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         ) {
                             Text(
-                                if (mapLoadError) "Map unavailable" else "Offline",
+                                "Offline",
                                 modifier = Modifier
                                     .semantics {
-                                        contentDescription = if (mapLoadError) {
-                                            "Map data could not be loaded. Incident details remain available."
-                                        } else {
-                                            "Internet unavailable. Map tiles may not load; incident details remain available."
-                                        }
+                                        contentDescription = "Internet unavailable. Map tiles may not load; incident details remain available."
                                     }
                                     .padding(horizontal = 9.dp, vertical = 5.dp),
                                 style = MaterialTheme.typography.labelSmall,

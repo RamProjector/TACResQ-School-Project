@@ -36,4 +36,30 @@ class GpsMapPresentationTest {
         assertEquals(12.0, gpsMapPreviewZoom(Float.MAX_VALUE), 0.0)
         assertTrue(gpsAccuracyStatus(Float.MAX_VALUE).contains("Low location accuracy"))
     }
+
+    @Test
+    fun cameraInsetsReserveSpaceForTopControlsAndCollapsedSheet() {
+        val insets = gpsMapCameraInsets(1080, 2400, 3f, 2040f)
+        assertTrue(insets.left > 0)
+        assertEquals(insets.left, insets.right)
+        assertTrue(insets.top >= 400)
+        assertTrue(insets.bottom >= 400)
+        assertTrue(insets.top + insets.bottom < 2400)
+    }
+
+    @Test
+    fun expandedSheetInsetsAreCappedToKeepCameraViewportUsable() {
+        val insets = gpsMapCameraInsets(1080, 1200, 3f, 240f)
+        assertTrue(insets.top + insets.bottom <= (1200 * 0.72f).toInt() + 1)
+        assertTrue(insets.top + insets.bottom < 1200)
+    }
+
+    @Test
+    fun cameraInsetsFallBackToCollapsedSheetAndRejectInvalidDimensions() {
+        val fallback = gpsMapCameraInsets(1080, 2400, 3f, null)
+        assertTrue(fallback.bottom > 0)
+        assertEquals(GpsMapCameraInsets(0, 0, 0, 0), gpsMapCameraInsets(0, 2400, 3f, null))
+        assertEquals(GpsMapCameraInsets(0, 0, 0, 0), gpsMapCameraInsets(1080, 2400, Float.NaN, null))
+    }
+
 }
