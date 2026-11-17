@@ -209,7 +209,8 @@ private fun Style.installGpsMapClusterLayers(context: Context): GpsMapClusterSou
     fun addClusterCount(id: String, sourceId: String) {
         addLayer(SymbolLayer(id, sourceId).apply {
             setProperties(PropertyFactory.textField(Expression.toString(Expression.get("point_count"))),
-                PropertyFactory.textSize(12f), PropertyFactory.textColor(Color.WHITE),
+                PropertyFactory.textSize(14f), PropertyFactory.textColor(Color.WHITE),
+                PropertyFactory.textHaloColor(Color.BLACK), PropertyFactory.textHaloWidth(1.25f),
                 PropertyFactory.textIgnorePlacement(true), PropertyFactory.textAllowOverlap(true))
             setFilter(Expression.has("point_count"))
         })
