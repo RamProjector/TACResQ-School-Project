@@ -281,6 +281,8 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
     var selectedUnitIds by remember { mutableStateOf(setOf<Long>()) }
     var releaseCandidate by remember { mutableStateOf<Pair<Incident, Long>?>(null) }
+    // History state is shared so only one incident timeline can be expanded at a time.
+    var expandedHistoryIncidentId by remember { mutableStateOf<Long?>(null) }
     var queueClock by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -547,11 +549,11 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     }
                 }
                 TextButton(onClick = { onOpenChat(incident.id) }) { Text("Open conversation") }
-                var showHistory by remember(incident.id) { mutableStateOf(false) }
+                val showHistory = expandedHistoryIncidentId == incident.id
                 TextButton(
                     onClick = {
-                        showHistory = !showHistory
-                        if (showHistory) vm.loadAssignmentHistory(incident.id)
+                        expandedHistoryIncidentId = if (showHistory) null else incident.id
+                        if (!showHistory) vm.loadAssignmentHistory(incident.id)
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(if (showHistory) "Hide assignment history" else "View assignment history") }
@@ -621,7 +623,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 SectionHeading("Closed incidents", "Latest 5 by request date · resolved or cancelled · read-only history")
             }
             items(recentClosedIncidents, key = { "closed-${it.id}" }) { incident ->
-                var showClosedHistory by remember(incident.id) { mutableStateOf(false) }
+                val showClosedHistory = expandedHistoryIncidentId == incident.id
                 IncidentCard(incident) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -637,8 +639,8 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     }
                     TextButton(
                         onClick = {
-                            showClosedHistory = !showClosedHistory
-                            if (showClosedHistory) vm.loadAssignmentHistory(incident.id)
+                            expandedHistoryIncidentId = if (showClosedHistory) null else incident.id
+                            if (!showClosedHistory) vm.loadAssignmentHistory(incident.id)
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(if (showClosedHistory) "Hide assignment history" else "View assignment history") }
