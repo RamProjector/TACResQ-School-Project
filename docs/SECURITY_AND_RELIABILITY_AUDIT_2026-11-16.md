@@ -219,3 +219,18 @@ Expected result:
 The test deliberately holds the first transaction open briefly after its claim so the competing session must contend on the shared responder profile lock. This validates a real PostgreSQL lock race rather than merely asserting SQL source order. It runs only against the disposable PostgreSQL database in CI; it does not touch live Supabase.
 
 **Status:** passed on exact PR head `c8100543efd73626b765c8c160bb0cfe48dea0a7` in the clean PostgreSQL 16 migration-replay job. The CI log confirms the cross-incident claim race, same-incident multi-responder race, field-claim-versus-dispatcher race, and two-dispatcher race. The first attempted fixture had reused one requester for two active requests; that test-fixture defect was corrected by assigning separate requester accounts before the passing run.
+
+
+## Claimable queue response-size review — 2026-11-17
+
+The current `api_claimable_incidents()` implementation builds one `jsonb_agg` over every incident that is claimable, in `pending` or `assigned`, below team capacity, and not already joined by the caller. It returns incident identifiers, type, description, coordinates, status, timestamps, and team member IDs. The response is therefore unpaginated and grows with the eligible queue.
+
+This is a confirmed scalability/response-size concern, not a confirmed authorization defect: the function checks authentication, responder/driver role, available duty status, and whether the caller already has an active assignment before returning the queue. The coordinate/details exposure is part of the operational field-unit queue contract.
+
+No arbitrary `LIMIT` was added in this pass. A hard cap without a cursor/continuation contract can silently hide eligible emergency incidents; the current RPC returns a JSON array and no Android/web caller contract for pagination was established from this migration review. A safe follow-up should introduce deterministic keyset pagination (stable ordering with a unique tie-breaker), explicit page-size bounds, and a continuation token while updating every caller and proving queue completeness across pages. Until then, record the unbounded response as a scale risk and monitor eligible queue cardinality/response bytes.
+
+Research basis:
+- PostgreSQL documents `jsonb_agg` as collecting input values into a single JSON array; the aggregate itself does not impose a row bound: https://www.postgresql.org/docs/current/functions-aggregate.html
+- Supabase documents database functions as RPC endpoints and supports returning datasets; pagination must be part of the function/API contract rather than assumed from a JSON aggregate: https://supabase.com/docs/guides/database/functions
+
+No migration, test, or CI was run as part of this source review.
