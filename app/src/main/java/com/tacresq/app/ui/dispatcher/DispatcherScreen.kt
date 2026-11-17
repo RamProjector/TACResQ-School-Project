@@ -400,7 +400,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             SectionHeading(
                 "Active incidents",
                 if (state.assignmentDataFresh) {
-                    "Combined team progress; each responder updates their own status"
+                    "Dispatch records one shared progress milestone for the assigned team."
                 } else {
                     "Last loaded queue · unconfirmed"
                 },
