@@ -117,3 +117,20 @@ Before enabling this logger broadly in an emergency-response production environm
 - Keep the coverage statement limited to Laravel-mediated requests. Android and dashboard direct-to-Supabase calls, direct Storage operations, and the FCM worker are not comprehensively represented by this logger.
 
 The audit table is not a complete security event ledger. Rejected database operations that roll back cannot be durably recorded by an audit insert in the same transaction; use platform/gateway telemetry for those events and separately designed domain events for successful state changes.
+
+
+### Modern Supabase secret-key compatibility in the FCM worker
+
+A follow-up source review found that the FCM delivery worker sent the configured server key in both `apikey` and `Authorization: Bearer` for every key format. That is correct for the legacy JWT-based `service_role` key, but modern `sb_secret_*` keys are opaque API keys, not JWTs, and Supabase's current key-migration guidance says to send them on `apikey`, not as bearer tokens. If the Render worker is configured with a modern secret key, the old header combination could cause downstream JWT validation failures; the actual Render secret format was not inspected.
+
+Correction in this PR:
+- Add a shared `SupabaseServerHeaders` helper.
+- Use `apikey` only for modern `sb_secret_*` keys.
+- Preserve `apikey` plus bearer authorization for legacy JWT `service_role` keys during migration.
+- Use the same helper in the Laravel API audit writer and FCM queue worker.
+- Add unit tests for both modern and legacy key header behavior.
+
+This is a compatibility hardening change. No live Render secret was read or changed, and no FCM message was sent during validation.
+
+Research reference:
+- Supabase, [Migrating to publishable and secret API keys](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys), updated 2026-10-29. It states that modern secret keys are not JWTs and should be sent on the `apikey` header rather than `Authorization: Bearer`.
