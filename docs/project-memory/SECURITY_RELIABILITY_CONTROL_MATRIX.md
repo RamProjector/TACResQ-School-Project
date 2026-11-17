@@ -520,3 +520,45 @@ PR #316 adds Laravel feature tests rather than a new replay SQL fixture. Ensure 
 - **PR #322** latest documentation head `c4593aa1...`: RPC grant contract, Frontend Review, and automated review passed; CI and Security are running.
 
 All seven PRs remain open and individually mergeable. The combined replay candidate remains the outstanding integration gate; no merge or live deployment has been performed.
+
+## Authoritative seven-PR status refresh — 2026-11-17 10:40 PHT
+
+This section supersedes earlier head hashes and workflow-pending statements in the historical snapshots above. Exact current PR heads and completed workflow results were re-read from GitHub.
+
+| PR | Current exact head | Current independent workflow evidence | State |
+|---|---|---|---|
+| #316 API operation audit and FK indexes | `efe28e42934784c852e9435199ad22c8ed09a88a` | TACResQ CI, TACResQ Security, RPC grant contract, Frontend Review, and Render live smoke all completed successfully | Open, unmerged |
+| #317 Field-claim exclusivity | `d4668734f163fcfc5ecab24bf9e4a44c78638636` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully. CI includes clean PostgreSQL 16 replay and four concurrency dimensions. | Open, unmerged |
+| #318 Requester location edit validation | `3b9c08f5e498c86620e14a4b8f18ac20027a1303` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully | Open, unmerged |
+| #319 Dispatcher claimability lifecycle | `2cb6aa7d2204fbd4ea2086a53c9d5d0a05126247` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully. CI includes the deterministic dispatcher-toggle/requester-cancellation race and authenticated direct-write boundary test. | Open, unmerged |
+| #320 Profile identity metadata | `e5ca8e7a45b490f9cc8195297ebe0d810865b065` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully | Open, unmerged |
+| #321 Legacy Admin user-list RPC | `bd28f881739de571b024c9baa90a284ac443a280` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully. Clean replay invokes an authenticated SQL test proving legacy RPC denial, bounded Admin pagination access, and requester denial. | Open, unmerged |
+| #322 Security/reliability control matrix | `c280fbd58496e159f13c23c96cc38f8d68f0eb9c` | TACResQ CI, TACResQ Security, RPC grant contract, and Frontend Review all completed successfully | Open, unmerged |
+
+### New cross-path concurrency evidence
+
+PR #317 now has four separately asserted PostgreSQL 16 concurrency invariants on its latest code head:
+
+1. One responder racing to claim two different incidents: one succeeds and the other returns `UNIT_BUSY`.
+2. Two different responders joining the same incident: both memberships succeed.
+3. Field self-claim racing dispatcher assignment for the same responder across two incidents: exactly one operation commits.
+4. Two dispatchers assigning the same responder to different incidents: exactly one operation commits.
+
+The last two use a coordinator-held responder profile row and wait until both independent authenticated sessions are observed in PostgreSQL's lock queue before releasing it. The latest exact-head CI run passed the replay and assertions. PR #317's audit report and PR description were updated to match this evidence.
+
+PR #319's dispatcher claimability versus requester cancellation race also passed in the latest exact-head CI replay. The test asserts the final state is `cancelled:false` regardless of which transaction acquires the incident row lock first. Its authenticated write-boundary test verifies direct incident UPDATE is denied while the existing responder status RPC remains functional and writes one attributable claimability transition event.
+
+PR #321's authenticated Admin boundary test is part of clean migration replay. It verifies that even an authenticated admin cannot execute the unbounded legacy RPC, the bounded paginated RPC remains available to an admin, and an ordinary requester cannot call the paginated RPC.
+
+### Integration gate remains open
+
+These are independent branch checks, not a combined merge-candidate result. Before any merge, the six code-bearing PRs (#316–#321) still need one integrated migration replay and cross-PR test run. In particular:
+
+- Replay all migrations in timestamp order from a single combined tree, rather than assuming each branch's replay proves their union.
+- Verify each shared `.github/workflows/ci.yml`, `tools/test_supabase_migration_replay.sh`, and `tools/test_migration_history_alignment.py` change appears exactly once and all required test invocations are present.
+- Verify #319's direct incident DML revocation is compatible with every shipped Android, dashboard, and Laravel/bridge write path, not just one API source file.
+- Verify the #317 and #319 incident/profile lock orders remain compatible across claim, assignment, claimability, role/duty changes, and terminal status transitions.
+- Run the complete SQL authenticated-role matrix and all concurrency tests against the same disposable PostgreSQL 16 database after combined replay.
+- Re-run all relevant CI/security checks on the combined candidate and record exact commit hashes.
+
+No PR has been merged. No production migration, Supabase data change, Render configuration change, or deployment was performed. This document update itself is documentation-only and does not close the integration gate.
