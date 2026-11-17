@@ -170,7 +170,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                             .onSuccess { image ->
                                 if (!isCurrentConversation(incidentId, conversationGeneration)) return@onSuccess
                                 pendingImageRecord = image
-                                                                                                if (image != null && image.incidentId != incidentId) {
+                                if (image != null && image.incidentId != incidentId) {
                                     _state.update { it.copy(restoringPending = true, sendError = "An earlier image message is unresolved in another incident. Open that incident and reselect the same image to retry it.") }
                                 } else {
                                     _state.update {
@@ -273,8 +273,6 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             _state.update { it.copy(draft = pending.message, sendError = "A previous message may already have been sent. Retry its original text in the same incident before editing it.") }
             return
         }
-        if (next != _state.value.draft) {
-                                }
         _state.update { it.copy(draft = next, sendError = null) }
     }
 
@@ -418,7 +416,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                         return@onSuccess
                     }
                     pendingImageRecord = null
-                                                            _state.update { state ->
+                    _state.update { state ->
                         state.copy(
                             items = (state.items + sent).distinctBy { it.id }.sortedBy { it.id },
                             draft = "",
@@ -460,7 +458,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         activeIncidentId = null
         // Do not clear an uncertain text-send identity here: the server may have committed
         // it even though cancellation prevented the response from reaching this ViewModel.
-                        // Keep the encrypted retry identity in SessionStore; it must survive navigation.
+        // Keep the encrypted retry identity in SessionStore; it must survive navigation.
         _state.value = IncidentChatUiState()
     }
 }
