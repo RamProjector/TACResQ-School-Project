@@ -1465,3 +1465,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - The web dashboard is intentionally admin-only; dispatch operations and responder-location freshness UI remain in the Android app. The updated contract now asserts the web role boundary rather than obsolete dispatcher-dashboard markup.
 - Commit: e5823ff.
 - Validation: confirmed the updated assertion matches the current Home.tsx role gate and dispatcher retirement copy. Full source-check job and Android builds must be rerun on the new head; no local Gradle build, device test, or production change was performed.
+
+## 2026-11-18 — Closed incident assignment history
+- Added a compact “Recently closed” section to the existing Android dispatcher screen, showing at most five resolved or cancelled incidents from the loaded authorized queue.
+- Each closed incident exposes the existing bounded, read-only assignment-history query with loading, empty, error, and retry states. No new tab, route, assignment action, or status mutation was added.
+- Extended `tools/test_assignment_history_api_contract.py` to guard the closed-incident access and five-item bound.
+- Commits: a0a107d (UI), c4eeab2 (source contract).
+- Validation: source-level review only; the static test and Android build have not been executed locally. The latest GitHub Actions run must confirm compilation and test results. No production migration or Supabase mutation was performed.
