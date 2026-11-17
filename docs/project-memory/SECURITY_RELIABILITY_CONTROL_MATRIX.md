@@ -490,3 +490,12 @@ While reconciling the clean replay test tails, a concrete fixture collision was 
 PR #319's synthetic fixtures were reassigned to a separate range (`0970`, `0972`, `0973`, `0974`, `0975`) and checked against the known test fixtures in PRs #317, #318, #320, #321 and the existing base SQL tests. This removes the identified collisions; it does not replace a combined clean replay. Preserve distinct fixture IDs when reconciling replay scripts, and avoid reusing a test account UUID across scripts unless the test intentionally shares state.
 
 PR #319's deterministic incident-lock barrier and the isolated fixture IDs are under exact-head CI validation. The earlier `152a97e...` RPC-contract run passed the authenticated responder-status/audit test before the fixture namespace change; the current head must pass again before this is considered verified.
+## Latest exact-head validation follow-up — 2026-11-17 02:23 UTC
+
+- **PR #318** head `3b9c08f5e498c86620e14a4b8f18ac20027a1303`: TACResQ CI, Security/CodeQL, RPC grant contract, Frontend Review, and automated static review all passed. Physical-device GPS/OEM behavior remains untested.
+- **PR #319** head `2cb6aa7d2204fbd4ea2086a53c9d5d0a05126247`: TACResQ CI, Security/CodeQL, RPC grant contract, Frontend Review, and automated static review all passed. The clean replay explicitly logged both authenticated sessions waiting on the same incident lock before release, then confirmed `cancelled:false`. The authenticated write-boundary test also passed with responder status RPC and claimability audit attribution.
+- **PR #319 fixture IDs** are now isolated in the `0970`–`0975` range, avoiding the earlier collisions with PR #317's `0901`–`0941`, PR #320's `0142`–`0143`, PR #321's `0145`–`0146`, and PR #318's `0991`–`0992` fixtures.
+- **PR #316** has a new exact-head follow-up `c1f5fec2c11366ccb48ed7f62a48a5d892b704fe` that adds metadata-only audit logging for rejected, unallowlisted Laravel bridge RPC attempts. Its exact-head workflows are still running; do not carry forward the earlier all-green status until this new test/code head passes.
+- **PR #322** control-matrix documentation head is `a5eb0a401c68980943efe2ddc50ea273b3644f3b`; its CI and Security workflows are still running after the fixture-collision documentation update.
+
+All seven PRs remain open/unmerged. The individual PR heads are mergeable, but the shared replay/CI/history files and the full combined migration candidate remain unvalidated. No merge or live Supabase migration has been performed.
