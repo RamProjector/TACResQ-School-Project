@@ -479,3 +479,14 @@ All seven implementation/documentation PRs #316–#322 remain open and unmerged.
 ### Integration gate remains open
 
 The PRs continue to overlap in `.github/workflows/ci.yml`, `tools/test_supabase_migration_replay.sh`, and `tools/test_migration_history_alignment.py`. The combined replay must preserve every distinct SQL/Python/shell regression invocation exactly once, apply all six implementation migrations in timestamp order, and execute authenticated-role tests only after the mock `auth` schema/function grants are established. Do not infer integration readiness from the individual mergeable flags or green PR workflows. No merge or live Supabase migration has been performed.
+## Cross-PR SQL fixture namespace audit — 2026-11-17
+
+While reconciling the clean replay test tails, a concrete fixture collision was found that would have surfaced only when independently green PRs were combined:
+- PR #317's field-claim test uses synthetic auth user UUIDs ending in `0901`–`0912`; its new cross-path fixture uses `0920`–`0941`.
+- PR #319 originally reused `0911`/`0912` in its claimability race, colliding with PR #317's responder fixtures.
+- PR #319's authenticated write-boundary test originally used `0143`–`0145`, overlapping PR #320's profile metadata fixture (`0142`/`0143`) and PR #321's Admin fixture (`0145`/`0146`).
+- PR #318's requester location test uses `0991`/`0992`.
+
+PR #319's synthetic fixtures were reassigned to a separate range (`0970`, `0972`, `0973`, `0974`, `0975`) and checked against the known test fixtures in PRs #317, #318, #320, #321 and the existing base SQL tests. This removes the identified collisions; it does not replace a combined clean replay. Preserve distinct fixture IDs when reconciling replay scripts, and avoid reusing a test account UUID across scripts unless the test intentionally shares state.
+
+PR #319's deterministic incident-lock barrier and the isolated fixture IDs are under exact-head CI validation. The earlier `152a97e...` RPC-contract run passed the authenticated responder-status/audit test before the fixture namespace change; the current head must pass again before this is considered verified.
