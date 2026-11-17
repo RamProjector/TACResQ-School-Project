@@ -1425,3 +1425,6 @@ psql -v ON_ERROR_STOP=1 -f tools/test_responder_incident_claiming.sql
 # Race dispatcher claimability changes against requester cancellation using
 # two independent authenticated sessions on the disposable PostgreSQL database.
 bash tools/test_claimability_cancellation_concurrency.sh
+
+# Verify authenticated callers cannot bypass the incident RPC write boundary.
+psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_incident_write_boundary.sql
