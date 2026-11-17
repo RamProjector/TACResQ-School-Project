@@ -71,3 +71,9 @@ assert dispatcher.count("state.assignmentHistory.asReversed().forEach { event ->
 assert "state.assignmentHistory.forEach { event ->" not in dispatcher
 
 print("PASS: both active and closed incident timelines render retained events oldest-first.")
+
+# Do not expose internal account identifiers as human-readable audit actor labels.
+assert dispatcher.count('else -> "Another dispatcher/admin"') == 2
+assert "Dispatcher account #${event.actorUserId}" not in dispatcher
+
+print("PASS: assignment history avoids displaying raw actor account IDs.")
