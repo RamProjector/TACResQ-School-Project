@@ -353,7 +353,6 @@ fun ResponderScreen(
     PollWhileStarted { vm.refresh() }
     val context = LocalContext.current
     var responseToStart by remember { mutableStateOf<Incident?>(null) }
-    var pendingStatusChange by remember { mutableStateOf<Pair<Incident, IncidentStatus>?>(null) }
     var permissionActionIncident by remember { mutableStateOf<Incident?>(null) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -517,13 +516,13 @@ fun ResponderScreen(
             item {
                 SectionHeading(
                     "Your active responses",
-                    "Incidents assigned to you and your current response status",
+                    "Your assigned incidents and optional location sharing",
                 )
             }
             if (active.any { it.statusFor(user.id) == IncidentStatus.EN_ROUTE }) {
                 item {
                     Text(
-                        "GPS sharing reports location, not arrival. Update your response status when you reach the scene.",
+                        "Incident progress is maintained by dispatch. GPS sharing is optional and only reports your location.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -596,21 +595,6 @@ fun ResponderScreen(
                     )
                 }
 
-                incident.statusFor(user.id).nextSteps().forEach { next ->
-                    Button(
-                        onClick = {
-                            if (next == IncidentStatus.EN_ROUTE) {
-                                responseToStart = incident
-                            } else {
-                                pendingStatusChange = incident to next
-                            }
-                        },
-                        enabled = !state.busy,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                    ) {
-                        Text(next.actionLabel())
-                    }
-                }
                 if (incident.statusFor(user.id) == IncidentStatus.EN_ROUTE) {
                     val sharing = state.trackingIncidentId == incident.id
                     val trackingMessage = state.trackingError.takeIf { sharing }
@@ -710,69 +694,6 @@ fun ResponderScreen(
                 IncidentCard(incident)
             }
         }
-    }
-
-    pendingStatusChange?.let { (incident, nextStatus) ->
-        val resolving = nextStatus == IncidentStatus.RESOLVED
-        val currentIncident = state.incidents.firstOrNull { it.id == incident.id }
-        val currentStatus = currentIncident?.statusFor(user.id)
-        val transitionStillAllowed = currentStatus == incident.statusFor(user.id) &&
-            currentStatus?.nextSteps()?.contains(nextStatus) == true
-        val checkingAssignment = state.loading || state.refreshing
-        val canConfirm = !state.busy && !checkingAssignment && transitionStillAllowed
-        AlertDialog(
-            onDismissRequest = { if (!state.busy) pendingStatusChange = null },
-            title = {
-                Text(
-                    when {
-                        checkingAssignment -> "Checking assignment…"
-                        !transitionStillAllowed -> "Assignment changed"
-                        resolving -> "Confirm response completion?"
-                        else -> "Confirm status update?"
-                    },
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        when {
-                            checkingAssignment -> "Wait for the latest assignment status before confirming this change."
-                            !transitionStillAllowed -> "This unit's status changed while the confirmation was open. Close this message and refresh assignments before taking another action."
-                            resolving -> "Only mark this response resolved when your assigned response is complete."
-                            else -> "Update your response to ${nextStatus.label.lowercase()}?"
-                        },
-                        fontWeight = if (resolving && transitionStillAllowed) FontWeight.SemiBold else FontWeight.Normal,
-                    )
-                    if (transitionStillAllowed) {
-                        Text(
-                            "This unit status is shared with dispatch and the requester. The overall request status reflects the assigned team's progress.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val latest = currentIncident
-                        pendingStatusChange = null
-                        if (latest != null && canConfirm) vm.advance(latest, nextStatus)
-                    },
-                    enabled = canConfirm,
-                ) {
-                    Text(if (resolving) "Mark my response resolved" else nextStatus.actionLabel())
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { pendingStatusChange = null },
-                    enabled = !state.busy,
-                ) {
-                    Text(if (transitionStillAllowed) "Keep current status" else "Close")
-                }
-            },
-        )
     }
 
     responseToStart?.let { incident ->
