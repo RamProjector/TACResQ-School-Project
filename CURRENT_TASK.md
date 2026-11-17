@@ -1024,3 +1024,15 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Finish and record any justified source/documentation commits across the active PRs before starting a new validation cycle.
 - No tests or CI were started for this closeout commit. The next validation cycle must target the final exact heads after the implementation commit set is frozen.
 - No PR merge, live Supabase migration, Render change/deployment, secret change, FCM send, or production data mutation was performed.
+
+
+## GPS map collision handling — 2026-11-17
+
+- **Finding:** Incident and dispatcher field-unit pins can render inside the same tap area. Selecting the top marker alone can make the other emergency location difficult to reach.
+- **Implementation on PR #334:** Added screen-projection collision detection using MapLibre `Projection.toScreenLocation`, scaled to a 48 dp radius. When multiple marker anchors overlap the tap area, the bottom sheet presents explicit choices for each nearby incident, field unit, or device location. The tapped marker is listed first. Choosing an entry then uses the existing typed marker-ID behavior.
+- **Safety/UI:** No coordinate merging or synthetic cluster count; no location sharing, permission, freshness threshold, routing, backend, or database changes. Stale field-unit choices explicitly say last-known/not-live. Chooser rows have full-width 52 dp minimum touch targets and button semantics.
+- **Test additions:** Added pure JVM coverage for screen-radius boundaries and invalid points/radii. Tests were not run, per the current no-checks-after-commit instruction.
+- **Research note:** MapLibre 13.x Projection returns screen-space PointF coordinates relative to the MapView; the threshold is converted from dp using display density. See `docs/GPS_MAP_INTERACTION_REVIEW.md`.
+- **Remaining:** Device validation across zoom/pitch/compact layouts, marker icon footprint review, annotation redraw profiling, and a separately researched renderer/GeoJSON clustering migration. No build, tests, emulator, device, or performance checks run.
+
+- **Follow-up safety guard:** Chooser selections are checked against the latest visible incident, current validated responder reports, or current one-time device fix before opening details. Expired/replaced entries show a refresh/retry message rather than selecting stale marker metadata.

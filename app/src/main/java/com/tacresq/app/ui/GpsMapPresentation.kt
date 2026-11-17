@@ -16,6 +16,29 @@ internal fun gpsMapPreviewZoom(accuracyM: Float?): Double {
     }
 }
 
+/**
+ * Returns all markers whose rendered anchor falls within the tap radius of the selected
+ * marker. MapLibre projection coordinates and this radius are both measured in pixels.
+ * Keeping this pure makes collision boundary behavior independently testable.
+ */
+internal fun gpsMapNearbyTargetIndices(
+    points: List<Pair<Float, Float>>,
+    anchorIndex: Int,
+    radiusPx: Float,
+): List<Int> {
+    if (anchorIndex !in points.indices || !radiusPx.isFinite() || radiusPx < 0f) return emptyList()
+    val (anchorX, anchorY) = points[anchorIndex]
+    if (!anchorX.isFinite() || !anchorY.isFinite()) return emptyList()
+    val radiusSquared = radiusPx * radiusPx
+    return points.indices.filter { index ->
+        val (x, y) = points[index]
+        if (!x.isFinite() || !y.isFinite()) return@filter false
+        val dx = x - anchorX
+        val dy = y - anchorY
+        (dx * dx) + (dy * dy) <= radiusSquared
+    }
+}
+
 internal fun gpsAccuracyStatus(accuracyM: Float?): String {
     if (accuracyM == null || !accuracyM.isFinite() || accuracyM <= 0f) {
         return "Accuracy unavailable — confirm the map position before relying on it."

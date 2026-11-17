@@ -6,6 +6,29 @@ import org.junit.Test
 
 class GpsMapPresentationTest {
     @Test
+    fun nearbyMarkerTargetsUseScreenPixelRadiusAndIncludeAnchor() {
+        val points = listOf(
+            100f to 100f,
+            140f to 100f,
+            148f to 100f,
+            149f to 100f,
+            100f to 160f,
+            Float.NaN to 100f,
+        )
+        assertEquals(listOf(0, 1, 2), gpsMapNearbyTargetIndices(points, 0, 48f))
+        assertEquals(listOf(0, 1, 2, 3), gpsMapNearbyTargetIndices(points, 2, 48f))
+    }
+
+    @Test
+    fun nearbyMarkerTargetsRejectInvalidAnchorAndRadius() {
+        val points = listOf(0f to 0f, 10f to 10f)
+        assertTrue(gpsMapNearbyTargetIndices(points, -1, 48f).isEmpty())
+        assertTrue(gpsMapNearbyTargetIndices(points, 0, Float.NaN).isEmpty())
+        assertTrue(gpsMapNearbyTargetIndices(points, 0, -1f).isEmpty())
+        assertTrue(gpsMapNearbyTargetIndices(listOf(Float.NaN to 0f), 0, 48f).isEmpty())
+    }
+
+    @Test
     fun previewZoomUsesConservativeBandsAtAccuracyBoundaries() {
         assertEquals(16.0, gpsMapPreviewZoom(50f), 0.0)
         assertEquals(15.0, gpsMapPreviewZoom(50.01f), 0.0)

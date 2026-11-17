@@ -132,6 +132,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import java.time.Duration
 import java.time.Instant
 import kotlin.math.roundToInt
+import kotlin.math.hypot
 
 private const val TACLOBAN_LATITUDE = 11.2443
 private const val TACLOBAN_LONGITUDE = 125.0030
@@ -195,6 +196,9 @@ private enum class GpsMapMarkerType {
 /** Stable interaction metadata kept separately from user-facing marker titles. */
 private data class GpsMapMarkerTarget(
     val type: GpsMapMarkerType,
+    val position: LatLng,
+    val title: String,
+    val summary: String,
     val incidentId: Long? = null,
     val userId: Long? = null,
     val stale: Boolean = false,
@@ -435,6 +439,7 @@ fun GpsMapScreen(
     var freshnessTick by remember { mutableStateOf(0) }
     var locationStatus by remember { mutableStateOf<String?>(null) }
     var selectedResponderKey by remember { mutableStateOf<String?>(null) }
+    var selectedMarkerChoices by remember { mutableStateOf<List<GpsMapMarkerTarget>>(emptyList()) }
     var isLocationRequestInProgress by remember { mutableStateOf(false) }
     var retryLocationAfterSettings by remember { mutableStateOf(false) }
     var showAppSettingsAction by remember { mutableStateOf(false) }
@@ -651,6 +656,53 @@ fun GpsMapScreen(
         }
     }
 
+    fun selectMarkerTarget(target: GpsMapMarkerTarget) {
+        selectedMarkerChoices = emptyList()
+        when (target.type) {
+            GpsMapMarkerType.INCIDENT -> {
+                val incidentId = target.incidentId ?: return
+                if (visibleIncidents.none { it.id == incidentId }) {
+                    locationStatus = "That incident location is no longer available. Choose a current map pin."
+                    return
+                }
+                selectedResponderKey = null
+                selectedIncidentId = incidentId
+                locationStatus = null
+            }
+            GpsMapMarkerType.FIELD_UNIT -> {
+                val responderKey = target.responderKey
+                val currentLocation = validResponderLocations.firstOrNull {
+                    "${it.incidentId}:${it.userId}" == responderKey
+                }
+                if (responderKey == null || currentLocation == null) {
+                    locationStatus = "That field-unit report is no longer available or has expired. Refresh the map locations."
+                    return
+                }
+                selectedIncidentId = null
+                selectedResponderKey = responderKey
+                locationStatus = if (currentLocation.mapFreshness(mapNow) == MapLocationFreshness.STALE) {
+                    "Responder location · Last known only; confirm with dispatch."
+                } else {
+                    "Responder location · Consent-based foreground report; see the highlighted field-unit entry for age and accuracy."
+                }
+            }
+            GpsMapMarkerType.DEVICE_LOCATION -> {
+                val currentFix = deviceFix
+                if (currentFix == null ||
+                    currentFix.latitude != target.position.latitude ||
+                    currentFix.longitude != target.position.longitude
+                ) {
+                    locationStatus = "That one-time device location preview has changed. Use Locate me to refresh it."
+                    return
+                }
+                selectedIncidentId = null
+                selectedResponderKey = null
+                locationStatus = "Your location · One-time preview on this device only; not uploaded or continuously tracked."
+            }
+        }
+        scope.launch { mapSheetState.bottomSheetState.expand() }
+    }
+
     var mapLibreMap by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
     var mapStyleLoaded by remember(context, role) { mutableStateOf(false) }
     var mapDataLoaded by remember(context, role) { mutableStateOf(false) }
@@ -684,42 +736,38 @@ fun GpsMapScreen(
             mapLibreMap = map
             map.setOnMarkerClickListener { marker ->
                 // Resolve behavior from the annotation ID, never from editable display text.
-                when (val target = markerTargets[marker.id]) {
-                    is GpsMapMarkerTarget -> when (target.type) {
-                        GpsMapMarkerType.INCIDENT -> {
-                            val incidentId = target.incidentId
-                            if (incidentId == null) {
-                                false
-                            } else {
-                                selectedResponderKey = null
-                                selectedIncidentId = incidentId
-                                locationStatus = null
-                                scope.launch { mapSheetState.bottomSheetState.expand() }
-                                true
-                            }
-                        }
-                        GpsMapMarkerType.FIELD_UNIT -> {
-                            selectedResponderKey = target.responderKey
-                            // Keep the sheet summary short enough to remain readable in its
-                            // two-line status slot. Detailed age and accuracy stay in the
-                            // matching field-unit row; stale markers get the safety warning.
-                            locationStatus = if (target.stale) {
-                                "Responder location · Last known only; confirm with dispatch."
-                            } else {
-                                "Responder location · Consent-based foreground report; see the highlighted field-unit entry for age and accuracy."
-                            }
-                            scope.launch { mapSheetState.bottomSheetState.expand() }
-                            true
-                        }
-                        GpsMapMarkerType.DEVICE_LOCATION -> {
-                            selectedResponderKey = null
-                            locationStatus = "Your location · One-time preview on this device only; not uploaded or continuously tracked."
-                            scope.launch { mapSheetState.bottomSheetState.expand() }
-                            true
-                        }
+                val target = markerTargets[marker.id] ?: return@setOnMarkerClickListener false
+                // Several pins can occupy the same screen area even when their coordinates
+                // are not identical. Resolve the visible collision in screen pixels at the
+                // current zoom instead of silently selecting whichever annotation is on top.
+                val candidates = markerTargets.values.toList()
+                val anchorIndex = candidates.indexOfFirst { it == target }
+                val nearbyIndices = if (anchorIndex >= 0) {
+                    val screenPoints = candidates.map { candidate ->
+                        map.projection.toScreenLocation(candidate.position).let { it.x to it.y }
                     }
-                    null -> false
+                    gpsMapNearbyTargetIndices(
+                        points = screenPoints,
+                        anchorIndex = anchorIndex,
+                        radiusPx = 48f * mapDensity,
+                    )
+                } else {
+                    emptyList()
                 }
+                val nearbyTargets = nearbyIndices
+                    .sortedBy { if (it == anchorIndex) 0 else 1 }
+                    .mapNotNull(candidates::getOrNull)
+                    .distinctBy { listOf(it.type.name, it.incidentId?.toString().orEmpty(), it.userId?.toString().orEmpty()).joinToString(":") }
+                if (nearbyTargets.size > 1) {
+                    selectedMarkerChoices = nearbyTargets
+                    selectedIncidentId = null
+                    selectedResponderKey = null
+                    locationStatus = "${nearbyTargets.size} map locations overlap here. Choose the location you need."
+                    scope.launch { mapSheetState.bottomSheetState.expand() }
+                } else {
+                    selectMarkerTarget(target)
+                }
+                true
             }
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
                 mapStyleLoaded = true
@@ -1365,6 +1413,9 @@ fun GpsMapScreen(
                 )
                 markerTargets[marker.id] = GpsMapMarkerTarget(
                     type = GpsMapMarkerType.INCIDENT,
+                    position = LatLng(latitude, longitude),
+                    title = "Incident #${incident.id} · ${incident.type.label}",
+                    summary = "Status: ${incident.status.label} · ${locationAgeLabel}",
                     incidentId = incident.id,
                 )
             }
@@ -1395,6 +1446,13 @@ fun GpsMapScreen(
             )
             markerTargets[marker.id] = GpsMapMarkerTarget(
                 type = GpsMapMarkerType.FIELD_UNIT,
+                position = LatLng(location.latitude, location.longitude),
+                title = "Responder #${location.userId} · Incident #${location.incidentId}",
+                summary = if (freshness == MapLocationFreshness.STALE) {
+                    "Last known location · ${age} ago · not live"
+                } else {
+                    "${freshness.label} · last reported ${age} ago"
+                },
                 incidentId = location.incidentId,
                 userId = location.userId,
                 stale = freshness == MapLocationFreshness.STALE,
@@ -1408,7 +1466,12 @@ fun GpsMapScreen(
                     .title("Your location · this device only")
                     .snippet("One-time location preview. Not uploaded or continuously tracked."),
             )
-            markerTargets[marker.id] = GpsMapMarkerTarget(type = GpsMapMarkerType.DEVICE_LOCATION)
+            markerTargets[marker.id] = GpsMapMarkerTarget(
+                type = GpsMapMarkerType.DEVICE_LOCATION,
+                position = LatLng(fix.latitude, fix.longitude),
+                title = "Your location · this device",
+                summary = "One-time preview only · not uploaded or continuously tracked",
+            )
         }
         displayedRoute?.let { route ->
             map.addPolyline(
@@ -1534,6 +1597,61 @@ fun GpsMapScreen(
                                 onClick = { selectedIncidentId = null },
                                 modifier = Modifier.heightIn(min = 48.dp),
                             ) { Text("Clear") }
+                        }
+                    }
+
+                    if (selectedMarkerChoices.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                "Overlapping map locations",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.semantics { heading() },
+                            )
+                            Text(
+                                "These pins are too close to select reliably on the map. Choose one to open its details.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            selectedMarkerChoices.forEachIndexed { index, choice ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 52.dp)
+                                        .clickable(
+                                            role = androidx.compose.ui.semantics.Role.Button,
+                                            onClickLabel = "Open ${choice.title}",
+                                        ) { selectMarkerTarget(choice) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(
+                                        alpha = if (index == 0) 0.82f else 0.48f,
+                                    ),
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    ) {
+                                        Text(
+                                            choice.title,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        )
+                                        Text(
+                                            choice.summary,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        )
+                                    }
+                                }
+                            }
+                            androidx.compose.material3.TextButton(
+                                onClick = { selectedMarkerChoices = emptyList(); locationStatus = null },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) { Text("Dismiss location choices") }
                         }
                     }
 
