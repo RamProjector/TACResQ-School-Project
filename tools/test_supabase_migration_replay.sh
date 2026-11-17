@@ -1424,3 +1424,6 @@ psql -v ON_ERROR_STOP=1 -f tools/test_responder_incident_claiming.sql
 # Real two-connection races for field self-claim and cross-path assignment.
 bash tools/test_field_claim_concurrency.sh
 bash tools/test_assignment_cross_path_concurrency.sh
+
+# Verify requester location edit authorization and validation as authenticated.
+psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_requester_location_edit.sql
