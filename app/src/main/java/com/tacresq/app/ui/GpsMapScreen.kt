@@ -607,9 +607,9 @@ fun GpsMapScreen(
         MapLibre.getInstance(context)
         MapView(context).apply {
             contentDescription = if (role == Role.DISPATCHER) {
-                "Emergency response vector map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review incident locations and responder freshness."
+                "Interactive emergency response map. Select an incident pin to open its details. Drag the bottom sheet to review incident locations and responder freshness."
             } else {
-                "Emergency response vector map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review active incident locations."
+                "Interactive emergency response map. Select an incident pin to open its details. Drag the bottom sheet to review active incident locations."
             }
             onCreate(null)
         }

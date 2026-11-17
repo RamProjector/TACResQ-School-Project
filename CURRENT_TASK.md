@@ -1,3 +1,10 @@
+# GPS map accessibility description accuracy
+
+- Updated the MapLibre view's screen-reader description so it no longer claims the map is centered on Tacloban City after users pan, zoom, or the app frames other incident locations.
+- Kept the role-specific instructions for selecting incident pins and reviewing the bottom sheet, including dispatcher responder-freshness context.
+- Scope: accessibility wording only. Initial camera target, map gestures, GPS capture, marker data, permissions, routing, and location sharing are unchanged.
+- Validation: not run per the incremental-commit cadence; screen-reader/device review remains outstanding.
+
 # GPS map selection and expanded-sheet controls
 
 - Selected incident markers now use a larger pin asset variant. The annotation renderer observes selectedIncidentId, so selection changes redraw the marker immediately and the active pin is easier to distinguish when several incidents are nearby.
