@@ -170,3 +170,11 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - The chooser is bounded to 50 records to avoid unbounded synchronous work on the UI thread; when records have expired, the user is told that only currently available reports are shown.
 - No build, tests, emulator, device validation, or performance profiling run.
 
+
+
+## Cluster source invalidation correction — 2026-11-17
+
+- Added both GeoJSON source references to the annotation/source update effect keys. This ensures the first render and a style reload publish current features after the asynchronous style callback creates the sources; previously a source becoming available alone would not retrigger that effect.
+- Explicit map retry now clears old source references and recreates both cluster sources/layers on the replacement style, matching initial style setup.
+- This is an important lifecycle correction for the new clustering path. No tests/build/device checks run.
+

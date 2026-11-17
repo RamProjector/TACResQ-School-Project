@@ -1206,7 +1206,14 @@ fun GpsMapScreen(
         mapDataLoaded = false
         mapStyleLoaded = false
         locationStatus = "Retrying map data…"
+        incidentClusterSource = null
+        responderClusterSource = null
         map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
+            map.getStyle { style ->
+                val sources = style.installGpsMapClusterLayers()
+                incidentClusterSource = sources.incidents
+                responderClusterSource = sources.responders
+            }
             // Retry replaces the style too; never keep references to annotations
             // created against the previous style.
             renderedMapOwner = null
@@ -1604,6 +1611,8 @@ fun GpsMapScreen(
     androidx.compose.runtime.LaunchedEffect(
         mapLibreMap,
         mapStyleLoaded,
+        incidentClusterSource,
+        responderClusterSource,
         deviceFixMapKey,
         displayedRouteMapKey,
         trackingStatus.incidentId,

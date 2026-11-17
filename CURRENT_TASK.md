@@ -1,3 +1,9 @@
+## Cluster source invalidation correction — 2026-11-17
+
+- Added both GeoJSON source references to the annotation/source update effect keys. This ensures the first render and a style reload publish current features after the asynchronous style callback creates the sources; previously a source becoming available alone would not retrigger that effect.
+- Explicit map retry now clears old source references and recreates both cluster sources/layers on the replacement style, matching initial style setup.
+- This is an important lifecycle correction for the new clustering path. No tests/build/device checks run.
+
 ## Cluster interaction and lifecycle follow-up — 2026-11-17
 
 - Moved the map click listener effect below MapView and cluster-source state declarations so it is owned only after its dependencies exist; listener registration remains paired with removal.
