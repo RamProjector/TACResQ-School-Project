@@ -126,3 +126,10 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - MapView setup, load listeners, lifecycle observer, and destruction now share one Compose effect rather than relying on disposal ordering between two effects.
 - Teardown order is explicit: mark disposed, unregister map listeners, remove lifecycle observer, pause/stop active states, then destroy MapView. The map-ready callback checks the same effect-scoped disposed flag.
 - No build/test/device checks run; lifecycle transition testing remains required.
+
+
+## Long-lived marker callback freshness — 2026-11-17
+
+- The MapLibre marker listener now calls the latest Compose marker-selection callback via `rememberUpdatedState` rather than retaining the callback created during initial map setup.
+- This ensures marker taps validate against current visible incidents, responder reports, device preview, and freshness state after recomposition/data refresh.
+- Device verification remains required; no tests/build checks run.

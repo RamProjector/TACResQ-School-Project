@@ -1,3 +1,9 @@
+## GPS marker callback freshness — 2026-11-17
+
+- **Finding:** The MapLibre marker click listener is installed once when the map becomes ready, but it called a selection function that closed over the then-current Compose lists and freshness clock. After data refreshes, a tap could validate a responder/incident against stale screen data.
+- **Fix on PR #334:** Wrapped marker selection in `rememberUpdatedState` and have the long-lived MapLibre listener dispatch through the latest callback. Current visible incidents, responder reports, device fix, and freshness are therefore checked at tap time.
+- **Validation:** No tests/build/device checks run. Verify marker taps after incident refresh, responder-location refresh, expiry, and permission changes.
+
 ## Unified MapView lifecycle ownership — 2026-11-17
 
 - **Finding:** MapView destruction and lifecycle pause/stop were split across two independent Compose effects. Their disposal ordering was not explicit, so teardown could destroy the native map before its pause/stop callbacks.

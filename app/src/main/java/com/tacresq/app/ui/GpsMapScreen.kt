@@ -721,6 +721,9 @@ fun GpsMapScreen(
         }
         scope.launch { mapSheetState.bottomSheetState.expand() }
     }
+    // MapLibre installs its click listener once; always dispatch through the latest
+    // Compose callback so refreshed incidents and responder reports are revalidated.
+    val latestSelectMarkerTarget by rememberUpdatedState(::selectMarkerTarget)
 
     var mapLibreMap by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
     var mapStyleLoaded by remember(context, role) { mutableStateOf(false) }
@@ -852,7 +855,7 @@ fun GpsMapScreen(
                     locationStatus = "${nearbyTargets.size} map locations overlap here. Choose the location you need."
                     scope.launch { mapSheetState.bottomSheetState.expand() }
                 } else {
-                    selectMarkerTarget(target)
+                    latestSelectMarkerTarget(target)
                 }
                 true
             }
