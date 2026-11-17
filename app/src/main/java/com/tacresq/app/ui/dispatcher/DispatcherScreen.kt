@@ -307,9 +307,14 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         } else if (pending.isEmpty()) {
             item {
                 Text(
-                    if (state.syncError != null && state.incidents.isEmpty())
-                        "The queue could not be loaded. Check your connection and refresh to try again."
-                    else "No pending incidents.",
+                    when {
+                        state.syncError != null ->
+                            "No pending incidents in the last loaded queue. Current status is unconfirmed; refresh before relying on this list."
+                        state.loading ->
+                            "Checking for pending incidents…"
+                        else ->
+                            "No pending incidents."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

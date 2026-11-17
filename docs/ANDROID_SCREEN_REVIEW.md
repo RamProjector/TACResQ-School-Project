@@ -117,3 +117,11 @@ This register tracks visible UI findings from source review. A change is not con
 - **Change:** Remove the ambiguous all-record count. Keep the three operationally useful counts—Pending, Active, and Ready units—in one compact row. The counts continue to use the same pending/active filters and the same available-duty filter used by the corresponding sections/actions.
 - **Safety:** No incidents are hidden or filtered differently; only the overview metric was removed. Queue contents, assignment eligibility, duty status, and backend calls are unchanged.
 - **Validation:** Source review only. No build, tests, emulator, or device checks run.
+
+
+## Dispatcher pending queue unconfirmed empty state — 2026-11-17
+
+- **Finding:** When a refresh failed but the retained incident snapshot contained no pending records, the empty state could still say “No pending incidents.” The previous failure wording only appeared when the entire incident list was empty, not when a stale non-empty snapshot had no pending subset.
+- **Change:** The pending empty state now distinguishes an unconfirmed last-loaded snapshot, an in-progress check, and a successfully refreshed empty queue. A failed refresh explicitly says the current status is unconfirmed regardless of whether other cached incidents exist.
+- **Safety:** No cached records are cleared or reclassified. Assignment freshness gates, queue filters, ordering, and backend calls remain unchanged.
+- **Validation:** Source review only. No build, tests, emulator, or device checks run.

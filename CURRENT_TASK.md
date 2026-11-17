@@ -1,5 +1,12 @@
 ## Latest UI review — 2026-11-17
 
+- Dispatcher pending empty state now distinguishes a confirmed empty queue, an in-progress check, and a failed refresh with a retained cached snapshot. It no longer presents an unverified cached empty subset as current fact. No queue or assignment behavior changed. Commit: pending in this handoff.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
 - Dispatcher overview now shows only actionable counts (Pending, Active, Ready units); removed the ambiguous all-record “Incidents” metric that could include completed/cancelled records. The queue and assignment filters are unchanged. Commit: `a981104419eb2a098c7b79d8837a755b7f5428e9`.
 - No build, tests, emulator, or device validation performed.
 
