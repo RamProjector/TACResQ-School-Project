@@ -331,3 +331,36 @@ PR #320's migration retains the existing protections on `name`, `email`, and `ph
 ### Current integration gate
 
 The exact-head workflows above are independent PR runs. They do not validate a combined seven-branch migration replay. The PRs still overlap in shared migration-history, replay-script, and CI files; #316 also has a newer head than the previous checkpoint and its Security workflow was not complete at this poll. Keep all PRs open until #316's exact-head Security run finishes, the combined migration history and replay are validated on an integration candidate, and manual device checks cover the changed GPS/incident flows. No PR was merged and no live Supabase migration or production deployment was performed.
+
+
+## Combined-branch integration review — 2026-11-17
+
+### Defect found and corrected in PR #321
+
+The #321 branch was based on main commit `4405127e96973e1fdb902a0c37d6fbed3c4f3014`, while PRs #316–#320 add migration files and update the migration-history inventory on separate branches. Its original `tools/test_migration_history_alignment.py` did not allowlist the five migrations from #316–#320 and incorrectly classified `20261116042927_responder_incident_claiming.sql` as pending even though the live migration ledger includes it.
+
+Corrected the existing #321 branch in commit `c3f438525930d56133532366b2e35ee00cc81f43`:
+- Moved `20261116042927_responder_incident_claiming.sql` into EXPECTED.
+- Added the #316–#320 migration filenames to PENDING, preserving the distinction between repository presence and live-applied status.
+- Kept #321's own legacy Admin RPC migration pending.
+- Did not apply any migration to Supabase.
+
+At the latest poll, #321's Frontend Review had passed; TACResQ CI, Security, and RPC grant contract were still running. The branch reported mergeable after GitHub recalculated metadata. Recheck all exact-head jobs before considering this correction validated.
+
+### Shared-file integration risks
+
+The seven PR patches were compared by changed path. Four paths are shared:
+- `tools/test_migration_history_alignment.py`: #316–#321.
+- `tools/test_supabase_migration_replay.sh`: #317–#321.
+- `.github/workflows/ci.yml`: #317–#321.
+- `docs/project-memory/README.md`: #316 and #322.
+
+The replay script changes include multiple additions at the same end-of-file location, plus common Supabase auth-schema grants. The migration-history script has overlapping inventory edits. These are not proven conflicts in every merge order, but they are high-risk overlap points and must be reconciled on the actual resulting branch. A green standalone PR check is not a combined replay.
+
+### Latest exact-head check refresh
+
+- #316 `362d99b7a60ddd43a0d4c2b419bc13307b0d2e06`: TACResQ CI, Security, RPC grant contract, Frontend Review, and Render live smoke all completed successfully.
+- #321 `c3f438525930d56133532366b2e35ee00cc81f43`: Frontend Review succeeded; CI, Security, and RPC grant contract were still running at the latest poll.
+- #322 `dce8efa79a954b828a94729b6d9d19472ca00afa`: Frontend Review and RPC grant contract succeeded; CI and Security were still running at the latest poll.
+
+No PR was merged. No live database migration, Auth setting change, or production deployment was performed.
