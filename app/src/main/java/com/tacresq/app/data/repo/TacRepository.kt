@@ -213,6 +213,32 @@ class TacRepository(
         store.savePendingChatMessage(SessionStore.PendingChatMessage(incidentId, message.trim(), clientMessageId, ownerUserId))
     }
 
+    suspend fun pendingChatImage(): Result<SessionStore.PendingChatImage?> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in with the original account to restore its pending image.")
+        store.getPendingChatImage(ownerUserId)
+    }
+
+    suspend fun persistPendingChatImage(
+        incidentId: Long,
+        caption: String,
+        clientMessageId: String,
+        mimeType: String,
+        sha256: String,
+    ): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in before sending an incident image.")
+        store.savePendingChatImage(
+            SessionStore.PendingChatImage(incidentId, caption.trim(), clientMessageId, mimeType, sha256, ownerUserId)
+        )
+    }
+
+    suspend fun clearPendingChatImage(clientMessageId: String): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in with the original account to resolve its pending image.")
+        store.clearPendingChatImage(clientMessageId, ownerUserId)
+    }
+
     suspend fun clearPendingChatMessage(clientMessageId: String): Result<Unit> = call {
         val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
             ?: throw ApiException("Sign in with the original account to resolve its pending chat message.")
