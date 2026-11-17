@@ -64,7 +64,8 @@ BEGIN
 END;
 $incident_write_boundary$;
 
-
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', '', false);
 
 -- Responder status updates must still work through the supported invoker wrapper
 -- after direct authenticated incident-table DML has been revoked.
