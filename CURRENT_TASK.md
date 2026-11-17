@@ -1452,3 +1452,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Updated the GPS empty-state source contract to match the accuracy-label prefixes actually used by the current MapLibre screen. This was a stale assertion, not a missing runtime accuracy label. Commit: `eb57c49ad7c82c5d0b2e7dbec77f5521f238f37f`.
 - These are source corrections based on the recorded CI logs. No builds, tests, emulator, or device checks were run after the commits, per the existing execution constraint. The new exact-head CI result is still pending and must be inspected before calling the failures resolved.
 - Next: inspect the existing duty-status and assignment schema before proposing a duty-session migration. Do not equate login or online presence with on-duty availability. Preserve dispatcher-owned incident milestones and the current active-assignment locks.
+
+## 2026-11-18 — CI blocker repairs
+- Corrected the shared assignment-release API contract: FakeTacApi and SupabaseTacApi now accept the same ReleaseIncidentAssignmentRpc body declared by TacApi; the repository sends that typed request body.
+- Fixed the Compose delegated-state smart-cast error by rendering the nullable assignment-history error with a safe fallback.
+- Updated the dispatcher wait-time source contract to match the intended neutral elapsed-wait display; it no longer expects the removed 15-minute escalation warning.
+- Commits: e4bee7a, 342ec65, 4fbf3a3, f971a43, b903eb5.
+- Validation pending: GitHub Actions must rebuild the latest branch head. No local Gradle build, emulator/device test, migration deployment, or production Supabase mutation was performed.
