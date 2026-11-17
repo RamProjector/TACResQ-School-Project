@@ -299,3 +299,11 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - This protects map reopening from stale or malformed saved camera state without changing valid user camera positions, map data, location permissions, or incident coordinates.
 - Added a focused source contract and CI step.
 - Validation: source-level change only; contract execution, Gradle build, emulator, and physical-device camera checks have not yet been run.
+
+
+## Stale GPS cluster-page feedback — 2026-11-18
+
+- Cluster paging now treats an empty page before the recorded cluster total as a changed map source and asks the user to tap the current cluster again, rather than silently ending pagination.
+- When a returned page contains records whose incident/responder location is no longer available, the chooser reports that some records are stale while retaining valid locations already loaded.
+- Added a focused source contract and CI step. No API, backend, database, assignment, or location-sharing behavior changed.
+- Validation: source-level change only; contract execution, Gradle build, emulator, and physical-device checks have not yet been run.
