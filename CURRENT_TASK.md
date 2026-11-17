@@ -1412,3 +1412,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Team progress now uses the assigned-user roster as its denominator and counts only distinct per-member status rows belonging to that roster.
 - Missing per-member status rows are identified as unavailable; no assignment or status behavior changed.
 - Commit: pending at handoff; source review only. No build/tests/emulator/device validation performed.
+
+
+## PR #334 CI stabilization — 2026-11-18
+
+- Re-inspected the exact PR head and its recorded GitHub Actions results before editing. PR #334 remains open and mergeable; no production migration was applied.
+- Corrected the suspicious indentation reported by Android Lint in `IncidentChatScreen.kt` around the pending image retry flag. Commit: `b19cc2a653459f9e17a4ee622277b343f9d1e820`.
+- Updated the GPS empty-state source contract to match the accuracy-label prefixes actually used by the current MapLibre screen. This was a stale assertion, not a missing runtime accuracy label. Commit: `eb57c49ad7c82c5d0b2e7dbec77f5521f238f37f`.
+- These are source corrections based on the recorded CI logs. No builds, tests, emulator, or device checks were run after the commits, per the existing execution constraint. The new exact-head CI result is still pending and must be inspected before calling the failures resolved.
+- Next: inspect the existing duty-status and assignment schema before proposing a duty-session migration. Do not equate login or online presence with on-duty availability. Preserve dispatcher-owned incident milestones and the current active-assignment locks.
