@@ -1,3 +1,18 @@
+# Current handoff — 2026-11-17: constrain wide-screen role content
+
+- **Objective:** Improve Android large-window readability across requester, responder/driver, and dispatcher screens without changing compact phone layouts or the full-screen map.
+- **Branch:** `agent/constrain-wide-screen-content`.
+- **Finding:** The navigation rail now adapts to medium/expanded windows, but role content still fills all remaining horizontal space. Long descriptions and operational cards can stretch excessively on large tablets or resizable desktop windows.
+- **Implementation:** Constrain non-map role content to a centered maximum width of 960dp in both rail and bottom-navigation layouts. This also covers wide, short-height/resizable windows that retain the bottom bar. The content remains fluid below that width; the dedicated GPS Map branch remains full-window and unconstrained.
+- **Regression coverage:** Extended `tools/test_adaptive_multi_pane_scaffolds.py` to require the centered max-width container and verify that the map branch remains full-screen.
+- **Research basis:** Android's current adaptive-layout guidance explicitly recommends setting a maximum width on content/components to prevent stretching, using containment/panes, and adapting based on window size. Material guidance also warns that overly long lines become difficult to read. Sources: https://developer.android.com/design/ui/mobile/guides/layout-and-content/adapt-layout ; https://developer.android.com/develop/adaptive-apps/guides/adaptive-dos-and-donts ; https://developer.android.com/codelabs/adaptive-material-guidance
+- **Commits:** `3820c09709e2164ef202c0f1b6f5195c257272a4` (centered max-width content); `5e22b278f5cf296c6d9e24926a85773b0ade4957` (initial adaptive layout regression coverage); `43f8c676049eb03a1433c5fbe7a1e778e3bcfc4d` and `dec67eeb961fb1fb9e0e841388dc18b24f86f575` (cover short-wide bottom-navigation layouts too).
+- **Validation:** Pending exact-head CI and Android build. No emulator/device visual review has been run.
+- **Scope boundary:** No role navigation behavior, map viewport, backend, database, or production/deployment behavior changed.
+- **Next action:** Validate the exact PR head, then continue with screen-specific tablet/landscape improvements.
+
+---
+
 # Current handoff — 2026-11-17: responder status transition confirmations
 
 - **Objective:** Align the native responder/driver status UI with the repository's role-based wireframe specification.
