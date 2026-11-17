@@ -103,3 +103,17 @@ The advisor snapshot was observed around 2026-11-16 06:39 UTC. Re-run advisors a
 - Supabase, [Advisors](https://supabase.com/docs/guides/observability/advisors), updated 2026-10-02. Explains that advisor findings are deterministic checks and may be intentional; verify them against the actual access model before changing policies.
 - Supabase, [Password Security](https://supabase.com/docs/guides/auth/password-security), updated 2026-10-01. Documents leaked-password protection and its plan availability (Pro and above).
 - PostgreSQL, [Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html), accessed 2026-11-16. Explains that referencing FK columns are not automatically indexed and that indexes should be chosen according to workload.
+
+
+## API operation audit — operational limitations and controls
+
+The Laravel logger is deliberately fail-open, but the current implementation writes to Supabase synchronously after the upstream operation. Each log attempt can add up to approximately one second of response-path latency when the audit endpoint is slow or unreachable. A request that performs both Supabase Auth validation and an RPC can incur more than one audit attempt. This is a known reliability trade-off, not a zero-cost operation.
+
+Before enabling this logger broadly in an emergency-response production environment:
+- Measure p50/p95/p99 added latency under normal and failing audit-sink conditions.
+- Prefer a durable asynchronous delivery design only after a real queue/worker and retry/dead-letter lifecycle are configured and monitored; an unconfigured queue would silently weaken audit coverage.
+- Define a retention period, authorized reader, export/backup approach, and deletion process for `api_operation_logs`. The migration currently creates an index but does not implement automatic retention or partitioning.
+- Monitor audit write failures without logging request bodies, access tokens, coordinates, URLs, or provider response bodies.
+- Keep the coverage statement limited to Laravel-mediated requests. Android and dashboard direct-to-Supabase calls, direct Storage operations, and the FCM worker are not comprehensively represented by this logger.
+
+The audit table is not a complete security event ledger. Rejected database operations that roll back cannot be durably recorded by an audit insert in the same transaction; use platform/gateway telemetry for those events and separately designed domain events for successful state changes.
