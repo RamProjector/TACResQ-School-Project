@@ -2,9 +2,9 @@
 -- This runs only in the disposable PostgreSQL migration-replay database.
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES (
-  '00000000-0000-4000-8000-000000000143',
-  'incident-write-boundary@example.test',
-  '{"name":"Incident Write Boundary","phone":"+63917000043","role":"requester"}'::jsonb
+  '00000000-0000-4000-8000-000000000970',
+  'incident-write-boundary-970@example.test',
+  '{"name":"Incident Write Boundary","phone":"+63917000970","role":"requester"}'::jsonb
 );
 
 INSERT INTO public.incidents (
@@ -14,10 +14,10 @@ INSERT INTO public.incidents (
 SELECT p.id, 'medical', 'Authenticated write-boundary fixture',
        11.244, 125.003, now(), 'manual'
 FROM public.profiles p
-WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000143';
+WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000970';
 
 SET ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000143', false);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000970', false);
 
 DO $incident_write_boundary$
 DECLARE
@@ -71,12 +71,12 @@ SELECT set_config('request.jwt.claim.sub', '', false);
 -- after direct authenticated incident-table DML has been revoked.
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES
-  ('00000000-0000-4000-8000-000000000144', 'incident-write-requester-144@example.test', '{"name":"Incident Write Requester","phone":"+63917000144"}'),
-  ('00000000-0000-4000-8000-000000000145', 'incident-write-responder-145@example.test', '{"name":"Incident Write Responder","phone":"+63917000145"}');
+  ('00000000-0000-4000-8000-000000000972', 'incident-write-requester-972@example.test', '{"name":"Incident Write Requester","phone":"+63917000972"}'),
+  ('00000000-0000-4000-8000-000000000973', 'incident-write-responder-973@example.test', '{"name":"Incident Write Responder","phone":"+63917000973"}');
 
 UPDATE public.profiles
 SET role = 'responder', duty_status = 'available'
-WHERE auth_user_id = '00000000-0000-4000-8000-000000000145';
+WHERE auth_user_id = '00000000-0000-4000-8000-000000000973';
 
 INSERT INTO public.incidents (
   requester_id, type, description, latitude, longitude,
@@ -86,19 +86,19 @@ SELECT requester.id, 'medical', 'Authenticated responder status RPC boundary fix
        11.244, 125.003, now(), 'manual', responder.id, 'assigned', true
 FROM public.profiles requester
 CROSS JOIN public.profiles responder
-WHERE requester.auth_user_id = '00000000-0000-4000-8000-000000000144'
-  AND responder.auth_user_id = '00000000-0000-4000-8000-000000000145';
+WHERE requester.auth_user_id = '00000000-0000-4000-8000-000000000972'
+  AND responder.auth_user_id = '00000000-0000-4000-8000-000000000973';
 
 INSERT INTO public.incident_assignments (incident_id, user_id, assigned_by)
 SELECT i.id, responder.id, NULL
 FROM public.incidents i
 JOIN public.profiles requester ON requester.id = i.requester_id
-JOIN public.profiles responder ON responder.auth_user_id = '00000000-0000-4000-8000-000000000145'
-WHERE requester.auth_user_id = '00000000-0000-4000-8000-000000000144'
+JOIN public.profiles responder ON responder.auth_user_id = '00000000-0000-4000-8000-000000000973'
+WHERE requester.auth_user_id = '00000000-0000-4000-8000-000000000972'
   AND i.description = 'Authenticated responder status RPC boundary fixture';
 
 SET ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000145', false);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000973', false);
 
 DO $responder_write_boundary$
 DECLARE
@@ -157,7 +157,7 @@ DECLARE
 BEGIN
   SELECT id INTO v_actor_id
   FROM public.profiles
-  WHERE auth_user_id = '00000000-0000-4000-8000-000000000145';
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000973';
 
   SELECT id INTO v_incident_id
   FROM public.incidents
