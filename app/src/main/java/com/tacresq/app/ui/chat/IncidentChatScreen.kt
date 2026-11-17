@@ -142,9 +142,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     // Retain uncertain sends across conversation close/reopen. Never mint a new key for the same payload.
     private var pendingTextMessage: PendingTextMessage? = null
     private var pendingClientMessageId: String? = null
-    private var pendingImageClientMessageId: String? = null
-    private var pendingImageSignature: String? = null
-    private var pendingImageRecord: SessionStore.PendingChatImage? = null
+    private var     private var     private var pendingImageRecord: SessionStore.PendingChatImage? = null
 
     fun open(incidentId: Long) {
         if (activeIncidentId != incidentId) {
@@ -173,9 +171,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                             .onSuccess { image ->
                                 if (!isCurrentConversation(incidentId, conversationGeneration)) return@onSuccess
                                 pendingImageRecord = image
-                                pendingImageClientMessageId = image?.clientMessageId
-                                pendingImageSignature = image?.sha256
-                                if (image != null && image.incidentId != incidentId) {
+                                                                                                if (image != null && image.incidentId != incidentId) {
                                     _state.update { it.copy(restoringPending = true, sendError = "An earlier image message is unresolved in another incident. Open that incident and reselect the same image to retry it.") }
                                 } else {
                                     _state.update {
@@ -279,9 +275,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             return
         }
         if (next != _state.value.draft) {
-            pendingImageClientMessageId = null
-            pendingImageSignature = null
-        }
+                                }
         _state.update { it.copy(draft = next, sendError = null) }
     }
 
@@ -345,7 +339,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun setImageAttachment(bytes: ByteArray, mimeType: String) {
         if (mimeType !in setOf("image/jpeg", "image/png", "image/webp") ||
-            bytes.isEmpty() || bytes.size > 5 * 1024 * 1024
+            bytes.isEmpty() || bytes.size > MAX_CHAT_IMAGE_BYTES
         ) {
             _state.update { it.copy(sendError = "Choose a JPG, PNG, or WebP image up to 5 MB.") }
             return
@@ -413,9 +407,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                 pendingImageRecord = SessionStore.PendingChatImage(
                     incidentId, caption, clientMessageId, mimeType, digest, senderId,
                 )
-                pendingImageClientMessageId = clientMessageId
-                pendingImageSignature = digest
-                _state.update { it.copy(pendingImageRetry = true) }
+                                                _state.update { it.copy(pendingImageRetry = true) }
             }
             repositoryCallOrFailure { repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes) }
                 .onSuccess { sent ->
@@ -427,9 +419,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                         return@onSuccess
                     }
                     pendingImageRecord = null
-                    pendingImageClientMessageId = null
-                    pendingImageSignature = null
-                    _state.update { state ->
+                                                            _state.update { state ->
                         state.copy(
                             items = (state.items + sent).distinctBy { it.id }.sortedBy { it.id },
                             draft = "",
@@ -471,9 +461,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         activeIncidentId = null
         // Do not clear an uncertain text-send identity here: the server may have committed
         // it even though cancellation prevented the response from reaching this ViewModel.
-        pendingImageClientMessageId = null
-        pendingImageSignature = null
-        // Keep the encrypted retry identity in SessionStore; it must survive navigation.
+                        // Keep the encrypted retry identity in SessionStore; it must survive navigation.
         _state.value = IncidentChatUiState()
     }
 }
