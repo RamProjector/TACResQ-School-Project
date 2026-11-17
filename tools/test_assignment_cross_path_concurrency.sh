@@ -79,14 +79,34 @@ done
 hold_profile_lock() {
   local profile_id="$1"
   local app_name="$2"
-  local pid_file="$3"
-  PGAPPNAME="$app_name" psql -qAt -v ON_ERROR_STOP=1 >"$pid_file" <<SQL
+  PGAPPNAME="$app_name" psql -q -v ON_ERROR_STOP=1 >/dev/null <<SQL
 BEGIN;
-SELECT pg_backend_pid();
 SELECT id FROM public.profiles WHERE id = $profile_id FOR UPDATE;
 SELECT pg_sleep(12);
 COMMIT;
 SQL
+}
+
+wait_for_coordinator_pid() {
+  local app_name="$1"
+  local observed_pid=""
+  local attempt
+  for attempt in $(seq 1 100); do
+    observed_pid="$(psql -qAt -v ON_ERROR_STOP=1 -c "
+      SELECT pid FROM pg_stat_activity
+      WHERE application_name = '$app_name'
+        AND wait_event_type = 'Timeout'
+        AND wait_event = 'PgSleep'
+      LIMIT 1
+    ")"
+    if [[ "$observed_pid" =~ ^[0-9]+$ ]]; then
+      printf '%s\\n' "$observed_pid"
+      return 0
+    fi
+    sleep 0.05
+  done
+  echo "Coordinator $app_name did not reach its lock-holding sleep." >&2
+  return 1
 }
 
 wait_for_two_lock_waiters() {
@@ -147,16 +167,9 @@ SQL
 cross_coordinator_app="tacresq-cross-coordinator"
 cross_worker_a_app="tacresq-cross-field-worker"
 cross_worker_b_app="tacresq-cross-dispatch-worker"
-cross_pid_file="$tmp_dir/cross-coordinator.pid"
-hold_profile_lock "$cross_responder_id" "$cross_coordinator_app" "$cross_pid_file" &
+hold_profile_lock "$cross_responder_id" "$cross_coordinator_app" &
 cross_coordinator_shell_pid=$!
-for attempt in $(seq 1 100); do
-  if [[ -s "$cross_pid_file" ]]; then break; fi
-  sleep 0.05
-done
-cross_coordinator_backend_pid="$(head -n 1 "$cross_pid_file" 2>/dev/null || true)"
-if [[ ! "$cross_coordinator_backend_pid" =~ ^[0-9]+$ ]]; then
-  echo "Could not establish field-vs-dispatch coordinator lock." >&2
+if ! cross_coordinator_backend_pid="$(wait_for_coordinator_pid "$cross_coordinator_app")"; then
   wait "$cross_coordinator_shell_pid" || true
   exit 1
 fi
@@ -210,16 +223,9 @@ fi
 dispatch_coordinator_app="tacresq-dispatch-coordinator"
 dispatch_worker_a_app="tacresq-dispatcher-a-worker"
 dispatch_worker_b_app="tacresq-dispatcher-b-worker"
-dispatch_pid_file="$tmp_dir/dispatch-coordinator.pid"
-hold_profile_lock "$dispatch_responder_id" "$dispatch_coordinator_app" "$dispatch_pid_file" &
+hold_profile_lock "$dispatch_responder_id" "$dispatch_coordinator_app" &
 dispatch_coordinator_shell_pid=$!
-for attempt in $(seq 1 100); do
-  if [[ -s "$dispatch_pid_file" ]]; then break; fi
-  sleep 0.05
-done
-dispatch_coordinator_backend_pid="$(head -n 1 "$dispatch_pid_file" 2>/dev/null || true)"
-if [[ ! "$dispatch_coordinator_backend_pid" =~ ^[0-9]+$ ]]; then
-  echo "Could not establish dispatcher-vs-dispatcher coordinator lock." >&2
+if ! dispatch_coordinator_backend_pid="$(wait_for_coordinator_pid "$dispatch_coordinator_app")"; then
   wait "$dispatch_coordinator_shell_pid" || true
   exit 1
 fi
