@@ -13,6 +13,20 @@
 
 ---
 
+# Current handoff — 2026-11-17: adaptive navigation and role-shell UI refinement
+
+- **Objective:** Improve the actual Android application UI using the existing Kotlin/Jetpack Compose source and the uploaded TACResQ wireframe design references.
+- **Branch:** `agent/adaptive-navigation-medium-window`.
+- **Implementation:** `RoleShell.kt` now switches from bottom navigation to a navigation rail at medium-width windows (600dp+) when height is at least 480dp. Compact and short-height windows retain bottom navigation. This aligns the breakpoint with Android's current adaptive guidance rather than reserving the rail only for expanded-width (840dp+) windows.
+- **Regression coverage:** Added `AdaptiveNavigationPolicyTest.kt` for compact, medium, expanded, and short-wide window cases. Updated `NavigationInstrumentedTest.kt` to expect the actual Messages destination instead of the obsolete Alerts label.
+- **Research:** Android Developers adaptive-app guidance recommends bottom navigation for compact windows and navigation rail for medium/expanded windows; adaptive layouts should respond to app-window dimensions. Compose accessibility guidance recommends minimum 48dp touch targets. References: https://developer.android.com/develop/adaptive-apps/guides/adaptive-dos-and-donts ; https://developer.android.com/develop/adaptive-apps/guides/build-adaptive-navigation ; https://developer.android.com/guide/topics/ui/accessibility/apps
+- **Commits:** `2b08cb497a791b4c0bd80704d0efba5a1d7bda5f` (adaptive breakpoint); `713aa5668ef573029fce5a11ba66753540361f70` (unit tests); `3638a04cac1a4e2290d4101b3b0d0f830b1ec945` (instrumented navigation test label).
+- **Validation:** Not yet run; PR CI will provide exact-head validation. Physical-device/emulator visual review is not run.
+- **Scope boundary:** No backend behavior, permissions, live Supabase state, or deployment configuration changed.
+- **Next action:** Inspect the exact PR head and CI, then continue with the next high-impact screen-level improvement using the requester/responder/dispatcher wireframes.
+
+---
+
 # Current handoff — 2026-11-16: comprehensive review + durable chat outbox tests
 
 - **Active PR:** [#312 Persist incident chat text retries across app restarts](https://github.com/RamProjector/TACResQ-School-Project/pull/312).
