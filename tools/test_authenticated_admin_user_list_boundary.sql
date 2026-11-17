@@ -1,5 +1,10 @@
 -- Verify the Admin list RPC boundary under the actual authenticated role.
 -- Fixtures 128 (admin) and 130 (requester) are provisioned earlier in replay.
+-- Reassert the trusted Admin fixture immediately before the authenticated session.
+UPDATE public.profiles
+SET role = 'admin', duty_status = NULL
+WHERE auth_user_id = '00000000-0000-4000-8000-000000000128';
+
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', false);
 
