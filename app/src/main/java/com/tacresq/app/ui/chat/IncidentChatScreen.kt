@@ -653,10 +653,10 @@ fun IncidentChatScreen(
                     TextButton(
                         onClick = {
                             if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
-                            else if (vm.state.value.sendError?.contains("image", ignoreCase = true) != true) vm.send(incidentId)
+                            else if (!state.pendingImageRetry) vm.send(incidentId)
                         },
                         enabled = !state.sending && if (state.attachmentBytes != null) true
-                            else state.draft.isNotBlank() && !state.sendError.orEmpty().contains("image", ignoreCase = true),
+                            else state.draft.isNotBlank() && !state.pendingImageRetry,
                     ) { Text("Retry") }
                 }
             }
