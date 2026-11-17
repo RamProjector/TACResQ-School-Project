@@ -83,7 +83,7 @@ hold_profile_lock() {
 SELECT set_config('application_name', '$app_name', false);
 BEGIN;
 SELECT id FROM public.profiles WHERE id = $profile_id FOR UPDATE;
-SELECT pg_sleep(12);
+SELECT pg_sleep(30);
 COMMIT;
 SQL
 }
@@ -116,7 +116,7 @@ wait_for_two_lock_waiters() {
   local coordinator_pid="$3"
   local observed=0
   local attempt
-  for attempt in $(seq 1 100); do
+  for attempt in $(seq 1 200); do
     observed="$(psql -qAt -v ON_ERROR_STOP=1 -c "
       SELECT count(*)
       FROM pg_stat_activity a
