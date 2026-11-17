@@ -626,3 +626,21 @@ The temporary candidate branch is not a PR and was not merged into `main`. No li
 ### Merge recommendation after integrated evidence
 
 The code-bearing PRs #316–#321 are now **technically worth merging**, subject to a final human diff review and the remaining manual/device checks relevant to release. Recommended merge order follows migration chronology: #316 → #317 → #318 → #319 → #320 → #321. Merge one at a time, wait for exact-head CI after each base update, and resolve shared CI/replay/history files using the validated integration-candidate versions. Merge #322 documentation after the code PRs or keep it as the release-control record. This is a recommendation, not authorization to merge; no merge was performed.
+
+
+## Follow-up research fixes — 2026-11-17
+
+Two independent-review findings were translated into source-level contract clarifications and bounded behavior:
+
+- **PR #316 — bounded synchronous audit latency.** The audit writer remains fail-open and synchronous because the repository does not establish a durable queue/worker, retry, and dead-letter lifecycle. Its Supabase HTTP request now uses a 200 ms connection timeout and 250 ms total request timeout. One audit attempt is therefore bounded to approximately 250 ms; an Auth-plus-RPC request can still incur up to approximately 500 ms if both audit writes time out. This is an explicit reliability trade-off, not asynchronous or guaranteed audit delivery. Added p50/p95/p99 verification requirements for slow-success, connection timeout, read timeout, and HTTP 5xx conditions. Commits: `2aecbd15104a65d5b4f39ed791facf283ab7c205` and `a26f90f6fc36110deea82cb2843fae855a4dd17d`.
+- **PR #318 — client timestamp trust boundary in the API schema.** Added a PostgreSQL function COMMENT defining `p_location_recorded_at` as client-reported capture/selection time only, not server receipt time, GPS attestation, physical-presence proof, or authorization evidence. Expanded the review/data-dictionary wording to require consumers to preserve that distinction and prohibit using the value for authorization, dispatch eligibility, or presence decisions. Commits: `1f6146dd1228ef04f74a46a25f9435d63906f41f` and `91fd727fb5e54ecefe313ee8b6664b6b5576bd18`.
+
+Research basis:
+- Laravel HTTP Client documents that `timeout` bounds response waiting and `connectTimeout` bounds connection establishment; connection exceptions are thrown on timeout. The implementation keeps explicit timeouts and fail-open handling.
+- OWASP Logging Cheat Sheet says logging failures must not prevent the application from running and specifically calls for testing slow/disconnected logging dependencies, side effects, and resource exhaustion.
+- Supabase API-key documentation distinguishes client-reported values and secret-key handling; secret keys remain server-only and API keys are not user identity.
+- Android location APIs expose location accuracy/time as metadata; neither a client timestamp nor a provider label authenticates physical location.
+
+Sources: Laravel HTTP Client (https://laravel.com/framework/docs/http-client); OWASP Logging Cheat Sheet (https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet); Supabase API Keys (https://supabase.com/docs/guides/getting-started/api-keys); Android Location APIs (https://developer.android.com/develop/sensors-and-location/location).
+
+**Validation sequencing:** these are implementation/documentation commits only. Per the project instruction, do not run tests or trigger CI until all remaining implementation commits across the active PR scope are complete. The existing combined-candidate evidence predates these follow-up commits and does not validate them. All relevant exact-head checks must be rerun after implementation is closed.
