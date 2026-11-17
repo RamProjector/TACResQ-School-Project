@@ -90,3 +90,11 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Removed icon-object hash from responder marker signatures. Freshness is already an explicit signature component and determines stale versus normal pin styling, so object hash was redundant and could cause needless updates if icon instances changed.
 - Research confirmation: MapLibre Android 13.7.1 documents mutable Marker position/icon/title/snippet properties, updateMarker, and individual marker/polyline removal. These APIs validate the incremental reconciliation calls, while remaining deprecated legacy annotations. References: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.annotations/-marker/index.html and https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/index.html.
 - No build or runtime validation performed.
+
+
+## Style reload and route-effect invalidation — 2026-11-17
+
+- Found a two-layer invalidation gap: exact route comparison was downstream of a Compose effect still keyed by `geometry.hashCode()`, and style replacement did not invalidate the renderer's remembered map owner.
+- The effect key now uses ordered coordinate pairs, matching the exact route signature used by reconciliation.
+- Initial style completion and retry style completion invalidate the annotation owner; the next render clears stale references and recreates markers and route against the new style.
+- Device verification is still required for style reload/retry and route restoration. No tests/build/device checks run.

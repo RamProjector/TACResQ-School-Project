@@ -1,3 +1,9 @@
+## GPS style reload and route invalidation correction — 2026-11-17
+
+- **Finding:** The renderer's internal route comparison used exact coordinates, but the Compose effect that triggers reconciliation still depended on `geometry.hashCode()`. A collision could prevent the exact comparison from running. Style replacement/retry also left the remembered annotation owner unchanged, risking stale marker/polyline references after a style reload.
+- **Fix on PR #334:** The effect now keys on ordered latitude/longitude coordinate pairs. Initial style completion and explicit retry invalidate the renderer owner so the next reconciliation clears stale annotation references and rebuilds visible markers and route on the loaded style.
+- **Scope:** No map provider, routing, incident data, permissions, tracking, or backend behavior changed. No tests/build/device checks run, per instruction.
+
 # GPS marker identity and dispatcher selection linkage
 
 - Replaced marker click behavior based on parsing the visible title with a registry keyed by MapLibre's stable annotation ID. Incident, field-unit, and device-preview marker behavior now resolves from typed metadata kept separately from display text.

@@ -786,6 +786,9 @@ fun GpsMapScreen(
                 true
             }
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
+                // A style replacement invalidates style-backed annotations. Force the
+                // renderer effect to rebuild markers and route on the newly loaded style.
+                renderedMapOwner = null
                 mapStyleLoaded = true
                 positionMapCompass(
                     map,
@@ -956,6 +959,9 @@ fun GpsMapScreen(
         mapStyleLoaded = false
         locationStatus = "Retrying map data…"
         map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
+            // Retry replaces the style too; never keep references to annotations
+            // created against the previous style.
+            renderedMapOwner = null
             mapStyleLoaded = true
             positionMapCompass(
                 map,
@@ -1377,7 +1383,9 @@ fun GpsMapScreen(
             routeIncidentId == selectedIncidentId && it.isUsable(System.currentTimeMillis())
         }
     }
-    val displayedRouteMapKey = displayedRoute?.geometry?.hashCode()
+    // Compare actual ordered geometry at the effect boundary; a hash collision must not
+    // prevent reconciliation from observing a changed route.
+    val displayedRouteMapKey = displayedRoute?.geometry?.map { it.latitude to it.longitude }
 
     androidx.compose.runtime.LaunchedEffect(
         mapLibreMap,
