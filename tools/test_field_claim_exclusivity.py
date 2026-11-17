@@ -73,6 +73,12 @@ for required in (
     "'\"status\": \"claimed\"'",
     "'\"code\": \"UNIT_BUSY\"'",
     "Exactly one membership",
+    "run_claim_as \"$responder_b_uuid\" \"${incident_ids[2]}\"",
+    "run_claim_as \"$responder_c_uuid\" \"${incident_ids[2]}\"",
+    "same_incident_claimed",
+    "same-incident-counts",
+    "Disposable same-incident multi-unit claim",
+    "Expected two team members and one assigned incident",
 ):
     assert required.lower() in race_sql.lower(), f"Missing two-session race assertion: {required}"
 
