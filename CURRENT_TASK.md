@@ -1,3 +1,15 @@
+## Android assignment-history read transport — 2026-11-18
+
+- Added the Supabase-only `TacAssignmentHistoryApi` capability and typed event DTO for the append-only assignment ledger.
+- Added a bounded PostgREST read scoped to one incident, ordered newest-first by event time and event ID. It selects only the ledger fields defined by the migration.
+- The Android client does not receive insert/update/delete methods. Authorization remains enforced by the event table's dispatcher/admin RLS policy; client-side role checks are not treated as the security boundary.
+- The optional Render bridge is deliberately not given this route because its authorization/allowlist contract has not been reviewed. The fake API does not advertise this capability.
+- Added `tools/test_assignment_history_api_contract.py` to guard the DTO mappings, incident filter, page-size bound, sort order, and bridge exclusion.
+- **Not complete:** No Android screen/ViewModel consumes the capability yet, actor/member display names are not joined, and no live PostgREST request was made. The migration remains unapplied to production.
+- **Validation:** Static test added but not executed. No Gradle build, unit tests, emulator/device test, or production database change.
+
+---
+
 ## Assignment event history security contract — 2026-11-18
 
 - **Review:** The migration records assignment, release, and incident-closure events through database triggers. Authenticated clients receive SELECT only; row-level security restricts reads to dispatcher/admin profiles. Trigger writers are private SECURITY DEFINER functions with a fixed `pg_catalog` search path and no client EXECUTE grant.
