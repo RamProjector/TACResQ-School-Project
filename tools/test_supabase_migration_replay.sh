@@ -809,8 +809,8 @@ BEGIN
   IF has_function_privilege('anon', 'public.api_admin_list_users()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Anonymous role must not execute the Admin user-list RPC';
   END IF;
-  IF NOT has_function_privilege('authenticated', 'public.api_admin_list_users()', 'EXECUTE') THEN
-    RAISE EXCEPTION 'Authenticated role must have the explicitly granted Admin RPC entry point';
+  IF has_function_privilege('authenticated', 'public.api_admin_list_users()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Legacy unbounded Admin user-list RPC must not be executable by authenticated clients';
   END IF;
   IF has_function_privilege('anon', 'public.api_admin_list_users_page(integer,integer,text,text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Anonymous role must not execute the Admin paginated user-list RPC';
@@ -825,9 +825,14 @@ BEGIN
   END IF;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
-  changed := public.api_admin_list_users();
-  IF jsonb_typeof(changed) <> 'array' OR jsonb_array_length(changed) < 3 THEN
-    RAISE EXCEPTION 'Admin user-list RPC should return profile data for an authorized administrator';
+  -- Function EXECUTE revocation is asserted above via has_function_privilege.
+  -- The dedicated SET ROLE authenticated test below verifies runtime denial.
+
+  changed := public.api_admin_list_users_page(25, 0, '', 'all');
+  IF jsonb_typeof(changed) IS DISTINCT FROM 'object'
+     OR jsonb_typeof(changed->'users') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(changed->'users') > 25 THEN
+    RAISE EXCEPTION 'Admin pagination did not return a bounded user page: %', changed;
   END IF;
   -- Search must be case-insensitive and literal (wildcard characters are not SQL patterns).
   changed := public.api_admin_list_users_page(25, 0, 'ADMIN-ROLE-TARGET@example.test', 'requester');
@@ -1440,3 +1445,6 @@ psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_incident_write_boundary.sql
 
 # Verify immutable profile identity metadata and trusted nested status synchronization.
 psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_profile_metadata.sql
+
+# Verify legacy and paginated Admin list RPC access as authenticated.
+psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_admin_user_list_boundary.sql
