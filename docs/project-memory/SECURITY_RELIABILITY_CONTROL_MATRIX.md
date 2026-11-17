@@ -644,3 +644,26 @@ Research basis:
 Sources: Laravel HTTP Client (https://laravel.com/framework/docs/http-client); OWASP Logging Cheat Sheet (https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet); Supabase API Keys (https://supabase.com/docs/guides/getting-started/api-keys); Android Location APIs (https://developer.android.com/develop/sensors-and-location/location).
 
 **Validation sequencing:** these are implementation/documentation commits only. Per the project instruction, do not run tests or trigger CI until all remaining implementation commits across the active PR scope are complete. The existing combined-candidate evidence predates these follow-up commits and does not validate them. All relevant exact-head checks must be rerun after implementation is closed.
+
+
+
+## Post-follow-up implementation refresh — 2026-11-17 12:xx PHT
+
+The following PR metadata and source diffs were re-read after the bounded-audit and location-timestamp contract commits. This refresh supersedes earlier head hashes above for PR metadata only; historical CI results remain tied to their recorded exact commits.
+
+| PR | Current head | Current state | Latest source follow-up in this pass |
+|---|---|---|---|
+| #316 | `a26f90f6fc36110deea82cb2843fae855a4dd17d` | Open, unmerged, mergeable | Audit HTTP connection timeout 200 ms and total timeout 250 ms; documentation records the possible cumulative delay for Auth plus RPC |
+| #317 | `d4668734f163fcfc5ecab24bf9e4a44c78638636` | Open, unmerged, mergeable | No new code change; field-claim and dispatcher assignment locking/test contracts re-reviewed |
+| #318 | `91fd727fb5e54ecefe313ee8b6664b6b5576bd18` | Open, unmerged, mergeable | SQL function comment and API/data-dictionary wording clarify that location capture time is client-reported only |
+| #319 | `2cb6aa7d2204fbd4ea2086a53c9d5d0a05126247` | Open, unmerged, mergeable | No new code change; lifecycle locking, direct-DML boundary, and audit-transition behavior re-reviewed |
+| #320 | `e5ca8e7a45b490f9cc8195297ebe0d810865b065` | Open, unmerged, mergeable | No new code change; nested-trigger identity immutability and authenticated negative-test contract re-reviewed |
+| #321 | `bd28f881739de571b024c9baa90a284ac443a280` | Open, unmerged, mergeable | No new code change; legacy unbounded Admin RPC revocation and paginated replacement re-reviewed |
+| #322 | `8cfcb15326691a291dfb96444e6ac9be72443cf6` | Open, unmerged, mergeable | This refresh is being committed as a documentation-only follow-up |
+
+### Integration and validation status
+
+- The combined candidate `cef63fa713dc3488b76952791742d91ebd0cf4bf` is historical evidence for the snapshots it contained. It predates the two latest implementation commits on #316 and #318 and therefore does **not** validate the current seven-PR heads.
+- The independently green workflow claims recorded above must not be carried forward to the new #316/#318 heads without exact-head reruns. No tests or CI were started during this implementation pass, in accordance with the instruction to finish implementation commits first.
+- Shared-file integration remains a deliberate merge concern: #316–#321 independently touch some combination of `.github/workflows/ci.yml`, `tools/test_supabase_migration_replay.sh`, and `tools/test_migration_history_alignment.py`. The validated candidate versions preserve the full replay-test union, but the final merge sequence must reapply/retain that union after each base update and rerun checks on the resulting exact head.
+- No production migration, Supabase data mutation, Render configuration/deployment, secret change, FCM send, or PR merge occurred.
