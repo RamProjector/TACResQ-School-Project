@@ -80,6 +80,11 @@ assert "NavigationRailItem(" in navigation
 assert "TacruBottomNavigation(" in navigation
 assert "Scaffold(" in navigation
 assert "if (useNavigationRail)" in navigation
+assert "widthIn(max = 960.dp)" in navigation
+assert "contentAlignment = Alignment.TopCenter" in navigation
+map_branch = navigation.split("if (selected == AppDestination.MAP)", 1)[1].split("} else {", 1)[0]
+assert "mapContent()" in map_branch
+assert "widthIn(max = 960.dp)" not in map_branch
 assert ".padding(padding)" in navigation
 assert "AppDestination.MAP" in navigation
 assert 'label = "GPS Map"' in navigation
