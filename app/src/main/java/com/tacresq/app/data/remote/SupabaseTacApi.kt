@@ -386,6 +386,9 @@ private interface SupabaseRpcWire {
     @POST("rest/v1/rpc/api_assign_incident_team")
     suspend fun assignIncidentTeam(@Body body: AssignIncidentTeamRpc): Incident
 
+    @POST("rest/v1/rpc/api_release_incident_assignment")
+    suspend fun releaseIncidentAssignment(@Body body: ReleaseIncidentAssignmentRpc): Incident
+
     @POST("rest/v1/rpc/api_claim_incident")
     suspend fun claimIncident(@Body body: ClaimIncidentRpc): com.tacresq.app.data.model.ClaimIncidentResult
 
