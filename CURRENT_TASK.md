@@ -1499,3 +1499,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - This is a presentation/privacy improvement only; the immutable event still retains actor_user_id for authorized audit retrieval. No schema, API, or authorization changes.
 - Added a source contract to prevent raw actor account IDs from reappearing in the UI.
 - Validation: source-level review only; contract test and Android build were not executed. No production backend changes.
+
+
+## 2026-11-18 — Accurate GPS cluster totals
+- Corrected the cluster chooser's total when different map sources overlap: its count now sums every hit cluster's point_count, including a smaller cluster that does not need pagination.
+- Single-source cluster choosers now use the source feature's point_count directly. Paging still applies only to sources with more than 50 leaves.
+- Added a source contract and CI step to guard mixed-source aggregation and single-cluster counts.
+- Validation: source review only; the new contract test, Android build, and device map interaction were not run. No production backend changes.
