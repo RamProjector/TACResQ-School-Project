@@ -197,3 +197,12 @@ This reduces avoidable annotation churn but is not a measured performance claim:
 - Cluster tap handling supports both responder sources and still resolves individual leaves against the latest validated responder list before opening details.
 - This avoids a potentially misleading cluster that visually implied all grouped responder locations were current. No build/tests/device checks run.
 
+
+
+## Restore emergency pin artwork on clustered points — 2026-11-17
+
+- Reused the app's existing incident, selected-incident, responder, and stale-responder drawable artwork as MapLibre style images, instead of leaving individual points as generic circles after clustering was introduced.
+- Individual incident pins now have a distinct selected state; responder pins retain their own artwork, and stale responder artwork is faded to reinforce last-known status. Cluster bubbles remain count-based and category-colored.
+- The shared bitmap helper now supplies both legacy device-preview annotation icons and style-backed symbol images, keeping pin-tip anchoring consistent.
+- No build/tests/device checks run. Verify sprite registration, pin anchor, symbol scaling, selected state, and style recreation on supported screen densities.
+

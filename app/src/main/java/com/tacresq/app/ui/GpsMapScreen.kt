@@ -16,6 +16,7 @@ import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonOptions
 import org.maplibre.android.style.sources.GeoJsonSource
@@ -157,6 +158,7 @@ private const val RESPONDER_CLUSTER_SOURCE_ID = "tacresq-responder-clusters-sour
 private const val STALE_RESPONDER_CLUSTER_SOURCE_ID = "tacresq-stale-responder-clusters-source"
 private const val INCIDENT_CLUSTER_LAYER_ID = "tacresq-incident-clusters"
 private const val INCIDENT_POINT_LAYER_ID = "tacresq-incident-points"
+private const val INCIDENT_SELECTED_POINT_LAYER_ID = "tacresq-incident-selected-points"
 private const val INCIDENT_COUNT_LAYER_ID = "tacresq-incident-cluster-count"
 private const val RESPONDER_CLUSTER_LAYER_ID = "tacresq-responder-clusters"
 private const val RESPONDER_POINT_LAYER_ID = "tacresq-responder-points"
@@ -171,7 +173,11 @@ private data class GpsMapClusterSources(
     val staleResponders: GeoJsonSource,
 )
 
-private fun Style.installGpsMapClusterLayers(): GpsMapClusterSources {
+private fun Style.installGpsMapClusterLayers(context: Context): GpsMapClusterSources {
+    addImage("tacresq-incident-pin", context.mapLibrePinBitmap(com.tacresq.app.R.drawable.ic_map_incident_pin))
+    addImage("tacresq-selected-incident-pin", context.mapLibrePinBitmap(com.tacresq.app.R.drawable.ic_map_incident_pin, scale = 0.98f))
+    addImage("tacresq-responder-pin", context.mapLibrePinBitmap(com.tacresq.app.R.drawable.ic_map_responder_pin))
+    addImage("tacresq-stale-responder-pin", context.mapLibrePinBitmap(com.tacresq.app.R.drawable.ic_map_responder_pin, alpha = 110))
     fun newClusterSource(id: String) = GeoJsonSource(
         id,
         FeatureCollection.fromFeatures(emptyArray<Feature>()),
@@ -199,26 +205,37 @@ private fun Style.installGpsMapClusterLayers(): GpsMapClusterSources {
             setFilter(Expression.has("point_count"))
         })
     }
-    fun addPointCircle(id: String, sourceId: String, color: Int) {
-        addLayer(CircleLayer(id, sourceId).apply {
-            setProperties(PropertyFactory.circleColor(color), PropertyFactory.circleRadius(9f),
-                PropertyFactory.circleStrokeColor(Color.WHITE), PropertyFactory.circleStrokeWidth(2f))
-            setFilter(Expression.neq(Expression.get("cluster"), true))
+    val unclustered = Expression.neq(Expression.get("cluster"), true)
+    fun addPinLayer(id: String, sourceId: String, image: String, filter: Expression, opacity: Float = 1f, size: Float = 0.78f) {
+        addLayer(SymbolLayer(id, sourceId).apply {
+            setProperties(
+                PropertyFactory.iconImage(image),
+                PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                PropertyFactory.iconAllowOverlap(true),
+                PropertyFactory.iconIgnorePlacement(true),
+                PropertyFactory.iconOpacity(opacity),
+                PropertyFactory.iconSize(size),
+            )
+            setFilter(filter)
         })
     }
     addClusterCircle(INCIDENT_CLUSTER_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID, Color.rgb(183, 28, 28))
     addClusterCount(INCIDENT_COUNT_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID)
-    addPointCircle(INCIDENT_POINT_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID, Color.rgb(198, 40, 40))
+    addPinLayer(INCIDENT_POINT_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID, "tacresq-incident-pin",
+        Expression.all(unclustered, Expression.neq(Expression.get("selected"), true)))
+    addPinLayer(INCIDENT_SELECTED_POINT_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID, "tacresq-selected-incident-pin",
+        Expression.all(unclustered, Expression.eq(Expression.get("selected"), true)), size = 0.98f)
     addClusterCircle(RESPONDER_CLUSTER_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(0, 105, 92))
     addClusterCount(RESPONDER_COUNT_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID)
-    addPointCircle(RESPONDER_POINT_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(0, 121, 107))
+    addPinLayer(RESPONDER_POINT_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID, "tacresq-responder-pin", unclustered)
     addClusterCircle(STALE_RESPONDER_CLUSTER_LAYER_ID, STALE_RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(97, 97, 97))
     addClusterCount(STALE_RESPONDER_COUNT_LAYER_ID, STALE_RESPONDER_CLUSTER_SOURCE_ID)
-    addPointCircle(RESPONDER_STALE_POINT_LAYER_ID, STALE_RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(117, 117, 117))
+    addPinLayer(RESPONDER_STALE_POINT_LAYER_ID, STALE_RESPONDER_CLUSTER_SOURCE_ID,
+        "tacresq-stale-responder-pin", unclustered, opacity = 0.55f)
     return GpsMapClusterSources(incidentSource, responderSource, staleResponderSource)
 }
 
-private fun Incident.toGpsClusterFeature(): Feature? {
+private fun Incident.toGpsClusterFeature(selectedId: Long?): Feature? {
     val lat = latitude ?: return null
     val lng = longitude ?: return null
     if (!hasValidMapCoordinates()) return null
@@ -226,6 +243,7 @@ private fun Incident.toGpsClusterFeature(): Feature? {
         addProperty("incident_id", id.toString())
         addProperty("kind", "incident")
         addProperty("status", status.label)
+        addProperty("selected", id == selectedId)
     }
     return Feature.fromGeometry(Point.fromLngLat(lng, lat), props)
 }
@@ -248,20 +266,23 @@ private fun ResponderLocation.toGpsClusterFeature(now: Instant): Feature? {
  * Converts the app's vector pin drawables to MapLibre marker icons. Icons are
  * created once per map screen and reused for all annotations.
  */
-private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255, scale: Float = 0.75f): Icon {
+private fun Context.mapLibrePinBitmap(resourceId: Int, alpha: Int = 255, scale: Float = 0.75f): Bitmap {
     val drawable = requireNotNull(ContextCompat.getDrawable(this, resourceId)).mutate()
     val safeScale = scale.takeIf { it.isFinite() && it > 0f } ?: 0.75f
     val width = ((drawable.intrinsicWidth.takeIf { it > 0 } ?: 48) * safeScale).roundToInt().coerceAtLeast(1)
     val iconHeight = ((drawable.intrinsicHeight.takeIf { it > 0 } ?: 56) * safeScale).roundToInt().coerceAtLeast(1)
-    // MapLibre's legacy Marker annotation anchors icons at their center. Keep the
-    // pin tip at the geographic coordinate by adding transparent space below it.
+    // Transparent lower half keeps the geographic coordinate at the pin tip.
     val bitmap = Bitmap.createBitmap(width, iconHeight * 2, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     drawable.alpha = alpha.coerceIn(0, 255)
     drawable.setBounds(0, 0, width, iconHeight)
     drawable.draw(canvas)
-    return IconFactory.getInstance(this).fromBitmap(bitmap)
+    return bitmap
 }
+
+private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255, scale: Float = 0.75f): Icon =
+    IconFactory.getInstance(this).fromBitmap(mapLibrePinBitmap(resourceId, alpha, scale))
+
 
 private fun positionMapCompass(map: MapLibreMap, headerBottomPx: Int, density: Float) {
     // The MapView is underneath the Compose header. Position the native compass
@@ -1018,7 +1039,7 @@ fun GpsMapScreen(
             }
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
             map.getStyle { style ->
-                val sources = style.installGpsMapClusterLayers()
+                val sources = style.installGpsMapClusterLayers(context)
                 incidentClusterSource = sources.incidents
                 responderClusterSource = sources.responders
                 staleResponderClusterSource = sources.staleResponders
@@ -1681,7 +1702,7 @@ fun GpsMapScreen(
         }
 
         // Publish independently clustered emergency incidents and field-unit reports.
-        val incidentFeatures = visibleIncidents.mapNotNull(Incident::toGpsClusterFeature)
+        val incidentFeatures = visibleIncidents.mapNotNull { it.toGpsClusterFeature(selectedIncidentId) }
         incidentClusterSource?.setGeoJson(FeatureCollection.fromFeatures(incidentFeatures.toTypedArray()))
         val responderFeatures = validResponderLocations
             .filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }
@@ -1856,7 +1877,7 @@ fun GpsMapScreen(
             val density = mapView.resources.displayMetrics.density
             val radius = 24f * density
             val hitArea = RectF(pixel.x - radius, pixel.y - radius, pixel.x + radius, pixel.y + radius)
-            val incidentTargets = map.queryRenderedFeatures(hitArea, arrayOf(INCIDENT_POINT_LAYER_ID))
+            val incidentTargets = map.queryRenderedFeatures(hitArea, arrayOf(INCIDENT_POINT_LAYER_ID, INCIDENT_SELECTED_POINT_LAYER_ID))
                 .mapNotNull { feature ->
                     val id = feature.getStringProperty("incident_id")?.toLongOrNull() ?: return@mapNotNull null
                     val incident = latestVisibleIncidents.firstOrNull { it.id == id } ?: return@mapNotNull null
