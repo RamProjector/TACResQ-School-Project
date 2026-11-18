@@ -54,7 +54,7 @@ assert "import com.tacresq.app.ui.common.repositoryCallOrFailure" in RESPONDER
 assert "repositoryCallOrFailure { repo.myIncidents() }" in RESPONDER
 assert "repositoryCallOrFailure { repo.me() }" in RESPONDER
 assert "repositoryCallOrFailure { tracking.start(incidentId) }" in RESPONDER
-resume_block = RESPONDER[RESPONDER.index("    fun resumeTracking(incidentId: Long) {"):RESPONDER.index("    fun advance(", RESPONDER.index("    fun resumeTracking(incidentId: Long) {"))]
+resume_block = RESPONDER[RESPONDER.index("    fun resumeTracking(incidentId: Long) {"):RESPONDER.index("    fun stopTracking(", RESPONDER.index("    fun resumeTracking(incidentId: Long) {"))]
 assert resume_block.index("it.copy(") < resume_block.index("viewModelScope.launch")
 assert "finally {" in resume_block and "busy = false" in resume_block
 act_block = RESPONDER[RESPONDER.index("    private fun act(call: suspend () -> Result<*>) {"):RESPONDER.index("\n    }\n}", RESPONDER.index("    private fun act(call: suspend () -> Result<*>) {"))]
