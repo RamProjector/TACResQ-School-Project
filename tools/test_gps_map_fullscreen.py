@@ -58,6 +58,7 @@ assert "onShowActiveUnits = ::showActiveUnits" in map_screen
 assert "map.clear()" in map_screen and "map.addMarker(" in map_screen
 assert map_screen.count("scale: Float = 0.75f") >= 2
 assert map_screen.count("val safeScale = scale.takeIf { it.isFinite() && it > 0f } ?: 0.75f") == 2
+assert "IconFactory.getInstance(this).fromBitmap(mapLibrePinBitmap(resourceId, alpha, scale))" in map_screen
 assert "val bitmap = Bitmap.createBitmap(width, iconHeight * 2" in map_screen, "pin geographic anchor padding must remain proportional after scaling"
 
 # Location preview is cleared if permission is revoked while the map is backgrounded.
