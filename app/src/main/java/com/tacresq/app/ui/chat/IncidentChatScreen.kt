@@ -170,7 +170,14 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                             .onSuccess { image ->
                                 if (!isCurrentConversation(incidentId, conversationGeneration)) return@onSuccess
                                 pendingImageRecord = image
-                                if (image != null && image.incidentId != incidentId) {
+                                if (saved != null && image != null) {
+                                    _state.update {
+                                        it.copy(
+                                            restoringPending = true,
+                                            sendError = "Both a text message and an image send are unresolved. Sending is blocked to avoid replacing either retry record. Contact support to resolve the pending chat state.",
+                                        )
+                                    }
+                                } else if (image != null && image.incidentId != incidentId) {
                                     _state.update { it.copy(restoringPending = true, sendError = "An earlier image message is unresolved in another incident. Open that incident and reselect the same image to retry it.") }
                                 } else {
                                     _state.update {
@@ -375,7 +382,13 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         val bytes = current.attachmentBytes ?: return
         val mimeType = current.attachmentMimeType ?: return
         val caption = current.draft.trim()
-        if (activeIncidentId != incidentId || senderId < 1 || sendJob?.isActive == true || caption.length > 2000) return
+        if (activeIncidentId != incidentId || senderId < 1 || _state.value.restoringPending || sendJob?.isActive == true || caption.length > 2000) return
+        if (pendingTextMessage != null || pendingClientMessageId != null) {
+            _state.update {
+                it.copy(sendError = "A previous text message is still unresolved. Retry that exact message before sending an image.")
+            }
+            return
+        }
         val digest = chatImageSha256(bytes)
         val restored = pendingImageRecord
         if (restored != null && (
