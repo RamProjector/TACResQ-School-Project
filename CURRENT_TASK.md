@@ -1,3 +1,12 @@
+## GPS pin-scale source-contract alignment — 2026-11-18
+
+- **Finding:** The exact-head CI source check failed because `tools/test_gps_map_fullscreen.py` expected a local `val scale = 0.75f`. The production helper actually declares `scale: Float = 0.75f` as a parameter and sanitizes it into `safeScale`, in both annotation-pin and style-pin bitmap helpers.
+- **Change:** Updated the contract to assert both helper defaults and both finite/positive fallback guards. No production Kotlin map rendering code was changed.
+- **Commit:** `7b68e80`.
+- **Validation:** Failure confirmed from the exact GitHub Actions log and compared with the current Kotlin helper implementations. The updated source was committed; the static test has not yet rerun on this head. No local test/build/emulator/device checks or production changes were performed.
+
+---
+
 ## GPS full-screen source-contract alignment — 2026-11-18
 
 - **Finding:** The latest PR #334 source-check workflow reached `tools/test_gps_map_fullscreen.py` and failed one assertion that expected `maxLines` to be immediately followed by `softWrap`. The actual GPS map toolbar correctly places its `Modifier.padding(...)` argument before those text properties. This was a stale, over-specific source assertion, not a missing UI behavior.
