@@ -1688,3 +1688,9 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Documented the required choices and security requirements in docs/OPERATIONAL_IMPROVEMENT_REVIEW.md: verified HTTPS App Link + PKCE and secure short-lived verifier persistence, or a deliberately configured/tested token_hash email template + verifyOtp flow.
 - Keep the current honest unavailable message until redirect domain and Supabase email-template strategy are confirmed. No recovery code, auth configuration, or production settings were changed.
 - Commit: a552e66. Documentation-only; no application behavior changed.
+
+## GPS map async-disposal guard — 2026-11-18
+
+- Traced the MapLibre lifecycle in GpsMapScreen.kt. Lifecycle events and camera/map-load listeners already guarded disposal, but the asynchronous setStyle callback and its nested getStyle callback could still run after the composable was disposed.
+- Added disposed checks at both callback boundaries before installing cluster sources or mutating Compose/map state. This is a targeted lifecycle-race fix; no map behavior, permissions, location sharing, or routing policy was changed.
+- Commit: 3039ed2. Validation pending exact-head GitHub CI; no device lifecycle test was run, so repeated navigation/background-resume behavior remains a manual verification item.
