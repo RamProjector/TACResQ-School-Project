@@ -209,13 +209,13 @@ OPERATIONAL_PRIVILEGE_SQL = Path(
 ).read_text()
 for table in ("fcm_tokens", "incident_status_logs", "location_logs"):
     assert re.search(
-        rf"REVOKE\\s+ALL\\s+PRIVILEGES\\s+ON\\s+TABLE\\s+public\\.fcm_tokens,\\s*"
-        rf"public\\.incident_status_logs,\\s*public\\.location_logs\\s+"
-        rf"FROM\\s+PUBLIC,\\s*anon,\\s*authenticated\\s*;",
+        rf"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+TABLE\s+public\.fcm_tokens,\s*"
+        rf"public\.incident_status_logs,\s*public\.location_logs\s+"
+        rf"FROM\s+PUBLIC,\s*anon,\s*authenticated\s*;",
         OPERATIONAL_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
     ), f"Missing direct client privilege revoke for {table}"
 assert re.search(
-    r"GRANT\\s+SELECT\\s+ON\\s+TABLE\\s+public\\.fcm_tokens,\\s*"
-    r"public\\.incident_status_logs,\\s*public\\.location_logs\\s+TO\\s+authenticated\\s*;",
+    r"GRANT\s+SELECT\s+ON\s+TABLE\s+public\.fcm_tokens,\s*"
+    r"public\.incident_status_logs,\s*public\.location_logs\s+TO\s+authenticated\s*;",
     OPERATIONAL_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
 ), "Authenticated RLS-filtered reads must remain available on operational tables"
