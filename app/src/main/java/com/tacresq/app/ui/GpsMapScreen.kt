@@ -1167,12 +1167,16 @@ fun GpsMapScreen(
                 true
             }
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
-            map.getStyle { style ->
-                val sources = style.installGpsMapClusterLayers(context)
-                incidentClusterSource = sources.incidents
-                responderClusterSource = sources.responders
-                staleResponderClusterSource = sources.staleResponders
-            }
+                // Style loading is asynchronous and may finish after navigation or
+                // lifecycle disposal. Never let an obsolete MapView mutate Compose state.
+                if (disposed) return@setStyle
+                map.getStyle { style ->
+                    if (disposed) return@getStyle
+                    val sources = style.installGpsMapClusterLayers(context)
+                    incidentClusterSource = sources.incidents
+                    responderClusterSource = sources.responders
+                    staleResponderClusterSource = sources.staleResponders
+                }
                 // A style replacement invalidates style-backed annotations. Force the
                 // renderer effect to rebuild markers and route on the newly loaded style.
                 renderedMapOwner = null
