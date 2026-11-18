@@ -317,7 +317,7 @@ DO $release_history_dispatcher_read$
 DECLARE visible_count integer;
 BEGIN
   SELECT count(*) INTO visible_count
-  FROM public.incident_assignment_events AS event_row e
+  FROM public.incident_assignment_events AS e
   WHERE e.incident_id = (
     SELECT id FROM public.incidents
     WHERE description = 'Dispatcher release runtime regression'
@@ -333,7 +333,7 @@ DO $release_history_requester_hidden$
 DECLARE visible_count integer;
 BEGIN
   SELECT count(*) INTO visible_count
-  FROM public.incident_assignment_events AS event_row e
+  FROM public.incident_assignment_events AS e
   WHERE e.incident_id = (
     SELECT id FROM public.incidents
     WHERE description = 'Dispatcher release runtime regression'
@@ -349,7 +349,7 @@ DO $release_history_admin_read$
 DECLARE visible_count integer;
 BEGIN
   SELECT count(*) INTO visible_count
-  FROM public.incident_assignment_events AS event_row e
+  FROM public.incident_assignment_events AS e
   WHERE e.incident_id = (
     SELECT id FROM public.incidents
     WHERE description = 'Dispatcher release runtime regression'
