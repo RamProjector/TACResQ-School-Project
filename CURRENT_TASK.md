@@ -1653,3 +1653,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Commits: 1c8e034 (notification retry UI), 6aa815b (notification retry contract), 627704e (release runtime test), f15cac4 (qualified PL/pgSQL test variable references), 4ab402f (CI wiring).
 - Validation status: source was re-fetched after writes. The new PostgreSQL test has not yet run; it must be validated by the exact-head CI migration replay job. No local database execution, production Supabase migration, Render deployment, emulator, or device validation was performed.
 - The PR branch remains based on the same merge-base as main; the four commits on main are being reconciled by preserving the relevant notification behavior rather than blindly merging unrelated history.
+
+## 2026-11-18 — Release-test execution correction
+
+- The first PostgreSQL execution of the new release runtime test caught an ambiguous PL/pgSQL reference where an unqualified incident_id column conflicted with the block variable. Qualified the assignment and audit table references with aliases; no production SQL migration was changed.
+- Expanded the runtime test to invoke the public release wrapper as the authenticated database role, verify dispatcher and requester/admin assignment-history visibility under RLS, and assert that a responder is denied by the dispatcher-only function guard.
+- The rerun on the corrected test source is in progress. The earlier ambiguous-reference failure is not counted as a pass; inspect the exact latest-head PostgreSQL job before treating release behavior as validated.
+- Follow-up commits: e11f566 (authenticated RPC/RLS test), 99f46d0 (role-denial test independent of incident visibility), aad0861 (clarify lifecycle assertion), 80ad7cf (qualify assignment-history SQL references), 94ade35 (correct event-table aliases).
