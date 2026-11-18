@@ -1,3 +1,14 @@
+## Laravel backend feature-test corrections — 2026-11-18
+
+- **Exact-head CI finding:** The Laravel/dashboard integration job had 75 passing tests and two failures. The root-route test expected HTTP 200 although `backend/src/routes/web.php` intentionally redirects `/` to `/admin/`. The RPC inventory test still expected `api_update_my_assignment_status`.
+- **Root-route research:** The backend Dockerfile creates a conventional Laravel 13 application before overlaying tracked `backend/src/` files. Because the repository did not include an overriding feature test, Laravel's generated default `ExampleTest` remained in the image and asserted a generic 200 response. Laravel's HTTP testing API provides `assertRedirect('/admin/')` for the actual route contract. Added a tracked `backend/src/tests/Feature/ExampleTest.php` to replace the generated default test with an explicit admin-portal redirect assertion.
+- **RPC security verification:** The migration `20261117234000_dispatch_managed_incident_progress.sql` explicitly revokes execute on both `public.api_update_my_assignment_status(bigint,text)` and its private implementation from PUBLIC, anon, and authenticated. The function is intentionally retired because incident progress is dispatcher-owned. The Laravel bridge allowlist already excludes it; updated the inventory test to match the current reviewed allowlist. Did not restore the retired RPC or widen grants.
+- **Changes:** `815c49b` updates the allowlist contract test; `9aa8cd1` replaces Laravel's generated root smoke test with the actual redirect contract.
+- **Research source:** Laravel HTTP Tests documentation: https://laravel.com/docs/13.x/http-tests (redirect assertions); Laravel response redirect documentation: https://laravel.com/docs/13.x/responses.
+- **Validation:** The original two failures were confirmed in the exact-head GitHub Actions log. The corrections are committed but have not yet been rerun by CI. No local PHP test suite, production deployment, production migration, or merge was performed.
+
+---
+
 ## Chat image retry contract correction — 2026-11-18
 
 - **Finding:** Exact-head CI on `c78bfb8` failed `tools/test_incident_chat_attachments_contract.py` because the source contract still required the removed `pendingImageClientMessageId` identifier.
