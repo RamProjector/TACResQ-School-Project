@@ -100,6 +100,25 @@ checks = {
     "expanded incident cards share the ticking map clock so stale-location warnings keep updating": all(text in map_screen for text in ("MapIncidentCard(", "context = context,", "now = mapNow,", "private fun MapIncidentCard(", "now: Instant,", "incident.locationAgeStatus(now)")),
     "responder sign-out stops location sharing before clearing the session": 'Location sharing stopped because you signed out.' in app_root and "vm.stopTracking(" in app_root and "responderLogout" in app_root,
 }
+controller_source = tracking_service.split("class ResponderLocationTrackingController", 1)[1].split("/**", 1)[0]
+for method in (
+    "locationSent", "navigationWaiting", "navigationRequestStarted",
+    "navigationRouteUpdated", "navigationFailed", "serviceMessage",
+):
+    method_block = controller_source.split(f"internal fun {method}(", 1)[1].split("\n    }", 1)[0]
+    assert "sessionId: Long" in method_block and "isCurrentSession(incidentId, sessionId)" in method_block, (
+        f"{method} must reject status updates from obsolete tracking sessions"
+    )
+assert "activeSessionId == sessionId && _status.value.incidentId == incidentId" in controller_source
+assert "if (expectedSessionId != null && activeSessionId != expectedSessionId) return" in controller_source
+assert "activeSessionId = null" in controller_source
+assert "val endedSessionId = trackingSessionId" in tracking_service
+assert "expectedSessionId = endedSessionId.takeIf { it > 0L }" in tracking_service or (
+    "endedSessionId.takeIf { it > 0L }" in tracking_service
+)
+assert "enableNavigation(incidentId, trackingSessionId)" in tracking_service
+assert "private fun enableNavigation(incidentId: Long, sessionId: Long)" in tracking_service
+
 checks["both tracking coroutines discard stale repository responses before status updates"] = (
     tracking_service.count("if (!isActiveSession(incidentId, sessionId)) return") >= 4
     and "if (isActiveSession(incidentId, sessionId)) {" in tracking_service
