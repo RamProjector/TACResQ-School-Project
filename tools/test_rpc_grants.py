@@ -200,3 +200,22 @@ assert re.search(
     ASSIGNMENT_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
 ), "authenticated users must retain RLS-filtered assignment reads"
 assert "TRUNCATE" in ASSIGNMENT_PRIVILEGE_SQL.upper(), "Document the RLS-bypassing TRUNCATE risk"
+
+
+# Token, status-history, and location tables are read-only to client roles.
+# Their writes must pass through the reviewed RPC or server-only worker paths.
+OPERATIONAL_PRIVILEGE_SQL = Path(
+    "supabase/migrations/20261118092000_restrict_operational_table_writes.sql"
+).read_text()
+for table in ("fcm_tokens", "incident_status_logs", "location_logs"):
+    assert re.search(
+        rf"REVOKE\\s+ALL\\s+PRIVILEGES\\s+ON\\s+TABLE\\s+public\\.fcm_tokens,\\s*"
+        rf"public\\.incident_status_logs,\\s*public\\.location_logs\\s+"
+        rf"FROM\\s+PUBLIC,\\s*anon,\\s*authenticated\\s*;",
+        OPERATIONAL_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
+    ), f"Missing direct client privilege revoke for {table}"
+assert re.search(
+    r"GRANT\\s+SELECT\\s+ON\\s+TABLE\\s+public\\.fcm_tokens,\\s*"
+    r"public\\.incident_status_logs,\\s*public\\.location_logs\\s+TO\\s+authenticated\\s*;",
+    OPERATIONAL_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
+), "Authenticated RLS-filtered reads must remain available on operational tables"
