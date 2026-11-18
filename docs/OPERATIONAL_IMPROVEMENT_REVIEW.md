@@ -241,7 +241,7 @@ Implemented on the PR branch in migration `20261118010000_incident_assignment_ev
 - Does not add an organization identifier or imply agency-level isolation. Dispatcher/admin visibility remains global in the current single-organization schema.
 - Does not invent a release reason or automatically delete assignments when an incident closes. Closure is recorded as a distinct event for each current team member; explicit removal is recorded separately.
 
-**Remaining work:** inspect every assignment mutation path and UI consumer, then expose a readable incident team timeline in dispatch. Validate migration replay and RLS behavior on a disposable database before production deployment. This migration has only been committed to PR #334; production Supabase remains unchanged. No build or tests were run for this commit.
+**Application status:** the dispatcher now exposes read-only assignment history from both active incident cards and a bounded recent-closed list (latest five by request date). Both entry points use one shared Compose timeline component with consistent loading, empty, error, retry, actor-label, and chronological rendering behavior. The list remains bounded; this is not a full incident archive or export. The migration has only been committed to PR #334; production Supabase remains unchanged. Migration replay and RLS behavior still require disposable-database validation before production deployment.
 
 
 ### Assignment event-history security review — 2026-11-18
