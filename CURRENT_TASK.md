@@ -1792,3 +1792,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Correction:** The fixture now uses the valid `en_route` duty status while retaining the separate active legacy reservation through `incidents.assigned_to`. After releasing the member from the newer team, it asserts that the profile retains `en_route` and that the unrelated legacy incident still reserves the member. Production schema and release-function behavior were not changed.
 - **Commit:** `a0526460324504ed474f6915d7e4197e89d0ea82` — `Use valid duty state in legacy release fixture`.
 - **Validation:** The patch was applied to the PR branch after verifying the exact old fixture block and assertion. Clean migration replay, RPC grant contract, and all other CI checks must be rerun against the new exact head; no passing result is claimed yet. No production database changes, deployment, APK distribution, or merge were performed.
+
+
+## 2026-11-18 — Isolate assignment-history RLS test identity
+
+- Investigated the clean PostgreSQL replay failure reported as `Admin should be able to read assignment history under RLS`.
+- The authenticated-role RLS assertions looked up the fixture incident ID through `public.incidents`. That makes the history assertion depend on the caller's separate incident-read policy; an invisible incident produces a NULL filter and a misleading zero-row result even when assignment-history RLS is correct.
+- Updated `tools/test_dispatcher_release_assignment.sql` to save the fixture incident ID in a transaction-session setting while running as the trusted test operator, then use that retained ID for dispatcher, requester, and admin history assertions. This keeps the history-policy test independent of incident-table visibility and avoids widening production access.
+- Commit: `cea59b0a72b23f7de21dfe823380261e61d27215` — `Make assignment history RLS tests independent of incident visibility`.
+- Validation is pending on the exact updated PR head. This is a test correction, not a production RLS-policy change. No production database changes, deployment, APK distribution, or merge performed.
