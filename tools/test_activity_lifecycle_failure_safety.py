@@ -46,7 +46,9 @@ assert "finally {" in send_sos_block and "sending = false" in send_sos_block
 assert "private var conversationGeneration: Long = 0L" in CHAT
 assert "activeIncidentId == incidentId && conversationGeneration == generation" in CHAT
 assert CHAT.count("val generation = conversationGeneration") == 4
-assert CHAT.count("isCurrentConversation(incidentId, generation)") == 9
+# Every generation-scoped async completion must re-check the conversation token.
+# Count can grow as additional guarded async paths are added.
+assert CHAT.count("isCurrentConversation(incidentId, generation)") >= 9
 assert "conversationGeneration += 1" in CHAT
 assert "import com.tacresq.app.ui.common.repositoryCallOrFailure" in RESPONDER
 assert "repositoryCallOrFailure { repo.myIncidents() }" in RESPONDER
