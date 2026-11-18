@@ -317,6 +317,7 @@ class ResponderLocationTrackingService : Service() {
         try {
             while (isActiveSession(incidentId, sessionId)) {
                 val userResult = repository.me()
+                if (!isActiveSession(incidentId, sessionId)) return
                 val user = userResult.getOrNull()
                 if (user == null) {
                     val failure = userResult.exceptionOrNull()
@@ -330,6 +331,7 @@ class ResponderLocationTrackingService : Service() {
                     continue
                 }
                 val assignmentsResult = repository.myIncidents()
+                if (!isActiveSession(incidentId, sessionId)) return
                 val assignments = assignmentsResult.getOrNull()
                 if (assignments == null) {
                     val failure = assignmentsResult.exceptionOrNull()
@@ -553,7 +555,7 @@ class ResponderLocationTrackingService : Service() {
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            if (activeIncidentId == incidentId) {
+            if (isActiveSession(incidentId, sessionId)) {
                 stopActiveSharing("Location sharing stopped because the active assignment could not be verified.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
                 if (activeIncidentId == null) stopSelf()
             }
