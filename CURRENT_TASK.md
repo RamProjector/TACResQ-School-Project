@@ -1736,3 +1736,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Regression guard:** Expanded the responder-location source contract to assert the session-aware helper signatures, monitor loop, and post-write guard.
 - **Commits:** `b4987ac`, `881fc26`, `e669097`.
 - **Validation:** Inspected every call site for the session-aware route helpers and verified the stale-response guard is immediately after the location RPC. No Gradle build, JVM test, PostgreSQL replay, or Android lifecycle/device test has run for these commits yet. The exact-head CI result is pending.
+
+
+## Stale assignment-verification completion guard — 2026-11-18
+
+- **Finding:** The tracking and assignment-monitor coroutines checked their generation before starting repository calls, but a cancelled old session could still complete `repository.me()` or `repository.myIncidents()` after a same-incident restart. In that case, the old coroutine could publish a misleading status message or process stale assignment data. The monitor's broad exception handler also compared only the incident ID.
+- **Change:** Both coroutines now re-check the exact incident/session generation immediately after each repository suspension and before interpreting its result. The monitor exception handler now uses the same exact-session predicate. This complements the post-location-write and post-route guards added immediately before this change.
+- **Regression guard:** Added a source-contract assertion that both repository calls in both coroutines are followed by the generation check, and that the monitor error path is session-scoped.
+- **Commits:** `6ac39e7`, `a22a5e5`, `bf98a69`, `fe4f006`.
+- **Validation:** Inspected the two `me()` and two `myIncidents()` call sites and confirmed each has an immediate generation check. No Gradle build, JVM test, PostgreSQL replay, or Android lifecycle/device test has run for this update. Exact-head CI is pending.
