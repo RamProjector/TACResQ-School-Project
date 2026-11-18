@@ -12,6 +12,7 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-000000000157', 'release-legacy-requester@example.test', '{"name":"Legacy Reservation Requester","phone":"+63917000157","role":"requester"}');
 
 DO $dispatcher_release_runtime_test$
+<<release_test>>
 DECLARE
   dispatcher_auth_id uuid := '00000000-0000-4000-8000-000000000124';
   requester_id bigint;
@@ -86,7 +87,7 @@ BEGIN
   SELECT assigned_to INTO primary_id FROM public.incidents WHERE id = incident_id;
   IF primary_id IS NULL OR NOT EXISTS (
     SELECT 1 FROM public.incident_assignments
-    WHERE incident_id = incident_id AND user_id = primary_id
+    WHERE incident_id = release_test.incident_id AND user_id = primary_id
   ) THEN
     RAISE EXCEPTION 'Initial assignment did not establish its primary member';
   END IF;
@@ -118,7 +119,7 @@ BEGIN
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.incident_assignments
-    WHERE incident_id = incident_id AND user_id = primary_id
+    WHERE incident_id = release_test.incident_id AND user_id = primary_id
   ) THEN
     RAISE EXCEPTION 'Denied self-release unexpectedly removed team membership';
   END IF;
@@ -129,13 +130,13 @@ BEGIN
   IF assigned_to_after IS NULL OR assigned_to_after = primary_id
      OR NOT EXISTS (
        SELECT 1 FROM public.incident_assignments
-       WHERE incident_id = incident_id AND user_id = assigned_to_after
+       WHERE incident_id = release_test.incident_id AND user_id = assigned_to_after
      ) THEN
     RAISE EXCEPTION 'Releasing the primary member did not hand off assigned_to to a remaining team member';
   END IF;
   IF EXISTS (
     SELECT 1 FROM public.incident_assignments
-    WHERE incident_id = incident_id AND user_id = primary_id
+    WHERE incident_id = release_test.incident_id AND user_id = primary_id
   ) THEN
     RAISE EXCEPTION 'Released primary member remains in the active team';
   END IF;
@@ -147,7 +148,7 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM public.incident_assignment_events
-    WHERE incident_id = incident_id AND user_id = primary_id
+    WHERE incident_id = release_test.incident_id AND user_id = primary_id
       AND event_type = 'released' AND actor_user_id = actor_id
       AND source = 'assignment_delete' AND incident_status = 'assigned'
   ) THEN
@@ -158,7 +159,7 @@ BEGIN
   -- should return to the available pool.
   SELECT user_id INTO secondary_id
   FROM public.incident_assignments
-  WHERE incident_id = incident_id AND user_id <> assigned_to_after
+  WHERE incident_id = release_test.incident_id AND user_id <> assigned_to_after
   ORDER BY user_id
   LIMIT 1;
   IF secondary_id IS NULL THEN
@@ -171,7 +172,7 @@ BEGIN
   END IF;
 
   SELECT user_id INTO final_member_id
-  FROM public.incident_assignments WHERE incident_id = incident_id;
+  FROM public.incident_assignments WHERE incident_id = release_test.incident_id;
   rejected := false;
   BEGIN
     PERFORM public.api_release_incident_assignment(incident_id, final_member_id);
@@ -180,7 +181,7 @@ BEGIN
   END;
   IF NOT rejected OR NOT EXISTS (
     SELECT 1 FROM public.incident_assignments
-    WHERE incident_id = incident_id AND user_id = final_member_id
+    WHERE incident_id = release_test.incident_id AND user_id = final_member_id
   ) THEN
     RAISE EXCEPTION 'The final assigned member must not be releasable';
   END IF;
@@ -222,7 +223,7 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM public.incident_assignment_events
-    WHERE incident_id = incident_id AND user_id = final_member_id
+    WHERE incident_id = release_test.incident_id AND user_id = final_member_id
       AND event_type = 'incident_closed' AND actor_user_id = actor_id
       AND source = 'incident_status' AND incident_status = 'resolved'
   ) THEN
@@ -255,7 +256,7 @@ BEGIN
 
   SELECT count(*) INTO event_count
   FROM public.incident_assignment_events
-  WHERE incident_id = incident_id;
+  WHERE incident_id = release_test.incident_id;
   IF event_count < 5 THEN
     RAISE EXCEPTION 'Expected assignment, release, and closure events; found %', event_count;
   END IF;
