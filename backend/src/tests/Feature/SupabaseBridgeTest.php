@@ -37,7 +37,6 @@ class SupabaseBridgeTest extends TestCase
             'api_set_duty_status',
             'api_units',
             'api_update_incident_status',
-            'api_update_my_assignment_status',
             'api_update_my_incident',
         ];
 
