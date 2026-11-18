@@ -48,6 +48,11 @@ assert "val availableUnits = state.units.filter { it.dutyStatus == DutyStatus.AV
 assert "selectedUnitIds = selectedUnitIds.intersect(currentlyAvailableIds)" in dispatcher
 assert "state.assignmentDataFresh" in dispatcher
 
+# Claimable incidents are relevant only to explicitly Available units; active-response
+# states must not trigger claim discovery or be presented as claim-ready.
+assert "val claimable = if (userDuty == DutyStatus.AVAILABLE)" in responder
+assert "if (state.dutyStatus == DutyStatus.AVAILABLE && state.claimableIncidents.isNotEmpty())" in responder
+
 # Field-unit duty controls are disabled until assignment state is freshly verified
 # and remain unavailable while an active incident is assigned to the member.
 assert "canChange = active.isEmpty() && !state.loading && !state.refreshing && state.syncError == null" in responder
