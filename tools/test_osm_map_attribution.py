@@ -11,11 +11,14 @@ assert 'text = "© OpenMapTiles · © OpenStreetMap contributors"' in SOURCE
 assert 'https://openfreemap.org/' in SOURCE
 assert 'org.maplibre.gl:android-sdk-opengl:13.7.1' in BUILD
 assert "org.osmdroid:" not in BUILD
-# Keep provider/data attribution visible in both map information surfaces.
-attributions = [index for index in range(len(SOURCE)) if SOURCE.startswith('text = "© OpenMapTiles · © OpenStreetMap contributors"', index)]
-assert len(attributions) >= 2, "attribution must remain visible when the sheet is collapsed and expanded"
-for attribution in attributions:
-    assert '.heightIn(min = 48.dp)' in SOURCE[attribution - 100:attribution + 500], 'attribution link must retain a 48dp touch target'
+# The bottom sheet is one persistent content surface in both collapsed and expanded
+# states, so a single attribution link in its shared content is the correct contract.
+attribution = SOURCE.index('text = "© OpenMapTiles · © OpenStreetMap contributors"')
+assert SOURCE.count('text = "© OpenMapTiles · © OpenStreetMap contributors"') == 1
+sheet_content = SOURCE.index("sheetContent = {")
+assert sheet_content < attribution < SOURCE.index(") {", attribution)
+assert '.heightIn(min = 48.dp)' in SOURCE[attribution - 100:attribution + 500], 'attribution link must retain a 48dp touch target'
+assert 'Intent.ACTION_VIEW' in SOURCE[attribution:attribution + 700]
 assert "BottomSheetScaffold(" in SOURCE
 assert "sheetPeekHeight = 120.dp" in SOURCE
 assert "BottomSheetDefaults.DragHandle()" in SOURCE
