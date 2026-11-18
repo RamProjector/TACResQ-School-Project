@@ -1,3 +1,13 @@
+## Chat image retry contract correction — 2026-11-18
+
+- **Finding:** Exact-head CI on `c78bfb8` failed `tools/test_incident_chat_attachments_contract.py` because the source contract still required the removed `pendingImageClientMessageId` identifier.
+- **Source verification:** The current image retry implementation stores one `SessionStore.PendingChatImage` as `pendingImageRecord`; the stable idempotency key is read from `restored?.clientMessageId` and reused for retry. The same record binds incident, original caption, MIME type, SHA-256 fingerprint, and account owner. The production flow therefore has a stronger single-record contract than the stale variable-name assertion represented.
+- **Change:** Updated the static contract to assert the current pending record and its restored client-message ID. No production Kotlin or backend behavior changed.
+- **Commit:** `9f2d272`.
+- **Validation:** Confirmed the exact assertion failure from the GitHub Actions log and inspected the current ViewModel retry path. The corrected contract has not yet rerun. Android build, CodeQL, and RPC migration replay were still running when this correction was committed. No local build/test, emulator/device validation, production migration, deployment, or merge was performed.
+
+---
+
 ## Responder lifecycle contract boundary correction — 2026-11-18
 
 - **Finding:** Exact-head CI passed the Android debug/release builds, Android JVM unit tests, instrumentation-test compilation, Android Lint, and APK artifact collection. The Source checks job then failed in `tools/test_activity_lifecycle_failure_safety.py` before its responder tracking assertions because it searched for a retired `fun advance(` method as the end boundary of `resumeTracking`. Dispatcher-owned incident progress intentionally removed responder-owned milestone advancement.
