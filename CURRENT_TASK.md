@@ -1,3 +1,12 @@
+## Adaptive incident-history selection source-contract correction — 2026-11-18
+
+- **Finding:** Exact-head TACResQ CI failed `tools/test_adaptive_multi_pane_scaffolds.py` because it expected an older selected-card border expression with an outline-variant fallback. The current `IncidentHistoryListItem` intentionally renders a primary 1.5dp border only when selected, uses secondary-container versus surface fill, and uses 2dp versus 0dp elevation.
+- **Change:** Updated the source contract to assert the current selected/unselected card treatment rather than a removed expression. No production UI code changed.
+- **Commit:** `9928683`.
+- **Validation:** Failure confirmed from the exact-head CI log and compared against `Components.kt` lines implementing `IncidentHistoryListItem`. The revised contract has not yet rerun. No local tests/builds, emulator/device checks, production changes, or deployment were performed.
+
+---
+
 ## OpenStreetMap attribution source-contract correction — 2026-11-18
 
 - **Finding:** Exact-head TACResQ CI failed `tools/test_osm_map_attribution.py` because it required two literal copies of the attribution label, one for each sheet state. The map uses one persistent `BottomSheetScaffold.sheetContent` subtree in both collapsed and expanded states, so duplicating attribution text would be unnecessary and could create inconsistent UI.
