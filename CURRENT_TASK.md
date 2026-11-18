@@ -1801,3 +1801,11 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Updated `tools/test_dispatcher_release_assignment.sql` to save the fixture incident ID in a transaction-session setting while running as the trusted test operator, then use that retained ID for dispatcher, requester, and admin history assertions. This keeps the history-policy test independent of incident-table visibility and avoids widening production access.
 - Commit: `cea59b0a72b23f7de21dfe823380261e61d27215` — `Make assignment history RLS tests independent of incident visibility`.
 - Validation is pending on the exact updated PR head. This is a test correction, not a production RLS-policy change. No production database changes, deployment, APK distribution, or merge performed.
+
+
+## 2026-11-18 — Isolate GPS RPC runtime fixture identities
+
+- Exact-head RPC grant contract run `44247460864` passed anonymous RPC grant checks and clean PostgreSQL migration replay, then failed before GPS runtime authorization assertions because `tools/test_location_rpc_security.sql` inserted auth user UUIDs `150–153`, already used by `tools/test_dispatcher_release_assignment.sql` in the same disposable database.
+- Updated the GPS runtime fixture to use UUIDs `250–253` and matching unique test phone/email values. No production GPS RPC, grant, RLS policy, or schema behavior changed.
+- Commit: `b6c641557d31211d67e8d6a60bce16e5696cc9ef` — `Isolate GPS RPC test fixture identities`.
+- Validation: fetched the committed test file and confirmed all four new UUIDs are present and none of the conflicting UUIDs remain. Exact-head CI must still prove the runtime authorization cases pass. No production database changes, deployment, APK distribution, or merge performed.
