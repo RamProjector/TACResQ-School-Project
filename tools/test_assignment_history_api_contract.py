@@ -67,13 +67,15 @@ print("PASS: the dispatcher UI consumes the read-only event stream with loading,
 print("PASS: recent resolved/cancelled incidents retain bounded, read-only assignment-history access.")
 
 # The API returns newest-first; render the retained event window chronologically.
-assert dispatcher.count("state.assignmentHistory.asReversed().forEach { event ->") == 2
-assert "state.assignmentHistory.forEach { event ->" not in dispatcher
+assert "private fun AssignmentHistoryPanel(" in dispatcher
+assert dispatcher.count("AssignmentHistoryPanel(") == 3  # declaration plus active and closed call sites
+assert "else -> history.asReversed().forEach { event ->" in dispatcher
+assert "state.assignmentHistory.asReversed().forEach { event ->" not in dispatcher
 
-print("PASS: both active and closed incident timelines render retained events oldest-first.")
+print("PASS: active and closed incidents share one chronological assignment-history renderer.")
 
 # Do not expose internal account identifiers as human-readable audit actor labels.
-assert dispatcher.count('else -> "Another dispatcher/admin"') == 2
+assert dispatcher.count('else -> "Another dispatcher/admin"') == 1
 assert "Dispatcher account #${event.actorUserId}" not in dispatcher
 
 print("PASS: assignment history avoids displaying raw actor account IDs.")
