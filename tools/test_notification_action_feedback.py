@@ -13,12 +13,14 @@ assert "Card(" not in action_error, "Transient action feedback should not be pre
 assert "isError = true" in action_error, "Action failure must retain error styling."
 assert "vm::dismissActionError" in action_error, "Action feedback must remain dismissible."
 
-# A failed inbox load is persistent screen state. Its retry action lives in the
-# shared inbox controls, so the error card does not need a duplicate retry button.
+# A failed inbox load is persistent screen state and needs a retry action
+# even when the shared inbox refresh control is below the error card.
 load_error = source[end:source.index("if (state.loading", end)]
 assert "Card(" in load_error, "Persistent notification loading failure should remain a content state."
+assert "Button(onClick = vm::refresh" in load_error, "Persistent notification loading failure must retain its retry action."
+assert 'Text("Try again")' in load_error, "The retry action must be clearly labeled."
 assert source.count("OutlinedButton(onClick = vm::refresh") == 1, (
-    "The inbox must retain exactly one shared refresh action for persistent load failures."
+    "The inbox must retain exactly one shared refresh action in its controls."
 )
 
 print("Notification action feedback hierarchy contract passed.")
