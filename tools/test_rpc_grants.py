@@ -191,12 +191,12 @@ ASSIGNMENT_PRIVILEGE_SQL = Path(
     "supabase/migrations/20261118090000_restrict_incident_assignment_table_privileges.sql"
 ).read_text()
 assert re.search(
-    r"REVOKE\\s+ALL\\s+PRIVILEGES\\s+ON\\s+TABLE\\s+public\\.incident_assignments\\s+"
-    r"FROM\\s+PUBLIC,\\s*anon,\\s*authenticated\\s*;",
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+TABLE\s+public\.incident_assignments\s+"
+    r"FROM\s+PUBLIC,\s*anon,\s*authenticated\s*;",
     ASSIGNMENT_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
 ), "incident_assignments must revoke all inherited/direct client privileges"
 assert re.search(
-    r"GRANT\\s+SELECT\\s+ON\\s+TABLE\\s+public\\.incident_assignments\\s+TO\\s+authenticated\\s*;",
+    r"GRANT\s+SELECT\s+ON\s+TABLE\s+public\.incident_assignments\s+TO\s+authenticated\s*;",
     ASSIGNMENT_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
 ), "authenticated users must retain RLS-filtered assignment reads"
 assert "TRUNCATE" in ASSIGNMENT_PRIVILEGE_SQL.upper(), "Document the RLS-bypassing TRUNCATE risk"
