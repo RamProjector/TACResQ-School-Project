@@ -90,8 +90,8 @@ BEGIN
   );
   SELECT assigned_to INTO primary_id FROM public.incidents WHERE id = incident_id;
   IF primary_id IS NULL OR NOT EXISTS (
-    SELECT 1 FROM public.incident_assignments
-    WHERE incident_id = release_test.incident_id AND user_id = primary_id
+    SELECT 1 FROM public.incident_assignments AS assignment_row
+    WHERE assignment_row.incident_id = release_test.incident_id AND user_id = primary_id
   ) THEN
     RAISE EXCEPTION 'Initial assignment did not establish its primary member';
   END IF;
@@ -122,8 +122,8 @@ BEGIN
     RAISE EXCEPTION 'A field unit unexpectedly released its own assignment';
   END IF;
   IF NOT EXISTS (
-    SELECT 1 FROM public.incident_assignments
-    WHERE incident_id = release_test.incident_id AND user_id = primary_id
+    SELECT 1 FROM public.incident_assignments AS assignment_row
+    WHERE assignment_row.incident_id = release_test.incident_id AND user_id = primary_id
   ) THEN
     RAISE EXCEPTION 'Denied self-release unexpectedly removed team membership';
   END IF;
@@ -133,14 +133,14 @@ BEGIN
   SELECT assigned_to INTO assigned_to_after FROM public.incidents WHERE id = incident_id;
   IF assigned_to_after IS NULL OR assigned_to_after = primary_id
      OR NOT EXISTS (
-       SELECT 1 FROM public.incident_assignments
-       WHERE incident_id = release_test.incident_id AND user_id = assigned_to_after
+       SELECT 1 FROM public.incident_assignments AS assignment_row
+       WHERE assignment_row.incident_id = release_test.incident_id AND user_id = assigned_to_after
      ) THEN
     RAISE EXCEPTION 'Releasing the primary member did not hand off assigned_to to a remaining team member';
   END IF;
   IF EXISTS (
-    SELECT 1 FROM public.incident_assignments
-    WHERE incident_id = release_test.incident_id AND user_id = primary_id
+    SELECT 1 FROM public.incident_assignments AS assignment_row
+    WHERE assignment_row.incident_id = release_test.incident_id AND user_id = primary_id
   ) THEN
     RAISE EXCEPTION 'Released primary member remains in the active team';
   END IF;
@@ -151,8 +151,8 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM public.incident_assignment_events
-    WHERE incident_id = release_test.incident_id AND user_id = primary_id
+    SELECT 1 FROM public.incident_assignment_events AS event_row
+    WHERE event_row.incident_id = release_test.incident_id AND user_id = primary_id
       AND event_type = 'released' AND actor_user_id = actor_id
       AND source = 'assignment_delete' AND incident_status = 'assigned'
   ) THEN
@@ -162,8 +162,8 @@ BEGIN
   -- Release a non-primary member with no other active reservation. That member
   -- should return to the available pool.
   SELECT user_id INTO secondary_id
-  FROM public.incident_assignments
-  WHERE incident_id = release_test.incident_id AND user_id <> assigned_to_after
+  FROM public.incident_assignments AS assignment_row
+  WHERE assignment_row.incident_id = release_test.incident_id AND user_id <> assigned_to_after
   ORDER BY user_id
   LIMIT 1;
   IF secondary_id IS NULL THEN
@@ -176,7 +176,7 @@ BEGIN
   END IF;
 
   SELECT user_id INTO final_member_id
-  FROM public.incident_assignments WHERE incident_id = release_test.incident_id;
+  FROM public.incident_assignments AS assignment_row WHERE assignment_row.incident_id = release_test.incident_id;
   rejected := false;
   BEGIN
     PERFORM public.api_release_incident_assignment(incident_id, final_member_id);
@@ -184,8 +184,8 @@ BEGIN
     rejected := true;
   END;
   IF NOT rejected OR NOT EXISTS (
-    SELECT 1 FROM public.incident_assignments
-    WHERE incident_id = release_test.incident_id AND user_id = final_member_id
+    SELECT 1 FROM public.incident_assignments AS assignment_row
+    WHERE assignment_row.incident_id = release_test.incident_id AND user_id = final_member_id
   ) THEN
     RAISE EXCEPTION 'The final assigned member must not be releasable';
   END IF;
@@ -212,8 +212,8 @@ BEGIN
     rejected := true;
   END;
   IF NOT rejected OR NOT EXISTS (
-    SELECT 1 FROM public.incident_assignments
-    WHERE incident_id = arrival_incident_id AND user_id = arrival_responder_id
+    SELECT 1 FROM public.incident_assignments AS assignment_row
+    WHERE assignment_row.incident_id = arrival_incident_id AND user_id = arrival_responder_id
   ) THEN
     RAISE EXCEPTION 'A team member must not be releasable after the incident reaches the scene';
   END IF;
@@ -226,8 +226,8 @@ BEGIN
   PERFORM public.api_update_incident_status(incident_id, 'resolved');
 
   IF NOT EXISTS (
-    SELECT 1 FROM public.incident_assignment_events
-    WHERE incident_id = release_test.incident_id AND user_id = final_member_id
+    SELECT 1 FROM public.incident_assignment_events AS event_row
+    WHERE event_row.incident_id = release_test.incident_id AND user_id = final_member_id
       AND event_type = 'incident_closed' AND actor_user_id = actor_id
       AND source = 'incident_status' AND incident_status = 'resolved'
   ) THEN
@@ -259,8 +259,8 @@ BEGIN
   END IF;
 
   SELECT count(*) INTO event_count
-  FROM public.incident_assignment_events
-  WHERE incident_id = release_test.incident_id;
+  FROM public.incident_assignment_events AS event_row
+  WHERE event_row.incident_id = release_test.incident_id;
   IF event_count < 5 THEN
     RAISE EXCEPTION 'Expected assignment, release, and closure events; found %', event_count;
   END IF;
@@ -299,8 +299,8 @@ DECLARE
 BEGIN
   SELECT id INTO target_incident_id FROM public.incidents
   WHERE description = 'Dispatcher release runtime regression';
-  SELECT user_id INTO target_member_id FROM public.incident_assignments
-  WHERE incident_id = target_incident_id;
+  SELECT user_id INTO target_member_id FROM public.incident_assignments AS assignment_row
+  WHERE assignment_row.incident_id = target_incident_id;
   BEGIN
     PERFORM public.api_release_incident_assignment(target_incident_id, target_member_id);
   EXCEPTION WHEN SQLSTATE '22023' THEN
@@ -317,7 +317,7 @@ DO $release_history_dispatcher_read$
 DECLARE visible_count integer;
 BEGIN
   SELECT count(*) INTO visible_count
-  FROM public.incident_assignment_events e
+  FROM public.incident_assignment_events AS event_row e
   WHERE e.incident_id = (
     SELECT id FROM public.incidents
     WHERE description = 'Dispatcher release runtime regression'
@@ -333,7 +333,7 @@ DO $release_history_requester_hidden$
 DECLARE visible_count integer;
 BEGIN
   SELECT count(*) INTO visible_count
-  FROM public.incident_assignment_events e
+  FROM public.incident_assignment_events AS event_row e
   WHERE e.incident_id = (
     SELECT id FROM public.incidents
     WHERE description = 'Dispatcher release runtime regression'
@@ -349,7 +349,7 @@ DO $release_history_admin_read$
 DECLARE visible_count integer;
 BEGIN
   SELECT count(*) INTO visible_count
-  FROM public.incident_assignment_events e
+  FROM public.incident_assignment_events AS event_row e
   WHERE e.incident_id = (
     SELECT id FROM public.incidents
     WHERE description = 'Dispatcher release runtime regression'
