@@ -229,7 +229,7 @@ class ResponderLocationTrackingService : Service() {
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var activeIncidentId: Long? = null
+    @Volatile private var activeIncidentId: Long? = null
     @Volatile private var navigationEnabled = false
     @Volatile private var activeDestination: RouteCoordinate? = null
     @Volatile private var currentNavigationRoute: RouteResult? = null
