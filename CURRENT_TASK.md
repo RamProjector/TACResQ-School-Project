@@ -1644,3 +1644,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Updated the contract to require the saved-camera guard for both initial field-unit and incident framing, and to verify the selected point set. Production map behavior was not changed.
 - Commit: `2da1668`.
 - Validation: confirmed the failing assertion from the GitHub Actions log and compared it with the current Kotlin framing branch. The revised test and this note were re-fetched for source inspection; no local test/build/emulator/device checks were run. CI must rerun on the new head.
+
+## 2026-11-18 — PR #334 pre-merge review follow-up
+
+- Reconciled the notification inbox with the newer main-branch behavior: a persistent notification-load error now includes its own clearly labeled **Try again** action while retaining the single shared Refresh control. Updated tools/test_notification_action_feedback.py to require both paths and preserve transient action-error banner behavior.
+- Added tools/test_dispatcher_release_assignment.sql as runtime PostgreSQL coverage for dispatcher-only release authorization, primary-member handoff, last-member protection, post-arrival release rejection, restoration of availability when no other active reservation exists, preservation of a legacy active incidents.assigned_to reservation, and actor-attributed release/closure audit events.
+- Wired the runtime SQL test into tools/test_supabase_migration_replay.sh after the existing migration and authorization checks.
+- Commits: 1c8e034 (notification retry UI), 6aa815b (notification retry contract), 627704e (release runtime test), f15cac4 (qualified PL/pgSQL test variable references), 4ab402f (CI wiring).
+- Validation status: source was re-fetched after writes. The new PostgreSQL test has not yet run; it must be validated by the exact-head CI migration replay job. No local database execution, production Supabase migration, Render deployment, emulator, or device validation was performed.
+- The PR branch remains based on the same merge-base as main; the four commits on main are being reconciled by preserving the relevant notification behavior rather than blindly merging unrelated history.
