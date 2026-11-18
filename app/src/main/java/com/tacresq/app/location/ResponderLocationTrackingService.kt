@@ -66,6 +66,7 @@ data class ResponderTrackingStatus(
 class ResponderLocationTrackingController(context: Context) {
     private val appContext = context.applicationContext
     private val _status = MutableStateFlow(ResponderTrackingStatus())
+    @Volatile private var activeSessionId: Long? = null
     val status: StateFlow<ResponderTrackingStatus> = _status.asStateFlow()
 
     fun start(incidentId: Long): Result<Unit> {
@@ -115,7 +116,8 @@ class ResponderLocationTrackingController(context: Context) {
         _status.value = ResponderTrackingStatus(message = message)
     }
 
-    internal fun serviceStarted(incidentId: Long, navigationEnabled: Boolean = false) {
+    internal fun serviceStarted(incidentId: Long, sessionId: Long, navigationEnabled: Boolean = false) {
+        activeSessionId = sessionId
         val previous = _status.value.takeIf { it.incidentId == incidentId }
         _status.value = ResponderTrackingStatus(
             incidentId = incidentId,
@@ -130,8 +132,8 @@ class ResponderLocationTrackingController(context: Context) {
         )
     }
 
-    internal fun locationSent(incidentId: Long, sentAtEpochMillis: Long, accuracyMeters: Float?) {
-        if (_status.value.incidentId != incidentId) return
+    internal fun locationSent(incidentId: Long, sessionId: Long, sentAtEpochMillis: Long, accuracyMeters: Float?) {
+        if (!isCurrentSession(incidentId, sessionId)) return
         _status.value = _status.value.copy(
             active = true,
             starting = false,
@@ -141,8 +143,8 @@ class ResponderLocationTrackingController(context: Context) {
         )
     }
 
-    internal fun navigationWaiting(incidentId: Long, message: String) {
-        if (_status.value.incidentId == incidentId) {
+    internal fun navigationWaiting(incidentId: Long, sessionId: Long, message: String) {
+        if (isCurrentSession(incidentId, sessionId)) {
             _status.value = _status.value.copy(
                 active = true,
                 navigationActive = true,
@@ -153,8 +155,8 @@ class ResponderLocationTrackingController(context: Context) {
         }
     }
 
-    internal fun navigationRequestStarted(incidentId: Long, reason: RouteRequestReason) {
-        if (_status.value.incidentId == incidentId) {
+    internal fun navigationRequestStarted(incidentId: Long, sessionId: Long, reason: RouteRequestReason) {
+        if (isCurrentSession(incidentId, sessionId)) {
             _status.value = _status.value.copy(
                 active = true,
                 navigationActive = true,
@@ -167,8 +169,8 @@ class ResponderLocationTrackingController(context: Context) {
         }
     }
 
-    internal fun navigationRouteUpdated(incidentId: Long, route: RouteResult, reason: RouteRequestReason) {
-        if (_status.value.incidentId == incidentId) {
+    internal fun navigationRouteUpdated(incidentId: Long, sessionId: Long, route: RouteResult, reason: RouteRequestReason) {
+        if (isCurrentSession(incidentId, sessionId)) {
             _status.value = _status.value.copy(
                 active = true,
                 navigationActive = true,
@@ -179,8 +181,8 @@ class ResponderLocationTrackingController(context: Context) {
         }
     }
 
-    internal fun navigationFailed(incidentId: Long, message: String) {
-        if (_status.value.incidentId == incidentId) {
+    internal fun navigationFailed(incidentId: Long, sessionId: Long, message: String) {
+        if (isCurrentSession(incidentId, sessionId)) {
             _status.value = _status.value.copy(
                 active = true,
                 navigationActive = true,
@@ -190,13 +192,18 @@ class ResponderLocationTrackingController(context: Context) {
         }
     }
 
-    internal fun serviceMessage(incidentId: Long, message: String) {
-        if (_status.value.incidentId == incidentId) {
+    internal fun serviceMessage(incidentId: Long, sessionId: Long, message: String) {
+        if (isCurrentSession(incidentId, sessionId)) {
             _status.value = _status.value.copy(active = true, starting = false, message = message)
         }
     }
 
-    internal fun serviceStopped(message: String) {
+    private fun isCurrentSession(incidentId: Long, sessionId: Long): Boolean =
+        activeSessionId == sessionId && _status.value.incidentId == incidentId
+
+    internal fun serviceStopped(message: String, expectedSessionId: Long? = null) {
+        if (expectedSessionId != null && activeSessionId != expectedSessionId) return
+        activeSessionId = null
         _status.value = ResponderTrackingStatus(message = message)
     }
 }
@@ -263,10 +270,11 @@ class ResponderLocationTrackingService : Service() {
                 if (activeIncidentId != null) {
                     if (activeIncidentId == incidentId) {
                         if (startNavigation) enableNavigation(incidentId)
-                        else controller.serviceStarted(incidentId, navigationEnabled)
+                        else controller.serviceStarted(incidentId, trackingSessionId, navigationEnabled)
                     } else {
                         controller.serviceMessage(
                             activeIncidentId!!,
+                            trackingSessionId,
                             "Another response is already sharing location. Stop it before starting a different assignment.",
                         )
                     }
@@ -297,8 +305,8 @@ class ResponderLocationTrackingService : Service() {
                 trackingSessionId += 1L
                 val sessionId = trackingSessionId
                 activeIncidentId = incidentId
-                controller.serviceStarted(incidentId, startNavigation)
-                if (startNavigation) controller.navigationWaiting(incidentId, "Waiting for a fresh location to calculate the first route.")
+                controller.serviceStarted(incidentId, sessionId, startNavigation)
+                if (startNavigation) controller.navigationWaiting(incidentId, sessionId, "Waiting for a fresh location to calculate the first route.")
                 trackingJob = serviceScope.launch { trackAssignment(incidentId, sessionId) }
                 assignmentMonitorJob = serviceScope.launch { monitorAssignment(incidentId, sessionId) }
             }
@@ -326,7 +334,7 @@ class ResponderLocationTrackingService : Service() {
                         if (activeIncidentId == null) stopSelf()
                         return
                     }
-                    controller.serviceMessage(incidentId, "Could not verify the active responder session; location updates are paused.")
+                    controller.serviceMessage(incidentId, sessionId, "Could not verify the active responder session; location updates are paused.")
                     delay(RETRY_DELAY_MILLIS)
                     continue
                 }
@@ -373,6 +381,7 @@ class ResponderLocationTrackingService : Service() {
                                 if (failure == null) {
                                     controller.locationSent(
                                         incidentId,
+                                        sessionId,
                                         System.currentTimeMillis(),
                                         capture.fix.accuracyM,
                                     )
@@ -457,6 +466,7 @@ class ResponderLocationTrackingService : Service() {
         if (navigationEnabled) {
             controller.navigationWaiting(
                 incidentId,
+                sessionId,
                 if (destination == null) "This assignment has no valid destination coordinate. Confirm the location with dispatch."
                 else "Destination updated; waiting for a fresh fix and route-request cooldown.",
             )
@@ -469,7 +479,7 @@ class ResponderLocationTrackingService : Service() {
         val destination = activeDestination
         val provider = appContainer.routingProvider
         if (provider == null) {
-            controller.navigationFailed(incidentId, "In-app routing is not enabled or configured. Location sharing remains active.")
+            controller.navigationFailed(incidentId, sessionId, "In-app routing is not enabled or configured. Location sharing remains active.")
             return
         }
         if (destination == null) {
@@ -483,7 +493,7 @@ class ResponderLocationTrackingService : Service() {
             route = currentNavigationRoute,
             nowMillis = System.currentTimeMillis(),
         ) ?: return
-        controller.navigationRequestStarted(incidentId, reason)
+        controller.navigationRequestStarted(incidentId, sessionId, reason)
         val result = try {
             provider.route(origin, destination, RouteMode.DRIVING, incidentId)
         } catch (cancelled: CancellationException) {
@@ -496,11 +506,12 @@ class ResponderLocationTrackingService : Service() {
         if (route != null) {
             reroutePolicy.recordRequestResult(succeeded = true, nowMillis = System.currentTimeMillis())
             currentNavigationRoute = route
-            controller.navigationRouteUpdated(incidentId, route, reason)
+            controller.navigationRouteUpdated(incidentId, sessionId, route, reason)
         } else {
             reroutePolicy.recordRequestResult(succeeded = false, nowMillis = System.currentTimeMillis())
             controller.navigationFailed(
                 incidentId,
+                sessionId,
                 result.exceptionOrNull()?.message ?: "No current route was returned. Location sharing remains active; confirm the route with dispatch.",
             )
         }
@@ -587,7 +598,7 @@ class ResponderLocationTrackingService : Service() {
         trackingJob = null
         assignmentMonitorJob?.cancel()
         assignmentMonitorJob = null
-        if (::controller.isInitialized) controller.serviceStopped(message)
+        if (::controller.isInitialized) controller.serviceStopped(message, expectedSessionId)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         if (oldIncidentId == null) stopSelf()
     }
@@ -652,7 +663,7 @@ class ResponderLocationTrackingService : Service() {
         reroutePolicy.reset()
         serviceScope.cancel()
         if (hadActiveTracking && ::controller.isInitialized) {
-            controller.serviceStopped("Location sharing stopped because Android ended the tracking service. Resume sharing in TACResQ.")
+            controller.serviceStopped("Location sharing stopped because Android ended the tracking service. Resume sharing in TACResQ.", trackingSessionId.takeIf { it > 0L })
         }
         super.onDestroy()
     }
