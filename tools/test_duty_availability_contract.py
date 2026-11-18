@@ -52,6 +52,10 @@ assert "state.assignmentDataFresh" in dispatcher
 # states must not trigger claim discovery or be presented as claim-ready.
 assert "val claimable = if (userDuty == DutyStatus.AVAILABLE)" in responder
 assert "if (state.dutyStatus == DutyStatus.AVAILABLE && state.claimableIncidents.isNotEmpty())" in responder
+assert "val claimableResult = if (me.isSuccess && userDuty == DutyStatus.AVAILABLE)" in responder
+assert "claimableError = claimableError" in responder
+assert "state.claimableError != null" in responder
+assert "Claimable requests unavailable" in responder
 
 # Field-unit duty controls are disabled until assignment state is freshly verified
 # and remain unavailable while an active incident is assigned to the member.
