@@ -1660,3 +1660,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Expanded the runtime test to invoke the public release wrapper as the authenticated database role, verify dispatcher and requester/admin assignment-history visibility under RLS, and assert that a responder is denied by the dispatcher-only function guard.
 - The rerun on the corrected test source is in progress. The earlier ambiguous-reference failure is not counted as a pass; inspect the exact latest-head PostgreSQL job before treating release behavior as validated.
 - Follow-up commits: e11f566 (authenticated RPC/RLS test), 99f46d0 (role-denial test independent of incident visibility), aad0861 (clarify lifecycle assertion), 80ad7cf (qualify assignment-history SQL references), 94ade35 (correct event-table aliases).
+
+
+## Dispatcher release legacy-reservation regression — 2026-11-18
+
+- **Exact-head CI finding:** The clean PostgreSQL migration replay and RPC grant workflow both failed in `tools/test_dispatcher_release_assignment.sql`: after releasing a member from the current team, the test observed `duty_status='available'` even though another active legacy incident was intended to reserve that member through `incidents.assigned_to`.
+- **Trace:** The release function evaluated the legacy `assigned_to` reservation after deleting current team membership and after the primary-member handoff. The test did not independently assert that its legacy fixture still contained the expected active status and assignee before invoking release.
+- **Change:** The release migration now captures whether another active legacy incident reserves the member before changing current membership, and uses that result when deciding whether to restore availability. The runtime test now asserts that the legacy fixture persisted with the intended `assigned_to` and `assigned` state before exercising release.
+- **Commits:** `6d47e79` implementation; `51667ce` fixture assertion.
+- **Validation:** The failure was confirmed from exact-head GitHub Actions logs. The correction has not yet been validated by a fresh CI run. The fixture assertion will distinguish a bad test setup from a release-path regression if the failure persists. No production migration, Supabase data change, Render deployment, local test, or merge was performed.
