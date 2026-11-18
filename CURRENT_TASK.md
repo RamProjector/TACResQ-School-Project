@@ -1,3 +1,14 @@
+## Shared dispatcher assignment-history renderer — 2026-11-18
+
+- **Finding:** Active-incident cards and the recent-closed list both exposed assignment history, but each independently duplicated the entire timeline UI. Their loading, empty, error, retry, event-label, actor-label, and timestamp behavior could drift.
+- **Change:** Extracted a single `AssignmentHistoryPanel` composable and reused it from both active and closed incident cards. It preserves the existing bounded event query, chronological rendering, read-only behavior, and generic actor privacy labels. No database or dispatch workflow behavior changed.
+- **Regression guard:** Updated `tools/test_assignment_history_api_contract.py` to require one shared renderer, both call sites, and a single chronological event renderer.
+- **Documentation:** Updated `docs/OPERATIONAL_IMPROVEMENT_REVIEW.md` to reflect that recent closed incidents already expose history; clarified the five-incident display bound and remaining migration/RLS validation.
+- **Commits:** `4524a66` shared renderer; `ec327de` regression contract; `9cbb9e7` implementation review update.
+- **Validation:** Re-fetched the dispatcher source, verified both call sites and the shared component, and confirmed the user model uses a Long ID. The static contract and Android build have not run on this head. No local tests/builds, emulator/device checks, production migration, or deployment were performed.
+
+---
+
 ## GPS pin-scale wrapper contract follow-up — 2026-11-18
 
 - **Finding:** The next CI run showed the corrected scale assertion was still too exact: the source has three default-scale declarations because the two bitmap helpers are joined by a small annotation-icon wrapper. The wrapper correctly forwards the same scale and does not define a separate bitmap fallback.
