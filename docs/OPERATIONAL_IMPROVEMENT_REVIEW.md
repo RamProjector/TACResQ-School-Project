@@ -308,3 +308,18 @@ The current web admin console already has a distinct admin-only shell with the T
 ### Remaining validation boundary
 
 The admin portal uses server-side role checks and protected RPCs; the client periodically revalidates the profile role and clears privileged data on role revocation. The current audit table resolves actor names from the actor identity snapshot and resolves target names from the current user page when available, otherwise showing a profile identifier. This is a deliberate fallback, not proof that the actor/target record is missing. A future audit API enhancement may return immutable actor/target identity snapshots, but should be designed at the database/RPC boundary and must not broaden profile read privileges.
+
+### Password recovery protocol decision — 2026-11-18 (Supabase documentation follow-up)
+
+The Supabase Auth documentation confirms that password recovery supports PKCE. The recovery email can return an authorization code that the client exchanges for a session; after that session is established, the client calls the authenticated user-update endpoint to set the new password. Supabase also documents a token_hash + verifyOtp pattern, but that requires a matching email-template flow and configured redirect URL. The Kotlin SDK documents sendRecoveryEmail; this repository currently uses Retrofit directly and does not include the Supabase Kotlin Auth SDK.
+
+**Do not implement recovery by blindly trusting an access_token in a custom-scheme URI fragment.** The existing tacresq://auth/callback custom scheme is not a verified Android App Link and can be claimed by another installed application. The existing callback intentionally ignores tokens, which is safer than converting arbitrary inbound URI data into an authenticated session. The current project also has no persisted PKCE verifier lifecycle or secure callback-exchange implementation.
+
+Before coding the complete flow, settle one supported path:
+
+- Prefer PKCE with a verified HTTPS Android App Link on a domain TACResQ controls, with Android Digital Asset Links verification, a securely persisted short-lived code verifier, exact callback validation, one-time code exchange, and token cleanup; or
+- Use a token_hash recovery email template with verifyOtp only after the Supabase Auth email template and redirect allowlist are explicitly configured and tested for this project.
+
+Both paths must establish a genuine recovery session before password update. They must handle process death, duplicate callbacks, malformed/expired/replayed credentials, and avoid token logging or ordinary preferences. A request-only endpoint or an “email sent” confirmation is not a complete recovery feature.
+
+**Implementation decision:** keep the existing honest “not connected; no email sent” dialog until the redirect domain, Supabase template strategy, and credential persistence design are confirmed. Do not change production Supabase Auth settings or introduce a new authentication SDK/crypto dependency without review. Official references: https://supabase.com/docs/guides/auth/passwords and https://supabase.com/docs/reference/kotlin/auth-resetpasswordforemail.
