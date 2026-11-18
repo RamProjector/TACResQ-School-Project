@@ -548,7 +548,7 @@ class ResponderLocationTrackingService : Service() {
                     if (activeIncidentId == null) stopSelf()
                     return
                 }
-                refreshNavigationDestination(incidentId, activeAssignment.latitude, activeAssignment.longitude)
+                refreshNavigationDestination(incidentId, sessionId, activeAssignment.latitude, activeAssignment.longitude)
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
