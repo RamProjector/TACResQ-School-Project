@@ -1,3 +1,12 @@
+## GPS pin-scale wrapper contract follow-up — 2026-11-18
+
+- **Finding:** The next CI run showed the corrected scale assertion was still too exact: the source has three default-scale declarations because the two bitmap helpers are joined by a small annotation-icon wrapper. The wrapper correctly forwards the same scale and does not define a separate bitmap fallback.
+- **Change:** Relaxed the declaration-count assertion to require at least the two bitmap helper defaults while retaining the exact two finite/positive fallback checks. No Kotlin map code changed.
+- **Commit:** `3b6a715`.
+- **Validation:** Confirmed the third declaration from the current `GpsMapScreen.kt` source and the exact-head CI failure. The revised contract has not yet rerun. No local test/build/emulator/device checks or production changes were performed.
+
+---
+
 ## Profile theme preference repair — 2026-11-18
 
 - **Finding:** The Profile theme chips were rendered in `RoleSectionScreen`, but none of the three role call sites forwarded the root `themeMode` or `onThemeModeChanged` values. The selector therefore used the screen's default SYSTEM value and no-op callback. In addition, `MainActivity` held the chosen mode only in `rememberSaveable`, so a fresh app launch did not have a durable user preference.
