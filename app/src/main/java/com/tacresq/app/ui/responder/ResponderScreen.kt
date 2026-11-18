@@ -69,6 +69,7 @@ import kotlinx.coroutines.launch
 data class ResponderUiState(
     val incidents: List<Incident> = emptyList(),
     val claimableIncidents: List<Incident> = emptyList(),
+    val claimableError: String? = null,
     val dutyStatus: DutyStatus = DutyStatus.OFF_DUTY,
     val loading: Boolean = true,
     val refreshing: Boolean = false,
@@ -135,9 +136,20 @@ class ResponderViewModel(
                     tracking.stop("Location sharing stopped because this incident is no longer assigned en route.")
                 }
                 val userDuty = me.getOrNull()?.dutyStatus ?: _state.value.dutyStatus
-                val claimable = if (userDuty == DutyStatus.AVAILABLE) {
-                    repo.getClaimableIncidents().getOrDefault(emptyList())
-                } else emptyList()
+                // Do not present an empty list as "no available incidents" when the
+                // claimable-request query failed or the current duty state is unverified.
+                val claimableResult = if (me.isSuccess && userDuty == DutyStatus.AVAILABLE) {
+                    repo.getClaimableIncidents()
+                } else null
+                val claimable = claimableResult?.getOrNull().orEmpty()
+                val claimableError = when {
+                    me.isFailure && userDuty == DutyStatus.AVAILABLE ->
+                        "Could not verify your current duty status. Claimable requests are hidden until a successful refresh."
+                    claimableResult?.isFailure == true ->
+                        claimableResult.exceptionOrNull()?.message
+                            ?: "Could not load incidents available for claiming. Refresh before claiming."
+                    else -> null
+                }
                 _state.update { s ->
                     // The aggregate can stay en-route while another unit is still travelling.
                     // Stop only when this device's own assignment is no longer en route.
@@ -147,6 +159,7 @@ class ResponderViewModel(
                         dutyStatus = userDuty,
                         incidents = serverIncidents ?: s.incidents,
                         claimableIncidents = claimable,
+                        claimableError = claimableError,
                         trackingIncidentId = if (trackingEnded) null else s.trackingIncidentId,
                         trackingError = if (trackingEnded) "Location sharing stopped because this incident is no longer assigned en route." else s.trackingError,
                         syncError = refreshError?.message,
@@ -163,6 +176,7 @@ class ResponderViewModel(
                         loading = false,
                         refreshing = false,
                         syncError = failure.message ?: "Could not verify assignments. Refresh and try again.",
+                        claimableError = if (s.dutyStatus == DutyStatus.AVAILABLE) failure.message ?: "Could not verify claimable requests. Refresh and try again." else null,
                     )
                 }
             } finally {
@@ -419,6 +433,30 @@ fun ResponderScreen(
 
         state.claimMessage?.let { message ->
             item { Banner(message, isError = false, onDismiss = vm::dismissClaimMessage) }
+        }
+
+        if (state.dutyStatus == DutyStatus.AVAILABLE && state.claimableError != null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text("Claimable requests unavailable", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            state.claimableError.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        TextButton(onClick = vm::refresh, enabled = !state.refreshing) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            }
         }
 
         if (state.dutyStatus == DutyStatus.AVAILABLE && state.claimableIncidents.isNotEmpty()) {
