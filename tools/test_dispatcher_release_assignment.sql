@@ -9,7 +9,8 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-000000000154', 'release-arrival-requester@example.test', '{"name":"Arrival Requester","phone":"+63917000154","role":"requester"}'),
   ('00000000-0000-4000-8000-000000000155', 'release-arrival-responder@example.test', '{"name":"Arrival Responder","phone":"+63917000155","role":"responder"}'),
   ('00000000-0000-4000-8000-000000000156', 'release-arrival-driver@example.test', '{"name":"Arrival Driver","phone":"+63917000156","role":"driver"}'),
-  ('00000000-0000-4000-8000-000000000157', 'release-legacy-requester@example.test', '{"name":"Legacy Reservation Requester","phone":"+63917000157","role":"requester"}');
+  ('00000000-0000-4000-8000-000000000157', 'release-legacy-requester@example.test', '{"name":"Legacy Reservation Requester","phone":"+63917000157","role":"requester"}'),
+  ('00000000-0000-4000-8000-000000000158', 'release-admin@example.test', '{"name":"Release Admin","phone":"+63917000158","role":"admin"}');
 
 DO $dispatcher_release_runtime_test$
 <<release_test>>
@@ -23,6 +24,7 @@ DECLARE
   arrival_responder_id bigint;
   arrival_driver_id bigint;
   legacy_requester_id bigint;
+  admin_id bigint;
   incident_id bigint;
   legacy_incident_id bigint;
   arrival_incident_id bigint;
@@ -46,11 +48,12 @@ BEGIN
   SELECT id INTO arrival_responder_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000155';
   SELECT id INTO arrival_driver_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000156';
   SELECT id INTO legacy_requester_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000157';
+  SELECT id INTO admin_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000158';
 
   IF requester_id IS NULL OR responder_one_id IS NULL OR responder_two_id IS NULL
      OR driver_three_id IS NULL OR arrival_requester_id IS NULL
      OR arrival_responder_id IS NULL OR arrival_driver_id IS NULL
-     OR legacy_requester_id IS NULL THEN
+     OR legacy_requester_id IS NULL OR admin_id IS NULL THEN
     RAISE EXCEPTION 'Release test signup fixtures did not create every profile';
   END IF;
 
@@ -65,6 +68,7 @@ BEGIN
     WHERE id IN (driver_three_id, arrival_driver_id);
   UPDATE public.profiles SET role = 'requester', duty_status = NULL
     WHERE id IN (requester_id, arrival_requester_id, legacy_requester_id);
+  UPDATE public.profiles SET role = 'admin', duty_status = NULL WHERE id = admin_id;
 
   SELECT id INTO actor_id FROM public.profiles WHERE auth_user_id = dispatcher_auth_id;
   IF actor_id IS NULL THEN
@@ -263,4 +267,102 @@ BEGIN
 END;
 $dispatcher_release_runtime_test$;
 
-echo 'PASS: dispatcher release runtime, primary handoff, final-member and after-arrival protections, duty restoration, and attributed audit history.'
+
+-- Exercise the REST-facing invoker wrapper as the actual authenticated role.
+-- The responder must be denied by role, while a dispatcher reaches the
+-- last-member lifecycle guard (22023), proving the wrapper and private grant work.
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000151', false);
+DO $release_rpc_responder_denied$
+DECLARE
+  target_incident_id bigint;
+  target_member_id bigint;
+  denied boolean := false;
+BEGIN
+  SELECT id INTO target_incident_id FROM public.incidents
+  WHERE description = 'Dispatcher release runtime regression';
+  SELECT user_id INTO target_member_id FROM public.incident_assignments
+  WHERE incident_id = target_incident_id;
+  BEGIN
+    PERFORM public.api_release_incident_assignment(target_incident_id, target_member_id);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Authenticated responder unexpectedly passed the dispatcher-only release boundary';
+  END IF;
+END;
+$release_rpc_responder_denied$;
+
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000124', false);
+DO $release_rpc_dispatcher_reaches_guard$
+DECLARE
+  target_incident_id bigint;
+  target_member_id bigint;
+  lifecycle_guard_reached boolean := false;
+BEGIN
+  SELECT id INTO target_incident_id FROM public.incidents
+  WHERE description = 'Dispatcher release runtime regression';
+  SELECT user_id INTO target_member_id FROM public.incident_assignments
+  WHERE incident_id = target_incident_id;
+  BEGIN
+    PERFORM public.api_release_incident_assignment(target_incident_id, target_member_id);
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    lifecycle_guard_reached := true;
+  END;
+  IF NOT lifecycle_guard_reached THEN
+    RAISE EXCEPTION 'Authenticated dispatcher did not reach the final-member release guard';
+  END IF;
+END;
+$release_rpc_dispatcher_reaches_guard$;
+
+-- RLS must expose audit history to dispatchers/admins but not to requesters.
+DO $release_history_dispatcher_read$
+DECLARE visible_count integer;
+BEGIN
+  SELECT count(*) INTO visible_count
+  FROM public.incident_assignment_events e
+  WHERE e.incident_id = (
+    SELECT id FROM public.incidents
+    WHERE description = 'Dispatcher release runtime regression'
+  );
+  IF visible_count = 0 THEN
+    RAISE EXCEPTION 'Dispatcher should be able to read assignment history under RLS';
+  END IF;
+END;
+$release_history_dispatcher_read$;
+
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000150', false);
+DO $release_history_requester_hidden$
+DECLARE visible_count integer;
+BEGIN
+  SELECT count(*) INTO visible_count
+  FROM public.incident_assignment_events e
+  WHERE e.incident_id = (
+    SELECT id FROM public.incidents
+    WHERE description = 'Dispatcher release runtime regression'
+  );
+  IF visible_count <> 0 THEN
+    RAISE EXCEPTION 'Requester must not read dispatcher-only assignment history';
+  END IF;
+END;
+$release_history_requester_hidden$;
+
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000158', false);
+DO $release_history_admin_read$
+DECLARE visible_count integer;
+BEGIN
+  SELECT count(*) INTO visible_count
+  FROM public.incident_assignment_events e
+  WHERE e.incident_id = (
+    SELECT id FROM public.incidents
+    WHERE description = 'Dispatcher release runtime regression'
+  );
+  IF visible_count = 0 THEN
+    RAISE EXCEPTION 'Admin should be able to read assignment history under RLS';
+  END IF;
+END;
+$release_history_admin_read$;
+RESET ROLE;
+
+\echo 'PASS: dispatcher release runtime, authenticated RPC access, assignment-history RLS, primary handoff, last-member and after-arrival protections, duty reservation, and attributed audit history.'
