@@ -1,3 +1,13 @@
+## CI compile and migration-history contract repair — 2026-11-18
+
+- **Finding:** The latest PR #334 CI run failed Android Kotlin compilation because `TacRepository.kt` referenced `ReleaseIncidentAssignmentRpc` without importing its model, and `ResponderScreen.kt` used `CardDefaults` without importing the Material 3 symbol. The CodeQL Android build failed on the same compilation errors.
+- **Change:** Added the two missing imports without changing assignment behavior or UI behavior.
+- **Migration contract:** CI also rejected three newly committed migration files as untracked by the static history guard. Added the request-edit notification, assignment-event history, and dispatcher-release migrations to the pending allowlist only. This does not mark them applied or alter the live Supabase ledger.
+- **Commits:** `767ee5f` repository RPC import; `d24570c` Material 3 import; `3fa4118` pending migration allowlist.
+- **Validation:** Failure causes were read from the exact PR-head GitHub Actions logs. Updated source and contract files were re-fetched for inspection. No local tests/builds/emulator/device checks or production database changes were run; a new CI run for the repaired head is still required.
+
+---
+
 ## Mutually exclusive chat retry recovery — 2026-11-18
 
 - **Finding:** Text sends already refuse to start while an image retry is unresolved, but the image-send path did not symmetrically block an unresolved text retry. A restored state containing both retry records was also not identified explicitly. This could allow overlapping uncertain sends and ambiguous retry recovery.
