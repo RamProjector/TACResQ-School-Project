@@ -146,7 +146,7 @@ class ResponderViewModel(
                     me.isFailure && userDuty == DutyStatus.AVAILABLE ->
                         "Could not verify your current duty status. Claimable requests are hidden until a successful refresh."
                     claimableResult?.isFailure == true ->
-                        claimableResult.exceptionOrNull()?.message
+                        claimableResult?.exceptionOrNull()?.message?.takeIf { it.isNotBlank() }
                             ?: "Could not load incidents available for claiming. Refresh before claiming."
                     else -> null
                 }
@@ -479,7 +479,7 @@ fun ResponderScreen(
                     }
                     Button(
                         onClick = { vm.claimIncident(incident.id) },
-                        enabled = !state.busy,
+                        enabled = !state.busy && !state.refreshing && state.claimableError == null,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     ) {
                         Text("Claim Incident #${incident.id}")
