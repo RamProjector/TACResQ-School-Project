@@ -1754,3 +1754,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Regression guard:** Added a lifecycle contract test requiring generation checks at all four asynchronous callback boundaries.
 - **Commits:** `d2865ca` (implementation), `d7e7a9d` (contract test), and this documentation commit.
 - **Validation:** Reviewed the initial and retry callback paths and verified that disposal clears `mapLibreMap`, while a newer retry increments the generation. No Android build, JVM test, or device navigation/retry test has run for this update. Exact-head CI is pending.
+
+
+## Route preview selection-generation guard — 2026-11-18
+
+- **Finding:** The route preview already captured both a request generation and a selection generation. It checked both while acquiring device settings/location, but after the routing provider returned it checked only request generation plus the selected incident ID. If the user moved away from an incident and back to the same incident while an uncooperative provider call was completing, the old response could pass the weaker check and publish a stale route.
+- **Change:** Reused the complete `isCurrentRequest()` predicate after the provider call and immediately before publishing the route. The predicate requires the request generation, selection generation, and selected incident ID all to match.
+- **Regression guard:** Added `tools/test_gps_route_selection_generation.py` to assert that both generations are checked before parsing and publishing a provider result.
+- **Commits:** `16930d7` (implementation), `ed6d1bc` (contract test), and this documentation commit.
+- **Validation:** Inspected the full route request coroutine and its selection-generation lifecycle. The new Python source-contract test has not been executed here; no Android build, JVM test, or device route-navigation test has run for this update. Exact-head CI is pending.
