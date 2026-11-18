@@ -115,11 +115,12 @@ BEGIN
     RAISE EXCEPTION 'Legacy reservation fixture must persist an active assigned_to reservation';
   END IF;
 
-  -- The legacy schema represents the active reservation in incidents.assigned_to;
-  -- seed its matching profile status explicitly so this fixture models a unit
-  -- already shown as assigned before the new team-membership release occurs.
+  -- Duty status and assignment state are separate. The legacy reservation
+  -- lives in incidents.assigned_to; use a valid in-progress duty status here.
+  -- The release must preserve that status while the other active incident
+  -- continues to reserve this member.
   PERFORM set_config('request.jwt.claim.sub', '', true);
-  UPDATE public.profiles SET duty_status = 'assigned' WHERE id = primary_id;
+  UPDATE public.profiles SET duty_status = 'en_route' WHERE id = primary_id;
   PERFORM set_config('request.jwt.claim.sub', dispatcher_auth_id::text, true);
 
   -- A field unit cannot invoke the release RPC, even though the public wrapper
@@ -162,8 +163,16 @@ BEGIN
   END IF;
 
   SELECT duty_status INTO duty_after FROM public.profiles WHERE id = primary_id;
-  IF duty_after IS DISTINCT FROM 'assigned' THEN
-    RAISE EXCEPTION 'A member reserved by another active legacy incident must remain assigned; got %', duty_after;
+  IF duty_after IS DISTINCT FROM 'en_route' THEN
+    RAISE EXCEPTION 'A member reserved by another active legacy incident must retain its valid in-progress duty status; got %', duty_after;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.incidents AS legacy_row
+    WHERE legacy_row.id = legacy_incident_id
+      AND legacy_row.assigned_to = primary_id
+      AND legacy_row.status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+  ) THEN
+    RAISE EXCEPTION 'The unrelated legacy incident must continue reserving the released team member';
   END IF;
 
   IF NOT EXISTS (
