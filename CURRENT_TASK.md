@@ -1,3 +1,12 @@
+## Mutually exclusive chat retry recovery — 2026-11-18
+
+- **Finding:** Text sends already refuse to start while an image retry is unresolved, but the image-send path did not symmetrically block an unresolved text retry. A restored state containing both retry records was also not identified explicitly. This could allow overlapping uncertain sends and ambiguous retry recovery.
+- **Change:** Image sends now wait for pending-state restoration and refuse to start while a text retry identity exists. Restoring both a text and image retry record now leaves sending blocked with an explicit recovery message instead of silently choosing one.
+- **Regression guard:** Added `tools/test_chat_retry_mutual_exclusion_contract.py` and wired it into the Android source-check workflow.
+- **Validation:** Source and workflow files were re-fetched from the PR branch and inspected. The new contract was not executed; no Gradle build, tests, emulator, device checks, or production changes were performed.
+
+---
+
 ## Android dispatcher assignment-history timeline — 2026-11-18
 
 - Connected the Supabase-only `TacAssignmentHistoryApi` through `TacRepository` with positive incident-ID and 1–100 page-size validation. The optional capability remains unavailable on the Render bridge/fake backend rather than silently falling back to an unreviewed route.
