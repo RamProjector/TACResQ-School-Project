@@ -23,6 +23,7 @@ import com.tacresq.app.data.remote.CreateIncidentRequest
 import com.tacresq.app.data.remote.DutyStatusRequest
 import com.tacresq.app.data.remote.LoginRequest
 import com.tacresq.app.data.remote.RegisterRequest
+import com.tacresq.app.data.remote.ReleaseIncidentAssignmentRpc
 import com.tacresq.app.data.remote.ResponderLocationRequest
 import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.remote.TacNotificationApi
