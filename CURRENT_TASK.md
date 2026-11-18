@@ -1669,3 +1669,13 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Change:** The release migration now captures whether another active legacy incident reserves the member before changing current membership, and uses that result when deciding whether to restore availability. The runtime test now asserts that the legacy fixture persisted with the intended `assigned_to` and `assigned` state before exercising release.
 - **Commits:** `6d47e79` implementation; `51667ce` fixture assertion.
 - **Validation:** The failure was confirmed from exact-head GitHub Actions logs. The correction has not yet been validated by a fresh CI run. The fixture assertion will distinguish a bad test setup from a release-path regression if the failure persists. No production migration, Supabase data change, Render deployment, local test, or merge was performed.
+
+
+## Account recovery research trace — 2026-11-18
+
+- Confirmed Android password recovery is intentionally unavailable today: `AuthScreen.kt` states no email is sent; `SupabaseAuthWire` has no recovery request or password-update endpoint; `AuthCallbackMessage` deliberately ignores URI query/fragment values and only displays a confirmation-return message.
+- The existing `tacresq://auth/callback` intent filter provides a starting point, but a secure recovery flow must distinguish recovery from email confirmation, validate/exchange the recovery credential with Supabase Auth, handle cold-start and warm intents, avoid persisting/logging tokens, and provide a real set-new-password screen.
+- Added the detailed end-to-end design and validation requirements to `docs/OPERATIONAL_IMPROVEMENT_REVIEW.md`. Do not ship a partial “email sent” state or change production Supabase Auth redirect/template settings without explicit approval.
+- Admin portal review found its separate admin-only shell already has brand, admin identity, refresh, and sign-out. No real admin notification stream is currently defined, so do not add a decorative notification control. Audit actor/target fallback behavior is documented; no profile read permissions were broadened.
+- Commit: `ec22ead`.
+- No application behavior changed in this documentation commit. Exact-head CI was still running at the time of review; check fresh workflows before further source changes. No production configuration, deployment, local build, or device test was performed.
