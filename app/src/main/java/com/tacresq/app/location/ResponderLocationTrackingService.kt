@@ -348,7 +348,7 @@ class ResponderLocationTrackingService : Service() {
                         if (activeIncidentId == null) stopSelf()
                         return
                     }
-                    controller.serviceMessage(incidentId, "Could not verify the active assignment; location updates are paused.")
+                    controller.serviceMessage(incidentId, sessionId, "Could not verify the active assignment; location updates are paused.")
                     delay(RETRY_DELAY_MILLIS)
                     continue
                 }
@@ -373,7 +373,7 @@ class ResponderLocationTrackingService : Service() {
                     when (capture) {
                         is LocationCaptureResult.Success -> {
                             if (!locationProvider.isFresh(capture.fix)) {
-                                controller.serviceMessage(incidentId, "Waiting for a fresh location fix; no stale position was sent.")
+                                controller.serviceMessage(incidentId, sessionId, "Waiting for a fresh location fix; no stale position was sent.")
                             } else {
                                 val result = repository.recordResponderLocation(incidentId, capture.fix)
                                 if (!isActiveSession(incidentId, sessionId)) return@collect
@@ -390,7 +390,7 @@ class ResponderLocationTrackingService : Service() {
                                     if (activeIncidentId == null) stopSelf()
                                     return@collect
                                 } else {
-                                    controller.serviceMessage(incidentId, "Latest location could not be sent; TACResQ will retry when connectivity returns.")
+                                    controller.serviceMessage(incidentId, sessionId, "Latest location could not be sent; TACResQ will retry when connectivity returns.")
                                 }
                                 if (isActiveSession(incidentId, sessionId)) {
                                     maybeRecalculateRoute(incidentId, sessionId, capture.fix)
@@ -410,7 +410,7 @@ class ResponderLocationTrackingService : Service() {
                         LocationCaptureResult.TimedOut,
                         LocationCaptureResult.InvalidFix,
                         LocationCaptureResult.Unavailable,
-                        -> controller.serviceMessage(incidentId, "Waiting for a valid current location; no stale position was sent.")
+                        -> controller.serviceMessage(incidentId, sessionId, "Waiting for a valid current location; no stale position was sent.")
                     }
                 }
                 if (isActiveSession(incidentId, sessionId)) delay(RETRY_DELAY_MILLIS)
@@ -432,7 +432,7 @@ class ResponderLocationTrackingService : Service() {
     private fun enableNavigation(incidentId: Long) {
         val routingProvider = (application as TacResqApp).container.routingProvider
         if (routingProvider == null) {
-            controller.serviceMessage(incidentId, "In-app routing is not enabled or configured. Location sharing remains active.")
+            controller.serviceMessage(incidentId, sessionId, "In-app routing is not enabled or configured. Location sharing remains active.")
             return
         }
         if (!navigationEnabled) {
@@ -441,6 +441,7 @@ class ResponderLocationTrackingService : Service() {
             } catch (_: Exception) {
                 controller.serviceMessage(
                     incidentId,
+                    sessionId,
                     "Live navigation could not update its persistent notification. Location sharing remains active.",
                 )
                 return
@@ -449,8 +450,8 @@ class ResponderLocationTrackingService : Service() {
             currentNavigationRoute = null
             reroutePolicy.reset()
         }
-        controller.serviceStarted(incidentId, navigationEnabled = true)
-        controller.navigationWaiting(incidentId, "Waiting for a fresh location to calculate the first route.")
+        controller.serviceStarted(incidentId, sessionId, navigationEnabled = true)
+        controller.navigationWaiting(incidentId, sessionId, "Waiting for a fresh location to calculate the first route.")
     }
 
     private fun refreshNavigationDestination(incidentId: Long, sessionId: Long, latitude: Double?, longitude: Double?) {
@@ -483,7 +484,7 @@ class ResponderLocationTrackingService : Service() {
             return
         }
         if (destination == null) {
-            controller.navigationFailed(incidentId, "This assignment has no valid destination coordinate. Confirm the location with dispatch.")
+            controller.navigationFailed(incidentId, sessionId, "This assignment has no valid destination coordinate. Confirm the location with dispatch.")
             return
         }
         val origin = RouteCoordinate(fix.latitude, fix.longitude)
@@ -539,7 +540,7 @@ class ResponderLocationTrackingService : Service() {
                         if (activeIncidentId == null) stopSelf()
                         return
                     }
-                    controller.serviceMessage(incidentId, "Could not refresh assignment status; every location write remains server-authorized.")
+                    controller.serviceMessage(incidentId, sessionId, "Could not refresh assignment status; every location write remains server-authorized.")
                     continue
                 }
                 val assignmentsResult = repository.myIncidents()
@@ -552,7 +553,7 @@ class ResponderLocationTrackingService : Service() {
                         if (activeIncidentId == null) stopSelf()
                         return
                     }
-                    controller.serviceMessage(incidentId, "Could not refresh assignment status; every location write remains server-authorized.")
+                    controller.serviceMessage(incidentId, sessionId, "Could not refresh assignment status; every location write remains server-authorized.")
                     continue
                 }
                 val activeAssignment = assignments.firstOrNull {
