@@ -1745,3 +1745,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Regression guard:** Added a source-contract assertion that both repository calls in both coroutines are followed by the generation check, and that the monitor error path is session-scoped.
 - **Commits:** `6ac39e7`, `a22a5e5`, `bf98a69`, `fe4f006`.
 - **Validation:** Inspected the two `me()` and two `myIncidents()` call sites and confirmed each has an immediate generation check. No Gradle build, JVM test, PostgreSQL replay, or Android lifecycle/device test has run for this update. Exact-head CI is pending.
+
+
+## MapLibre retry callback generation guard — 2026-11-18
+
+- **Finding:** The initial MapLibre style load had a disposal guard, but the user-triggered `retryMapLoad()` style callbacks did not. A retry completing after screen disposal could still install style sources and mutate Compose state. Repeated retries could also allow an older style callback on the same map instance to overwrite the newest style's source references.
+- **Change:** Added a monotonically increasing style-request generation scoped to the map screen. Both initial style loading and retry now capture the generation and verify both the active `MapLibreMap` instance and generation before processing the style and again inside the nested `getStyle` callback. Stale callbacks return without changing UI state or installing cluster sources.
+- **Regression guard:** Added a lifecycle contract test requiring generation checks at all four asynchronous callback boundaries.
+- **Commits:** `d2865ca` (implementation), `d7e7a9d` (contract test), and this documentation commit.
+- **Validation:** Reviewed the initial and retry callback paths and verified that disposal clears `mapLibreMap`, while a newer retry increments the generation. No Android build, JVM test, or device navigation/retry test has run for this update. Exact-head CI is pending.
