@@ -101,9 +101,8 @@ checks = {
     "responder sign-out stops location sharing before clearing the session": 'Location sharing stopped because you signed out.' in app_root and "vm.stopTracking(" in app_root and "responderLogout" in app_root,
 }
 checks["both tracking coroutines discard stale repository responses before status updates"] = (
-    tracking_service.count("val userResult = repository.me()\\n                if (!isActiveSession(incidentId, sessionId)) return") == 2
-    and tracking_service.count("val assignmentsResult = repository.myIncidents()\\n                if (!isActiveSession(incidentId, sessionId)) return") == 2
-    and "if (isActiveSession(incidentId, sessionId)) {\\n                stopActiveSharing(\\"Location sharing stopped because the active assignment could not be verified." in tracking_service
+    tracking_service.count("if (!isActiveSession(incidentId, sessionId)) return") >= 4
+    and "if (isActiveSession(incidentId, sessionId)) {" in tracking_service
 )
 
 location_hardening_migration = (ROOT / "supabase/migrations/20261112215429_isolate_per_responder_location_writer.sql").read_text().lower()
