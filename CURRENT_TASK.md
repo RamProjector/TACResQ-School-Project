@@ -1,3 +1,12 @@
+## Incident chat lifecycle source-contract correction — 2026-11-18
+
+- **Finding:** Exact-head CI failed because `tools/test_activity_lifecycle_failure_safety.py` required exactly nine generation-token checks. The current `IncidentChatScreen.kt` has ten guarded checks: one additional guard protects an asynchronous completion from updating a conversation that has since been closed or reopened. The implementation is stricter than the stale test count.
+- **Change:** Changed the contract to require at least nine generation-scoped completion checks, allowing additional guards while still preventing accidental removal of the lifecycle protection. No production Kotlin code changed.
+- **Commit:** `e496ebe`.
+- **Validation:** Confirmed the failure from the exact-head CI log and counted the ten actual checks in `IncidentChatScreen.kt`. The revised contract has not yet rerun. No local tests/builds, emulator/device checks, production changes, or deployment were performed.
+
+---
+
 ## Adaptive incident-history selection source-contract correction — 2026-11-18
 
 - **Finding:** Exact-head TACResQ CI failed `tools/test_adaptive_multi_pane_scaffolds.py` because it expected an older selected-card border expression with an outline-variant fallback. The current `IncidentHistoryListItem` intentionally renders a primary 1.5dp border only when selected, uses secondary-container versus surface fill, and uses 2dp versus 0dp elevation.
