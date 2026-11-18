@@ -350,7 +350,7 @@ class ResponderLocationTrackingService : Service() {
                     if (activeIncidentId == null) stopSelf()
                     return
                 }
-                refreshNavigationDestination(incidentId, activeAssignment.latitude, activeAssignment.longitude)
+                refreshNavigationDestination(incidentId, sessionId, activeAssignment.latitude, activeAssignment.longitude)
                 if (!ResponderLocationTrackingService.hasRequiredPermissions(this) ||
                     !locationProvider.hasApproximatePermission()
                 ) {
@@ -366,6 +366,7 @@ class ResponderLocationTrackingService : Service() {
                                 controller.serviceMessage(incidentId, "Waiting for a fresh location fix; no stale position was sent.")
                             } else {
                                 val result = repository.recordResponderLocation(incidentId, capture.fix)
+                                if (!isActiveSession(incidentId, sessionId)) return@collect
                                 val failure = result.exceptionOrNull()
                                 if (failure == null) {
                                     controller.locationSent(
@@ -381,7 +382,7 @@ class ResponderLocationTrackingService : Service() {
                                     controller.serviceMessage(incidentId, "Latest location could not be sent; TACResQ will retry when connectivity returns.")
                                 }
                                 if (isActiveSession(incidentId, sessionId)) {
-                                    maybeRecalculateRoute(incidentId, capture.fix)
+                                    maybeRecalculateRoute(incidentId, sessionId, capture.fix)
                                 }
                             }
                         }
@@ -441,7 +442,8 @@ class ResponderLocationTrackingService : Service() {
         controller.navigationWaiting(incidentId, "Waiting for a fresh location to calculate the first route.")
     }
 
-    private fun refreshNavigationDestination(incidentId: Long, latitude: Double?, longitude: Double?) {
+    private fun refreshNavigationDestination(incidentId: Long, sessionId: Long, latitude: Double?, longitude: Double?) {
+        if (!isActiveSession(incidentId, sessionId)) return
         val destination = if (
             latitude != null && longitude != null && latitude.isFinite() && longitude.isFinite() &&
             latitude in -90.0..90.0 && longitude in -180.0..180.0
@@ -459,8 +461,8 @@ class ResponderLocationTrackingService : Service() {
         }
     }
 
-    private suspend fun maybeRecalculateRoute(incidentId: Long, fix: com.tacresq.app.data.model.GeoFix) {
-        if (!navigationEnabled || activeIncidentId != incidentId) return
+    private suspend fun maybeRecalculateRoute(incidentId: Long, sessionId: Long, fix: com.tacresq.app.data.model.GeoFix) {
+        if (!isActiveSession(incidentId, sessionId) || !navigationEnabled) return
         val appContainer = (application as TacResqApp).container
         val destination = activeDestination
         val provider = appContainer.routingProvider
@@ -487,7 +489,7 @@ class ResponderLocationTrackingService : Service() {
         } catch (failure: Exception) {
             Result.failure(failure)
         }
-        if (activeIncidentId != incidentId || !navigationEnabled || activeDestination != destination) return
+        if (!isActiveSession(incidentId, sessionId) || !navigationEnabled || activeDestination != destination) return
         val route = result.getOrNull()?.takeIf { it.isUsable(System.currentTimeMillis()) }
         if (route != null) {
             reroutePolicy.recordRequestResult(succeeded = true, nowMillis = System.currentTimeMillis())
@@ -506,7 +508,7 @@ class ResponderLocationTrackingService : Service() {
     private suspend fun monitorAssignment(incidentId: Long, sessionId: Long) {
         val repository = (application as TacResqApp).container.repository
         try {
-            while (activeIncidentId == incidentId) {
+            while (isActiveSession(incidentId, sessionId)) {
                 delay(30_000L)
                 if (!isActiveSession(incidentId, sessionId)) return
                 if (!ResponderLocationTrackingService.hasRequiredPermissions(this)) {
