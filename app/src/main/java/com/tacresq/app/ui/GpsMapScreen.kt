@@ -1699,7 +1699,7 @@ fun GpsMapScreen(
                         )
                         // Providers may not cooperate with coroutine cancellation. Reject
                         // late results before they can replace route, status, or camera state.
-                        if (generation != routeRequestGeneration || selectedIncidentId != incident.id) {
+                        if (!isCurrentRequest()) {
                             return@launch
                         }
                         val route = result.getOrNull()
@@ -1708,7 +1708,7 @@ fun GpsMapScreen(
                                 ?: "The routing service returned no current usable route."
                             return@launch
                         }
-                        if (generation != routeRequestGeneration || selectedIncidentId != incident.id) {
+                        if (!isCurrentRequest()) {
                             return@launch
                         }
                         routeResult = route
