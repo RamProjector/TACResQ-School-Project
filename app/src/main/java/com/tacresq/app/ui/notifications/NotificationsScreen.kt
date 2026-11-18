@@ -453,6 +453,7 @@ fun NotificationsAndSafetyScreen(
                         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Notifications unavailable", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Button(onClick = vm::refresh, enabled = !state.refreshing) { Text("Try again") }
                         }
                     }
                 }
