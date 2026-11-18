@@ -181,6 +181,7 @@ DECLARE
   incident_row public.incidents;
   released_assignment public.incident_assignments;
   remaining_count integer;
+  has_other_legacy_reservation boolean := false;
   next_primary_user_id bigint;
   assigned_ids jsonb;
   assigned_statuses jsonb;
@@ -233,6 +234,17 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  -- Capture legacy single-member reservations before changing this incident's
+  -- membership. This preserves compatibility with older active incidents that
+  -- reserve a profile through incidents.assigned_to without a team row.
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.incidents i
+    WHERE i.assigned_to = p_user_id
+      AND i.id <> p_id
+      AND i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+  ) INTO has_other_legacy_reservation;
+
   -- The DELETE trigger appends the release event in this same transaction.
   DELETE FROM public.incident_assignments
   WHERE incident_id = p_id AND user_id = p_user_id;
@@ -263,13 +275,7 @@ BEGIN
       WHERE a.user_id = p.id
         AND i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')
     )
-    AND NOT EXISTS (
-      SELECT 1
-      FROM public.incidents i
-      WHERE i.assigned_to = p.id
-        AND i.id <> p_id
-        AND i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')
-    );
+    AND NOT has_other_legacy_reservation;
 
   SELECT
     coalesce(jsonb_agg(a.user_id ORDER BY a.assigned_at, a.user_id), '[]'::jsonb),
