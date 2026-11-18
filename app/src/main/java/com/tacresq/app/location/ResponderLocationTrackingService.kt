@@ -519,6 +519,7 @@ class ResponderLocationTrackingService : Service() {
                     return
                 }
                 val userResult = repository.me()
+                if (!isActiveSession(incidentId, sessionId)) return
                 val user = userResult.getOrNull()
                 if (user == null) {
                     val failure = userResult.exceptionOrNull()
@@ -531,6 +532,7 @@ class ResponderLocationTrackingService : Service() {
                     continue
                 }
                 val assignmentsResult = repository.myIncidents()
+                if (!isActiveSession(incidentId, sessionId)) return
                 val assignments = assignmentsResult.getOrNull()
                 if (assignments == null) {
                     val failure = assignmentsResult.exceptionOrNull()
