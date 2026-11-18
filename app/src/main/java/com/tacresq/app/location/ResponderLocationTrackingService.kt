@@ -261,7 +261,7 @@ class ResponderLocationTrackingService : Service() {
                     return START_NOT_STICKY
                 }
                 if (activeIncidentId != null) {
-                    if (isActiveSession(incidentId, sessionId)) {
+                    if (activeIncidentId == incidentId) {
                         if (startNavigation) enableNavigation(incidentId)
                         else controller.serviceStarted(incidentId, navigationEnabled)
                     } else {
@@ -322,7 +322,7 @@ class ResponderLocationTrackingService : Service() {
                     val failure = userResult.exceptionOrNull()
                     if (failure.hasHttpStatus(401, 403)) {
                         stopActiveSharing("Location sharing stopped because the responder session is no longer authorized.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
-                        stopSelf()
+                        if (activeIncidentId == null) stopSelf()
                         return
                     }
                     controller.serviceMessage(incidentId, "Could not verify the active responder session; location updates are paused.")
@@ -334,8 +334,8 @@ class ResponderLocationTrackingService : Service() {
                 if (assignments == null) {
                     val failure = assignmentsResult.exceptionOrNull()
                     if (failure.hasHttpStatus(401, 403)) {
-                        stopActiveSharing("Location sharing stopped because this responder session is no longer authorized.", expectedIncidentId = incidentId)
-                        stopSelf()
+                        stopActiveSharing("Location sharing stopped because this responder session is no longer authorized.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                        if (activeIncidentId == null) stopSelf()
                         return
                     }
                     controller.serviceMessage(incidentId, "Could not verify the active assignment; location updates are paused.")
@@ -346,16 +346,16 @@ class ResponderLocationTrackingService : Service() {
                     it.id == incidentId && it.statusFor(user.id) == IncidentStatus.EN_ROUTE
                 }
                 if (activeAssignment == null) {
-                    stopActiveSharing("Location sharing stopped because this assignment is no longer en route.", expectedIncidentId = incidentId)
-                    stopSelf()
+                    stopActiveSharing("Location sharing stopped because this assignment is no longer en route.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                    if (activeIncidentId == null) stopSelf()
                     return
                 }
                 refreshNavigationDestination(incidentId, activeAssignment.latitude, activeAssignment.longitude)
                 if (!ResponderLocationTrackingService.hasRequiredPermissions(this) ||
                     !locationProvider.hasApproximatePermission()
                 ) {
-                    stopActiveSharing("Approximate location permission was withdrawn; no further location will be sent.", expectedIncidentId = incidentId)
-                    stopSelf()
+                    stopActiveSharing("Approximate location permission was withdrawn; no further location will be sent.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                    if (activeIncidentId == null) stopSelf()
                     return
                 }
                 locationProvider.responderForegroundUpdates().collect { capture ->
@@ -374,8 +374,8 @@ class ResponderLocationTrackingService : Service() {
                                         capture.fix.accuracyM,
                                     )
                                 } else if (failure.hasHttpStatus(401, 403, 404, 422)) {
-                                    stopActiveSharing("Location sharing stopped because the session or assignment is no longer authorized.", expectedIncidentId = incidentId)
-                                    stopSelf()
+                                    stopActiveSharing("Location sharing stopped because the session or assignment is no longer authorized.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                                    if (activeIncidentId == null) stopSelf()
                                     return@collect
                                 } else {
                                     controller.serviceMessage(incidentId, "Latest location could not be sent; TACResQ will retry when connectivity returns.")
@@ -386,13 +386,13 @@ class ResponderLocationTrackingService : Service() {
                             }
                         }
                         LocationCaptureResult.PermissionDenied -> {
-                            stopActiveSharing("Approximate location permission was withdrawn; no further location will be sent.", expectedIncidentId = incidentId)
-                            stopSelf()
+                            stopActiveSharing("Approximate location permission was withdrawn; no further location will be sent.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                            if (activeIncidentId == null) stopSelf()
                             return@collect
                         }
                         LocationCaptureResult.ServicesDisabled -> {
-                            stopActiveSharing("Location services are off. Re-enable location and explicitly resume sharing.", expectedIncidentId = incidentId)
-                            stopSelf()
+                            stopActiveSharing("Location services are off. Re-enable location and explicitly resume sharing.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                            if (activeIncidentId == null) stopSelf()
                             return@collect
                         }
                         LocationCaptureResult.TimedOut,
@@ -406,13 +406,13 @@ class ResponderLocationTrackingService : Service() {
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: SecurityException) {
-            stopActiveSharing("Location permission is no longer available; no further location will be sent.", expectedIncidentId = incidentId)
-            stopSelf()
+            stopActiveSharing("Location permission is no longer available; no further location will be sent.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+            if (activeIncidentId == null) stopSelf()
         } catch (_: Exception) {
             if (isActiveSession(incidentId, sessionId)) {
                 controller.serviceMessage(incidentId, "Location sharing paused after an unexpected error. Return to TACResQ and resume.")
-                stopActiveSharing("Location sharing stopped after an unexpected error.", expectedIncidentId = incidentId)
-                stopSelf()
+                stopActiveSharing("Location sharing stopped after an unexpected error.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                if (activeIncidentId == null) stopSelf()
             }
         }
     }
@@ -510,8 +510,8 @@ class ResponderLocationTrackingService : Service() {
                 delay(30_000L)
                 if (!isActiveSession(incidentId, sessionId)) return
                 if (!ResponderLocationTrackingService.hasRequiredPermissions(this)) {
-                    stopActiveSharing("Location or notification permission was withdrawn; sharing has stopped.", expectedIncidentId = incidentId)
-                    stopSelf()
+                    stopActiveSharing("Location or notification permission was withdrawn; sharing has stopped.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                    if (activeIncidentId == null) stopSelf()
                     return
                 }
                 val userResult = repository.me()
@@ -519,8 +519,8 @@ class ResponderLocationTrackingService : Service() {
                 if (user == null) {
                     val failure = userResult.exceptionOrNull()
                     if (failure.hasHttpStatus(401, 403)) {
-                        stopActiveSharing("Location sharing stopped because the responder session is no longer authorized.", expectedIncidentId = incidentId)
-                        stopSelf()
+                        stopActiveSharing("Location sharing stopped because the responder session is no longer authorized.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                        if (activeIncidentId == null) stopSelf()
                         return
                     }
                     controller.serviceMessage(incidentId, "Could not refresh assignment status; every location write remains server-authorized.")
@@ -531,8 +531,8 @@ class ResponderLocationTrackingService : Service() {
                 if (assignments == null) {
                     val failure = assignmentsResult.exceptionOrNull()
                     if (failure.hasHttpStatus(401, 403)) {
-                        stopActiveSharing("Location sharing stopped because this responder session is no longer authorized.", expectedIncidentId = incidentId)
-                        stopSelf()
+                        stopActiveSharing("Location sharing stopped because this responder session is no longer authorized.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                        if (activeIncidentId == null) stopSelf()
                         return
                     }
                     controller.serviceMessage(incidentId, "Could not refresh assignment status; every location write remains server-authorized.")
@@ -542,8 +542,8 @@ class ResponderLocationTrackingService : Service() {
                     it.id == incidentId && it.statusFor(user.id) == IncidentStatus.EN_ROUTE
                 }
                 if (activeAssignment == null) {
-                    stopActiveSharing("Location sharing stopped because this assignment is no longer en route.", expectedIncidentId = incidentId)
-                    stopSelf()
+                    stopActiveSharing("Location sharing stopped because this assignment is no longer en route.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                    if (activeIncidentId == null) stopSelf()
                     return
                 }
                 refreshNavigationDestination(incidentId, activeAssignment.latitude, activeAssignment.longitude)
@@ -552,8 +552,8 @@ class ResponderLocationTrackingService : Service() {
             throw cancelled
         } catch (_: Exception) {
             if (activeIncidentId == incidentId) {
-                stopActiveSharing("Location sharing stopped because the active assignment could not be verified.", expectedIncidentId = incidentId)
-                stopSelf()
+                stopActiveSharing("Location sharing stopped because the active assignment could not be verified.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
+                if (activeIncidentId == null) stopSelf()
             }
         }
     }
