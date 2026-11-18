@@ -83,6 +83,10 @@ BEGIN
     11.244, 125.003, now(), 'manual'
   ) RETURNING id INTO incident_id;
 
+  -- Preserve the fixture identity outside caller-visible incident RLS. The
+  -- authenticated role must not depend on reading incidents to test history.
+  PERFORM set_config('tacresq.release_test_incident_id', incident_id::text, false);
+
   PERFORM set_config('request.jwt.claim.sub', dispatcher_auth_id::text, true);
   response := public.api_assign_incident_team(
     incident_id,
@@ -343,10 +347,7 @@ DECLARE visible_count integer;
 BEGIN
   SELECT count(*) INTO visible_count
   FROM public.incident_assignment_events AS e
-  WHERE e.incident_id = (
-    SELECT id FROM public.incidents
-    WHERE description = 'Dispatcher release runtime regression'
-  );
+  WHERE e.incident_id = current_setting('tacresq.release_test_incident_id')::bigint;
   IF visible_count = 0 THEN
     RAISE EXCEPTION 'Dispatcher should be able to read assignment history under RLS';
   END IF;
@@ -359,10 +360,7 @@ DECLARE visible_count integer;
 BEGIN
   SELECT count(*) INTO visible_count
   FROM public.incident_assignment_events AS e
-  WHERE e.incident_id = (
-    SELECT id FROM public.incidents
-    WHERE description = 'Dispatcher release runtime regression'
-  );
+  WHERE e.incident_id = current_setting('tacresq.release_test_incident_id')::bigint;
   IF visible_count <> 0 THEN
     RAISE EXCEPTION 'Requester must not read dispatcher-only assignment history';
   END IF;
@@ -375,10 +373,7 @@ DECLARE visible_count integer;
 BEGIN
   SELECT count(*) INTO visible_count
   FROM public.incident_assignment_events AS e
-  WHERE e.incident_id = (
-    SELECT id FROM public.incidents
-    WHERE description = 'Dispatcher release runtime regression'
-  );
+  WHERE e.incident_id = current_setting('tacresq.release_test_incident_id')::bigint;
   IF visible_count = 0 THEN
     RAISE EXCEPTION 'Admin should be able to read assignment history under RLS';
   END IF;
