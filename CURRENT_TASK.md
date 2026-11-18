@@ -1763,3 +1763,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - **Regression guard:** Added `tools/test_gps_route_selection_generation.py` to assert that both generations are checked before parsing and publishing a provider result.
 - **Commits:** `16930d7` (implementation), `ed6d1bc` (contract test), and this documentation commit.
 - **Validation:** Inspected the full route request coroutine and its selection-generation lifecycle. The new Python source-contract test has not been executed here; no Android build, JVM test, or device route-navigation test has run for this update. Exact-head CI is pending.
+
+
+## Responder status-controller session isolation — 2026-11-18
+
+- **Finding:** The foreground service's tracking and routing coroutines already used a monotonically increasing session ID to reject stale work, but the app-scoped `ResponderLocationTrackingController` still accepted status updates based only on incident ID. Stopping and restarting sharing for the same incident could therefore let a delayed callback from the old session overwrite the new session's UI status, even when the service itself correctly rejected stale writes.
+- **Change:** The controller now records the active tracking-session ID. Location-send, navigation, and service-message updates require both the incident ID and session ID to match. Service-stop updates can be scoped to the ending session; explicit user stop clears the controller token immediately. Navigation enablement receives the active session ID, and service destruction preserves the pre-invalidation ID when clearing controller state.
+- **Regression guard:** Extended `tools/test_location_contract.py` to require session-scoped controller updates, stop-token checks, teardown identity preservation, and session-aware navigation enablement.
+- **Commits:** `31686e4` (controller token), `f1b8cc0` (propagate identity), `da13acd` (navigation/teardown correction), `527c44a` (scope error status), `d817ac8` (source contract).
+- **Validation:** Re-fetched the latest source and traced all controller update call sites; each asynchronous update now carries its captured session ID. The Python source contract has not been executed here, and the Android build/JVM tests have not run for this change. Await exact-head CI. No device lifecycle validation, production migration, deployment, or merge was performed.
