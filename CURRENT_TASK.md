@@ -1694,3 +1694,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Traced the MapLibre lifecycle in GpsMapScreen.kt. Lifecycle events and camera/map-load listeners already guarded disposal, but the asynchronous setStyle callback and its nested getStyle callback could still run after the composable was disposed.
 - Added disposed checks at both callback boundaries before installing cluster sources or mutating Compose/map state. This is a targeted lifecycle-race fix; no map behavior, permissions, location sharing, or routing policy was changed.
 - Commit: 3039ed2. Validation pending exact-head GitHub CI; no device lifecycle test was run, so repeated navigation/background-resume behavior remains a manual verification item.
+
+## Responder location service thread visibility — 2026-11-18
+
+- Reviewed the explicit foreground-service start/stop path, tracking coroutine, assignment monitor, and destruction cleanup. The service already cancels both jobs and its service scope in `onDestroy()`; no duplicate cleanup or restart-policy change was needed.
+- Found that `activeIncidentId` is written by service lifecycle callbacks and read by the I/O-dispatched tracking/monitor coroutines without a cross-thread visibility guarantee. Marked the nullable incident ID field `@Volatile`, matching the service's existing treatment of other cross-thread state flags/references. This ensures background loops observe start/stop changes promptly; it does not alter assignment authorization, foreground-service restart policy, or user consent.
+- Commit: `85c52c1bbeac39895e30c2460e0c9af716c9f700`.
+- Validation: source inspection only. No local Gradle build, unit test, emulator/device lifecycle test, production backend change, or merge was performed. Exact-head GitHub Actions must validate the updated branch.
