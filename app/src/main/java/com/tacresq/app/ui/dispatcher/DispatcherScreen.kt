@@ -558,62 +558,16 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(if (showHistory) "Hide assignment history" else "View assignment history") }
                 if (showHistory) {
-                    val historyForIncident = state.assignmentHistoryIncidentId == incident.id
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text("Assignment history", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                            when {
-                                !historyForIncident || state.assignmentHistoryLoading -> {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                        Text("Loading audit events…", style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                                state.assignmentHistoryError != null -> {
-                                    Text(
-                                        state.assignmentHistoryError.orEmpty(),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error,
-                                    )
-                                    TextButton(onClick = { vm.loadAssignmentHistory(incident.id) }) { Text("Retry history") }
-                                }
-                                state.assignmentHistory.isEmpty() -> {
-                                    Text("No assignment events were returned for this incident.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                else -> state.assignmentHistory.asReversed().forEach { event ->
-                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        val eventLabel = when (event.eventType) {
-                                            "assigned" -> "Field unit assigned"
-                                            "released" -> "Field unit released"
-                                            "incident_closed" -> "Incident closed"
-                                            else -> "Assignment event"
-                                        }
-                                        val memberName = state.units.firstOrNull { it.id == event.userId }?.name
-                                            ?: "Field unit #${event.userId}"
-                                        val actorLabel = when (event.actorUserId) {
-                                            null -> "System"
-                                            user.id -> "You"
-                                            else -> "Another dispatcher/admin"
-                                        }
-                                        Text(eventLabel, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
-                                        Text(
-                                            "$memberName · by $actorLabel",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                        Text(
-                                            formatTime(event.occurredAt),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    AssignmentHistoryPanel(
+                        incidentId = incident.id,
+                        historyIncidentId = state.assignmentHistoryIncidentId,
+                        history = state.assignmentHistory,
+                        loading = state.assignmentHistoryLoading,
+                        error = state.assignmentHistoryError,
+                        units = state.units,
+                        currentUserId = user.id,
+                        onRetry = { vm.loadAssignmentHistory(incident.id) },
+                    )
                 }
             }
         }
@@ -645,49 +599,16 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(if (showClosedHistory) "Hide assignment history" else "View assignment history") }
                     if (showClosedHistory) {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                Text("Assignment history", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                when {
-                                    state.assignmentHistoryIncidentId != incident.id || state.assignmentHistoryLoading -> {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                            Text("Loading audit events…", style = MaterialTheme.typography.bodySmall)
-                                        }
-                                    }
-                                    state.assignmentHistoryError != null -> {
-                                        Text(state.assignmentHistoryError.orEmpty(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                                        TextButton(onClick = { vm.loadAssignmentHistory(incident.id) }) { Text("Retry history") }
-                                    }
-                                    state.assignmentHistory.isEmpty() -> {
-                                        Text("No assignment events were returned for this incident.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    else -> state.assignmentHistory.asReversed().forEach { event ->
-                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            val eventLabel = when (event.eventType) {
-                                                "assigned" -> "Field unit assigned"
-                                                "released" -> "Field unit released"
-                                                "incident_closed" -> "Incident closed"
-                                                else -> "Assignment event"
-                                            }
-                                            val memberName = state.units.firstOrNull { it.id == event.userId }?.name
-                                                ?: "Field unit #${event.userId}"
-                                            val actorLabel = when (event.actorUserId) {
-                                                null -> "System"
-                                                user.id -> "You"
-                                                else -> "Another dispatcher/admin"
-                                            }
-                                            Text(eventLabel, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
-                                            Text("$memberName · by $actorLabel", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text(formatTime(event.occurredAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        AssignmentHistoryPanel(
+                            incidentId = incident.id,
+                            historyIncidentId = state.assignmentHistoryIncidentId,
+                            history = state.assignmentHistory,
+                            loading = state.assignmentHistoryLoading,
+                            error = state.assignmentHistoryError,
+                            units = state.units,
+                            currentUserId = user.id,
+                            onRetry = { vm.loadAssignmentHistory(incident.id) },
+                        )
                     }
                 }
             }
@@ -827,6 +748,74 @@ private fun SummaryCard(pending: Int, active: Int, available: Int, availabilityC
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssignmentHistoryPanel(
+    incidentId: Long,
+    historyIncidentId: Long?,
+    history: List<AssignmentHistoryEvent>,
+    loading: Boolean,
+    error: String?,
+    units: List<User>,
+    currentUserId: Long,
+    onRetry: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Assignment history", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            when {
+                historyIncidentId != incidentId || loading -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text("Loading audit events…", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                error != null -> {
+                    Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = onRetry) { Text("Retry history") }
+                }
+                history.isEmpty() -> {
+                    Text(
+                        "No assignment events were returned for this incident.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                else -> history.asReversed().forEach { event ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        val eventLabel = when (event.eventType) {
+                            "assigned" -> "Field unit assigned"
+                            "released" -> "Field unit released"
+                            "incident_closed" -> "Incident closed"
+                            else -> "Assignment event"
+                        }
+                        val memberName = units.firstOrNull { it.id == event.userId }?.name
+                            ?: "Field unit #${event.userId}"
+                        val actorLabel = when (event.actorUserId) {
+                            null -> "System"
+                            currentUserId -> "You"
+                            else -> "Another dispatcher/admin"
+                        }
+                        Text(eventLabel, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "$memberName · by $actorLabel",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            formatTime(event.occurredAt),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }
