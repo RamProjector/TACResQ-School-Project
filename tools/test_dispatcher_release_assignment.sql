@@ -270,7 +270,7 @@ $dispatcher_release_runtime_test$;
 
 -- Exercise the REST-facing invoker wrapper as the actual authenticated role.
 -- The responder must be denied by role, while a dispatcher reaches the
--- last-member lifecycle guard (22023), proving the wrapper and private grant work.
+-- incident lifecycle guard (22023), proving the wrapper and private grant work.
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000151', false);
 DO $release_rpc_responder_denied$
@@ -307,7 +307,7 @@ BEGIN
     lifecycle_guard_reached := true;
   END;
   IF NOT lifecycle_guard_reached THEN
-    RAISE EXCEPTION 'Authenticated dispatcher did not reach the final-member release guard';
+    RAISE EXCEPTION 'Authenticated dispatcher did not reach the incident lifecycle guard';
   END IF;
 END;
 $release_rpc_dispatcher_reaches_guard$;
