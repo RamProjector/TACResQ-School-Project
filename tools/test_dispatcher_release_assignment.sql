@@ -275,16 +275,12 @@ SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000151', false);
 DO $release_rpc_responder_denied$
 DECLARE
-  target_incident_id bigint;
-  target_member_id bigint;
   denied boolean := false;
 BEGIN
-  SELECT id INTO target_incident_id FROM public.incidents
-  WHERE description = 'Dispatcher release runtime regression';
-  SELECT user_id INTO target_member_id FROM public.incident_assignments
-  WHERE incident_id = target_incident_id;
+  -- The private implementation rejects the caller's role before looking
+  -- up either supplied identifier, so no cross-incident read permission is needed.
   BEGIN
-    PERFORM public.api_release_incident_assignment(target_incident_id, target_member_id);
+    PERFORM public.api_release_incident_assignment(1, 0);
   EXCEPTION WHEN insufficient_privilege THEN
     denied := true;
   END;
