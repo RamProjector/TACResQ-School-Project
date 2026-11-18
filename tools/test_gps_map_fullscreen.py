@@ -16,7 +16,7 @@ assert "else {\n            onBack()" in map_screen
 assert "contentDescription = \"Back from GPS map\"" in map_screen
 assert "onClick = onBack" in map_screen
 assert 'if (role == Role.REQUESTER) "Map" else "GPS Map"' in map_screen
-assert "maxLines = 1,\n                        softWrap = false,\n                        overflow = TextOverflow.Ellipsis," in map_screen
+assert "modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),\n                            maxLines = 1,\n                            softWrap = false,\n                            overflow = TextOverflow.Ellipsis," in map_screen
 assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen
 assert "modifier = Modifier.fillMaxSize()" in map_screen
 # MapLibre supplies gesture-based zoom without legacy on-map zoom widgets.
