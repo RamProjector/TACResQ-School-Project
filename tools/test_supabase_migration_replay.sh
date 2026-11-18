@@ -1505,3 +1505,6 @@ psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_profile_metadata.sql
 
 # Verify legacy and paginated Admin list RPC access as authenticated.
 psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_admin_user_list_boundary.sql
+
+# Exercise dispatcher release, primary handoff, duty reservation, and audit events.
+psql -v ON_ERROR_STOP=1 -f tools/test_dispatcher_release_assignment.sql
