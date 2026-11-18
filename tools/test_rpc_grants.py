@@ -183,3 +183,20 @@ print(
     f"PASS: least-privilege EXECUTE grants for {len(FUNCTIONS)} RPCs, "
     "restricted advanced table grants, and full anon/PUBLIC table/sequence revokes"
 )
+
+
+# incident_assignments is a client read-only table. The new migration must
+# remove every anon/PUBLIC privilege and every authenticated write/DDL privilege.
+ASSIGNMENT_PRIVILEGE_SQL = Path(
+    "supabase/migrations/20261118090000_restrict_incident_assignment_table_privileges.sql"
+).read_text()
+assert re.search(
+    r"REVOKE\\s+ALL\\s+PRIVILEGES\\s+ON\\s+TABLE\\s+public\\.incident_assignments\\s+"
+    r"FROM\\s+PUBLIC,\\s*anon,\\s*authenticated\\s*;",
+    ASSIGNMENT_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
+), "incident_assignments must revoke all inherited/direct client privileges"
+assert re.search(
+    r"GRANT\\s+SELECT\\s+ON\\s+TABLE\\s+public\\.incident_assignments\\s+TO\\s+authenticated\\s*;",
+    ASSIGNMENT_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
+), "authenticated users must retain RLS-filtered assignment reads"
+assert "TRUNCATE" in ASSIGNMENT_PRIVILEGE_SQL.upper(), "Document the RLS-bypassing TRUNCATE risk"
