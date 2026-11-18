@@ -187,6 +187,9 @@ jobs:
       - name: Check GPS cluster count-label contrast
         run: python3 tools/test_gps_cluster_count_label_contract.py
 
+      - name: Check persistent theme preferences
+        run: python3 tools/test_theme_preferences_contract.py
+
       - name: Check draggable GPS incident sheet
         run: python3 tools/test_gps_map_draggable_sheet.py
 
