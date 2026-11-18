@@ -1,3 +1,12 @@
+## Laravel root-route test syntax follow-up — 2026-11-18
+
+- The first rerun reached PHPUnit and exposed a PHP parse error in the newly added `ExampleTest.php`: the namespace separators had been written as doubled literal backslashes.
+- Corrected the namespace and import declarations to standard PHP namespace syntax in commit `c539f0b`.
+- This was a test-file syntax defect, not an application routing failure. The earlier RPC allowlist correction remains in place.
+- **Validation:** awaiting a fresh CI run on the corrected head. Do not treat the Laravel integration job as passing until that run completes.
+
+---
+
 ## Laravel backend feature-test corrections — 2026-11-18
 
 - **Exact-head CI finding:** The Laravel/dashboard integration job had 75 passing tests and two failures. The root-route test expected HTTP 200 although `backend/src/routes/web.php` intentionally redirects `/` to `/admin/`. The RPC inventory test still expected `api_update_my_assignment_status`.
