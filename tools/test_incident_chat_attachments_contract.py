@@ -54,7 +54,8 @@ for required in (
     "Photo ready to send",
     "vm.sendImage(incidentId, user.id)",
     "IncidentMessageImage(path = path, vm = vm)",
-    "pendingImageClientMessageId",
+    "pendingImageRecord",
+    "restored?.clientMessageId",
     "5 * 1024 * 1024",
 ):
     assert required in screen, f"Image messaging UI contract missing: {required}"
