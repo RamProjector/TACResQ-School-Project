@@ -1710,3 +1710,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Explicit user/service stop and invalid start-command paths retain the unscoped stop behavior.
 - Existing `activeIncidentId` volatility and `serviceScope.cancel()` teardown were inspected and are already present; no duplicate changes were made.
 - Validation: source-level inspection of all stop call sites and the updated guard. No Gradle build, automated test run, or Android device lifecycle test has been performed for this commit. Verify rapid stop/restart across two assignments and late network failures on-device before release.
+
+
+## Responder tracking session-generation guard — 2026-11-18
+
+- Commits: `7e4c9c763efa6f09a4623d414df2a9aa31f8e873` and `5562828ce886f9c0d9ef0b1959789a71a183a2e5`.
+- Extended the earlier assignment-ID ownership guard with a monotonically increasing tracking-session ID. This handles the important same-assignment stop/restart case, where incident IDs alone cannot distinguish a stale coroutine from the new session.
+- Tracking and assignment-monitor jobs capture their session ID; asynchronous stop paths pass both incident and session IDs. The stop routine ignores obsolete sessions, and stale jobs cannot call `stopSelf()` while a replacement session is active.
+- Explicit notification stop, invalid command handling, and service teardown retain their service-owned stop behavior. Service destruction also invalidates the current session before cancelling the service scope.
+- Validation: inspected all tracking/monitor stop call sites, session checks, and service teardown in the updated source. No Gradle build, automated test run, or Android stop/restart lifecycle test has been performed. Device validation should include stopping and immediately restarting sharing for the same incident, then forcing a delayed network failure from the old request.
