@@ -66,6 +66,7 @@ PENDING = {
     "20261118010000_incident_assignment_event_history.sql",
     "20261118011000_dispatcher_release_incident_assignment.sql",
     "20261118090000_restrict_incident_assignment_table_privileges.sql",
+    "20261118092000_restrict_operational_table_writes.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
