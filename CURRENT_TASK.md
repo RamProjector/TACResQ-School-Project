@@ -1679,3 +1679,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Admin portal review found its separate admin-only shell already has brand, admin identity, refresh, and sign-out. No real admin notification stream is currently defined, so do not add a decorative notification control. Audit actor/target fallback behavior is documented; no profile read permissions were broadened.
 - Commit: `ec22ead`.
 - No application behavior changed in this documentation commit. Exact-head CI was still running at the time of review; check fresh workflows before further source changes. No production configuration, deployment, local build, or device test was performed.
+
+
+## Password recovery protocol decision — 2026-11-18
+
+- Supabase Auth supports PKCE recovery and a token_hash + verifyOtp pattern, but this repository currently uses Retrofit directly and has no PKCE verifier lifecycle or recovery callback exchange.
+- The existing tacresq://auth/callback is a custom scheme, not a verified Android App Link. Do not trust access_token values from arbitrary custom-scheme intents.
+- Documented the required choices and security requirements in docs/OPERATIONAL_IMPROVEMENT_REVIEW.md: verified HTTPS App Link + PKCE and secure short-lived verifier persistence, or a deliberately configured/tested token_hash email template + verifyOtp flow.
+- Keep the current honest unavailable message until redirect domain and Supabase email-template strategy are confirmed. No recovery code, auth configuration, or production settings were changed.
+- Commit: a552e66. Documentation-only; no application behavior changed.
