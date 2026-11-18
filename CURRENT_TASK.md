@@ -1701,3 +1701,12 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Found that `activeIncidentId` is written by service lifecycle callbacks and read by the I/O-dispatched tracking/monitor coroutines without a cross-thread visibility guarantee. Marked the nullable incident ID field `@Volatile`, matching the service's existing treatment of other cross-thread state flags/references. This ensures background loops observe start/stop changes promptly; it does not alter assignment authorization, foreground-service restart policy, or user consent.
 - Commit: `85c52c1bbeac39895e30c2460e0c9af716c9f700`.
 - Validation: source inspection only. No local Gradle build, unit test, emulator/device lifecycle test, production backend change, or merge was performed. Exact-head GitHub Actions must validate the updated branch.
+
+
+## Responder tracking ownership guard — 2026-11-18
+
+- Commit: `d18563d2676d18209cbf99c43bfac6bbf2f08c02` — `Guard responder tracking stops by assignment ownership`.
+- A late result or exception from a cancelled tracking/assignment-monitor coroutine could call the shared stop routine after a replacement assignment had started. The stop routine now accepts an optional expected incident ID; asynchronous tracking paths supply their owning ID, and stale jobs return without clearing the newer session or its foreground notification.
+- Explicit user/service stop and invalid start-command paths retain the unscoped stop behavior.
+- Existing `activeIncidentId` volatility and `serviceScope.cancel()` teardown were inspected and are already present; no duplicate changes were made.
+- Validation: source-level inspection of all stop call sites and the updated guard. No Gradle build, automated test run, or Android device lifecycle test has been performed for this commit. Verify rapid stop/restart across two assignments and late network failures on-device before release.
