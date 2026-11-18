@@ -1,3 +1,22 @@
+## Profile theme preference repair — 2026-11-18
+
+- **Finding:** The Profile theme chips were rendered in `RoleSectionScreen`, but none of the three role call sites forwarded the root `themeMode` or `onThemeModeChanged` values. The selector therefore used the screen's default SYSTEM value and no-op callback. In addition, `MainActivity` held the chosen mode only in `rememberSaveable`, so a fresh app launch did not have a durable user preference.
+- **Change:** Forwarded the actual theme state and callback for requester, responder/driver, and dispatcher Profile screens. Added an app-local Preferences DataStore key for the theme mode, safely defaulting to SYSTEM for absent/unknown values and read I/O failures. MainActivity now observes the stored mode and persists Profile selections. No account/server data or production service is involved.
+- **Regression guard:** Added `tools/test_theme_preferences_contract.py` and wired it into TACResQ CI.
+- **Commits:** `d8f9a7c` theme-state propagation; `756c810` DataStore preference; `084161c` MainActivity persistence; `1deda93` regression contract; `6e26be0` CI step.
+- **Validation:** Re-fetched and inspected all three role call sites, MainActivity, the preference implementation, and CI wiring. The new source contract and Android build have not yet run on this final head. No local build/test, emulator/device validation, backend change, migration, or deployment was performed.
+
+---
+
+## GPS pin-scale source-contract alignment — 2026-11-18
+
+- **Finding:** The exact-head CI source check failed because `tools/test_gps_map_fullscreen.py` expected a local `val scale = 0.75f`. The production helper actually declares `scale: Float = 0.75f` as a parameter and sanitizes it into `safeScale`, in both annotation-pin and style-pin bitmap helpers.
+- **Change:** Updated the contract to assert both helper defaults and both finite/positive fallback guards. No production Kotlin map rendering code was changed.
+- **Commits:** `7b68e80` source contract; `c3d1a32` task documentation.
+- **Validation:** Failure confirmed from the exact GitHub Actions log and compared with the current Kotlin helper implementations. The updated source was committed; the static test has not yet rerun on this head. No local test/build/emulator/device checks or production changes were performed.
+
+---
+
 ## GPS pin-scale source-contract alignment — 2026-11-18
 
 - **Finding:** The exact-head CI source check failed because `tools/test_gps_map_fullscreen.py` expected a local `val scale = 0.75f`. The production helper actually declares `scale: Float = 0.75f` as a parameter and sanitizes it into `safeScale`, in both annotation-pin and style-pin bitmap helpers.
