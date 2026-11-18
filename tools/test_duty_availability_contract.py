@@ -56,6 +56,7 @@ assert "val claimableResult = if (me.isSuccess && userDuty == DutyStatus.AVAILAB
 assert "claimableError = claimableError" in responder
 assert "state.claimableError != null" in responder
 assert "Claimable requests unavailable" in responder
+assert "enabled = !state.busy && !state.refreshing && state.claimableError == null" in responder
 
 # Field-unit duty controls are disabled until assignment state is freshly verified
 # and remain unavailable while an active incident is assigned to the member.
