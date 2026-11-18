@@ -273,3 +273,38 @@ Read-only inspection of the live assignment RPCs and table policies found:
 - The existing assignment DELETE trigger records the release actor and timestamp in `incident_assignment_events` within the same transaction. The released profile returns to `available` only if no other active incident still reserves that person.
 - Added a static source contract at `tools/test_dispatcher_release_assignment_contract.py`. It has not been executed. Migration replay, RLS/role behavior, trigger execution, and Android integration remain unverified.
 - This migration is committed to PR #334 only. It has not been applied to production Supabase.
+
+
+## 11. Account recovery and admin portal review — 2026-11-18
+
+### Android password recovery: confirmed incomplete
+
+Source inspection confirms that the Android sign-in screen deliberately tells the user that password reset is not connected and that no email was sent. This is honest feedback, but it leaves account recovery unavailable.
+
+Relevant current implementation:
+
+- `AuthScreen.kt` displays a static recovery dialog and does not call the repository or authentication API.
+- `SupabaseAuthWire` currently exposes password sign-in, signup, and logout only; there is no recovery-email request or authenticated password-update method.
+- `AppConfig.AUTH_REDIRECT_URL` is `tacresq://auth/callback`, and the manifest registers that exact callback for both Supabase debug and release builds (with a separate demo scheme for fake API builds).
+- `MainActivity.acceptAuthReturn()` passes the URI through `AuthCallbackMessage`. That helper deliberately ignores all query and fragment values, including tokens, and asks the user to sign in normally. This is appropriate for a confirmation-return notice, but it cannot complete a password-recovery session.
+- The app already has an explicit Supabase redirect scheme and a callback intent filter, so a recovery flow can likely reuse the URI family, but it must distinguish recovery from email confirmation without treating an arbitrary deep link as authenticated.
+
+### Required end-to-end design before implementation
+
+1. Add a Supabase recovery-email request using the configured redirect URL. Keep the response neutral so the UI does not disclose whether an email belongs to an account.
+2. Add a dedicated recovery callback parser that validates the exact scheme, host, path, expected recovery type, and required parameters. Never persist recovery tokens in DataStore, saved-instance-state bundles, logs, analytics, or crash reports.
+3. Exchange/validate the recovery credential through Supabase Auth and use the resulting short-lived authenticated recovery session only to submit the new password. Do not accept an arbitrary URI as proof of identity.
+4. Add a dedicated set-new-password screen with confirmation, length/strength checks, loading/error states, and expired/used-link recovery.
+5. Handle cold-start and already-running app callbacks, process recreation, duplicate intents, and cancellation. Clear transient recovery credentials after success or failure.
+6. Test with a disposable Supabase project or controlled Auth mock; verify that an expired, malformed, wrong-type, or replayed link cannot change a password.
+7. Configure and verify the Supabase Auth redirect allowlist and email template separately. A committed Android URI handler does not configure the remote Supabase project.
+
+**Do not implement a partial “email sent” UI without the set-password callback.** Do not change production Supabase Auth settings or templates without explicit authorization. Keep the current honest unavailable message until the complete flow is implemented and validated.
+
+### Admin portal consistency
+
+The current web admin console already has a distinct admin-only shell with the TACResQ brand, administrator identity, role-change audit messaging, refresh action, and sign-out. It intentionally does not share dispatcher navigation or expose dispatch operations. There is no verified requirement for an admin notification inbox in the current portal; do not add a decorative or empty notification control merely to make its header resemble Android. Revisit only if a real administrator-action event stream and actionable destinations are defined.
+
+### Remaining validation boundary
+
+The admin portal uses server-side role checks and protected RPCs; the client periodically revalidates the profile role and clears privileged data on role revocation. The current audit table resolves actor names from the actor identity snapshot and resolves target names from the current user page when available, otherwise showing a profile identifier. This is a deliberate fallback, not proof that the actor/target record is missing. A future audit API enhancement may return immutable actor/target identity snapshots, but should be designed at the database/RPC boundary and must not broaden profile read privileges.
