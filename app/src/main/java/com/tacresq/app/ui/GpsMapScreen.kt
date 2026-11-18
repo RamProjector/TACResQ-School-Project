@@ -982,6 +982,7 @@ fun GpsMapScreen(
 
 
     var mapLibreMap by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
+    var mapStyleRequestGeneration by remember(context, role) { mutableStateOf(0L) }
     var mapStyleLoaded by remember(context, role) { mutableStateOf(false) }
     var mapDataLoaded by remember(context, role) { mutableStateOf(false) }
     var mapLoadError by remember(context, role) { mutableStateOf(false) }
@@ -1166,12 +1167,14 @@ fun GpsMapScreen(
                 }
                 true
             }
+            val styleRequestId = ++mapStyleRequestGeneration
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
+                if (mapLibreMap !== map || mapStyleRequestGeneration != styleRequestId) return@setStyle
                 // Style loading is asynchronous and may finish after navigation or
                 // lifecycle disposal. Never let an obsolete MapView mutate Compose state.
                 if (disposed) return@setStyle
                 map.getStyle { style ->
-                    if (disposed) return@getStyle
+                    if (disposed || mapLibreMap !== map || mapStyleRequestGeneration != styleRequestId) return@getStyle
                     val sources = style.installGpsMapClusterLayers(context)
                     incidentClusterSource = sources.incidents
                     responderClusterSource = sources.responders
@@ -1383,8 +1386,11 @@ fun GpsMapScreen(
         incidentClusterSource = null
         responderClusterSource = null
         staleResponderClusterSource = null
+        val styleRequestId = ++mapStyleRequestGeneration
         map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
+            if (mapLibreMap !== map || mapStyleRequestGeneration != styleRequestId) return@setStyle
             map.getStyle { style ->
+                if (mapLibreMap !== map || mapStyleRequestGeneration != styleRequestId) return@getStyle
                 val sources = style.installGpsMapClusterLayers(context)
                 incidentClusterSource = sources.incidents
                 responderClusterSource = sources.responders
