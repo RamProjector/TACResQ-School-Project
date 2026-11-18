@@ -135,7 +135,7 @@ class ResponderViewModel(
                     tracking.stop("Location sharing stopped because this incident is no longer assigned en route.")
                 }
                 val userDuty = me.getOrNull()?.dutyStatus ?: _state.value.dutyStatus
-                val claimable = if (userDuty != DutyStatus.OFF_DUTY) {
+                val claimable = if (userDuty == DutyStatus.AVAILABLE) {
                     repo.getClaimableIncidents().getOrDefault(emptyList())
                 } else emptyList()
                 _state.update { s ->
@@ -421,7 +421,7 @@ fun ResponderScreen(
             item { Banner(message, isError = false, onDismiss = vm::dismissClaimMessage) }
         }
 
-        if (state.dutyStatus != DutyStatus.OFF_DUTY && state.claimableIncidents.isNotEmpty()) {
+        if (state.dutyStatus == DutyStatus.AVAILABLE && state.claimableIncidents.isNotEmpty()) {
             item { SectionHeading("Available for field claiming", "Open incidents ready for assignment") }
             items(state.claimableIncidents, key = { "claim_${it.id}" }) { incident ->
                 IncidentCard(incident) {
