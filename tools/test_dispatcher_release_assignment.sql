@@ -106,6 +106,15 @@ BEGIN
     11.245, 125.004, now(), 'manual', 'assigned', primary_id
   ) RETURNING id INTO legacy_incident_id;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM public.incidents AS legacy_row
+    WHERE legacy_row.id = legacy_incident_id
+      AND legacy_row.assigned_to = primary_id
+      AND legacy_row.status = 'assigned'
+  ) THEN
+    RAISE EXCEPTION 'Legacy reservation fixture must persist an active assigned_to reservation';
+  END IF;
+
   -- A field unit cannot invoke the release RPC, even though the public wrapper
   -- is executable by authenticated clients.
   PERFORM set_config('request.jwt.claim.sub',
