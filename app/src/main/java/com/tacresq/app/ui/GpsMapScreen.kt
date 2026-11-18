@@ -12,6 +12,19 @@ import android.view.Gravity
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.graphics.Color
+import android.graphics.RectF
+import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.sources.GeoJsonOptions
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.Point
+import com.google.gson.JsonObject
 import android.os.Handler
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -38,6 +51,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -60,8 +74,6 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -77,6 +89,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -99,7 +112,9 @@ import com.tacresq.app.ui.common.incidentLocationText
 import org.maplibre.android.MapLibre
 import org.maplibre.android.annotations.Icon
 import org.maplibre.android.annotations.IconFactory
+import org.maplibre.android.annotations.Marker
 import org.maplibre.android.annotations.MarkerOptions
+import org.maplibre.android.annotations.Polyline
 import org.maplibre.android.annotations.PolylineOptions
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -132,29 +147,175 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import java.time.Duration
 import java.time.Instant
 import kotlin.math.roundToInt
+import kotlin.math.hypot
 
 private const val TACLOBAN_LATITUDE = 11.2443
 private const val TACLOBAN_LONGITUDE = 125.0030
 private const val OPENFREEMAP_LIBERTY_STYLE = "https://tiles.openfreemap.org/styles/liberty"
 private const val MAP_DATA_UNAVAILABLE_STATUS = "Map data is temporarily unavailable. Incident details remain available."
 
+private const val INCIDENT_CLUSTER_SOURCE_ID = "tacresq-incident-clusters-source"
+private const val RESPONDER_CLUSTER_SOURCE_ID = "tacresq-responder-clusters-source"
+private const val STALE_RESPONDER_CLUSTER_SOURCE_ID = "tacresq-stale-responder-clusters-source"
+private const val INCIDENT_CLUSTER_LAYER_ID = "tacresq-incident-clusters"
+private const val INCIDENT_POINT_LAYER_ID = "tacresq-incident-points"
+private const val INCIDENT_SELECTED_POINT_LAYER_ID = "tacresq-incident-selected-points"
+private const val INCIDENT_COUNT_LAYER_ID = "tacresq-incident-cluster-count"
+private const val RESPONDER_CLUSTER_LAYER_ID = "tacresq-responder-clusters"
+private const val RESPONDER_POINT_LAYER_ID = "tacresq-responder-points"
+private const val RESPONDER_STALE_POINT_LAYER_ID = "tacresq-responder-stale-points"
+private const val RESPONDER_COUNT_LAYER_ID = "tacresq-responder-cluster-count"
+private const val STALE_RESPONDER_CLUSTER_LAYER_ID = "tacresq-stale-responder-clusters"
+private const val STALE_RESPONDER_COUNT_LAYER_ID = "tacresq-stale-responder-cluster-count"
+
+private data class GpsMapClusterPageCursor(
+    val source: GeoJsonSource,
+    val feature: Feature,
+    val incidents: Boolean,
+    val nextOffset: Long,
+    val totalCount: Long,
+)
+
+private data class GpsMapClusterSources(
+    val incidents: GeoJsonSource,
+    val responders: GeoJsonSource,
+    val staleResponders: GeoJsonSource,
+)
+
+private fun Style.installGpsMapClusterLayers(context: Context): GpsMapClusterSources {
+    addImage("tacresq-incident-pin", context.mapLibreStylePinBitmap(com.tacresq.app.R.drawable.ic_map_incident_pin))
+    addImage("tacresq-selected-incident-pin", context.mapLibreStylePinBitmap(com.tacresq.app.R.drawable.ic_map_incident_pin, scale = 0.98f))
+    addImage("tacresq-responder-pin", context.mapLibreStylePinBitmap(com.tacresq.app.R.drawable.ic_map_responder_pin))
+    addImage("tacresq-stale-responder-pin", context.mapLibreStylePinBitmap(com.tacresq.app.R.drawable.ic_map_responder_pin, alpha = 110))
+    fun newClusterSource(id: String) = GeoJsonSource(
+        id,
+        FeatureCollection.fromFeatures(emptyArray<Feature>()),
+        GeoJsonOptions().withCluster(true).withClusterMaxZoom(14).withClusterRadius(50),
+    )
+    val incidentSource = newClusterSource(INCIDENT_CLUSTER_SOURCE_ID)
+    val responderSource = newClusterSource(RESPONDER_CLUSTER_SOURCE_ID)
+    val staleResponderSource = newClusterSource(STALE_RESPONDER_CLUSTER_SOURCE_ID)
+    addSource(incidentSource)
+    addSource(responderSource)
+    addSource(staleResponderSource)
+
+    fun addClusterCircle(id: String, sourceId: String, color: Int) {
+        addLayer(CircleLayer(id, sourceId).apply {
+            setProperties(PropertyFactory.circleColor(color), PropertyFactory.circleRadius(20f),
+                PropertyFactory.circleStrokeColor(Color.WHITE), PropertyFactory.circleStrokeWidth(2f))
+            setFilter(Expression.has("point_count"))
+        })
+    }
+    fun addClusterCount(id: String, sourceId: String) {
+        addLayer(SymbolLayer(id, sourceId).apply {
+            setProperties(PropertyFactory.textField(Expression.toString(Expression.get("point_count"))),
+                PropertyFactory.textSize(14f), PropertyFactory.textColor(Color.WHITE),
+                PropertyFactory.textHaloColor(Color.BLACK), PropertyFactory.textHaloWidth(1.25f),
+                PropertyFactory.textIgnorePlacement(true), PropertyFactory.textAllowOverlap(true))
+            setFilter(Expression.has("point_count"))
+        })
+    }
+    val unclustered = Expression.neq(Expression.get("cluster"), true)
+    fun addPinLayer(id: String, sourceId: String, image: String, filter: Expression, opacity: Float = 1f, size: Float = 0.78f) {
+        addLayer(SymbolLayer(id, sourceId).apply {
+            setProperties(
+                PropertyFactory.iconImage(image),
+                PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                PropertyFactory.iconAllowOverlap(true),
+                PropertyFactory.iconIgnorePlacement(true),
+                PropertyFactory.iconOpacity(opacity),
+                PropertyFactory.iconSize(size),
+            )
+            setFilter(filter)
+        })
+    }
+    addClusterCircle(INCIDENT_CLUSTER_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID, Color.rgb(183, 28, 28))
+    addClusterCount(INCIDENT_COUNT_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID)
+    addPinLayer(INCIDENT_POINT_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID, "tacresq-incident-pin",
+        Expression.all(unclustered, Expression.neq(Expression.get("selected"), true)))
+    addPinLayer(INCIDENT_SELECTED_POINT_LAYER_ID, INCIDENT_CLUSTER_SOURCE_ID, "tacresq-selected-incident-pin",
+        Expression.all(unclustered, Expression.eq(Expression.get("selected"), true)), size = 0.98f)
+    addClusterCircle(RESPONDER_CLUSTER_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(0, 105, 92))
+    addClusterCount(RESPONDER_COUNT_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID)
+    addPinLayer(RESPONDER_POINT_LAYER_ID, RESPONDER_CLUSTER_SOURCE_ID, "tacresq-responder-pin", unclustered)
+    addClusterCircle(STALE_RESPONDER_CLUSTER_LAYER_ID, STALE_RESPONDER_CLUSTER_SOURCE_ID, Color.rgb(97, 97, 97))
+    addClusterCount(STALE_RESPONDER_COUNT_LAYER_ID, STALE_RESPONDER_CLUSTER_SOURCE_ID)
+    addPinLayer(RESPONDER_STALE_POINT_LAYER_ID, STALE_RESPONDER_CLUSTER_SOURCE_ID,
+        "tacresq-stale-responder-pin", unclustered, opacity = 0.55f)
+    return GpsMapClusterSources(incidentSource, responderSource, staleResponderSource)
+}
+
+private fun Incident.toGpsClusterFeature(selectedId: Long?): Feature? {
+    val lat = latitude ?: return null
+    val lng = longitude ?: return null
+    if (!hasValidMapCoordinates()) return null
+    val props = JsonObject().apply {
+        addProperty("incident_id", id.toString())
+        addProperty("kind", "incident")
+        addProperty("status", status.label)
+        addProperty("selected", id == selectedId)
+    }
+    return Feature.fromGeometry(Point.fromLngLat(lng, lat), props)
+}
+
+private fun ResponderLocation.toGpsClusterFeature(now: Instant): Feature? {
+    val age = mapAgeSeconds(now) ?: return null
+    val freshness = mapFreshness(now) ?: return null
+    val props = JsonObject().apply {
+        addProperty("incident_id", incidentId.toString())
+        addProperty("user_id", userId.toString())
+        addProperty("kind", "responder")
+        addProperty("freshness", freshness.name.lowercase())
+        addProperty("age_seconds", age)
+    }
+    return Feature.fromGeometry(Point.fromLngLat(longitude, latitude), props)
+}
+
+
 /**
  * Converts the app's vector pin drawables to MapLibre marker icons. Icons are
  * created once per map screen and reused for all annotations.
  */
-private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255): Icon {
+private fun Context.mapLibrePinBitmap(resourceId: Int, alpha: Int = 255, scale: Float = 0.75f): Bitmap {
     val drawable = requireNotNull(ContextCompat.getDrawable(this, resourceId)).mutate()
-    val scale = 0.75f
-    val width = ((drawable.intrinsicWidth.takeIf { it > 0 } ?: 48) * scale).roundToInt().coerceAtLeast(1)
-    val iconHeight = ((drawable.intrinsicHeight.takeIf { it > 0 } ?: 56) * scale).roundToInt().coerceAtLeast(1)
-    // MapLibre's legacy Marker annotation anchors icons at their center. Keep the
-    // pin tip at the geographic coordinate by adding transparent space below it.
+    val safeScale = scale.takeIf { it.isFinite() && it > 0f } ?: 0.75f
+    val width = ((drawable.intrinsicWidth.takeIf { it > 0 } ?: 48) * safeScale).roundToInt().coerceAtLeast(1)
+    val iconHeight = ((drawable.intrinsicHeight.takeIf { it > 0 } ?: 56) * safeScale).roundToInt().coerceAtLeast(1)
+    // Transparent lower half keeps the geographic coordinate at the pin tip.
     val bitmap = Bitmap.createBitmap(width, iconHeight * 2, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     drawable.alpha = alpha.coerceIn(0, 255)
     drawable.setBounds(0, 0, width, iconHeight)
     drawable.draw(canvas)
-    return IconFactory.getInstance(this).fromBitmap(bitmap)
+    return bitmap
+}
+
+private fun Context.mapLibreStylePinBitmap(resourceId: Int, alpha: Int = 255, scale: Float = 0.75f): Bitmap {
+    val drawable = requireNotNull(ContextCompat.getDrawable(this, resourceId)).mutate()
+    val safeScale = scale.takeIf { it.isFinite() && it > 0f } ?: 0.75f
+    val width = ((drawable.intrinsicWidth.takeIf { it > 0 } ?: 48) * safeScale).roundToInt().coerceAtLeast(1)
+    val height = ((drawable.intrinsicHeight.takeIf { it > 0 } ?: 56) * safeScale).roundToInt().coerceAtLeast(1)
+    // Style symbols use icon-anchor=bottom, so the actual bitmap edge must be the pin tip.
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    drawable.alpha = alpha.coerceIn(0, 255)
+    drawable.setBounds(0, 0, width, height)
+    drawable.draw(canvas)
+    return bitmap
+}
+
+private fun Context.mapLibrePinIcon(resourceId: Int, alpha: Int = 255, scale: Float = 0.75f): Icon =
+    IconFactory.getInstance(this).fromBitmap(mapLibrePinBitmap(resourceId, alpha, scale))
+
+
+private fun positionMapCompass(map: MapLibreMap, headerBottomPx: Int, density: Float) {
+    // The MapView is underneath the Compose header. Position the native compass
+    // from the header's measured bottom edge rather than a guessed screen offset.
+    val topMargin = (headerBottomPx + (12f * density).roundToInt())
+        .coerceAtLeast((72f * density).roundToInt())
+    map.uiSettings.setCompassEnabled(true)
+    map.uiSettings.setCompassGravity(Gravity.TOP or Gravity.RIGHT)
+    map.uiSettings.setCompassMargins(0, topMargin, (12f * density).roundToInt(), 0)
 }
 
 private fun ConnectivityManager.hasValidatedInternet(): Boolean {
@@ -174,6 +335,39 @@ private enum class MapLocationFreshness(val label: String) {
     FRESH("Fresh"),
     AGING("Aging"),
     STALE("Stale"),
+}
+
+private enum class GpsMapMarkerType {
+    INCIDENT,
+    FIELD_UNIT,
+    DEVICE_LOCATION,
+}
+
+/** Stable interaction metadata kept separately from user-facing marker titles. */
+/** Structural marker equality avoids delimiter collisions in user-controlled text. */
+private data class GpsMapMarkerRenderSignature(
+    val latitude: Double,
+    val longitude: Double,
+    val iconVariant: String,
+    val title: String,
+    val snippet: String,
+)
+
+private data class GpsMapMarkerTarget(
+    val type: GpsMapMarkerType,
+    val position: LatLng,
+    val title: String,
+    val summary: String,
+    val incidentId: Long? = null,
+    val userId: Long? = null,
+    val stale: Boolean = false,
+) {
+    val responderKey: String?
+        get() = if (type == GpsMapMarkerType.FIELD_UNIT && incidentId != null && userId != null) {
+            "$incidentId:$userId"
+        } else {
+            null
+        }
 }
 
 @Composable
@@ -237,7 +431,7 @@ private fun ResponderLocation.mapFreshness(now: Instant = Instant.now()): MapLoc
 }
 
 private fun formatLocationAge(ageSeconds: Long): String = when {
-    ageSeconds < 60L -> "${ageSeconds}s ago"
+    ageSeconds < 60L -> "under 1m ago"
     ageSeconds < 3600L -> "${ageSeconds / 60L}m ago"
     else -> "${ageSeconds / 3600L}h ago"
 }
@@ -294,7 +488,7 @@ private fun GpsMapFilterButtons(
         if (hasIncidents) {
             androidx.compose.material3.AssistChip(
                 onClick = onShowIncidents,
-                modifier = Modifier.heightIn(min = 44.dp).semantics {
+                modifier = Modifier.heightIn(min = 48.dp).semantics {
                     contentDescription = "Center map on active incidents"
                 },
                 label = { Text("Incidents", maxLines = 1) },
@@ -310,7 +504,7 @@ private fun GpsMapFilterButtons(
         if (role == Role.DISPATCHER && hasActiveUnits) {
             androidx.compose.material3.AssistChip(
                 onClick = onShowActiveUnits,
-                modifier = Modifier.heightIn(min = 44.dp).semantics {
+                modifier = Modifier.heightIn(min = 48.dp).semantics {
                     contentDescription = "Center map on responder field units"
                 },
                 label = { Text("Field units", maxLines = 1) },
@@ -329,55 +523,24 @@ private fun GpsMapFilterButtons(
 @Composable
 private fun GpsMapCameraControls(
     modifier: Modifier = Modifier,
-    onZoomIn: () -> Unit,
-    onZoomOut: () -> Unit,
+    enabled: Boolean,
     onShowAll: () -> Unit,
 ) {
-    androidx.compose.material3.Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-        tonalElevation = 3.dp,
-        shadowElevation = 6.dp,
+    androidx.compose.material3.FilledTonalIconButton(
+        onClick = onShowAll,
+        enabled = enabled,
+        modifier = modifier
+            .size(56.dp)
+            .semantics {
+                contentDescription = "Fit all visible map locations"
+            },
+        shape = RoundedCornerShape(20.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            androidx.compose.material3.IconButton(
-                onClick = onZoomIn,
-                modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = "Zoom in on map"
-                },
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Add,
-                    contentDescription = null,
-                )
-            }
-            androidx.compose.material3.IconButton(
-                onClick = onZoomOut,
-                modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = "Zoom out on map"
-                },
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Remove,
-                    contentDescription = null,
-                )
-            }
-            androidx.compose.material3.IconButton(
-                onClick = onShowAll,
-                modifier = Modifier.size(48.dp).semantics {
-                    contentDescription = "Fit all visible map locations"
-                },
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
-                    contentDescription = null,
-                )
-            }
-        }
+        androidx.compose.material3.Icon(
+            imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 
@@ -396,6 +559,7 @@ fun GpsMapScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val mapDensity = context.resources.displayMetrics.density
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val trackingStatusFlow = remember(trackingController) {
@@ -405,6 +569,8 @@ fun GpsMapScreen(
     // Keep the latest callback without restarting the polling coroutine on recomposition.
     val refreshResponderLocations by rememberUpdatedState(onRefreshResponderLocations)
     var deviceFix by remember { mutableStateOf<GeoFix?>(null) }
+    // Increment on every selection transition so A → B → A cannot revive A's old route.
+    var routeSelectionGeneration by remember { mutableStateOf(0) }
     var selectedIncidentId by rememberSaveable { mutableStateOf<Long?>(null) }
     var appliedInitialSelectionId by rememberSaveable { mutableStateOf<Long?>(null) }
     val mapSheetState = rememberBottomSheetScaffoldState(
@@ -415,6 +581,7 @@ fun GpsMapScreen(
     androidx.compose.runtime.LaunchedEffect(initialSelectedIncidentId) {
         val requestedId = initialSelectedIncidentId
         if (requestedId != null && requestedId != appliedInitialSelectionId) {
+            routeSelectionGeneration += 1
             selectedIncidentId = requestedId
             appliedInitialSelectionId = requestedId
             mapSheetState.bottomSheetState.expand()
@@ -433,6 +600,10 @@ fun GpsMapScreen(
     var hasAutoFramedIncidentPoints by remember { mutableStateOf(false) }
     var freshnessTick by remember { mutableStateOf(0) }
     var locationStatus by remember { mutableStateOf<String?>(null) }
+    var selectedResponderKey by remember { mutableStateOf<String?>(null) }
+    var selectedMarkerChoices by remember { mutableStateOf<List<GpsMapMarkerTarget>>(emptyList()) }
+    var clusterPageCursors by remember { mutableStateOf<List<GpsMapClusterPageCursor>>(emptyList()) }
+    var clusterChoiceTotalCount by remember { mutableStateOf(0L) }
     var isLocationRequestInProgress by remember { mutableStateOf(false) }
     var retryLocationAfterSettings by remember { mutableStateOf(false) }
     var showAppSettingsAction by remember { mutableStateOf(false) }
@@ -450,6 +621,7 @@ fun GpsMapScreen(
     var routeRequestGeneration by remember { mutableStateOf(0) }
     var requestRoute: (Incident) -> Unit = {}
     var hasValidatedInternet by remember { mutableStateOf<Boolean?>(null) }
+    val latestValidatedInternet by rememberUpdatedState(hasValidatedInternet)
     val connectivityManager = remember(context) {
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
     }
@@ -501,9 +673,39 @@ fun GpsMapScreen(
     } else {
         emptyList()
     }
+    // Resolve map features by stable domain identity in O(1). Cluster pages can
+    // contain hundreds of leaves; repeatedly scanning the Compose lists per leaf
+    // made dense-cluster selection grow quadratically with page count.
+    val visibleIncidentById = remember(visibleIncidents) { visibleIncidents.associateBy { it.id } }
+    val responderLocationByKey = remember(validResponderLocations) {
+        validResponderLocations.associateBy { it.incidentId to it.userId }
+    }
     val freshResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.FRESH }
     val agingResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.AGING }
     val staleResponderCount = validResponderLocations.count { it.mapFreshness(mapNow) == MapLocationFreshness.STALE }
+    // Annotation text only changes when its meaningful age bucket or freshness state
+    // changes. The 15-second UI clock can still refresh sheet counts without forcing
+    // every MapLibre marker and route line to be cleared and recreated.
+    val mapAnnotationTimeKey = buildString {
+        visibleIncidents.forEach { incident ->
+            append("incident:").append(incident.id).append(':')
+            append(incident.latitude).append(',').append(incident.longitude).append(':')
+            append(incident.type.label).append(':').append(incident.status.label).append(':')
+            append(incident.locationSource).append(':').append(incident.accuracyM).append(':')
+            append(incident.locationNotes).append(':')
+            append(incident.locationAgeStatus(mapNow).first).append('|')
+        }
+        validResponderLocations.forEach { location ->
+            val ageSeconds = location.mapAgeSeconds(mapNow) ?: -1L
+            append("unit:").append(location.userId).append(':').append(location.incidentId).append(':')
+            append(location.latitude).append(',').append(location.longitude).append(':')
+            append(location.accuracyM).append(':')
+            append(location.mapFreshness(mapNow)?.name ?: "UNKNOWN").append(':')
+            append(formatLocationAge(ageSeconds)).append('|')
+        }
+    }
+    // Device and route signatures track only the geometry actually drawn on the map.
+    val deviceFixMapKey = deviceFix?.let { "${it.latitude}:${it.longitude}" }
     val hasConfirmedIncidentCoordinates = visibleIncidents.any { it.hasValidMapCoordinates() }
     val validResponderPoints = validResponderLocations.map { LatLng(it.latitude, it.longitude) }
     // Keep stale last-known positions visible, but never let them dominate the initial
@@ -555,15 +757,38 @@ fun GpsMapScreen(
     val emptyMapMessage = when (role) {
         Role.REQUESTER -> "No active incident locations are available right now. You can still explore the map."
         Role.RESPONDER, Role.DRIVER -> "No active response locations are available right now."
-        Role.DISPATCHER -> "No incident or field-unit locations are available right now."
+        Role.DISPATCHER -> if (validResponderLocations.isNotEmpty()) {
+            "No incident locations are available. Review field-unit freshness below."
+        } else {
+            "No incident or field-unit locations are available right now."
+        }
         Role.ADMIN -> "No incident locations are available right now."
     }
 
-    // Clear stale action text when the incident set changes; the default is derived from current map data.
+    // Keep a selected field-unit row highlighted while its report remains available.
+    // If it expires or is removed during refresh, explain why the selection disappeared.
+    androidx.compose.runtime.LaunchedEffect(validResponderLocations) {
+        val selectedKey = selectedResponderKey ?: return@LaunchedEffect
+        if (validResponderLocations.none { "${it.incidentId}:${it.userId}" == selectedKey }) {
+            selectedResponderKey = null
+            locationStatus = "This field-unit location is no longer available or has expired. Refresh the map for current reports."
+        }
+    }
+
+    // Routine incident refreshes must not erase a valid selection. When the selected
+    // incident is actually removed from the visible set, clear its route and explain it.
     androidx.compose.runtime.LaunchedEffect(visibleIncidents) {
-        locationStatus = null
-        if (selectedIncidentId != null && visibleIncidents.none { it.id == selectedIncidentId }) {
+        val selectedId = selectedIncidentId ?: return@LaunchedEffect
+        if (visibleIncidents.none { it.id == selectedId }) {
+            routeSelectionGeneration += 1
+            routeJob?.cancel()
+            routeRequestGeneration += 1
+            isRouteLoading = false
+            routeResult = null
+            routeIncidentId = null
+            routeStatus = null
             selectedIncidentId = null
+            locationStatus = "Incident #$selectedId is no longer active or visible. Its selection and route preview were cleared."
         }
     }
 
@@ -622,58 +847,385 @@ fun GpsMapScreen(
         }
     }
 
+    fun selectMarkerTarget(target: GpsMapMarkerTarget) {
+        selectedMarkerChoices = emptyList()
+        clusterPageCursors = emptyList()
+        clusterChoiceTotalCount = 0L
+        when (target.type) {
+            GpsMapMarkerType.INCIDENT -> {
+                val incidentId = target.incidentId ?: return
+                if (incidentId !in visibleIncidentById) {
+                    locationStatus = "That incident location is no longer available. Choose a current map pin."
+                    return
+                }
+                selectedResponderKey = null
+                routeSelectionGeneration += 1
+                selectedIncidentId = incidentId
+                locationStatus = null
+            }
+            GpsMapMarkerType.FIELD_UNIT -> {
+                val responderKey = target.responderKey
+                val currentLocation = responderKey?.split(":")?.let { parts ->
+                    if (parts.size != 2) null else {
+                        val incidentId = parts[0].toLongOrNull()
+                        val userId = parts[1].toLongOrNull()
+                        if (incidentId == null || userId == null) null
+                        else responderLocationByKey[incidentId to userId]
+                    }
+                }
+                if (responderKey == null || currentLocation == null) {
+                    locationStatus = "That field-unit report is no longer available or has expired. Refresh the map locations."
+                    return
+                }
+                routeSelectionGeneration += 1
+                selectedIncidentId = null
+                selectedResponderKey = responderKey
+                locationStatus = if (currentLocation.mapFreshness(mapNow) == MapLocationFreshness.STALE) {
+                    "Responder location · Last known only; confirm with dispatch."
+                } else {
+                    "Responder location · Consent-based foreground report; see the highlighted field-unit entry for age and accuracy."
+                }
+            }
+            GpsMapMarkerType.DEVICE_LOCATION -> {
+                val currentFix = deviceFix
+                if (currentFix == null ||
+                    currentFix.latitude != target.position.latitude ||
+                    currentFix.longitude != target.position.longitude
+                ) {
+                    locationStatus = "That one-time device location preview has changed. Use Locate me to refresh it."
+                    return
+                }
+                routeSelectionGeneration += 1
+                selectedIncidentId = null
+                selectedResponderKey = null
+                locationStatus = "Your location · One-time preview on this device only; not uploaded or continuously tracked."
+            }
+        }
+        scope.launch { mapSheetState.bottomSheetState.expand() }
+    }
+    fun loadMoreClusterLocations() {
+        if (clusterPageCursors.isEmpty()) return
+        val added = mutableListOf<GpsMapMarkerTarget>()
+        val remaining = mutableListOf<GpsMapClusterPageCursor>()
+        var sourceChanged = false
+        var unavailablePage = false
+        clusterPageCursors.forEach { cursor ->
+            try {
+                val leaves = cursor.source.getClusterLeaves(cursor.feature, 50L, cursor.nextOffset)
+                    .features().orEmpty()
+                if (leaves.isEmpty() && cursor.nextOffset < cursor.totalCount) {
+                    sourceChanged = true
+                    return@forEach
+                }
+                val addedBeforeCursor = added.size
+                leaves.forEach leafLoop@{ leaf ->
+                    if (cursor.incidents) {
+                        val id = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@leafLoop
+                        val incident = visibleIncidentById[id] ?: return@leafLoop
+                        val lat = incident.latitude ?: return@leafLoop
+                        val lng = incident.longitude ?: return@leafLoop
+                        added += GpsMapMarkerTarget(
+                            GpsMapMarkerType.INCIDENT, LatLng(lat, lng),
+                            "Incident #${incident.id} · ${incident.type.label}",
+                            "Status: ${incident.status.label} · ${incident.locationAgeStatus().first}",
+                            incidentId = incident.id,
+                        )
+                    } else {
+                        val incidentId = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@leafLoop
+                        val userId = leaf.getStringProperty("user_id")?.toLongOrNull() ?: return@leafLoop
+                        val unit = responderLocationByKey[incidentId to userId] ?: return@leafLoop
+                        val age = unit.mapAgeSeconds() ?: return@leafLoop
+                        val freshness = unit.mapFreshness() ?: return@leafLoop
+                        added += GpsMapMarkerTarget(
+                            GpsMapMarkerType.FIELD_UNIT, LatLng(unit.latitude, unit.longitude),
+                            "Responder #${unit.userId} · Incident #${unit.incidentId}",
+                            if (freshness == MapLocationFreshness.STALE) {
+                                "Last known location · ${formatLocationAge(age)} ago · not live"
+                            } else "${freshness.label} · last reported ${formatLocationAge(age)} ago",
+                            incidentId = unit.incidentId, userId = unit.userId,
+                            stale = freshness == MapLocationFreshness.STALE,
+                        )
+                    }
+                }
+                val nextOffset = cursor.nextOffset + leaves.size
+                if (leaves.isNotEmpty() && nextOffset < cursor.totalCount) {
+                    remaining += cursor.copy(nextOffset = nextOffset)
+                }
+                if (leaves.isNotEmpty() && added.size == addedBeforeCursor) {
+                    unavailablePage = true
+                }
+            } catch (_: RuntimeException) {
+                sourceChanged = true
+            }
+        }
+        if (sourceChanged) {
+            clusterPageCursors = emptyList()
+            locationStatus = "The map refreshed while loading more locations. Tap the current cluster again."
+        } else {
+            selectedMarkerChoices = (selectedMarkerChoices + added)
+                .distinctBy { "${it.type}:${it.incidentId}:${it.userId}" }
+            clusterPageCursors = remaining
+            if (unavailablePage) {
+                locationStatus = "Some clustered records are no longer available. Displayed locations are current records only."
+            } else if (added.isEmpty() && remaining.isNotEmpty()) {
+                locationStatus = "More cluster records exist, but their locations are no longer available."
+            }
+        }
+    }
+
+    // MapLibre installs its click listener once; always dispatch through the latest
+    // Compose callback so refreshed incidents and responder reports are revalidated.
+    val latestSelectMarkerTarget by rememberUpdatedState(::selectMarkerTarget)
+    val latestVisibleIncidentById by rememberUpdatedState(visibleIncidentById)
+    val latestResponderLocationByKey by rememberUpdatedState(responderLocationByKey)
+
+
+
     var mapLibreMap by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
+    var mapStyleRequestGeneration by remember(context, role) { mutableStateOf(0L) }
     var mapStyleLoaded by remember(context, role) { mutableStateOf(false) }
     var mapDataLoaded by remember(context, role) { mutableStateOf(false) }
     var mapLoadError by remember(context, role) { mutableStateOf(false) }
+    var savedCameraLatitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var savedCameraLongitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var savedCameraZoom by rememberSaveable { mutableStateOf<Double?>(null) }
+    var savedCameraBearing by rememberSaveable { mutableStateOf<Double?>(null) }
+    var savedCameraTilt by rememberSaveable { mutableStateOf<Double?>(null) }
+    var mapHeaderBottomPx by remember { mutableStateOf(0) }
+    val markerTargets = remember(context, role) { mutableMapOf<Long, GpsMapMarkerTarget>() }
+    // Keep annotation instances across refreshes; reconcile only changed features.
+    val renderedMarkers = remember(context, role) { mutableMapOf<String, Marker>() }
+    val renderedMarkerSignatures = remember(context, role) { mutableMapOf<String, GpsMapMarkerRenderSignature>() }
+    var renderedMapOwner by remember(context, role) { mutableStateOf<MapLibreMap?>(null) }
+    var renderedRoutePolyline by remember(context, role) { mutableStateOf<Polyline?>(null) }
+    var renderedRouteSignature by remember(context, role) { mutableStateOf<List<Pair<Double, Double>>?>(null) }
+    var incidentClusterSource by remember(context, role) { mutableStateOf<GeoJsonSource?>(null) }
+    var responderClusterSource by remember(context, role) { mutableStateOf<GeoJsonSource?>(null) }
+    var staleResponderClusterSource by remember(context, role) { mutableStateOf<GeoJsonSource?>(null) }
     val mapView = remember(context, role) {
         MapLibre.getInstance(context)
         MapView(context).apply {
             contentDescription = if (role == Role.DISPATCHER) {
-                "Emergency response vector map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review incident locations and responder freshness."
+                "Interactive emergency response map. Select an incident pin to open its details. Drag the bottom sheet to review incident locations and responder freshness."
             } else {
-                "Emergency response vector map centered on Tacloban City. Select an incident pin to open its details. Drag the bottom sheet to review active incident locations."
+                "Interactive emergency response map. Select an incident pin to open its details. Drag the bottom sheet to review active incident locations."
             }
             onCreate(null)
         }
     }
 
-    DisposableEffect(mapView) {
-        mapView.addOnDidFailLoadingMapListener {
-            mapDataLoaded = false
-            mapLoadError = true
-            locationStatus = MAP_DATA_UNAVAILABLE_STATUS
+    DisposableEffect(mapView, lifecycleOwner) {
+        var disposed = false
+        var cameraIdleListener: MapLibreMap.OnCameraIdleListener? = null
+        var mapIsStarted = false
+        var mapIsResumed = false
+        val lifecycle = lifecycleOwner.lifecycle
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> {
+                    if (!mapIsStarted) {
+                        mapView.onStart()
+                        mapIsStarted = true
+                    }
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    if (!mapIsStarted) {
+                        mapView.onStart()
+                        mapIsStarted = true
+                    }
+                    if (!mapIsResumed) {
+                        mapView.onResume()
+                        mapIsResumed = true
+                    }
+                    if (!locationProvider.hasPermission() && latestDeviceFix != null) {
+                        deviceFix = null
+                        locationStatus = "Location permission is off. Previous preview cleared. Grant permission to locate again."
+                    }
+                    if (locationProvider.hasPermission()) showAppSettingsAction = false
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    if (mapIsResumed) {
+                        mapView.onPause()
+                        mapIsResumed = false
+                    }
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    if (mapIsResumed) {
+                        mapView.onPause()
+                        mapIsResumed = false
+                    }
+                    if (mapIsStarted) {
+                        mapView.onStop()
+                        mapIsStarted = false
+                    }
+                }
+                else -> Unit
+            }
         }
-        mapView.addOnDidFinishLoadingMapListener {
-            mapDataLoaded = true
-            mapLoadError = false
-            if (locationStatus == MAP_DATA_UNAVAILABLE_STATUS) locationStatus = null
-        }
-        mapView.getMapAsync { map ->
-            mapLibreMap = map
-            map.setOnMarkerClickListener { marker ->
-                val incidentId = marker.title.removePrefix("Incident #").substringBefore(" ·").toLongOrNull()
-                if (incidentId != null) {
-                    selectedIncidentId = incidentId
-                    scope.launch { mapSheetState.bottomSheetState.expand() }
-                    true
+        val memoryCallbacks = object : android.content.ComponentCallbacks2 {
+            override fun onConfigurationChanged(newConfig: android.content.res.Configuration) = Unit
+            override fun onLowMemory() {
+                if (Looper.myLooper() == Looper.getMainLooper()) {
+                    if (!disposed) mapView.onLowMemory()
                 } else {
-                    false
+                    Handler(Looper.getMainLooper()).post {
+                        if (!disposed) mapView.onLowMemory()
+                    }
                 }
             }
+            override fun onTrimMemory(level: Int) {
+                if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) onLowMemory()
+            }
+        }
+        context.applicationContext.registerComponentCallbacks(memoryCallbacks)
+        lifecycle.addObserver(lifecycleObserver)
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && !mapIsStarted) {
+            mapView.onStart()
+            mapIsStarted = true
+        }
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !mapIsResumed) {
+            mapView.onResume()
+            mapIsResumed = true
+        }
+        val failLoadingListener = MapView.OnDidFailLoadingMapListener {
+            if (!disposed) {
+                mapDataLoaded = false
+                mapLoadError = true
+                locationStatus = if (latestValidatedInternet == false) {
+                    "Map tiles could not load because this device has no validated internet connection. Incident records remain available; reconnect and retry the map."
+                } else {
+                    MAP_DATA_UNAVAILABLE_STATUS
+                }
+            }
+        }
+        val finishLoadingListener = MapView.OnDidFinishLoadingMapListener {
+            if (!disposed) {
+                mapDataLoaded = true
+                mapLoadError = false
+                if (locationStatus == MAP_DATA_UNAVAILABLE_STATUS ||
+                    locationStatus?.startsWith("Map tiles could not load because this device has no validated internet connection.") == true
+                ) locationStatus = null
+            }
+        }
+        mapView.addOnDidFailLoadingMapListener(failLoadingListener)
+        mapView.addOnDidFinishLoadingMapListener(finishLoadingListener)
+        mapView.getMapAsync { map ->
+            if (disposed) return@getMapAsync
+            mapLibreMap = map
+            val cameraListener = MapLibreMap.OnCameraIdleListener {
+                if (!disposed) {
+                    val camera = map.cameraPosition
+                    val target = camera.target
+                    if (target != null && target.latitude.isFinite() && target.longitude.isFinite() &&
+                        camera.zoom.isFinite()
+                    ) {
+                        savedCameraLatitude = target.latitude
+                        savedCameraLongitude = target.longitude
+                        savedCameraZoom = camera.zoom
+                        savedCameraBearing = camera.bearing
+                        savedCameraTilt = camera.tilt
+                    }
+                }
+            }
+            cameraIdleListener = cameraListener
+            map.addOnCameraIdleListener(cameraListener)
+            map.setOnMarkerClickListener { marker ->
+                // Resolve behavior from the annotation ID, never from editable display text.
+                val target = markerTargets[marker.id] ?: return@setOnMarkerClickListener false
+                // Several pins can occupy the same screen area even when their coordinates
+                // are not identical. Resolve the visible collision in screen pixels at the
+                // current zoom instead of silently selecting whichever annotation is on top.
+                val candidates = markerTargets.values.toList()
+                val anchorIndex = candidates.indexOfFirst { it == target }
+                val nearbyIndices = if (anchorIndex >= 0) {
+                    val screenPoints = candidates.map { candidate ->
+                        map.projection.toScreenLocation(candidate.position).let { it.x to it.y }
+                    }
+                    gpsMapNearbyTargetIndices(
+                        points = screenPoints,
+                        anchorIndex = anchorIndex,
+                        radiusPx = 48f * mapDensity,
+                    )
+                } else {
+                    emptyList()
+                }
+                val nearbyTargets = nearbyIndices
+                    .sortedBy { if (it == anchorIndex) 0 else 1 }
+                    .mapNotNull(candidates::getOrNull)
+                    .distinctBy { listOf(it.type.name, it.incidentId?.toString().orEmpty(), it.userId?.toString().orEmpty()).joinToString(":") }
+                if (nearbyTargets.size > 1) {
+                    clusterPageCursors = emptyList()
+                    clusterChoiceTotalCount = nearbyTargets.size.toLong()
+                    selectedMarkerChoices = nearbyTargets
+                    routeSelectionGeneration += 1
+                    selectedIncidentId = null
+                    selectedResponderKey = null
+                    locationStatus = "${nearbyTargets.size} map locations overlap here. Choose the location you need."
+                    scope.launch { mapSheetState.bottomSheetState.expand() }
+                } else {
+                    latestSelectMarkerTarget(target)
+                }
+                true
+            }
+            val styleRequestId = ++mapStyleRequestGeneration
             map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
+                if (mapLibreMap !== map || mapStyleRequestGeneration != styleRequestId) return@setStyle
+                // Style loading is asynchronous and may finish after navigation or
+                // lifecycle disposal. Never let an obsolete MapView mutate Compose state.
+                if (disposed) return@setStyle
+                map.getStyle { style ->
+                    if (disposed || mapLibreMap !== map || mapStyleRequestGeneration != styleRequestId) return@getStyle
+                    val sources = style.installGpsMapClusterLayers(context)
+                    incidentClusterSource = sources.incidents
+                    responderClusterSource = sources.responders
+                    staleResponderClusterSource = sources.staleResponders
+                }
+                // A style replacement invalidates style-backed annotations. Force the
+                // renderer effect to rebuild markers and route on the newly loaded style.
+                renderedMapOwner = null
                 mapStyleLoaded = true
-                map.uiSettings.setCompassEnabled(true)
-                map.uiSettings.setCompassGravity(Gravity.TOP or Gravity.RIGHT)
-                val density = context.resources.displayMetrics.density
-                map.uiSettings.setCompassMargins(0, (176f * density).toInt(), (12f * density).toInt(), 0)
+                positionMapCompass(
+                    map,
+                    mapHeaderBottomPx.takeIf { it > 0 } ?: (180f * mapDensity).roundToInt(),
+                    mapDensity,
+                )
+                val restoredTarget = if (
+                    savedCameraLatitude != null && savedCameraLongitude != null &&
+                    savedCameraLatitude!!.isFinite() && savedCameraLongitude!!.isFinite() &&
+                    savedCameraLatitude!! in -90.0..90.0 && savedCameraLongitude!! in -180.0..180.0
+                ) {
+                    LatLng(savedCameraLatitude!!, savedCameraLongitude!!)
+                } else {
+                    LatLng(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE)
+                }
+                // Saved camera state can outlive map/provider changes or be corrupted.
+                // Keep restored values inside MapLibre's supported camera ranges.
+                val restoredZoom = savedCameraZoom
+                    ?.takeIf { it.isFinite() && it in 0.0..22.0 } ?: 12.0
+                val restoredBearing = savedCameraBearing
+                    ?.takeIf { it.isFinite() }?.let { ((it % 360.0) + 360.0) % 360.0 } ?: 0.0
+                val restoredTilt = savedCameraTilt
+                    ?.takeIf { it.isFinite() }?.coerceIn(0.0, 60.0) ?: 0.0
                 map.cameraPosition = org.maplibre.android.camera.CameraPosition.Builder()
-                    .target(LatLng(TACLOBAN_LATITUDE, TACLOBAN_LONGITUDE))
-                    .zoom(12.0)
+                    .target(restoredTarget)
+                    .zoom(restoredZoom)
+                    .bearing(restoredBearing)
+                    .tilt(restoredTilt)
                     .build()
             }
         }
         onDispose {
+            disposed = true
+            mapView.removeOnDidFailLoadingMapListener(failLoadingListener)
+            mapView.removeOnDidFinishLoadingMapListener(finishLoadingListener)
+            lifecycle.removeObserver(lifecycleObserver)
+            context.applicationContext.unregisterComponentCallbacks(memoryCallbacks)
+            cameraIdleListener?.let { listener ->
+                mapLibreMap?.removeOnCameraIdleListener(listener)
+            }
+            cameraIdleListener = null
+            if (mapIsResumed) mapView.onPause()
+            if (mapIsStarted) mapView.onStop()
             mapView.onDestroy()
             mapLibreMap = null
             mapStyleLoaded = false
@@ -684,6 +1236,9 @@ fun GpsMapScreen(
 
     val incidentPinIcon = remember(context) {
         context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_incident_pin)
+    }
+    val selectedIncidentPinIcon = remember(context) {
+        context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_incident_pin, scale = 0.98f)
     }
     val responderPinIcon = remember(context) {
         context.mapLibrePinIcon(com.tacresq.app.R.drawable.ic_map_responder_pin)
@@ -702,6 +1257,14 @@ fun GpsMapScreen(
         )
     }
 
+    fun ensureMapReadyForCamera(): Boolean {
+        if (mapLibreMap == null || !mapStyleLoaded) {
+            locationStatus = "Map is still loading. Try centering this location again in a moment."
+            return false
+        }
+        return true
+    }
+
     fun fitMapPoints(points: List<LatLng>) {
         val map = mapLibreMap ?: return
         if (points.isEmpty()) return
@@ -712,10 +1275,23 @@ fun GpsMapScreen(
         val bounds = LatLngBounds.Builder()
             .includes(points)
             .build()
-        map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 64), 480)
+        val density = context.resources.displayMetrics.density
+        val sheetTop = runCatching { mapSheetState.bottomSheetState.requireOffset() }.getOrNull()
+        val insets = gpsMapCameraInsets(mapView.width, mapView.height, density, sheetTop)
+        map.animateCamera(
+            CameraUpdateFactory.newLatLngBounds(
+                bounds,
+                insets.left,
+                insets.top,
+                insets.right,
+                insets.bottom,
+            ),
+            480,
+        )
     }
 
     fun showIncidentPins() {
+        if (validIncidentPoints.isNotEmpty() && !ensureMapReadyForCamera()) return
         when (validIncidentPoints.size) {
             0 -> locationStatus = "There are no valid incident coordinates to center on yet."
             1 -> {
@@ -732,6 +1308,8 @@ fun GpsMapScreen(
     }
 
     fun focusIncidentOnMap(incident: Incident) {
+        selectedResponderKey = null
+        routeSelectionGeneration += 1
         selectedIncidentId = incident.id
         scope.launch { mapSheetState.bottomSheetState.expand() }
         val latitude = incident.latitude
@@ -740,12 +1318,14 @@ fun GpsMapScreen(
             locationStatus = "Incident #${incident.id} has no usable map coordinates."
             return
         }
+        if (!ensureMapReadyForCamera()) return
         deviceFix = null
         animateToPoint(LatLng(latitude, longitude), 15.0)
         locationStatus = "Centered on incident #${incident.id}. Check the recorded location time before navigating."
     }
 
     fun showActiveUnits() {
+        if (validResponderPoints.isNotEmpty() && !ensureMapReadyForCamera()) return
         when (validResponderPoints.size) {
             0 -> locationStatus = "No valid field-unit location reports are available. Units must be en route and explicitly sharing foreground location."
             1 -> {
@@ -764,24 +1344,6 @@ fun GpsMapScreen(
                 locationStatus = "Showing field-unit locations: $freshResponderCount fresh, $agingResponderCount aging, $staleResponderCount stale. Stale pins are not live."
             }
         }
-    }
-
-    fun zoomMapIn() {
-        if (mapLibreMap == null || !mapStyleLoaded) {
-            locationStatus = "Map is still loading. Try again in a moment."
-            return
-        }
-        mapLibreMap?.animateCamera(CameraUpdateFactory.zoomIn(), 180)
-        locationStatus = "Map zoomed in."
-    }
-
-    fun zoomMapOut() {
-        if (mapLibreMap == null || !mapStyleLoaded) {
-            locationStatus = "Map is still loading. Try again in a moment."
-            return
-        }
-        mapLibreMap?.animateCamera(CameraUpdateFactory.zoomOut(), 180)
-        locationStatus = "Map zoomed out."
     }
 
     fun showAllVisiblePoints() {
@@ -808,6 +1370,41 @@ fun GpsMapScreen(
             "Showing the available map location."
         } else {
             "Showing all available incident locations."
+        }
+    }
+
+    fun retryMapLoad() {
+        val map = mapLibreMap
+        if (map == null) {
+            locationStatus = "Map is still initializing. Try again in a moment."
+            return
+        }
+        mapLoadError = false
+        mapDataLoaded = false
+        mapStyleLoaded = false
+        locationStatus = "Retrying map data…"
+        incidentClusterSource = null
+        responderClusterSource = null
+        staleResponderClusterSource = null
+        val styleRequestId = ++mapStyleRequestGeneration
+        map.setStyle(OPENFREEMAP_LIBERTY_STYLE) {
+            if (mapLibreMap !== map || mapStyleRequestGeneration != styleRequestId) return@setStyle
+            map.getStyle { style ->
+                if (mapLibreMap !== map || mapStyleRequestGeneration != styleRequestId) return@getStyle
+                val sources = style.installGpsMapClusterLayers(context)
+                incidentClusterSource = sources.incidents
+                responderClusterSource = sources.responders
+                staleResponderClusterSource = sources.staleResponders
+            }
+            // Retry replaces the style too; never keep references to annotations
+            // created against the previous style.
+            renderedMapOwner = null
+            mapStyleLoaded = true
+            positionMapCompass(
+                map,
+                mapHeaderBottomPx.takeIf { it > 0 } ?: (180f * mapDensity).roundToInt(),
+                mapDensity,
+            )
         }
     }
 
@@ -1014,6 +1611,11 @@ fun GpsMapScreen(
         routeJob?.cancel()
         routeRequestGeneration += 1
         val generation = routeRequestGeneration
+        val selectionGeneration = routeSelectionGeneration
+        fun isCurrentRequest(): Boolean =
+            generation == routeRequestGeneration &&
+                selectionGeneration == routeSelectionGeneration &&
+                selectedIncidentId == incident.id
         routeResult = null
         routeIncidentId = incident.id
         isRouteLoading = false
@@ -1047,7 +1649,9 @@ fun GpsMapScreen(
                 routeStatus = "Getting a fresh location and calculating a road-route estimate…"
                 routeJob = scope.launch {
                     try {
-                        when (val settings = locationProvider.checkLocationSettings()) {
+                        val settings = locationProvider.checkLocationSettings()
+                        if (!isCurrentRequest()) return@launch
+                        when (settings) {
                             LocationSettingsCheck.Ready -> Unit
                             is LocationSettingsCheck.NeedsResolution -> {
                                 pendingRouteIncident = incident
@@ -1062,7 +1666,9 @@ fun GpsMapScreen(
                                 return@launch
                             }
                         }
-                        val fix = when (val capture = locationProvider.currentFix()) {
+                        val capture = locationProvider.currentFix()
+                        if (!isCurrentRequest()) return@launch
+                        val fix = when (capture) {
                             is LocationCaptureResult.Success -> capture.fix
                             LocationCaptureResult.PermissionDenied -> {
                                 routeStatus = "Approximate location permission is required for a current route origin."
@@ -1080,27 +1686,46 @@ fun GpsMapScreen(
                                 return@launch
                             }
                         }
+                        // Selection can change while location capture is suspended. Do not
+                        // send a route request for an incident the user has left.
+                        if (!isCurrentRequest()) {
+                            return@launch
+                        }
                         val result = provider.route(
                             RouteCoordinate(fix.latitude, fix.longitude),
                             RouteCoordinate(destinationLatitude, destinationLongitude),
                             RouteMode.DRIVING,
                             incident.id,
                         )
+                        // Providers may not cooperate with coroutine cancellation. Reject
+                        // late results before they can replace route, status, or camera state.
+                        if (!isCurrentRequest()) {
+                            return@launch
+                        }
                         val route = result.getOrNull()
                         if (route == null || !route.isUsable(System.currentTimeMillis())) {
                             routeStatus = result.exceptionOrNull()?.message
                                 ?: "The routing service returned no current usable route."
                             return@launch
                         }
+                        if (!isCurrentRequest()) {
+                            return@launch
+                        }
                         routeResult = route
                         routeIncidentId = incident.id
                         routeStatus = "Route preview only. No live traffic, flooding, road closures, or emergency-vehicle access is verified."
                         val routePoints = route.geometry.map { LatLng(it.latitude, it.longitude) }
-                        mapView.post { fitMapPoints(routePoints) }
+                        mapView.post {
+                            if (isCurrentRequest()) {
+                                fitMapPoints(routePoints)
+                            }
+                        }
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                         throw cancelled
                     } catch (_: Exception) {
-                        routeStatus = "Could not calculate a route. Check connectivity and confirm the destination with dispatch."
+                        if (isCurrentRequest()) {
+                            routeStatus = "Could not calculate a route. Check connectivity and confirm the destination with dispatch."
+                        }
                     } finally {
                         if (generation == routeRequestGeneration) isRouteLoading = false
                     }
@@ -1150,68 +1775,6 @@ fun GpsMapScreen(
         }
     }
 
-    DisposableEffect(mapView, lifecycleOwner) {
-        val lifecycle = lifecycleOwner.lifecycle
-        var mapIsStarted = false
-        var mapIsResumed = false
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> {
-                    if (!mapIsStarted) {
-                        mapView.onStart()
-                        mapIsStarted = true
-                    }
-                }
-                Lifecycle.Event.ON_RESUME -> {
-                    if (!mapIsStarted) {
-                        mapView.onStart()
-                        mapIsStarted = true
-                    }
-                    if (!mapIsResumed) {
-                        mapView.onResume()
-                        mapIsResumed = true
-                    }
-                    if (!locationProvider.hasPermission() && latestDeviceFix != null) {
-                        deviceFix = null
-                        locationStatus = "Location permission is off. Previous preview cleared. Grant permission to locate again."
-                    }
-                    if (locationProvider.hasPermission()) showAppSettingsAction = false
-                }
-                Lifecycle.Event.ON_PAUSE -> {
-                    if (mapIsResumed) {
-                        mapView.onPause()
-                        mapIsResumed = false
-                    }
-                }
-                Lifecycle.Event.ON_STOP -> {
-                    if (mapIsResumed) {
-                        mapView.onPause()
-                        mapIsResumed = false
-                    }
-                    if (mapIsStarted) {
-                        mapView.onStop()
-                        mapIsStarted = false
-                    }
-                }
-                else -> Unit
-            }
-        }
-        lifecycle.addObserver(observer)
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && !mapIsStarted) {
-            mapView.onStart()
-            mapIsStarted = true
-        }
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !mapIsResumed) {
-            mapView.onResume()
-            mapIsResumed = true
-        }
-        onDispose {
-            lifecycle.removeObserver(observer)
-            if (mapIsResumed) mapView.onPause()
-            if (mapIsStarted) mapView.onStop()
-        }
-    }
-
     val liveNavigationForSelection = trackingStatus.navigationActive &&
         trackingStatus.incidentId == selectedIncidentId
     val displayedRoute = if (liveNavigationForSelection) {
@@ -1223,102 +1786,131 @@ fun GpsMapScreen(
             routeIncidentId == selectedIncidentId && it.isUsable(System.currentTimeMillis())
         }
     }
+    // Compare actual ordered geometry at the effect boundary; a hash collision must not
+    // prevent reconciliation from observing a changed route.
+    val displayedRouteMapKey = displayedRoute?.geometry?.map { it.latitude to it.longitude }
 
     androidx.compose.runtime.LaunchedEffect(
         mapLibreMap,
         mapStyleLoaded,
-        visibleIncidents,
-        validResponderLocations,
-        deviceFix,
-        routeResult,
-        displayedRoute,
+        incidentClusterSource,
+        responderClusterSource,
+        staleResponderClusterSource,
+        deviceFixMapKey,
+        displayedRouteMapKey,
         trackingStatus.incidentId,
         trackingStatus.navigationActive,
-        freshnessTick,
+        selectedIncidentId,
+        mapAnnotationTimeKey,
     ) {
         val map = mapLibreMap
         if (map == null || !mapStyleLoaded) return@LaunchedEffect
 
-        // The map's annotations are a render of current, validated app state.
-        map.clear()
-        visibleIncidents.forEach { incident ->
-            val latitude = incident.latitude
-            val longitude = incident.longitude
-            if (incident.hasValidMapCoordinates() && latitude != null && longitude != null) {
-                val source = when (incident.locationSource) {
-                    "gps" -> "GPS location"
-                    "manual" -> "Manually selected map pin"
-                    "none" -> "No location source"
-                    else -> "Location source not reported"
+        // Clear once when the underlying MapLibre map instance changes. Normal
+        // data refreshes are reconciled incrementally and retain unchanged annotations.
+        if (renderedMapOwner !== map) {
+            map.clear()
+            renderedMarkers.clear()
+            renderedMarkerSignatures.clear()
+            markerTargets.clear()
+            renderedRoutePolyline = null
+            renderedRouteSignature = null
+            renderedMapOwner = map
+        }
+        markerTargets.clear()
+        val desiredMarkerKeys = mutableSetOf<String>()
+
+        fun upsertMarker(
+            key: String,
+            position: LatLng,
+            icon: Icon,
+            title: String,
+            snippet: String,
+            signature: GpsMapMarkerRenderSignature,
+        ): Marker {
+            desiredMarkerKeys += key
+            val existing = renderedMarkers[key]
+            if (existing == null) {
+                return map.addMarker(
+                    MarkerOptions().position(position).icon(icon).title(title).snippet(snippet),
+                ).also {
+                    renderedMarkers[key] = it
+                    renderedMarkerSignatures[key] = signature
                 }
-                val accuracy = if (incident.locationSource == "gps") {
-                    incident.accuracyM.validAccuracyLabel("GPS accuracy about ")
-                } else null
-                val note = incident.locationNotes?.takeIf { it.isNotBlank() }
-                val locationAgeLabel = incident.locationAgeStatus(mapNow).first
-                map.addMarker(
-                    MarkerOptions()
-                        .position(LatLng(latitude, longitude))
-                        .icon(incidentPinIcon)
-                        .title("Incident #${incident.id} · ${incident.type.label}")
-                        .snippet(
-                            listOfNotNull(
-                                source,
-                                accuracy,
-                                "Status: ${incident.status.label}",
-                                locationAgeLabel,
-                                note,
-                            ).joinToString(" · "),
-                        ),
-                )
             }
-        }
-        validResponderLocations.forEach { location ->
-            val ageSeconds = location.mapAgeSeconds(mapNow) ?: return@forEach
-            val freshness = location.mapFreshness(mapNow) ?: return@forEach
-            val icon = if (freshness == MapLocationFreshness.STALE) staleResponderPinIcon else responderPinIcon
-            val accuracy = location.accuracyM.validAccuracyLabel(" · reported accuracy about ") ?: ""
-            val age = formatLocationAge(ageSeconds)
-            val snippet = if (freshness == MapLocationFreshness.STALE) {
-                "STALE — last known position, $age$accuracy. Do not treat this marker as live; confirm with dispatch."
-            } else {
-                "${freshness.label} location · last reported $age$accuracy. Dispatcher-only, consented foreground location."
+            if (renderedMarkerSignatures[key] != signature) {
+                existing.position = position
+                existing.icon = icon
+                existing.title = title
+                existing.snippet = snippet
+                map.updateMarker(existing)
+                renderedMarkerSignatures[key] = signature
             }
-            map.addMarker(
-                MarkerOptions()
-                    .position(LatLng(location.latitude, location.longitude))
-                    .icon(icon)
-                    .title(
-                        if (freshness == MapLocationFreshness.STALE) {
-                            "STALE field-unit location · Incident #${location.incidentId}"
-                        } else {
-                            "${freshness.label} field-unit location · Incident #${location.incidentId}"
-                        },
-                    )
-                    .snippet(snippet),
-            )
-        }
-        deviceFix?.let { fix ->
-            map.addMarker(
-                MarkerOptions()
-                    .position(LatLng(fix.latitude, fix.longitude))
-                    .icon(myLocationPinIcon)
-                    .title("Your location · this device only")
-                    .snippet("One-time location preview. Not uploaded or continuously tracked."),
-            )
-        }
-        displayedRoute?.let { route ->
-            map.addPolyline(
-                PolylineOptions()
-                    .addAll(route.geometry.map { LatLng(it.latitude, it.longitude) })
-                    .color(Color.rgb(0, 119, 182))
-                    .width(6f),
-            )
+            return existing
         }
 
-        val shouldFrameInitialUnits = !hasAutoFramedInitialMapPoints &&
+        // Publish independently clustered emergency incidents and field-unit reports.
+        val incidentFeatures = visibleIncidents.mapNotNull { it.toGpsClusterFeature(selectedIncidentId) }
+        incidentClusterSource?.setGeoJson(FeatureCollection.fromFeatures(incidentFeatures.toTypedArray()))
+        val responderFeatures = validResponderLocations
+            .filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }
+            .mapNotNull { it.toGpsClusterFeature(mapNow) }
+        responderClusterSource?.setGeoJson(FeatureCollection.fromFeatures(responderFeatures.toTypedArray()))
+        val staleResponderFeatures = validResponderLocations
+            .filter { it.mapFreshness(mapNow) == MapLocationFreshness.STALE }
+            .mapNotNull { it.toGpsClusterFeature(mapNow) }
+        staleResponderClusterSource?.setGeoJson(
+            FeatureCollection.fromFeatures(staleResponderFeatures.toTypedArray()),
+        )
+
+        deviceFix?.let { fix ->
+            val marker = upsertMarker(
+                key = "device-location",
+                position = LatLng(fix.latitude, fix.longitude),
+                icon = myLocationPinIcon,
+                title = "Your location · this device only",
+                snippet = "One-time location preview. Not uploaded or continuously tracked.",
+                signature = GpsMapMarkerRenderSignature(
+                    latitude = fix.latitude,
+                    longitude = fix.longitude,
+                    iconVariant = "device-location",
+                    title = "Your location · this device only",
+                    snippet = "One-time location preview. Not uploaded or continuously tracked.",
+                ),
+            )
+            markerTargets[marker.id] = GpsMapMarkerTarget(
+                type = GpsMapMarkerType.DEVICE_LOCATION,
+                position = LatLng(fix.latitude, fix.longitude),
+                title = "Your location · this device",
+                summary = "One-time preview only · not uploaded or continuously tracked",
+            )
+        }
+        // Compare the full ordered geometry, not hashCode(): a collision must never
+        // leave an obsolete route visible after a genuine route change.
+        val routeSignature = displayedRoute?.geometry?.map { it.latitude to it.longitude }
+        if (renderedRouteSignature != routeSignature) {
+            renderedRoutePolyline?.let(map::removePolyline)
+            renderedRoutePolyline = displayedRoute?.let { route ->
+                map.addPolyline(
+                    PolylineOptions()
+                        .addAll(route.geometry.map { LatLng(it.latitude, it.longitude) })
+                        .color(Color.rgb(0, 119, 182))
+                        .width(6f),
+                )
+            }
+            renderedRouteSignature = routeSignature
+        }
+
+        // Remove only records no longer present in the validated visible set.
+        (renderedMarkers.keys - desiredMarkerKeys).forEach { key ->
+            renderedMarkers.remove(key)?.let(map::removeMarker)
+            renderedMarkerSignatures.remove(key)
+        }
+
+        val hasRestorableCamera = savedCameraLatitude != null && savedCameraLongitude != null
+        val shouldFrameInitialUnits = !hasRestorableCamera && !hasAutoFramedInitialMapPoints &&
             validIncidentPoints.isEmpty() && responderPointsForInitialFrame.isNotEmpty()
-        val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()
+        val shouldFrameIncidentPoints = !hasRestorableCamera && !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()
         if (deviceFix == null && (shouldFrameInitialUnits || shouldFrameIncidentPoints)) {
             hasAutoFramedInitialMapPoints = true
             if (shouldFrameIncidentPoints) hasAutoFramedIncidentPoints = true
@@ -1337,6 +1929,221 @@ fun GpsMapScreen(
         }
     }
 
+
+    DisposableEffect(mapLibreMap, incidentClusterSource, responderClusterSource, staleResponderClusterSource) {
+        val map = mapLibreMap
+        if (map == null) return@DisposableEffect onDispose {}
+        val listener = MapLibreMap.OnMapClickListener { coordinate ->
+            val pixel = map.projection.toScreenLocation(coordinate)
+            fun clusterTargets(
+                source: GeoJsonSource,
+                feature: Feature,
+                incidents: Boolean,
+                offset: Long = 0L,
+            ): List<GpsMapMarkerTarget> {
+                val leaves = source.getClusterLeaves(feature, 50L, offset).features().orEmpty()
+                return if (incidents) {
+                    leaves.mapNotNull { leaf ->
+                        val id = leaf.getStringProperty("incident_id")?.toLongOrNull() ?: return@mapNotNull null
+                        val incident = latestVisibleIncidentById[id] ?: return@mapNotNull null
+                        val lat = incident.latitude ?: return@mapNotNull null
+                        val lng = incident.longitude ?: return@mapNotNull null
+                        GpsMapMarkerTarget(GpsMapMarkerType.INCIDENT, LatLng(lat, lng),
+                            "Incident #${incident.id} · ${incident.type.label}",
+                            "Status: ${incident.status.label} · ${incident.locationAgeStatus().first}",
+                            incidentId = incident.id)
+                    }
+                } else {
+                    leaves.mapNotNull { leaf ->
+                        val incidentId = leaf.getStringProperty("incident_id")?.toLongOrNull()
+                            ?: return@mapNotNull null
+                        val userId = leaf.getStringProperty("user_id")?.toLongOrNull()
+                            ?: return@mapNotNull null
+                        val unit = latestResponderLocationByKey[incidentId to userId] ?: return@mapNotNull null
+                        val age = unit.mapAgeSeconds() ?: return@mapNotNull null
+                        val freshness = unit.mapFreshness() ?: return@mapNotNull null
+                        GpsMapMarkerTarget(GpsMapMarkerType.FIELD_UNIT, LatLng(unit.latitude, unit.longitude),
+                            "Responder #${unit.userId} · Incident #${unit.incidentId}",
+                            if (freshness == MapLocationFreshness.STALE) {
+                                "Last known location · ${formatLocationAge(age)} ago · not live"
+                            } else "${freshness.label} · last reported ${formatLocationAge(age)} ago",
+                            incidentId = unit.incidentId, userId = unit.userId,
+                            stale = freshness == MapLocationFreshness.STALE)
+                    }
+                }
+            }
+            fun showClusterChoices(
+                choices: List<GpsMapMarkerTarget>,
+                mixedSources: Boolean,
+                pageCursors: List<GpsMapClusterPageCursor> = emptyList(),
+                totalCount: Long? = null,
+            ) {
+                val unique = choices.distinctBy { "${it.type}:${it.incidentId}:${it.userId}" }
+                if (unique.isEmpty()) {
+                    locationStatus = "These clustered locations have changed. Refresh the map and try again."
+                    return
+                }
+                selectedMarkerChoices = unique
+                clusterPageCursors = pageCursors
+                // Count every overlapping source, including clusters small enough not to page.
+                clusterChoiceTotalCount = totalCount?.takeIf { it > 0L }
+                    ?: pageCursors.sumOf { it.totalCount }.takeIf { it > 0L }
+                    ?: unique.size.toLong()
+                routeSelectionGeneration += 1
+                selectedIncidentId = null
+                selectedResponderKey = null
+                locationStatus = if (mixedSources) {
+                    "Incident and field-unit clusters overlap. Choose the exact location."
+                } else "Showing ${unique.size} of ${clusterChoiceTotalCount} locations in this dense cluster."
+                scope.launch { mapSheetState.bottomSheetState.expand() }
+            }
+            val clusterLayers = listOf(
+                Triple(incidentClusterSource, INCIDENT_CLUSTER_LAYER_ID, true),
+                Triple(responderClusterSource, RESPONDER_CLUSTER_LAYER_ID, false),
+                Triple(staleResponderClusterSource, STALE_RESPONDER_CLUSTER_LAYER_ID, false),
+            )
+            // Give cluster bubbles the same forgiving 48dp touch target as individual pins.
+            // If multiple clusters from one source fall inside it, resolve the nearest bubble.
+            val clusterHitRadius = 24f * mapView.resources.displayMetrics.density
+            val clusterHitArea = RectF(
+                pixel.x - clusterHitRadius,
+                pixel.y - clusterHitRadius,
+                pixel.x + clusterHitRadius,
+                pixel.y + clusterHitRadius,
+            )
+            val clusterHits = clusterLayers.mapNotNull { (source, layerId, incidents) ->
+                if (source == null) return@mapNotNull null
+                val feature = map.queryRenderedFeatures(clusterHitArea, layerId)
+                    .filter { it.hasProperty("point_count") }
+                    .minByOrNull { candidate ->
+                        val point = candidate.geometry() as? Point
+                        val coordinates = point?.coordinates()
+                        if (coordinates == null || coordinates.size < 2) {
+                            Double.POSITIVE_INFINITY
+                        } else {
+                            val screen = map.projection.toScreenLocation(
+                                LatLng(coordinates[1], coordinates[0]),
+                            )
+                            hypot(
+                                (screen.x - pixel.x).toDouble(),
+                                (screen.y - pixel.y).toDouble(),
+                            )
+                        }
+                    } ?: return@mapNotNull null
+                Triple(source, feature, incidents)
+            }
+            fun pageCursorsForHits(
+                hits: List<Triple<GeoJsonSource, Feature, Boolean>>,
+            ): List<GpsMapClusterPageCursor> = hits.mapNotNull { (source, feature, incidents) ->
+                val total = feature.getNumberProperty("point_count")?.toLong() ?: return@mapNotNull null
+                if (total <= 50L) return@mapNotNull null
+                GpsMapClusterPageCursor(source, feature, incidents, nextOffset = 50L, totalCount = total)
+            }
+            if (clusterHits.size > 1) {
+                val choices = try {
+                    clusterHits.flatMap { (source, feature, incidents) -> clusterTargets(source, feature, incidents) }
+                } catch (_: RuntimeException) { emptyList() }
+                val totalCount = clusterHits.sumOf { hit ->
+                    hit.second.getNumberProperty("point_count")?.toLong() ?: 0L
+                }
+                showClusterChoices(choices, true, pageCursorsForHits(clusterHits), totalCount)
+                return@OnMapClickListener true
+            }
+            if (clusterHits.size == 1) {
+                val (source, feature, incidents) = clusterHits.first()
+                try {
+                    val expansionZoom = source.getClusterExpansionZoom(feature)
+                    val point = feature.geometry() as? Point ?: return@OnMapClickListener true
+                    val position = point.coordinates()
+                    if (position.size < 2) return@OnMapClickListener true
+                    if (expansionZoom > map.cameraPosition.zoom && map.cameraPosition.zoom < 20.0) {
+                        map.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                            LatLng(position[1], position[0]),
+                            expansionZoom.toDouble().coerceAtMost(20.0)), 420)
+                    } else showClusterChoices(
+                        clusterTargets(source, feature, incidents), false,
+                        pageCursorsForHits(listOf(Triple(source, feature, incidents))),
+                        feature.getNumberProperty("point_count")?.toLong(),
+                    )
+                } catch (_: RuntimeException) {
+                    locationStatus = "Map locations refreshed. Tap the updated cluster again."
+                }
+                return@OnMapClickListener true
+            }
+            // Query a 48dp screen-space target, not only the tiny painted circle.
+            // When multiple points occupy that target, present a nearest-first chooser.
+            val density = mapView.resources.displayMetrics.density
+            val radius = 24f * density
+            val hitArea = RectF(pixel.x - radius, pixel.y - radius, pixel.x + radius, pixel.y + radius)
+            val incidentTargets = map.queryRenderedFeatures(hitArea, INCIDENT_POINT_LAYER_ID, INCIDENT_SELECTED_POINT_LAYER_ID)
+                .mapNotNull { feature ->
+                    val id = feature.getStringProperty("incident_id")?.toLongOrNull() ?: return@mapNotNull null
+                    val incident = latestVisibleIncidentById[id] ?: return@mapNotNull null
+                    val lat = incident.latitude ?: return@mapNotNull null
+                    val lng = incident.longitude ?: return@mapNotNull null
+                    GpsMapMarkerTarget(
+                        type = GpsMapMarkerType.INCIDENT,
+                        position = LatLng(lat, lng),
+                        title = "Incident #${incident.id} · ${incident.type.label}",
+                        summary = "Status: ${incident.status.label} · ${incident.locationAgeStatus().first}",
+                        incidentId = incident.id,
+                    )
+                }
+                .distinctBy { it.incidentId }
+                .sortedBy { target ->
+                    val screen = map.projection.toScreenLocation(target.position)
+                    hypot((screen.x - pixel.x).toDouble(), (screen.y - pixel.y).toDouble())
+                }
+            val responderTargets = map.queryRenderedFeatures(
+                hitArea, RESPONDER_POINT_LAYER_ID, RESPONDER_STALE_POINT_LAYER_ID)
+                .mapNotNull { feature ->
+                    val incidentId = feature.getStringProperty("incident_id")?.toLongOrNull()
+                        ?: return@mapNotNull null
+                    val userId = feature.getStringProperty("user_id")?.toLongOrNull()
+                        ?: return@mapNotNull null
+                    val unit = latestResponderLocationByKey[incidentId to userId] ?: return@mapNotNull null
+                    val age = unit.mapAgeSeconds() ?: return@mapNotNull null
+                    val freshness = unit.mapFreshness() ?: return@mapNotNull null
+                    GpsMapMarkerTarget(
+                        type = GpsMapMarkerType.FIELD_UNIT,
+                        position = LatLng(unit.latitude, unit.longitude),
+                        title = "Responder #${unit.userId} · Incident #${unit.incidentId}",
+                        summary = if (freshness == MapLocationFreshness.STALE) {
+                            "Last known location · ${formatLocationAge(age)} ago · not live"
+                        } else "${freshness.label} · last reported ${formatLocationAge(age)} ago",
+                        incidentId = unit.incidentId, userId = unit.userId,
+                        stale = freshness == MapLocationFreshness.STALE,
+                    )
+                }
+                .distinctBy { it.responderKey }
+                .sortedBy { target ->
+                    val screen = map.projection.toScreenLocation(target.position)
+                    hypot((screen.x - pixel.x).toDouble(), (screen.y - pixel.y).toDouble())
+                }
+            val nearbyTargets = (incidentTargets + responderTargets)
+                .distinctBy { "${it.type}:${it.incidentId}:${it.userId}" }
+                .sortedBy { target ->
+                    val screen = map.projection.toScreenLocation(target.position)
+                    hypot((screen.x - pixel.x).toDouble(), (screen.y - pixel.y).toDouble())
+                }
+            if (nearbyTargets.isNotEmpty()) {
+                if (nearbyTargets.size > 1) {
+                    clusterPageCursors = emptyList()
+                    clusterChoiceTotalCount = nearbyTargets.size.toLong()
+                    selectedMarkerChoices = nearbyTargets
+                    routeSelectionGeneration += 1
+                    selectedIncidentId = null
+                    selectedResponderKey = null
+                    locationStatus = "Multiple incident and field-unit locations are close together. Choose the correct one."
+                    scope.launch { mapSheetState.bottomSheetState.expand() }
+                } else latestSelectMarkerTarget(nearbyTargets.first())
+                return@OnMapClickListener true
+            }
+            false
+        }
+        map.addOnMapClickListener(listener)
+        onDispose { map.removeOnMapClickListener(listener) }
+    }
 
     BottomSheetScaffold(
         modifier = Modifier.fillMaxSize().semantics { paneTitle = "GPS Map" },
@@ -1382,7 +2189,7 @@ fun GpsMapScreen(
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
@@ -1413,11 +2220,101 @@ fun GpsMapScreen(
                                 contentDescription = null,
                             )
                         }
+                        if (sheetExpanded) {
+                            androidx.compose.material3.IconButton(
+                                onClick = ::showAllVisiblePoints,
+                                modifier = Modifier.size(48.dp).semantics {
+                                    contentDescription = "Fit all visible map locations"
+                                },
+                            ) {
+                                androidx.compose.material3.Icon(
+                                    imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                )
+                            }
+                        }
                         if (selectedIncident != null) {
                             androidx.compose.material3.TextButton(
                                 onClick = { selectedIncidentId = null },
                                 modifier = Modifier.heightIn(min = 48.dp),
                             ) { Text("Clear") }
+                        }
+                    }
+
+                    if (selectedMarkerChoices.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            val isPagedCluster = clusterPageCursors.isNotEmpty() ||
+                                clusterChoiceTotalCount > selectedMarkerChoices.size
+                            Text(
+                                if (isPagedCluster) "Clustered map locations" else "Overlapping map locations",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.semantics { heading() },
+                            )
+                            Text(
+                                if (isPagedCluster) {
+                                    "Choose a location to inspect, or load more results."
+                                } else {
+                                    "These locations are close together. Choose the correct one to inspect."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "Showing ${selectedMarkerChoices.size} of ${clusterChoiceTotalCount} locations",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            selectedMarkerChoices.forEachIndexed { index, choice ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 52.dp)
+                                        .clickable(
+                                            role = androidx.compose.ui.semantics.Role.Button,
+                                            onClickLabel = "Open ${choice.title}",
+                                        ) { selectMarkerTarget(choice) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(
+                                        alpha = if (index == 0) 0.82f else 0.48f,
+                                    ),
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    ) {
+                                        Text(
+                                            choice.title,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        )
+                                        Text(
+                                            choice.summary,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        )
+                                    }
+                                }
+                            }
+                            if (clusterPageCursors.isNotEmpty()) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = { loadMoreClusterLocations() },
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                ) {
+                                    val remaining = clusterPageCursors.sumOf {
+                                        (it.totalCount - it.nextOffset).coerceAtLeast(0L)
+                                    }
+                                    Text("Load more locations ($remaining remaining)")
+                                }
+                            }
+                            androidx.compose.material3.TextButton(
+                                onClick = { selectedMarkerChoices = emptyList(); clusterPageCursors = emptyList(); clusterChoiceTotalCount = 0L; locationStatus = null },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) { Text("Dismiss location choices") }
                         }
                     }
 
@@ -1689,7 +2586,37 @@ fun GpsMapScreen(
                             ) { _, location ->
                                 val ageSeconds = location.mapAgeSeconds(mapNow)
                                 val freshness = location.mapFreshness(mapNow)
-                                Text(
+                                val responderKey = "${location.incidentId}:${location.userId}"
+                                val isSelectedResponder = selectedResponderKey == responderKey
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .clickable(
+                                            role = androidx.compose.ui.semantics.Role.Button,
+                                            onClickLabel = "Center map on responder ${location.userId}",
+                                        ) {
+                                            selectedResponderKey = responderKey
+                                            if (mapLibreMap == null || !mapStyleLoaded) {
+                                                locationStatus = "Map is still loading. Try centering this field unit again in a moment."
+                                            } else {
+                                                deviceFix = null
+                                                animateToPoint(LatLng(location.latitude, location.longitude), 15.0)
+                                                locationStatus = if (freshness == MapLocationFreshness.STALE) {
+                                                    "Centered on responder #${location.userId}'s stale position. This is last known, not live; confirm with dispatch."
+                                                } else {
+                                                    "Centered on responder #${location.userId} · ${freshness?.label?.lowercase() ?: "freshness unknown"}."
+                                                }
+                                            }
+                                        },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelectedResponder) {
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f)
+                                    },
+                                ) {
+                                    Text(
                                     text = buildString {
                                         append("Responder #${location.userId} · Incident #${location.incidentId} · ")
                                         append(freshness?.label ?: "Freshness unavailable")
@@ -1697,10 +2624,27 @@ fun GpsMapScreen(
                                         location.accuracyM.validAccuracyLabel(" · accuracy about ")?.let { append(it) }
                                         if (freshness == MapLocationFreshness.STALE) append(" · last known, not live")
                                     },
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .padding(horizontal = 10.dp, vertical = 7.dp)
+                                        .semantics {
+                                            contentDescription = buildString {
+                                                append(if (isSelectedResponder) "Selected. " else "")
+                                                append("Center map on responder ${location.userId}, incident ${location.incidentId}. ")
+                                                append(freshness?.label ?: "Freshness unavailable")
+                                                if (ageSeconds != null) append(", last reported ${formatLocationAge(ageSeconds)}")
+                                                if (freshness == MapLocationFreshness.STALE) append(". Last known position, not live")
+                                            }
+                                        },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = if (isSelectedResponder) {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                 )
+                                }
                             }
                         }
                     }
@@ -1743,22 +2687,22 @@ fun GpsMapScreen(
                 .align(Alignment.TopStart)
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .onGloballyPositioned { coordinates ->
+                    mapHeaderBottomPx = coordinates.size.height
+                    mapLibreMap?.let { map ->
+                        positionMapCompass(map, coordinates.size.height, mapDensity)
+                    }
+                },
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            androidx.compose.material3.Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                tonalElevation = 3.dp,
-                shadowElevation = 6.dp,
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 4.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 4.dp),
+
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    androidx.compose.material3.IconButton(
+                    androidx.compose.material3.FilledTonalIconButton(
                         onClick = onBack,
                         modifier = Modifier.size(48.dp).semantics {
                             contentDescription = "Back from GPS map"
@@ -1770,17 +2714,32 @@ fun GpsMapScreen(
                             modifier = Modifier.size(21.dp),
                         )
                     }
-                    Text(
-                        if (role == Role.REQUESTER) "Map" else "GPS Map",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (hasValidatedInternet == false) {
+                    Surface(
+                        // Keep the title's contrast backing content-sized. A weighted,
+                        // full-row surface reads like a search field even though it is not one.
+                        modifier = Modifier.widthIn(max = 180.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.94f),
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ) {
+                        Text(
+                            if (role == Role.REQUESTER) "Map" else "GPS Map",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (mapLoadError) {
+                        androidx.compose.material3.FilledTonalButton(
+                            onClick = ::retryMapLoad,
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text("Retry map")
+                        }
+                    } else if (hasValidatedInternet == false) {
                         androidx.compose.material3.Surface(
                             shape = RoundedCornerShape(50),
                             color = MaterialTheme.colorScheme.errorContainer,
@@ -1802,7 +2761,9 @@ fun GpsMapScreen(
                         androidx.compose.material3.FilledTonalIconButton(
                             onClick = {},
                             enabled = false,
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(48.dp).semantics {
+                                contentDescription = "Getting your location"
+                            },
                         ) {
                             androidx.compose.material3.CircularProgressIndicator(
                                 modifier = Modifier
@@ -1861,8 +2822,6 @@ fun GpsMapScreen(
                             },
                         )
                     }
-                }
-            }
 
             GpsMapFilterButtons(
                 role = role,
@@ -1873,40 +2832,22 @@ fun GpsMapScreen(
             )
         }
 
-        GpsMapCameraControls(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .navigationBarsPadding()
-                .padding(start = 12.dp, bottom = 136.dp),
-            onZoomIn = ::zoomMapIn,
-            onZoomOut = ::zoomMapOut,
-            onShowAll = ::showAllVisiblePoints,
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (mapSheetState.bottomSheetState.currentValue != SheetValue.Expanded) {
+                GpsMapCameraControls(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .navigationBarsPadding()
+                        .padding(start = 12.dp, bottom = 136.dp),
+                    enabled = mapStyleLoaded,
+                    onShowAll = ::showAllVisiblePoints,
+                )
+            }
+        }
 
-        // Keep OSM attribution visible on the map even while the sheet is collapsed.
-        Text(
-            text = "© OpenMapTiles · © OpenStreetMap contributors",
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .navigationBarsPadding()
-                .padding(end = 12.dp, bottom = 136.dp)
-                .heightIn(min = 48.dp)
-                .clickable(onClickLabel = "Open OpenFreeMap map data and attribution details") {
-                    runCatching {
-                        context.startActivity(
-                            Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://openfreemap.org/"),
-                            )
-                        )
-                    }
-                }
-                .padding(horizontal = 8.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
       }
     }
+}
 }
 
 @Composable

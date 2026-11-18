@@ -46,6 +46,12 @@ class GpsMapLifecyclePollingTests(unittest.TestCase):
         )
         self.assertNotIn("onRefreshResponderLocations()", self.source)
 
+    def test_initial_and_retry_style_callbacks_reject_stale_generations(self):
+        self.assertIn("var mapStyleRequestGeneration by remember(context, role)", self.source)
+        self.assertGreaterEqual(self.source.count("mapStyleRequestGeneration != styleRequestId"), 4)
+        self.assertIn("if (mapLibreMap !== map || mapStyleRequestGeneration != styleRequestId) return@setStyle", self.source)
+        self.assertIn("if (mapLibreMap !== map || mapStyleRequestGeneration != styleRequestId) return@getStyle", self.source)
+
     def test_map_view_forwards_the_complete_maplibre_lifecycle(self):
         for required in (
             "Lifecycle.Event.ON_START",

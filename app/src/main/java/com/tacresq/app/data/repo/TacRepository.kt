@@ -16,11 +16,14 @@ import com.tacresq.app.data.model.UserNotification
 import com.tacresq.app.data.model.IncidentMessage
 import com.tacresq.app.data.model.toCachedRequesterIncidentStatus
 import com.tacresq.app.data.remote.AuthResponse
+import com.tacresq.app.data.remote.AssignmentHistoryEvent
+import com.tacresq.app.data.remote.TacAssignmentHistoryApi
 import com.tacresq.app.data.remote.AssignIncidentTeamRequest
 import com.tacresq.app.data.remote.CreateIncidentRequest
 import com.tacresq.app.data.remote.DutyStatusRequest
 import com.tacresq.app.data.remote.LoginRequest
 import com.tacresq.app.data.remote.RegisterRequest
+import com.tacresq.app.data.remote.ReleaseIncidentAssignmentRpc
 import com.tacresq.app.data.remote.ResponderLocationRequest
 import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.remote.TacNotificationApi
@@ -102,13 +105,6 @@ class TacRepository(
         startSession(api.register(RegisterRequest(name.trim(), email.trim(), phone.trim(), password)))
     }
 
-    suspend fun resetPassword(email: String): Result<Unit> = call {
-        val trimmed = email.trim()
-        require(trimmed.isNotBlank() && android.util.Patterns.EMAIL_ADDRESS.matcher(trimmed).matches()) {
-            "Enter a valid email address."
-        }
-    }
-
     suspend fun logout() {
         // Clear local access immediately; remote revocation must never block sign-out UI.
         val capturedToken = tokenHolder.value
@@ -159,6 +155,18 @@ class TacRepository(
     suspend fun units(): Result<List<User>> = call { api.units() }
 
     suspend fun activeResponderLocations(): Result<List<ResponderLocation>> = call { api.activeResponderLocations() }
+
+    /** Dispatcher audit history; the Supabase table's RLS policy remains the authorization boundary. */
+    suspend fun incidentAssignmentHistory(
+        incidentId: Long,
+        limit: Int = 50,
+    ): Result<List<AssignmentHistoryEvent>> = call {
+        val historyApi = api as? TacAssignmentHistoryApi
+            ?: throw ApiException("Assignment history is not available with the configured backend.")
+        require(incidentId > 0) { "Incident ID must be positive." }
+        require(limit in 1..100) { "Assignment history page size must be between 1 and 100." }
+        historyApi.incidentAssignmentHistory(incidentId, limit)
+    }
 
     override suspend fun myNotifications(limit: Int): Result<List<UserNotification>> = call {
         val notificationApi = api as? TacNotificationApi
@@ -218,6 +226,32 @@ class TacRepository(
         val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
             ?: throw ApiException("Sign in before sending an incident message.")
         store.savePendingChatMessage(SessionStore.PendingChatMessage(incidentId, message.trim(), clientMessageId, ownerUserId))
+    }
+
+    suspend fun pendingChatImage(): Result<SessionStore.PendingChatImage?> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in with the original account to restore its pending image.")
+        store.getPendingChatImage(ownerUserId)
+    }
+
+    suspend fun persistPendingChatImage(
+        incidentId: Long,
+        caption: String,
+        clientMessageId: String,
+        mimeType: String,
+        sha256: String,
+    ): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in before sending an incident image.")
+        store.savePendingChatImage(
+            SessionStore.PendingChatImage(incidentId, caption.trim(), clientMessageId, mimeType, sha256, ownerUserId)
+        )
+    }
+
+    suspend fun clearPendingChatImage(clientMessageId: String): Result<Unit> = call {
+        val ownerUserId = (sessionState.value as? SessionState.LoggedIn)?.session?.user?.id
+            ?: throw ApiException("Sign in with the original account to resolve its pending image.")
+        store.clearPendingChatImage(clientMessageId, ownerUserId)
     }
 
     suspend fun clearPendingChatMessage(clientMessageId: String): Result<Unit> = call {
@@ -392,8 +426,9 @@ class TacRepository(
         store.clearRequesterDraft(ownerUserId)
     }
 
+    /** Dispatcher: advance the shared incident milestone. Field responders do not update this state. */
     suspend fun updateIncidentStatus(id: Long, status: IncidentStatus): Result<Incident> = call {
-        api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))
+        api.updateIncidentStatus(id, UpdateStatusRequest(status))
     }
 
     suspend fun cancelMyIncident(id: Long): Result<Incident> = call {
@@ -433,6 +468,11 @@ class TacRepository(
             "Select between 1 and 5 different field units."
         }
         api.assignIncidentTeam(incidentId, AssignIncidentTeamRequest(userIds))
+    }
+
+    suspend fun releaseIncidentAssignment(incidentId: Long, userId: Long): Result<Incident> = call {
+        require(incidentId > 0 && userId > 0) { "Incident and field-unit IDs must be positive." }
+        api.releaseIncidentAssignment(ReleaseIncidentAssignmentRpc(incidentId, userId))
     }
 
     /** Reserved for the explicit foreground tracking lifecycle; callers must gate this on en_route. */

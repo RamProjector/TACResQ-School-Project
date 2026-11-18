@@ -1,82 +1,91 @@
 #!/usr/bin/env python3
-"""Contract checks for independent per-unit response progress."""
+"""Contract checks for dispatcher-owned incident progress and mirrored team state."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sql = (ROOT / "supabase/migrations/20261023103737_per_responder_assignment_status.sql").read_text()
+legacy_schema = (ROOT / "supabase/migrations/20261023103737_per_responder_assignment_status.sql").read_text()
+dispatcher_sql = (ROOT / "supabase/migrations/20261117234000_dispatch_managed_incident_progress.sql").read_text()
+profile_guard = (ROOT / "supabase/migrations/20261118001000_allow_dispatcher_progress_duty_sync.sql").read_text()
 models = (ROOT / "app/src/main/java/com/tacresq/app/data/model/Models.kt").read_text()
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
+api_interface = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt").read_text()
 repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 responder = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 dispatcher = (ROOT / "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt").read_text()
 requester = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 components = (ROOT / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
 fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").read_text()
+laravel = (ROOT / "backend/src/routes/api.php").read_text()
+bridge = (ROOT / "backend/src/config/tacru.php").read_text()
 
+# Retain the assignment-status columns as compatibility data, but no longer
+# expose an independently writable per-person status workflow to app clients.
 for required in (
     "ADD COLUMN IF NOT EXISTS responder_status text",
     "status_updated_at timestamptz",
-    "CREATE OR REPLACE FUNCTION private.tacresq_update_my_assignment_status",
-    "WHERE a.incident_id = p_incident_id AND a.user_id = actor_id",
-    "Invalid response status transition for this unit",
-    "bool_and(a.responder_status = 'resolved')",
-    "bool_and(a.responder_status IN ('on_scene','transporting','resolved'))",
     "assigned_user_statuses",
-    "assignment_status <> 'en_route'",
-    "a.responder_status = 'en_route'",
-    "SECURITY INVOKER",
-    "REVOKE ALL ON FUNCTION public.api_update_my_assignment_status(bigint, text) FROM PUBLIC, anon",
-    "GRANT EXECUTE ON FUNCTION public.api_update_my_assignment_status(bigint, text) TO authenticated",
 ):
-    assert required in sql, f"Missing per-responder status safety contract: {required}"
+    assert required in legacy_schema, f"Missing compatibility field: {required}"
 
-assert "UPDATE public.profiles" not in sql, "This migration must not bypass profile duty-status safeguards."
-assert "public.api_update_incident_status(p_id bigint, p_status text)" in sql, (
-    "Legacy status RPC must route through the per-assignment status checks."
-)
-for source, requirements in (
-    (models, ('val assignedUserStatuses: List<ResponderAssignmentStatus>', 'fun Incident.statusFor(userId: Long)')),
-    (api, ('api_update_my_assignment_status', 'override suspend fun updateMyAssignmentStatus')),
-    (repo, ('api.updateMyAssignmentStatus(id, UpdateStatusRequest(status))',)),
-    (responder, ('incident.statusFor(user.id).nextSteps()', 'val ownStatus = incident.statusFor(user.id)', 'StatusPill(ownStatus.label, ownStatus.pillColor())', 'it.statusFor(currentUserId) == IncidentStatus.EN_ROUTE')),
-    (components, ('fun StatusPill(status: IncidentStatus)', 'status.label', 'colors.primaryContainer to colors.onPrimaryContainer')),
-    (fake, ('override suspend fun updateMyAssignmentStatus', 'ResponderAssignmentStatus')),
-):
-    for required in requirements:
-        assert required in source, f"Per-responder status integration missing: {required}"
-assert (
-    "memberStatus.status.label" in dispatcher
-    or "StatusPill(memberStatus.status)" in dispatcher
-), "Dispatcher must render each responder's individual status label";
-print("PASS: individual response status is stored per assignment with server-side transition checks.")
-print("PASS: incident summary advances conservatively and retains a per-unit status payload.")
-print("PASS: Android, dispatcher, and fake-mode clients consume individual unit progress.")
-
-# Dispatcher overview presents one team summary first and reveals per-member detail on demand.
-assert 'var expandedTeamStatusIds by remember { mutableStateOf(setOf<Long>()) }' in dispatcher
-assert 'Team progress' in dispatcher
-assert 'responders have started their response' in dispatcher
-assert 'stillAssignedCount' in dispatcher
-assert 'still marked Assigned' in dispatcher
-assert "The request status reflects the team's combined progress." in dispatcher
-assert 'Your status updates are shared with dispatch and the requester.' in responder
 for required in (
-    'val requesterLabel: String',
-    'val requesterDescription: String',
-    'PENDING -> "Awaiting dispatch"',
-    'ASSIGNED -> "Responder assigned"',
-    'EN_ROUTE -> "Responder en route"',
-    'ON_SCENE -> "Responder on scene"',
-    'TRANSPORTING -> "Transport in progress"',
-    'RESOLVED -> "Request resolved"',
-    'CANCELLED -> "Request cancelled"',
+    "CREATE OR REPLACE FUNCTION private.tacresq_dispatch_update_incident_status",
+    "Only dispatchers can advance incident progress",
+    "UPDATE public.incident_assignments",
+    "responder_status = p_status",
+    "status_updated_at = now()",
+    "CREATE OR REPLACE FUNCTION public.api_update_incident_status",
+    "private.tacresq_dispatch_update_incident_status",
+    "REVOKE ALL ON FUNCTION public.api_update_my_assignment_status(bigint,text) FROM PUBLIC, anon, authenticated",
+    "REVOKE ALL ON FUNCTION private.tacresq_update_my_assignment_status(bigint,text) FROM PUBLIC, anon, authenticated",
 ):
-    assert required in models, f"Missing requester-facing lifecycle mapping: {required}"
+    assert required in dispatcher_sql, f"Missing dispatcher-owned status contract: {required}"
+
+assert "actor_is_assigned" not in dispatcher_sql, "Legacy responder status branch must be removed from incident guard."
+assert "dispatcher_progress_sync := coalesce(" in profile_guard
+assert "i.status = NEW.duty_status" in profile_guard
+assert "REVOKE ALL ON FUNCTION public.tacresq_guard_profile_update()" in profile_guard
+
+# No Android client, Supabase bridge, or fake backend can call the retired RPC.
+for source in (api, api_interface, repo, bridge):
+    assert "api_update_my_assignment_status" not in source
+    assert "updateMyAssignmentStatus" not in source
+assert "api.updateIncidentStatus(id, UpdateStatusRequest(status))" in repo
+
+# The demo backend applies one shared incident milestone to all assigned members.
+assert "if (me.role != Role.DISPATCHER)" in fake
+assert "incident.status.nextSteps()" in fake
+assert "ResponderAssignmentStatus(unitId, body.status, timestamp)" in fake
+
+# Laravel prototype endpoint enforces the same dispatcher ownership.
+status_route_start = laravel.index("Route::patch('/incidents/{incident}/status'")
+status_route_end = laravel.index("\n    });", status_route_start)
+status_route = laravel[status_route_start:status_route_end]
+assert "$onlyRoles($request, ['dispatcher'])" in status_route
+assert "User::whereKey($locked->assigned_to)" in status_route
+
+# Responders can manage optional GPS sharing, but cannot advance incident status.
+for retired in ("responseToStart", "startResponse(", "fun advance(", "repo.updateIncidentStatus"):
+    assert retired not in responder, f"Responder-owned status action remains: {retired}"
+assert "val ownStatus = incident.statusFor(user.id)" in responder
+assert "ownStatus != IncidentStatus.EN_ROUTE" in responder
+assert "GPS sharing reports your location; it does not confirm arrival" in responder
+
+# Dispatcher and requester surfaces use the shared incident milestone.
+assert "StatusPill(incident.status)" in dispatcher
+assert "memberStatus" not in dispatcher
+assert "Dispatch records one shared progress milestone for the assigned team." in dispatcher
+assert "val requesterLabel: String" in models
+assert 'PENDING -> "Request received"' in models
+assert 'ASSIGNED -> "Team assigned"' in models
+assert 'EN_ROUTE -> "Team deployed"' in models
+assert 'ON_SCENE -> "Team arrived"' in models
+assert 'TRANSPORTING -> "Transport in progress"' in models
+assert 'RESOLVED -> "Response completed"' in models
 assert 'activeIncident.status.requesterLabel' in requester
 assert 'activeIncident.status.requesterDescription' in requester
-assert 'View member details' in dispatcher
-assert 'Hide member details' in dispatcher
-assert 'Updated ${formatTime(it)}' in dispatcher
-assert 'Update time unavailable' in dispatcher
-assert 'GPS sharing reports your location; it does not confirm arrival.' in responder
-assert 'if (incident.id in expandedTeamStatusIds)' in dispatcher
+assert "fun StatusPill(status: IncidentStatus)" in components
+
+print("PASS: assignment rows remain available as compatibility mirrors, not independent responder progress.")
+print("PASS: Supabase, Laravel, and fake mode enforce dispatcher-owned incident milestones.")
+print("PASS: responders retain optional GPS sharing without per-responder status actions.")
+print("PASS: requester and dispatcher screens display one shared incident progress state.")

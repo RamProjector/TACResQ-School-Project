@@ -67,16 +67,21 @@ $incident_write_boundary$;
 RESET ROLE;
 SELECT set_config('request.jwt.claim.sub', '', false);
 
--- Responder status updates must still work through the supported invoker wrapper
--- after direct authenticated incident-table DML has been revoked.
+-- Responders are denied shared status changes; dispatcher owns the milestone
+-- through the supported invoker wrapper after direct incident-table DML is revoked.
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES
   ('00000000-0000-4000-8000-000000000972', 'incident-write-requester-972@example.test', '{"name":"Incident Write Requester","phone":"+63917000972"}'),
-  ('00000000-0000-4000-8000-000000000973', 'incident-write-responder-973@example.test', '{"name":"Incident Write Responder","phone":"+63917000973"}');
+  ('00000000-0000-4000-8000-000000000973', 'incident-write-responder-973@example.test', '{"name":"Incident Write Responder","phone":"+63917000973"}'),
+  ('00000000-0000-4000-8000-000000000976', 'incident-write-dispatcher-976@example.test', '{"name":"Incident Write Dispatcher","phone":"+63917000976"}');
 
 UPDATE public.profiles
 SET role = 'responder', duty_status = 'available'
 WHERE auth_user_id = '00000000-0000-4000-8000-000000000973';
+
+UPDATE public.profiles
+SET role = 'dispatcher', duty_status = NULL
+WHERE auth_user_id = '00000000-0000-4000-8000-000000000976';
 
 INSERT INTO public.incidents (
   requester_id, type, description, latitude, longitude,
@@ -128,21 +133,57 @@ BEGIN
     RAISE EXCEPTION 'Authenticated responder direct incident UPDATE was not denied';
   END IF;
 
-  -- The legacy public endpoint must remain compatible and delegate to the
-  -- private SECURITY DEFINER implementation with its own assignment checks.
+  -- Responders may not advance shared incident progress, even through the
+  -- public SECURITY INVOKER wrapper.
+  denied := false;
+  BEGIN
+    result := public.api_update_incident_status(incident_id, 'en_route');
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Authenticated responder unexpectedly advanced dispatcher-owned incident progress';
+  END IF;
+
+  SELECT status, is_claimable INTO final_status, final_claimable
+  FROM public.incidents WHERE id = incident_id;
+  IF final_status IS DISTINCT FROM 'assigned' OR final_claimable IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Denied responder update changed incident state: status %, claimable %',
+      final_status, final_claimable;
+  END IF;
+END;
+$responder_write_boundary$;
+
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000976', false);
+SET ROLE authenticated;
+
+DO $dispatcher_incident_write_boundary$
+DECLARE
+  incident_id bigint;
+  result jsonb;
+  final_status text;
+  final_claimable boolean;
+BEGIN
+  SELECT i.id INTO incident_id
+  FROM public.incidents i
+  JOIN public.profiles requester ON requester.id = i.requester_id
+  WHERE requester.auth_user_id = '00000000-0000-4000-8000-000000000972'
+    AND i.description = 'Authenticated responder status RPC boundary fixture';
+
   result := public.api_update_incident_status(incident_id, 'en_route');
   IF result->>'status' IS DISTINCT FROM 'en_route' THEN
-    RAISE EXCEPTION 'Authenticated responder status RPC failed after direct DML revocation: %', result;
+    RAISE EXCEPTION 'Authenticated dispatcher status RPC failed: %', result;
   END IF;
 
   SELECT status, is_claimable INTO final_status, final_claimable
   FROM public.incidents WHERE id = incident_id;
   IF final_status IS DISTINCT FROM 'en_route' OR final_claimable IS DISTINCT FROM false THEN
-    RAISE EXCEPTION 'Responder status transition did not clear claimability: status %, claimable %',
+    RAISE EXCEPTION 'Dispatcher status transition did not clear claimability: status %, claimable %',
       final_status, final_claimable;
   END IF;
 END;
-$responder_write_boundary$;
+$dispatcher_incident_write_boundary$;
 
 RESET ROLE;
 SELECT set_config('request.jwt.claim.sub', '', false);
@@ -157,7 +198,7 @@ DECLARE
 BEGIN
   SELECT id INTO v_actor_id
   FROM public.profiles
-  WHERE auth_user_id = '00000000-0000-4000-8000-000000000973';
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000976';
 
   SELECT id INTO v_incident_id
   FROM public.incidents

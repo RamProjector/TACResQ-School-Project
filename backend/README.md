@@ -1,8 +1,8 @@
-# TACResQ dispatcher host (Render)
+# TACResQ admin portal host (Render)
 
 For durable project decisions, current implementation status, and research references, see [`docs/project-memory/`](../docs/project-memory/README.md).
 
-Laravel 13 hosts the TACRU dispatcher console on Render. Supabase is the source of truth for authentication, data, and RPC operations; the temporary Render PostgreSQL database is not required.
+Laravel 13 hosts the TACResQ administrator portal on Render. Dispatch operations are handled in the Android app; this web portal is limited to administrator account management and audit review. Supabase is the source of truth for authentication, data, and RPC operations; the temporary Render PostgreSQL database is not required.
 
 ## Deploy on Render
 
@@ -13,13 +13,13 @@ Laravel 13 hosts the TACRU dispatcher console on Render. Supabase is the source 
    - `APP_ENV=production`
    - `APP_DEBUG=false`
    - `LOG_CHANNEL=stderr`
-   - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: the browser-safe settings for the TACRU dashboard at `/dispatch/`. Never use a service-role key.
+   - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: the browser-safe settings for the TACResQ Admin Portal at `/admin/`. Never use a service-role key.
    - `ROUTE_PREVIEW_ENABLED=false`: backend kill switch; leave disabled unless provider configuration, privacy review, synthetic tests, and device validation are complete.
    - `ROUTE_PROVIDER=geoapify`: current source default when routing is enabled. Add `GEOAPIFY_API_KEY` as a backend-only secret; never expose it to Android, the browser dashboard, or source control. Geoapify receives responder-origin and assigned-incident destination coordinates.
    - Optional `OSRM_BASE_URL`: only when `ROUTE_PROVIDER=osrm` is explicitly selected. Use a private internal OSRM hostname such as `http://tacresq-osrm:5000`; never point it at a public routing API. See [`routing/README.md`](routing/README.md) for the optional self-hosted service. Provisioning requires separate authorization and may require paid infrastructure.
 4. Deploy. The container clears Laravel's config cache and serves HTTP on Render's assigned `$PORT`; it does not connect to or migrate a Render database.
 5. Check `https://<your-service>.onrender.com/up`; expected response is `200`.
-6. Open `https://<your-service>.onrender.com/dispatch/` for the TACRU dashboard. Its `/runtime-config.json` endpoint returns only the configured Supabase URL and publishable key, with caching disabled. `/dispatch/config.json` remains an alias.
+6. Open `https://<your-service>.onrender.com/admin/` for the TACResQ Admin Portal. Its `/runtime-config.json` endpoint returns only the configured Supabase URL and publishable key, with caching disabled. `/admin/config.json` is also available.
 7. Configure the Android app for direct Supabase mode: `USE_FAKE_API = false` and `USE_SUPABASE_API = true`.
 
 Render free instances may spin down when idle; first request after inactivity can take a while. Supabase remains independent of Render instance lifecycle.
@@ -63,19 +63,19 @@ python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 - Never commit `.env`, production credentials, or real personal/incident data to Git.
 
 
-## TACRU dispatcher web console
+## TACResQ administrator web portal
 
-The same Laravel service serves the responsive dispatcher console at `/dispatch/`. Its source is in `backend/web/`; the Dockerfile installs the pinned pnpm toolchain, builds the React app under the `/dispatch/` base path, and copies the static assets into Laravel's public directory. The Laravel `GET /runtime-config.json` endpoint exposes only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` at runtime with `Cache-Control: no-store`; `/dispatch/config.json` remains an alias.
+The same Laravel service serves the responsive administrator portal at `/admin/`. Its source is in `backend/web/`; the Dockerfile installs the pinned pnpm toolchain, builds the React app under the `/admin/` base path, and copies the static assets into Laravel's public directory. The Laravel `GET /runtime-config.json` endpoint exposes only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` at runtime with `Cache-Control: no-store`; `/admin/config.json` is an alias.
 
-The dashboard deliberately keeps its sign-in, incident/unit reads, and assignment RPC on Supabase. The Render Laravel service only hosts the dashboard and runtime configuration endpoint. Configure the Supabase URL and **publishable** key on the Laravel service; do not use a Supabase service-role/secret key.
+The portal uses Supabase Auth and administrator-only user-management and audit RPCs. It does not expose the incident queue, field-unit board, or assignment controls; dispatchers must use the TACResQ Android app. The Render Laravel service only hosts the portal and runtime configuration endpoint. Configure the Supabase URL and **publishable** key on the Laravel service; do not use a Supabase service-role/secret key.
 
 For local Compose setup, copy `.env.example` to `.env`, then set the Supabase URL and publishable key along with a generated `APP_KEY`. To run the frontend separately during UI development, use `backend/web/README.md`: copy `web/.env.example` to `web/.env.local`, fill in the same browser-safe Supabase values, and run `pnpm dev` from `backend/web/`.
 
-The console remains dispatcher-only, requires an administrator-provisioned dispatcher profile, and is a school prototype—not an operational emergency service. It does not provide offline write synchronization or guaranteed emergency delivery; FCM delivery is handled by the separate trusted worker rather than the public dashboard route.
+The portal is administrator-only and remains a school-project prototype—not an operational emergency service. Dispatcher accounts are shown a clear message directing them to the Android app. It does not provide offline write synchronization or guaranteed emergency delivery; FCM delivery is handled by the separate trusted worker rather than the public dashboard route.
 
 
 ## Automated CI tests
 
-GitHub Actions runs `tools/test_workflow.py`, type-checks/builds the dashboard with its `/dispatch/` base path, builds and starts the Docker Compose Laravel/PostgreSQL stack with disposable test settings, runs the Laravel feature tests, and smoke-tests the served dashboard and `/runtime-config.json` response. The integration job uses placeholder Supabase settings and an ephemeral database; it does not contact or write to the project's live Supabase database.
+GitHub Actions runs `tools/test_workflow.py`, type-checks/builds the admin portal with its `/admin/` base path, builds and starts the Docker Compose Laravel/PostgreSQL stack with disposable test settings, runs the Laravel feature tests, and smoke-tests the served dashboard and `/runtime-config.json` response. The integration job uses placeholder Supabase settings and an ephemeral database; it does not contact or write to the project's live Supabase database.
 
 The free-compatible Supabase Cron trigger is documented in [docs/FCM_SUPABASE_CRON_TRIGGER.md](../docs/FCM_SUPABASE_CRON_TRIGGER.md). It is not active until the Render webhook secret, Supabase Vault secrets, pg_cron/pg_net extensions, and scheduled job are configured by an authorized operator. It is best-effort only; the in-app inbox remains authoritative.

@@ -182,20 +182,40 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         return response()->json($result['payload'], $result['replayed'] ? 200 : 201);
     });
     Route::patch('/incidents/{incident}/status', function (Request $request, Incident $incident) use ($incidentJson, $onlyRoles) {
-        $onlyRoles($request, ['responder', 'driver']);
-        abort_unless((int) $incident->assigned_to === (int) $request->user()->id, 403, 'This incident is not assigned to you.');
+        // Incident progress is dispatcher-owned. Field units keep using the
+        // organization's existing communication procedures and do not duplicate
+        // per-person status taps in TACResQ.
+        $onlyRoles($request, ['dispatcher']);
         $data = $request->validate(['status' => ['required', Rule::in(['en_route', 'on_scene', 'transporting', 'resolved'])]]);
-        $transitions = ['assigned' => ['en_route'], 'en_route' => ['on_scene'], 'on_scene' => ['transporting', 'resolved'], 'transporting' => ['resolved']];
-        abort_unless(in_array($data['status'], $transitions[$incident->status] ?? [], true), 422, 'Invalid incident status transition.');
-        DB::transaction(function () use ($incident, $data, $request) {
+        $transitions = [
+            'assigned' => ['en_route'],
+            'en_route' => ['on_scene'],
+            'on_scene' => ['transporting', 'resolved'],
+            'transporting' => ['resolved'],
+        ];
+
+        $updated = DB::transaction(function () use ($incident, $data, $request, $transitions) {
             $locked = Incident::whereKey($incident->id)->lockForUpdate()->firstOrFail();
-            $allowed = ['assigned' => ['en_route'], 'en_route' => ['on_scene'], 'on_scene' => ['transporting', 'resolved'], 'transporting' => ['resolved']];
-            abort_unless((int) $locked->assigned_to === (int) $request->user()->id && in_array($data['status'], $allowed[$locked->status] ?? [], true), 422, 'Incident was changed; refresh and retry.');
+            abort_if($locked->assigned_to === null, 422, 'Assign a response unit before advancing incident progress.');
+            abort_unless(
+                in_array($data['status'], $transitions[$locked->status] ?? [], true),
+                422,
+                'Incident was changed; refresh and retry.'
+            );
+
             $locked->update(['status' => $data['status']]);
             $locked->statusLogs()->create(['status' => $data['status'], 'changed_by' => $request->user()->id]);
-            $request->user()->update(['duty_status' => $data['status'] === 'resolved' ? 'available' : $data['status']]);
+
+            $unit = User::whereKey($locked->assigned_to)->lockForUpdate()->first();
+            if ($unit) {
+                $unit->update([
+                    'duty_status' => $data['status'] === 'resolved' ? 'available' : $data['status'],
+                ]);
+            }
+            return $locked->fresh();
         });
-        return response()->json($incidentJson($incident->fresh()));
+
+        return response()->json($incidentJson($updated));
     });
     Route::get('/incidents', function (Request $request) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['dispatcher']);

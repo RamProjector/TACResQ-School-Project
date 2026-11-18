@@ -217,6 +217,7 @@ class NotificationsViewModel(
             try {
                 repo.myNotifications(limit = limit)
                     .onSuccess { items ->
+                        if (generation != refreshGeneration) return@onSuccess
                         _state.update {
                             it.copy(
                                 items = items,
@@ -228,6 +229,7 @@ class NotificationsViewModel(
                         }
                     }
                     .onFailure { failure ->
+                        if (generation != refreshGeneration) return@onFailure
                         _state.update {
                             it.copy(
                                 loading = false,
@@ -239,12 +241,14 @@ class NotificationsViewModel(
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                _state.update {
-                    it.copy(
-                        loading = false,
-                        refreshing = false,
-                        error = "Could not load notifications. Try again.",
-                    )
+                if (generation == refreshGeneration) {
+                    _state.update {
+                        it.copy(
+                            loading = false,
+                            refreshing = false,
+                            error = "Could not load notifications. Try again.",
+                        )
+                    }
                 }
             } finally {
                 // A superseded request must not clear progress owned by a newer refresh.
@@ -371,7 +375,7 @@ fun NotificationsAndSafetyScreen(
             item {
                 ScreenHeader(
                     title = "Notifications",
-                    subtitle = "Push alerts bring you here; this inbox is the source of truth.",
+                    subtitle = "Incident updates and account alerts.",
                 )
             }
             item {
@@ -400,7 +404,7 @@ fun NotificationsAndSafetyScreen(
                         Text(
                             when {
                                 state.realtimeStartError -> "Realtime unavailable; the inbox remains available through server refresh."
-                                realtimeState == RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt ?: "not yet recorded"}."
+                                realtimeState == RealtimeConnectionState.CONNECTED -> "Realtime connected; last server refresh ${state.lastSyncAt?.let(::formatNotificationTime) ?: "not yet recorded"}."
                                 realtimeState == RealtimeConnectionState.CONNECTING ||
                                     realtimeState == RealtimeConnectionState.RECONNECTING -> "Realtime reconnecting; the inbox is using server refresh fallback."
                                 else -> "Realtime unavailable; the inbox remains available through server refresh."

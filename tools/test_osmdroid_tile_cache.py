@@ -36,7 +36,7 @@ for required in (
     "alpha = 110",
     "map.addMarker(",
     "iconHeight * 2",
-    "pin tip at the geographic coordinate",
+    "Transparent lower half keeps the geographic coordinate at the pin tip.",
     "map.clear()",
     "setOnMarkerClickListener",
     "mapSheetState.bottomSheetState.expand()",

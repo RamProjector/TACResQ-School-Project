@@ -35,7 +35,7 @@ class SupabaseTacApi private constructor(
     private val rpc: SupabaseRpcWire,
     private val storage: SupabaseStorageWire,
     private val bridgeRpc: SupabaseBridgeRpcWire?,
-) : TacApi, TacNotificationApi, TacPushApi, TacChatApi {
+) : TacApi, TacNotificationApi, TacPushApi, TacChatApi, TacAssignmentHistoryApi {
     override suspend fun login(body: LoginRequest): AuthResponse = authenticate {
         auth.login(body)
     }
@@ -106,11 +106,6 @@ class SupabaseTacApi private constructor(
         return if (bridgeRpc != null) bridgeRpc.updateIncidentStatus(request) else rpc.updateIncidentStatus(request)
     }
 
-    override suspend fun updateMyAssignmentStatus(id: Long, body: UpdateStatusRequest): Incident {
-        val request = UpdateMyAssignmentStatusRpc(id, body.status.wireValue)
-        return if (bridgeRpc != null) bridgeRpc.updateMyAssignmentStatus(request) else rpc.updateMyAssignmentStatus(request)
-    }
-
     override suspend fun assignIncident(id: Long, body: AssignIncidentRequest): Incident {
         val request = AssignIncidentRpc(id, body.userId)
         return if (bridgeRpc != null) bridgeRpc.assignIncident(request) else rpc.assignIncident(request)
@@ -119,6 +114,12 @@ class SupabaseTacApi private constructor(
     override suspend fun assignIncidentTeam(id: Long, body: AssignIncidentTeamRequest): Incident {
         val request = AssignIncidentTeamRpc(id, body.userIds)
         return if (bridgeRpc != null) bridgeRpc.assignIncidentTeam(request) else rpc.assignIncidentTeam(request)
+    }
+
+    override suspend fun releaseIncidentAssignment(body: ReleaseIncidentAssignmentRpc): Incident {
+        require(body.incidentId > 0 && body.userId > 0) { "Incident and field-unit IDs must be positive." }
+        // This security-sensitive RPC is called directly with the authenticated Supabase session.
+        return rpc.releaseIncidentAssignment(body)
     }
 
     override suspend fun claimIncident(id: Long): com.tacresq.app.data.model.ClaimIncidentResult {
@@ -164,6 +165,19 @@ class SupabaseTacApi private constructor(
     override suspend fun unregisterFcmToken(token: String) {
         require(token.length in 20..4096) { "FCM token is invalid." }
         rpc.unregisterFcmToken(FcmTokenRpc(token))
+    }
+
+    override suspend fun incidentAssignmentHistory(incidentId: Long, limit: Int): List<AssignmentHistoryEvent> {
+        require(incidentId > 0) { "Incident ID must be positive." }
+        require(limit in 1..100) { "Assignment history page size must be between 1 and 100." }
+        // Read the RLS-protected event table directly. This endpoint is intentionally
+        // not added to the optional Render bridge until its authorization contract exists.
+        return rpc.incidentAssignmentHistory(
+            columns = "id,incident_id,user_id,event_type,actor_user_id,source,assignment_status,incident_status,occurred_at",
+            incidentIdFilter = "eq.$incidentId",
+            order = "occurred_at.desc,id.desc",
+            limit = limit,
+        )
     }
 
     override suspend fun myIncidentMessages(incidentId: Long, limit: Int, beforeId: Long?): List<IncidentMessage> {
@@ -326,9 +340,6 @@ private interface SupabaseBridgeRpcWire {
     @POST("bridge/rpc/api_update_incident_status")
     suspend fun updateIncidentStatus(@Body body: UpdateIncidentRpc): Incident
 
-    @POST("bridge/rpc/api_update_my_assignment_status")
-    suspend fun updateMyAssignmentStatus(@Body body: UpdateMyAssignmentStatusRpc): Incident
-
     @POST("bridge/rpc/api_assign_incident")
     suspend fun assignIncident(@Body body: AssignIncidentRpc): Incident
 
@@ -352,6 +363,15 @@ private interface SupabaseBridgeRpcWire {
 }
 
 private interface SupabaseRpcWire {
+    @GET("rest/v1/incident_assignment_events")
+    suspend fun incidentAssignmentHistory(
+        @Query("select") columns: String,
+        @Query("incident_id") incidentIdFilter: String,
+        @Query("order") order: String,
+        @Query("limit") limit: Int,
+    ): List<AssignmentHistoryEvent>
+
+
     @POST("rest/v1/rpc/api_me")
     suspend fun me(@Header("Authorization") authorization: String? = null, @Body body: EmptyRpcBody = EmptyRpcBody()): User
 
@@ -382,14 +402,14 @@ private interface SupabaseRpcWire {
     @POST("rest/v1/rpc/api_update_incident_status")
     suspend fun updateIncidentStatus(@Body body: UpdateIncidentRpc): Incident
 
-    @POST("rest/v1/rpc/api_update_my_assignment_status")
-    suspend fun updateMyAssignmentStatus(@Body body: UpdateMyAssignmentStatusRpc): Incident
-
     @POST("rest/v1/rpc/api_assign_incident")
     suspend fun assignIncident(@Body body: AssignIncidentRpc): Incident
 
     @POST("rest/v1/rpc/api_assign_incident_team")
     suspend fun assignIncidentTeam(@Body body: AssignIncidentTeamRpc): Incident
+
+    @POST("rest/v1/rpc/api_release_incident_assignment")
+    suspend fun releaseIncidentAssignment(@Body body: ReleaseIncidentAssignmentRpc): Incident
 
     @POST("rest/v1/rpc/api_claim_incident")
     suspend fun claimIncident(@Body body: ClaimIncidentRpc): com.tacresq.app.data.model.ClaimIncidentResult
@@ -463,10 +483,6 @@ private data class CreateIncidentV4Rpc(
 )
 private data class CancelIncidentRpc(@SerializedName("p_id") val id: Long)
 private data class UpdateIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_status") val status: String)
-private data class UpdateMyAssignmentStatusRpc(
-    @SerializedName("p_incident_id") val incidentId: Long,
-    @SerializedName("p_status") val status: String,
-)
 private data class AssignIncidentRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_id") val userId: Long)
 private data class AssignIncidentTeamRpc(@SerializedName("p_id") val id: Long, @SerializedName("p_user_ids") val userIds: List<Long>)
 private data class ClaimIncidentRpc(@SerializedName("p_incident_id") val incidentId: Long)

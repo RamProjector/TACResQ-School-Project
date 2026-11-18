@@ -1,3 +1,739 @@
+## Laravel root-route test syntax follow-up — 2026-11-18
+
+- The first rerun reached PHPUnit and exposed a PHP parse error in the newly added `ExampleTest.php`: the namespace separators had been written as doubled literal backslashes.
+- Corrected the namespace and import declarations to standard PHP namespace syntax in commit `c539f0b`.
+- This was a test-file syntax defect, not an application routing failure. The earlier RPC allowlist correction remains in place.
+- **Validation:** awaiting a fresh CI run on the corrected head. Do not treat the Laravel integration job as passing until that run completes.
+
+---
+
+## Laravel backend feature-test corrections — 2026-11-18
+
+- **Exact-head CI finding:** The Laravel/dashboard integration job had 75 passing tests and two failures. The root-route test expected HTTP 200 although `backend/src/routes/web.php` intentionally redirects `/` to `/admin/`. The RPC inventory test still expected `api_update_my_assignment_status`.
+- **Root-route research:** The backend Dockerfile creates a conventional Laravel 13 application before overlaying tracked `backend/src/` files. Because the repository did not include an overriding feature test, Laravel's generated default `ExampleTest` remained in the image and asserted a generic 200 response. Laravel's HTTP testing API provides `assertRedirect('/admin/')` for the actual route contract. Added a tracked `backend/src/tests/Feature/ExampleTest.php` to replace the generated default test with an explicit admin-portal redirect assertion.
+- **RPC security verification:** The migration `20261117234000_dispatch_managed_incident_progress.sql` explicitly revokes execute on both `public.api_update_my_assignment_status(bigint,text)` and its private implementation from PUBLIC, anon, and authenticated. The function is intentionally retired because incident progress is dispatcher-owned. The Laravel bridge allowlist already excludes it; updated the inventory test to match the current reviewed allowlist. Did not restore the retired RPC or widen grants.
+- **Changes:** `815c49b` updates the allowlist contract test; `9aa8cd1` replaces Laravel's generated root smoke test with the actual redirect contract.
+- **Research source:** Laravel HTTP Tests documentation: https://laravel.com/docs/13.x/http-tests (redirect assertions); Laravel response redirect documentation: https://laravel.com/docs/13.x/responses.
+- **Validation:** The original two failures were confirmed in the exact-head GitHub Actions log. The corrections are committed but have not yet been rerun by CI. No local PHP test suite, production deployment, production migration, or merge was performed.
+
+---
+
+## Chat image retry contract correction — 2026-11-18
+
+- **Finding:** Exact-head CI on `c78bfb8` failed `tools/test_incident_chat_attachments_contract.py` because the source contract still required the removed `pendingImageClientMessageId` identifier.
+- **Source verification:** The current image retry implementation stores one `SessionStore.PendingChatImage` as `pendingImageRecord`; the stable idempotency key is read from `restored?.clientMessageId` and reused for retry. The same record binds incident, original caption, MIME type, SHA-256 fingerprint, and account owner. The production flow therefore has a stronger single-record contract than the stale variable-name assertion represented.
+- **Change:** Updated the static contract to assert the current pending record and its restored client-message ID. No production Kotlin or backend behavior changed.
+- **Commit:** `9f2d272`.
+- **Validation:** Confirmed the exact assertion failure from the GitHub Actions log and inspected the current ViewModel retry path. The corrected contract has not yet rerun. Android build, CodeQL, and RPC migration replay were still running when this correction was committed. No local build/test, emulator/device validation, production migration, deployment, or merge was performed.
+
+---
+
+## Responder lifecycle contract boundary correction — 2026-11-18
+
+- **Finding:** Exact-head CI passed the Android debug/release builds, Android JVM unit tests, instrumentation-test compilation, Android Lint, and APK artifact collection. The Source checks job then failed in `tools/test_activity_lifecycle_failure_safety.py` before its responder tracking assertions because it searched for a retired `fun advance(` method as the end boundary of `resumeTracking`. Dispatcher-owned incident progress intentionally removed responder-owned milestone advancement.
+- **Change:** Updated the source contract to delimit `resumeTracking` at the current `stopTracking` method. This preserves the assertions for synchronous busy-state claiming and guaranteed busy-state release without reintroducing the retired responder status API. No production Kotlin code changed.
+- **Validation:** Confirmed the exact failure from CI logs and inspected the current responder ViewModel implementation. The Android build and JVM unit tests passed on the preceding exact head; the corrected source contract still needs a new CI run. No production migration, deployment, or merge was performed.
+
+---
+
+## Incident chat lifecycle source-contract correction — 2026-11-18
+
+- **Finding:** Exact-head CI failed because `tools/test_activity_lifecycle_failure_safety.py` required exactly nine generation-token checks. The current `IncidentChatScreen.kt` has ten guarded checks: one additional guard protects an asynchronous completion from updating a conversation that has since been closed or reopened. The implementation is stricter than the stale test count.
+- **Change:** Changed the contract to require at least nine generation-scoped completion checks, allowing additional guards while still preventing accidental removal of the lifecycle protection. No production Kotlin code changed.
+- **Commit:** `e496ebe`.
+- **Validation:** Confirmed the failure from the exact-head CI log and counted the ten actual checks in `IncidentChatScreen.kt`. The revised contract has not yet rerun. No local tests/builds, emulator/device checks, production changes, or deployment were performed.
+
+---
+
+## Adaptive incident-history selection source-contract correction — 2026-11-18
+
+- **Finding:** Exact-head TACResQ CI failed `tools/test_adaptive_multi_pane_scaffolds.py` because it expected an older selected-card border expression with an outline-variant fallback. The current `IncidentHistoryListItem` intentionally renders a primary 1.5dp border only when selected, uses secondary-container versus surface fill, and uses 2dp versus 0dp elevation.
+- **Change:** Updated the source contract to assert the current selected/unselected card treatment rather than a removed expression. No production UI code changed.
+- **Commit:** `9928683`.
+- **Validation:** Failure confirmed from the exact-head CI log and compared against `Components.kt` lines implementing `IncidentHistoryListItem`. The revised contract has not yet rerun. No local tests/builds, emulator/device checks, production changes, or deployment were performed.
+
+---
+
+## OpenStreetMap attribution source-contract correction — 2026-11-18
+
+- **Finding:** Exact-head TACResQ CI failed `tools/test_osm_map_attribution.py` because it required two literal copies of the attribution label, one for each sheet state. The map uses one persistent `BottomSheetScaffold.sheetContent` subtree in both collapsed and expanded states, so duplicating attribution text would be unnecessary and could create inconsistent UI.
+- **Change:** Updated the source contract to require exactly one attribution link inside the shared sheet content, retain its 48dp minimum touch target, and retain its OpenFreeMap destination. No production map UI code changed.
+- **Commit:** `d29b011`.
+- **Validation:** Failure confirmed from the exact-head CI log and compared against the current GPS map sheet implementation. The revised source contract has not yet rerun on this head. No local tests/builds, emulator/device checks, production changes, or deployment were performed.
+
+---
+
+## Shared dispatcher assignment-history renderer — 2026-11-18
+
+- **Finding:** Active-incident cards and the recent-closed list both exposed assignment history, but each independently duplicated the entire timeline UI. Their loading, empty, error, retry, event-label, actor-label, and timestamp behavior could drift.
+- **Change:** Extracted a single `AssignmentHistoryPanel` composable and reused it from both active and closed incident cards. It preserves the existing bounded event query, chronological rendering, read-only behavior, and generic actor privacy labels. No database or dispatch workflow behavior changed.
+- **Regression guard:** Updated `tools/test_assignment_history_api_contract.py` to require one shared renderer, both call sites, and a single chronological event renderer.
+- **Documentation:** Updated `docs/OPERATIONAL_IMPROVEMENT_REVIEW.md` to reflect that recent closed incidents already expose history; clarified the five-incident display bound and remaining migration/RLS validation.
+- **Commits:** `4524a66` shared renderer; `ec327de` regression contract; `9cbb9e7` implementation review update.
+- **Validation:** Re-fetched the dispatcher source, verified both call sites and the shared component, and confirmed the user model uses a Long ID. The static contract and Android build have not run on this head. No local tests/builds, emulator/device checks, production migration, or deployment were performed.
+
+---
+
+## GPS pin-scale wrapper contract follow-up — 2026-11-18
+
+- **Finding:** The next CI run showed the corrected scale assertion was still too exact: the source has three default-scale declarations because the two bitmap helpers are joined by a small annotation-icon wrapper. The wrapper correctly forwards the same scale and does not define a separate bitmap fallback.
+- **Change:** Relaxed the declaration-count assertion to require at least the two bitmap helper defaults while retaining the exact two finite/positive fallback checks. No Kotlin map code changed.
+- **Commit:** `3b6a715`.
+- **Validation:** Confirmed the third declaration from the current `GpsMapScreen.kt` source and the exact-head CI failure. The revised contract has not yet rerun. No local test/build/emulator/device checks or production changes were performed.
+
+---
+
+## Profile theme preference repair — 2026-11-18
+
+- **Finding:** The Profile theme chips were rendered in `RoleSectionScreen`, but none of the three role call sites forwarded the root `themeMode` or `onThemeModeChanged` values. The selector therefore used the screen's default SYSTEM value and no-op callback. In addition, `MainActivity` held the chosen mode only in `rememberSaveable`, so a fresh app launch did not have a durable user preference.
+- **Change:** Forwarded the actual theme state and callback for requester, responder/driver, and dispatcher Profile screens. Added an app-local Preferences DataStore key for the theme mode, safely defaulting to SYSTEM for absent/unknown values and read I/O failures. MainActivity now observes the stored mode and persists Profile selections. No account/server data or production service is involved.
+- **Regression guard:** Added `tools/test_theme_preferences_contract.py` and wired it into TACResQ CI.
+- **Commits:** `d8f9a7c` theme-state propagation; `756c810` DataStore preference; `084161c` MainActivity persistence; `1deda93` regression contract; `6e26be0` CI step.
+- **Validation:** Re-fetched and inspected all three role call sites, MainActivity, the preference implementation, and CI wiring. The new source contract and Android build have not yet run on this final head. No local build/test, emulator/device validation, backend change, migration, or deployment was performed.
+
+---
+
+## GPS pin-scale source-contract alignment — 2026-11-18
+
+- **Finding:** The exact-head CI source check failed because `tools/test_gps_map_fullscreen.py` expected a local `val scale = 0.75f`. The production helper actually declares `scale: Float = 0.75f` as a parameter and sanitizes it into `safeScale`, in both annotation-pin and style-pin bitmap helpers.
+- **Change:** Updated the contract to assert both helper defaults and both finite/positive fallback guards. No production Kotlin map rendering code was changed.
+- **Commits:** `7b68e80` source contract; `c3d1a32` task documentation.
+- **Validation:** Failure confirmed from the exact GitHub Actions log and compared with the current Kotlin helper implementations. The updated source was committed; the static test has not yet rerun on this head. No local test/build/emulator/device checks or production changes were performed.
+
+---
+
+## GPS full-screen source-contract alignment — 2026-11-18
+
+- **Finding:** The latest PR #334 source-check workflow reached `tools/test_gps_map_fullscreen.py` and failed one assertion that expected `maxLines` to be immediately followed by `softWrap`. The actual GPS map toolbar correctly places its `Modifier.padding(...)` argument before those text properties. This was a stale, over-specific source assertion, not a missing UI behavior.
+- **Change:** Updated the contract to assert the actual toolbar call structure, including its padding modifier, single-line constraint, disabled soft wrapping, and ellipsis overflow. No production Kotlin UI code was changed.
+- **Validation:** Failure was confirmed from the exact GitHub Actions source-check log and the current `GpsMapScreen.kt` source. The updated contract was re-fetched for inspection; it was not executed locally. CI must rerun on the new head. No builds, emulator/device checks, or production changes were performed.
+
+---
+
+## CI compile and migration-history contract repair — 2026-11-18
+
+- **Finding:** The latest PR #334 CI run failed Android Kotlin compilation because `TacRepository.kt` referenced `ReleaseIncidentAssignmentRpc` without importing its model, and `ResponderScreen.kt` used `CardDefaults` without importing the Material 3 symbol. The CodeQL Android build failed on the same compilation errors.
+- **Change:** Added the two missing imports without changing assignment behavior or UI behavior.
+- **Migration contract:** CI also rejected three newly committed migration files as untracked by the static history guard. Added the request-edit notification, assignment-event history, and dispatcher-release migrations to the pending allowlist only. This does not mark them applied or alter the live Supabase ledger.
+- **Commits:** `767ee5f` repository RPC import; `d24570c` Material 3 import; `3fa4118` pending migration allowlist.
+- **Validation:** Failure causes were read from the exact PR-head GitHub Actions logs. Updated source and contract files were re-fetched for inspection. No local tests/builds/emulator/device checks or production database changes were run; a new CI run for the repaired head is still required.
+
+---
+
+## Mutually exclusive chat retry recovery — 2026-11-18
+
+- **Finding:** Text sends already refuse to start while an image retry is unresolved, but the image-send path did not symmetrically block an unresolved text retry. A restored state containing both retry records was also not identified explicitly. This could allow overlapping uncertain sends and ambiguous retry recovery.
+- **Change:** Image sends now wait for pending-state restoration and refuse to start while a text retry identity exists. Restoring both a text and image retry record now leaves sending blocked with an explicit recovery message instead of silently choosing one.
+- **Regression guard:** Added `tools/test_chat_retry_mutual_exclusion_contract.py` and wired it into the Android source-check workflow.
+- **Validation:** Source and workflow files were re-fetched from the PR branch and inspected. The new contract was not executed; no Gradle build, tests, emulator, device checks, or production changes were performed.
+
+---
+
+## Android dispatcher assignment-history timeline — 2026-11-18
+
+- Connected the Supabase-only `TacAssignmentHistoryApi` through `TacRepository` with positive incident-ID and 1–100 page-size validation. The optional capability remains unavailable on the Render bridge/fake backend rather than silently falling back to an unreviewed route.
+- Added a read-only timeline to each active dispatcher incident card. It loads newest-first assignment, release, and incident-closure events; shows the affected field unit, actor, and formatted timestamp; and includes loading, empty, error, and retry states.
+- Field-unit names resolve from the dispatcher's current units snapshot. The current dispatcher is labelled “You”; other actor IDs remain explicitly labelled as dispatcher account IDs because the event query intentionally does not join profile PII.
+- RLS on `incident_assignment_events` remains the authorization boundary. No client-side role check is treated as security. No event writes or status controls were added.
+- **Known limitation:** The timeline is currently exposed from active-incident cards. Closed incidents are not yet given a dedicated history-list entry, and actor names for other dispatchers are not resolved. The database migration remains unapplied to production, so the feature will report a recoverable read error until the migration exists in the target environment.
+- Added UI assertions to `tools/test_assignment_history_api_contract.py` for repository capability use, event labels, timestamps, and retry/loading/error states.
+- **Validation:** Source changes and static assertions reviewed only. The static test was not executed; no Gradle build, unit tests, emulator/device test, live PostgREST request, or production database change was performed.
+
+---
+
+## Assignment event history security contract — 2026-11-18
+
+- **Review:** The migration records assignment, release, and incident-closure events through database triggers. Authenticated clients receive SELECT only; row-level security restricts reads to dispatcher/admin profiles. Trigger writers are private SECURITY DEFINER functions with a fixed `pg_catalog` search path and no client EXECUTE grant.
+- **Change:** Added `tools/test_assignment_event_history_contract.py` to guard the event types, trigger coverage, actor attribution, and dispatcher/admin read boundary against accidental regression.
+- **Scope:** This adds a static source contract only. Android retrieval/display is still not implemented; the event ledger migration remains unapplied to production.
+- **Validation:** Test source was added but not executed in this continuation. No database replay, Android build, emulator/device test, or production mutation was performed.
+
+---
+
+## Web dispatch retirement — 2026-11-18
+
+- **Decision:** Dispatch operations are centralized in the TACResQ Android app to avoid competing web and mobile dispatch surfaces.
+- **Implemented on PR #334:** Removed the web incident queue, field-unit board, and assignment controls. The web frontend is now an administrator-only portal for user management and administrative audit review. Dispatcher accounts receive a clear message directing them to Android.
+- **Routing:** The portal is served at `/admin/`; the service root redirects there. The former `/dispatch/` static dashboard path is no longer built or served.
+- **Preserved:** Supabase dispatcher authorization, assignment/status RPCs, backend APIs, and Android dispatcher workflows remain unchanged. This is a web UI scope change, not a removal of the dispatcher role or backend capabilities.
+- **Validation:** Updated Docker build path, frontend base path, runtime-config alias, CI smoke-test path, and deployment documentation. No CI run, web build, Render deployment, or production Supabase change has been performed in this continuation.
+
+---
+
+## Dispatcher-managed incident progress — 2026-11-17
+
+- Reframed status ownership: the dispatcher advances shared incident milestones; responders no longer tap through per-person Assigned → En route → On scene → Transporting → Resolved steps.
+- Dispatcher active-incident cards now show the assigned roster summary and meaningful incident-level actions. The per-member progress count and expandable member status list were removed.
+- Responder cards retain assignment visibility and optional GPS sharing, but no longer ask field personnel to update progress. GPS is not treated as proof of arrival or completion.
+- Repository status updates now call the dispatcher status API. Added migration `20261117234000_dispatch_managed_incident_progress.sql` to authorize dispatcher-only incident transitions, mirror the milestone to legacy assignment fields for GPS/older-client compatibility, and synchronize assigned personnel duty status.
+- Supabase production schema was inspected read-only. The migration is committed to the PR branch but has **not** been applied to the production database; applying it before the Android release would make old responder status clients incompatible.
+- Research basis: Supabase database-function guidance recommends explicit execution grants and secure search paths; the new RPC checks the authenticated profile role and validates allowed transitions. Existing incident status audit trigger remains in place.
+- Validation: source inspection and live schema/function inspection only. No Gradle build, automated tests, emulator, or device validation run.
+
+---
+
+## Latest UI review — 2026-11-17
+
+- Dispatcher field-unit availability is now explicitly marked as unconfirmed during refresh or after refresh failure. The ready-unit overview metric and no-available-unit guidance no longer present retained cached data as current fact. Assignment behavior is unchanged. Commit: `96a9e29652d282be495f8e72cceeabf71448ab29`.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
+- Dispatcher pending empty state now distinguishes a confirmed empty queue, an in-progress check, and a failed refresh with a retained cached snapshot. It no longer presents an unverified cached empty subset as current fact. No queue or assignment behavior changed. Commit: `876f5f4850338346082f3c2f2e7376371e33d65b`.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
+- Dispatcher overview now shows only actionable counts (Pending, Active, Ready units); removed the ambiguous all-record “Incidents” metric that could include completed/cancelled records. The queue and assignment filters are unchanged. Commit: `a981104419eb2a098c7b79d8837a755b7f5428e9`.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
+- Dispatcher field-unit cards now separate role metadata from a clearly labelled contact number. Blank phone values are omitted; no data access or dispatch behavior changed. Commit: `0a3ed42bcd989b5747c41fa2c8136d7aa0d034c0`.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
+- Dispatcher active-team summary now presents one precise progress count (“moved beyond Assigned”) instead of a count plus its redundant complement. Expanded member statuses remain unchanged. No assignment/status behavior changed. Commit: `2ce421ba208d6b2b3591731503bc35df4b24a42c`.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
+- Responder location-sharing status now distinguishes startup from attention-required messages and only shows tracking status on the incident actually being shared. Direct start/resume verification failures use the existing error banner. No tracking or assignment behavior changed. Commit: `4bd7a664a7c15e687a0be70f010bb60566875d40`.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
+- Responder duty-status chips are now disabled when already selected, preventing no-op duty updates and unnecessary refreshes. The existing busy and active-assignment/freshness guards remain unchanged. Commit: `4479382f7c58faa56adbec367591dbabe209b04c`.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
+- Responder active-incident cards now separate requester name and phone under a clear “Requester contact” label. Contact remains visible to the assigned responder; no dialer or authorization behavior changed. Commit: pending in this handoff.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Latest UI review — 2026-11-17
+
+- Dispatcher field-unit list now displays AVAILABLE units first to reduce scan effort; all other statuses remain visible and preserve their relative order. Assignment eligibility still uses the existing fresh snapshot filter. Commit: pending in this handoff.
+- No build, tests, emulator, or device validation performed.
+
+---
+
+## Dispatcher queue-age urgency cue — 2026-11-17
+
+- **Finding:** Waiting age switched to the error color at 15 minutes, but no dispatch policy or service-level target in the reviewed screen defines 15 minutes as an escalation threshold.
+- **Change:** Kept the elapsed waiting-time label but removed the unsupported error-color threshold. Oldest-first ordering and timestamp handling remain unchanged.
+- **Safety:** No queue ordering, incident priority, dispatch assignment, or status behavior changed. Add a semantic urgency cue only after an authorized policy defines its threshold and meaning.
+- **Validation:** Source review only. No Gradle build, tests, emulator, or device validation run.
+
+## Dispatcher pending-action hierarchy — 2026-11-17
+
+- **Finding:** Each pending incident card showed team selection and field-claiming configuration as equally prominent outlined buttons, although team assignment is the main dispatch action and claimability is a secondary configuration toggle.
+- **Change:** Kept “Select response team” as the primary outlined action and changed the claimability toggle to a full-width text action. The conversation action remains secondary.
+- **Safety:** Existing busy and assignment-freshness guards are unchanged. No dispatch, team assignment, claimability, or messaging behavior changed.
+- **Validation:** Source review only. No Gradle build, tests, emulator, or device validation run.
+
+## Dispatcher summary metric labels — 2026-11-17
+
+- **Finding:** The summary mixed incident counts and available-unit counts, but labels “Total” and “Available” did not name their subjects. “Live overview” also overstated freshness when the retained snapshot could be stale.
+- **Change:** Renamed the labels to “Incidents” and “Ready units”, and the heading to “Dispatch overview”. Count calculations and sync/freshness indicators are unchanged.
+- **Validation:** Source review only. No Gradle build, tests, emulator, or device validation run.
+
+## Dispatcher sync-warning consolidation — 2026-11-17
+
+- **Finding:** Dispatcher refresh failure could render the shared sync-status surface and a second “Assignment paused” error card. Both repeated that the retained incident/unit snapshot might be stale.
+- **Change:** Removed the duplicate card and incorporated the assignment-safety consequence into the existing sync message whenever the incident/unit snapshot is not fresh. The sync panel remains the single place to see freshness and invoke Refresh.
+- **Safety:** Assignment and field-claim controls remain gated by the existing `assignmentDataFresh` state. No dispatch, assignment, claimability, refresh, or backend behavior changed.
+- **Validation:** Source review only. No Gradle build, tests, emulator, or device validation run.
+
+## Responder route guidance consolidation — 2026-11-17
+
+- Removed repeated routing-provider/fallback paragraphs from each active incident card.
+- Added one shared explanation below the active-response heading when at least one active incident has a valid map pin.
+- Kept each card's route-preview action and invalid/missing-pin warning intact.
+- No routing provider, coordinate, location-sharing, or status logic changed.
+- Source review only; no build, tests, emulator, or device validation run.
+
+## Requester emergency form selection cleanup — 2026-11-17
+
+- Removed the repeated “Selected” label from the selected emergency-type option. The radio state and highlighted card already communicate selection, while the selectable row retains its accessibility selected semantics.
+- No request validation, emergency type, location, SOS, or server behavior changed.
+- Source review only; no build, tests, emulator, or device validation run.
+
+## Incident chat follow and composer polish — 2026-11-17
+
+- Added conditional auto-follow for incoming messages: new messages scroll into view only when the reader is already at/near the bottom. The screen no longer stays pinned to the first loaded position after polling, and users reviewing older messages are not forcibly repositioned.
+- Disabled the composer while pending-message restoration is unresolved.
+- Hid the draft character counter until the user reaches 1,800 of the 2,000-character limit.
+- Targeted UI-only behavior; message persistence, server delivery, authorization, and image upload logic are unchanged.
+- Source review only; no build, tests, emulator, or device validation run.
+
+## Notifications refresh race and redundant retry control — 2026-11-17
+
+- Guarded notification refresh success, failure, and exception publication with the active refresh generation. A superseded request can no longer overwrite the latest inbox snapshot if its underlying operation completes after cancellation.
+- Removed the duplicate “Try again” button from the empty-error card; the status panel's Refresh action remains the single retry control.
+- No notification authorization, read-state, deep-link, realtime, or backend behavior changed.
+- Same PR #334. Source review only; no build, tests, emulator, or device validation run.
+
+## Adaptive history recovery affordance — 2026-11-17
+
+- Added an explicit Refresh history action to stale/unavailable history states in both the adaptive list and detail panes, so a warning is actionable without navigating away.
+- Same PR #334. No build/tests/device validation run.
+
+## Adaptive history stale-state handling — 2026-11-17
+
+- The adaptive requester/responder/dispatcher history pane now receives role-specific loading and freshness context from its ViewModel.
+- It distinguishes initial loading, confirmed empty history, and stale/unavailable history. It no longer labels a failed or cached-only request/response list as “Nothing here yet.”
+- A stale-snapshot warning is shown in both list and detail panes while preserving read access to the last-loaded details.
+- No backend, assignment, status, or incident visibility behavior changed. Same PR #334; source review only, no build/tests/device validation.
+
+## Requester and dispatcher stale-state clarity — 2026-11-17
+
+- Requester “No requests yet” and the My requests heading now require a successful live status check (or initial loading). Cached-only and unknown states no longer appear as a confirmed empty request history.
+- Dispatcher refresh failures retain the last loaded lists; the warning now explicitly says those lists may be out of date. An empty active list during sync failure is described as an unconfirmed last-loaded snapshot, not a current empty queue.
+- No request, assignment, cancellation, status-transition, or backend logic changed.
+- Same PR #334. Source review only; no build/tests/device validation run.
+
+## Authentication honesty follow-up — 2026-11-17
+
+- Found that the password-reset UI claimed a link was sent, while the repository implementation only validated the email and returned success without contacting an auth recovery endpoint.
+- Removed the fake send flow and unused repository stub. The Forgot password dialog now explicitly says no email was sent and directs the user to the organization's official support channel.
+- Real password recovery remains a follow-up requiring Supabase Auth recovery endpoint integration and app deep-link/redirect handling.
+- Same PR #334. No backend/auth provider change, build, tests, or device validation run.
+
+## Profile, messages, and notifications continuation — 2026-11-17
+
+- Removed the local-only Step-Up Security / OTP switch; it did not enforce verification or call a security service.
+- Removed duplicate name/email/role rows already present in the Profile identity header.
+- Corrected Profile location-sharing copy to acknowledge background updates during an active en-route response when sharing is enabled.
+- Replaced the false account-deletion success message with an explicit information-only dialog; it now says in-app submission is not connected and does not claim a request was received.
+- Reduced chat header height by removing the persistent reminder card and redundant subtitle; the subtitle now identifies the authorized-participant visibility scope.
+- Simplified the Notifications header subtitle without removing push/inbox guidance.
+- Added `docs/ANDROID_SCREEN_REVIEW.md` with implemented findings and outstanding workflow/device/legal-review items.
+- Same PR #334. Source review only; no build/tests/device validation or backend deletion implementation.
+
+## Role-screen continuation — 2026-11-17
+
+- Simplified responder and dispatcher information hierarchy: shared operational guidance is now shown once at section level rather than repeated in every incident card.
+- Responder arrival-vs-GPS-sharing reminder appears once only when an en-route response exists.
+- Dispatcher no-available-units explanation appears once above the pending queue; team assignment action remains absent unless at least one unit is available.
+- No operational/business logic changed. Same PR #334 branch. No build/tests/device validation run.
+
+## Latest GPS continuation — 2026-11-17
+
+- Map-load failure feedback now distinguishes a known offline condition from a generic map-data load failure using the latest validated connectivity state.
+- Successful load clears the transient error. Offline badge remains independent. Did not label individual tile/style failures because current callback does not provide reliable per-tile diagnosis.
+- Same PR #334; no validation checks run.
+
+## Latest GPS continuation — 2026-11-17
+
+- Improved selection invalidation: expired/removed field-unit reports and incidents now produce explicit feedback rather than silently dropping the selected detail.
+- When a selected incident leaves the visible active set, pending route work is cancelled and late results invalidated; the obsolete route preview is cleared.
+- Same PR #334 branch. No build/tests/device validation run.
+
+## Latest GPS continuation — 2026-11-17
+
+- Fixed an explicit map-retry omission: stale responder clusters now reconnect to the newly recreated style source alongside incident and fresh/aging responder clusters.
+- Same PR #334 branch; no validation checks run. Next inspect selected-location persistence and map load/error recovery without changing emergency location-sharing semantics.
+
+## Dense-cluster feature lookup optimization — 2026-11-17
+
+- Built remembered indexes for visible incidents and valid responder reports, keyed by incident ID and the incident/user pair respectively.
+- Cluster leaf resolution, page loading, point-hit selection, and selection revalidation now use keyed lookups instead of repeatedly scanning the full Compose lists for every map feature. This changes the per-leaf record lookup from linear to constant-time after each source-list refresh; index construction remains linear.
+- Kept the indexes tied to the current visible lists and exposed their latest versions to the long-lived MapLibre click listener, so refreshed records are still revalidated at interaction time.
+- No map behavior, role visibility, freshness policy, or backend contract changed.
+- No build, tests, emulator, device validation, or profiling run.
+
+## Cluster chooser consistency and pagination follow-up — 2026-11-17
+
+- Updated the older annotation-overlap chooser to initialize the same count and pagination state as the new style-layer chooser, preventing a misleading “0 of N” count.
+- Gave nested page iteration an explicit leaf label so invalid records skip only the current leaf, not the enclosing source page.
+- Cluster chooser copy now distinguishes a dense cluster from ordinary overlapping pins and gives a concise next action.
+- No build, tests, emulator, device validation, or profiling run.
+
+## Dense cluster pagination — 2026-11-17
+
+- Added paged cluster-leaf retrieval for dense incident and responder clusters. The chooser initially loads up to 50 leaves per source and now exposes a clear “Load more locations” action while more leaves remain.
+- Pagination tracks each overlapping cluster source independently, so a mixed incident/responder overlap can page both without merging their source semantics. The displayed count reflects the underlying cluster counts.
+- Every loaded page is resolved against the latest visible incident and valid responder records; stale responder details remain labelled as last known. Expired cluster IDs are caught and the chooser asks the user to tap the refreshed cluster again.
+- Selecting or dismissing a choice clears paging cursors so stale cluster references are not reused.
+- No build, tests, emulator, device validation, or profiling run.
+
+## Cluster style retry and pin anchor correction — 2026-11-17
+
+- Corrected the explicit map-retry style callback to pass the required Android context when rebuilding cluster sources and style images. This keeps retry behavior aligned with initial style installation.
+- Separated legacy annotation bitmap padding from GeoJSON style-symbol bitmaps. Style symbols are now created at the drawable's actual bounds, so `icon-anchor=bottom` anchors the rendered pin tip to its geographic coordinate rather than to an invisible padded region.
+- Retained the existing padded bitmap helper for legacy device-location and annotation markers to avoid changing their established anchor behavior.
+- MapLibre's style specification defines bottom anchoring as placing the image's bottom edge at the feature anchor; see the official Android/style API documentation.
+- No build, tests, emulator, device validation, or visual pin-alignment check run.
+
+## Cross-category GPS overlap handling — 2026-11-17
+
+- Fixed an interaction gap where an incident cluster could consume taps intended for a responder cluster at the same screen position. When incident, fresh/aging responder, and stale responder clusters overlap, the map now builds one explicitly typed chooser from the current validated leaves rather than prioritizing one category.
+- Individual incident and responder pins now share the same 48dp hit-area chooser. A responder marker can no longer become inaccessible merely because an incident pin occupies the same touch area (or vice versa).
+- Cluster leaves and point features are revalidated against the latest visible incident and responder collections before presentation. Stale units remain labelled as last known.
+- No build/tests/device checks run.
+
+## Restore emergency pin artwork on clustered points — 2026-11-17
+
+- Reused the app's existing incident, selected-incident, responder, and stale-responder drawable artwork as MapLibre style images, instead of leaving individual points as generic circles after clustering was introduced.
+- Individual incident pins now have a distinct selected state; responder pins retain their own artwork, and stale responder artwork is faded to reinforce last-known status. Cluster bubbles remain count-based and category-colored.
+- The shared bitmap helper now supplies both legacy device-preview annotation icons and style-backed symbol images, keeping pin-tip anchoring consistent.
+- No build/tests/device checks run. Verify sprite registration, pin anchor, symbol scaling, selected state, and style recreation on supported screen densities.
+
+## Separate stale responder clustering — 2026-11-17
+
+- Split responder map data into independent fresh/aging and stale GeoJSON cluster sources. Stale last-known reports now form grey clusters with their own counts instead of being mixed into the teal live/aging cluster count.
+- Individual stale points remain grey and are only queried from the stale point layer. Fresh/aging responder points retain their separate layer and cluster source.
+- Cluster tap handling supports both responder sources and still resolves individual leaves against the latest validated responder list before opening details.
+- This avoids a potentially misleading cluster that visually implied all grouped responder locations were current. No build/tests/device checks run.
+
+## Cluster point hit-target and overlap disambiguation — 2026-11-17
+
+- Individual clustered-source points now use a 48dp screen-space query area instead of requiring taps to land inside the small painted circle.
+- When multiple incident points or responder points occupy that touch area, the map presents the existing nearest-first location chooser rather than silently selecting whichever feature is returned first.
+- Chooser targets are revalidated against the latest visible incidents and valid responder reports. Stale responder locations retain their last-known warning.
+- Incident and responder point queries remain separate so a mixed set cannot be mistaken for a single type of cluster.
+- No build, tests, emulator, device validation, or performance profiling run.
+
+## Cluster source invalidation correction — 2026-11-17
+
+- Added both GeoJSON source references to the annotation/source update effect keys. This ensures the first render and a style reload publish current features after the asynchronous style callback creates the sources; previously a source becoming available alone would not retrigger that effect.
+- Explicit map retry now clears old source references and recreates both cluster sources/layers on the replacement style, matching initial style setup.
+- This is an important lifecycle correction for the new clustering path. No tests/build/device checks run.
+
+## Cluster interaction and lifecycle follow-up — 2026-11-17
+
+- Moved the map click listener effect below MapView and cluster-source state declarations so it is owned only after its dependencies exist; listener registration remains paired with removal.
+- Cluster taps now zoom to MapLibre's expansion level when that level is available. At maximum expansion, the tap retrieves up to 50 leaves and builds a chooser from only currently visible incidents and still-valid responder reports. Stale responder entries remain explicitly marked last-known.
+- Expired cluster features and reports are handled as recoverable refresh states rather than selecting stale records. Native cluster API runtime errors are caught because cluster IDs can expire during source replacement.
+- The chooser is bounded to 50 records to avoid unbounded synchronous work on the UI thread; when records have expired, the user is told that only currently available reports are shown.
+- No build, tests, emulator, device validation, or performance profiling run.
+
+## Native GeoJSON clustering — 2026-11-17
+
+- **Implemented on PR #334:** Replaced independent incident and responder marker annotations with two native MapLibre GeoJSON cluster sources. Each source has its own cluster circles, count labels, and unclustered point layer. Fresh/aging responder points and stale last-known points have separate visual treatments; device preview and route rendering remain outside the clusters.
+- **Interaction:** Tapping a cluster requests MapLibre's expansion zoom. Tapping an individual point resolves its stable domain ID against the latest Compose data and opens the existing incident/field-unit selection flow. Cluster lookups catch runtime failures caused by stale cluster features during source refresh.
+- **Refresh/style lifecycle:** Cluster source data is updated from the current validated visible incident and responder sets. Both sources and layers are recreated after initial style load and explicit style retry.
+- **Research:** MapLibre Android's official example uses `GeoJsonSource` with `GeoJsonOptions.withCluster(true)`, `point_count` filters, and `SymbolLayer` count labels. Android clustering is supported from MapLibre Native 4.2.0; this app uses 13.7.1. References: https://maplibre.org/maplibre-native/android/examples/styling/circle-layer/ ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-source/get-cluster-expansion-zoom.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/query-rendered-features.html.
+- **Known limitations:** Native cluster bubbles currently use category-specific colors and counts; individual pin artwork is replaced by colored circles. A bounded leaf chooser for clusters that cannot expand further is outstanding. Verify density, tap targeting, style reload, and source-update races on devices before calling this complete.
+- **Validation:** No Gradle build, JVM tests, emulator/device run, or profiling performed, in accordance with the instruction not to run checks after each commit.
+
+## GPS camera restoration and route failure follow-up — 2026-11-17
+
+- Prevented initial-data auto-framing from immediately overriding a restored camera after screen recreation.
+- Tightened the route exception path to require both request and selection generations before publishing a failure message. A route failure from a previously selected incident can no longer overwrite the current selection's status.
+- The request-generation-only `finally` guard remains intentional: it clears loading only for the latest route request, while selection changes invalidate results through the separate selection generation.
+- No tests/build/device checks run.
+
+## GPS route identity, camera restoration, and memory pressure — 2026-11-17
+
+- **Route ABA race:** A route for incident A could pass the old ID check after the user selected B and then A again. Added a monotonic selection generation captured by each route request; every incident-selection transition invalidates prior generations. Checks now cover location-settings completion, fresh-fix completion, provider completion, result/error publication, and the posted camera move.
+- **Camera restoration:** Persisted validated camera target, zoom, bearing, and tilt with saveable Compose state. A MapLibre camera-idle listener records settled camera state and is removed on disposal. Recreated map screens restore the user's last camera rather than always resetting to Tacloban; invalid saved coordinates fall back safely.
+- **Memory pressure:** Registered application-level ComponentCallbacks2 for the lifetime of the MapView effect and forwarded low-memory / running-low trim callbacks to MapView.onLowMemory on the main thread. The callback is unregistered during teardown and ignores events after disposal.
+- **Validation:** No tests/build/device checks run. Verify A→B→A with delayed providers, rotate/recreate while zoomed/panned, and background/foreground under memory pressure on physical devices.
+
+## GPS marker callback freshness — 2026-11-17
+
+- **Finding:** The MapLibre marker click listener is installed once when the map becomes ready, but it called a selection function that closed over the then-current Compose lists and freshness clock. After data refreshes, a tap could validate a responder/incident against stale screen data.
+- **Fix on PR #334:** Wrapped marker selection in `rememberUpdatedState` and have the long-lived MapLibre listener dispatch through the latest callback. Current visible incidents, responder reports, device fix, and freshness are therefore checked at tap time.
+- **Validation:** No tests/build/device checks run. Verify marker taps after incident refresh, responder-location refresh, expiry, and permission changes.
+
+## Unified MapView lifecycle ownership — 2026-11-17
+
+- **Finding:** MapView destruction and lifecycle pause/stop were split across two independent Compose effects. Their disposal ordering was not explicit, so teardown could destroy the native map before its pause/stop callbacks.
+- **Fix on PR #334:** Consolidated map load listeners, asynchronous map-ready callback, lifecycle observer, and native MapView destruction under one `DisposableEffect`. Teardown now removes listeners, unregisters the observer, pauses/stops only if active, then destroys the view exactly once.
+- **Validation:** No tests/build/device checks run. Verify screen exit while resumed, while paused, and during map initialization; also verify returning from background.
+
+## MapView listener and disposal cleanup — 2026-11-17
+
+- **Finding:** The MapView registered map-load success/failure listeners without removing them on composable disposal. Its asynchronous `getMapAsync` callback also had no disposed-screen guard.
+- **Fix on PR #334:** Retain both listener instances, guard their state updates, unregister both listeners in `onDispose`, mark the effect disposed before teardown, and ignore a late map-ready callback after disposal.
+- **Why:** MapLibre 13.x exposes matching `removeOnDidFailLoadingMapListener` and `removeOnDidFinishLoadingMapListener` APIs. This prevents stale callbacks and avoids retaining disposed screen state unnecessarily.
+- **Validation:** No build/test/device checks run. Verify repeated navigation into/out of GPS and delayed map initialization on device.
+
+## GPS route-request stale-result protection — 2026-11-17
+
+- **Finding:** Route cancellation alone did not protect against a provider that returns after cancellation or a user changing the selected incident while location capture/routing is suspended. A late result could update route state/status or post a camera move for an incident no longer selected.
+- **Fix on PR #334:** Validate both request generation and selected incident before sending the route request, after the provider returns, before publishing route state, inside the posted camera callback, and before publishing exception status. Late results are discarded.
+- **Safety:** A changed selection prevents the old incident destination from being sent to the routing provider after the fresh-location step. No provider, permission, routing mode, or backend behavior changed.
+- **Validation:** No tests/build/device checks run, per instruction. Verify rapid incident switching with delayed/non-cooperative routing responses on device.
+
+## GPS marker signature correctness — 2026-11-17
+
+- **Finding:** Incremental marker reconciliation stored signatures as delimiter-joined strings. Incident notes and other display text can contain the delimiter, making state comparison ambiguous.
+- **Fix on PR #334:** Replaced string signatures with a typed immutable data class containing exact coordinates, explicit icon variant, title, and snippet. Incident selection and responder freshness are represented explicitly; device preview uses the same signature shape.
+- **Scope:** Marker keys, selection behavior, freshness rules, and displayed text are unchanged. This is correctness hardening, not a measured performance claim. No tests/build/device checks run.
+
+## GPS style reload and route invalidation correction — 2026-11-17
+
+- **Finding:** The renderer's internal route comparison used exact coordinates, but the Compose effect that triggers reconciliation still depended on `geometry.hashCode()`. A collision could prevent the exact comparison from running. Style replacement/retry also left the remembered annotation owner unchanged, risking stale marker/polyline references after a style reload.
+- **Fix on PR #334:** The effect now keys on ordered latitude/longitude coordinate pairs. Initial style completion and explicit retry invalidate the renderer owner so the next reconciliation clears stale annotation references and rebuilds visible markers and route on the loaded style.
+- **Scope:** No map provider, routing, incident data, permissions, tracking, or backend behavior changed. No tests/build/device checks run, per instruction.
+
+# GPS marker identity and dispatcher selection linkage
+
+- Replaced marker click behavior based on parsing the visible title with a registry keyed by MapLibre's stable annotation ID. Incident, field-unit, and device-preview marker behavior now resolves from typed metadata kept separately from display text.
+- Tapping a dispatcher field-unit marker highlights its matching field-unit row in the expanded map sheet; tapping a row also selects/highlights it. The highlight clears when that location report is no longer available or another marker type is selected.
+- Routine incident-list refreshes no longer clear map action/marker status text. Incident selection still clears if its incident is no longer visible.
+- Preserved marker titles/snippets for user-facing map metadata, stale-location warnings, coordinate data, camera behavior, route rendering, permissions, location sharing, and backend contracts.
+- Research: MapLibre's current Android API exposes marker annotation IDs, while its legacy Marker/MarkerOptions/Annotation APIs are deprecated from 7.0. This change uses the existing dependency's marker ID rather than attempting a renderer migration in the same patch. The Annotation Plugin migration remains a separate, coordinated task.
+- Validation: not run per the requested commit cadence. Review marker taps, row highlighting, report refresh/removal, and screen-reader announcements on-device.
+
+# GPS marker summary readability
+
+- Shortened the status text shown after tapping field-unit and device-location markers so it fits the map sheet's compact two-line summary instead of concatenating the full marker snippet and risking truncation.
+- Stale field-unit selections prioritize the safety-critical “last known only; confirm with dispatch” warning. Fresh/aging selections direct dispatchers to the field-unit detail list for exact age and accuracy; the one-time device preview retains its not-uploaded/not-tracked disclosure.
+- Full age, accuracy, and freshness details remain in the existing field-unit list and marker metadata. No location data, permissions, sharing, routing, or backend behavior changed.
+- Validation: not run per the requested commit cadence; verify summary readability with long incident IDs and stale/fresh markers on-device.
+
+# GPS map marker interaction consistency
+
+- Unified marker taps with the existing in-app bottom sheet. Incident pins continue to select the incident and expand its details; dispatcher field-unit pins and the one-time device-location preview now show their title and explanatory snippet in the map status area and expand the same sheet.
+- Prevented MapLibre's default InfoWindow from appearing for responder/device markers, avoiding a second, inconsistent detail surface. Stale responder text remains explicit that the coordinate is last known and must be confirmed with dispatch.
+- Unknown marker types remain unhandled rather than being assigned invented behavior. Marker data, freshness thresholds, location permissions/sharing, camera behavior, routing, and backend contracts are unchanged.
+- Validation: not run per the requested commit cadence. Review marker taps, stale warnings, and screen-reader announcements on-device before merge.
+
+# GPS map header — remove remaining search-field silhouette
+
+- **Review finding:** After removing the full-width header container, the title still sat inside a weighted, elongated rounded Surface. On a narrow map header it continued to resemble an inactive search field, recreating the same misleading visual affordance at a smaller scale.
+- **Change:** Made the title backing content-sized with a maximum width, reduced its padding and corner radius, and retained a high-contrast local surface for legibility over both light and dark map tiles. The back, retry/offline, and locate actions remain separate controls with their existing touch targets.
+- **Layout behavior:** The title no longer expands to consume all remaining row width; actual header height continues to drive native compass placement, so the compass follows the compacted layout.
+- **Preserved:** GPS capture, permissions, marker rendering, map gestures, route previews, attribution, role visibility, and backend contracts.
+- **Validation:** Not run per the requested commit cadence. Verify the header at 320 dp width, with/without Retry map, and over light/dark tiles on-device before merge.
+
+# GPS map research and rendering refinement
+
+- **Compass placement:** Replaced the fixed 180–224 dp guess with placement derived from the measured bottom edge of the actual Compose header plus a small gap. This adapts automatically when filter chips appear/disappear, the device rotates, or available window height changes. A safe initial fallback is retained until the first layout measurement; style retry reuses the latest measured position.
+- **Marker refresh behavior:** Removed the 15-second freshness tick as a direct trigger for full MapLibre annotation teardown/recreation. Marker snippets now use minute-granularity age text (with an explicit under-one-minute label) and a refresh key that changes only when displayed age or the Fresh/Aging/Stale classification changes. Sheet freshness counts still refresh on the existing 15-second cadence; changed incident/responder data, selection, device preview, and route changes still redraw the map.
+- **Why:** MapLibre exposes compass placement through pixel margins and supports positioning its native controls independently; Android Compose layout measurement provides the actual rendered dimensions. Android accessibility guidance recommends at least 48 dp interactive targets; the existing map controls retain their current sizing.
+- **Research sources:** [MapLibre Android UiSettings](https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-ui-settings/index.html) documents compass gravity/margins and attribution/logo placement; [MapLibre Android configuration](https://maplibre.org/maplibre-native/android/examples/configuration/) documents native map controls; [Android Compose insets guidance](https://developer.android.com/develop/ui/compose/system/material-insets) explains that custom layout/inset handling must be based on actual component placement; [Android touch-target guidance](https://support.google.com/accessibility/android/answer/7101858) recommends 48 dp targets.
+- **Preserved:** Map provider/style, native MapLibre attribution and logo, gestures, map camera rules, GPS permissions/capture, location sharing, responder freshness thresholds, routing, incident visibility, and backend contracts.
+- **Validation:** Not run, per the requested commit cadence. Review compass position on short/tall layouts and confirm markers do not flicker during idle 15-second refreshes on a device before merging.
+
+# GPS map overlay contrast and compass clearance
+
+- **Review finding:** Removing the faux-search container also removed the only backing surface behind the back affordance and map title. Those controls were left directly on variable map imagery, making their contrast dependent on whichever tile happened to sit underneath. The native MapLibre compass also used a top margin that could intrude into the two-row header/filter area on shorter map windows.
+- **Implementation:** Kept the full-width faux-search bar removed. Restored contrast only where needed: a compact tonal back button, a small title surface, and a tonal retry action. Existing location action and contextual filter chips retain their own compact surfaces. Moved the native compass lower and made its responsive bounds account for the header and filter row.
+- **Scope:** GPS map overlay presentation and compass placement only. Map content, map gestures, camera behavior, attribution, GPS capture, permissions, routing, and incident data are unchanged.
+- **Validation:** Not run per the requested incremental-commit cadence; inspect contrast, compass clearance, and overlap on short and tall devices before merging.
+
+# Remove GPS map faux-search header container
+
+- Removed the full-width rounded, elevated Surface surrounding the GPS map title and controls. It looked like a search field despite having no search function and visually competed with the map.
+- Kept the back action, map title, offline/retry state, location action, and contextual incident/field-unit filter chips. The controls now sit directly over the map rather than inside a large faux-search bar.
+- Validation: not run per the requested incremental-commit cadence; verify text/control contrast over varied map tiles on-device.
+
+# GPS map filter touch targets
+
+- Increased the Incidents and Field units map filter chips to a 48 dp minimum height, aligning their tap area with the other primary map actions and improving reachability on touch devices.
+- Scope: filter control sizing only. Filter behavior, map camera actions, incident visibility, and responder data are unchanged.
+- Validation: not run per the requested incremental-commit cadence; device review remains outstanding.
+
+# GPS field-unit list touch targets
+
+- Raised each actionable dispatcher field-unit location row to a minimum 48 dp height so its map-centering action is reliably reachable on compact screens and easier to tap without changing the freshness details or interaction.
+- Scope: GPS map sheet presentation only. Responder location data, freshness rules, camera behavior, permissions, routing, and backend contracts are unchanged.
+- Validation: not run per the requested incremental-commit cadence; device and accessibility review remain outstanding.
+
+# GPS camera actions wait for map readiness
+
+- Added a shared readiness guard for camera-focused actions from the Incidents and Field units controls and incident detail cards.
+- When map data/style is still initializing or recovering, the action now announces that state instead of silently issuing a camera animation against an unavailable map.
+- Empty-list feedback and selection behavior remain unchanged; map loading, retry, permissions, location sharing, routing, and backend behavior are untouched.
+- Validation: not run per the incremental-commit cadence; build and device review remain outstanding.
+
+# GPS dispatcher field-unit list interaction
+
+- Made each dispatcher field-unit location entry a clearly accessible map-centering action. Selecting an entry now centers the map on that responder's reported coordinate and updates the live sheet status.
+- Preserved freshness age, accuracy, and stale-position warnings; stale entries explicitly state that the centered position is last known and must be confirmed with dispatch.
+- If the map/style is not ready, the action reports that state rather than silently appearing to work.
+- Scope: dispatcher GPS presentation and map camera focus only. Location collection, polling, permissions, responder sharing, freshness thresholds, and backend behavior are unchanged.
+- Validation: not run per the incremental-commit cadence; device and accessibility review remain outstanding.
+
+# GPS dispatcher empty-state accuracy
+
+- Corrected the dispatcher map sheet's no-incident message when field-unit location reports are still available. It now directs dispatchers to review field-unit freshness below instead of incorrectly saying there are no incident or field-unit locations.
+- Scope: empty-state copy only. Field-unit visibility, freshness classification, map pins, camera framing, permissions, location sharing, and backend behavior are unchanged.
+- Validation: not run per the incremental-commit cadence.
+
+# GPS map accessibility description accuracy
+
+- Updated the MapLibre view's screen-reader description so it no longer claims the map is centered on Tacloban City after users pan, zoom, or the app frames other incident locations.
+- Kept the role-specific instructions for selecting incident pins and reviewing the bottom sheet, including dispatcher responder-freshness context.
+- Scope: accessibility wording only. Initial camera target, map gestures, GPS capture, marker data, permissions, routing, and location sharing are unchanged.
+- Validation: not run per the incremental-commit cadence; screen-reader/device review remains outstanding.
+
+# GPS map selection and expanded-sheet controls
+
+- Selected incident markers now use a larger pin asset variant. The annotation renderer observes selectedIncidentId, so selection changes redraw the marker immediately and the active pin is easier to distinguish when several incidents are nearby.
+- The floating fit-all control is hidden while the details sheet is expanded, avoiding a control that would otherwise sit beneath the sheet. An equivalent accessible fit-all action is placed in the expanded sheet header, where it remains reachable.
+- Marker tap behavior, incident selection, map framing, sheet navigation, permissions, location sharing, stale-location handling, routing, and backend contracts remain unchanged.
+- Validation: not run per the requested commit cadence; visual/device review is still needed for overlapping markers and narrow sheet headers.
+
+# GPS map research implementation — camera, compass, recovery
+
+- Camera framing: Replaced the uniform bounds inset with asymmetric, density-aware pixel insets. The top reserves room for the header/filter controls; the bottom reserves the measured bottom-sheet obstruction plus breathing room. Insets are capped to preserve a usable viewport on short windows and expanded sheets. If sheet measurement is not ready, the calculation falls back to the existing 120 dp collapsed-sheet height.
+- Compass: Extracted compass positioning into a shared helper and made its top margin respond to rendered map height, bounded between 144 dp and 196 dp, rather than always using a fixed 176 dp.
+- Map recovery: Added a user-triggered “Retry map” action when MapLibre reports a style/data loading failure. It reuses the existing OpenFreeMap style, resets existing loading/error flags, and restores compass setup after style reload. It does not change providers or network policy.
+- Regression coverage added: Pure unit tests cover normal camera insets, expanded-sheet capping, fallback sheet geometry, and invalid dimensions/density.
+- Research basis: MapLibre documents asymmetric newLatLngBounds padding and states that bounds padding does not persist to later camera transformations; Android documents that bottom-sheet offsets are pixel values initialized after layout; Android adaptive guidance recommends adapting layouts to available window dimensions. Sources: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.camera/-camera-update-factory/new-lat-lng-bounds.html ; https://developer.android.com/reference/kotlin/androidx/compose/material3/SheetState.html ; https://developer.android.com/develop/adaptive-apps/guides/use-window-size-classes
+- Scope: No incident data, GPS permission, consent, location-sharing, routing, backend, role visibility, or marker freshness rules changed.
+- Validation: Not run per the incremental-commit workflow. Device review remains necessary for actual overlay geometry and retry behavior.
+
+# GPS map control icon refinement
+
+- The single fit-all control now uses the map-location pin icon rather than the device “my location” reticle. This better communicates that it frames all currently visible map points, not just the user's device position.
+- No camera behavior or GPS capture behavior changed. Validation not run per the incremental-commit workflow.
+
+# GPS map follow-up — visible tile-load failure state
+
+- **Finding:** A MapLibre style/tile load failure updated the bottom-sheet status, but the full-screen map header only showed an error chip when Android reported no validated internet. A provider/style failure while the device remained online could therefore leave a blank map without a visible explanation.
+- **Change:** The header now also displays a compact “Map unavailable” error chip whenever the existing MapLibre load-failure state is active. Its accessibility description explains that incident details remain available. The existing “Offline” chip remains for connectivity loss.
+- **Scope:** Reuses the existing map-load listener state; no retry loop, provider switch, tile-source change, pin behavior, or network policy was introduced.
+- **Validation:** Not run per the incremental-commit workflow.
+
+# Current handoff — 2026-11-17: GPS map interaction simplification
+
+- **Finding:** The full-screen map exposed separate zoom-in and zoom-out buttons alongside a fit-locations action. This added three stacked controls and duplicated gestures already available directly on the map; the zoom buttons were also a previously identified UI distraction.
+- **Change:** Replaced the stack with one 56 dp floating fit-locations control using the familiar location-target icon. It remains disabled until the map style is ready and continues to frame the same role-appropriate visible locations. Removed the now-unused explicit zoom handlers.
+- **Scope:** Presentation and map-camera affordance only. Pin rendering, map gestures, GPS capture, route previews, incident selection, and location permissions are unchanged.
+- **Validation:** Not run per the incremental-commit workflow; verify on a device that the single control is reachable above the sheet and frames the expected pins for each role.
+
+# Current handoff — 2026-11-17: remove duplicate full-screen map attribution overlay
+
+- **Finding:** The GPS map manually overlaid a second `© OpenMapTiles · © OpenStreetMap contributors` label while the map drawer already provided a detailed attribution link. The map uses MapLibre with OpenFreeMap; OpenFreeMap documents that MapLibre automatically displays the required attribution control.
+- **Implementation:** Removed only the app-authored bottom-right duplicate text overlay. Kept the drawer's detailed attribution link and left MapLibre's native attribution control enabled. This preserves map-data credit without stacking a redundant app-level label over the emergency map.
+- **Scope:** Removed duplicate presentation only. No map style, provider, tile source, attribution settings, navigation, or GPS behavior changed.
+- **Validation:** Not run per incremental-commit instruction; no build, emulator, or device behavior is claimed.
+- **References:** OpenFreeMap attribution guidance; OpenMapTiles attribution guidance.
+- **Next action:** Continue focused client UI refinements on PR #334; consolidate validation after implementation changes are complete.
+
+---
+
+# Current handoff — 2026-11-17: preserve GPS map status context in collapsed sheet
+
+- **Finding:** The collapsed map sheet forced its status/supporting message onto one line. Longer operational messages (such as location-permission guidance and dispatcher field-unit freshness) were routinely ellipsized.
+- **Implementation:** Allow the collapsed map summary up to two lines while retaining ellipsis for narrow windows and unusually long messages.
+- **Scope:** Summary text layout only. Map state, GPS permissions, incident visibility, routing, and sheet expansion behavior are unchanged.
+- **Validation:** Not run per incremental-commit instruction; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI refinements on PR #334; consolidate validation after implementation changes are complete.
+
+---
+
+# Current handoff — 2026-11-17: accessible GPS map loading feedback
+
+- **Objective:** Ensure assistive-technology users receive the same map-loading feedback that sighted users see.
+- **Finding:** The centered map loading indicator displayed a message visually, but did not expose the loading message as a polite live-region announcement.
+- **Implementation:** Merge the loading indicator and its text into one polite live region so the loading state is announced without repeatedly interrupting higher-priority speech.
+- **Scope:** Loading-overlay semantics only. Map loading lifecycle, error handling, map interaction, and GPS behavior are unchanged.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI refinements on PR #334; perform consolidated validation after implementation changes are complete.
+
+---
+
+# Current handoff — 2026-11-17: GPS map camera control loading state
+
+- **Objective:** Prevent map camera actions from appearing interactive before the map style is ready to receive them.
+- **Finding:** Zoom and fit-visible-locations controls remained enabled while MapLibre was loading; tapping them only produced a transient “map is still loading” message.
+- **Implementation:** Tie all three camera buttons to the existing `mapStyleLoaded` state. They remain visible in their stable map positions but are disabled until camera operations are available.
+- **Scope:** Camera-control interaction state only. Map rendering, GPS capture, incident pins, camera framing, routing, and sheet navigation are unchanged.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI refinements on PR #334; perform consolidated validation after implementation changes are complete.
+
+---
+
+# Current handoff — 2026-11-17: authentication form wide-screen readability
+
+- **Objective:** Keep sign-in and requester registration fields comfortably readable on tablets and desktop-sized Android windows.
+- **Finding:** The authentication card expanded to the full available width on large windows, creating unnecessarily long form fields and scan lines.
+- **Implementation:** Constrain the centered authentication card to a 520 dp maximum while retaining full available width on narrower phones.
+- **Scope:** Authentication layout only. Validation, account roles, password handling, session state, and repository behavior are unchanged.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI refinements on PR #334; perform consolidated validation after implementation changes are complete.
+
+---
+
+# Current handoff — 2026-11-17: chat attachment preview responsiveness
+
+- **Objective:** Keep image selection responsive by avoiding bitmap decoding on the Compose UI thread.
+- **Finding:** The selected chat attachment preview decoded up to the accepted 5 MB image payload synchronously inside composition, which could cause a visible pause on slower devices.
+- **Implementation:** Move preview bitmap decoding into a keyed `produceState` coroutine on `Dispatchers.Default`; changing or clearing the attachment cancels/restarts the keyed work and updates the preview state.
+- **Scope:** Local attachment-preview rendering only. Image validation, upload, message identity/retry behavior, and conversation permissions are unchanged.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI refinements on PR #334; perform consolidated validation after implementation changes are complete.
+
+---
+
+# Current handoff — 2026-11-17: notification refresh timestamp readability
+
+- **Objective:** Keep notification synchronization information readable and consistent with the inbox's localized date formatting.
+- **Finding:** When realtime was connected, the status panel displayed the raw ISO-8601 server-refresh timestamp, unlike the human-readable timestamps used on notification cards.
+- **Implementation:** Format the last successful server refresh through the existing locale- and device-time-zone-aware notification time formatter; retain the existing fallback when no refresh has succeeded.
+- **Scope:** Notification status presentation only. No realtime lifecycle, refresh cadence, notification read state, navigation, or backend behavior changed.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused client UI improvements on PR #334; perform consolidated validation after implementation changes are complete.
+
+---
+
+# Current handoff — 2026-11-17: dispatcher active-queue accuracy
+
+- **Objective:** Make the dispatcher's “Active incidents” section match the actual active-incident count and provide a useful empty state.
+- **Finding:** The overview counted only statuses marked active, but the list displayed every non-pending incident, which could place completed or cancelled records under an “Active incidents” heading.
+- **Implementation:** Derive one active-incident collection from the model's existing `isActive` status rule, use it for both the overview count and active list, clarify the section subtitle, and show a calm empty-state explanation when no active incidents exist.
+- **Scope:** Dispatcher presentation/filtering only, reusing the existing status classification. No incident status transitions, assignment, claiming, API, database, or dispatch permissions changed.
+- **Validation:** Not run by request for incremental commits; no build, emulator, or device behavior is claimed.
+- **Next action:** Continue focused role-screen UI refinements on PR #334; run a consolidated validation cycle after the implementation set is frozen.
+
+---
+
+# Current handoff — 2026-11-17: responder active-response hierarchy
+
+- **Objective:** Make the responder's active incident workload easier to scan without changing assignment or response workflows.
+- **Implementation:** Add a distinct section heading before the active response cards, with concise supporting text that explains what the section contains.
+- **Scope:** Presentation-only change in the responder screen. No claiming, status transitions, location sharing, routing, permissions, API, or database behavior changed.
+- **Validation:** Not run by request for incremental commits; no emulator/device review is claimed.
+- **Next action:** Continue refining role-specific client screens and preserve emergency-critical details.
+
+---
+
+# Current handoff — 2026-11-17: requester active-emergency accessibility
+
+- **Objective:** Make the requester's current emergency state easier to navigate with assistive technology without changing incident actions or status rules.
+- **Implementation:** Expose the active-emergency card as a polite live region so status/description changes can be announced, and mark its title as a semantic heading for screen-reader navigation.
+- **Scope:** Requester presentation semantics only. No SOS submission, editing/cancellation, messaging, status polling, GPS, API, or database behavior changed.
+- **Validation:** Not run by request for incremental commits; no emulator/device accessibility review is claimed.
+- **Next action:** Continue requester form and role-specific screen refinements on this dedicated PR branch while preserving emergency-critical information.
+
+---
+
+# Current handoff — 2026-11-17: shared client UI polish
+
+- **Objective:** Establish a more consistent, readable visual and accessibility baseline across requester, responder/driver, and dispatcher screens through shared Compose components.
+- **Branch:** `agent/client-ui-polish-2026-11-17`.
+- **Implementation:** Refine shared screen-header hierarchy and allow two-line supporting text; expose screen and section titles as accessibility headings; increase section and banner spacing; remove persistent neutral borders from unselected incident cards while retaining a clear selected state; use theme-aware incident status pills in cards and history rows; add subtle resting card elevation; constrain long incident-type titles without truncating emergency descriptions or location/access notes.
+- **Scope:** Shared Android UI components only. No role permissions, incident workflow, GPS behavior, API, database, routing provider, or production configuration changed.
+- **Validation:** Not run by request; this incremental UI task is being committed without running checks. No emulator/device visual review is claimed.
+- **Next action:** Continue screen-specific requester, responder/driver, dispatcher, and adaptive-pane refinements on this dedicated PR branch. Keep GPS map full-screen and preserve all emergency-critical content.
+
+---
+
 # Current handoff — 2026-11-17: constrain wide-screen role content
 
 - **Objective:** Improve Android large-window readability across requester, responder/driver, and dispatcher screens without changing compact phone layouts or the full-screen map.
@@ -390,7 +1126,7 @@ Artifacts were generated and uploaded by CI: demo-mode debug APK, Supabase-mode 
 
 ## Product intent and deployment boundary
 
-- **Intended product:** TACResQ is being developed as a real emergency-response service requested by TACRU, not merely as a school-project demo. The engineering target is a polished, reliable Android client backed by Supabase and the TACRU dispatcher dashboard.
+- **Intended product:** TACResQ is being developed as a real emergency-response service requested by TACRU, not merely as a school-project demo. The engineering target is a polished, reliable Android client backed by Supabase, with dispatch operations centralized in Android and a separate administrator-only web portal.
 - **Do not misrepresent readiness:** A working build or passing CI does not establish operational readiness. Before real emergency use, TACRU must validate workflows and staffing, and the team must complete security/privacy review, field/device testing, reliability checks, deployment and incident-response procedures. Until those gates are verified, do not claim the service is production-ready or encourage real emergency reports during QA.
 - **Testing discipline:** Use clearly labeled synthetic incidents and test accounts while validating. Never substitute mock behavior for live backend behavior without labeling it clearly.
 
@@ -777,3 +1513,299 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Finish and record any justified source/documentation commits across the active PRs before starting a new validation cycle.
 - No tests or CI were started for this closeout commit. The next validation cycle must target the final exact heads after the implementation commit set is frozen.
 - No PR merge, live Supabase migration, Render change/deployment, secret change, FCM send, or production data mutation was performed.
+
+
+## GPS map collision handling — 2026-11-17
+
+- **Finding:** Incident and dispatcher field-unit pins can render inside the same tap area. Selecting the top marker alone can make the other emergency location difficult to reach.
+- **Implementation on PR #334:** Added screen-projection collision detection using MapLibre `Projection.toScreenLocation`, scaled to a 48 dp radius. When multiple marker anchors overlap the tap area, the bottom sheet presents explicit choices for each nearby incident, field unit, or device location. The tapped marker is listed first. Choosing an entry then uses the existing typed marker-ID behavior.
+- **Safety/UI:** No coordinate merging or synthetic cluster count; no location sharing, permission, freshness threshold, routing, backend, or database changes. Stale field-unit choices explicitly say last-known/not-live. Chooser rows have full-width 52 dp minimum touch targets and button semantics.
+- **Test additions:** Added pure JVM coverage for screen-radius boundaries and invalid points/radii. Tests were not run, per the current no-checks-after-commit instruction.
+- **Research note:** MapLibre 13.x Projection returns screen-space PointF coordinates relative to the MapView; the threshold is converted from dp using display density. See `docs/GPS_MAP_INTERACTION_REVIEW.md`.
+- **Remaining:** Device validation across zoom/pitch/compact layouts, marker icon footprint review, annotation redraw profiling, and a separately researched renderer/GeoJSON clustering migration. No build, tests, emulator, device, or performance checks run.
+
+- **Follow-up safety guard:** Chooser selections are checked against the latest visible incident, current validated responder reports, or current one-time device fix before opening details. Expired/replaced entries show a refresh/retry message rather than selecting stale marker metadata.
+
+
+## GPS annotation redraw invalidation — 2026-11-17
+
+- **Finding:** The MapLibre annotation effect watched raw incident/responder collections and route result objects. Routine refreshes could clear and recreate all markers and route lines even when visible marker content was unchanged.
+- **Implementation on PR #334:** Replaced raw collection/object dependencies with a render signature for incident coordinates/type/status/location source/accuracy/notes/age; responder coordinates/accuracy/freshness/age; device coordinates; and displayed route geometry. Map instance/style, selected incident, and live-navigation state remain explicit dependencies.
+- **Scope:** No renderer migration, data-model change, tracking behavior change, or freshness-threshold change. No profiling or tests run; improvement is an invalidation reduction by code inspection, not a measured performance result.
+
+
+## GPS renderer incremental reconciliation — 2026-11-17
+
+- Researched MapLibre Native Android 13.7.1 marker APIs. Existing markers expose mutable position/icon/title/snippet and MapLibreMap.updateMarker; individual markers and polylines can be removed without clearing the whole map. Official references: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.annotations/-marker/index.html and https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/index.html.
+- PR #334 now reconciles incident, field-unit, and device markers by stable domain keys. Unchanged markers retain their annotation objects/IDs; changed markers update in place; removed records remove only their own marker.
+- Route rendering is tracked independently and only replaced when the displayed route geometry hash changes. A full clear remains for a changed MapLibre map instance.
+- This reduces work by code-path inspection; no runtime profiling or device evidence is claimed. Route hash collision risk remains theoretical and should be eliminated by exact geometry signatures if this optimization is extended.
+- No clustering migration, API/provider change, database change, location-sharing change, or backend change was made. No tests/build/emulator/device checks run per user instruction.
+
+
+## MapLibre clustering research — 2026-11-17
+
+- Confirmed the current MapLibre Android 13.7.1 SDK supports native GeoJSON clustering; core Android support dates to 4.2.0. APIs include cluster enablement/radius/max zoom/min points, cluster expansion zoom, child retrieval, and leaf retrieval.
+- Corrected cluster-radius interpretation: `withClusterRadius` is measured in 1/512ths of a tile in the Android API documentation, not Android dp. Do not reuse a numeric default as a dp/screen-pixel specification.
+- Architecture decision: separate incident and field-unit sources; keep device preview and routes outside clusters; keep stale responder locations distinguishable from fresh/aging reports; use stable domain IDs and revalidate tapped leaves against current state.
+- Cluster taps should expand by native expansion zoom, falling back to a bounded leaf chooser only when expansion cannot separate points. Preserve selected-feature state through data/style updates.
+- Keep renderer clustering and legacy Annotation Plugin migration as separate changes. Current PR source change only reduces redraw churn; this research does not claim clustering is implemented.
+- References: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-options/index.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-source/get-cluster-expansion-zoom.html ; https://maplibre.org/maplibre-native/android/examples/styling/circle-layer/.
+
+
+## Exact renderer invalidation signatures — 2026-11-17
+
+- Replaced route geometry hash with exact ordered coordinate pairs to avoid hash-collision false equality and stale route display.
+- Removed responder icon hash from marker signatures; freshness state already fully determines the current stale/normal icon class.
+- Confirmed MapLibre 13.7.1 API documentation supports the marker mutation/update and individual removal methods used by the incremental reconciler. These are legacy deprecated APIs; no claim of migration made.
+- References: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.annotations/-marker/index.html ; https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.maps/-map-libre-map/index.html.
+- No tests/build/device checks run.
+
+
+## PR #334 — Dispatcher incident-list freshness cues (2026-11-17)
+
+- Updated pending and active incident section subtitles to identify the displayed queue as the last loaded, unconfirmed snapshot while refresh is in progress or incident/unit data is stale.
+- Cached incident cards remain visible. No queue, assignment, or dispatch behavior changed.
+- Commit: pending at handoff; source review only. No build/tests/emulator/device validation performed.
+
+
+## PR #334 — Dispatcher team progress completeness (2026-11-17)
+
+- Team progress now uses the assigned-user roster as its denominator and counts only distinct per-member status rows belonging to that roster.
+- Missing per-member status rows are identified as unavailable; no assignment or status behavior changed.
+- Commit: pending at handoff; source review only. No build/tests/emulator/device validation performed.
+
+
+## PR #334 CI stabilization — 2026-11-18
+
+- Re-inspected the exact PR head and its recorded GitHub Actions results before editing. PR #334 remains open and mergeable; no production migration was applied.
+- Corrected the suspicious indentation reported by Android Lint in `IncidentChatScreen.kt` around the pending image retry flag. Commit: `b19cc2a653459f9e17a4ee622277b343f9d1e820`.
+- Updated the GPS empty-state source contract to match the accuracy-label prefixes actually used by the current MapLibre screen. This was a stale assertion, not a missing runtime accuracy label. Commit: `eb57c49ad7c82c5d0b2e7dbec77f5521f238f37f`.
+- These are source corrections based on the recorded CI logs. No builds, tests, emulator, or device checks were run after the commits, per the existing execution constraint. The new exact-head CI result is still pending and must be inspected before calling the failures resolved.
+- Next: inspect the existing duty-status and assignment schema before proposing a duty-session migration. Do not equate login or online presence with on-duty availability. Preserve dispatcher-owned incident milestones and the current active-assignment locks.
+
+## 2026-11-18 — CI blocker repairs
+- Corrected the shared assignment-release API contract: FakeTacApi and SupabaseTacApi now accept the same ReleaseIncidentAssignmentRpc body declared by TacApi; the repository sends that typed request body.
+- Fixed the Compose delegated-state smart-cast error by rendering the nullable assignment-history error with a safe fallback.
+- Updated the dispatcher wait-time source contract to match the intended neutral elapsed-wait display; it no longer expects the removed 15-minute escalation warning.
+- Commits: e4bee7a, 342ec65, 4fbf3a3, f971a43, b903eb5.
+- Validation pending: GitHub Actions must rebuild the latest branch head. No local Gradle build, emulator/device test, migration deployment, or production Supabase mutation was performed.
+
+## 2026-11-18 — Location contract CI follow-up
+- Fixed the failing responder-location source contract: the test still expected freshness/missing-marker copy in the retired web dispatcher dashboard.
+- The web dashboard is intentionally admin-only; dispatch operations and responder-location freshness UI remain in the Android app. The updated contract now asserts the web role boundary rather than obsolete dispatcher-dashboard markup.
+- Commit: e5823ff.
+- Validation: confirmed the updated assertion matches the current Home.tsx role gate and dispatcher retirement copy. Full source-check job and Android builds must be rerun on the new head; no local Gradle build, device test, or production change was performed.
+
+## 2026-11-18 — Closed incident assignment history
+- Added a compact “Recently closed” section to the existing Android dispatcher screen, showing at most five resolved or cancelled incidents from the loaded authorized queue.
+- Each closed incident exposes the existing bounded, read-only assignment-history query with loading, empty, error, and retry states. No new tab, route, assignment action, or status mutation was added.
+- Extended `tools/test_assignment_history_api_contract.py` to guard the closed-incident access and five-item bound.
+- Commits: a0a107d (UI), c4eeab2 (source contract).
+- Validation: source-level review only; the static test and Android build have not been executed locally. The latest GitHub Actions run must confirm compilation and test results. No production migration or Supabase mutation was performed.
+
+## 2026-11-18 — Closed-incident ordering clarity
+- Corrected the dispatcher section label: the five displayed resolved/cancelled incidents are ordered by `created_at` (request time), not by closure time. The UI now calls them “Closed incidents” and explicitly says “Latest 5 by request date”.
+- Updated `tools/test_assignment_history_api_contract.py` to guard the accurate label. No incident timestamps, API fields, database schema, ordering logic, or history access behavior changed.
+- Commits: `df8c4c4` (UI copy), `8f84a49` (source contract).
+- Validation: source review only; the static contract test and Android build have not been executed. No production Supabase or Render changes were made.
+
+## 2026-11-18 — Assignment-history panel state
+- Fixed a dispatcher UI state mismatch: the screen stores one assignment-history result in the ViewModel, but each incident card previously kept an independent expanded flag. Expanding multiple cards could leave earlier cards showing a permanent loading state while the shared result belonged to the most recently opened incident.
+- Active and closed incident cards now share one expanded incident ID, so opening another timeline closes the previous panel and the visible panel always matches the single loaded history result. History remains read-only.
+- Updated the source contract to guard the single-panel behavior and removed an obsolete assertion left behind by the prior closed-incident heading clarification.
+- Commits: `0a169fb` (UI), `98783bd` (source contract).
+- Validation: source-level review only; no test execution, Gradle build, emulator/device check, or production backend change performed.
+
+
+## 2026-11-18 — Assignment history chronology
+- The assignment-history endpoint intentionally fetches the newest bounded event window first. The dispatcher now reverses that retained window before rendering, so both active and closed incident timelines read chronologically from the earliest retained event to the latest.
+- This changes presentation only; the incident filter, descending server query, 50-event repository bound, audit records, and authorization remain unchanged.
+- Updated the source contract to guard chronological rendering in both panels.
+- Validation: source-level review only; static test and Android build were not executed. No production backend or migration changes.
+
+
+## 2026-11-18 — Assignment history actor labels
+- Replaced raw numeric account-ID labels for other audit actors with “Another dispatcher/admin” in both active and closed incident timelines. The current operator remains “You” and system-generated events remain “System”.
+- This is a presentation/privacy improvement only; the immutable event still retains actor_user_id for authorized audit retrieval. No schema, API, or authorization changes.
+- Added a source contract to prevent raw actor account IDs from reappearing in the UI.
+- Validation: source-level review only; contract test and Android build were not executed. No production backend changes.
+
+
+## 2026-11-18 — Accurate GPS cluster totals
+- Corrected the cluster chooser's total when different map sources overlap: its count now sums every hit cluster's point_count, including a smaller cluster that does not need pagination.
+- Single-source cluster choosers now use the source feature's point_count directly. Paging still applies only to sources with more than 50 leaves.
+- Added a source contract and CI step to guard mixed-source aggregation and single-cluster counts.
+- Validation: source review only; the new contract test, Android build, and device map interaction were not run. No production backend changes.
+
+
+## 2026-11-18 — GPS camera-restoration contract follow-up
+- The exact-head source-check run exposed a second stale assertion in `tools/test_gps_map_fullscreen.py`: it expected incident auto-framing to ignore saved-camera state, while the current map correctly suppresses initial auto-framing when a restorable camera position exists.
+- Updated the contract to require the saved-camera guard for both initial field-unit and incident framing, and to verify the selected point set. Production map behavior was not changed.
+- Commit: `2da1668`.
+- Validation: confirmed the failing assertion from the GitHub Actions log and compared it with the current Kotlin framing branch. The revised test and this note were re-fetched for source inspection; no local test/build/emulator/device checks were run. CI must rerun on the new head.
+
+## 2026-11-18 — PR #334 pre-merge review follow-up
+
+- Reconciled the notification inbox with the newer main-branch behavior: a persistent notification-load error now includes its own clearly labeled **Try again** action while retaining the single shared Refresh control. Updated tools/test_notification_action_feedback.py to require both paths and preserve transient action-error banner behavior.
+- Added tools/test_dispatcher_release_assignment.sql as runtime PostgreSQL coverage for dispatcher-only release authorization, primary-member handoff, last-member protection, post-arrival release rejection, restoration of availability when no other active reservation exists, preservation of a legacy active incidents.assigned_to reservation, and actor-attributed release/closure audit events.
+- Wired the runtime SQL test into tools/test_supabase_migration_replay.sh after the existing migration and authorization checks.
+- Commits: 1c8e034 (notification retry UI), 6aa815b (notification retry contract), 627704e (release runtime test), f15cac4 (qualified PL/pgSQL test variable references), 4ab402f (CI wiring).
+- Validation status: source was re-fetched after writes. The new PostgreSQL test has not yet run; it must be validated by the exact-head CI migration replay job. No local database execution, production Supabase migration, Render deployment, emulator, or device validation was performed.
+- The PR branch remains based on the same merge-base as main; the four commits on main are being reconciled by preserving the relevant notification behavior rather than blindly merging unrelated history.
+
+## 2026-11-18 — Release-test execution correction
+
+- The first PostgreSQL execution of the new release runtime test caught an ambiguous PL/pgSQL reference where an unqualified incident_id column conflicted with the block variable. Qualified the assignment and audit table references with aliases; no production SQL migration was changed.
+- Expanded the runtime test to invoke the public release wrapper as the authenticated database role, verify dispatcher and requester/admin assignment-history visibility under RLS, and assert that a responder is denied by the dispatcher-only function guard.
+- The rerun on the corrected test source is in progress. The earlier ambiguous-reference failure is not counted as a pass; inspect the exact latest-head PostgreSQL job before treating release behavior as validated.
+- Follow-up commits: e11f566 (authenticated RPC/RLS test), 99f46d0 (role-denial test independent of incident visibility), aad0861 (clarify lifecycle assertion), 80ad7cf (qualify assignment-history SQL references), 94ade35 (correct event-table aliases).
+
+
+## Dispatcher release legacy-reservation regression — 2026-11-18
+
+- **Exact-head CI finding:** The clean PostgreSQL migration replay and RPC grant workflow both failed in `tools/test_dispatcher_release_assignment.sql`: after releasing a member from the current team, the test observed `duty_status='available'` even though another active legacy incident was intended to reserve that member through `incidents.assigned_to`.
+- **Trace:** The release function evaluated the legacy `assigned_to` reservation after deleting current team membership and after the primary-member handoff. The test did not independently assert that its legacy fixture still contained the expected active status and assignee before invoking release.
+- **Change:** The release migration now captures whether another active legacy incident reserves the member before changing current membership, and uses that result when deciding whether to restore availability. The runtime test now asserts that the legacy fixture persisted with the intended `assigned_to` and `assigned` state before exercising release.
+- **Commits:** `6d47e79` implementation; `51667ce` fixture assertion.
+- **Validation:** The failure was confirmed from exact-head GitHub Actions logs. The correction has not yet been validated by a fresh CI run. The fixture assertion will distinguish a bad test setup from a release-path regression if the failure persists. No production migration, Supabase data change, Render deployment, local test, or merge was performed.
+
+
+## Account recovery research trace — 2026-11-18
+
+- Confirmed Android password recovery is intentionally unavailable today: `AuthScreen.kt` states no email is sent; `SupabaseAuthWire` has no recovery request or password-update endpoint; `AuthCallbackMessage` deliberately ignores URI query/fragment values and only displays a confirmation-return message.
+- The existing `tacresq://auth/callback` intent filter provides a starting point, but a secure recovery flow must distinguish recovery from email confirmation, validate/exchange the recovery credential with Supabase Auth, handle cold-start and warm intents, avoid persisting/logging tokens, and provide a real set-new-password screen.
+- Added the detailed end-to-end design and validation requirements to `docs/OPERATIONAL_IMPROVEMENT_REVIEW.md`. Do not ship a partial “email sent” state or change production Supabase Auth redirect/template settings without explicit approval.
+- Admin portal review found its separate admin-only shell already has brand, admin identity, refresh, and sign-out. No real admin notification stream is currently defined, so do not add a decorative notification control. Audit actor/target fallback behavior is documented; no profile read permissions were broadened.
+- Commit: `ec22ead`.
+- No application behavior changed in this documentation commit. Exact-head CI was still running at the time of review; check fresh workflows before further source changes. No production configuration, deployment, local build, or device test was performed.
+
+
+## Password recovery protocol decision — 2026-11-18
+
+- Supabase Auth supports PKCE recovery and a token_hash + verifyOtp pattern, but this repository currently uses Retrofit directly and has no PKCE verifier lifecycle or recovery callback exchange.
+- The existing tacresq://auth/callback is a custom scheme, not a verified Android App Link. Do not trust access_token values from arbitrary custom-scheme intents.
+- Documented the required choices and security requirements in docs/OPERATIONAL_IMPROVEMENT_REVIEW.md: verified HTTPS App Link + PKCE and secure short-lived verifier persistence, or a deliberately configured/tested token_hash email template + verifyOtp flow.
+- Keep the current honest unavailable message until redirect domain and Supabase email-template strategy are confirmed. No recovery code, auth configuration, or production settings were changed.
+- Commit: a552e66. Documentation-only; no application behavior changed.
+
+## GPS map async-disposal guard — 2026-11-18
+
+- Traced the MapLibre lifecycle in GpsMapScreen.kt. Lifecycle events and camera/map-load listeners already guarded disposal, but the asynchronous setStyle callback and its nested getStyle callback could still run after the composable was disposed.
+- Added disposed checks at both callback boundaries before installing cluster sources or mutating Compose/map state. This is a targeted lifecycle-race fix; no map behavior, permissions, location sharing, or routing policy was changed.
+- Commit: 3039ed2. Validation pending exact-head GitHub CI; no device lifecycle test was run, so repeated navigation/background-resume behavior remains a manual verification item.
+
+## Responder location service thread visibility — 2026-11-18
+
+- Reviewed the explicit foreground-service start/stop path, tracking coroutine, assignment monitor, and destruction cleanup. The service already cancels both jobs and its service scope in `onDestroy()`; no duplicate cleanup or restart-policy change was needed.
+- Found that `activeIncidentId` is written by service lifecycle callbacks and read by the I/O-dispatched tracking/monitor coroutines without a cross-thread visibility guarantee. Marked the nullable incident ID field `@Volatile`, matching the service's existing treatment of other cross-thread state flags/references. This ensures background loops observe start/stop changes promptly; it does not alter assignment authorization, foreground-service restart policy, or user consent.
+- Commit: `85c52c1bbeac39895e30c2460e0c9af716c9f700`.
+- Validation: source inspection only. No local Gradle build, unit test, emulator/device lifecycle test, production backend change, or merge was performed. Exact-head GitHub Actions must validate the updated branch.
+
+
+## Responder tracking ownership guard — 2026-11-18
+
+- Commit: `d18563d2676d18209cbf99c43bfac6bbf2f08c02` — `Guard responder tracking stops by assignment ownership`.
+- A late result or exception from a cancelled tracking/assignment-monitor coroutine could call the shared stop routine after a replacement assignment had started. The stop routine now accepts an optional expected incident ID; asynchronous tracking paths supply their owning ID, and stale jobs return without clearing the newer session or its foreground notification.
+- Explicit user/service stop and invalid start-command paths retain the unscoped stop behavior.
+- Existing `activeIncidentId` volatility and `serviceScope.cancel()` teardown were inspected and are already present; no duplicate changes were made.
+- Validation: source-level inspection of all stop call sites and the updated guard. No Gradle build, automated test run, or Android device lifecycle test has been performed for this commit. Verify rapid stop/restart across two assignments and late network failures on-device before release.
+
+
+## Responder tracking session-generation guard — 2026-11-18
+
+- Commits: `7e4c9c763efa6f09a4623d414df2a9aa31f8e873` and `5562828ce886f9c0d9ef0b1959789a71a183a2e5`.
+- Extended the earlier assignment-ID ownership guard with a monotonically increasing tracking-session ID. This handles the important same-assignment stop/restart case, where incident IDs alone cannot distinguish a stale coroutine from the new session.
+- Tracking and assignment-monitor jobs capture their session ID; asynchronous stop paths pass both incident and session IDs. The stop routine ignores obsolete sessions, and stale jobs cannot call `stopSelf()` while a replacement session is active.
+- Explicit notification stop, invalid command handling, and service teardown retain their service-owned stop behavior. Service destruction also invalidates the current session before cancelling the service scope.
+- Validation: inspected all tracking/monitor stop call sites, session checks, and service teardown in the updated source. No Gradle build, automated test run, or Android stop/restart lifecycle test has been performed. Device validation should include stopping and immediately restarting sharing for the same incident, then forcing a delayed network failure from the old request.
+
+
+## Exact-head CI follow-up — responder tracking and dispatcher release fixtures — 2026-11-18
+
+- **Responder source-contract failure:** The session-generation hardening changed both tracking coroutines to receive `sessionId`, but the static source contract still searched for the old one-argument launch and monitor calls. Updated the contract to require the session-aware launch/monitor signatures and the active-session guard while retaining HTTP failure classification checks. No tracking-service behavior changed in this correction.
+- **Dispatcher release SQL fixture failure:** Exact-head migration replay failed because the legacy-reservation test inserted an active `incidents.assigned_to` row but left the profile's stored `duty_status` at its original `available` value. The older single-assignment model's effective status is derived from the incident row; it does not automatically seed the stored profile status. Updated the isolated CI fixture to explicitly seed `duty_status = 'assigned'` with the request identity cleared, then restore the dispatcher identity before exercising the release RPC. This makes the fixture accurately represent a pre-existing legacy reservation and does not change the production migration or live database.
+- **Commits:** `fa1c7a0`, `1af6a6f`, `a7cb343`.
+- **Validation:** The failures were traced to the exact-head GitHub Actions logs. Both test/contract corrections are committed; they still require a fresh exact-head run. The preceding head's Android debug/release builds, JVM tests, instrumentation compilation, and Android Lint passed. No local Gradle/PostgreSQL test, emulator/device test, production migration, deployment, or merge was performed.
+
+
+## Responder route and write completion generation guard — 2026-11-18
+
+- **Finding:** The unique tracking-session token already protected the collection loop and stop paths, but two asynchronous side-effect boundaries still compared only the incident ID. A delayed location-write response could update the replacement session's UI state, and an older route request for the same incident/destination could publish its result after the user stopped and restarted sharing.
+- **Change:** Re-check the exact incident/session generation after the location RPC returns and before publishing send status. Pass the generation into destination refresh and route recalculation, reject stale work before starting, and re-check it after the routing provider returns. The assignment monitor loop now also uses the exact active-session predicate after each suspend point.
+- **Regression guard:** Expanded the responder-location source contract to assert the session-aware helper signatures, monitor loop, and post-write guard.
+- **Commits:** `b4987ac`, `881fc26`, `e669097`.
+- **Validation:** Inspected every call site for the session-aware route helpers and verified the stale-response guard is immediately after the location RPC. No Gradle build, JVM test, PostgreSQL replay, or Android lifecycle/device test has run for these commits yet. The exact-head CI result is pending.
+
+
+## Stale assignment-verification completion guard — 2026-11-18
+
+- **Finding:** The tracking and assignment-monitor coroutines checked their generation before starting repository calls, but a cancelled old session could still complete `repository.me()` or `repository.myIncidents()` after a same-incident restart. In that case, the old coroutine could publish a misleading status message or process stale assignment data. The monitor's broad exception handler also compared only the incident ID.
+- **Change:** Both coroutines now re-check the exact incident/session generation immediately after each repository suspension and before interpreting its result. The monitor exception handler now uses the same exact-session predicate. This complements the post-location-write and post-route guards added immediately before this change.
+- **Regression guard:** Added a source-contract assertion that both repository calls in both coroutines are followed by the generation check, and that the monitor error path is session-scoped.
+- **Commits:** `6ac39e7`, `a22a5e5`, `bf98a69`, `fe4f006`.
+- **Validation:** Inspected the two `me()` and two `myIncidents()` call sites and confirmed each has an immediate generation check. No Gradle build, JVM test, PostgreSQL replay, or Android lifecycle/device test has run for this update. Exact-head CI is pending.
+
+
+## MapLibre retry callback generation guard — 2026-11-18
+
+- **Finding:** The initial MapLibre style load had a disposal guard, but the user-triggered `retryMapLoad()` style callbacks did not. A retry completing after screen disposal could still install style sources and mutate Compose state. Repeated retries could also allow an older style callback on the same map instance to overwrite the newest style's source references.
+- **Change:** Added a monotonically increasing style-request generation scoped to the map screen. Both initial style loading and retry now capture the generation and verify both the active `MapLibreMap` instance and generation before processing the style and again inside the nested `getStyle` callback. Stale callbacks return without changing UI state or installing cluster sources.
+- **Regression guard:** Added a lifecycle contract test requiring generation checks at all four asynchronous callback boundaries.
+- **Commits:** `d2865ca` (implementation), `d7e7a9d` (contract test), and this documentation commit.
+- **Validation:** Reviewed the initial and retry callback paths and verified that disposal clears `mapLibreMap`, while a newer retry increments the generation. No Android build, JVM test, or device navigation/retry test has run for this update. Exact-head CI is pending.
+
+
+## Route preview selection-generation guard — 2026-11-18
+
+- **Finding:** The route preview already captured both a request generation and a selection generation. It checked both while acquiring device settings/location, but after the routing provider returned it checked only request generation plus the selected incident ID. If the user moved away from an incident and back to the same incident while an uncooperative provider call was completing, the old response could pass the weaker check and publish a stale route.
+- **Change:** Reused the complete `isCurrentRequest()` predicate after the provider call and immediately before publishing the route. The predicate requires the request generation, selection generation, and selected incident ID all to match.
+- **Regression guard:** Added `tools/test_gps_route_selection_generation.py` to assert that both generations are checked before parsing and publishing a provider result.
+- **Commits:** `16930d7` (implementation), `ed6d1bc` (contract test), and this documentation commit.
+- **Validation:** Inspected the full route request coroutine and its selection-generation lifecycle. The new Python source-contract test has not been executed here; no Android build, JVM test, or device route-navigation test has run for this update. Exact-head CI is pending.
+
+
+## Responder status-controller session isolation — 2026-11-18
+
+- **Finding:** The foreground service's tracking and routing coroutines already used a monotonically increasing session ID to reject stale work, but the app-scoped `ResponderLocationTrackingController` still accepted status updates based only on incident ID. Stopping and restarting sharing for the same incident could therefore let a delayed callback from the old session overwrite the new session's UI status, even when the service itself correctly rejected stale writes.
+- **Change:** The controller now records the active tracking-session ID. Location-send, navigation, and service-message updates require both the incident ID and session ID to match. Service-stop updates can be scoped to the ending session; explicit user stop clears the controller token immediately. Navigation enablement receives the active session ID, and service destruction preserves the pre-invalidation ID when clearing controller state.
+- **Regression guard:** Extended `tools/test_location_contract.py` to require session-scoped controller updates, stop-token checks, teardown identity preservation, and session-aware navigation enablement.
+- **Commits:** `31686e4` (controller token), `f1b8cc0` (propagate identity), `da13acd` (navigation/teardown correction), `527c44a` (scope error status), `d817ac8` (source contract).
+- **Validation:** Re-fetched the latest source and traced all controller update call sites; each asynchronous update now carries its captured session ID. The Python source contract has not been executed here, and the Android build/JVM tests have not run for this change. Await exact-head CI. No device lifecycle validation, production migration, deployment, or merge was performed.
+
+
+## Final merge-readiness gate — 2026-11-18
+
+- **Exact-head CI finding:** At head `f96f71b`, the Source checks job failed only at `tools/test_continuous_navigation_contract.py`: its route-forwarding assertion still searched for the pre-session signature `maybeRecalculateRoute(incidentId, capture.fix)`. The implementation now correctly passes `sessionId`; the same job's preceding responder-location contract passed all 37 checks.
+- **Correction:** Updated the continuous-navigation contract to assert the session-aware call `maybeRecalculateRoute(incidentId, sessionId, capture.fix)` in commit `878e828`. This is a test expectation correction, not a production behavior change. Exact-head rerun is pending.
+- **Other observed checks at the prior head:** Frontend review and Render live smoke passed; repository security guardrails and CodeQL web/workflow analysis passed. Android demo-mode debug APK build completed, but Android JVM tests were still running and UI instrumentation compilation, Android Lint, Supabase-mode debug build, release build, and artifact upload were pending. Android CodeQL was still building. RPC grant contract was still replaying migrations; its anonymous RPC grant step had passed. The PostgreSQL migration replay and Laravel/dashboard integration jobs were skipped because the source-check dependency failed.
+- **Merge gate still required:** All required checks must pass on one exact final head, especially source checks, Android JVM tests, instrumentation compilation, lint, both debug variants, release APK build, Android CodeQL, RPC grants, and clean PostgreSQL migration replay. Resolve any subsequent failures rather than relying on older run results.
+- **APK gate:** CI artifact upload must complete and artifacts must be downloaded/inspected. A release APK built without configured signing is not equivalent to a distributable signed release. Preserve the demo-mode debug APK separately from the Supabase-mode debug APK. Do not claim a release is installable/updatable without verifying signing configuration and package/version details.
+- **Operational rollout gate:** Dispatcher-progress, assignment-history, profile-guard, and other new Supabase migrations remain unapplied in production. Review the ordered migration set and backup/rollback plan before any production application; do not apply without explicit approval. Confirm required Render environment values and routing rollout flag before deployment; route preview remains fail-closed unless enabled. No deployment or production database change is authorized by this review.
+- **Manual acceptance still outstanding:** Install the candidate APK on a real Android device and test requester SOS creation/cancellation/location correction, dispatcher multi-member assignment/progress/release, responder/driver duty and foreground GPS stop/restart, GPS map empty/loading/offline/stale states, chat text/image retry after process death, notifications, sign-out/account switching, adaptive layouts, and admin portal access separation. CI source contracts do not replace these checks.
+
+
+
+## Dispatcher release fixture duty-state correction — 2026-11-18
+
+- **Finding:** The clean PostgreSQL migration replay and RPC grant contract both failed in `tools/test_dispatcher_release_assignment.sql` because the legacy-reservation fixture wrote `profiles.duty_status = 'assigned'`. The core profile check constraint intentionally permits only `off_duty`, `available`, `en_route`, `on_scene`, and `transporting`. Assignment is represented separately by `incidents.assigned_to` and `incident_assignments`; expanding the profile constraint would conflate two different state models.
+- **Correction:** The fixture now uses the valid `en_route` duty status while retaining the separate active legacy reservation through `incidents.assigned_to`. After releasing the member from the newer team, it asserts that the profile retains `en_route` and that the unrelated legacy incident still reserves the member. Production schema and release-function behavior were not changed.
+- **Commit:** `a0526460324504ed474f6915d7e4197e89d0ea82` — `Use valid duty state in legacy release fixture`.
+- **Validation:** The patch was applied to the PR branch after verifying the exact old fixture block and assertion. Clean migration replay, RPC grant contract, and all other CI checks must be rerun against the new exact head; no passing result is claimed yet. No production database changes, deployment, APK distribution, or merge were performed.
+
+
+## 2026-11-18 — Isolate assignment-history RLS test identity
+
+- Investigated the clean PostgreSQL replay failure reported as `Admin should be able to read assignment history under RLS`.
+- The authenticated-role RLS assertions looked up the fixture incident ID through `public.incidents`. That makes the history assertion depend on the caller's separate incident-read policy; an invisible incident produces a NULL filter and a misleading zero-row result even when assignment-history RLS is correct.
+- Updated `tools/test_dispatcher_release_assignment.sql` to save the fixture incident ID in a transaction-session setting while running as the trusted test operator, then use that retained ID for dispatcher, requester, and admin history assertions. This keeps the history-policy test independent of incident-table visibility and avoids widening production access.
+- Commit: `cea59b0a72b23f7de21dfe823380261e61d27215` — `Make assignment history RLS tests independent of incident visibility`.
+- Validation is pending on the exact updated PR head. This is a test correction, not a production RLS-policy change. No production database changes, deployment, APK distribution, or merge performed.
+
+
+## 2026-11-18 — Isolate GPS RPC runtime fixture identities
+
+- Exact-head RPC grant contract run `44247460864` passed anonymous RPC grant checks and clean PostgreSQL migration replay, then failed before GPS runtime authorization assertions because `tools/test_location_rpc_security.sql` inserted auth user UUIDs `150–153`, already used by `tools/test_dispatcher_release_assignment.sql` in the same disposable database.
+- Updated the GPS runtime fixture to use UUIDs `250–253` and matching unique test phone/email values. No production GPS RPC, grant, RLS policy, or schema behavior changed.
+- Commit: `b6c641557d31211d67e8d6a60bce16e5696cc9ef` — `Isolate GPS RPC test fixture identities`.
+- Validation: fetched the committed test file and confirmed all four new UUIDs are present and none of the conflicting UUIDs remain. Exact-head CI must still prove the runtime authorization cases pass. No production database changes, deployment, APK distribution, or merge performed.

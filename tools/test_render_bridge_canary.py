@@ -22,7 +22,6 @@ expected_rpcs = {
     "api_set_duty_status",
     "api_units",
     "api_update_incident_status",
-    "api_update_my_assignment_status",
     "api_update_my_incident",
 }
 transport_names = re.findall(r'@POST\("bridge/rpc/(api_[a-z0-9_]+)"\)', api)
@@ -46,7 +45,7 @@ checks = {
         'buildConfigField("boolean", "USE_RENDER_BRIDGE", "false")' in gradle,
     "AppContainer passes the bridge build flag to the adapter":
         "useRenderBridge = AppConfig.USE_RENDER_BRIDGE" in container,
-    "Android transport list is exactly the reviewed 14-RPC inventory":
+    "Android transport list is exactly the reviewed 13-RPC inventory":
         len(transport_names) == len(expected_rpcs)
         and transport_set == expected_rpcs
         and len(transport_names) == len(transport_set),
@@ -65,7 +64,7 @@ checks = {
                 "me", "setDutyStatus", "myIncidents", "allIncidents", "units",
                 "activeResponderLocations", "createIncidentV4", "cancelMyIncident",
                 "updateMyIncident", "updateIncidentStatus",
-                "updateMyAssignmentStatus", "assignIncident", "assignIncidentTeam",
+                "assignIncident", "assignIncidentTeam",
                 "recordLocation",
             )
         ),

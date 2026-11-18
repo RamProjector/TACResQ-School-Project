@@ -50,6 +50,23 @@ interface TacChatApi {
     suspend fun downloadIncidentImage(path: String): ByteArray
 }
 
+/** Supabase-only dispatcher audit read; authorization is enforced by table RLS. */
+interface TacAssignmentHistoryApi {
+    suspend fun incidentAssignmentHistory(incidentId: Long, limit: Int): List<AssignmentHistoryEvent>
+}
+
+data class AssignmentHistoryEvent(
+    val id: Long,
+    @SerializedName("incident_id") val incidentId: Long,
+    @SerializedName("user_id") val userId: Long,
+    @SerializedName("event_type") val eventType: String,
+    @SerializedName("actor_user_id") val actorUserId: Long?,
+    val source: String,
+    @SerializedName("assignment_status") val assignmentStatus: String?,
+    @SerializedName("incident_status") val incidentStatus: String,
+    @SerializedName("occurred_at") val occurredAt: String,
+)
+
 interface TacApi {
     @POST("login")
     suspend fun login(@Body body: LoginRequest): AuthResponse
@@ -101,13 +118,6 @@ interface TacApi {
         @Body body: UpdateStatusRequest,
     ): Incident
 
-    /** Assigned responder/driver: advance only their own response-team status. */
-    @POST("incidents/{id}/assignment-status")
-    suspend fun updateMyAssignmentStatus(
-        @Path("id") id: Long,
-        @Body body: UpdateStatusRequest,
-    ): Incident
-
     /** Dispatcher: assign an available responder or driver to an incident. */
     @POST("incidents/{id}/assign")
     suspend fun assignIncident(
@@ -118,6 +128,10 @@ interface TacApi {
     /** Dispatcher: atomically assign a response team (1–5 available units). */
     @POST("incidents/{id}/assign-team")
     suspend fun assignIncidentTeam(@Path("id") id: Long, @Body body: AssignIncidentTeamRequest): Incident
+
+    /** Dispatcher: release one assigned field unit before the team reaches the scene. */
+    @POST("rest/v1/rpc/api_release_incident_assignment")
+    suspend fun releaseIncidentAssignment(@Body body: ReleaseIncidentAssignmentRpc): Incident
 
     /** Responder/driver: claim an available open incident. */
     @POST("incidents/{id}/claim")
@@ -177,6 +191,11 @@ data class UpdateMyIncidentRequest(
 )
 
 data class AssignIncidentRequest(@SerializedName("user_id") val userId: Long)
+
+data class ReleaseIncidentAssignmentRpc(
+    @SerializedName("p_id") val incidentId: Long,
+    @SerializedName("p_user_id") val userId: Long,
+)
 
 data class AssignIncidentTeamRequest(@SerializedName("user_ids") val userIds: List<Long>)
 

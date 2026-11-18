@@ -1,10 +1,10 @@
-FROM node:26-alpine AS dashboard-build
+FROM node:26-alpine AS admin-portal-build
 WORKDIR /dashboard
 RUN npm install --global pnpm@10.18.0
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY web/ ./
-ENV VITE_BASE_PATH=/dispatch/
+ENV VITE_BASE_PATH=/admin/
 RUN pnpm build
 
 FROM composer:2 AS composer-bin
@@ -22,7 +22,7 @@ RUN composer create-project laravel/laravel:^13.0 . --no-interaction
 RUN composer require laravel/sanctum:^4.0 google/auth:^1.48 --no-interaction
 RUN rm -f database/migrations/*.php
 COPY src/ ./
-COPY --from=dashboard-build /dashboard/dist/ ./public/dispatch/
+COPY --from=admin-portal-build /dashboard/dist/ ./public/admin/
 COPY router.php ./router.php
 RUN php artisan optimize:clear
 

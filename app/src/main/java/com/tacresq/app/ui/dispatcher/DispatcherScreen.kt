@@ -1,6 +1,5 @@
 package com.tacresq.app.ui.dispatcher
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -38,8 +37,10 @@ import androidx.lifecycle.viewModelScope
 import com.tacresq.app.data.model.DutyStatus
 import com.tacresq.app.data.model.Incident
 import com.tacresq.app.data.model.IncidentStatus
+import com.tacresq.app.data.model.nextSteps
 import com.tacresq.app.data.model.ResponderLocation
 import com.tacresq.app.data.model.User
+import com.tacresq.app.data.remote.AssignmentHistoryEvent
 import com.tacresq.app.data.repo.TacRepository
 import com.tacresq.app.ui.common.Banner
 import com.tacresq.app.ui.common.IncidentCard
@@ -72,6 +73,10 @@ data class DispatcherUiState(
     // Assignment is safe only when queue and unit availability are fresh.
     val assignmentDataFresh: Boolean = false,
     val lastSyncedAtEpochMs: Long? = null,
+    val assignmentHistoryIncidentId: Long? = null,
+    val assignmentHistory: List<AssignmentHistoryEvent> = emptyList(),
+    val assignmentHistoryLoading: Boolean = false,
+    val assignmentHistoryError: String? = null,
 )
 
 class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
@@ -79,6 +84,7 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
     val state: StateFlow<DispatcherUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
     private var refreshRequested = false
+    private var historyJob: Job? = null
 
     fun refresh() {
         if (refreshJob?.isActive == true) {
@@ -153,6 +159,66 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
         }
     }
 
+    fun releaseAssignment(incident: Incident, userId: Long) {
+        if (_state.value.busy || !_state.value.assignmentDataFresh) return
+        val team = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
+        if (incident.status !in listOf(IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE) ||
+            userId !in team || team.size <= 1
+        ) return
+        _state.update { it.copy(busy = true, error = null, notice = null) }
+        viewModelScope.launch {
+            repo.releaseIncidentAssignment(incident.id, userId)
+                .onSuccess { updated ->
+                    val releasedName = _state.value.units.firstOrNull { it.id == userId }?.name ?: "Selected unit"
+                    _state.update { current ->
+                        current.copy(
+                            busy = false,
+                            notice = "$releasedName released from incident #${updated.id}.",
+                            incidents = current.incidents.map { if (it.id == updated.id) updated else it },
+                        )
+                    }
+                    refresh()
+                }
+                .onFailure { failure ->
+                    _state.update {
+                        it.copy(
+                            busy = false,
+                            error = failure.message ?: "The field unit could not be released. Refresh before retrying.",
+                            assignmentDataFresh = false,
+                        )
+                    }
+                }
+        }
+    }
+
+    fun advanceIncident(incident: Incident, to: IncidentStatus) {
+        if (_state.value.busy || !_state.value.assignmentDataFresh) return
+        if (to !in incident.status.nextSteps()) return
+        _state.update { it.copy(busy = true, error = null, notice = null) }
+        viewModelScope.launch {
+            repo.updateIncidentStatus(incident.id, to)
+                .onSuccess { updated ->
+                    _state.update { current ->
+                        current.copy(
+                            busy = false,
+                            notice = "Incident #${updated.id} updated to ${to.label}.",
+                            incidents = current.incidents.map { if (it.id == updated.id) updated else it },
+                        )
+                    }
+                    refresh()
+                }
+                .onFailure { failure ->
+                    _state.update {
+                        it.copy(
+                            busy = false,
+                            error = failure.message ?: "Incident progress could not be updated. Refresh before retrying.",
+                            assignmentDataFresh = false,
+                        )
+                    }
+                }
+        }
+    }
+
     fun setIncidentClaimable(incidentId: Long, claimable: Boolean) {
         if (_state.value.busy) return
         viewModelScope.launch {
@@ -174,17 +240,49 @@ class DispatcherViewModel(private val repo: TacRepository) : ViewModel() {
         }
     }
 
+    fun loadAssignmentHistory(incidentId: Long) {
+        if (incidentId <= 0) return
+        historyJob?.cancel()
+        _state.update {
+            it.copy(
+                assignmentHistoryIncidentId = incidentId,
+                assignmentHistory = emptyList(),
+                assignmentHistoryLoading = true,
+                assignmentHistoryError = null,
+            )
+        }
+        historyJob = viewModelScope.launch {
+            val result = repo.incidentAssignmentHistory(incidentId, 50)
+            _state.update { current ->
+                if (current.assignmentHistoryIncidentId != incidentId) current
+                else current.copy(
+                    assignmentHistory = result.getOrNull().orEmpty(),
+                    assignmentHistoryLoading = false,
+                    assignmentHistoryError = result.exceptionOrNull()?.message,
+                )
+            }
+        }
+    }
+
     fun dismissMessages() = _state.update { it.copy(notice = null, error = null) }
 }
 
 @Composable
 fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, focusedIncidentId: Long? = null, onOpenChat: (Long) -> Unit = {}, onOpenNotifications: () -> Unit = {}) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val syncStatusError = state.syncError?.let { message ->
+        if (!state.loading && !state.assignmentDataFresh) {
+            "$message Assignment actions are paused until incident and field-unit data refresh successfully."
+        } else message
+    } ?: if (!state.loading && !state.assignmentDataFresh) {
+        "Assignment actions are paused until incident and field-unit data refresh successfully."
+    } else null
     PollWhileStarted { vm.refresh() }
     var assignmentCandidate by remember { mutableStateOf<Incident?>(null) }
     var selectedUnitIds by remember { mutableStateOf(setOf<Long>()) }
-    // Keep the dispatcher overview concise; individual check-ins are available on demand.
-    var expandedTeamStatusIds by remember { mutableStateOf(setOf<Long>()) }
+    var releaseCandidate by remember { mutableStateOf<Pair<Incident, Long>?>(null) }
+    // History state is shared so only one incident timeline can be expanded at a time.
+    var expandedHistoryIncidentId by remember { mutableStateOf<Long?>(null) }
     var queueClock by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -200,7 +298,14 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         .sortedWith(compareBy<Incident> { incident ->
             incident.createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: Instant.MIN
         }.thenBy { it.id })
-    val active = state.incidents.count { it.status.isActive }
+    val activeIncidents = state.incidents.filter { it.status.isActive }
+    val recentClosedIncidents = state.incidents
+        .filter { it.status == IncidentStatus.RESOLVED || it.status == IncidentStatus.CANCELLED }
+        .sortedByDescending { incident ->
+            incident.createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: Instant.MIN
+        }
+        .take(5)
+    val active = activeIncidents.size
     val availableUnits = state.units.filter { it.dutyStatus == DutyStatus.AVAILABLE }
     val focusedIncident = focusedIncidentId?.let { targetId -> state.incidents.firstOrNull { it.id == targetId } }
     // The dialog must use the latest queue snapshot, not the Incident object captured
@@ -256,45 +361,42 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         item {
             SyncStatus(
                 lastSyncedAtEpochMs = state.lastSyncedAtEpochMs,
-                error = state.syncError,
+                error = syncStatusError,
                 actionLabel = if (state.loading) "Refreshing…" else "Refresh",
                 actionEnabled = !state.busy && !state.loading,
                 onAction = vm::refresh,
             )
         }
-        if (!state.loading && !state.assignmentDataFresh) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f)),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                    ),
-                    elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Assignment paused", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Latest queue or unit availability could not be confirmed. Refresh before assigning responders.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-            }
-        }
         item {
             SummaryCard(
-                total = state.incidents.size,
                 pending = pending.size,
                 active = active,
                 available = availableUnits.size,
+                availabilityConfirmed = state.assignmentDataFresh,
             )
         }
         state.notice?.let { item { Banner(it, isError = false, onDismiss = vm::dismissMessages) } }
         state.error?.let { item { Banner(it, isError = true, onDismiss = vm::dismissMessages) } }
 
-        item { SectionHeading("Pending incidents", "Oldest requests first") }
+        item {
+            SectionHeading(
+                "Pending incidents",
+                if (state.assignmentDataFresh) "Oldest requests first" else "Last loaded queue · unconfirmed",
+            )
+        }
+        if (pending.isNotEmpty() && availableUnits.isEmpty()) {
+            item {
+                Text(
+                    if (state.assignmentDataFresh) {
+                        "No responders or drivers are currently available. Team assignment and field claiming must wait until a unit goes on duty."
+                    } else {
+                        "No units were marked available in the last loaded snapshot. Current availability is unconfirmed; refresh before relying on it."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         if (state.loading && state.incidents.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -313,9 +415,14 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         } else if (pending.isEmpty()) {
             item {
                 Text(
-                    if (state.syncError != null && state.incidents.isEmpty())
-                        "The queue could not be loaded. Check your connection and refresh to try again."
-                    else "No pending incidents.",
+                    when {
+                        state.syncError != null ->
+                            "No pending incidents in the last loaded queue. Current status is unconfirmed; refresh before relying on this list."
+                        state.loading ->
+                            "Checking for pending incidents…"
+                        else ->
+                            "No pending incidents."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -323,19 +430,12 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
         }
         items(pending, key = { it.id }) { incident ->
             IncidentCard(incident) {
-                val waitSeconds = waitingAgeSeconds(incident.createdAt, queueClock)
                 Text(
                     waitingAgeLabel(incident.createdAt, queueClock),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (waitSeconds != null && waitSeconds >= 15 * 60)
-                        MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (waitSeconds != null && waitSeconds >= 15 * 60)
-                        FontWeight.SemiBold else FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (availableUnits.isEmpty()) {
-                    Text("No responder or driver is currently marked Available.")
-                } else {
+                if (availableUnits.isNotEmpty()) {
                     OutlinedButton(
                         onClick = {
                             selectedUnitIds = emptySet()
@@ -347,7 +447,7 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                         Text("Select response team")
                     }
                 }
-                OutlinedButton(
+                TextButton(
                     onClick = { vm.setIncidentClaimable(incident.id, !incident.isClaimable) },
                     enabled = !state.busy && state.assignmentDataFresh,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
@@ -358,94 +458,80 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             }
         }
 
-        item { SectionHeading("Active incidents") }
-        items(state.incidents.filter { it.status != IncidentStatus.PENDING }, key = { it.id }) { incident ->
+        item {
+            SectionHeading(
+                "Active incidents",
+                if (state.assignmentDataFresh) {
+                    "Dispatch records one shared progress milestone for the assigned team."
+                } else {
+                    "Last loaded queue · unconfirmed"
+                },
+            )
+        }
+        if (!state.loading && activeIncidents.isEmpty()) {
+            item {
+                Text(
+                    if (state.syncError != null) {
+                        "No active incidents in the last loaded queue. Current status is unconfirmed; refresh before relying on this list."
+                    } else {
+                        "No active incidents right now. Newly submitted requests will appear in the pending queue."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        items(activeIncidents, key = { it.id }) { incident ->
             IncidentCard(incident) {
                 val teamIds = incident.assignedUserIds.ifEmpty { listOfNotNull(incident.assignedTo) }
                 val teamNames = state.units.filter { it.id in teamIds }.joinToString(", ") { it.name }
                 val remainingTeamSlots = (5 - teamIds.distinct().size).coerceAtLeast(0)
-                if (incident.assignedUserStatuses.isEmpty()) {
-                    Text("Team: ${teamNames.ifBlank { "Not assigned" }}")
-                } else {
-                    val updatedMemberCount = incident.assignedUserStatuses.count {
-                        it.status != IncidentStatus.ASSIGNED
-                    }
-                    val teamCount = incident.assignedUserStatuses.size
-                    val stillAssignedCount = teamCount - updatedMemberCount
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("Team progress", style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                "$updatedMemberCount of $teamCount responders have started their response",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            if (stillAssignedCount > 0) {
-                                Text(
-                                    "$stillAssignedCount still marked Assigned",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Text(
-                                "The request status reflects the team's combined progress. Each responder updates their own status.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                Text("Response team", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    if (teamIds.isEmpty()) "No response team assigned"
+                    else "${teamIds.distinct().size} assigned · ${teamNames.ifBlank { "Member details unavailable" }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (incident.status in listOf(IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE) && teamIds.distinct().size > 1) {
+                    teamIds.distinct().forEach { memberId ->
+                        val memberName = state.units.firstOrNull { it.id == memberId }?.name ?: "Field unit #$memberId"
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(memberName, style = MaterialTheme.typography.bodySmall)
+                            TextButton(
+                                onClick = { releaseCandidate = incident to memberId },
+                                enabled = !state.busy && state.assignmentDataFresh,
+                            ) { Text("Release") }
                         }
-                        StatusPill(incident.status)
                     }
-                    TextButton(
-                        onClick = {
-                            expandedTeamStatusIds = if (incident.id in expandedTeamStatusIds) {
-                                expandedTeamStatusIds - incident.id
-                            } else {
-                                expandedTeamStatusIds + incident.id
-                            }
-                        },
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("Incident progress", style = MaterialTheme.typography.labelLarge)
+                    StatusPill(incident.status)
+                }
+                incident.status.nextSteps().forEach { next ->
+                    OutlinedButton(
+                        onClick = { vm.advanceIncident(incident, next) },
+                        enabled = !state.busy && state.assignmentDataFresh,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     ) {
                         Text(
-                            if (incident.id in expandedTeamStatusIds) {
-                                "Hide member details"
-                            } else {
-                                "View member details"
+                            when (next) {
+                                IncidentStatus.EN_ROUTE -> "Mark team deployed"
+                                IncidentStatus.ON_SCENE -> "Mark team on scene"
+                                IncidentStatus.TRANSPORTING -> "Mark transport in progress"
+                                IncidentStatus.RESOLVED -> "Complete incident"
+                                else -> next.label
                             }
                         )
-                    }
-                    if (incident.id in expandedTeamStatusIds) {
-                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            incident.assignedUserStatuses.forEach { memberStatus ->
-                                val unit = state.units.firstOrNull { it.id == memberStatus.userId }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                                    ) {
-                                        Text(
-                                            unit?.name ?: "Unit #${memberStatus.userId}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.Medium,
-                                        )
-                                        Text(
-                                            memberStatus.statusUpdatedAt?.let { "Updated ${formatTime(it)}" }
-                                                ?: "Update time unavailable",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    StatusPill(memberStatus.status)
-                                }
-                            }
-                        }
                     }
                 }
                 if (incident.status == IncidentStatus.ASSIGNED || incident.status == IncidentStatus.EN_ROUTE) {
@@ -463,10 +549,77 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                     }
                 }
                 TextButton(onClick = { onOpenChat(incident.id) }) { Text("Open conversation") }
+                val showHistory = expandedHistoryIncidentId == incident.id
+                TextButton(
+                    onClick = {
+                        expandedHistoryIncidentId = if (showHistory) null else incident.id
+                        if (!showHistory) vm.loadAssignmentHistory(incident.id)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(if (showHistory) "Hide assignment history" else "View assignment history") }
+                if (showHistory) {
+                    AssignmentHistoryPanel(
+                        incidentId = incident.id,
+                        historyIncidentId = state.assignmentHistoryIncidentId,
+                        history = state.assignmentHistory,
+                        loading = state.assignmentHistoryLoading,
+                        error = state.assignmentHistoryError,
+                        units = state.units,
+                        currentUserId = user.id,
+                        onRetry = { vm.loadAssignmentHistory(incident.id) },
+                    )
+                }
             }
         }
 
-        item { SectionHeading("Field units", "Current availability") }
+        if (recentClosedIncidents.isNotEmpty()) {
+            item {
+                SectionHeading("Closed incidents", "Latest 5 by request date · resolved or cancelled · read-only history")
+            }
+            items(recentClosedIncidents, key = { "closed-${it.id}" }) { incident ->
+                val showClosedHistory = expandedHistoryIncidentId == incident.id
+                IncidentCard(incident) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            incident.createdAt?.let(::formatTime) ?: "Submission time unavailable",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        StatusPill(incident.status)
+                    }
+                    TextButton(
+                        onClick = {
+                            expandedHistoryIncidentId = if (showClosedHistory) null else incident.id
+                            if (!showClosedHistory) vm.loadAssignmentHistory(incident.id)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(if (showClosedHistory) "Hide assignment history" else "View assignment history") }
+                    if (showClosedHistory) {
+                        AssignmentHistoryPanel(
+                            incidentId = incident.id,
+                            historyIncidentId = state.assignmentHistoryIncidentId,
+                            history = state.assignmentHistory,
+                            loading = state.assignmentHistoryLoading,
+                            error = state.assignmentHistoryError,
+                            units = state.units,
+                            currentUserId = user.id,
+                            onRetry = { vm.loadAssignmentHistory(incident.id) },
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            SectionHeading(
+                "Field units",
+                if (state.assignmentDataFresh) "Current availability" else "Last loaded availability · unconfirmed",
+            )
+        }
         if (state.loading && state.units.isEmpty()) {
             item { Text("Loading field-unit availability…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else if (state.units.isEmpty()) {
@@ -479,7 +632,10 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
                 )
             }
         }
-        items(state.units, key = { it.id }) { unit -> UnitCard(unit) }
+        // Put actionable units first without hiding other statuses or changing assignment eligibility.
+        items(state.units.sortedBy { it.dutyStatus != DutyStatus.AVAILABLE }, key = { it.id }) { unit ->
+            UnitCard(unit)
+        }
     }
 
     currentAssignmentCandidate?.let { incident ->
@@ -538,10 +694,33 @@ fun DispatcherScreen(vm: DispatcherViewModel, user: User, onLogout: () -> Unit, 
             },
         )
     }
+
+    releaseCandidate?.let { (incident, memberId) ->
+        val memberName = state.units.firstOrNull { it.id == memberId }?.name ?: "this field unit"
+        AlertDialog(
+            onDismissRequest = { if (!state.busy) releaseCandidate = null },
+            title = { Text("Release field unit?") },
+            text = {
+                Text("Remove $memberName from incident #${incident.id}? The remaining response team will stay assigned. This cannot be undone automatically.")
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !state.busy && state.assignmentDataFresh,
+                    onClick = {
+                        releaseCandidate = null
+                        vm.releaseAssignment(incident, memberId)
+                    },
+                ) { Text(if (state.busy) "Releasing…" else "Release unit") }
+            },
+            dismissButton = {
+                TextButton(onClick = { releaseCandidate = null }, enabled = !state.busy) { Text("Keep assigned") }
+            },
+        )
+    }
 }
 
 @Composable
-private fun SummaryCard(total: Int, pending: Int, active: Int, available: Int) {
+private fun SummaryCard(pending: Int, active: Int, available: Int, availabilityConfirmed: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -554,20 +733,89 @@ private fun SummaryCard(total: Int, pending: Int, active: Int, available: Int) {
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Live overview", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text("Dispatch overview", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                DispatchMetric(total, "Total")
                 DispatchMetric(pending, "Pending")
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
                 DispatchMetric(active, "Active")
-                DispatchMetric(available, "Available")
+                DispatchMetric(available, if (availabilityConfirmed) "Ready units" else "Ready*")
+            }
+            if (!availabilityConfirmed) {
+                Text(
+                    "* Last loaded count; current availability is unconfirmed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssignmentHistoryPanel(
+    incidentId: Long,
+    historyIncidentId: Long?,
+    history: List<AssignmentHistoryEvent>,
+    loading: Boolean,
+    error: String?,
+    units: List<User>,
+    currentUserId: Long,
+    onRetry: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Assignment history", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            when {
+                historyIncidentId != incidentId || loading -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text("Loading audit events…", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                error != null -> {
+                    Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = onRetry) { Text("Retry history") }
+                }
+                history.isEmpty() -> {
+                    Text(
+                        "No assignment events were returned for this incident.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                else -> history.asReversed().forEach { event ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        val eventLabel = when (event.eventType) {
+                            "assigned" -> "Field unit assigned"
+                            "released" -> "Field unit released"
+                            "incident_closed" -> "Incident closed"
+                            else -> "Assignment event"
+                        }
+                        val memberName = units.firstOrNull { it.id == event.userId }?.name
+                            ?: "Field unit #${event.userId}"
+                        val actorLabel = when (event.actorUserId) {
+                            null -> "System"
+                            currentUserId -> "You"
+                            else -> "Another dispatcher/admin"
+                        }
+                        Text(eventLabel, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "$memberName · by $actorLabel",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            formatTime(event.occurredAt),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }
@@ -616,10 +864,17 @@ private fun UnitCard(unit: User) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(unit.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    unit.role.label + (unit.phone?.let { " · $it" } ?: ""),
+                    unit.role.label,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                unit.phone?.takeIf { it.isNotBlank() }?.let { phone ->
+                    Text(
+                        "Contact: $phone",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             StatusPill(
                 unit.dutyStatus?.label ?: "Unknown",
@@ -627,12 +882,6 @@ private fun UnitCard(unit: User) {
             )
         }
     }
-}
-
-private fun waitingAgeSeconds(createdAt: String?, now: Instant): Long? {
-    val submittedAt = createdAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() } ?: return null
-    val age = Duration.between(submittedAt, now).seconds
-    return age.takeIf { it >= 0L }
 }
 
 private fun waitingAgeLabel(createdAt: String?, now: Instant): String {

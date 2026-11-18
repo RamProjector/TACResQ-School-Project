@@ -16,7 +16,7 @@ assert "else {\n            onBack()" in map_screen
 assert "contentDescription = \"Back from GPS map\"" in map_screen
 assert "onClick = onBack" in map_screen
 assert 'if (role == Role.REQUESTER) "Map" else "GPS Map"' in map_screen
-assert "maxLines = 1,\n                        softWrap = false,\n                        overflow = TextOverflow.Ellipsis," in map_screen
+assert "modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),\n                            maxLines = 1,\n                            softWrap = false,\n                            overflow = TextOverflow.Ellipsis," in map_screen
 assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen
 assert "modifier = Modifier.fillMaxSize()" in map_screen
 # MapLibre supplies gesture-based zoom without legacy on-map zoom widgets.
@@ -50,10 +50,15 @@ assert "BottomSheetDefaults.DragHandle()" in map_screen
 assert "val responderPointsForInitialFrame = validResponderLocations" in map_screen
 assert ".filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }" in map_screen
 assert "validIncidentPoints + responderPointsForInitialFrame" in map_screen
-assert "val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
+assert "val hasRestorableCamera = savedCameraLatitude != null && savedCameraLongitude != null" in map_screen
+assert "val shouldFrameInitialUnits = !hasRestorableCamera && !hasAutoFramedInitialMapPoints &&" in map_screen
+assert "val shouldFrameIncidentPoints = !hasRestorableCamera && !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
+assert "val pointsToFrame = if (shouldFrameIncidentPoints) initialMapPoints else responderPointsForInitialFrame" in map_screen
 assert "onShowActiveUnits = ::showActiveUnits" in map_screen
 assert "map.clear()" in map_screen and "map.addMarker(" in map_screen
-assert "val scale = 0.75f" in map_screen
+assert map_screen.count("scale: Float = 0.75f") >= 2
+assert map_screen.count("val safeScale = scale.takeIf { it.isFinite() && it > 0f } ?: 0.75f") == 2
+assert "IconFactory.getInstance(this).fromBitmap(mapLibrePinBitmap(resourceId, alpha, scale))" in map_screen
 assert "val bitmap = Bitmap.createBitmap(width, iconHeight * 2" in map_screen, "pin geographic anchor padding must remain proportional after scaling"
 
 # Location preview is cleared if permission is revoked while the map is backgrounded.

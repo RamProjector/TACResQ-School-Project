@@ -5,19 +5,22 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
 import com.tacresq.app.notifications.PushNotificationTap
 import com.tacresq.app.notifications.PushNotificationIdentity
 import com.tacresq.app.ui.AppRoot
 import com.tacresq.app.ui.theme.TACResQTheme
 import com.tacresq.app.ui.theme.ThemeMode
+import com.tacresq.app.ui.theme.observeThemeMode
+import com.tacresq.app.ui.theme.persistThemeMode
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    private var authReturnMessage by mutableStateOf<String?>(null)
-    private var notificationTap by mutableStateOf<PushNotificationTap?>(null)
+    private var authReturnMessage by androidx.compose.runtime.mutableStateOf<String?>(null)
+    private var notificationTap by androidx.compose.runtime.mutableStateOf<PushNotificationTap?>(null)
 
     private companion object {
         const val STATE_NOTIFICATION_ID = "tacresq.state.notification_id"
@@ -33,8 +36,9 @@ class MainActivity : ComponentActivity() {
                 ?.takeIf(PushNotificationIdentity::isValidNotificationId)
                 ?.let(::PushNotificationTap)
         val container = (application as TacResqApp).container
+        val themeModeFlow = observeThemeMode()
         setContent {
-            var themeMode by rememberSaveable { mutableStateOf(ThemeMode.SYSTEM) }
+            val themeMode by themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
             TACResQTheme(themeMode = themeMode) {
                 AppRoot(
                     container = container,
@@ -43,7 +47,9 @@ class MainActivity : ComponentActivity() {
                     notificationTap = notificationTap,
                     onNotificationTapConsumed = { consumeNotificationTap() },
                     themeMode = themeMode,
-                    onThemeModeChanged = { themeMode = it },
+                    onThemeModeChanged = { mode ->
+                        lifecycleScope.launch { persistThemeMode(mode) }
+                    },
                 )
             }
         }

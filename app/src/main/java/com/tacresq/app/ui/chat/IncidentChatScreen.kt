@@ -63,6 +63,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
+import com.tacresq.app.data.local.SessionStore
 import com.tacresq.app.data.model.IncidentMessage
 import com.tacresq.app.data.model.User
 import com.tacresq.app.data.repo.TacRepository
@@ -82,6 +83,28 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
+import java.security.MessageDigest
+
+
+private const val MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024
+
+/** Read a selected image with a hard byte limit before allocating the full payload. */
+private fun readChatImageBytes(context: android.content.Context, uri: android.net.Uri): ByteArray? =
+    runCatching {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8 * 1024)
+            var total = 0
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                total += count
+                if (total > MAX_CHAT_IMAGE_BYTES) return null
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        }
+    }.getOrNull()
 
 data class IncidentChatUiState(
     val items: List<IncidentMessage> = emptyList(),
@@ -91,12 +114,16 @@ data class IncidentChatUiState(
     val loadingOlder: Boolean = false,
     val sending: Boolean = false,
     val restoringPending: Boolean = false,
+    val pendingImageRetry: Boolean = false,
     val hasOlder: Boolean = true,
     val error: String? = null,
     val sendError: String? = null,
     val attachmentBytes: ByteArray? = null,
     val attachmentMimeType: String? = null,
 )
+
+internal fun chatImageSha256(bytes: ByteArray): String =
+    MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
 class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     private val _state = MutableStateFlow(IncidentChatUiState())
@@ -114,8 +141,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
     // Retain uncertain sends across conversation close/reopen. Never mint a new key for the same payload.
     private var pendingTextMessage: PendingTextMessage? = null
     private var pendingClientMessageId: String? = null
-    private var pendingImageClientMessageId: String? = null
-    private var pendingImageSignature: String? = null
+    private var pendingImageRecord: SessionStore.PendingChatImage? = null
 
     fun open(incidentId: Long) {
         if (activeIncidentId != incidentId) {
@@ -138,13 +164,39 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                         pendingClientMessageId = saved?.clientMessageId
                         if (saved != null && saved.incidentId != incidentId) {
                             _state.update { it.copy(restoringPending = true, sendError = "A previous message is unresolved in another incident. Open that incident and retry it first.") }
-                        } else {
-                            _state.update { it.copy(draft = saved?.message.orEmpty(), restoringPending = false) }
+                            return@onSuccess
                         }
+                        repo.pendingChatImage()
+                            .onSuccess { image ->
+                                if (!isCurrentConversation(incidentId, conversationGeneration)) return@onSuccess
+                                pendingImageRecord = image
+                                if (saved != null && image != null) {
+                                    _state.update {
+                                        it.copy(
+                                            restoringPending = true,
+                                            sendError = "Both a text message and an image send are unresolved. Sending is blocked to avoid replacing either retry record. Contact support to resolve the pending chat state.",
+                                        )
+                                    }
+                                } else if (image != null && image.incidentId != incidentId) {
+                                    _state.update { it.copy(restoringPending = true, sendError = "An earlier image message is unresolved in another incident. Open that incident and reselect the same image to retry it.") }
+                                } else {
+                                    _state.update {
+                                        it.copy(
+                                            draft = saved?.message ?: image?.caption.orEmpty(),
+                                            restoringPending = false,
+                                            pendingImageRetry = image != null,
+                                            sendError = if (image != null) "An earlier image send is unconfirmed. Re-select the exact same image to safely retry it." else null,
+                                        )
+                                    }
+                                }
+                            }
+                            .onFailure { failure ->
+                                if (!isCurrentConversation(incidentId, conversationGeneration)) return@onFailure
+                                _state.update { it.copy(restoringPending = true, sendError = failure.message ?: "Could not safely restore the pending image. Sending is blocked.") }
+                            }
                     }
                     .onFailure { failure ->
                         if (!isCurrentConversation(incidentId, conversationGeneration)) return@onFailure
-                        // Fail closed if the pending record's owner or integrity cannot be verified.
                         _state.update { it.copy(restoringPending = true, sendError = failure.message ?: "Could not safely restore the pending message. Sending is blocked.") }
                     }
             }
@@ -228,15 +280,15 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
             _state.update { it.copy(draft = pending.message, sendError = "A previous message may already have been sent. Retry its original text in the same incident before editing it.") }
             return
         }
-        if (next != _state.value.draft) {
-            pendingImageClientMessageId = null
-            pendingImageSignature = null
-        }
         _state.update { it.copy(draft = next, sendError = null) }
     }
 
     fun send(incidentId: Long) {
         val message = _state.value.draft.trim()
+        if (pendingImageRecord != null) {
+            _state.update { it.copy(sendError = "An image send is still unresolved. Re-select the original image before retrying.") }
+            return
+        }
         if (activeIncidentId != incidentId || _state.value.restoringPending || sendJob?.isActive == true || message.isEmpty() || message.length > 2000) return
         val pending = pendingTextMessage
         if (pending != null && (pending.incidentId != incidentId || pending.message != message)) {
@@ -273,6 +325,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                             draft = "",
                             sending = false,
                             sendError = null,
+                            pendingImageRetry = false,
                         )
                     }
                 }
@@ -290,22 +343,38 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
 
     fun setImageAttachment(bytes: ByteArray, mimeType: String) {
         if (mimeType !in setOf("image/jpeg", "image/png", "image/webp") ||
-            bytes.isEmpty() || bytes.size > 5 * 1024 * 1024
+            bytes.isEmpty() || bytes.size > MAX_CHAT_IMAGE_BYTES
         ) {
             _state.update { it.copy(sendError = "Choose a JPG, PNG, or WebP image up to 5 MB.") }
             return
         }
-        pendingImageClientMessageId = null
-        pendingImageSignature = null
+        val restored = pendingImageRecord
+        val digest = chatImageSha256(bytes)
+        val matchesPending = restored == null ||
+            (restored.sha256 == digest && restored.mimeType == mimeType && restored.incidentId == activeIncidentId)
         _state.update {
-            it.copy(attachmentBytes = bytes.copyOf(), attachmentMimeType = mimeType, sendError = null)
+            it.copy(
+                attachmentBytes = bytes.copyOf(),
+                attachmentMimeType = mimeType,
+                sendError = when {
+                    !matchesPending -> "This is not the same image as the unconfirmed send. Re-select the original image to avoid creating a duplicate."
+                    restored != null -> "Original image restored. Retry to confirm the earlier send."
+                    else -> null
+                },
+            )
         }
     }
 
     fun clearImageAttachment() {
-        pendingImageClientMessageId = null
-        pendingImageSignature = null
-        _state.update { it.copy(attachmentBytes = null, attachmentMimeType = null, sendError = null) }
+        _state.update {
+            it.copy(
+                attachmentBytes = null,
+                attachmentMimeType = null,
+                sendError = if (pendingImageRecord != null)
+                    "The earlier image send is still unresolved. Re-select the original image to retry it safely."
+                else null,
+            )
+        }
     }
 
     fun sendImage(incidentId: Long, senderId: Long) {
@@ -313,28 +382,53 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         val bytes = current.attachmentBytes ?: return
         val mimeType = current.attachmentMimeType ?: return
         val caption = current.draft.trim()
-        if (activeIncidentId != incidentId || senderId < 1 || sendJob?.isActive == true || caption.length > 2000) return
-        val signature = "$mimeType:${bytes.contentHashCode()}:$caption"
-        val clientMessageId = if (pendingImageSignature == signature) {
-            pendingImageClientMessageId ?: UUID.randomUUID().toString().also {
-                pendingImageClientMessageId = it
-                pendingImageSignature = signature
+        if (activeIncidentId != incidentId || senderId < 1 || _state.value.restoringPending || sendJob?.isActive == true || caption.length > 2000) return
+        if (pendingTextMessage != null || pendingClientMessageId != null) {
+            _state.update {
+                it.copy(sendError = "A previous text message is still unresolved. Retry that exact message before sending an image.")
             }
-        } else {
-            UUID.randomUUID().toString().also {
-                pendingImageClientMessageId = it
-                pendingImageSignature = signature
-            }
+            return
         }
+        val digest = chatImageSha256(bytes)
+        val restored = pendingImageRecord
+        if (restored != null && (
+                restored.incidentId != incidentId ||
+                    restored.caption != caption ||
+                    restored.mimeType != mimeType ||
+                    restored.sha256 != digest
+            )
+        ) {
+            _state.update { it.copy(sendError = "This does not match the unconfirmed image. Re-select the original image and keep its original caption before retrying.") }
+            return
+        }
+        val clientMessageId = restored?.clientMessageId ?: UUID.randomUUID().toString()
         val generation = conversationGeneration
         sendJob = viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null, error = null) }
+            if (restored == null) {
+                repositoryCallOrFailure {
+                    repo.persistPendingChatImage(incidentId, caption, clientMessageId, mimeType, digest)
+                }.onFailure { failure ->
+                    if (isCurrentConversation(incidentId, generation)) {
+                        _state.update { it.copy(sending = false, sendError = failure.message ?: "Could not safely save this image retry. Image was not sent.") }
+                    }
+                    return@launch
+                }
+                pendingImageRecord = SessionStore.PendingChatImage(
+                    incidentId, caption, clientMessageId, mimeType, digest, senderId,
+                )
+                _state.update { it.copy(pendingImageRetry = true) }
+            }
             repositoryCallOrFailure { repo.sendIncidentImageMessage(incidentId, senderId, caption, clientMessageId, mimeType, bytes) }
                 .onSuccess { sent ->
                     if (!isCurrentConversation(incidentId, generation)) return@onSuccess
-                    pendingImageClientMessageId = null
-                    pendingImageSignature = null
-                    pendingClientMessageId = null
+                    val cleared = repo.clearPendingChatImage(clientMessageId)
+                    if (cleared.isFailure) {
+                        _state.update { it.copy(sending = false, sendError = "Image was sent, but its retry record could not be cleared. Refresh the conversation before retrying; the same message ID is retained.") }
+                        refresh(incidentId)
+                        return@onSuccess
+                    }
+                    pendingImageRecord = null
                     _state.update { state ->
                         state.copy(
                             items = (state.items + sent).distinctBy { it.id }.sortedBy { it.id },
@@ -343,6 +437,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                             attachmentMimeType = null,
                             sending = false,
                             sendError = null,
+                            pendingImageRetry = false,
                         )
                     }
                 }
@@ -351,7 +446,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
                     _state.update {
                         it.copy(
                             sending = false,
-                            sendError = failure.message ?: "Image was not confirmed. Retry safely.",
+                            sendError = failure.message ?: "Image was not confirmed. Re-select the same image and retry safely.",
                         )
                     }
                 }
@@ -376,8 +471,7 @@ class IncidentChatViewModel(private val repo: TacRepository) : ViewModel() {
         activeIncidentId = null
         // Do not clear an uncertain text-send identity here: the server may have committed
         // it even though cancellation prevented the response from reaching this ViewModel.
-        pendingImageClientMessageId = null
-        pendingImageSignature = null
+        // Keep the encrypted retry identity in SessionStore; it must survive navigation.
         _state.value = IncidentChatUiState()
     }
 }
@@ -400,15 +494,18 @@ fun IncidentChatScreen(
     ) { uri ->
         if (uri != null) {
             val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
-            val bytes = runCatching {
-                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            }.getOrNull()
+            val bytes = readChatImageBytes(context, uri)
             if (bytes == null) vm.setImageAttachment(byteArrayOf(), mimeType)
             else vm.setImageAttachment(bytes, mimeType)
         }
     }
-    val selectedImageBitmap = remember(state.attachmentBytes) {
-        state.attachmentBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+    val selectedImageBitmap by produceState<ImageBitmap?>(initialValue = null, state.attachmentBytes) {
+        val bytes = state.attachmentBytes
+        value = bytes?.let {
+            withContext(Dispatchers.Default) {
+                BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
+            }
+        }
     }
     var didInitialScroll by remember(incidentId) { mutableStateOf(false) }
 
@@ -429,6 +526,18 @@ fun IncidentChatScreen(
         }
     }
 
+    // Follow newly received messages only while the reader is already near the bottom.
+    // Do not pull someone away from older messages while they are reviewing the thread.
+    LaunchedEffect(state.items.lastOrNull()?.id, state.items.size, state.hasOlder) {
+        if (didInitialScroll && state.items.isNotEmpty()) {
+            val layout = listState.layoutInfo
+            val lastVisibleIndex = layout.visibleItemsInfo.lastOrNull()?.index ?: -1
+            if (lastVisibleIndex >= layout.totalItemsCount - 2) {
+                listState.animateScrollToItem(state.items.lastIndex + if (state.hasOlder) 1 else 0)
+            }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
             Column(
@@ -441,20 +550,12 @@ fun IncidentChatScreen(
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("Incident #$incidentId", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text("Incident conversation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Visible to authorized incident participants", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = onOpenNotifications) {
                         Icon(Icons.Filled.Notifications, contentDescription = "Open notifications")
                     }
                     if (state.refreshing) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                }
-                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium) {
-                    Text(
-                        "Keep messages relevant to this incident. Avoid sharing unrelated personal information.",
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
@@ -574,9 +675,10 @@ fun IncidentChatScreen(
                     TextButton(
                         onClick = {
                             if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
-                            else vm.send(incidentId)
+                            else if (!state.pendingImageRetry) vm.send(incidentId)
                         },
-                        enabled = !state.sending && (state.draft.isNotBlank() || state.attachmentBytes != null),
+                        enabled = !state.sending && if (state.attachmentBytes != null) true
+                            else state.draft.isNotBlank() && !state.pendingImageRetry,
                     ) { Text("Retry") }
                 }
             }
@@ -597,9 +699,9 @@ fun IncidentChatScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            if (selectedImageBitmap != null) {
+                            selectedImageBitmap?.let { bitmap ->
                                 Image(
-                                    bitmap = selectedImageBitmap,
+                                    bitmap = bitmap,
                                     contentDescription = "Selected image preview",
                                     modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)),
                                     contentScale = ContentScale.Crop,
@@ -640,22 +742,24 @@ fun IncidentChatScreen(
                     minLines = 1,
                     placeholder = { Text("Message the incident team…") },
                     maxLines = 4,
-                    supportingText = { Text("${state.draft.length}/2000") },
+                    supportingText = if (state.draft.length >= 1800) {
+                        { Text("${state.draft.length}/2000") }
+                    } else null,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
                         if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
-                        else vm.send(incidentId)
+                        else if (!state.pendingImageRetry) vm.send(incidentId)
                     }),
-                    enabled = !state.sending && !state.loading && state.error == null,
+                    enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null && !state.pendingImageRetry,
                     shape = RoundedCornerShape(22.dp),
                 )
                 androidx.compose.material3.FilledIconButton(
                     onClick = {
                         if (state.attachmentBytes != null) vm.sendImage(incidentId, user.id)
-                        else vm.send(incidentId)
+                        else if (!state.pendingImageRetry) vm.send(incidentId)
                     },
                     enabled = !state.sending && !state.restoringPending && !state.loading && state.error == null &&
-                        (state.draft.trim().isNotEmpty() || state.attachmentBytes != null),
+                        (state.attachmentBytes != null || (!state.pendingImageRetry && state.draft.trim().isNotEmpty())),
                     modifier = Modifier.size(54.dp),
                 ) {
                     if (state.sending) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)

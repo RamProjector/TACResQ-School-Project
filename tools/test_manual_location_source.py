@@ -169,16 +169,16 @@ checks = {
     "field units are not described as live before a location is confirmed": all(
         text in responder for text in (
             "Waiting for the first confirmed location update.",
-            "Last location update failed.",
             "Location sharing is off.",
-            "Share location & start",
-            "Start without sharing",
+            "Resume location sharing",
+            "Stop location sharing",
+            "Location sharing becomes available after dispatch records the team as en route.",
         )
-    ),
+    ) and "Sharing approximate location for this en-route response" in responder,
     "responder opens in-app route guidance while location tracking remains consented and trip-scoped": (
         'Text("Open in-app route preview")' in responder
-        and "including when you switch apps or lock your screen" in responder
-        and "persistent notification shows sharing is active and lets you stop it" in responder
+        and "including when TACResQ is in the background" in responder
+        and "Location sharing is allowed only for your own en-route unit status." in responder
     ),
     "SOS submission lock is set before launching asynchronous work": (
         "Claim the submission synchronously before launching the coroutine." in requester

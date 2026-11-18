@@ -54,7 +54,9 @@ class FakeTacApiNotificationTest {
         assertTrue(api.markNotificationRead(responderAlerts.single().id))
         assertNotNull(api.myNotifications(50).single().readAt)
 
-        api.updateMyAssignmentStatus(incident.id, UpdateStatusRequest(IncidentStatus.EN_ROUTE))
+        // Shared incident progress is advanced by dispatch, not by an individual responder.
+        currentToken = dispatcherSession.token
+        api.updateIncidentStatus(incident.id, UpdateStatusRequest(IncidentStatus.EN_ROUTE))
         currentToken = requesterSession.token
         val requesterAfterStatusChange = api.myNotifications(50)
         assertEquals(2, requesterAfterStatusChange.size)

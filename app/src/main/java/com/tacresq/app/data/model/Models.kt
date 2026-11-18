@@ -45,27 +45,30 @@ enum class IncidentStatus(val label: String) {
     val isActive: Boolean
         get() = this != RESOLVED && this != CANCELLED
 
-    /** Plain-language status shown to the person who submitted the emergency request. */
+    /** Concise progress labels for the requester; internal dispatch states stay out of the UI. */
     val requesterLabel: String
         get() = when (this) {
-            PENDING -> "Awaiting dispatch"
-            ASSIGNED -> "Responder assigned"
-            EN_ROUTE -> "Responder en route"
-            ON_SCENE -> "Responder on scene"
+            PENDING -> "Request received"
+            ASSIGNED -> "Team assigned"
+            EN_ROUTE -> "Team deployed"
+            ON_SCENE -> "Team arrived"
             TRANSPORTING -> "Transport in progress"
-            RESOLVED -> "Request resolved"
+            RESOLVED -> "Response completed"
             CANCELLED -> "Request cancelled"
         }
 
-    /** Explains the current request state without implying that GPS or chat confirmed it. */
+    /**
+     * Describes the latest dispatcher-recorded milestone. Location sharing, radio,
+     * and message delivery are separate signals and must never be inferred here.
+     */
     val requesterDescription: String
         get() = when (this) {
-            PENDING -> "Your request has been received. Dispatch has not assigned a response team yet."
-            ASSIGNED -> "Dispatch has assigned a response team. The team has not started travelling yet."
-            EN_ROUTE -> "Your assigned response team has started travelling to the incident location."
-            ON_SCENE -> "The assigned response team has confirmed that it has reached the incident scene."
-            TRANSPORTING -> "The response team has reported that transportation is in progress."
-            RESOLVED -> "The assigned response team has completed its response."
+            PENDING -> "Your emergency request was received. A response team has not yet been assigned."
+            ASSIGNED -> "Dispatch has assigned a response team. Deployment has not yet been recorded."
+            EN_ROUTE -> "Dispatch has recorded that the assigned team has been deployed."
+            ON_SCENE -> "Dispatch has recorded that the team has arrived at the incident location."
+            TRANSPORTING -> "Dispatch has recorded that transport is in progress for this incident."
+            RESOLVED -> "Dispatch has marked this response as completed."
             CANCELLED -> "This emergency request has been cancelled."
         }
 }

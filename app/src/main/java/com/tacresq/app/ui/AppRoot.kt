@@ -104,9 +104,6 @@ fun AppRoot(
     }
     var showNotificationPermissionRationale by rememberSaveable { mutableStateOf(false) }
     var unsupportedAccountInfo by rememberSaveable { mutableStateOf<String?>(null) }
-    var showPrivacyPolicyDialog by rememberSaveable { mutableStateOf(false) }
-    var showAccountDeletionDialog by rememberSaveable { mutableStateOf(false) }
-    var stepUpSecurityEnabled by rememberSaveable { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -300,6 +297,16 @@ fun AppRoot(
                                     onOpenNotifications = openNotifications,
                                     onRefreshIncidents = vm::refresh,
                                     selectedIncidentId = selectedIncidentId,
+                                    themeMode = themeMode,
+                                    onThemeModeChanged = onThemeModeChanged,
+                                    historyLoading = vmState.loading && vmState.incidents.isEmpty(),
+                                    historyStatusMessage = when {
+                                        vmState.isShowingCachedIncidentStatuses ->
+                                            "Live request history could not be refreshed. Last-confirmed statuses are shown on Home; refresh before relying on this list."
+                                        !vmState.hasCurrentIncidentStatus && !vmState.loading ->
+                                            "Current request history could not be confirmed. Reconnect and refresh before relying on an empty list."
+                                        else -> null
+                                    },
                                 )
                             }
                         }
@@ -329,6 +336,12 @@ fun AppRoot(
                                     onOpenNotifications = openNotifications,
                                     onRefreshIncidents = vm::refresh,
                                     selectedIncidentId = selectedIncidentId,
+                                    themeMode = themeMode,
+                                    onThemeModeChanged = onThemeModeChanged,
+                                    historyLoading = vmState.loading && vmState.incidents.isEmpty(),
+                                    historyStatusMessage = if (vmState.syncError != null)
+                                        "The latest response history could not be confirmed. This list may be out of date; refresh before relying on it."
+                                    else null,
                                 )
                             }
                         }
@@ -358,6 +371,12 @@ fun AppRoot(
                                     onOpenNotifications = openNotifications,
                                     onRefreshIncidents = vm::refresh,
                                     selectedIncidentId = selectedIncidentId,
+                                    themeMode = themeMode,
+                                    onThemeModeChanged = onThemeModeChanged,
+                                    historyLoading = vmState.loading && vmState.incidents.isEmpty(),
+                                    historyStatusMessage = if (vmState.syncError != null)
+                                        "The latest dispatch history could not be confirmed. This list may be out of date; refresh before relying on it."
+                                    else null,
                                 )
                             }
                         }
@@ -456,6 +475,8 @@ internal fun RoleSectionScreen(
     selectedIncidentId: Long? = null,
     themeMode: com.tacresq.app.ui.theme.ThemeMode = com.tacresq.app.ui.theme.ThemeMode.SYSTEM,
     onThemeModeChanged: (com.tacresq.app.ui.theme.ThemeMode) -> Unit = {},
+    historyLoading: Boolean = false,
+    historyStatusMessage: String? = null,
 ) {
     if (user.role == Role.ADMIN) return
     if (destination == AppDestination.ALERTS) {
@@ -466,8 +487,6 @@ internal fun RoleSectionScreen(
     var showPrivacyPolicyDialog by remember(user.id) { mutableStateOf(false) }
     var showAccountDeletionDialog by remember(user.id) { mutableStateOf(false) }
     var showHelpGuideDialog by remember(user.id) { mutableStateOf(false) }
-    var stepUpSecurityEnabled by remember(user.id) { mutableStateOf(false) }
-    var unsupportedAccountInfo by remember(user.id) { mutableStateOf<String?>(null) }
     val role = user.role
     val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER && role != Role.ADMIN
     val title = when (destination) {
@@ -508,6 +527,8 @@ internal fun RoleSectionScreen(
                 completedCount = completedCount,
                 onRefresh = onRefreshIncidents,
                 onOpenChat = onOpenChat,
+                historyLoading = historyLoading,
+                historyStatusMessage = historyStatusMessage,
             )
         }
         return
@@ -667,10 +688,7 @@ internal fun RoleSectionScreen(
 
                         androidx.compose.material3.HorizontalDivider()
 
-                        // Account Details
-                        ProfileDetail("Full name", user.name)
-                        ProfileDetail("Email", user.email)
-                        ProfileDetail("Role", role.label)
+                        // The identity header already contains name, email, and role.
                         user.phone?.takeIf { it.isNotBlank() }?.let { ProfileDetail("Mobile", it) }
 
                         androidx.compose.material3.HorizontalDivider()
@@ -697,31 +715,12 @@ internal fun RoleSectionScreen(
 
                         androidx.compose.material3.HorizontalDivider()
 
-                        // Security & Privacy (RA 10173 & TACRU Standards)
+                        // Privacy and account actions. Only expose controls that have a real action.
                         Text(
-                            "Security & Privacy (RA 10173 & TACRU)",
+                            "Privacy & account",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Step-Up Security / OTP Toggle", style = MaterialTheme.typography.labelLarge)
-                                Text(
-                                    "Require step-up verification for sensitive account operations.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            androidx.compose.material3.Switch(
-                                checked = stepUpSecurityEnabled,
-                                onCheckedChange = { stepUpSecurityEnabled = it },
-                            )
-                        }
 
                         androidx.compose.material3.OutlinedButton(
                             onClick = { showPrivacyPolicyDialog = true },
@@ -734,7 +733,7 @@ internal fun RoleSectionScreen(
                             onClick = { showAccountDeletionDialog = true },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Request account deletion (Google Play policy)")
+                            Text("Account deletion information")
                         }
 
                         androidx.compose.material3.HorizontalDivider()
@@ -743,7 +742,7 @@ internal fun RoleSectionScreen(
                         Text("Safety & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         ProfileDetail("Emergency help", "For immediate danger, contact local emergency services. Do not wait for an app update.")
                         ProfileDetail("Confirm your location", "Check the map pin against a landmark. GPS can drift indoors or near tall buildings.")
-                        ProfileDetail("Location sharing", "Sharing is visible to authorized dispatch while the app is open. Stop sharing when it is no longer needed.")
+                        ProfileDetail("Location sharing", "When an en-route response has location sharing enabled, approximate location may continue to be sent while TACResQ is in the background. Stop sharing when it is no longer needed.")
                         ProfileDetail("Personal information", "Share only details needed for the response. Keep medical and contact details private.")
 
                         androidx.compose.material3.OutlinedButton(
@@ -792,28 +791,20 @@ internal fun RoleSectionScreen(
                     )
                 }
 
-                // Account Deletion Dialog (Google Play Compliant)
+                // Information only: no deletion request is sent by this dialog.
                 if (showAccountDeletionDialog) {
                     androidx.compose.material3.AlertDialog(
                         onDismissRequest = { showAccountDeletionDialog = false },
-                        title = { Text("Request Account Deletion") },
+                        title = { Text("Account deletion information") },
                         text = {
                             Text(
-                                "Per Google Play User Data Policy and RA 10173, you may request account deletion. Official emergency dispatch audit records will be retained in accordance with Philippine disaster response regulations (RA 10121)."
+                                "An in-app deletion request is not connected yet. This dialog does not submit or register a request. Contact the TACResQ administrator through your organization's official support channel and wait for confirmation. Emergency response records may be retained where legally required."
                             )
                         },
                         confirmButton = {
                             androidx.compose.material3.TextButton(
-                                onClick = {
-                                    showAccountDeletionDialog = false
-                                    unsupportedAccountInfo = "Deletion request submitted. Your account details will be processed by TACRU administration."
-                                },
-                            ) { Text("Confirm Request") }
-                        },
-                        dismissButton = {
-                            androidx.compose.material3.TextButton(
                                 onClick = { showAccountDeletionDialog = false },
-                            ) { Text("Cancel") }
+                            ) { Text("Close") }
                         },
                     )
                 }
@@ -882,6 +873,8 @@ private fun IncidentHistoryAdaptiveScaffold(
     completedCount: Int,
     onRefresh: () -> Unit,
     onOpenChat: (Long) -> Unit,
+    historyLoading: Boolean = false,
+    historyStatusMessage: String? = null,
 ) {
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     val windowSizeClass = adaptiveInfo.windowSizeClass
@@ -938,11 +931,35 @@ private fun IncidentHistoryAdaptiveScaffold(
                         AdaptivePaneHeader(
                             eyebrow = "INCIDENT HISTORY",
                             title = if (role == Role.REQUESTER) "Your requests" else "Your responses",
-                            supportingText = "$activeCount active · $completedCount completed",
+                            supportingText = when {
+                                historyStatusMessage != null -> "Last loaded snapshot · current status unconfirmed"
+                                historyLoading -> "Checking latest incident history…"
+                                else -> "$activeCount active · $completedCount completed"
+                            },
                             count = sortedIncidents.size,
                         )
                     }
-                    if (sortedIncidents.isEmpty()) {
+                    if (historyStatusMessage != null) {
+                        item {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                EmptySectionCard(
+                                    if (sortedIncidents.isEmpty()) "History unavailable" else "Last loaded history",
+                                    historyStatusMessage,
+                                )
+                                androidx.compose.material3.OutlinedButton(
+                                    onClick = onRefresh,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                ) { Text("Refresh history") }
+                            }
+                        }
+                    } else if (historyLoading && sortedIncidents.isEmpty()) {
+                        item {
+                            EmptySectionCard(
+                                "Loading incident history",
+                                "Checking the latest role-scoped incident records.",
+                            )
+                        }
+                    } else if (sortedIncidents.isEmpty()) {
                         item {
                             EmptySectionCard(
                                 "Nothing here yet",
@@ -983,6 +1000,15 @@ private fun IncidentHistoryAdaptiveScaffold(
                         .padding(horizontal = horizontalGutter, vertical = verticalGutter),
                     verticalArrangement = Arrangement.spacedBy(if (compactHeight) 8.dp else 12.dp),
                 ) {
+                    if (historyStatusMessage != null) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            EmptySectionCard("Status may be out of date", historyStatusMessage)
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = onRefresh,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            ) { Text("Refresh history") }
+                        }
+                    }
                     if (!expandedWindow) {
                         TextButton(
                             onClick = {

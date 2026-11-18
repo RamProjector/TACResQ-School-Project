@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -69,6 +70,7 @@ import kotlinx.coroutines.launch
 data class ResponderUiState(
     val incidents: List<Incident> = emptyList(),
     val claimableIncidents: List<Incident> = emptyList(),
+    val claimableError: String? = null,
     val dutyStatus: DutyStatus = DutyStatus.OFF_DUTY,
     val loading: Boolean = true,
     val refreshing: Boolean = false,
@@ -76,6 +78,7 @@ data class ResponderUiState(
     val error: String? = null,
     val claimMessage: String? = null,
     val trackingIncidentId: Long? = null,
+    val trackingStarting: Boolean = false,
     val trackingError: String? = null,
     val lastLocationSentAt: Long? = null,
     val lastLocationAccuracyM: Float? = null,
@@ -100,6 +103,7 @@ class ResponderViewModel(
                 _state.update {
                     it.copy(
                         trackingIncidentId = status.incidentId,
+                        trackingStarting = status.starting,
                         trackingError = status.message,
                         lastLocationSentAt = status.lastSentAtEpochMillis,
                         lastLocationAccuracyM = status.lastAccuracyMeters,
@@ -133,9 +137,20 @@ class ResponderViewModel(
                     tracking.stop("Location sharing stopped because this incident is no longer assigned en route.")
                 }
                 val userDuty = me.getOrNull()?.dutyStatus ?: _state.value.dutyStatus
-                val claimable = if (userDuty != DutyStatus.OFF_DUTY) {
-                    repo.getClaimableIncidents().getOrDefault(emptyList())
-                } else emptyList()
+                // Do not present an empty list as "no available incidents" when the
+                // claimable-request query failed or the current duty state is unverified.
+                val claimableResult = if (me.isSuccess && userDuty == DutyStatus.AVAILABLE) {
+                    repo.getClaimableIncidents()
+                } else null
+                val claimable = claimableResult?.getOrNull().orEmpty()
+                val claimableError = when {
+                    me.isFailure && userDuty == DutyStatus.AVAILABLE ->
+                        "Could not verify your current duty status. Claimable requests are hidden until a successful refresh."
+                    claimableResult?.isFailure == true ->
+                        claimableResult?.exceptionOrNull()?.message?.takeIf { it.isNotBlank() }
+                            ?: "Could not load incidents available for claiming. Refresh before claiming."
+                    else -> null
+                }
                 _state.update { s ->
                     // The aggregate can stay en-route while another unit is still travelling.
                     // Stop only when this device's own assignment is no longer en route.
@@ -145,6 +160,7 @@ class ResponderViewModel(
                         dutyStatus = userDuty,
                         incidents = serverIncidents ?: s.incidents,
                         claimableIncidents = claimable,
+                        claimableError = claimableError,
                         trackingIncidentId = if (trackingEnded) null else s.trackingIncidentId,
                         trackingError = if (trackingEnded) "Location sharing stopped because this incident is no longer assigned en route." else s.trackingError,
                         syncError = refreshError?.message,
@@ -161,6 +177,7 @@ class ResponderViewModel(
                         loading = false,
                         refreshing = false,
                         syncError = failure.message ?: "Could not verify assignments. Refresh and try again.",
+                        claimableError = if (s.dutyStatus == DutyStatus.AVAILABLE) failure.message ?: "Could not verify claimable requests. Refresh and try again." else null,
                     )
                 }
             } finally {
@@ -174,27 +191,6 @@ class ResponderViewModel(
     }
 
     fun setDuty(status: DutyStatus) = act { repo.setDutyStatus(status) }
-
-    fun startResponse(incident: Incident, shareLocation: Boolean) {
-        act {
-            val result = repo.updateIncidentStatus(incident.id, IncidentStatus.EN_ROUTE)
-            if (result.isSuccess) {
-                if (shareLocation) {
-                    tracking.start(incident.id).onFailure { failure ->
-                        _state.update {
-                            it.copy(
-                                trackingIncidentId = null,
-                                trackingError = failure.message ?: "Location sharing could not start. Resume it explicitly.",
-                            )
-                        }
-                    }
-                } else {
-                    tracking.stop("Response started without sharing responder location.")
-                }
-            }
-            result
-        }
-    }
 
     fun resumeTracking(incidentId: Long) {
         if (_state.value.busy) return
@@ -228,12 +224,14 @@ class ResponderViewModel(
                             _state.update {
                                 it.copy(
                                     trackingIncidentId = null,
+                                    trackingStarting = false,
                                     trackingError = startFailure.message ?: "Location sharing could not start. Resume it explicitly.",
+                                    error = startFailure.message ?: "Location sharing could not start. Resume it explicitly.",
                                 )
                             }
                         }
                 } else {
-                    _state.update { it.copy(trackingError = failure) }
+                    _state.update { it.copy(trackingError = failure, error = failure) }
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
@@ -241,17 +239,13 @@ class ResponderViewModel(
                 _state.update {
                     it.copy(
                         trackingError = failure.message ?: "Could not verify the active assignment. Location sharing remains off.",
+                        error = failure.message ?: "Could not verify the active assignment. Location sharing remains off.",
                     )
                 }
             } finally {
                 _state.update { it.copy(busy = false) }
             }
         }
-    }
-
-    fun advance(incident: Incident, to: IncidentStatus) {
-        if (to != IncidentStatus.EN_ROUTE) stopTracking("Location sharing stopped as the incident advanced to ${to.label.lowercase()}.")
-        act { repo.updateIncidentStatus(incident.id, to) }
     }
 
     fun stopTracking(message: String = "Location sharing stopped.") {
@@ -345,8 +339,6 @@ fun ResponderScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     PollWhileStarted { vm.refresh() }
     val context = LocalContext.current
-    var responseToStart by remember { mutableStateOf<Incident?>(null) }
-    var pendingStatusChange by remember { mutableStateOf<Pair<Incident, IncidentStatus>?>(null) }
     var permissionActionIncident by remember { mutableStateOf<Incident?>(null) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -354,8 +346,7 @@ fun ResponderScreen(
         val incident = permissionActionIncident
         permissionActionIncident = null
         if (incident != null) {
-            if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, granted)
-            else if (granted) vm.resumeTracking(incident.id)
+            if (granted) vm.resumeTracking(incident.id)
             else vm.stopTracking("Approximate location permission was denied; location sharing remains off.")
         }
     }
@@ -366,15 +357,13 @@ fun ResponderScreen(
         if (incident != null && granted) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                 permissionActionIncident = null
-                if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = true)
-                else vm.resumeTracking(incident.id)
+                vm.resumeTracking(incident.id)
             } else {
                 locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
             }
         } else if (incident != null) {
             permissionActionIncident = null
-            if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = false)
-            else vm.stopTracking("Notifications are required to show the active location-sharing service.")
+            vm.stopTracking("Notifications are required to show the active location-sharing service.")
         }
     }
 
@@ -386,8 +375,7 @@ fun ResponderScreen(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             permissionActionIncident = null
-            if (incident.statusFor(user.id) == IncidentStatus.ASSIGNED) vm.startResponse(incident, shareLocation = true)
-            else vm.resumeTracking(incident.id)
+            vm.resumeTracking(incident.id)
         } else {
             locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
@@ -404,7 +392,7 @@ fun ResponderScreen(
         item {
             ScreenHeader(
                 title = "Current call",
-                subtitle = "Review assignments, update your status, and manage location sharing.",
+                subtitle = "Review assignments and manage optional location sharing. Dispatch maintains incident progress.",
                 onOpenNotifications = onOpenNotifications,
             )
         }
@@ -448,7 +436,31 @@ fun ResponderScreen(
             item { Banner(message, isError = false, onDismiss = vm::dismissClaimMessage) }
         }
 
-        if (state.dutyStatus != DutyStatus.OFF_DUTY && state.claimableIncidents.isNotEmpty()) {
+        if (state.dutyStatus == DutyStatus.AVAILABLE && state.claimableError != null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text("Claimable requests unavailable", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            state.claimableError.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        TextButton(onClick = vm::refresh, enabled = !state.refreshing) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            }
+        }
+
+        if (state.dutyStatus == DutyStatus.AVAILABLE && state.claimableIncidents.isNotEmpty()) {
             item { SectionHeading("Available for field claiming", "Open incidents ready for assignment") }
             items(state.claimableIncidents, key = { "claim_${it.id}" }) { incident ->
                 IncidentCard(incident) {
@@ -468,7 +480,7 @@ fun ResponderScreen(
                     }
                     Button(
                         onClick = { vm.claimIncident(incident.id) },
-                        enabled = !state.busy,
+                        enabled = !state.busy && !state.refreshing && state.claimableError == null,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     ) {
                         Text("Claim Incident #${incident.id}")
@@ -506,6 +518,40 @@ fun ResponderScreen(
             }
         }
 
+        if (active.isNotEmpty()) {
+            item {
+                SectionHeading(
+                    "Your active responses",
+                    "Your assigned incidents and optional location sharing",
+                )
+            }
+            if (active.any { it.statusFor(user.id) == IncidentStatus.EN_ROUTE }) {
+                item {
+                    Text(
+                        "Incident progress is maintained by dispatch. GPS sharing reports your location; it does not confirm arrival or change incident status.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (active.any { incident ->
+                    val latitude = incident.latitude
+                    val longitude = incident.longitude
+                    latitude != null && longitude != null &&
+                        latitude.isFinite() && longitude.isFinite() &&
+                        latitude in -90.0..90.0 && longitude in -180.0..180.0
+                }
+            ) {
+                item {
+                    Text(
+                        "Route previews send your approximate current location and the incident's location to the configured routing service. If it fails, no second provider is contacted; use external Maps and confirm the destination with dispatch.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
         items(active, key = { it.id }) { incident ->
             IncidentCard(incident) {
                 Row(
@@ -513,19 +559,26 @@ fun ResponderScreen(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("Your response", style = MaterialTheme.typography.labelLarge,
+                    Text("Team progress", style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val ownStatus = incident.statusFor(user.id)
                     StatusPill(ownStatus.label, ownStatus.pillColor())
                 }
-                Text(
-                    "Your status updates are shared with dispatch and the requester. The overall request status reflects the assigned team's progress.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                val contact = listOfNotNull(incident.requesterName, incident.requesterPhone)
-                    .joinToString(", ")
-                if (contact.isNotBlank()) Text("Requester: $contact")
+                if (incident.requesterName != null || incident.requesterPhone != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "Requester contact",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        incident.requesterName?.let { name ->
+                            Text(name, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        incident.requesterPhone?.let { phone ->
+                            Text(phone, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
 
                 val latitude = incident.latitude
                 val longitude = incident.longitude
@@ -534,11 +587,6 @@ fun ResponderScreen(
                     latitude.isFinite() && longitude.isFinite() &&
                     latitude in -90.0..90.0 && longitude in -180.0..180.0
                 ) {
-                    Text(
-                        "This preview sends your approximate current location and this incident's location to TACResQ's configured routing service (Geoapify when enabled). If it fails, no second provider is contacted; you can choose external Maps.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                     OutlinedButton(
                         onClick = { onOpenMap(incident.id) },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
@@ -553,31 +601,19 @@ fun ResponderScreen(
                     )
                 }
 
-                incident.statusFor(user.id).nextSteps().forEach { next ->
-                    Button(
-                        onClick = {
-                            if (next == IncidentStatus.EN_ROUTE) {
-                                responseToStart = incident
-                            } else {
-                                pendingStatusChange = incident to next
-                            }
-                        },
-                        enabled = !state.busy,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                    ) {
-                        Text(next.actionLabel())
-                    }
-                }
-                if (incident.statusFor(user.id) == IncidentStatus.EN_ROUTE) {
+                val ownStatus = incident.statusFor(user.id)
+                if (ownStatus == IncidentStatus.ASSIGNED || ownStatus == IncidentStatus.EN_ROUTE) {
                     val sharing = state.trackingIncidentId == incident.id
+                    val trackingMessage = state.trackingError.takeIf { sharing }
+                    val trackingNeedsAttention = sharing && trackingMessage != null && state.lastLocationSentAt != null && !state.trackingStarting
                     val trackingStatusLabel = when {
-                        state.trackingError != null -> "Needs attention"
-                        sharing && state.lastLocationSentAt == null -> "Starting"
+                        trackingNeedsAttention -> "Needs attention"
+                        sharing && (state.trackingStarting || state.lastLocationSentAt == null) -> "Starting"
                         sharing -> "Enabled"
                         else -> "Off"
                     }
                     val trackingTint = when {
-                        state.trackingError != null -> MaterialTheme.colorScheme.error
+                        trackingNeedsAttention -> MaterialTheme.colorScheme.error
                         sharing -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
@@ -587,14 +623,14 @@ fun ResponderScreen(
                         border = BorderStroke(
                             1.dp,
                             when {
-                                state.trackingError != null -> MaterialTheme.colorScheme.error.copy(alpha = 0.45f)
+                                trackingNeedsAttention -> MaterialTheme.colorScheme.error.copy(alpha = 0.45f)
                                 sharing -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
                                 else -> MaterialTheme.colorScheme.outlineVariant
                             },
                         ),
                         colors = androidx.compose.material3.CardDefaults.cardColors(
                             containerColor = when {
-                                state.trackingError != null -> MaterialTheme.colorScheme.errorContainer
+                                trackingNeedsAttention -> MaterialTheme.colorScheme.errorContainer
                                 sharing -> MaterialTheme.colorScheme.primaryContainer
                                 else -> MaterialTheme.colorScheme.surfaceVariant
                             },
@@ -619,19 +655,14 @@ fun ResponderScreen(
                             }
                             val lastLocationSentAt = state.lastLocationSentAt
                             Text(
-                                "GPS sharing reports your location; it does not confirm arrival. Update your response status when you reach the scene.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
                                 when {
                                     !sharing -> "Location sharing is off."
-                                    lastLocationSentAt == null && state.trackingError != null ->
+                                    lastLocationSentAt == null && trackingMessage != null ->
                                         "Waiting for the first confirmed location update."
                                     lastLocationSentAt == null ->
                                         "Waiting for location…"
-                                    state.trackingError != null ->
-                                        "Last location update failed."
+                                    trackingMessage != null ->
+                                        trackingMessage
                                     else ->
                                         "Sharing approximate location for this en-route response, including when TACResQ is in the background."
                                 },
@@ -646,17 +677,23 @@ fun ResponderScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            state.trackingError?.let {
-                                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            trackingMessage?.let {
+                                Text(it, color = if (trackingNeedsAttention) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             }
                             if (sharing) {
                                 OutlinedButton(onClick = { vm.stopTracking("Location sharing stopped by you.") }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                                     Text("Stop location sharing")
                                 }
-                            } else {
-                                Button(onClick = { responseToStart = incident }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                            } else if (ownStatus == IncidentStatus.EN_ROUTE) {
+                                Button(onClick = { beginOrResumeWithPermission(incident) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                                     Text("Resume location sharing")
                                 }
+                            } else {
+                                Text(
+                                    "Location sharing becomes available after dispatch records the team as en route.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
@@ -672,108 +709,7 @@ fun ResponderScreen(
         }
     }
 
-    pendingStatusChange?.let { (incident, nextStatus) ->
-        val resolving = nextStatus == IncidentStatus.RESOLVED
-        val currentIncident = state.incidents.firstOrNull { it.id == incident.id }
-        val currentStatus = currentIncident?.statusFor(user.id)
-        val transitionStillAllowed = currentStatus == incident.statusFor(user.id) &&
-            currentStatus?.nextSteps()?.contains(nextStatus) == true
-        val checkingAssignment = state.loading || state.refreshing
-        val canConfirm = !state.busy && !checkingAssignment && transitionStillAllowed
-        AlertDialog(
-            onDismissRequest = { if (!state.busy) pendingStatusChange = null },
-            title = {
-                Text(
-                    when {
-                        checkingAssignment -> "Checking assignment…"
-                        !transitionStillAllowed -> "Assignment changed"
-                        resolving -> "Confirm response completion?"
-                        else -> "Confirm status update?"
-                    },
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        when {
-                            checkingAssignment -> "Wait for the latest assignment status before confirming this change."
-                            !transitionStillAllowed -> "This unit's status changed while the confirmation was open. Close this message and refresh assignments before taking another action."
-                            resolving -> "Only mark this response resolved when your assigned response is complete."
-                            else -> "Update your response to ${nextStatus.label.lowercase()}?"
-                        },
-                        fontWeight = if (resolving && transitionStillAllowed) FontWeight.SemiBold else FontWeight.Normal,
-                    )
-                    if (transitionStillAllowed) {
-                        Text(
-                            "This unit status is shared with dispatch and the requester. The overall request status reflects the assigned team's progress.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val latest = currentIncident
-                        pendingStatusChange = null
-                        if (latest != null && canConfirm) vm.advance(latest, nextStatus)
-                    },
-                    enabled = canConfirm,
-                ) {
-                    Text(if (resolving) "Mark my response resolved" else nextStatus.actionLabel())
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { pendingStatusChange = null },
-                    enabled = !state.busy,
-                ) {
-                    Text(if (transitionStillAllowed) "Keep current status" else "Close")
-                }
-            },
-        )
-    }
 
-    responseToStart?.let { incident ->
-        val startingResponse = incident.statusFor(user.id) == IncidentStatus.ASSIGNED
-        AlertDialog(
-            onDismissRequest = { if (!state.busy) responseToStart = null },
-            title = { Text(if (startingResponse) "Start response?" else "Resume location sharing?") },
-            text = {
-                Text(
-                    if (startingResponse) {
-                        "With your permission, TACResQ will share approximate location with authorized dispatch for this assignment while your response is en route, including when you switch apps or lock your screen. A persistent notification shows sharing is active and lets you stop it. Updates can be delayed or unavailable; sharing stops when the assignment advances or you sign out. You can start without sharing."
-                    } else {
-                        "With your permission, TACResQ will resume sharing approximate location with authorized dispatch for this en-route assignment, including when you switch apps or lock your screen. A persistent notification shows sharing is active and lets you stop it. Updates can be delayed or unavailable; sharing stops when the assignment advances or you sign out."
-                    },
-                )
-            },
-            confirmButton = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Button(
-                        onClick = {
-                            responseToStart = null
-                            beginOrResumeWithPermission(incident)
-                        },
-                        enabled = !state.busy,
-                    ) { Text(if (startingResponse) "Share location & start" else "Resume sharing") }
-                    if (startingResponse) {
-                        TextButton(
-                            onClick = {
-                                responseToStart = null
-                                vm.startResponse(incident, shareLocation = false)
-                            },
-                            enabled = !state.busy,
-                        ) { Text("Start without sharing") }
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { responseToStart = null }, enabled = !state.busy) { Text("Go back") }
-            },
-        )
-    }
 }
 
 @Composable
@@ -814,13 +750,13 @@ private fun DutyCard(
                     FilterChip(
                         selected = current == DutyStatus.AVAILABLE,
                         onClick = { onChange(DutyStatus.AVAILABLE) },
-                        enabled = !busy,
+                        enabled = !busy && current != DutyStatus.AVAILABLE,
                         label = { Text("Available") },
                     )
                     FilterChip(
                         selected = current == DutyStatus.OFF_DUTY,
                         onClick = { onChange(DutyStatus.OFF_DUTY) },
-                        enabled = !busy,
+                        enabled = !busy && current != DutyStatus.OFF_DUTY,
                         label = { Text("Off duty") },
                     )
                 }

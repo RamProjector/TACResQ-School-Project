@@ -21,7 +21,7 @@ checks = {
     "location sharing continues using the assignment-checked RPC": "repository.recordResponderLocation(incidentId, capture.fix)" in service,
     "service stops tracking when assignment ends": "assignment is no longer en route" in service,
     "repository-wrapped auth and assignment errors are recognized": all(token in service for token in ("is ApiException -> httpCode", "failure.hasHttpStatus(401, 403)", "failure.hasHttpStatus(401, 403, 404, 422)")),
-    "a rejected location write is handled before route forwarding": service.index("failure.hasHttpStatus(401, 403, 404, 422)") < service.index("maybeRecalculateRoute(incidentId, capture.fix)"),
+    "a rejected location write is handled before route forwarding": service.index("failure.hasHttpStatus(401, 403, 404, 422)") < service.index("maybeRecalculateRoute(incidentId, sessionId, capture.fix)"),
     "waiting navigation state clears old route geometry": "navigationRoute = null" in service and "val displayedRoute = if (liveNavigationForSelection)" in map_screen,
     "foreground notification is refreshed when sharing upgrades to navigation": "updateForegroundNotification(navigationEnabled = true)" in service and "createNotification(navigationEnabled)" in service,
     "provider identity is verified without coordinates before consent": all(token in provider for token in ("@GET(\"route-preview/provider\")", "providerDisclosure()")) and "routeProviderRecipient != null" in map_screen and "provider_id" in api_routes,

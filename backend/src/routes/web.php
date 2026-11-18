@@ -6,11 +6,11 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', static function () {
-    return response()->file(public_path('dispatch/index.html'));
+    return redirect('/admin/');
 });
 
 $runtimeConfig = static function () {
-    // This endpoint is intentionally runtime-configured for the static dashboard.
+    // This endpoint is intentionally runtime-configured for the static admin portal.
     // Read process environment values directly so a config cache baked into an
     // image cannot pin the dashboard to build-time Supabase settings.
     $supabaseUrl = getenv('SUPABASE_URL') ?: ($_SERVER['SUPABASE_URL'] ?? $_ENV['SUPABASE_URL'] ?? config('tacru.supabase_url'));
@@ -23,7 +23,7 @@ $runtimeConfig = static function () {
 };
 
 Route::get('/runtime-config.json', $runtimeConfig);
-Route::get('/dispatch/config.json', $runtimeConfig);
+Route::get('/admin/config.json', $runtimeConfig);
 
 // Private, payload-free trigger used only by the Supabase Cron job. The caller
 // signs a timestamp, unique request ID, and exact empty JSON body with HMAC-SHA256.

@@ -46,13 +46,15 @@ assert "finally {" in send_sos_block and "sending = false" in send_sos_block
 assert "private var conversationGeneration: Long = 0L" in CHAT
 assert "activeIncidentId == incidentId && conversationGeneration == generation" in CHAT
 assert CHAT.count("val generation = conversationGeneration") == 4
-assert CHAT.count("isCurrentConversation(incidentId, generation)") == 9
+# Every generation-scoped async completion must re-check the conversation token.
+# Count can grow as additional guarded async paths are added.
+assert CHAT.count("isCurrentConversation(incidentId, generation)") >= 9
 assert "conversationGeneration += 1" in CHAT
 assert "import com.tacresq.app.ui.common.repositoryCallOrFailure" in RESPONDER
 assert "repositoryCallOrFailure { repo.myIncidents() }" in RESPONDER
 assert "repositoryCallOrFailure { repo.me() }" in RESPONDER
 assert "repositoryCallOrFailure { tracking.start(incidentId) }" in RESPONDER
-resume_block = RESPONDER[RESPONDER.index("    fun resumeTracking(incidentId: Long) {"):RESPONDER.index("    fun advance(", RESPONDER.index("    fun resumeTracking(incidentId: Long) {"))]
+resume_block = RESPONDER[RESPONDER.index("    fun resumeTracking(incidentId: Long) {"):RESPONDER.index("    fun stopTracking(", RESPONDER.index("    fun resumeTracking(incidentId: Long) {"))]
 assert resume_block.index("it.copy(") < resume_block.index("viewModelScope.launch")
 assert "finally {" in resume_block and "busy = false" in resume_block
 act_block = RESPONDER[RESPONDER.index("    private fun act(call: suspend () -> Result<*>) {"):RESPONDER.index("\n    }\n}", RESPONDER.index("    private fun act(call: suspend () -> Result<*>) {"))]

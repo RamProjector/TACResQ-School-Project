@@ -9,12 +9,12 @@ components = Path(
     "app/src/main/java/com/tacresq/app/ui/common/Components.kt"
 ).read_text(encoding="utf-8")
 
-# Incident and per-responder statuses must use the typed component, not one generic
-# secondary tint that makes every operational state look identical.
+# The dispatcher shows one shared incident milestone, not separate per-member
+# progress pills. The shared typed pill keeps the incident state distinguishable.
 assert "StatusPill(incident.status)" in dispatcher
-assert "StatusPill(memberStatus.status)" in dispatcher
+assert "StatusPill(memberStatus.status)" not in dispatcher
 assert "StatusPill(incident.status.label, MaterialTheme.colorScheme.secondary)" not in dispatcher
-assert "StatusPill(memberStatus.status.label, MaterialTheme.colorScheme.secondary)" not in dispatcher
+assert "memberStatus" not in dispatcher
 
 # The shared typed pill maps each status to a paired Material 3 container/on-container
 # role, which adapts with the active light/dark color scheme.

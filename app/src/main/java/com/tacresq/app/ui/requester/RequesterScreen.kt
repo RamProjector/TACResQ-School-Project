@@ -1006,7 +1006,7 @@ fun RequesterScreen(
 
         if (activeIncident != null) item {
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
                 shape = MaterialTheme.shapes.large,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                 colors = CardDefaults.cardColors(
@@ -1025,7 +1025,12 @@ fun RequesterScreen(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            Text("Active emergency", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Active emergency",
+                                modifier = Modifier.semantics { heading() },
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
                             Text(
                                 activeIncident.type.label,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -1317,10 +1322,6 @@ fun RequesterScreen(
                                                 else MaterialTheme.colorScheme.onSurface,
                                             )
                                             Spacer(Modifier.weight(1f))
-                                            if (type == selectedType) {
-                                                Text("Selected", style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.primary)
-                                            }
                                         }
                                     }
                                 }
@@ -1509,7 +1510,9 @@ fun RequesterScreen(
             }
         }
 
-        item { SectionHeading("My requests") }
+        if (state.loading || (state.hasCurrentIncidentStatus && !state.isShowingCachedIncidentStatuses)) {
+            item { SectionHeading("My requests") }
+        }
         if (state.loading && state.incidents.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -1533,7 +1536,11 @@ fun RequesterScreen(
                     }
                 }
             }
-        } else if (state.incidents.isEmpty()) {
+        } else if (
+            state.incidents.isEmpty() &&
+            state.hasCurrentIncidentStatus &&
+            !state.isShowingCachedIncidentStatuses
+        ) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
@@ -1551,7 +1558,7 @@ fun RequesterScreen(
             }
         }
         items(state.incidents, key = { it.id }) { incident ->
-            IncidentCard(incident) {
+            IncidentCard(incident, statusLabel = incident.status.requesterLabel) {
                 Text(
                     requesterRequestLabel(incident.id, state.incidents),
                     style = MaterialTheme.typography.labelSmall,

@@ -10,7 +10,7 @@ function LoadingScreen() {
     <main className="loading-screen" aria-live="polite">
       <Brand />
       <LoaderCircle className="spin" size={22} aria-hidden="true" />
-      <span>Starting the secure dispatch connection…</span>
+      <span>Starting the secure admin portal…</span>
     </main>
   );
 }
@@ -22,10 +22,10 @@ function ConfigurationScreen() {
       <section className="config-card">
         <div className="config-icon"><Activity size={22} /></div>
         <p className="eyebrow">CONNECTION REQUIRED</p>
-        <h1>Connect the TACResQ dispatch desk</h1>
+        <h1>Connect the TACResQ Admin Portal</h1>
         <p className="muted">
-          Configure the Supabase URL and publishable key used by the TACResQ app. The backend serves
-          these browser-safe settings at runtime; the console uses the existing RPCs and Row Level Security.
+          Configure the Supabase URL and publishable key used by the TACResQ Admin Portal. The backend serves
+          these browser-safe settings at runtime; the portal uses administrator-only RPCs and Row Level Security.
         </p>
         <pre><code>SUPABASE_URL=https://your-project.supabase.co<br />SUPABASE_PUBLISHABLE_KEY=your-publishable-key</code></pre>
         <p className="config-note">

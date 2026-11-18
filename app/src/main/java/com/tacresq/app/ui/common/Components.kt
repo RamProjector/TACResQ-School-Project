@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -68,7 +69,7 @@ fun ScreenHeader(title: String, subtitle: String = "", onOpenNotifications: (() 
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).semantics { heading() },
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
@@ -87,7 +88,7 @@ fun ScreenHeader(title: String, subtitle: String = "", onOpenNotifications: (() 
                 text = it,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
         }
@@ -97,17 +98,18 @@ fun ScreenHeader(title: String, subtitle: String = "", onOpenNotifications: (() 
 @Composable
 fun SectionHeading(title: String, supportingText: String? = null) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 3.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 5.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Text(
             title,
+            modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
         )
         supportingText?.takeIf { it.isNotBlank() }?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
     }
 }
@@ -133,7 +135,7 @@ fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null, isSu
         contentColor = content,
     ) {
         Row(
-            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(text, modifier = Modifier.weight(1f))
@@ -159,7 +161,11 @@ fun MapLoadStatusOverlay(isLoading: Boolean, modifier: Modifier = Modifier) {
             shadowElevation = 4.dp,
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .semantics(mergeDescendants = true) {
+                        liveRegion = LiveRegionMode.Polite
+                    },
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -226,22 +232,20 @@ fun IncidentCard(
     incident: Incident,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
+    statusLabel: String? = null,
     actions: @Composable ColumnScope.() -> Unit = {},
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        border = BorderStroke(
-            if (selected) 1.5.dp else 1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-        ),
+        border = if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
         colors = CardDefaults.cardColors(
             containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
             else MaterialTheme.colorScheme.surface,
             contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
             else MaterialTheme.colorScheme.onSurface,
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 0.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 1.dp),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
@@ -253,8 +257,11 @@ fun IncidentCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
-                StatusPill(incident.status.label, incident.status.pillColor())
+                if (statusLabel == null) StatusPill(incident.status)
+                else StatusPill(statusLabel, incident.status.pillColor())
             }
             val time = formatTime(incident.createdAt)
             if (time.isNotEmpty()) {
@@ -290,10 +297,7 @@ fun IncidentHistoryListItem(
     Card(
         modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp).selectable(selected = selected, role = Role.Button, onClick = onClick),
         shape = MaterialTheme.shapes.medium,
-        border = BorderStroke(
-            if (selected) 2.dp else 1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-        ),
+        border = if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
         colors = CardDefaults.cardColors(
             containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer
             else MaterialTheme.colorScheme.surface,
@@ -323,7 +327,7 @@ fun IncidentHistoryListItem(
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
-                    StatusPill(incident.status.label, statusColor)
+                    StatusPill(incident.status)
                 }
                 Text(
                     "Incident #${incident.id}",

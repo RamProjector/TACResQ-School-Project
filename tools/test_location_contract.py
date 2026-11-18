@@ -36,7 +36,7 @@ checks = {
     "dispatcher RPC returns active members of multi-unit assignments": "i.status = 'en_route'" in read_rpc and "l.user_id = a.user_id" in read_rpc and "a.responder_status = 'en_route'" in read_rpc,
     "current dispatcher RPC filters malformed coordinates and future timestamps": "l.latitude between -90 and 90" in read_rpc and "l.longitude between -180 and 180" in read_rpc and "l.recorded_at <= now() + interval '5 minutes'" in read_rpc,
     "current RLS policy limits location reads to the active assigned unit": "i.status = 'en_route'" in read_policy and "a.user_id = location_logs.user_id" in read_policy and "a.responder_status = 'en_route'" in read_policy,
-    "dashboard exposes freshness and missing/configuration states": all(text in dashboard for text in ('ageMs < 30_000', 'ageMs <= 120_000', 'unavailable', 'no live marker is shown')),
+    "web dashboard remains admin-only after dispatch retirement": all(text in dashboard for text in ('profile.role === "admin"', 'Dispatch is handled in the Android app.', 'web dispatch dashboard has been retired')) and 'ageMs < 30_000' not in dashboard,
     "API 37 precise one-time location uses the secure AndroidX Location Button": (
         "targetSdk = 37" in gradle
         and "androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01" in gradle
@@ -63,9 +63,14 @@ checks = {
         and "LocationManager" not in location_provider
     ),
     "Android unregisters callback on flow cancellation": "awaitClose()" in location_provider and "finally {\n            client.removeLocationUpdates(callback)" in location_provider,
-    "responder consent permits start without sharing and requests permission in context": "Share location & start" in responder_screen and "Start without sharing" in responder_screen and "ACCESS_COARSE_LOCATION" in responder_screen,
-    "responder sharing uses an explicit location foreground service with a user stop action": all(text in tracking_service for text in ("ServiceCompat.startForeground(", "FOREGROUND_SERVICE_TYPE_LOCATION", "ACTION_STOP", '"Stop sharing"', "serviceScope.launch { trackAssignment(incidentId) }")),
-    "service revalidates the en-route assignment and session without relying on GPS callbacks": all(text in tracking_service for text in ("assignmentMonitorJob", "monitorAssignment(incidentId)", "repository.myIncidents()", "statusFor(user.id) == IncidentStatus.EN_ROUTE", "is HttpException -> code()", "is ApiException -> httpCode", "failure.hasHttpStatus(401, 403)", "active assignment could not be verified")),
+    "responder location sharing is optional and only available after dispatcher deployment": (
+        "Location sharing becomes available after dispatch records the team as en route." in responder_screen
+        and "ownStatus != IncidentStatus.EN_ROUTE" in responder_screen
+        and "GPS sharing reports your location; it does not confirm arrival" in responder_screen
+        and "ACCESS_COARSE_LOCATION" in responder_screen
+    ),
+    "responder sharing uses an explicit location foreground service with a user stop action": all(text in tracking_service for text in ("ServiceCompat.startForeground(", "FOREGROUND_SERVICE_TYPE_LOCATION", "ACTION_STOP", '"Stop sharing"', "serviceScope.launch { trackAssignment(incidentId, sessionId) }")),
+    "service revalidates the en-route assignment and session without relying on GPS callbacks": all(text in tracking_service for text in ("assignmentMonitorJob", "monitorAssignment(incidentId, sessionId)", "repository.myIncidents()", "statusFor(user.id) == IncidentStatus.EN_ROUTE", "isActiveSession(incidentId, sessionId)", "is HttpException -> code()", "is ApiException -> httpCode", "failure.hasHttpStatus(401, 403)", "active assignment could not be verified", "if (!isActiveSession(incidentId, sessionId)) return@collect", "private fun refreshNavigationDestination(incidentId: Long, sessionId: Long", "private suspend fun maybeRecalculateRoute(incidentId: Long, sessionId: Long", "while (isActiveSession(incidentId, sessionId))")),
     "foreground service stops on location or notification permission withdrawal": all(text in tracking_service for text in ("hasRequiredPermissions(this)", "ACCESS_COARSE_LOCATION", "POST_NOTIFICATIONS", "permission was withdrawn")),
     "manifest declares a non-exported location foreground service without background location scope": all(text in manifest for text in ("FOREGROUND_SERVICE_LOCATION", 'android:name=".location.ResponderLocationTrackingService"', 'android:foregroundServiceType="location"', 'android:exported="false"')) and "ACCESS_BACKGROUND_LOCATION" not in manifest,
     "service owns coarse location collection and sends only through the assignment-checked RPC": all(text in tracking_service for text in ("responderForegroundUpdates().collect", "repository.recordResponderLocation")) and "GRANULARITY_COARSE" in location_provider and "Lifecycle.Event.ON_STOP" not in responder_screen,
@@ -78,7 +83,7 @@ checks = {
     "Geoapify route previews disclose external coordinate processing and never silently retry another provider": all(text in responder_screen for text in ("approximate current location", "incident's location", "configured routing service", "If it fails, no second provider is contacted")) and "No automatic failover to a second provider occurs" in (ROOT / "docs/IN_APP_ROUTING_FOUNDATION.md").read_text(),
     "OSRM service is pinned, requires an external graph volume, and suppresses coordinate-bearing access logs": all(text in osrm_docker for text in ("ghcr.io/project-osrm/osrm-backend:v26.10.0", "DISABLE_ACCESS_LOGGING=1")) and all(text in osrm_start for text in ("${GRAPH_PREFIX}.osrm", "osrm-routed --algorithm mld")) and "Coordinates are sent in OSRM's JSON POST body, not in the URL" in osrm_docs,
     "Android dispatcher map distinguishes fresh, aging, and stale locations": all(text in map_screen for text in ("MapLocationFreshness.FRESH", "MapLocationFreshness.AGING", "MapLocationFreshness.STALE", "age <= 120L", "else -> MapLocationFreshness.STALE")),
-    "Android map rejects future timestamps and warns stale pins are not live": all(text in map_screen for text in ("if (recorded.isAfter(now)) return null", "if (recordedAt.isAfter(now))", "STALE — last known position", "Do not treat this marker as live", "Stale markers are last-known positions, not live.")),
+    "Android map rejects future timestamps and labels stale pins as last-known, not live": all(text in map_screen for text in ("if (recorded.isAfter(now)) return null", "if (recordedAt.isAfter(now))", "Last known location · ${formatLocationAge(age)} ago · not live", "Stale pins are not live.", "Last known position, not live")),
     "Android map refreshes incident-location ages for every role without polling responder locations for non-dispatchers": (
         all(text in map_screen for text in (
             "remember(freshnessTick) { Instant.now() }",
@@ -95,6 +100,30 @@ checks = {
     "expanded incident cards share the ticking map clock so stale-location warnings keep updating": all(text in map_screen for text in ("MapIncidentCard(", "context = context,", "now = mapNow,", "private fun MapIncidentCard(", "now: Instant,", "incident.locationAgeStatus(now)")),
     "responder sign-out stops location sharing before clearing the session": 'Location sharing stopped because you signed out.' in app_root and "vm.stopTracking(" in app_root and "responderLogout" in app_root,
 }
+controller_source = tracking_service.split("class ResponderLocationTrackingController", 1)[1].split("/**", 1)[0]
+for method in (
+    "locationSent", "navigationWaiting", "navigationRequestStarted",
+    "navigationRouteUpdated", "navigationFailed", "serviceMessage",
+):
+    method_block = controller_source.split(f"internal fun {method}(", 1)[1].split("\n    }", 1)[0]
+    assert "sessionId: Long" in method_block and "isCurrentSession(incidentId, sessionId)" in method_block, (
+        f"{method} must reject status updates from obsolete tracking sessions"
+    )
+assert "activeSessionId == sessionId && _status.value.incidentId == incidentId" in controller_source
+assert "if (expectedSessionId != null && activeSessionId != expectedSessionId) return" in controller_source
+assert "activeSessionId = null" in controller_source
+assert "val endedSessionId = trackingSessionId" in tracking_service
+assert "expectedSessionId = endedSessionId.takeIf { it > 0L }" in tracking_service or (
+    "endedSessionId.takeIf { it > 0L }" in tracking_service
+)
+assert "enableNavigation(incidentId, trackingSessionId)" in tracking_service
+assert "private fun enableNavigation(incidentId: Long, sessionId: Long)" in tracking_service
+
+checks["both tracking coroutines discard stale repository responses before status updates"] = (
+    tracking_service.count("if (!isActiveSession(incidentId, sessionId)) return") >= 4
+    and "if (isActiveSession(incidentId, sessionId)) {" in tracking_service
+)
+
 location_hardening_migration = (ROOT / "supabase/migrations/20261112215429_isolate_per_responder_location_writer.sql").read_text().lower()
 location_reader_migration = (ROOT / "supabase/migrations/20261112215554_isolate_multi_responder_location_reader.sql").read_text().lower()
 location_rate_index_migration = (ROOT / "supabase/migrations/20261112215513_location_logs_received_rate_index_concurrently.sql").read_text().lower()
