@@ -1,3 +1,11 @@
+## GPS full-screen source-contract alignment — 2026-11-18
+
+- **Finding:** The latest PR #334 source-check workflow reached `tools/test_gps_map_fullscreen.py` and failed one assertion that expected `maxLines` to be immediately followed by `softWrap`. The actual GPS map toolbar correctly places its `Modifier.padding(...)` argument before those text properties. This was a stale, over-specific source assertion, not a missing UI behavior.
+- **Change:** Updated the contract to assert the actual toolbar call structure, including its padding modifier, single-line constraint, disabled soft wrapping, and ellipsis overflow. No production Kotlin UI code was changed.
+- **Validation:** Failure was confirmed from the exact GitHub Actions source-check log and the current `GpsMapScreen.kt` source. The updated contract was re-fetched for inspection; it was not executed locally. CI must rerun on the new head. No builds, emulator/device checks, or production changes were performed.
+
+---
+
 ## CI compile and migration-history contract repair — 2026-11-18
 
 - **Finding:** The latest PR #334 CI run failed Android Kotlin compilation because `TacRepository.kt` referenced `ReleaseIncidentAssignmentRpc` without importing its model, and `ResponderScreen.kt` used `CardDefaults` without importing the Material 3 symbol. The CodeQL Android build failed on the same compilation errors.
