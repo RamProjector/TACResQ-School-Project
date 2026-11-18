@@ -1,3 +1,12 @@
+## OpenStreetMap attribution source-contract correction — 2026-11-18
+
+- **Finding:** Exact-head TACResQ CI failed `tools/test_osm_map_attribution.py` because it required two literal copies of the attribution label, one for each sheet state. The map uses one persistent `BottomSheetScaffold.sheetContent` subtree in both collapsed and expanded states, so duplicating attribution text would be unnecessary and could create inconsistent UI.
+- **Change:** Updated the source contract to require exactly one attribution link inside the shared sheet content, retain its 48dp minimum touch target, and retain its OpenFreeMap destination. No production map UI code changed.
+- **Commit:** `d29b011`.
+- **Validation:** Failure confirmed from the exact-head CI log and compared against the current GPS map sheet implementation. The revised source contract has not yet rerun on this head. No local tests/builds, emulator/device checks, production changes, or deployment were performed.
+
+---
+
 ## Shared dispatcher assignment-history renderer — 2026-11-18
 
 - **Finding:** Active-incident cards and the recent-closed list both exposed assignment history, but each independently duplicated the entire timeline UI. Their loading, empty, error, retry, event-label, actor-label, and timestamp behavior could drift.
