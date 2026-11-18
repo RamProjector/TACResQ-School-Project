@@ -1,3 +1,11 @@
+## Responder lifecycle contract boundary correction — 2026-11-18
+
+- **Finding:** Exact-head CI passed the Android debug/release builds, Android JVM unit tests, instrumentation-test compilation, Android Lint, and APK artifact collection. The Source checks job then failed in `tools/test_activity_lifecycle_failure_safety.py` before its responder tracking assertions because it searched for a retired `fun advance(` method as the end boundary of `resumeTracking`. Dispatcher-owned incident progress intentionally removed responder-owned milestone advancement.
+- **Change:** Updated the source contract to delimit `resumeTracking` at the current `stopTracking` method. This preserves the assertions for synchronous busy-state claiming and guaranteed busy-state release without reintroducing the retired responder status API. No production Kotlin code changed.
+- **Validation:** Confirmed the exact failure from CI logs and inspected the current responder ViewModel implementation. The Android build and JVM unit tests passed on the preceding exact head; the corrected source contract still needs a new CI run. No production migration, deployment, or merge was performed.
+
+---
+
 ## Incident chat lifecycle source-contract correction — 2026-11-18
 
 - **Finding:** Exact-head CI failed because `tools/test_activity_lifecycle_failure_safety.py` required exactly nine generation-token checks. The current `IncidentChatScreen.kt` has ten guarded checks: one additional guard protects an asynchronous completion from updating a conversation that has since been closed or reopened. The implementation is stricter than the stale test count.
