@@ -423,7 +423,7 @@ class ResponderLocationTrackingService : Service() {
             if (activeIncidentId == null) stopSelf()
         } catch (_: Exception) {
             if (isActiveSession(incidentId, sessionId)) {
-                controller.serviceMessage(incidentId, "Location sharing paused after an unexpected error. Return to TACResQ and resume.")
+                controller.serviceMessage(incidentId, sessionId, "Location sharing paused after an unexpected error. Return to TACResQ and resume.")
                 stopActiveSharing("Location sharing stopped after an unexpected error.", expectedIncidentId = incidentId, expectedSessionId = sessionId)
                 if (activeIncidentId == null) stopSelf()
             }
