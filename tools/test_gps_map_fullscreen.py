@@ -50,7 +50,10 @@ assert "BottomSheetDefaults.DragHandle()" in map_screen
 assert "val responderPointsForInitialFrame = validResponderLocations" in map_screen
 assert ".filter { it.mapFreshness(mapNow) != MapLocationFreshness.STALE }" in map_screen
 assert "validIncidentPoints + responderPointsForInitialFrame" in map_screen
-assert "val shouldFrameIncidentPoints = !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
+assert "val hasRestorableCamera = savedCameraLatitude != null && savedCameraLongitude != null" in map_screen
+assert "val shouldFrameInitialUnits = !hasRestorableCamera && !hasAutoFramedInitialMapPoints &&" in map_screen
+assert "val shouldFrameIncidentPoints = !hasRestorableCamera && !hasAutoFramedIncidentPoints && validIncidentPoints.isNotEmpty()" in map_screen
+assert "val pointsToFrame = if (shouldFrameIncidentPoints) initialMapPoints else responderPointsForInitialFrame" in map_screen
 assert "onShowActiveUnits = ::showActiveUnits" in map_screen
 assert "map.clear()" in map_screen and "map.addMarker(" in map_screen
 assert "val scale = 0.75f" in map_screen
