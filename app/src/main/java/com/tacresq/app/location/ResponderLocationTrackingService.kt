@@ -110,6 +110,7 @@ class ResponderLocationTrackingController(context: Context) {
     }
 
     fun stop(message: String = "Location sharing stopped.") {
+        activeSessionId = null
         val intent = Intent(appContext, ResponderLocationTrackingService::class.java)
             .setAction(ResponderLocationTrackingService.ACTION_STOP)
         runCatching { appContext.startService(intent) }
@@ -269,7 +270,7 @@ class ResponderLocationTrackingService : Service() {
                 }
                 if (activeIncidentId != null) {
                     if (activeIncidentId == incidentId) {
-                        if (startNavigation) enableNavigation(incidentId)
+                        if (startNavigation) enableNavigation(incidentId, trackingSessionId)
                         else controller.serviceStarted(incidentId, trackingSessionId, navigationEnabled)
                     } else {
                         controller.serviceMessage(
@@ -429,7 +430,7 @@ class ResponderLocationTrackingService : Service() {
         }
     }
 
-    private fun enableNavigation(incidentId: Long) {
+    private fun enableNavigation(incidentId: Long, sessionId: Long) {
         val routingProvider = (application as TacResqApp).container.routingProvider
         if (routingProvider == null) {
             controller.serviceMessage(incidentId, sessionId, "In-app routing is not enabled or configured. Location sharing remains active.")
@@ -652,6 +653,7 @@ class ResponderLocationTrackingService : Service() {
 
     override fun onDestroy() {
         val hadActiveTracking = activeIncidentId != null
+        val endedSessionId = trackingSessionId
         trackingJob?.cancel()
         trackingJob = null
         assignmentMonitorJob?.cancel()
@@ -664,7 +666,7 @@ class ResponderLocationTrackingService : Service() {
         reroutePolicy.reset()
         serviceScope.cancel()
         if (hadActiveTracking && ::controller.isInitialized) {
-            controller.serviceStopped("Location sharing stopped because Android ended the tracking service. Resume sharing in TACResQ.", trackingSessionId.takeIf { it > 0L })
+            controller.serviceStopped("Location sharing stopped because Android ended the tracking service. Resume sharing in TACResQ.", endedSessionId.takeIf { it > 0L })
         }
         super.onDestroy()
     }
