@@ -115,6 +115,13 @@ BEGIN
     RAISE EXCEPTION 'Legacy reservation fixture must persist an active assigned_to reservation';
   END IF;
 
+  -- The legacy schema represents the active reservation in incidents.assigned_to;
+  -- seed its matching profile status explicitly so this fixture models a unit
+  -- already shown as assigned before the new team-membership release occurs.
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  UPDATE public.profiles SET duty_status = 'assigned' WHERE id = primary_id;
+  PERFORM set_config('request.jwt.claim.sub', dispatcher_auth_id::text, true);
+
   -- A field unit cannot invoke the release RPC, even though the public wrapper
   -- is executable by authenticated clients.
   PERFORM set_config('request.jwt.claim.sub',
