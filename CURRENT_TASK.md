@@ -1533,3 +1533,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Single-source cluster choosers now use the source feature's point_count directly. Paging still applies only to sources with more than 50 leaves.
 - Added a source contract and CI step to guard mixed-source aggregation and single-cluster counts.
 - Validation: source review only; the new contract test, Android build, and device map interaction were not run. No production backend changes.
+
+
+## 2026-11-18 — GPS camera-restoration contract follow-up
+- The exact-head source-check run exposed a second stale assertion in `tools/test_gps_map_fullscreen.py`: it expected incident auto-framing to ignore saved-camera state, while the current map correctly suppresses initial auto-framing when a restorable camera position exists.
+- Updated the contract to require the saved-camera guard for both initial field-unit and incident framing, and to verify the selected point set. Production map behavior was not changed.
+- Commit: `2da1668`.
+- Validation: confirmed the failing assertion from the GitHub Actions log and compared it with the current Kotlin framing branch. The revised test and this note were re-fetched for source inspection; no local test/build/emulator/device checks were run. CI must rerun on the new head.
