@@ -297,6 +297,8 @@ fun AppRoot(
                                     onOpenNotifications = openNotifications,
                                     onRefreshIncidents = vm::refresh,
                                     selectedIncidentId = selectedIncidentId,
+                                    themeMode = themeMode,
+                                    onThemeModeChanged = onThemeModeChanged,
                                     historyLoading = vmState.loading && vmState.incidents.isEmpty(),
                                     historyStatusMessage = when {
                                         vmState.isShowingCachedIncidentStatuses ->
@@ -334,6 +336,8 @@ fun AppRoot(
                                     onOpenNotifications = openNotifications,
                                     onRefreshIncidents = vm::refresh,
                                     selectedIncidentId = selectedIncidentId,
+                                    themeMode = themeMode,
+                                    onThemeModeChanged = onThemeModeChanged,
                                     historyLoading = vmState.loading && vmState.incidents.isEmpty(),
                                     historyStatusMessage = if (vmState.syncError != null)
                                         "The latest response history could not be confirmed. This list may be out of date; refresh before relying on it."
@@ -367,6 +371,8 @@ fun AppRoot(
                                     onOpenNotifications = openNotifications,
                                     onRefreshIncidents = vm::refresh,
                                     selectedIncidentId = selectedIncidentId,
+                                    themeMode = themeMode,
+                                    onThemeModeChanged = onThemeModeChanged,
                                     historyLoading = vmState.loading && vmState.incidents.isEmpty(),
                                     historyStatusMessage = if (vmState.syncError != null)
                                         "The latest dispatch history could not be confirmed. This list may be out of date; refresh before relying on it."
