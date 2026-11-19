@@ -81,7 +81,7 @@ Supabase documents `/auth/v1/health` as a way to check whether a publishable key
 - Do not claim FCM delivery from OAuth token acquisition alone.
 - Do not treat a successful route probe as proof of a safe or passable emergency route.
 - A dependency monitor must not block requester SOS submission. If the database itself is unavailable, the client must clearly show that the request was not server-confirmed and must not display it as dispatched.
-- The data-free database health RPC and its static/runtime privilege tests are now committed. The Laravel live probe, Auth health response validation, persistent audit integration, administrator visibility, and scheduled monitoring remain future work; do not imply they are active.
+- The data-free database health RPC and its static/runtime privilege tests are committed. The CLI now supports explicit `--live` checks for Supabase Auth and that RPC with bounded timeouts, sanitized outcomes, and no retries. Persistent audit integration, administrator visibility, FCM/routing live probes, and scheduled monitoring remain future work; do not imply they are active.
 
 ## References
 
