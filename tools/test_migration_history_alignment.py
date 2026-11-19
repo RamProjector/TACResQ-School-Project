@@ -327,7 +327,7 @@ for required in (
     "authenticated must not directly INSERT into public.%",
 ):
     assert required in core_privileges, f"Missing exact core-table privilege assertion: {required}"
-assert "has_table_privilege('authenticated', table_oid, 'UPDATE')" not in core_privileges
+assert "PostgreSQL has_table_privilege(..., 'UPDATE') intentionally returns false" in core_privileges
 core_migration = (MIGRATIONS / "20261118100000_restrict_core_table_destructive_privileges.sql").read_text()
 assert "creation and assignment use authorization-checked RPCs" in core_migration
 print("PASS: core privilege runtime contract checks narrow updates and RPC-only client creation.")
