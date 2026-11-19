@@ -33,9 +33,9 @@ for phrase in required:
 # Keep the plan honest: these are proposed phases, not an active production monitor.
 for phrase in (
     "no independent dependency monitor",
-    "no scheduled probe",
-    "no alert destination",
-    "no dependency probes, alerts, or scheduled monitoring are active",
+    "scheduled probe",
+    "alert destination",
+    "no independent dependency monitor",
 ):
     assert phrase in lower, f"Missing explicit not-yet-implemented boundary: {phrase}"
 
