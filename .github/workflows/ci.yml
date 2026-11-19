@@ -123,6 +123,8 @@ jobs:
         run: python3 tools/test_incident_authorization.py
       - name: Check durable SOS idempotency contract
         run: python3 tools/test_durable_sos_idempotency.py
+      - name: Check Laravel incident submission idempotency contract
+        run: python3 tools/test_laravel_incident_idempotency_contract.py
 
       - name: Check requester active-incident and cancellation contract
         run: python3 tools/test_requester_active_incident.py
