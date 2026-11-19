@@ -164,6 +164,8 @@ jobs:
 
       - name: Check dispatcher active incident lifecycle filtering
         run: python3 tools/test_dispatcher_active_incident_filter.py
+      - name: Check dispatcher historical lookup transport contract
+        run: python3 tools/test_dispatcher_historical_lookup_contract.py
 
       - name: Check per-responder assignment status contract
         run: python3 tools/test_per_responder_assignment_status.py
