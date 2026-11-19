@@ -29,12 +29,18 @@ class OwnedBackendIncidentCreationTest extends TestCase
         $first->assertCreated()->assertJsonPath('status', 'pending');
         $incidentId = $first->json('id');
 
+        // Simulate later operational state changes. Idempotent retries must
+        // return the original submission acknowledgement, not current state.
+        Incident::whereKey($incidentId)->update(['status' => 'resolved']);
+
         $replay = $this->postJson('/api/incidents', $body);
         $replay->assertOk()->assertJsonPath('id', $incidentId);
 
         // A replay must return the original persisted response, not rebuild a
         // subtly different payload from mutable incident state.
         $this->assertSame($first->json(), $replay->json());
+        $this->assertSame('pending', $replay->json('status'));
+        $this->assertSame('resolved', Incident::findOrFail($incidentId)->status);
 
         $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
         $this->assertDatabaseCount('incident_status_logs', 1);
