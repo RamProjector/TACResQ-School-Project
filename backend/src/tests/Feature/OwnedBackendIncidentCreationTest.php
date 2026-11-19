@@ -232,6 +232,46 @@ class OwnedBackendIncidentCreationTest extends TestCase
         $this->assertDatabaseCount('incident_status_logs', 0);
     }
 
+    public function test_invalid_coordinate_pairs_and_ranges_cannot_reserve_sos_submissions(): void
+    {
+        $requester = $this->requester('sos-invalid-coordinates@example.test');
+        Sanctum::actingAs($requester);
+
+        $invalidBodies = [
+            [
+                'client_request_id' => '1e1d7c5a-8f43-4a10-a47d-2b6b88f70001',
+                'type' => 'medical',
+                'latitude' => 10.3157,
+                'location_source' => 'gps',
+                'location_recorded_at' => '2026-11-19T05:00:00Z',
+            ],
+            [
+                'client_request_id' => '1e1d7c5a-8f43-4a10-a47d-2b6b88f70002',
+                'type' => 'medical',
+                'latitude' => 10.3157,
+                'longitude' => 181,
+                'location_source' => 'gps',
+                'location_recorded_at' => '2026-11-19T05:00:00Z',
+            ],
+            [
+                'client_request_id' => '1e1d7c5a-8f43-4a10-a47d-2b6b88f70003',
+                'type' => 'medical',
+                'latitude' => -91,
+                'longitude' => 123.8854,
+                'location_source' => 'gps',
+                'location_recorded_at' => '2026-11-19T05:00:00Z',
+            ],
+        ];
+
+        foreach ($invalidBodies as $body) {
+            $this->postJson('/api/incidents', $body)->assertUnprocessable();
+        }
+
+        $this->assertSame(0, Incident::where('requester_id', $requester->id)->count());
+        $this->assertDatabaseCount('incident_submission_keys', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
     public function test_only_requesters_can_create_sos_incidents(): void
     {
         foreach (['responder', 'driver', 'admin'] as $role) {
