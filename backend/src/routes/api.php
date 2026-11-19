@@ -156,7 +156,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         abort_if($active, 422, 'Duty status cannot be changed while an incident is active.');
         $request->user()->update($data);
         return response()->json($userJson($request->user()->fresh()));
-    });
+    })->middleware('throttle:30,1');
     Route::get('/incidents/mine', function (Request $request) use ($incidentJson) {
         // Preserve the legacy JSON-array response while bounding list work.
         $validated = $request->validate(['limit' => ['sometimes', 'integer', 'min:1', 'max:100']]);
@@ -314,7 +314,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         });
 
         return response()->json($incidentJson($updated));
-    });
+    })->middleware('throttle:30,1');
     Route::get('/incidents', function (Request $request) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['dispatcher']);
         $validated = $request->validate(['limit' => ['sometimes', 'integer', 'min:1', 'max:100']]);
@@ -344,7 +344,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
             return $lockedIncident->fresh();
         });
         return response()->json($incidentJson($updated));
-    });
+    })->middleware('throttle:30,1');
 });
 
 // Transitional Render -> Supabase bridge. Apply a coarse per-IP ceiling before
