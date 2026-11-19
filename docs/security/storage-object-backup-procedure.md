@@ -49,3 +49,4 @@ The read-only inventory recorded one private bucket, `incident-chat-attachments`
 - It does not back up database rows, Auth users, project configuration, or Storage policies.
 - A successful copy/manifest check is not a restore drill.
 - Do not store object bytes, signed URLs, access tokens, service-role keys, or database passwords in Git.
+Use [the isolated restore-drill checklist](isolated-restore-drill-checklist.md) for the full cross-component recovery gates and evidence record.
