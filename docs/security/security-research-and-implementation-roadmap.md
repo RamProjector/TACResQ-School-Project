@@ -116,6 +116,8 @@ A device ID, browser fingerprint, platform label, or integrity verdict is never 
 
 ### P0 — Backup and disaster recovery
 
+Detailed provider-specific runbook and staged implementation gates: [backup-disaster-recovery-research-and-implementation-plan.md](backup-disaster-recovery-research-and-implementation-plan.md).
+
 **Research and implement**
 - Establish a repeatable database export/backup procedure compatible with the current Supabase plan and available free tooling.
 - Back up Storage objects separately; database backups alone do not preserve chat attachments.
