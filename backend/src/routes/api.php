@@ -152,7 +152,15 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
     Route::patch('/me/duty-status', function (Request $request) use ($userJson, $onlyRoles) {
         $onlyRoles($request, ['responder', 'driver']);
         $data = $request->validate(['duty_status' => ['required', Rule::in(['available', 'off_duty'])]]);
-        $active = Incident::where('assigned_to', $request->user()->id)->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists();
+        $active = Incident::where(function ($query) use ($request) {
+            $query->where('assigned_to', $request->user()->id)
+                ->orWhereExists(function ($assignment) use ($request) {
+                    $assignment->selectRaw('1')
+                        ->from('incident_assignments')
+                        ->whereColumn('incident_assignments.incident_id', 'incidents.id')
+                        ->where('incident_assignments.user_id', $request->user()->id);
+                });
+        })->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists();
         abort_if($active, 422, 'Duty status cannot be changed while an incident is active.');
         $request->user()->update($data);
         return response()->json($userJson($request->user()->fresh()));
@@ -304,12 +312,25 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
             $locked->update(['status' => $data['status']]);
             $locked->statusLogs()->create(['status' => $data['status'], 'changed_by' => $request->user()->id]);
 
-            $unit = User::whereKey($locked->assigned_to)->lockForUpdate()->first();
-            if ($unit) {
-                $unit->update([
-                    'duty_status' => $data['status'] === 'resolved' ? 'available' : $data['status'],
+            DB::table('incident_assignments')
+                ->where('incident_id', $locked->id)
+                ->update([
+                    'responder_status' => $data['status'],
+                    'status_updated_at' => now(),
                 ]);
-            }
+
+            $assignedUserIds = DB::table('incident_assignments')
+                ->where('incident_id', $locked->id)
+                ->pluck('user_id')
+                ->push($locked->assigned_to)
+                ->filter()
+                ->unique()
+                ->values();
+            User::whereIn('id', $assignedUserIds)->lockForUpdate()->get()->each(
+                static fn (User $unit) => $unit->update([
+                    'duty_status' => $data['status'] === 'resolved' ? 'available' : $data['status'],
+                ])
+            );
             return $locked->fresh();
         });
 
@@ -336,9 +357,25 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
             $unit = User::whereKey($data['user_id'])->lockForUpdate()->firstOrFail();
             abort_unless(in_array($unit->role, ['responder', 'driver'], true), 422, 'Selected user is not a field unit.');
             abort_unless($unit->duty_status === 'available', 422, 'Selected unit is not available.');
-            $busy = Incident::where('assigned_to', $unit->id)->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists();
+            $busy = Incident::where(function ($query) use ($unit) {
+                $query->where('assigned_to', $unit->id)
+                    ->orWhereExists(function ($assignment) use ($unit) {
+                        $assignment->selectRaw('1')
+                            ->from('incident_assignments')
+                            ->whereColumn('incident_assignments.incident_id', 'incidents.id')
+                            ->where('incident_assignments.user_id', $unit->id);
+                    });
+            })->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists();
             abort_if($busy, 422, 'Selected unit already has an active incident.');
             $lockedIncident->update(['assigned_to' => $unit->id, 'status' => 'assigned']);
+            DB::table('incident_assignments')->insert([
+                'incident_id' => $lockedIncident->id,
+                'user_id' => $unit->id,
+                'assigned_by' => $request->user()->id,
+                'assigned_at' => now(),
+                'responder_status' => 'assigned',
+                'status_updated_at' => now(),
+            ]);
             $lockedIncident->statusLogs()->create(['status' => 'assigned', 'changed_by' => $request->user()->id]);
             // Keep the unit out of the available pool immediately after assignment.
             // Subsequent dispatcher progress mirrors en_route/on_scene/transporting.
