@@ -166,7 +166,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         if ($user->role === 'requester') $query->where('requester_id', $user->id);
         elseif (in_array($user->role, ['responder', 'driver'], true)) $query->where('assigned_to', $user->id);
         else abort(403, 'This account has no personal incident list.');
-        return response()->json($query->latest()->limit($limit)->get()->map($incidentJson)->values());
+        return response()->json($query->orderByDesc('created_at')->orderByDesc('id')->limit($limit)->get()->map($incidentJson)->values());
     })->middleware('throttle:120,1');
     Route::post('/incidents', function (Request $request) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['requester']);
@@ -319,13 +319,13 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         $onlyRoles($request, ['dispatcher']);
         $validated = $request->validate(['limit' => ['sometimes', 'integer', 'min:1', 'max:100']]);
         $limit = (int) ($validated['limit'] ?? 100);
-        return response()->json(Incident::latest()->limit($limit)->get()->map($incidentJson)->values());
+        return response()->json(Incident::orderByDesc('created_at')->orderByDesc('id')->limit($limit)->get()->map($incidentJson)->values());
     })->middleware('throttle:120,1');
     Route::get('/units', function (Request $request) use ($userJson, $onlyRoles) {
         $onlyRoles($request, ['dispatcher']);
         $validated = $request->validate(['limit' => ['sometimes', 'integer', 'min:1', 'max:100']]);
         $limit = (int) ($validated['limit'] ?? 100);
-        return response()->json(User::whereIn('role', ['responder', 'driver'])->orderBy('name')->limit($limit)->get()->map($userJson)->values());
+        return response()->json(User::whereIn('role', ['responder', 'driver'])->orderBy('name')->orderBy('id')->limit($limit)->get()->map($userJson)->values());
     })->middleware('throttle:120,1');
     Route::post('/incidents/{incident}/assign', function (Request $request, Incident $incident) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['dispatcher']);
