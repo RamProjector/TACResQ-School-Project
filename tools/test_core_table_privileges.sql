@@ -48,16 +48,17 @@ BEGIN
         RAISE EXCEPTION 'authenticated must not update profile identity or role columns directly';
       END IF;
     ELSIF table_name = 'incidents' THEN
-      IF NOT has_column_privilege('authenticated', table_oid, 'status', 'UPDATE')
-         OR NOT has_column_privilege('authenticated', table_oid, 'assigned_to', 'UPDATE')
-         OR NOT has_column_privilege('authenticated', table_oid, 'updated_at', 'UPDATE') THEN
-        RAISE EXCEPTION 'authenticated must retain required incident progress update columns';
-      END IF;
-      IF has_column_privilege('authenticated', table_oid, 'requester_id', 'UPDATE')
+      -- Incident lifecycle, assignment, and report edits use authorization-
+      -- checked RPCs. Direct table UPDATE is not part of the client contract.
+      IF has_table_privilege('authenticated', table_oid, 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'status', 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'assigned_to', 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'requester_id', 'UPDATE')
          OR has_column_privilege('authenticated', table_oid, 'type', 'UPDATE')
          OR has_column_privilege('authenticated', table_oid, 'latitude', 'UPDATE')
-         OR has_column_privilege('authenticated', table_oid, 'longitude', 'UPDATE') THEN
-        RAISE EXCEPTION 'authenticated must not update incident ownership or report fields directly';
+         OR has_column_privilege('authenticated', table_oid, 'longitude', 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'updated_at', 'UPDATE') THEN
+        RAISE EXCEPTION 'authenticated must use authorized RPCs instead of direct incident updates';
       END IF;
     END IF;
 
