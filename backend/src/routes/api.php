@@ -152,18 +152,24 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
     Route::patch('/me/duty-status', function (Request $request) use ($userJson, $onlyRoles) {
         $onlyRoles($request, ['responder', 'driver']);
         $data = $request->validate(['duty_status' => ['required', Rule::in(['available', 'off_duty'])]]);
-        $active = Incident::where(function ($query) use ($request) {
-            $query->where('assigned_to', $request->user()->id)
-                ->orWhereExists(function ($assignment) use ($request) {
-                    $assignment->selectRaw('1')
-                        ->from('incident_assignments')
-                        ->whereColumn('incident_assignments.incident_id', 'incidents.id')
-                        ->where('incident_assignments.user_id', $request->user()->id);
-                });
-        })->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists();
-        abort_if($active, 422, 'Duty status cannot be changed while an incident is active.');
-        $request->user()->update($data);
-        return response()->json($userJson($request->user()->fresh()));
+        $updated = DB::transaction(function () use ($request, $data) {
+            // Serialize duty changes with dispatcher assignment, which locks this
+            // same user row before checking availability and creating membership.
+            $unit = User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $active = Incident::where(function ($query) use ($unit) {
+                $query->where('assigned_to', $unit->id)
+                    ->orWhereExists(function ($assignment) use ($unit) {
+                        $assignment->selectRaw('1')
+                            ->from('incident_assignments')
+                            ->whereColumn('incident_assignments.incident_id', 'incidents.id')
+                            ->where('incident_assignments.user_id', $unit->id);
+                    });
+            })->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists();
+            abort_if($active, 422, 'Duty status cannot be changed while an incident is active.');
+            $unit->update($data);
+            return $unit->fresh();
+        });
+        return response()->json($userJson($updated));
     })->middleware('throttle:30,1');
     Route::get('/incidents/mine', function (Request $request) use ($incidentJson) {
         // Preserve the legacy JSON-array response while bounding list work.
