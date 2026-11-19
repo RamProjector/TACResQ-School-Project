@@ -356,7 +356,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
                 ->filter()
                 ->unique()
                 ->values();
-            User::whereIn('id', $assignedUserIds)->lockForUpdate()->get()->each(
+            User::whereIn('id', $assignedUserIds)->orderBy('id')->lockForUpdate()->get()->each(
                 static fn (User $unit) => $unit->update([
                     'duty_status' => $data['status'] === 'resolved' ? 'available' : $data['status'],
                 ])

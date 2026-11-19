@@ -61,6 +61,7 @@ assert "->where('incident_id', $locked->id)" in status_route
 assert "'responder_status' => $data['status']" in status_route
 assert "'status_updated_at' => now()" in status_route
 assert "->pluck('user_id')" in status_route
+assert "whereIn('id', $assignedUserIds)->orderBy('id')->lockForUpdate()" in status_route
 assert "$data['status'] === 'resolved' ? 'available' : $data['status']" in status_route
 
 print("PASS: Laravel assignment writes a durable incident_assignments membership mirror.")
