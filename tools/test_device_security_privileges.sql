@@ -55,6 +55,31 @@ BEGIN
     RAISE EXCEPTION 'Device/session/challenge/integrity ownership constraints are missing or unvalidated';
   END IF;
 
+  -- Input bounds and short challenge lifetimes are enforced by PostgreSQL,
+  -- not left to individual verifier implementations.
+  IF (
+    SELECT count(*) FROM pg_constraint
+    WHERE convalidated
+      AND (
+        (conrelid = 'public.user_devices'::regclass AND conname IN (
+          'user_devices_device_model_length_check',
+          'user_devices_app_version_length_check',
+          'user_devices_public_key_length_check',
+          'user_devices_revoked_reason_length_check'
+        ))
+        OR (conrelid = 'public.device_sessions'::regclass
+            AND conname = 'device_sessions_expiry_check')
+        OR (conrelid = 'public.device_challenges'::regclass
+            AND conname = 'device_challenges_max_lifetime_check')
+        OR (conrelid = 'public.device_security_events'::regclass
+            AND conname = 'device_security_events_details_size_check')
+        OR (conrelid = 'public.device_integrity_checks'::regclass
+            AND conname = 'device_integrity_checks_summary_size_check')
+      )
+  ) <> 8 THEN
+    RAISE EXCEPTION 'Device registry metadata, payload-size, and challenge-lifetime constraints are missing or unvalidated';
+  END IF;
+
   -- Mutable registry records are server-managed; event/integrity records
   -- are insert-only so service_role cannot rewrite or erase their history.
   IF NOT has_table_privilege('service_role', 'public.user_devices', 'SELECT')
