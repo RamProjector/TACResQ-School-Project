@@ -36,6 +36,7 @@ assert "api_dependency_health" in client[client.index("export async function get
 assert "health: '/up'" in bootstrap
 assert "Laravel backend" in console
 assert "Dependency health" in console
+assert 'role="status" aria-label={label + " status: " + result.status}' in console
 assert "do not verify incident workflows" in console
 assert "getAdminDependencyHealth()" in console
 
