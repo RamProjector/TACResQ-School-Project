@@ -29,8 +29,8 @@ def digest_file(path: Path) -> str:
 
 
 def collect_components(directory: Path) -> list[dict[str, Any]]:
-    if not directory.is_dir():
-        raise ValueError("backup directory must exist and be a directory")
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError("backup directory must exist, be a real directory, and not be a symlink")
     entries = []
     for filename in COMPONENTS:
         path = directory / filename
@@ -82,6 +82,8 @@ def write_manifest(manifest: dict[str, Any], destination: Path) -> None:
 
 def verify_manifest(directory: Path, manifest_path: Path) -> tuple[bool, list[str]]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError("manifest root must be an object")
     if manifest.get("format") != FORMAT:
         raise ValueError("unsupported database backup manifest format")
     project_ref = manifest.get("project_ref")
@@ -98,7 +100,7 @@ def verify_manifest(directory: Path, manifest_path: Path) -> tuple[bool, list[st
         if not isinstance(item, dict):
             raise ValueError("manifest component must be an object")
         name, size, digest = item.get("path"), item.get("size_bytes"), item.get("sha256")
-        if name not in COMPONENTS or name in expected_by_name:
+        if not isinstance(name, str) or name not in COMPONENTS or name in expected_by_name:
             raise ValueError("manifest has an unknown or duplicate component")
         if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
             raise ValueError(f"invalid size for component: {name}")
@@ -107,9 +109,14 @@ def verify_manifest(directory: Path, manifest_path: Path) -> tuple[bool, list[st
         expected_by_name[name] = item
     if set(expected_by_name) != set(COMPONENTS):
         raise ValueError("manifest must contain schema.sql, data.sql, and roles.sql")
-    if manifest.get("component_count") != len(COMPONENTS):
+    component_count = manifest.get("component_count")
+    total_size = manifest.get("total_size_bytes")
+    if (not isinstance(component_count, int) or isinstance(component_count, bool)
+            or component_count != len(COMPONENTS)):
         raise ValueError("manifest component_count is inconsistent")
-    if manifest.get("total_size_bytes") != sum(x["size_bytes"] for x in expected_by_name.values()):
+    expected_total = sum(x["size_bytes"] for x in expected_by_name.values())
+    if (not isinstance(total_size, int) or isinstance(total_size, bool)
+            or total_size != expected_total):
         raise ValueError("manifest total_size_bytes is inconsistent")
 
     actual = collect_components(directory)
