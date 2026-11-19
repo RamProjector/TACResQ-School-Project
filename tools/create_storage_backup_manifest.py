@@ -26,8 +26,8 @@ def sha256_file(path: Path) -> str:
 
 
 def collect_entries(root: Path) -> list[dict[str, Any]]:
-    if not root.exists() or not root.is_dir():
-        raise ValueError(f"backup directory does not exist: {root}")
+    if root.is_symlink() or not root.exists() or not root.is_dir():
+        raise ValueError(f"backup directory must exist, be a real directory, and not be a symlink: {root}")
     entries: list[dict[str, Any]] = []
     for current, dirs, files in os.walk(root, followlinks=False):
         current_path = Path(current)
@@ -83,6 +83,8 @@ def write_manifest(manifest: dict[str, Any], destination: Path) -> None:
 
 def verify_manifest(root: Path, manifest_path: Path) -> tuple[bool, list[str]]:
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("manifest root must be an object")
     if data.get("format") != "tacresq-storage-backup-manifest-v1":
         raise ValueError("unsupported manifest format")
     actual = collect_entries(root)
@@ -90,7 +92,7 @@ def verify_manifest(root: Path, manifest_path: Path) -> tuple[bool, list[str]]:
     if not isinstance(expected, list):
         raise ValueError("manifest objects must be a list")
     bucket = data.get("bucket")
-    if not isinstance(bucket, str) or not bucket or "/" in bucket or "\\\\" in bucket or bucket in {".", ".."}:
+    if not isinstance(bucket, str) or not bucket or "/" in bucket or chr(92) in bucket or bucket in {".", ".."}:
         raise ValueError("manifest bucket is invalid")
     expected_by_path: dict[str, dict[str, Any]] = {}
     for item in expected:
@@ -101,16 +103,22 @@ def verify_manifest(root: Path, manifest_path: Path) -> tuple[bool, list[str]]:
         digest = item.get("sha256")
         relative = PurePosixPath(path) if isinstance(path, str) else None
         if (not path or relative is None or relative.is_absolute()
-                or any(part in {"", ".", ".."} for part in relative.parts)
-                or "\\\\" in path or not isinstance(size, int) or isinstance(size, bool)
+                or path != relative.as_posix()
+                or any(part in {"", ".", ".."} for part in path.split("/"))
+                or chr(92) in path or not isinstance(size, int) or isinstance(size, bool)
                 or size < 0 or not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)):
             raise ValueError("manifest contains an invalid object entry")
         if path in expected_by_path:
             raise ValueError(f"manifest contains duplicate object path: {path}")
         expected_by_path[path] = item
-    if data.get("object_count") != len(expected_by_path):
+    object_count = data.get("object_count")
+    total_size = data.get("total_size_bytes")
+    expected_total = sum(item["size_bytes"] for item in expected_by_path.values())
+    if (not isinstance(object_count, int) or isinstance(object_count, bool)
+            or object_count != len(expected_by_path)):
         raise ValueError("manifest object_count does not match its entries")
-    if data.get("total_size_bytes") != sum(item["size_bytes"] for item in expected_by_path.values()):
+    if (not isinstance(total_size, int) or isinstance(total_size, bool)
+            or total_size != expected_total):
         raise ValueError("manifest total_size_bytes does not match its entries")
     errors: list[str] = []
     actual_by_path = {item["path"]: item for item in actual}
