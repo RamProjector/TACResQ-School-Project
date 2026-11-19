@@ -339,6 +339,24 @@ class IncidentAssignmentWorkflowTest extends TestCase
         $requesterResponse->assertJsonMissing(['assignment_role' => 'lead']);
     }
 
+
+    public function test_personal_incident_list_rejects_unsupported_roles_and_invalid_limits(): void
+    {
+        $dispatcher = $this->user('assignment-list-dispatcher-guard@example.test', 'dispatcher');
+        $admin = $this->user('assignment-list-admin-guard@example.test', 'admin');
+        $requester = $this->user('assignment-list-limit-requester@example.test', 'requester');
+
+        foreach ([$dispatcher, $admin] as $account) {
+            Sanctum::actingAs($account);
+            $this->getJson('/api/incidents/mine')->assertForbidden();
+        }
+
+        Sanctum::actingAs($requester);
+        $this->getJson('/api/incidents/mine?limit=0')->assertUnprocessable();
+        $this->getJson('/api/incidents/mine?limit=101')->assertUnprocessable();
+        $this->getJson('/api/incidents/mine?limit=not-a-number')->assertUnprocessable();
+    }
+
     private function user(string $email, string $role, ?string $dutyStatus = null): User
     {
         return User::create([
