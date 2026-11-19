@@ -11,7 +11,19 @@
 - The repository contains versioned Supabase migrations. A schema replay from migrations is useful for rebuilding structure, but it is not a substitute for restoring operational rows, Auth users, or Storage objects.
 - The existing device registry and audit/event data are security-sensitive. Backup access and restore access must be restricted and audited.
 
-## 2. Provider facts that affect the design
+## 2. Verified TACResQ deployment snapshot (2026-11-19)
+
+Read-only checks were performed against the connected Supabase and Render accounts:
+
+- Supabase project `TACResQ-School-Project` (`kttguamhznoflzagfutr`) is `ACTIVE_HEALTHY`, hosted in `ap-southeast-1` (Singapore), on PostgreSQL 17.
+- The only Storage bucket returned by the current inventory is `incident-chat-attachments`. It is **private**, limited to **5 MiB per object**, and allows only JPEG, PNG, and WebP.
+- The bucket inventory returned **1 object**, with **79,547 bytes** recorded in object metadata at the time of inspection. This is a point-in-time metadata count, not proof that the object bytes have been backed up or are restorable.
+- Render service `TACResQ-School-Project` is a **Free** Docker web service in Singapore, connected to the repository's `main` branch with automatic deploy on commit. The service details returned no persistent-disk configuration. Treat its container filesystem as ephemeral and do not use it as a backup destination.
+- The Supabase project details available through the connected account did not expose the project's billing plan or automatic-backup retention. **The Supabase plan and backup entitlement remain unverified**; confirm them in Supabase Billing/Project Settings before relying on provider backups.
+
+These checks were read-only. No storage objects were downloaded or changed, no project settings were modified, and no backup job was created or run.
+
+## 3. Provider facts that affect the design
 
 ### Supabase database
 
@@ -26,7 +38,7 @@
 - Persistent disks are a separate infrastructure decision, not an assumed feature of the current TACResQ service. Adding one can affect deployment availability and scaling; it is not proposed as a shortcut for database backups.
 - Render disk snapshots, where applicable, are not application-consistent database backups and must not be used to restore a custom database.
 
-## 3. Proposed backup layers
+## 4. Proposed backup layers
 
 | Layer | What must be preserved | Proposed mechanism | Important limitation |
 |---|---|---|---|
@@ -37,7 +49,7 @@
 | Render portal | Source, deployment configuration, environment-variable names, release identity | Git + documented environment inventory + known-good deploy reference | Container filesystem is not durable storage |
 | Recovery evidence | Backup job result, checksum, size, timestamp, schema version, restore test | Append-only backup manifest and restricted audit trail | A successful upload is not proof that a backup is restorable |
 
-## 4. Free-first baseline
+## 5. Free-first baseline
 
 1. Run a scheduled Postgres logical export using a trusted runner with narrowly scoped credentials. Do not put a database password or access token in source code, workflow logs, command-line arguments visible to other users, or artifacts.
 2. Encrypt the dump before it leaves the runner. Store it outside the Supabase project and outside the Render service filesystem.
@@ -49,7 +61,7 @@
 
 No paid service is required for this baseline, but an off-site destination must be selected and access-controlled. A free GitHub Actions runner is not itself a backup destination; workflow artifacts have retention/availability limits and must not become the only copy.
 
-## 5. Restore procedure and safety gates
+## 6. Restore procedure and safety gates
 
 ### Before restore
 
@@ -75,7 +87,7 @@ No paid service is required for this baseline, but an off-site destination must 
 
 A Supabase project restore can make the project inaccessible during the restore and replaces current database state with the selected recovery point. Treat it as a high-impact production action.
 
-## 6. Proposed service objectives (targets, not current guarantees)
+## 7. Proposed service objectives (targets, not current guarantees)
 
 | Priority | Proposed RPO | Proposed RTO | Notes |
 |---|---:|---:|---|
@@ -86,7 +98,7 @@ A Supabase project restore can make the project inaccessible during the restore 
 
 These are proposed planning objectives, not measured capabilities or provider SLAs. If the system cannot meet them during a restore drill, revise the objective or improve the process before making an availability claim.
 
-## 7. Admin feature boundaries
+## 8. Admin feature boundaries
 
 A future Admin → Security & Countermeasures → Backup & Recovery page may show:
 - Last successful database export and object backup timestamps
@@ -97,7 +109,7 @@ A future Admin → Security & Countermeasures → Backup & Recovery page may sho
 
 The admin browser must not receive raw database dumps, storage backup credentials, service-role keys, or unrestricted restore controls. A restore request should create an audited approval workflow handled by a privileged server-side operator, not execute a destructive restore directly from the dashboard.
 
-## 8. Implementation sequence
+## 9. Implementation sequence
 
 **P0 — Establish reality**
 - Confirm the Supabase plan, project backup availability, Storage buckets, object volume, Render service type, and whether any persistent disk exists.
@@ -118,7 +130,7 @@ The admin browser must not receive raw database dumps, storage backup credential
 - Add read-only backup status and recovery readiness to the admin security area.
 - Add approval/audit workflow for restore operations only after privileged server-side execution and authorization are established.
 
-## 9. References
+## 10. References
 
 - Supabase Database Backups: https://supabase.com/docs/guides/platform/backups
 - Supabase Free Plan backup FAQ: https://supabase.com/kb/faqs/platform/free-plan-backups
