@@ -52,6 +52,10 @@ To exercise the live HTTP API, first add demo users to a test database and start
 python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 ```
 
+## Dependency health monitoring
+
+The built-in `/up` endpoint confirms Laravel booted; it does not verify Supabase Auth, database RPCs, FCM, or routing. The component-level monitoring research and staged implementation plan is in [`docs/security/dependency-health-monitoring-research-and-implementation-plan.md`](../docs/security/dependency-health-monitoring-research-and-implementation-plan.md). No dependency probes, alerts, or scheduled monitoring are active by this documentation change.
+
 ## API and safety notes
 
 - Auth uses Laravel Sanctum personal access tokens; logout deletes the current token.
