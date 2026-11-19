@@ -81,7 +81,7 @@ def write_manifest(manifest: dict[str, Any], destination: Path) -> None:
         raise
 
 
-def verify_manifest(root: Path, manifest_path: Path) -> tuple[bool, list[str]]:
+def verify_manifest(root: Path, manifest_path: Path, expected_bucket: str | None = None) -> tuple[bool, list[str]]:
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("manifest root must be an object")
@@ -94,6 +94,8 @@ def verify_manifest(root: Path, manifest_path: Path) -> tuple[bool, list[str]]:
     bucket = data.get("bucket")
     if not isinstance(bucket, str) or not bucket or "/" in bucket or chr(92) in bucket or bucket in {".", ".."}:
         raise ValueError("manifest bucket is invalid")
+    if expected_bucket is not None and bucket != expected_bucket:
+        raise ValueError("manifest bucket does not match the expected bucket")
     expected_by_path: dict[str, dict[str, Any]] = {}
     for item in expected:
         if not isinstance(item, dict):
@@ -137,13 +139,13 @@ def verify_manifest(root: Path, manifest_path: Path) -> tuple[bool, list[str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--directory", required=True, type=Path, help="local directory containing one downloaded bucket")
-    parser.add_argument("--bucket", help="bucket name; required when creating a manifest")
+    parser.add_argument("--bucket", help="bucket name; required when creating a manifest and optionally pins verification to an expected bucket")
     parser.add_argument("--output", type=Path, help="manifest output path; required when creating a manifest")
     parser.add_argument("--verify", type=Path, help="verify the directory against an existing manifest")
     args = parser.parse_args()
 
     if args.verify:
-        ok, errors = verify_manifest(args.directory, args.verify)
+        ok, errors = verify_manifest(args.directory, args.verify, args.bucket)
         if ok:
             print("Storage backup manifest verified.")
             return 0
