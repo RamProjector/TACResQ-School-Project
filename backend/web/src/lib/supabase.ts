@@ -182,6 +182,7 @@ export type DependencyProbeResult = {
 
 export type AdminDependencyHealth = {
   checked_at: string;
+  laravel_backend: DependencyProbeResult;
   supabase_auth: DependencyProbeResult;
   supabase_database: DependencyProbeResult;
 };
@@ -220,7 +221,16 @@ export async function getAdminDependencyHealth(): Promise<AdminDependencyHealth>
   }
 
   const { url, publishableKey } = supabaseHealthConfig;
-  const [auth, database] = await Promise.all([
+  const [backend, auth, database] = await Promise.all([
+    runDependencyProbe(async (signal) => {
+      const response = await fetch("/up", {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal,
+      });
+      return response.ok;
+    }),
     runDependencyProbe(async (signal) => {
       const response = await fetch(url + "/auth/v1/health", {
         method: "GET",
@@ -253,6 +263,7 @@ export async function getAdminDependencyHealth(): Promise<AdminDependencyHealth>
 
   return {
     checked_at: new Date().toISOString(),
+    laravel_backend: backend,
     supabase_auth: auth,
     supabase_database: database,
   };
