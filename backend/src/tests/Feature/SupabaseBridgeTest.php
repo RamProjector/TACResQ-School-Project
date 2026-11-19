@@ -92,6 +92,31 @@ class SupabaseBridgeTest extends TestCase
         $this->assertLessThanOrEqual(60, $retryAfter);
     }
 
+    public function test_rpc_rejects_oversized_payload_before_supabase_authentication(): void
+    {
+        Http::preventStrayRequests();
+
+        $this->withToken('valid-looking-token')
+            ->postJson('/api/bridge/rpc/api_create_incident_v4', [
+                'p_description' => str_repeat('x', 33000),
+            ])
+            ->assertStatus(413);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_rpc_rejects_non_object_json_arguments_before_authentication(): void
+    {
+        Http::preventStrayRequests();
+
+        $this->withToken('valid-looking-token')
+            ->postJson('/api/bridge/rpc/api_units', ['unexpected-list-item'])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'RPC arguments must be a JSON object.');
+
+        Http::assertNothingSent();
+    }
+
     public function test_invalid_supabase_token_is_rejected_without_rpc_execution(): void
     {
         Http::fake([
