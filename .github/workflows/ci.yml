@@ -57,6 +57,9 @@ jobs:
       - name: Check Laravel login throttling contract
         run: python3 tools/test_login_rate_limit_contract.py
 
+      - name: Check route preview provider throttling contract
+        run: python3 tools/test_route_preview_provider_throttle.py
+
       - name: Check public registration throttling contract
         run: python3 tools/test_registration_rate_limit_contract.py
 

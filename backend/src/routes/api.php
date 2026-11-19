@@ -555,6 +555,16 @@ Route::get('/route-preview/provider', function (Request $request, \App\SupabaseB
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
 
+    // This endpoint performs another authenticated Supabase RPC; bound it per
+    // verified account before making the additional upstream request.
+    $providerRateKey = 'route-preview-provider-user:'.hash('sha256', (string) $authUser['id']);
+    if (RateLimiter::tooManyAttempts($providerRateKey, 30)) {
+        return response()->json(['message' => 'Too many route-provider checks. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($providerRateKey))
+            ->header('Cache-Control', 'no-store, private');
+    }
+    RateLimiter::hit($providerRateKey, 60);
+
     $profileResult = $bridge->callRpc($token, 'api_me', []);
     if ($profileResult['status'] >= 500) {
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
