@@ -154,9 +154,9 @@ checks = {
     "server response source is verified before claiming location confirmation": (
         "if (incident.locationSource != expectedSource) return false" in requester
     ),
-    "incident cards distinguish GPS, manual, and unverified location sources without dumping coordinates": all(
+    "incident cards distinguish device, manual, and unverified location sources without dumping coordinates": all(
         text in incident_card for text in (
-            '"gps" -> "GPS"', '"manual" -> "Map pin"',
+            '"gps" -> "Device location"', '"manual" -> "Map pin"',
             '"Unverified pin"', 'incident.locationSource == "gps"',
             '"No location pin$note"', 'val note = incident.locationNotes?.trim()',
         )
