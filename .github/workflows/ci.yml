@@ -70,6 +70,9 @@ jobs:
       - name: Check privacy-safe bridge rate-limit keys
         run: python3 tools/test_bridge_rate_limit_key_privacy.py
 
+      - name: Check Laravel assignment duty-state visibility
+        run: python3 tools/test_laravel_assignment_duty_state.py
+
       - name: Check Sanctum session revocation contract
         run: python3 tools/test_session_revocation_contract.py
 

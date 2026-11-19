@@ -340,7 +340,9 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
             abort_if($busy, 422, 'Selected unit already has an active incident.');
             $lockedIncident->update(['assigned_to' => $unit->id, 'status' => 'assigned']);
             $lockedIncident->statusLogs()->create(['status' => 'assigned', 'changed_by' => $request->user()->id]);
-            $unit->update(['duty_status' => 'available']);
+            // Keep the unit out of the available pool immediately after assignment.
+            // Subsequent dispatcher progress mirrors en_route/on_scene/transporting.
+            $unit->update(['duty_status' => 'assigned']);
             return $lockedIncident->fresh();
         });
         return response()->json($incidentJson($updated));
