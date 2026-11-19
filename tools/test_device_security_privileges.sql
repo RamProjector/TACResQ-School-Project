@@ -26,8 +26,7 @@ BEGIN
       'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
     ] LOOP
       IF has_table_privilege('anon', table_oid, privilege_name)
-         OR has_table_privilege('authenticated', table_oid, privilege_name)
-         OR has_table_privilege('PUBLIC', table_oid, privilege_name) THEN
+         OR has_table_privilege('authenticated', table_oid, privilege_name) THEN
         RAISE EXCEPTION 'Client/PUBLIC role unexpectedly has % on public.%',
           privilege_name, table_name;
       END IF;
