@@ -34,7 +34,12 @@ $onlyRoles = static function (Request $request, array $roles): void {
 };
 
 Route::post('/login', function (Request $request) use ($userJson) {
-    $credentials = $request->validate(['email' => ['required', 'email'], 'password' => ['required', 'string']]);
+    $credentials = $request->validate([
+        'email' => ['required', 'string', 'email', 'max:255'],
+        // Match the legacy registration and password-change input ceiling so
+        // oversized credential strings are rejected before hashing work.
+        'password' => ['required', 'string', 'max:72'],
+    ]);
     $normalizedEmail = mb_strtolower(trim($credentials['email']));
     // Combine account and source to slow targeted guessing without allowing one
     // hostile network to lock the account for every legitimate user.
