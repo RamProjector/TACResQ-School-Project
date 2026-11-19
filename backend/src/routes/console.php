@@ -31,7 +31,7 @@ Artisan::command('tacru:dependency-health {--live : Perform bounded read-only Su
             $status = $response->successful() && $validResponse($response)
                 ? 'healthy'
                 : ($response->status() === 429 ? 'degraded' : 'unavailable');
-        } catch (\\Throwable) {
+        } catch (\Throwable) {
             // Provider exceptions can contain URLs, response bodies, or other
             // sensitive details. Report only a stable outcome category.
             $status = 'unavailable';
