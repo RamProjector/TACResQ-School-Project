@@ -395,11 +395,11 @@ Route::post('/bridge/rpc/{function}', function (
             64,
             JSON_THROW_ON_ERROR
         );
-    } catch (\\JsonException) {
+    } catch (\JsonException) {
         abort(422, 'RPC arguments must be a valid JSON object.');
     }
     abort_unless(
-        $decodedArguments instanceof \\stdClass,
+        $decodedArguments instanceof \stdClass,
         422,
         'RPC arguments must be a JSON object.'
     );
