@@ -166,6 +166,32 @@ class IncidentProgressSynchronizationTest extends TestCase
         $this->assertDatabaseCount('incident_status_logs', 0);
     }
 
+    public function test_dispatcher_cannot_advance_an_incident_without_a_lead_assignment(): void
+    {
+        $requester = $this->user('progress-unassigned-requester@example.test', 'requester');
+        $dispatcher = $this->user('progress-unassigned-dispatcher@example.test', 'dispatcher');
+        $incident = Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Incident without a response lead',
+            'status' => 'pending',
+            'assigned_to' => null,
+        ]);
+
+        Sanctum::actingAs($dispatcher);
+        $this->patchJson('/api/incidents/'.$incident->id.'/status', [
+            'status' => 'en_route',
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseHas('incidents', [
+            'id' => $incident->id,
+            'status' => 'pending',
+            'assigned_to' => null,
+        ]);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+        $this->assertDatabaseCount('incident_assignments', 0);
+    }
+
     public function test_dispatcher_cannot_move_incident_progress_backwards(): void
     {
         $requester = $this->user('progress-backward-requester@example.test', 'requester');
