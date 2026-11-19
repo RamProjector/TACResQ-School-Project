@@ -68,6 +68,7 @@ PENDING = {
     "20261118090000_restrict_incident_assignment_table_privileges.sql",
     "20261118092000_restrict_operational_table_writes.sql",
     "20261118100000_restrict_core_table_destructive_privileges.sql",
+    "20261119090000_device_security_registry_foundation.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
@@ -275,3 +276,39 @@ for required in (
     assert required in signup_validation, f"Missing server-side requester signup requirement: {required}"
 assert "raw_user_meta_data ->> 'role'" not in signup_validation
 print("PASS: public signup enforces name/contact requirements and always provisions requester role.")
+
+
+# Device registry remains backend-only until server-side proof verification exists.
+device_security = (MIGRATIONS / "20261119090000_device_security_registry_foundation.sql").read_text()
+for required in (
+    "CREATE TABLE IF NOT EXISTS public.user_devices",
+    "CREATE TABLE IF NOT EXISTS public.device_sessions",
+    "CREATE TABLE IF NOT EXISTS public.device_challenges",
+    "CREATE TABLE IF NOT EXISTS public.device_security_events",
+    "CREATE TABLE IF NOT EXISTS public.device_integrity_checks",
+    "ALTER TABLE public.user_devices ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE public.device_sessions ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE public.device_challenges ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE public.device_security_events ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE public.device_integrity_checks ENABLE ROW LEVEL SECURITY",
+    "REVOKE ALL PRIVILEGES ON TABLE",
+    "FROM PUBLIC, anon, authenticated, service_role",
+    "TO service_role",
+    "challenge_hash ~ '^[0-9a-f]{64}$'",
+    "auth_session_id uuid NOT NULL UNIQUE",
+    "ON DELETE RESTRICT",
+):
+    assert required.lower() in device_security.lower(), (
+        f"Missing device-security registry contract: {required}"
+    )
+assert "GRANT SELECT, INSERT, UPDATE ON TABLE public.user_devices TO authenticated" not in device_security
+assert "GRANT SELECT ON TABLE public.user_devices TO authenticated" not in device_security
+assert "CREATE POLICY" not in device_security.upper(), (
+    "Device registry must remain backend-only until verified server endpoints are implemented"
+)
+assert "DELETE FROM" not in device_security.upper()
+assert "DROP TABLE" not in device_security.upper()
+assert "private_key" not in device_security.lower()
+assert "access_token" not in device_security.lower()
+assert "refresh_token" not in device_security.lower()
+print("PASS: device registry is RLS-enabled, backend-only, challenge-hash based, and contains no stored secrets.")
