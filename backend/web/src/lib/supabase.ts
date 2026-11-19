@@ -193,8 +193,15 @@ async function runDependencyProbe(
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 5000);
   const started = performance.now();
+  let abortHandler: (() => void) | null = null;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    abortHandler = () => reject(new DOMException("Dependency probe timed out.", "AbortError"));
+    controller.signal.addEventListener("abort", abortHandler, { once: true });
+  });
   try {
-    const healthy = await request(controller.signal);
+    // Race the whole probe, not only fetch(): session retrieval and other
+    // preflight work may not accept an AbortSignal themselves.
+    const healthy = await Promise.race([request(controller.signal), aborted]);
     return {
       status: healthy ? "healthy" : "unavailable",
       duration_ms: Math.max(0, Math.round(performance.now() - started)),
@@ -206,6 +213,7 @@ async function runDependencyProbe(
     };
   } finally {
     window.clearTimeout(timeout);
+    if (abortHandler) controller.signal.removeEventListener("abort", abortHandler);
   }
 }
 
