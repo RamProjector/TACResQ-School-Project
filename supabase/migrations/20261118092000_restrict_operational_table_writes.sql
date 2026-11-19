@@ -14,6 +14,10 @@ GRANT SELECT
   ON TABLE public.fcm_tokens, public.incident_status_logs, public.location_logs
   TO authenticated;
 
+-- State this server-worker permission explicitly so fresh migration replays
+-- and existing deployments have the same documented FCM cleanup contract.
+GRANT DELETE ON TABLE public.fcm_tokens TO service_role;
+
 COMMENT ON TABLE public.fcm_tokens IS
   'Authenticated clients may read only their own token rows through RLS; token registration/removal uses dedicated RPCs.';
 
