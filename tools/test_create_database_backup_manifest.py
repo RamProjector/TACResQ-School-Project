@@ -49,6 +49,43 @@ class DatabaseBackupManifestTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.collect_components(root)
 
+    def test_rejects_non_object_manifest_and_invalid_component_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "dumps"
+            self.make_dump_set(root)
+            output = Path(temp) / "manifest.json"
+
+            output.write_text("[]", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                MODULE.verify_manifest(root, output)
+
+            manifest = MODULE.create_manifest(root, "kttguamhznoflzagfutr", "d" * 40)
+            manifest["components"][0]["path"] = []
+            MODULE.write_manifest(manifest, output)
+            with self.assertRaises(ValueError):
+                MODULE.verify_manifest(root, output)
+
+            manifest = MODULE.create_manifest(root, "kttguamhznoflzagfutr", "e" * 40)
+            manifest["component_count"] = True
+            MODULE.write_manifest(manifest, output)
+            with self.assertRaises(ValueError):
+                MODULE.verify_manifest(root, output)
+
+            manifest = MODULE.create_manifest(root, "kttguamhznoflzagfutr", "f" * 40)
+            manifest["total_size_bytes"] = True
+            MODULE.write_manifest(manifest, output)
+            with self.assertRaises(ValueError):
+                MODULE.verify_manifest(root, output)
+
+    def test_rejects_symlink_backup_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "real-dumps"
+            self.make_dump_set(root)
+            link = Path(temp) / "linked-dumps"
+            link.symlink_to(root, target_is_directory=True)
+            with self.assertRaises(ValueError):
+                MODULE.collect_components(link)
+
     def test_rejects_bad_project_ref_and_commit(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "dumps"
