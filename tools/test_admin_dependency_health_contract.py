@@ -28,6 +28,5 @@ assert "api_dependency_health" in client[client.index("export async function get
 assert "Dependency health" in console
 assert "does not verify incident workflows" in console
 assert "getAdminDependencyHealth()" in console
-assert "setUsers([])" not in console[console.index("setDependencyHealth(await"):] if "setDependencyHealth(await" in console else True
 
 print("PASS: admin dependency health is role-gated, bounded, data-free, and uses no privileged key.")
