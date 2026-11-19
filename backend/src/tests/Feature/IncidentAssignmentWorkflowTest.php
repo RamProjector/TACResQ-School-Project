@@ -1,0 +1,109 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Incident;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class IncidentAssignmentWorkflowTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_dispatcher_assignment_persists_team_membership_and_marks_unit_busy(): void
+    {
+        $requester = $this->user('assignment-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-dispatcher@example.test', 'dispatcher');
+        $responder = $this->user('assignment-responder@example.test', 'responder', 'available');
+        $incident = $this->incident($requester);
+
+        Sanctum::actingAs($dispatcher);
+
+        $response = $this->postJson('/api/incidents/'.$incident->id.'/assign', [
+            'user_id' => $responder->id,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('id', $incident->id)
+            ->assertJsonPath('status', 'assigned')
+            ->assertJsonPath('assigned_to', $responder->id);
+
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $incident->id,
+            'user_id' => $responder->id,
+            'assigned_by' => $dispatcher->id,
+            'responder_status' => 'assigned',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $responder->id,
+            'duty_status' => 'assigned',
+        ]);
+        $this->assertDatabaseHas('incident_status_logs', [
+            'incident_id' => $incident->id,
+            'status' => 'assigned',
+            'changed_by' => $dispatcher->id,
+        ]);
+
+        $this->assertTrue(
+            $incident->fresh()->responseTeam()->whereKey($responder->id)->exists()
+        );
+        $this->assertTrue(
+            $responder->fresh()->responseIncidents()->whereKey($incident->id)->exists()
+        );
+    }
+
+    public function test_dispatcher_cannot_assign_unavailable_or_non_field_unit_accounts(): void
+    {
+        $requester = $this->user('assignment-reject-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-reject-dispatcher@example.test', 'dispatcher');
+        $offDutyResponder = $this->user('assignment-off-duty@example.test', 'responder', 'off_duty');
+        $requesterAccount = $this->user('assignment-not-unit@example.test', 'requester');
+        $incident = $this->incident($requester);
+
+        Sanctum::actingAs($dispatcher);
+
+        $this->postJson('/api/incidents/'.$incident->id.'/assign', [
+            'user_id' => $offDutyResponder->id,
+        ])->assertUnprocessable();
+
+        $this->postJson('/api/incidents/'.$incident->id.'/assign', [
+            'user_id' => $requesterAccount->id,
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('incident_assignments', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+        $this->assertDatabaseHas('incidents', [
+            'id' => $incident->id,
+            'status' => 'pending',
+            'assigned_to' => null,
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $offDutyResponder->id,
+            'duty_status' => 'off_duty',
+        ]);
+    }
+
+    private function user(string $email, string $role, ?string $dutyStatus = null): User
+    {
+        return User::create([
+            'name' => 'Workflow Test '.ucfirst($role),
+            'email' => $email,
+            'password' => 'not-a-real-password',
+            'role' => $role,
+            'duty_status' => $dutyStatus,
+        ]);
+    }
+
+    private function incident(User $requester): Incident
+    {
+        return Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Assignment workflow test',
+            'status' => 'pending',
+        ]);
+    }
+}
