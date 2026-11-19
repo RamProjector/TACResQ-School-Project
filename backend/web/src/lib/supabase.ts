@@ -225,6 +225,7 @@ export async function getAdminDependencyHealth(): Promise<AdminDependencyHealth>
     runDependencyProbe(async (signal) => {
       const response = await fetch("/up", {
         method: "GET",
+        credentials: "omit",
         headers: { Accept: "application/json" },
         cache: "no-store",
         signal,
@@ -234,6 +235,7 @@ export async function getAdminDependencyHealth(): Promise<AdminDependencyHealth>
     runDependencyProbe(async (signal) => {
       const response = await fetch(url + "/auth/v1/health", {
         method: "GET",
+        credentials: "omit",
         headers: { apikey: publishableKey, Accept: "application/json" },
         cache: "no-store",
         signal,
@@ -246,6 +248,7 @@ export async function getAdminDependencyHealth(): Promise<AdminDependencyHealth>
       if (error || !accessToken) return false;
       const response = await fetch(url + "/rest/v1/rpc/api_dependency_health", {
         method: "POST",
+        credentials: "omit",
         headers: {
           apikey: publishableKey,
           Authorization: "Bearer " + accessToken,
