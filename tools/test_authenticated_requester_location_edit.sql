@@ -35,41 +35,6 @@ SELECT id, 'medical', 'Original report', 10.3000, 123.9000, 12,
 FROM public.profiles
 WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
 
--- Deliberately inconsistent legacy state: a pending incident has a team
--- membership row even though assigned_to is NULL. Requester self-service must
--- fail closed whenever the normalized assignment table contains a member.
-INSERT INTO public.incidents (
-  requester_id, type, description, latitude, longitude, accuracy_m,
-  location_notes, location_recorded_at, location_source, status
-)
-SELECT id, 'medical', 'Pending incident with team membership', 10.3150, 123.9150, 10,
-       'North entrance', clock_timestamp(), 'gps', 'pending'
-FROM public.profiles
-WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
-
-INSERT INTO public.incident_assignments (incident_id, user_id, assigned_by)
-SELECT i.id, p_member.id, NULL
-FROM public.incidents i
-JOIN public.profiles p_owner ON p_owner.id = i.requester_id
-JOIN public.profiles p_member ON p_member.auth_user_id = '00000000-0000-4000-8000-000000000992'
-WHERE p_owner.auth_user_id = '00000000-0000-4000-8000-000000000991'
-  AND i.status = 'pending'
-  AND i.description = 'Pending incident with team membership';
-
-SELECT set_config(
-  'tacresq.test_team_member_incident_id',
-  (
-    SELECT i.id::text
-    FROM public.incidents i
-    JOIN public.profiles p ON p.id = i.requester_id
-    WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000991'
-      AND i.description = 'Pending incident with team membership'
-    ORDER BY i.id DESC
-    LIMIT 1
-  ),
-  false
-);
-
 -- A second request owned by another account proves object-level ownership.
 INSERT INTO public.incidents (
   requester_id, type, description, latitude, longitude, accuracy_m,
@@ -79,6 +44,31 @@ SELECT id, 'fire', 'Other requester report', 10.3100, 123.9100, 10,
        'Side entrance', clock_timestamp(), 'gps', 'pending'
 FROM public.profiles
 WHERE auth_user_id = '00000000-0000-4000-8000-000000000992';
+
+-- Deliberately inconsistent legacy state: the second requester's pending
+-- incident has a team-membership row while assigned_to remains NULL.
+INSERT INTO public.incident_assignments (incident_id, user_id, assigned_by)
+SELECT i.id, p_member.id, NULL
+FROM public.incidents i
+JOIN public.profiles p_owner ON p_owner.id = i.requester_id
+JOIN public.profiles p_member ON p_member.auth_user_id = '00000000-0000-4000-8000-000000000991'
+WHERE p_owner.auth_user_id = '00000000-0000-4000-8000-000000000992'
+  AND i.status = 'pending'
+  AND i.description = 'Other requester report';
+
+SELECT set_config(
+  'tacresq.test_team_member_incident_id',
+  (
+    SELECT i.id::text
+    FROM public.incidents i
+    JOIN public.profiles p ON p.id = i.requester_id
+    WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000992'
+      AND i.description = 'Other requester report'
+    ORDER BY i.id DESC
+    LIMIT 1
+  ),
+  false
+);
 
 SELECT set_config(
   'tacresq.test.other_requester_incident_id',
@@ -188,22 +178,6 @@ BEGIN
     RAISE EXCEPTION 'Out-of-range latitude was not rejected';
   END IF;
 
-  -- A team-membership row blocks requester edits even if legacy columns/status
-  -- are inconsistent and still appear pending/unassigned.
-  denied := false;
-  BEGIN
-    PERFORM public.api_update_my_incident(
-      team_member_incident_id, 'medical', 'Attempted edit after team membership',
-      10.3151, 123.9151, NULL, 'North entrance',
-      clock_timestamp(), 'manual', false
-    );
-  EXCEPTION WHEN invalid_parameter_value THEN
-    denied := true;
-  END;
-  IF NOT denied THEN
-    RAISE EXCEPTION 'Requester was able to edit an incident with assignment-team membership';
-  END IF;
-
   -- Another requester's incident must be indistinguishable from a missing object.
   denied := false;
   BEGIN
@@ -255,6 +229,25 @@ BEGIN
   IF NOT denied THEN
     RAISE EXCEPTION 'Cancelled incident was editable';
   END IF;
+  -- A team-membership row blocks the owner even when legacy columns/status
+  -- are inconsistent and still appear pending/unassigned. Switch JWT identity to
+  -- the second requester, whose pending incident carries the synthetic row.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000992', true);
+  denied := false;
+  BEGIN
+    PERFORM public.api_update_my_incident(
+      team_member_incident_id, 'fire', 'Attempted edit after team membership',
+      10.3101, 123.9101, NULL, 'Side entrance',
+      clock_timestamp(), 'manual', false
+    );
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Requester was able to edit an incident with assignment-team membership';
+  END IF;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000991', true);
+
   -- A requester cannot cancel another account's pending incident.
   denied := false;
   BEGIN
