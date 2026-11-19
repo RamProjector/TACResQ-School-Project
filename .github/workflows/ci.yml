@@ -63,6 +63,9 @@ jobs:
       - name: Check Sanctum session revocation contract
         run: python3 tools/test_session_revocation_contract.py
 
+      - name: Check password change and session rotation contract
+        run: python3 tools/test_password_change_contract.py
+
       - name: Check persistent feedback banner semantics
         run: python3 tools/test_feedback_banner_semantics.py
 
