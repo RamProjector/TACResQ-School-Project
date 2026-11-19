@@ -279,7 +279,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   ["Supabase database", dependencyHealth.supabase_database],
                 ] as const).map(([label, result]) => (
                   <article className="admin-health-item" key={label}>
-                    <div><strong>{label}</strong><span className={"admin-health-status admin-health-status--" + result.status}>{result.status}</span></div>
+                    <div><strong>{label}</strong><span className={"admin-health-status admin-health-status--" + result.status} role="status" aria-label={label + " status: " + result.status}>{result.status}</span></div>
                     <small>{result.duration_ms === null ? "Response time unavailable" : result.duration_ms + " ms response time"}</small>
                   </article>
                 ))}
