@@ -175,6 +175,50 @@ class IncidentAssignmentWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_resolved_incident_membership_does_not_block_a_new_assignment(): void
+    {
+        $requester = $this->user('assignment-reuse-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-reuse-dispatcher@example.test', 'dispatcher');
+        $responder = $this->user('assignment-reuse-unit@example.test', 'responder', 'available');
+        $resolvedIncident = Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Resolved historical assignment',
+            'status' => 'resolved',
+            'assigned_to' => $responder->id,
+        ]);
+        DB::table('incident_assignments')->insert([
+            'incident_id' => $resolvedIncident->id,
+            'user_id' => $responder->id,
+            'assigned_by' => $dispatcher->id,
+            'assigned_at' => now(),
+            'responder_status' => 'resolved',
+            'status_updated_at' => now(),
+        ]);
+        $newIncident = $this->incident($requester);
+
+        Sanctum::actingAs($dispatcher);
+        $this->postJson('/api/incidents/'.$newIncident->id.'/assign', [
+            'user_id' => $responder->id,
+        ])->assertOk()->assertJsonPath('status', 'assigned');
+
+        $this->assertDatabaseCount('incident_assignments', 2);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $resolvedIncident->id,
+            'user_id' => $responder->id,
+            'responder_status' => 'resolved',
+        ]);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $newIncident->id,
+            'user_id' => $responder->id,
+            'responder_status' => 'assigned',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $responder->id,
+            'duty_status' => 'assigned',
+        ]);
+    }
+
     public function test_dispatcher_cannot_assign_the_same_incident_twice(): void
     {
         $requester = $this->user('assignment-repeat-requester@example.test', 'requester');
