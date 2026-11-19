@@ -183,6 +183,9 @@ jobs:
       - name: Check Supabase migration history alignment
         run: python3 tools/test_migration_history_alignment.py
 
+      - name: Check dependency health monitoring safety contract
+        run: python3 tools/test_dependency_health_monitoring_contract.py
+
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
 
