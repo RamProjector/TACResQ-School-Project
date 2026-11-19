@@ -54,6 +54,9 @@ jobs:
       - name: Check inline authentication validation
         run: python3 tools/test_auth_inline_validation.py
 
+      - name: Check Laravel login throttling contract
+        run: python3 tools/test_login_rate_limit_contract.py
+
       - name: Check persistent feedback banner semantics
         run: python3 tools/test_feedback_banner_semantics.py
 
