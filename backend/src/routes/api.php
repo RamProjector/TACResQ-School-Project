@@ -825,6 +825,7 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
         // incident ID, narrative, or personal information is sent to OSRM.
         $upstream = \Illuminate\Support\Facades\Http::acceptJson()
             ->asJson()
+            ->connectTimeout(3)
             ->timeout(12)
             ->post($routerBaseUrl.'/route/v1/driving', [
                 'coordinates' => [[$originLon, $originLat], [(float) $destinationLon, (float) $destinationLat]],
