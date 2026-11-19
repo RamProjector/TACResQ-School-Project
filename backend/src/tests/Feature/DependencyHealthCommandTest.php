@@ -21,13 +21,13 @@ class DependencyHealthCommandTest extends TestCase
         ]);
         Http::preventStrayRequests();
 
-        $this->artisan('tacru:dependency-health')
-            ->expectsOutputToContain('"mode": "configuration_only"')
-            ->expectsOutputToContain('"network_requests": false')
-            ->expectsOutputToContain('"status": "configuration_present"')
-            ->assertExitCode(0);
-
+        $exitCode = Artisan::call('tacru:dependency-health');
         $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('"mode": "configuration_only"', $output);
+        $this->assertStringContainsString('"network_requests": false', $output);
+        $this->assertStringContainsString('"status": "configuration_present"', $output);
         $this->assertStringNotContainsString('synthetic-publishable-key', $output);
         $this->assertStringNotContainsString('synthetic-server-secret', $output);
         $this->assertStringNotContainsString('synthetic-geoapify-key', $output);
@@ -46,12 +46,13 @@ class DependencyHealthCommandTest extends TestCase
         ]);
         Http::preventStrayRequests();
 
-        $this->artisan('tacru:dependency-health')
-            ->expectsOutputToContain('"supabase_auth"')
-            ->expectsOutputToContain('"status": "not_configured"')
-            ->expectsOutputToContain('"status": "disabled"')
-            ->assertExitCode(0);
+        $exitCode = Artisan::call('tacru:dependency-health');
+        $output = Artisan::output();
 
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('"supabase_auth"', $output);
+        $this->assertStringContainsString('"status": "not_configured"', $output);
+        $this->assertStringContainsString('"status": "disabled"', $output);
         Http::assertNothingSent();
     }
 }
