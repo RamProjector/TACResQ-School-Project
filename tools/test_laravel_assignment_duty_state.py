@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 api = (ROOT / "backend/src/routes/api.php").read_text()
 migration = (ROOT / "backend/src/database/migrations/2026_10_24_000004_create_owned_backend_workflow_tables.php").read_text()
 incident_model = (ROOT / "backend/src/app/Models/Incident.php").read_text()
+user_model = (ROOT / "backend/src/app/Models/User.php").read_text()
 
 start = api.index("Route::post('/incidents/{incident}/assign'")
 end = api.index("\n    });", start)
@@ -65,6 +66,10 @@ assert "->pluck('user_id')" in status_route
 assert "whereIn('id', $assignedUserIds)->orderBy('id')->lockForUpdate()" in status_route
 assert "$data['status'] === 'resolved' ? 'available' : $data['status']" in status_route
 
+assert "function responseIncidents()" in user_model
+assert "belongsToMany(Incident::class, 'incident_assignments')" in user_model
+for pivot_field in ("assigned_by", "assigned_at", "responder_status", "status_updated_at"):
+    assert f"'{pivot_field}'" in user_model, f"User response-incidents relation missing pivot field: {pivot_field}"
 assert "function responseTeam()" in incident_model
 assert "belongsToMany(User::class, 'incident_assignments')" in incident_model
 for pivot_field in ("assigned_by", "assigned_at", "responder_status", "status_updated_at"):
