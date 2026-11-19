@@ -50,6 +50,24 @@ class StorageBackupManifestTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.build_manifest(root, "incident-chat-attachments")
 
+    def test_verifier_rejects_path_traversal_and_inconsistent_totals(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "bucket"
+            root.mkdir()
+            (root / "safe.txt").write_text("safe", encoding="utf-8")
+            manifest = MODULE.build_manifest(root, "incident-chat-attachments")
+            output = Path(temp) / "manifest.json"
+            manifest["objects"][0]["path"] = "../outside.txt"
+            MODULE.write_manifest(manifest, output)
+            with self.assertRaises(ValueError):
+                MODULE.verify_manifest(root, output)
+
+            manifest = MODULE.build_manifest(root, "incident-chat-attachments")
+            manifest["total_size_bytes"] += 1
+            MODULE.write_manifest(manifest, output)
+            with self.assertRaises(ValueError):
+                MODULE.verify_manifest(root, output)
+
     def test_rejects_bucket_paths(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
