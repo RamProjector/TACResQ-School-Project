@@ -54,7 +54,15 @@ TACResQ handles emergency requests, precise location, responder/driver assignmen
 - Authenticated `POST /api/logout` revokes the current Sanctum token. Authenticated `POST /api/logout-all` revokes all personal access tokens for the account.
 - Static CI contracts cover the login, registration, and session-revocation behavior.
 
-**Not yet implemented:** password reset/recovery throttling, email/OTP verification, token expiry/rotation, per-device session listing/revocation, challenge verification, MFA/passkeys, security-event persistence for authentication abuse, and step-up authentication. The current logout-all endpoint is account-wide token revocation; it is not device-aware and does not yet revoke Supabase Auth sessions.
+**Implemented in PR #335 (Laravel API; CI validation pending)**
+
+- Login attempts use a per-account-and-source failure bucket (five failures, 15-minute decay) plus a separate generous source ceiling (120/minute). Successful authentication clears the account/source failure bucket. Responses avoid account-existence disclosure and token responses are marked `no-store`.
+- Public registration is rate-limited by source (10 attempts per 15 minutes) before validation/database work. Email is normalized before duplicate lookup; public signup remains requester-only.
+- Authenticated `POST /api/logout` revokes the current Sanctum token. Authenticated `POST /api/logout-all` revokes all personal access tokens for the account.
+- Authenticated `POST /api/change-password` requires the current password and a confirmed replacement of at least 12 characters, rate-limits failed current-password checks, revokes prior Sanctum tokens, and returns one fresh token.
+- Static CI contracts cover login, registration, logout/session revocation, and password-change/session rotation.
+
+**Not yet implemented:** password reset/recovery flow, email/OTP verification, expiry/rotation for Supabase Auth sessions, per-device session listing/revocation, device challenge verification, MFA/passkeys, persistent security-event telemetry for authentication abuse, and step-up authentication. The current session controls apply to Laravel Sanctum personal access tokens only; they do not revoke Supabase Auth sessions.
 
 ### P0 — Device security and identification
 
