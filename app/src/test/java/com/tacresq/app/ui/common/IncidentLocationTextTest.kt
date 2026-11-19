@@ -76,8 +76,9 @@ class IncidentLocationTextTest {
             incident(latitude = 11.2, longitude = 125.0, source = "gps", accuracyM = 12.2f),
         )
 
-        assertTrue(noAccuracy.contains("accuracy unknown"))
-        assertTrue(negativeAccuracy.contains("accuracy unknown"))
-        assertTrue(validAccuracy.contains("±13 m"))
+        assertTrue(noAccuracy.startsWith("Device location"))
+        assertTrue(negativeAccuracy.startsWith("Device location"))
+        assertTrue(validAccuracy.startsWith("Device location · ±13 m"))
+        assertTrue(!validAccuracy.contains("GPS"))
     }
 }
