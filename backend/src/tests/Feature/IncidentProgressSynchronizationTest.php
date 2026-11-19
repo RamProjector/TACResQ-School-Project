@@ -19,6 +19,22 @@ class IncidentProgressSynchronizationTest extends TestCase
         $dispatcher = $this->user('progress-dispatcher@example.test', 'dispatcher');
         $lead = $this->user('progress-lead@example.test', 'responder', 'assigned');
         $teammate = $this->user('progress-teammate@example.test', 'driver', 'assigned');
+        $unrelatedLead = $this->user('progress-unrelated-lead@example.test', 'responder', 'en_route');
+        $unrelatedIncident = Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Separate active incident must not be synchronized',
+            'status' => 'en_route',
+            'assigned_to' => $unrelatedLead->id,
+        ]);
+        DB::table('incident_assignments')->insert([
+            'incident_id' => $unrelatedIncident->id,
+            'user_id' => $unrelatedLead->id,
+            'assigned_by' => $dispatcher->id,
+            'assigned_at' => now(),
+            'responder_status' => 'en_route',
+            'status_updated_at' => now(),
+        ]);
         $incident = $this->assignedIncident($requester, $lead, $dispatcher, [$lead, $teammate]);
 
         Sanctum::actingAs($dispatcher);
@@ -44,6 +60,22 @@ class IncidentProgressSynchronizationTest extends TestCase
                 ]);
             }
         }
+
+        // Progress changes must never spill over to a different active incident.
+        $this->assertDatabaseHas('incidents', [
+            'id' => $unrelatedIncident->id,
+            'status' => 'en_route',
+            'assigned_to' => $unrelatedLead->id,
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $unrelatedLead->id,
+            'duty_status' => 'en_route',
+        ]);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $unrelatedIncident->id,
+            'user_id' => $unrelatedLead->id,
+            'responder_status' => 'en_route',
+        ]);
 
         $this->assertDatabaseCount('incident_status_logs', 4);
         $this->assertNotNull(DB::table('incident_assignments')
