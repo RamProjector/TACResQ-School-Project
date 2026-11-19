@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS public.user_devices (
   revoked_at timestamptz,
   revoked_by bigint REFERENCES public.profiles(id) ON DELETE SET NULL,
   revoked_reason text,
+  CONSTRAINT user_devices_id_profile_unique UNIQUE (id, profile_id),
   CONSTRAINT user_devices_revocation_consistency CHECK (
     (trust_status = 'revoked' AND revoked_at IS NOT NULL)
     OR (trust_status <> 'revoked' AND revoked_at IS NULL)
@@ -41,6 +42,9 @@ CREATE TABLE IF NOT EXISTS public.device_sessions (
   revoked_at timestamptz,
   revoked_by bigint REFERENCES public.profiles(id) ON DELETE SET NULL,
   revoke_reason text,
+  CONSTRAINT device_sessions_device_owner_fk
+    FOREIGN KEY (device_id, profile_id)
+    REFERENCES public.user_devices(id, profile_id) ON DELETE RESTRICT,
   CONSTRAINT device_sessions_revocation_consistency CHECK (
     (revoked_at IS NULL AND revoke_reason IS NULL)
     OR (revoked_at IS NOT NULL AND revoke_reason IS NOT NULL)
@@ -68,6 +72,9 @@ CREATE TABLE IF NOT EXISTS public.device_challenges (
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   expires_at timestamptz NOT NULL,
   consumed_at timestamptz,
+  CONSTRAINT device_challenges_device_owner_fk
+    FOREIGN KEY (device_id, profile_id)
+    REFERENCES public.user_devices(id, profile_id) ON DELETE RESTRICT,
   CONSTRAINT device_challenges_expiry_check CHECK (expires_at > created_at),
   CONSTRAINT device_challenges_consumption_check CHECK (
     consumed_at IS NULL OR consumed_at >= created_at
@@ -123,7 +130,10 @@ CREATE TABLE IF NOT EXISTS public.device_integrity_checks (
   verifier_version text NOT NULL,
   result_summary jsonb NOT NULL DEFAULT '{}'::jsonb
     CHECK (jsonb_typeof(result_summary) = 'object'),
-  checked_at timestamptz NOT NULL DEFAULT clock_timestamp()
+  checked_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT device_integrity_checks_device_owner_fk
+    FOREIGN KEY (device_id, profile_id)
+    REFERENCES public.user_devices(id, profile_id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS device_integrity_checks_device_checked_idx
