@@ -274,6 +274,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             ) : (
               <div className="admin-health-grid">
                 {([
+                  ["Laravel backend", dependencyHealth.laravel_backend],
                   ["Supabase Auth", dependencyHealth.supabase_auth],
                   ["Supabase database", dependencyHealth.supabase_database],
                 ] as const).map(([label, result]) => (
@@ -284,7 +285,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 ))}
               </div>
             )}
-            <p className="admin-panel__footnote">Read-only checks only. Auth health confirms the Auth endpoint responds; the database check executes a fixed, data-free RPC. These checks do not verify incident workflows, user sign-in, FCM delivery, or routing.</p>
+            <p className="admin-panel__footnote">Read-only checks only. Laravel /up confirms application liveness; Auth checks its health endpoint; the database check executes a fixed, data-free RPC. These checks do not verify incident workflows, user sign-in, FCM delivery, or routing.</p>
           </section>
 
           <section className="admin-panel">
