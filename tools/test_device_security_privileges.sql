@@ -80,6 +80,53 @@ BEGIN
     RAISE EXCEPTION 'Device registry metadata, payload-size, and challenge-lifetime constraints are missing or unvalidated';
   END IF;
 
+  -- Verify the actual CHECK expressions, not only their constraint names.
+  -- This catches accidental weakening while retaining the migration-history contract.
+  DECLARE
+    constraint_contract record;
+    constraint_definition text;
+  BEGIN
+    FOR constraint_contract IN
+      SELECT * FROM (VALUES
+        ('user_devices', 'user_devices_device_model_length_check', 'device_model', '120'),
+        ('user_devices', 'user_devices_app_version_length_check', 'app_version', '80'),
+        ('user_devices', 'user_devices_public_key_length_check', 'public_key', '4096'),
+        ('user_devices', 'user_devices_revoked_reason_length_check', 'revoked_reason', '500'),
+        ('device_sessions', 'device_sessions_expiry_check', 'expires_at', 'created_at'),
+        ('device_sessions', 'device_sessions_revocation_consistency_check', 'revoked_at', 'revoke_reason'),
+        ('device_challenges', 'device_challenges_max_lifetime_check', 'expires_at', 'created_at'),
+        ('device_security_events', 'device_security_events_details_size_check', 'details', '8192'),
+        ('device_integrity_checks', 'device_integrity_checks_summary_size_check', 'result_summary', '4096')
+      ) AS contracts(table_name, constraint_name, required_token_one, required_token_two)
+    LOOP
+      SELECT lower(pg_get_constraintdef(oid))
+      INTO constraint_definition
+      FROM pg_constraint
+      WHERE conrelid = to_regclass('public.' || constraint_contract.table_name)
+        AND conname = constraint_contract.constraint_name
+        AND convalidated;
+
+      IF constraint_definition IS NULL
+         OR position(lower(constraint_contract.required_token_one) IN constraint_definition) = 0
+         OR position(lower(constraint_contract.required_token_two) IN constraint_definition) = 0 THEN
+        RAISE EXCEPTION 'Device registry CHECK expression is missing expected tokens: %.%',
+          constraint_contract.table_name, constraint_contract.constraint_name;
+      END IF;
+    END LOOP;
+
+    -- The short challenge ceiling is security-sensitive; assert its actual
+    -- interval literal rather than relying on the constraint's display name.
+    SELECT lower(pg_get_constraintdef(oid))
+    INTO constraint_definition
+    FROM pg_constraint
+    WHERE conrelid = 'public.device_challenges'::regclass
+      AND conname = 'device_challenges_max_lifetime_check'
+      AND convalidated;
+    IF position('00:10:00' IN constraint_definition) = 0 THEN
+      RAISE EXCEPTION 'Device challenge lifetime must remain capped at ten minutes';
+    END IF;
+  END;
+
   -- Identity sequences are backend-only too; table grants alone do not
   -- protect INSERT ... RETURNING paths or direct sequence calls.
   FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT', 'UPDATE'] LOOP
