@@ -1,6 +1,6 @@
 # TACResQ Device Security & Identification — Research and Implementation Plan
 
-**Status:** Phase 1 foundation proposed in PR; not yet deployed  
+**Status:** Phase 1 private registry foundation and generic Laravel account-wide Sanctum token revocation are present in PR #335; CI validation pending; not deployed  
 **Scope:** Android app, dispatcher/admin web clients, Supabase backend, and Render bridge where applicable  
 **Design principle:** Device recognition is a risk signal. Authentication and server-side authorization remain authoritative.
 
@@ -83,6 +83,8 @@ The migration intentionally gives no direct table access to `anon` or `authentic
 2. **Server challenge service:** issue purpose-bound, short-lived random challenges; persist only challenge hashes; atomically consume once; enforce profile/session ownership and rate limits.
 3. **Android key proof:** Keystore key generation, public-key registration, signed challenge verification, replay and cloned-ID tests.
 4. **Session controls:** bind verified sessions to device records; revoke one device or all account sessions; enforce revocation at server boundaries.
+
+   - **Current partial control:** Laravel exposes authenticated `POST /api/logout-all` to revoke all Sanctum personal access tokens for the account. This is account-wide recovery, not per-device revocation; Supabase Auth sessions and device registry associations are not yet bound or revoked by this endpoint.
 5. **Android integrity:** verify Play Integrity server-side; map verdicts to policy and retain minimal results.
 6. **Web privileged-device support:** browser registration, WebAuthn/passkeys step-up, session lifecycle and admin/dispatcher policy.
 7. **Admin and user UI:** My Devices and Device Security console with auditable actions.
