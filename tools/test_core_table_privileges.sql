@@ -1,5 +1,6 @@
 -- Runtime contract for profiles/incidents destructive privilege boundary.
--- Profile creation is handled by the guarded auth-user trigger, not direct client INSERT.
+-- Profile creation is handled by the guarded auth-user trigger; incident creation
+-- is routed through authorization-checked RPCs, not direct table INSERT.
 DO $core_table_privilege_boundary$
 DECLARE
   table_name text;
@@ -20,10 +21,8 @@ BEGIN
     -- Verify table-level grants separately from column-level UPDATE grants.
     -- PostgreSQL has_table_privilege(..., 'UPDATE') intentionally returns false
     -- when only specific columns are writable; do not broaden those grants.
-    required_privileges := CASE table_name
-      WHEN 'profiles' THEN ARRAY['SELECT']
-      WHEN 'incidents' THEN ARRAY['SELECT', 'INSERT']
-    END;
+    -- Neither table should expose direct client INSERT.
+    required_privileges := ARRAY['SELECT'];
 
     FOREACH required_privilege IN ARRAY required_privileges LOOP
       IF NOT has_table_privilege('authenticated', table_oid, required_privilege) THEN
@@ -31,6 +30,10 @@ BEGIN
           required_privilege, table_name;
       END IF;
     END LOOP;
+
+    IF has_table_privilege('authenticated', table_oid, 'INSERT') THEN
+      RAISE EXCEPTION 'authenticated must not directly INSERT into public.%', table_name;
+    END IF;
 
     IF table_name = 'profiles' THEN
       IF NOT has_column_privilege('authenticated', table_oid, 'duty_status', 'UPDATE')
