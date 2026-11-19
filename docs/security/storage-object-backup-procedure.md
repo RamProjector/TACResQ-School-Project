@@ -8,11 +8,11 @@ Use a trusted operator workstation or a protected runner. Authenticate with the 
 
 ```sh
 supabase link --project-ref kttguamhznoflzagfutr
-supabase storage ls ss:///incident-chat-attachments --recursive --remote
-supabase storage cp ss:///incident-chat-attachments ./backup/incident-chat-attachments --recursive --experimental --remote=kttguamhznoflzagfutr
+supabase storage ls ss:///incident-chat-attachments --recursive --experimental --remote=kttguamhznoflzagfutr
+supabase storage cp ss:///incident-chat-attachments ./backup/incident-chat-attachments --recursive --experimental --remote=kttguamhznoflzagfutr=kttguamhznoflzagfutr
 ```
 
-The CLI Storage copy command is documented by Supabase. Confirm the CLI version and command help before production use because CLI v3 changed remote-target defaults. Always specify `--remote`; do not rely on implicit linked/local behavior. Do not use `storage mv` or `storage rm` for backups.
+The current CLI requires `--experimental` for Storage list/copy and uses `--remote=<project-ref>` for an explicit hosted target. CLI v3 defaults Storage commands to local unless `--remote` is supplied. Confirm the CLI version and command help before production use; recursive copy remains experimental. Do not use `storage mv` or `storage rm` for backups. Do not use `storage mv` or `storage rm` for backups.
 
 ## 2. Create and verify a manifest
 
