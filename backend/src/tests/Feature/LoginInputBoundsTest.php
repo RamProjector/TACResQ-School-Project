@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class LoginInputBoundsTest extends TestCase
@@ -49,6 +50,24 @@ class LoginInputBoundsTest extends TestCase
         $this->assertLessThanOrEqual(900, $retryAfter);
         $this->assertSame('no-store, private', $response->headers->get('Cache-Control'));
         $this->assertStringNotContainsString('throttle-target@example.test', $response->getContent());
+    }
+
+    public function test_login_account_throttle_is_scoped_to_the_source_ip(): void
+    {
+        $credentials = [
+            'email' => 'shared-account@example.test',
+            'password' => 'synthetic-invalid-password',
+        ];
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.10'])
+                ->postJson('/api/login', $credentials)
+                ->assertUnprocessable();
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.20'])
+            ->postJson('/api/login', $credentials)
+            ->assertUnprocessable();
     }
 
     public function test_login_still_validates_required_credentials(): void
