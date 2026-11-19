@@ -33,7 +33,7 @@ for column in ("'responder_status'", "'status_updated_at'", "'assigned_by'", "'a
     assert column in migration, f"Assignment mirror migration missing column: {column}"
 
 mine_start = api.index("Route::get('/incidents/mine'")
-mine_end = api.index("\\n    });", mine_start)
+mine_end = api.index("\n    });", mine_start)
 mine_route = api[mine_start:mine_end]
 assert "->orWhereExists(function ($assignment)" in mine_route
 assert "->from('incident_assignments')" in mine_route
