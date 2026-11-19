@@ -89,7 +89,7 @@ export async function initializeSupabase(): Promise<boolean> {
   }
 
   if (!supabaseUrl || !supabasePublishableKey) return false;
-  supabaseHealthConfig = { url: supabaseUrl.replace(/\\/$/, ''), publishableKey: supabasePublishableKey };
+  supabaseHealthConfig = { url: supabaseUrl.replace(/\/$/, ''), publishableKey: supabasePublishableKey };
   supabaseClient = createClient<TacruDatabase>(supabaseUrl, supabasePublishableKey, {
     auth: {
       autoRefreshToken: true,
