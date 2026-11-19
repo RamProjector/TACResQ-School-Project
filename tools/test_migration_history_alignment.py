@@ -323,10 +323,13 @@ for required in (
     "has_column_privilege('authenticated', table_oid, 'role', 'UPDATE')",
     "has_column_privilege('authenticated', table_oid, 'status', 'UPDATE')",
     "has_column_privilege('authenticated', table_oid, 'requester_id', 'UPDATE')",
+    "authenticated must not directly INSERT into public.%",
 ):
-    assert required in core_privileges, f"Missing exact column-level privilege assertion: {required}"
+    assert required in core_privileges, f"Missing exact core-table privilege assertion: {required}"
 assert "has_table_privilege('authenticated', table_oid, 'UPDATE')" not in core_privileges
-print("PASS: core privilege runtime contract checks narrow column grants without demanding table-wide UPDATE.")
+core_migration = (MIGRATIONS / "20261118100000_restrict_core_table_destructive_privileges.sql").read_text()
+assert "creation and assignment use authorization-checked RPCs" in core_migration
+print("PASS: core privilege runtime contract checks narrow updates and RPC-only client creation.")
 
 device_bounds = (MIGRATIONS / "20261119100000_bound_device_registry_metadata.sql").read_text()
 for required in (
