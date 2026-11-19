@@ -28,11 +28,11 @@ ALTER TABLE public.device_challenges
 
 ALTER TABLE public.device_security_events
   ADD CONSTRAINT device_security_events_details_size_check
-    CHECK (pg_column_size(details) <= 8192);
+    CHECK (octet_length(details::text) <= 8192);
 
 ALTER TABLE public.device_integrity_checks
   ADD CONSTRAINT device_integrity_checks_summary_size_check
-    CHECK (pg_column_size(result_summary) <= 4096);
+    CHECK (octet_length(result_summary::text) <= 4096);
 
 COMMENT ON CONSTRAINT device_challenges_max_lifetime_check
   ON public.device_challenges IS
