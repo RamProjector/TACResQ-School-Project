@@ -219,6 +219,19 @@ class OwnedBackendIncidentCreationTest extends TestCase
     }
 
 
+    public function test_unauthenticated_client_cannot_create_sos_or_reserve_an_idempotency_key(): void
+    {
+        $this->postJson('/api/incidents', [
+            'client_request_id' => 'b8c2b4f0-4c3f-4d89-8f3a-0b2e1d4c5a67',
+            'type' => 'medical',
+            'description' => 'Unauthenticated SOS attempt',
+        ])->assertUnauthorized();
+
+        $this->assertDatabaseCount('incidents', 0);
+        $this->assertDatabaseCount('incident_submission_keys', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
     public function test_only_requesters_can_create_sos_incidents(): void
     {
         foreach (['responder', 'driver', 'admin'] as $role) {
