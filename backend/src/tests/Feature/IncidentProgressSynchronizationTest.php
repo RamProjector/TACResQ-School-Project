@@ -76,6 +76,37 @@ class IncidentProgressSynchronizationTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $teammate->id, 'duty_status' => 'en_route']);
     }
 
+    public function test_resolved_incident_history_does_not_block_team_members_from_going_off_duty(): void
+    {
+        $requester = $this->user('resolved-duty-requester@example.test', 'requester');
+        $dispatcher = $this->user('resolved-duty-dispatcher@example.test', 'dispatcher');
+        $lead = $this->user('resolved-duty-lead@example.test', 'responder', 'available');
+        $teammate = $this->user('resolved-duty-teammate@example.test', 'driver', 'available');
+        $incident = $this->assignedIncident($requester, $lead, $dispatcher, [$lead, $teammate]);
+
+        // Keep the historical lead and team membership rows while closing the incident.
+        DB::table('incidents')->where('id', $incident->id)->update(['status' => 'resolved']);
+        DB::table('incident_assignments')->where('incident_id', $incident->id)->update([
+            'responder_status' => 'resolved',
+        ]);
+
+        Sanctum::actingAs($lead);
+        $this->patchJson('/api/me/duty-status', ['duty_status' => 'off_duty'])->assertOk()
+            ->assertJsonPath('duty_status', 'off_duty');
+
+        Sanctum::actingAs($teammate);
+        $this->patchJson('/api/me/duty-status', ['duty_status' => 'off_duty'])->assertOk()
+            ->assertJsonPath('duty_status', 'off_duty');
+
+        $this->assertDatabaseHas('users', ['id' => $lead->id, 'duty_status' => 'off_duty']);
+        $this->assertDatabaseHas('users', ['id' => $teammate->id, 'duty_status' => 'off_duty']);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $incident->id,
+            'user_id' => $teammate->id,
+            'responder_status' => 'resolved',
+        ]);
+    }
+
     public function test_dispatcher_cannot_skip_incident_progress_states(): void
     {
         $requester = $this->user('progress-skip-requester@example.test', 'requester');
