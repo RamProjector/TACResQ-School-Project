@@ -107,6 +107,21 @@ class StorageBackupManifestTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.collect_entries(link)
 
+    def test_verifier_can_pin_manifest_to_expected_bucket(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "bucket"
+            root.mkdir()
+            (root / "safe.txt").write_text("safe", encoding="utf-8")
+            output = Path(temp) / "manifest.json"
+            MODULE.write_manifest(MODULE.build_manifest(root, "incident-chat-attachments"), output)
+
+            self.assertEqual(
+                MODULE.verify_manifest(root, output, "incident-chat-attachments"),
+                (True, []),
+            )
+            with self.assertRaisesRegex(ValueError, "expected bucket"):
+                MODULE.verify_manifest(root, output, "different-bucket")
+
     def test_rejects_bucket_paths(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
