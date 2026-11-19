@@ -218,6 +218,34 @@ class OwnedBackendIncidentCreationTest extends TestCase
         $this->assertSame(0, Incident::where('requester_id', $secondRequester->id)->count());
     }
 
+
+    public function test_only_requesters_can_create_sos_incidents(): void
+    {
+        foreach (['responder', 'driver', 'admin'] as $role) {
+            $user = User::create([
+                'name' => ucfirst($role).' Test',
+                'email' => 'sos-role-'.$role.'@example.test',
+                'password' => 'test-only-password',
+                'role' => $role,
+            ]);
+            Sanctum::actingAs($user);
+
+            $this->postJson('/api/incidents', [
+                'client_request_id' => match ($role) {
+                    'responder' => 'f4a9e45d-2f75-4f35-8e11-1a2d6a0c1101',
+                    'driver' => 'f4a9e45d-2f75-4f35-8e11-1a2d6a0c1102',
+                    default => 'f4a9e45d-2f75-4f35-8e11-1a2d6a0c1103',
+                },
+                'type' => 'medical',
+                'description' => 'Must not be accepted for this role',
+            ])->assertForbidden();
+        }
+
+        $this->assertDatabaseCount('incidents', 0);
+        $this->assertDatabaseCount('incident_submission_keys', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
     private function requester(string $email): User
     {
         return User::create([
