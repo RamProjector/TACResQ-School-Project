@@ -17,12 +17,12 @@ BEGIN
       RAISE EXCEPTION 'public.% must retain RLS', table_name;
     END IF;
 
-    -- Preserve only the grants needed by the existing client workflows.
-    -- Profiles are created by the SECURITY DEFINER signup trigger; clients
-    -- must not be able to insert arbitrary profile/role records directly.
+    -- Verify table-level grants separately from column-level UPDATE grants.
+    -- PostgreSQL has_table_privilege(..., 'UPDATE') intentionally returns false
+    -- when only specific columns are writable; do not broaden those grants.
     required_privileges := CASE table_name
-      WHEN 'profiles' THEN ARRAY['SELECT', 'UPDATE']
-      WHEN 'incidents' THEN ARRAY['SELECT', 'INSERT', 'UPDATE']
+      WHEN 'profiles' THEN ARRAY['SELECT']
+      WHEN 'incidents' THEN ARRAY['SELECT', 'INSERT']
     END;
 
     FOREACH required_privilege IN ARRAY required_privileges LOOP
@@ -31,6 +31,32 @@ BEGIN
           required_privilege, table_name;
       END IF;
     END LOOP;
+
+    IF table_name = 'profiles' THEN
+      IF NOT has_column_privilege('authenticated', table_oid, 'duty_status', 'UPDATE')
+         OR NOT has_column_privilege('authenticated', table_oid, 'updated_at', 'UPDATE') THEN
+        RAISE EXCEPTION 'authenticated must retain only the required profile duty-status update columns';
+      END IF;
+      IF has_column_privilege('authenticated', table_oid, 'role', 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'auth_user_id', 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'email', 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'name', 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'phone', 'UPDATE') THEN
+        RAISE EXCEPTION 'authenticated must not update profile identity or role columns directly';
+      END IF;
+    ELSIF table_name = 'incidents' THEN
+      IF NOT has_column_privilege('authenticated', table_oid, 'status', 'UPDATE')
+         OR NOT has_column_privilege('authenticated', table_oid, 'assigned_to', 'UPDATE')
+         OR NOT has_column_privilege('authenticated', table_oid, 'updated_at', 'UPDATE') THEN
+        RAISE EXCEPTION 'authenticated must retain required incident progress update columns';
+      END IF;
+      IF has_column_privilege('authenticated', table_oid, 'requester_id', 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'type', 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'latitude', 'UPDATE')
+         OR has_column_privilege('authenticated', table_oid, 'longitude', 'UPDATE') THEN
+        RAISE EXCEPTION 'authenticated must not update incident ownership or report fields directly';
+      END IF;
+    END IF;
 
     IF has_table_privilege('anon', table_oid, 'SELECT')
        OR has_table_privilege('anon', table_oid, 'INSERT')
