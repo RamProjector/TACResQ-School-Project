@@ -172,7 +172,18 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         $user = $request->user();
         $query = Incident::query();
         if ($user->role === 'requester') $query->where('requester_id', $user->id);
-        elseif (in_array($user->role, ['responder', 'driver'], true)) $query->where('assigned_to', $user->id);
+        elseif (in_array($user->role, ['responder', 'driver'], true)) {
+            // Include every response-team member while retaining the legacy lead assignment.
+            $query->where(function ($membership) use ($user) {
+                $membership->where('assigned_to', $user->id)
+                    ->orWhereExists(function ($assignment) use ($user) {
+                        $assignment->selectRaw('1')
+                            ->from('incident_assignments')
+                            ->whereColumn('incident_assignments.incident_id', 'incidents.id')
+                            ->where('incident_assignments.user_id', $user->id);
+                    });
+            });
+        }
         else abort(403, 'This account has no personal incident list.');
         return response()->json($query->orderByDesc('created_at')->orderByDesc('id')->limit($limit)->get()->map($incidentJson)->values());
     })->middleware('throttle:120,1');
