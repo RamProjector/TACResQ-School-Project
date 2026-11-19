@@ -26,7 +26,7 @@ for fragment in REQUIRED:
     assert fragment in LOGIN, f"Missing login throttling/security contract: {fragment}"
 
 assert LOGIN.count("The provided credentials are incorrect.") == 1
-assert "User::where('email', $normalizedEmail)" in LOGIN
+assert "User::whereRaw('LOWER(email) = ?', [$normalizedEmail])" in LOGIN
 assert "$credentials['password']" not in LOGIN.split("$accountKey =", 1)[1].split("$ipKey =", 1)[0]
 assert "auth-login-account:'.hash('sha256', $normalizedEmail.'|'.(string) $request->ip())" in LOGIN
 assert "auth-login-account:'.hash('sha256', $normalizedEmail)" not in LOGIN
