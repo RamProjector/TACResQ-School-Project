@@ -224,6 +224,36 @@ class IncidentProgressSynchronizationTest extends TestCase
         $this->assertDatabaseCount('incident_assignments', 0);
     }
 
+    public function test_dispatcher_cannot_advance_an_incident_with_a_non_field_lead(): void
+    {
+        $requester = $this->user('progress-invalid-lead-requester@example.test', 'requester');
+        $dispatcher = $this->user('progress-invalid-lead-dispatcher@example.test', 'dispatcher');
+        $incident = Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Invalid legacy lead must not receive responder duty updates',
+            'status' => 'assigned',
+            'assigned_to' => $requester->id,
+        ]);
+
+        Sanctum::actingAs($dispatcher);
+        $this->patchJson('/api/incidents/'.$incident->id.'/status', [
+            'status' => 'en_route',
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseHas('incidents', [
+            'id' => $incident->id,
+            'status' => 'assigned',
+            'assigned_to' => $requester->id,
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $requester->id,
+            'role' => 'requester',
+            'duty_status' => null,
+        ]);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
     public function test_dispatcher_can_resolve_an_incident_directly_from_on_scene(): void
     {
         $requester = $this->user('progress-direct-resolve-requester@example.test', 'requester');

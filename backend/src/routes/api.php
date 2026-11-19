@@ -333,6 +333,12 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         $updated = DB::transaction(function () use ($incident, $data, $request, $transitions) {
             $locked = Incident::whereKey($incident->id)->lockForUpdate()->firstOrFail();
             abort_if($locked->assigned_to === null, 422, 'Assign a response unit before advancing incident progress.');
+            $lead = User::whereKey($locked->assigned_to)->first();
+            abort_unless(
+                $lead && in_array($lead->role, ['responder', 'driver'], true),
+                422,
+                'Assigned lead must be a responder or driver.'
+            );
             abort_unless(
                 in_array($data['status'], $transitions[$locked->status] ?? [], true),
                 422,
