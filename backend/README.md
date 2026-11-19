@@ -55,6 +55,7 @@ python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 ## API and safety notes
 
 - Auth uses Laravel Sanctum personal access tokens; logout deletes the current token.
+- Self-service account recovery: `POST /logout-all` revokes every Laravel Sanctum personal access token; `POST /change-password` requires the current password and a confirmed replacement, revokes prior Sanctum tokens, and issues one fresh token. These legacy Laravel API endpoints do not revoke Supabase Auth sessions.
 - Self-registration always creates a requester. Elevated roles should be created through a trusted administrative process, not public registration.
 - Role checks, ownership checks, allowed status transitions, coordinate bounds, paired GPS/null semantics, and available-unit checks are enforced server-side.
 - An SOS may include one optional coordinate pair, measured accuracy, and the device fix timestamp, or no pin plus an optional 500-character landmark note. No-GPS SOS submission is valid; the backend does not synthesize coordinates. Requester location is attached to the incident only, not continuously tracked.
