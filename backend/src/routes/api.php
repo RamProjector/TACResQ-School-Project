@@ -107,6 +107,42 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         return response()->json(['message' => 'All sessions have been revoked.'], 200)
             ->header('Cache-Control', 'no-store, private');
     });
+    Route::post('/change-password', function (Request $request) use ($userJson) {
+        $data = $request->validate([
+            'current_password' => ['required', 'string', 'max:72'],
+            'password' => ['required', 'string', 'min:12', 'max:72', 'confirmed'],
+        ]);
+        $user = $request->user();
+        $attemptKey = 'auth-password-change:'.hash('sha256', (string) $user->getAuthIdentifier());
+
+        if (RateLimiter::tooManyAttempts($attemptKey, 5)) {
+            return response()->json(['message' => 'Too many password-change attempts. Please retry later.'], 429)
+                ->header('Retry-After', (string) RateLimiter::availableIn($attemptKey))
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        if (!Hash::check($data['current_password'], $user->password)) {
+            RateLimiter::hit($attemptKey, 900);
+            return response()->json(['message' => 'The current password is incorrect.'], 422)
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        if (Hash::check($data['password'], $user->password)) {
+            return response()->json(['message' => 'Choose a password different from your current password.'], 422)
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        $user->forceFill(['password' => Hash::make($data['password'])])->save();
+
+        // Rotate every Sanctum session after a credential change, then return
+        // one fresh token so the account owner is not stranded mid-recovery.
+        $user->tokens()->delete();
+        $token = $user->createToken('android')->plainTextToken;
+        RateLimiter::clear($attemptKey);
+
+        return response()->json(['token' => $token, 'user' => $userJson($user->fresh())], 200)
+            ->header('Cache-Control', 'no-store, private');
+    });
     Route::get('/me', fn (Request $request) => response()->json($userJson($request->user())));
     Route::patch('/me/duty-status', function (Request $request) use ($userJson, $onlyRoles) {
         $onlyRoles($request, ['responder', 'driver']);
