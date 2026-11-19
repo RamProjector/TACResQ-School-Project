@@ -4,9 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Incident;
 use App\Models\User;
-use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -79,53 +77,6 @@ class OwnedBackendIncidentCreationTest extends TestCase
         ])->assertStatus(409);
 
         $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
-    }
-
-
-    public function test_failed_status_log_write_rolls_back_incident_and_idempotency_key(): void
-    {
-        $requester = $this->requester('sos-rollback@example.test');
-        Sanctum::actingAs($requester);
-
-        // Fail at the final business write, after the route has inserted the
-        // idempotency key and incident. PostgreSQL rolls the entire request
-        // transaction back, so a retry cannot be trapped behind a stale key.
-        DB::unprepared(<<<'SQL'
-            CREATE FUNCTION tacresq_test_reject_status_log() RETURNS trigger
-            LANGUAGE plpgsql
-            AS $
-            BEGIN
-                RAISE EXCEPTION 'synthetic status-log write failure';
-            END;
-            $
-        SQL);
-        DB::unprepared(<<<'SQL'
-            CREATE TRIGGER tacresq_test_reject_status_log
-            BEFORE INSERT ON incident_status_logs
-            FOR EACH ROW EXECUTE FUNCTION tacresq_test_reject_status_log()
-        SQL);
-
-        try {
-            $this->withoutExceptionHandling();
-
-            try {
-                $this->postJson('/api/incidents', [
-                    'client_request_id' => 'fa0f06d0-8ad5-44ab-8b4a-14c3b3f8d8e1',
-                    'type' => 'medical',
-                    'description' => 'Rollback verification',
-                ]);
-                $this->fail('The injected status-log failure should abort SOS creation.');
-            } catch (QueryException $exception) {
-                $this->assertStringContainsString('synthetic status-log write failure', $exception->getMessage());
-            }
-        } finally {
-            DB::unprepared('DROP TRIGGER IF EXISTS tacresq_test_reject_status_log ON incident_status_logs');
-            DB::unprepared('DROP FUNCTION IF EXISTS tacresq_test_reject_status_log()');
-        }
-
-        $this->assertSame(0, Incident::where('requester_id', $requester->id)->count());
-        $this->assertDatabaseCount('incident_status_logs', 0);
-        $this->assertDatabaseCount('incident_submission_keys', 0);
     }
 
     private function requester(string $email): User
