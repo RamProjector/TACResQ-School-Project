@@ -80,6 +80,26 @@ BEGIN
     RAISE EXCEPTION 'Device registry metadata, payload-size, and challenge-lifetime constraints are missing or unvalidated';
   END IF;
 
+  -- Identity sequences are backend-only too; table grants alone do not
+  -- protect INSERT ... RETURNING paths or direct sequence calls.
+  FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT', 'UPDATE'] LOOP
+    IF has_sequence_privilege('anon', 'public.device_security_events_id_seq', privilege_name)
+       OR has_sequence_privilege('authenticated', 'public.device_security_events_id_seq', privilege_name)
+       OR has_sequence_privilege('anon', 'public.device_integrity_checks_id_seq', privilege_name)
+       OR has_sequence_privilege('authenticated', 'public.device_integrity_checks_id_seq', privilege_name) THEN
+      RAISE EXCEPTION 'Client/PUBLIC role unexpectedly has % on device registry sequences', privilege_name;
+    END IF;
+  END LOOP;
+
+  IF NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'SELECT')
+     OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'UPDATE')
+     OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'SELECT')
+     OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Unexpected service_role privileges on device registry sequences';
+  END IF;
+
   -- Mutable registry records are server-managed; event/integrity records
   -- are insert-only so service_role cannot rewrite or erase their history.
   IF NOT has_table_privilege('service_role', 'public.user_devices', 'SELECT')
