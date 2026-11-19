@@ -96,7 +96,17 @@ Route::post('/register', function (Request $request) use ($userJson) {
 });
 
 Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJson, $onlyRoles) {
-    Route::post('/logout', fn (Request $request) => tap(response()->noContent(), fn () => $request->user()->currentAccessToken()?->delete()));
+    Route::post('/logout', fn (Request $request) => tap(
+        response()->noContent()->header('Cache-Control', 'no-store, private'),
+        fn () => $request->user()->currentAccessToken()?->delete()
+    ));
+    // Self-service recovery control: invalidate every Sanctum personal access
+    // token for this account, including the token used for this request.
+    Route::post('/logout-all', function (Request $request) {
+        $request->user()->tokens()->delete();
+        return response()->json(['message' => 'All sessions have been revoked.'], 200)
+            ->header('Cache-Control', 'no-store, private');
+    });
     Route::get('/me', fn (Request $request) => response()->json($userJson($request->user())));
     Route::patch('/me/duty-status', function (Request $request) use ($userJson, $onlyRoles) {
         $onlyRoles($request, ['responder', 'driver']);
