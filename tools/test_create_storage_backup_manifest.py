@@ -1,5 +1,7 @@
 import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -121,6 +123,23 @@ class StorageBackupManifestTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "expected bucket"):
                 MODULE.verify_manifest(root, output, "different-bucket")
+
+    def test_cli_enforces_expected_bucket_during_verification(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "bucket"
+            root.mkdir()
+            (root / "safe.txt").write_text("safe", encoding="utf-8")
+            output = Path(temp) / "manifest.json"
+            MODULE.write_manifest(MODULE.build_manifest(root, "incident-chat-attachments"), output)
+
+            command = [
+                sys.executable, str(MODULE_PATH),
+                "--directory", str(root),
+                "--bucket", "different-bucket",
+                "--verify", str(output),
+            ]
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
+            self.assertNotEqual(result.returncode, 0)
 
     def test_rejects_bucket_paths(self):
         with tempfile.TemporaryDirectory() as temp:
