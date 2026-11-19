@@ -72,6 +72,46 @@ class OwnedBackendIncidentCreationTest extends TestCase
         $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
     }
 
+    public function test_active_incident_states_block_new_sos_but_resolved_history_allows_one(): void
+    {
+        foreach (['pending', 'assigned', 'en_route', 'on_scene', 'transporting'] as $index => $status) {
+            $requester = $this->requester('sos-active-state-'.$status.'@example.test');
+            Incident::create([
+                'requester_id' => $requester->id,
+                'type' => 'medical',
+                'description' => 'Existing '.$status.' incident',
+                'status' => $status,
+            ]);
+
+            Sanctum::actingAs($requester);
+            $this->postJson('/api/incidents', [
+                'client_request_id' => sprintf('a11ce000-0000-4000-8000-%012d', $index + 1),
+                'type' => 'fire',
+                'description' => 'A second request must wait',
+            ])->assertStatus(409);
+
+            $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
+        }
+
+        $resolvedRequester = $this->requester('sos-after-resolution@example.test');
+        Incident::create([
+            'requester_id' => $resolvedRequester->id,
+            'type' => 'medical',
+            'description' => 'Resolved historical incident',
+            'status' => 'resolved',
+        ]);
+
+        Sanctum::actingAs($resolvedRequester);
+        $this->postJson('/api/incidents', [
+            'client_request_id' => 'a11ce000-0000-4000-8000-000000000099',
+            'type' => 'vehicular',
+            'description' => 'New request after resolution',
+        ])->assertCreated()->assertJsonPath('status', 'pending');
+
+        $this->assertSame(2, Incident::where('requester_id', $resolvedRequester->id)->count());
+        $this->assertDatabaseCount('incident_submission_keys', 1);
+    }
+
     public function test_idempotency_key_cannot_be_reused_for_different_details(): void
     {
         $requester = $this->requester('sos-key-reuse@example.test');
