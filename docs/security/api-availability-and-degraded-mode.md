@@ -6,6 +6,7 @@
 
 - Supabase Auth user verification has a 2-second connection timeout and 5-second total request timeout.
 - Supabase RPC forwarding has a 2-second connection timeout and 8-second total request timeout.
+- Route-provider calls use bounded connection and total request timeouts: Geoapify uses 5/12 seconds, while the private OSRM router uses 3/12 seconds.
 - Upstream failures are sanitized; Auth 5xx/429 and transport failures do not become false invalid-session responses.
 - RPC names remain restricted to the reviewed allowlist and use the caller's validated Supabase JWT.
 - RPC request bodies are limited to 32 KiB before token verification/upstream work.
