@@ -131,6 +131,7 @@ class IncidentAssignmentWorkflowTest extends TestCase
         $requester = $this->user('assignment-repeat-requester@example.test', 'requester');
         $dispatcher = $this->user('assignment-repeat-dispatcher@example.test', 'dispatcher');
         $responder = $this->user('assignment-repeat-unit@example.test', 'responder', 'available');
+        $replacement = $this->user('assignment-repeat-replacement@example.test', 'responder', 'available');
         $incident = $this->incident($requester);
 
         Sanctum::actingAs($dispatcher);
@@ -138,8 +139,9 @@ class IncidentAssignmentWorkflowTest extends TestCase
             'user_id' => $responder->id,
         ])->assertOk();
 
+        // A different available unit must not silently replace the incident lead.
         $this->postJson('/api/incidents/'.$incident->id.'/assign', [
-            'user_id' => $responder->id,
+            'user_id' => $replacement->id,
         ])->assertUnprocessable();
 
         $this->assertDatabaseCount('incident_assignments', 1);
@@ -149,6 +151,13 @@ class IncidentAssignmentWorkflowTest extends TestCase
             'status' => 'assigned',
             'assigned_to' => $responder->id,
         ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $replacement->id,
+            'duty_status' => 'available',
+        ]);
+        $this->assertFalse(
+            $incident->fresh()->responseTeam()->whereKey($replacement->id)->exists()
+        );
     }
 
     private function user(string $email, string $role, ?string $dutyStatus = null): User
