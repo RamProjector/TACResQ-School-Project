@@ -32,7 +32,11 @@ BEGIN
   END IF;
 
   SELECT pg_get_functiondef(health_rpc) INTO function_definition;
-  IF function_definition ~* '\\m(from|insert|update|delete|truncate)\\M' THEN
+  IF position('FROM ' IN upper(function_definition)) > 0
+     OR position('INSERT ' IN upper(function_definition)) > 0
+     OR position('UPDATE ' IN upper(function_definition)) > 0
+     OR position('DELETE ' IN upper(function_definition)) > 0
+     OR position('TRUNCATE ' IN upper(function_definition)) > 0 THEN
     RAISE EXCEPTION 'Dependency health RPC must not read application tables or mutate state';
   END IF;
 
