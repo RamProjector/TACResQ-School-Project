@@ -1,0 +1,129 @@
+# TACResQ Backup and Disaster Recovery — Research and Implementation Plan
+
+**Status:** Research and operational design only. No backup job, provider setting, retention policy, storage bucket, Render disk, or production data was changed.
+**Scope:** Supabase Postgres, Supabase Storage objects, schema/migrations, Render-hosted Laravel portal, and recovery credentials/configuration.
+
+## 1. Current architecture and recovery boundaries
+
+- Supabase is the source of truth for application authentication and operational data.
+- Supabase Storage is the intended object store for incident attachments; database backups alone do not preserve the underlying object bytes.
+- Render hosts the Laravel administrator portal/API bridge. Its filesystem is ephemeral by default unless a persistent disk is explicitly attached. Do not treat the deployed container filesystem as a backup destination.
+- The repository contains versioned Supabase migrations. A schema replay from migrations is useful for rebuilding structure, but it is not a substitute for restoring operational rows, Auth users, or Storage objects.
+- The existing device registry and audit/event data are security-sensitive. Backup access and restore access must be restricted and audited.
+
+## 2. Provider facts that affect the design
+
+### Supabase database
+
+- Supabase's current documentation states that automatic daily database backups are available on Pro, Team, and Enterprise plans; the documented retention is 7, 14, and up to 30 days respectively.
+- Free-plan projects do not receive automatic database backups. Supabase recommends regularly exporting data with `supabase db dump` and maintaining off-site backups.
+- Database backups contain Storage metadata, not the object bytes stored through the Storage API. A database restore cannot recover an object deleted after the selected backup.
+- Point-in-Time Recovery is a paid add-on; it must not be assumed available in the current free-first deployment.
+
+### Render
+
+- Render web services use an ephemeral filesystem by default. Runtime-created files are lost on redeploy or restart unless they are written under an explicitly configured persistent disk mount.
+- Persistent disks are a separate infrastructure decision, not an assumed feature of the current TACResQ service. Adding one can affect deployment availability and scaling; it is not proposed as a shortcut for database backups.
+- Render disk snapshots, where applicable, are not application-consistent database backups and must not be used to restore a custom database.
+
+## 3. Proposed backup layers
+
+| Layer | What must be preserved | Proposed mechanism | Important limitation |
+|---|---|---|---|
+| Postgres data | Operational tables, profiles, assignments, audit/security events | Scheduled logical export using Supabase CLI `db dump` on a trusted runner | Free plan requires an externally operated schedule and off-site destination |
+| Schema | Migration history and database definitions | Git version control plus clean-database migration replay | Does not preserve production rows |
+| Storage objects | Actual uploaded images/video and object metadata | Enumerate objects and copy bytes to a separate encrypted off-site backup destination; maintain a manifest | DB backup alone does not contain object bytes |
+| Auth/config | Auth configuration, redirect allowlist, email templates, bucket policies, relevant provider settings | Versioned, access-controlled configuration inventory; secrets stored separately in an encrypted secret manager/offline vault | Never export service-role keys or user credentials into the repository |
+| Render portal | Source, deployment configuration, environment-variable names, release identity | Git + documented environment inventory + known-good deploy reference | Container filesystem is not durable storage |
+| Recovery evidence | Backup job result, checksum, size, timestamp, schema version, restore test | Append-only backup manifest and restricted audit trail | A successful upload is not proof that a backup is restorable |
+
+## 4. Free-first baseline
+
+1. Run a scheduled Postgres logical export using a trusted runner with narrowly scoped credentials. Do not put a database password or access token in source code, workflow logs, command-line arguments visible to other users, or artifacts.
+2. Encrypt the dump before it leaves the runner. Store it outside the Supabase project and outside the Render service filesystem.
+3. Back up Storage object bytes separately. The manifest should record bucket, object path, size, content type, checksum, and backup timestamp; it must not expose private object URLs or user-facing signed URLs.
+4. Keep schema migrations in Git. Record the exact commit SHA and migration version represented by each database backup.
+5. Keep backup credentials separate from normal application credentials. The Android app, public web client, and admin browser must never receive backup credentials.
+6. Apply retention only after confirming legal, privacy, and operational requirements. Purging a backup must be a controlled, logged operation with a second-person review for production.
+7. Alert on missed schedules, failed exports, checksum mismatch, unexpectedly small/empty exports, storage-copy omissions, and insufficient destination capacity.
+
+No paid service is required for this baseline, but an off-site destination must be selected and access-controlled. A free GitHub Actions runner is not itself a backup destination; workflow artifacts have retention/availability limits and must not become the only copy.
+
+## 5. Restore procedure and safety gates
+
+### Before restore
+
+- Declare an incident and record the incident owner, affected service, suspected failure time, and desired recovery point.
+- Freeze destructive maintenance and prevent competing writes where operationally safe.
+- Identify the newest verified backup from before the failure; verify its checksum, encryption, expected size, schema version, and Storage manifest.
+- Preserve the current damaged state where feasible. Prefer restoring into an isolated recovery project/environment first.
+- Confirm that the target project, region, extensions, roles, Auth settings, Storage buckets, and redirect configuration are compatible.
+- Obtain explicit production-owner approval before replacing or rewinding production data.
+
+### Restore and validate
+
+1. Restore Postgres into an isolated project first; never test restore procedures against the live project.
+2. Reconcile custom database roles and reset credentials where the provider's backup format does not preserve them.
+3. Restore Storage object bytes independently, preserving bucket/path relationships and private/public access policies.
+4. Apply or verify the expected migration state without blindly replaying migrations over restored production data.
+5. Validate row counts and key relationships for profiles, incidents, assignments, status history, audit logs, device registry, and idempotency records.
+6. Validate that every restored attachment manifest entry has a corresponding object with matching size/checksum.
+7. Run auth sign-in, role authorization, incident creation/read, assignment RPC, notification dispatch, and admin audit-read smoke tests using test accounts.
+8. Confirm location and personal-data access policies, RLS, grants, triggers, RPC permissions, and storage policies.
+9. Document data loss window, restore duration, validation evidence, and any manual reconciliation.
+10. Promote/repoint production only after explicit approval and a successful isolated restore review.
+
+A Supabase project restore can make the project inaccessible during the restore and replaces current database state with the selected recovery point. Treat it as a high-impact production action.
+
+## 6. Proposed service objectives (targets, not current guarantees)
+
+| Priority | Proposed RPO | Proposed RTO | Notes |
+|---|---:|---:|---|
+| Emergency incident and assignment records | 24 hours maximum for the free-first baseline | 8 hours | Requires daily verified export; tighten only with tested automation and funding |
+| Auth/configuration and migration state | 24 hours | 8 hours | Keep configuration inventory and migration code separately versioned |
+| Incident attachment objects | 24 hours | 8 hours | Requires independent object backup; do not assume DB backup includes bytes |
+| Admin portal source/deployment | Git commit-level | 4 hours | Requires documented Render environment reconstruction and smoke tests |
+
+These are proposed planning objectives, not measured capabilities or provider SLAs. If the system cannot meet them during a restore drill, revise the objective or improve the process before making an availability claim.
+
+## 7. Admin feature boundaries
+
+A future Admin → Security & Countermeasures → Backup & Recovery page may show:
+- Last successful database export and object backup timestamps
+- Backup age, size, checksum status, schema version, and retention expiry
+- Last restore drill and validation result
+- Failed/missed backup alerts and current recovery readiness
+- A documented incident runbook and approval status
+
+The admin browser must not receive raw database dumps, storage backup credentials, service-role keys, or unrestricted restore controls. A restore request should create an audited approval workflow handled by a privileged server-side operator, not execute a destructive restore directly from the dashboard.
+
+## 8. Implementation sequence
+
+**P0 — Establish reality**
+- Confirm the Supabase plan, project backup availability, Storage buckets, object volume, Render service type, and whether any persistent disk exists.
+- Inventory data sensitivity, retention rules, and recovery ownership.
+- Verify actual database and Storage export access without changing production data.
+
+**P1 — Build safe backup automation**
+- Add a protected scheduled export workflow with least-privilege secrets, encryption, off-site copy, checksum manifest, failure notification, and retention controls.
+- Add independent Storage object backup and manifest verification.
+- Ensure logs and artifacts never contain credentials or personal incident content.
+
+**P1 — Prove restore**
+- Create an isolated recovery environment.
+- Automate Postgres restore, Storage object restore, migration compatibility checks, and smoke tests.
+- Run and document periodic restore drills.
+
+**P2 — Admin visibility**
+- Add read-only backup status and recovery readiness to the admin security area.
+- Add approval/audit workflow for restore operations only after privileged server-side execution and authorization are established.
+
+## 9. References
+
+- Supabase Database Backups: https://supabase.com/docs/guides/platform/backups
+- Supabase Free Plan backup FAQ: https://supabase.com/kb/faqs/platform/free-plan-backups
+- Supabase Production Checklist: https://supabase.com/docs/guides/deployment/going-into-prod
+- Render Persistent Disks: https://render.com/docs/disks
+- Render FAQ (ephemeral filesystem): https://render.com/docs/faq
+
+**Decision:** First verify the actual Supabase plan, Storage buckets, and Render service configuration. Then implement encrypted off-site database and object exports with a tested isolated restore. Do not claim TACResQ has automated backups or recovery capability until both data layers have passed a restore drill.
