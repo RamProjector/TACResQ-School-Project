@@ -14,6 +14,11 @@ VALUES
     '00000000-0000-4000-8000-000000000992',
     'requester-location-edit-b@example.test',
     '{"name":"Requester Location Edit B","phone":"+63917000992","role":"requester"}'::jsonb
+  ),
+  (
+    '00000000-0000-4000-8000-000000000993',
+    'dispatcher-cancellation-alert@example.test',
+    '{"name":"Dispatcher Cancellation Alert","phone":"+63917000993","role":"dispatcher"}'::jsonb
   );
 
 -- Terminal requests remain visible in the fixture but are not editable.
@@ -311,6 +316,28 @@ BEGIN
           WHERE auth_user_id = '00000000-0000-4000-8000-000000000991'
         )) <> 1 THEN
     RAISE EXCEPTION 'Requester cancellation did not create exactly one attributable status audit record';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.user_notifications n
+    JOIN public.profiles dispatcher ON dispatcher.id = n.recipient_user_id
+    WHERE n.incident_id = v_incident_id
+      AND n.event_type = 'incident_cancelled'
+      AND dispatcher.role = 'dispatcher'
+  ) THEN
+    RAISE EXCEPTION 'Requester cancellation did not create a dispatcher inbox notification';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.user_notifications n
+    JOIN public.profiles requester ON requester.id = n.recipient_user_id
+    WHERE n.incident_id = v_incident_id
+      AND n.event_type = 'incident_cancelled'
+      AND requester.auth_user_id = '00000000-0000-4000-8000-000000000991'
+  ) THEN
+    RAISE EXCEPTION 'Requester cancellation notification was incorrectly sent back to the requester';
   END IF;
 
   -- Cancellation releases the one-active-request guard for a fresh SOS.

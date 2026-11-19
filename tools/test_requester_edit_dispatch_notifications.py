@@ -43,3 +43,39 @@ for description, passed in checks.items():
         raise AssertionError(description)
 
 print(f"Requester edit dispatch notification contract passed ({len(checks)} checks).")
+
+
+cancellation_migration = Path(
+    "supabase/migrations/20261120070000_notify_dispatcher_of_requester_cancellation.sql"
+).read_text(encoding="utf-8").lower()
+
+cancellation_checks = {
+    "cancellation is a constrained notification event": (
+        "'incident_cancelled'" in cancellation_migration
+        and "user_notifications_event_type_check" in cancellation_migration
+    ),
+    "only dispatcher accounts receive the cancellation alert": (
+        "dispatcher.role = 'dispatcher'" in cancellation_migration
+        and "dispatcher.id is distinct from new.changed_by" in cancellation_migration
+    ),
+    "one durable alert is allowed per dispatcher and cancelled incident": (
+        "user_notifications_one_cancellation_alert_idx" in cancellation_migration
+        and "on conflict (recipient_user_id, incident_id)" in cancellation_migration
+    ),
+    "cancellation alert is generic and contains no incident coordinates/details": (
+        "'a requester cancelled a pending emergency. open the dispatch queue to review the updated queue.'" in cancellation_migration
+        and "new.latitude" not in cancellation_migration
+        and "new.longitude" not in cancellation_migration
+        and "new.description" not in cancellation_migration
+    ),
+    "existing status notifications remain available for other transitions": (
+        "incident_status_changed" in cancellation_migration
+        and "notification_body := 'the incident status is now '" in cancellation_migration
+    ),
+}
+
+for description, passed in cancellation_checks.items():
+    if not passed:
+        raise AssertionError(description)
+
+print(f"Requester cancellation notification contract passed ({len(cancellation_checks)} checks).")

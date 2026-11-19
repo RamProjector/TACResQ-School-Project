@@ -176,6 +176,9 @@ jobs:
       - name: Requester edit and cancellation workflow contract
         run: python3 tools/test_requester_edit_workflow.py
 
+      - name: Check requester edit and cancellation dispatch notifications
+        run: python3 tools/test_requester_edit_dispatch_notifications.py
+
       - name: Check dispatcher claimability lifecycle
         run: python3 tools/test_dispatch_claimability_lifecycle.py
 

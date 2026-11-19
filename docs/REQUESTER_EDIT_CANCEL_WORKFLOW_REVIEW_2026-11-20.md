@@ -25,6 +25,8 @@ Reviewed the active PR #335 branch, `security/incident-assignment-privilege-hard
 
 The existing implementation is directionally sound and should be preserved. This follow-up review found that the final edit RPC checked `status = pending` and `assigned_to IS NULL` but did not consult the normalized `incident_assignments` table. Since team membership is also used by assignment, duty, and status workflows, an inconsistent row could otherwise pass the edit gate. The RPC now fails closed when any team-membership row exists, and the authenticated migration-replay fixture covers that inconsistent state. The prior commit's cancellation coverage remains: ownership denial, terminal-state denial, successful pending cancellation, attributable status audit, and creation of a new request after cancellation.
 
+A second notification review found that requester edits already create a durable generic dispatcher inbox alert, but pending cancellation did not. The existing status-log notification trigger excluded the requester as the actor and notified only incident participants; an unassigned pending incident has no field-unit participants, so no dispatcher received a cancellation alert. A follow-up migration adds a generic, deduplicated `incident_cancelled` inbox event for dispatcher profiles only. It does not expose coordinates, descriptions, phone numbers, or other incident details in the notification body. The authenticated migration-replay fixture now checks that a dispatcher receives the event and that the requester does not receive their own cancellation alert.
+
 The UI's status check is a presentation safeguard only. The locked, server-side RPC check is authoritative when assignment and requester actions race. A stale screen must not be able to change an incident after dispatch assignment.
 
 ## Research basis
@@ -41,7 +43,7 @@ The UI's status check is a presentation safeguard only. The locked, server-side 
 ## Validation scope and deployment boundary
 
 - Added authenticated PostgreSQL migration-replay assertions for requester cancellation and for denying edits when a team-membership row exists despite pending/unassigned legacy fields.
-- Extended the source contract to pin the Android pending-only action visibility, Supabase cancellation RPC guards, and normalized assignment-membership edit guard.
+- Extended the source contract to pin the Android pending-only action visibility, Supabase cancellation RPC guards, normalized assignment-membership edit guard, and generic dispatcher cancellation-notification policy.
 - These are committed regression checks; they are not evidence that the full CI suite or a live Supabase environment has passed. The authenticated fixture deliberately creates inconsistent membership data to exercise fail-closed behavior; it does not imply that normal assignment RPCs create such a state.
 - No production migration was applied, no Render deployment/configuration was changed, and PR #335 remains unmerged.
 - Manual Android UI acceptance and a clean PostgreSQL migration replay remain required before merge.
