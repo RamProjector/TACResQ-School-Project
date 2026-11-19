@@ -126,6 +126,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       setUsers([]);
       setTotalUsers(0);
       setAudit([]);
+      setDependencyHealth(null);
+      setDependencyHealthError("Diagnostics were not refreshed because administrator data could not be verified.");
       setError(cause instanceof Error ? cause.message : "The Admin service could not load its data.");
     } finally {
       if (requestId === requestVersion.current) {
