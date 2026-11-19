@@ -56,7 +56,7 @@ Route::post('/login', function (Request $request) use ($userJson) {
             ->header('Cache-Control', 'no-store, private');
     }
 
-    $user = User::where('email', $normalizedEmail)->first();
+    $user = User::whereRaw('LOWER(email) = ?', [$normalizedEmail])->first();
     if (!$user || !Hash::check($credentials['password'], $user->password)) {
         RateLimiter::hit($accountKey, 900);
         return response()->json(['message' => 'The provided credentials are incorrect.'], 422)
