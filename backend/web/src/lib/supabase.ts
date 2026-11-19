@@ -68,6 +68,7 @@ interface RuntimeSupabaseConfig {
 }
 
 let supabaseClient: SupabaseClient<TacruDatabase> | null = null;
+let supabaseHealthConfig: { url: string; publishableKey: string } | null = null;
 
 export async function initializeSupabase(): Promise<boolean> {
   let supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() ?? "";
@@ -87,6 +88,7 @@ export async function initializeSupabase(): Promise<boolean> {
   }
 
   if (!supabaseUrl || !supabasePublishableKey) return false;
+  supabaseHealthConfig = { url: supabaseUrl.replace(/\\/$/, ''), publishableKey: supabasePublishableKey };
   supabaseClient = createClient<TacruDatabase>(supabaseUrl, supabasePublishableKey, {
     auth: {
       autoRefreshToken: true,
@@ -169,4 +171,72 @@ export async function getAdminAuditLogs(limit = 100): Promise<AdminAuditEvent[]>
   const { data, error } = await getSupabase().rpc("api_admin_list_audit_logs", { p_limit: limit });
   throwAdminError(error);
   return (data as unknown as AdminAuditEvent[] | null) ?? [];
+}
+
+
+export type DependencyProbeResult = {
+  status: "healthy" | "degraded" | "unavailable";
+  duration_ms: number | null;
+};
+
+export type AdminDependencyHealth = {
+  checked_at: string;
+  supabase_auth: DependencyProbeResult;
+  supabase_database: DependencyProbeResult;
+};
+
+async function runDependencyProbe(
+  request: (signal: AbortSignal) => Promise<boolean>,
+): Promise<DependencyProbeResult> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 5000);
+  const started = performance.now();
+  try {
+    const healthy = await request(controller.signal);
+    return {
+      status: healthy ? "healthy" : "unavailable",
+      duration_ms: Math.max(0, Math.round(performance.now() - started)),
+    };
+  } catch {
+    return {
+      status: controller.signal.aborted ? "degraded" : "unavailable",
+      duration_ms: Math.max(0, Math.round(performance.now() - started)),
+    };
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+/**
+ * Data-free provider diagnostics for the already-authorized Admin console.
+ * The database probe returns a fixed literal and the Auth probe calls only
+ * Supabase's public health endpoint. No user/session/application data is read.
+ */
+export async function getAdminDependencyHealth(): Promise<AdminDependencyHealth> {
+  if (!supabaseHealthConfig || !supabaseClient) {
+    throw new Error("Supabase is not initialized.");
+  }
+
+  const { url, publishableKey } = supabaseHealthConfig;
+  const [auth, database] = await Promise.all([
+    runDependencyProbe(async (signal) => {
+      const response = await fetch(url + "/auth/v1/health", {
+        method: "GET",
+        headers: { apikey: publishableKey, Accept: "application/json" },
+        cache: "no-store",
+        signal,
+      });
+      return response.ok;
+    }),
+    runDependencyProbe(async () => {
+      const { data, error } = await getSupabase().rpc("api_dependency_health");
+      return !error && data === "tacresq_database_ok";
+    }),
+  ]);
+
+  return {
+    checked_at: new Date().toISOString(),
+    supabase_auth: auth,
+    supabase_database: database,
+  };
 }
