@@ -225,6 +225,40 @@ class IncidentAssignmentWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_dispatcher_assignment_rejects_every_non_pending_incident_state_without_mutation(): void
+    {
+        $requester = $this->user('assignment-state-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-state-dispatcher@example.test', 'dispatcher');
+        $responder = $this->user('assignment-state-unit@example.test', 'responder', 'available');
+
+        foreach (['assigned', 'en_route', 'on_scene', 'transporting', 'resolved', 'cancelled'] as $status) {
+            $incident = Incident::create([
+                'requester_id' => $requester->id,
+                'type' => 'medical',
+                'description' => 'Assignment state guard: '.$status,
+                'status' => $status,
+            ]);
+
+            Sanctum::actingAs($dispatcher);
+            $this->postJson('/api/incidents/'.$incident->id.'/assign', [
+                'user_id' => $responder->id,
+            ])->assertUnprocessable();
+
+            $this->assertDatabaseHas('incidents', [
+                'id' => $incident->id,
+                'status' => $status,
+                'assigned_to' => null,
+            ]);
+        }
+
+        $this->assertDatabaseCount('incident_assignments', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+        $this->assertDatabaseHas('users', [
+            'id' => $responder->id,
+            'duty_status' => 'available',
+        ]);
+    }
+
     public function test_dispatcher_cannot_assign_the_same_incident_twice(): void
     {
         $requester = $this->user('assignment-repeat-requester@example.test', 'requester');
