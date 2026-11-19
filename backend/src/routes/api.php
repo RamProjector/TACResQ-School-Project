@@ -109,7 +109,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
     // token for this account, including the token used for this request.
     Route::post('/logout-all', function (Request $request) {
         $request->user()->tokens()->delete();
-        return response()->json(['message' => 'All sessions have been revoked.'], 200)
+        return response()->json(['message' => 'All Laravel API tokens have been revoked.'], 200)
             ->header('Cache-Control', 'no-store, private');
     })->middleware('throttle:10,1');
     Route::post('/change-password', function (Request $request) use ($userJson) {
