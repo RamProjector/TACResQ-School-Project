@@ -35,7 +35,7 @@ for phrase in (
     "no independent dependency monitor",
     "scheduled probe",
     "alert destination",
-    "no independent dependency monitor",
+    "service-level objective",
 ):
     assert phrase in lower, f"Missing explicit not-yet-implemented boundary: {phrase}"
 
