@@ -107,6 +107,40 @@ class IncidentProgressSynchronizationTest extends TestCase
         ]);
     }
 
+    public function test_resolved_incident_is_terminal_and_cannot_be_reopened(): void
+    {
+        $requester = $this->user('progress-terminal-requester@example.test', 'requester');
+        $dispatcher = $this->user('progress-terminal-dispatcher@example.test', 'dispatcher');
+        $lead = $this->user('progress-terminal-lead@example.test', 'responder', 'available');
+        $teammate = $this->user('progress-terminal-teammate@example.test', 'driver', 'available');
+        $incident = $this->assignedIncident($requester, $lead, $dispatcher, [$lead, $teammate]);
+
+        DB::table('incidents')->where('id', $incident->id)->update(['status' => 'resolved']);
+        DB::table('incident_assignments')->where('incident_id', $incident->id)->update([
+            'responder_status' => 'resolved',
+        ]);
+
+        Sanctum::actingAs($dispatcher);
+        $this->patchJson('/api/incidents/'.$incident->id.'/status', [
+            'status' => 'en_route',
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseHas('incidents', ['id' => $incident->id, 'status' => 'resolved']);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $incident->id,
+            'user_id' => $lead->id,
+            'responder_status' => 'resolved',
+        ]);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $incident->id,
+            'user_id' => $teammate->id,
+            'responder_status' => 'resolved',
+        ]);
+        $this->assertDatabaseHas('users', ['id' => $lead->id, 'duty_status' => 'available']);
+        $this->assertDatabaseHas('users', ['id' => $teammate->id, 'duty_status' => 'available']);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
     public function test_dispatcher_cannot_skip_incident_progress_states(): void
     {
         $requester = $this->user('progress-skip-requester@example.test', 'requester');
