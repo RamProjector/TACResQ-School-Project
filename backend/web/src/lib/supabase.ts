@@ -229,9 +229,24 @@ export async function getAdminDependencyHealth(): Promise<AdminDependencyHealth>
       });
       return response.ok;
     }),
-    runDependencyProbe(async () => {
-      const { data, error } = await getSupabase().rpc("api_dependency_health");
-      return !error && data === "tacresq_database_ok";
+    runDependencyProbe(async (signal) => {
+      const { data, error } = await getSupabase().auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (error || !accessToken) return false;
+      const response = await fetch(url + "/rest/v1/rpc/api_dependency_health", {
+        method: "POST",
+        headers: {
+          apikey: publishableKey,
+          Authorization: "Bearer " + accessToken,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: "{}",
+        cache: "no-store",
+        signal,
+      });
+      if (!response.ok) return false;
+      return await response.json() === "tacresq_database_ok";
     }),
   ]);
 
