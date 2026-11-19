@@ -54,3 +54,4 @@ Restore schema, custom roles, and data into an isolated recovery project. Review
 - Storage bucket metadata/custom policies and object bytes: not included as a complete Storage backup; use the separate Storage procedure.
 - Project secrets, SMTP settings, redirect allowlists and provider config: inventory and recover separately.
 - A successful export and checksum are not a successful restore drill.
+See [the isolated restore-drill checklist](isolated-restore-drill-checklist.md) for target safeguards, restore sequencing, validation gates, and a restricted evidence template.
