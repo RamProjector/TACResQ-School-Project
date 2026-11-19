@@ -13,6 +13,18 @@ The application currently has:
 
 No independent dependency monitor, scheduled probe, alert destination, or service-level objective is currently configured by this change.
 
+## Implemented offline diagnostic boundary
+
+The Laravel backend now exposes the operator CLI command `php artisan tacru:dependency-health`. It is intentionally a **configuration-presence report**, not a live health probe:
+
+- It reports whether the app booted and whether required configuration values are present.
+- It reports routing as `disabled`, `configuration_present`, or `not_configured`.
+- It does not open network connections, query the database, claim queue work, send notifications, or call routing providers.
+- It never prints configured URLs, keys, service-account data, tokens, or other credential values.
+- A `configuration_present` result must not be interpreted as proof that the provider is reachable or healthy.
+
+The command is local/operator-invoked only. It is not exposed as an HTTP route, is not scheduled, and does not change the public `/up` response. Runtime probe authorization, outbound checks, alerting, and dashboards remain unimplemented.
+
 ## Design principles
 
 1. **Separate liveness from dependency readiness.** Keep `GET /up` cheap and local. A dependency outage must not make the process appear dead to the platform or trigger restart loops.
