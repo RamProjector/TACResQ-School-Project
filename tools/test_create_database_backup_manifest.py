@@ -86,6 +86,23 @@ class DatabaseBackupManifestTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.collect_components(link)
 
+    def test_verifier_can_pin_manifest_to_expected_project(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "dumps"
+            self.make_dump_set(root)
+            output = Path(temp) / "manifest.json"
+            MODULE.write_manifest(
+                MODULE.create_manifest(root, "kttguamhznoflzagfutr", "a" * 40),
+                output,
+            )
+
+            self.assertEqual(
+                MODULE.verify_manifest(root, output, "kttguamhznoflzagfutr"),
+                (True, []),
+            )
+            with self.assertRaisesRegex(ValueError, "expected project"):
+                MODULE.verify_manifest(root, output, "bttguamhznoflzagfutr")
+
     def test_rejects_bad_project_ref_and_commit(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "dumps"
