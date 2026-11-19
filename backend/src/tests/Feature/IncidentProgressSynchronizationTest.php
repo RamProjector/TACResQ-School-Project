@@ -254,6 +254,40 @@ class IncidentProgressSynchronizationTest extends TestCase
         $this->assertDatabaseCount('incident_status_logs', 0);
     }
 
+    public function test_dispatcher_cannot_advance_an_incident_with_a_non_field_team_member(): void
+    {
+        $requester = $this->user('progress-invalid-team-requester@example.test', 'requester');
+        $dispatcher = $this->user('progress-invalid-team-dispatcher@example.test', 'dispatcher');
+        $lead = $this->user('progress-invalid-team-lead@example.test', 'responder', 'assigned');
+        $incident = $this->assignedIncident($requester, $lead, $dispatcher, [$lead, $requester]);
+
+        Sanctum::actingAs($dispatcher);
+        $this->patchJson('/api/incidents/'.$incident->id.'/status', [
+            'status' => 'en_route',
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseHas('incidents', [
+            'id' => $incident->id,
+            'status' => 'assigned',
+            'assigned_to' => $lead->id,
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $requester->id,
+            'role' => 'requester',
+            'duty_status' => null,
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $lead->id,
+            'duty_status' => 'assigned',
+        ]);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $incident->id,
+            'user_id' => $requester->id,
+            'responder_status' => 'assigned',
+        ]);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
     public function test_dispatcher_can_resolve_an_incident_directly_from_on_scene(): void
     {
         $requester = $this->user('progress-direct-resolve-requester@example.test', 'requester');

@@ -362,11 +362,19 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
                 ->filter()
                 ->unique()
                 ->values();
-            User::whereIn('id', $assignedUserIds)->orderBy('id')->lockForUpdate()->get()->each(
-                static fn (User $unit) => $unit->update([
-                    'duty_status' => $data['status'] === 'resolved' ? 'available' : $data['status'],
-                ])
+            $units = User::whereIn('id', $assignedUserIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+            abort_unless(
+                $units->count() === $assignedUserIds->count()
+                    && $units->every(static fn (User $unit): bool => in_array($unit->role, ['responder', 'driver'], true)),
+                422,
+                'Every assigned response team member must be a responder or driver.'
             );
+            $units->each(static fn (User $unit) => $unit->update([
+                'duty_status' => $data['status'] === 'resolved' ? 'available' : $data['status'],
+            ]));
             return $locked->fresh();
         });
 
