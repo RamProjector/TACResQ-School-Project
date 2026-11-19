@@ -1,6 +1,18 @@
-# TACResQ one-time GPS location: implementation basis
+# TACResQ device location: implementation basis
 
-This note records the platform requirements and source references behind the requester SOS location flow. It is not a substitute for a production privacy review or Play Console declaration.
+This note records the platform requirements and source references behind TACResQ's requester, map-preview, and responder location flows. It is not a substitute for a production privacy review or Play Console declaration.
+
+## Location source semantics and unsupported values
+
+The current persisted/API `location_source` contract is `gps`, `manual`, or `none`:
+
+- `gps` is a **legacy wire-category name** for a coordinate returned by Android's device-location service. In the current Android client that service is Google's Fused Location Provider. It does not prove that the coordinate came exclusively from satellite GNSS; fused positioning may use multiple available signals, and approximate permission may produce a broad result.
+- `manual` means the requester selected a map pin. It must not carry device-reported accuracy.
+- `none` means no coordinates were supplied and all coordinate-specific metadata is absent.
+
+Values outside that contract (for example, `network_provider`) are unsupported and must be rejected rather than guessed or silently remapped. The contract is enforced by the Supabase create/edit RPCs and database constraint, with matching validation in the Laravel REST route. The Android app deliberately sends the existing `gps` value for a non-manual device fix to remain compatible with deployed schema and RPC signatures.
+
+Do not add a `location_provider` field or claim a named provider from a Fused Location Provider result: the app does not receive a reliable, exclusive underlying-provider identity. If the contract is ever renamed to `device`, treat it as a versioned, backward-compatible integration change across the incidents constraint, create and edit RPCs, Laravel validation, Android request/model mapping, admin display, and regression tests. Existing `gps` rows and older clients must remain readable during the transition. Do not apply that migration until all consumers are reviewed and the deployment sequence is approved.
 
 ## Product behavior
 
