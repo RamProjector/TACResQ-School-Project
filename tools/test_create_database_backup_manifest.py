@@ -1,4 +1,6 @@
 import importlib.util
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -102,6 +104,25 @@ class DatabaseBackupManifestTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "expected project"):
                 MODULE.verify_manifest(root, output, "bttguamhznoflzagfutr")
+
+    def test_cli_enforces_expected_project_during_verification(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "dumps"
+            self.make_dump_set(root)
+            output = Path(temp) / "manifest.json"
+            MODULE.write_manifest(
+                MODULE.create_manifest(root, "kttguamhznoflzagfutr", "a" * 40),
+                output,
+            )
+
+            command = [
+                sys.executable, str(MODULE_PATH),
+                "--directory", str(root),
+                "--project-ref", "bttguamhznoflzagfutr",
+                "--verify", str(output),
+            ]
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
+            self.assertNotEqual(result.returncode, 0)
 
     def test_rejects_bad_project_ref_and_commit(self):
         with tempfile.TemporaryDirectory() as temp:
