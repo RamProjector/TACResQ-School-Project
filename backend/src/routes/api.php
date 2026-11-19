@@ -35,11 +35,37 @@ $onlyRoles = static function (Request $request, array $roles): void {
 
 Route::post('/login', function (Request $request) use ($userJson) {
     $credentials = $request->validate(['email' => ['required', 'email'], 'password' => ['required', 'string']]);
-    $user = User::where('email', $credentials['email'])->first();
-    if (!$user || !Hash::check($credentials['password'], $user->password)) {
-        return response()->json(['message' => 'The provided credentials are incorrect.'], 422);
+    $normalizedEmail = mb_strtolower(trim($credentials['email']));
+    // Combine account and source to slow targeted guessing without allowing one
+    // hostile network to lock the account for every legitimate user.
+    $accountKey = 'auth-login-account:'.hash('sha256', $normalizedEmail.'|'.(string) $request->ip());
+    $ipKey = 'auth-login-ip:'.hash('sha256', (string) $request->ip());
+
+    // A generous source ceiling complements the stricter per-account/source
+    // bucket and avoids overly aggressive limits on carrier-grade NAT networks.
+    if (RateLimiter::tooManyAttempts($ipKey, 120)) {
+        return response()->json(['message' => 'Too many sign-in attempts. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($ipKey))
+            ->header('Cache-Control', 'no-store, private');
     }
-    return response()->json(['token' => $user->createToken('android')->plainTextToken, 'user' => $userJson($user)]);
+    RateLimiter::hit($ipKey, 60);
+
+    if (RateLimiter::tooManyAttempts($accountKey, 5)) {
+        return response()->json(['message' => 'Too many sign-in attempts. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($accountKey))
+            ->header('Cache-Control', 'no-store, private');
+    }
+
+    $user = User::where('email', $normalizedEmail)->first();
+    if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        RateLimiter::hit($accountKey, 900);
+        return response()->json(['message' => 'The provided credentials are incorrect.'], 422)
+            ->header('Cache-Control', 'no-store, private');
+    }
+
+    RateLimiter::clear($accountKey);
+    return response()->json(['token' => $user->createToken('android')->plainTextToken, 'user' => $userJson($user)])
+        ->header('Cache-Control', 'no-store, private');
 });
 
 Route::post('/register', function (Request $request) use ($userJson) {
