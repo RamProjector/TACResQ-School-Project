@@ -54,7 +54,7 @@ python3 tools/test_workflow.py --base-url http://127.0.0.1:8000/api/
 
 ## Dependency health monitoring
 
-The built-in `/up` endpoint confirms Laravel booted; it does not verify Supabase Auth, database RPCs, FCM, or routing. The component-level monitoring research and staged implementation plan is in [`docs/security/dependency-health-monitoring-research-and-implementation-plan.md`](../docs/security/dependency-health-monitoring-research-and-implementation-plan.md). No dependency probes, alerts, or scheduled monitoring are active by this documentation change.
+The built-in `/up` endpoint confirms Laravel booted; it does not verify Supabase Auth, database RPCs, FCM, or routing. Run `php artisan tacru:dependency-health` for a local, configuration-only report. It performs no network requests, database queries, queue claims, or provider actions, and it never prints secret values. `configuration_present` is not a provider health guarantee. The component-level monitoring research and staged implementation plan is in [`docs/security/dependency-health-monitoring-research-and-implementation-plan.md`](../docs/security/dependency-health-monitoring-research-and-implementation-plan.md). No external dependency probes, alerts, or scheduled monitoring are active.
 
 ## API and safety notes
 
