@@ -438,7 +438,7 @@ class RequesterViewModel(
                     "Location wasn't shared. You can try the location button again or send the SOS without a device location pin."
                 )
                 LocationCaptureResult.ServicesDisabled -> showLocationError(
-                    "Device Location is turned off. Turn it on and retry, or send the SOS without a GPS pin."
+                    "Device Location is turned off. Turn it on and retry, or send the SOS without a device location pin."
                 )
                 LocationCaptureResult.TimedOut -> showLocationError(
                     "A fresh device location wasn't available within 15 seconds. Move near a window and retry, or send without a pin."
@@ -447,7 +447,7 @@ class RequesterViewModel(
                     "The location provider returned an invalid or stale fix. No pin was attached; retry or send without a device location."
                 )
                 LocationCaptureResult.Unavailable -> showLocationError(
-                    "Current location is temporarily unavailable. Retry, add a landmark, or send without a GPS pin."
+                    "Current location is temporarily unavailable. Retry, add a landmark, or send without a device location pin."
                 )
             }
         }
@@ -541,7 +541,7 @@ class RequesterViewModel(
             _state.update {
                 it.copy(
                     locationFix = null,
-                    locationError = "The location pin expired while you were reviewing. No request was sent; capture a fresh GPS fix, choose the map pin again, or review again without a pin.",
+                    locationError = "The location pin expired while you were reviewing. No request was sent; capture a fresh device location, choose the map pin again, or review again without a pin.",
                 )
             }
             return
@@ -568,7 +568,7 @@ class RequesterViewModel(
                             !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
                             fix?.manuallySelected == true -> "SOS sent. Dispatch confirmed the map pin you selected."
                             fix != null -> "SOS sent. Dispatch confirmed the one-time device location pin you submitted."
-                            else -> "SOS sent without a GPS pin. Dispatch received your request; any landmark note is included."
+                            else -> "SOS sent without a device location pin. Dispatch received your request; any landmark note is included."
                         }
                         _state.update {
                             it.copy(
@@ -1370,7 +1370,7 @@ fun RequesterScreen(
                         2 -> {
                             Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
                             Text(
-                                "Your location is not tracked continuously. Share a one-time device location pin, choose a map pin, or continue without GPS.",
+                                "Your location is not tracked continuously. Share a one-time device location pin, choose a map pin, or continue without a device location.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -1398,7 +1398,7 @@ fun RequesterScreen(
                             when {
                                 freshFix != null -> LocationFixCard(freshFix, onClear = vm::clearLocationFix)
                                 state.locationFix != null -> LocationNoticeCard("Location pin expired", "This pin will not be sent. Capture a fresh device location, choose a map pin again, or continue without a pin.")
-                                !state.capturingLocation -> LocationNoticeCard("No device location pin", "Add a landmark or continue without GPS.")
+                                !state.capturingLocation -> LocationNoticeCard("No device location pin", "Add a landmark or continue without a device location.")
                             }
                             state.locationError?.let { Banner(it, isError = true, onDismiss = vm::dismissMessages) }
                             OutlinedTextField(
