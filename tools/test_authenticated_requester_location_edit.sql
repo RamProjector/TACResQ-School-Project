@@ -203,6 +203,33 @@ BEGIN
   IF NOT denied THEN
     RAISE EXCEPTION 'Cancelled incident was editable';
   END IF;
+  -- A requester cannot cancel another account's pending incident.
+  denied := false;
+  BEGIN
+    PERFORM public.api_cancel_my_incident(other_incident_id);
+  EXCEPTION WHEN no_data_found THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Requester was able to cancel another account incident';
+  END IF;
+
+  -- A terminal request cannot be cancelled again.
+  denied := false;
+  BEGIN
+    PERFORM public.api_cancel_my_incident(cancelled_incident_id);
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Already-cancelled incident accepted a second cancellation';
+  END IF;
+
+  -- The owner may cancel the same pending request after reviewing/editing it.
+  result := public.api_cancel_my_incident(own_incident_id);
+  IF result->>'status' IS DISTINCT FROM 'cancelled' THEN
+    RAISE EXCEPTION 'Pending requester cancellation did not return cancelled status: %', result;
+  END IF;
 END;
 $requester_location_edit_authenticated$;
 
@@ -231,7 +258,35 @@ BEGIN
   IF edit_count <> 2 OR urgent_count <> 1 THEN
     RAISE EXCEPTION 'Expected two edit audit records with one urgent correction; found total %, urgent %', edit_count, urgent_count;
   END IF;
+  IF (SELECT count(*) FROM public.incident_status_logs
+      WHERE incident_id = v_incident_id
+        AND status = 'cancelled'
+        AND changed_by = (
+          SELECT id FROM public.profiles
+          WHERE auth_user_id = '00000000-0000-4000-8000-000000000991'
+        )) <> 1 THEN
+    RAISE EXCEPTION 'Requester cancellation did not create exactly one attributable status audit record';
+  END IF;
+
+  -- Cancellation releases the one-active-request guard for a fresh SOS.
+  INSERT INTO public.incidents (
+    requester_id, type, description, latitude, longitude, accuracy_m,
+    location_notes, location_recorded_at, location_source
+  )
+  SELECT id, 'medical', 'New report after cancellation', 10.3300, 123.9300, 8,
+         'Community entrance', clock_timestamp(), 'gps'
+  FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
+
+  IF (SELECT count(*) FROM public.incidents
+      WHERE requester_id = (
+        SELECT id FROM public.profiles
+        WHERE auth_user_id = '00000000-0000-4000-8000-000000000991'
+      )
+      AND status NOT IN ('resolved', 'cancelled')) <> 1 THEN
+    RAISE EXCEPTION 'Cancellation did not free exactly one active-request slot';
+  END IF;
 END;
 $requester_location_edit_audit$;
 
-SELECT 'PASS: authenticated requester edit ownership, location validation, urgent correction, and audit behavior' AS result;
+SELECT 'PASS: authenticated requester edit, cancellation ownership, terminal-state, audit, and one-active-request behavior' AS result;

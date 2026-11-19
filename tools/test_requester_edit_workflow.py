@@ -7,6 +7,7 @@ MIGRATION = ROOT / "supabase/migrations/20261023034639_requester_edit_workflow.s
 SQL = MIGRATION.read_text().lower()
 SCREEN = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 API = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
+CANCEL_SQL = (ROOT / "supabase/migrations/20261023031810_requester_single_active_and_cancel.sql").read_text().lower()
 MODEL = (ROOT / "app/src/main/java/com/tacresq/app/data/model/Models.kt").read_text()
 
 for required in (
@@ -38,6 +39,28 @@ assert 'requesterSequenceNumber(incidentId: Long, incidents: List<Incident>)' in
 assert 'Your request #$sequence · reference #$incidentId' in SCREEN
 assert 'requesterRequestLabel(incident.id, state.incidents)' in SCREEN
 assert 'MapLoadStatusOverlay(isLoading = !mapDataLoaded && !mapLoadError)' in SCREEN
+assert 'rest/v1/rpc/api_cancel_my_incident' in API
+assert 'cancelmyincident' in API.lower()
+for required in (
+    "profile_row.role <> 'requester'",
+    "where id = p_id",
+    "and requester_id = profile_row.id",
+    "for update",
+    "if incident_row.status <> 'pending'",
+    "set status = 'cancelled'",
+    "revoke all on function public.api_cancel_my_incident",
+    "grant execute on function public.api_cancel_my_incident",
+):
+    assert required in CANCEL_SQL, f"Missing requester cancellation safeguard: {required}"
+
+# The requester screen exposes edit/cancel only in the pending state; server RPCs
+# remain authoritative if the state changes after the screen was rendered.
+assert 'if (activeIncident.status == com.tacresq.app.data.model.IncidentStatus.PENDING)' in SCREEN
+assert 'incidentToEdit = activeIncident' in SCREEN
+assert 'incidentToCancel = activeIncident.id' in SCREEN
+assert 'fun cancelPendingIncident(id: Long)' in SCREEN
+assert 'canUseCurrentRequesterActions' in SCREEN
+assert 'contact dispatch if a unit may be responding' in SCREEN
 assert 'contact dispatch for urgent corrections' in SQL
 
 print("PASS: requester edits are ownership-checked, pending-only, cooldown-enforced, reviewed, and audited.")
