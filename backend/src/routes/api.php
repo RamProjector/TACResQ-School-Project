@@ -189,9 +189,22 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
                             ->where('incident_assignments.user_id', $user->id);
                     });
             });
+            // Distinguish the legacy lead from other team members without N+1 queries.
+            $query->selectRaw(
+                "CASE WHEN incidents.assigned_to = ? THEN 'lead' ELSE 'team' END AS assignment_role",
+                [$user->id]
+            );
         }
         else abort(403, 'This account has no personal incident list.');
-        return response()->json($query->orderByDesc('created_at')->orderByDesc('id')->limit($limit)->get()->map($incidentJson)->values());
+        return response()->json($query->orderByDesc('created_at')->orderByDesc('id')->limit($limit)->get()->map(
+            static function (Incident $incident) use ($incidentJson, $user): array {
+                $payload = $incidentJson($incident);
+                if (in_array($user->role, ['responder', 'driver'], true)) {
+                    $payload['assignment_role'] = $incident->assignment_role;
+                }
+                return $payload;
+            }
+        )->values());
     })->middleware('throttle:120,1');
     Route::post('/incidents', function (Request $request) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['requester']);

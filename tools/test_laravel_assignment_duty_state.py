@@ -40,6 +40,10 @@ assert "->from('incident_assignments')" in mine_route
 assert "->where('incident_assignments.user_id', $user->id)" in mine_route
 assert "->whereColumn('incident_assignments.incident_id', 'incidents.id')" in mine_route
 assert "->where('assigned_to', $user->id)" in mine_route
+assert "AS assignment_role" in mine_route
+assert "CASE WHEN incidents.assigned_to = ? THEN 'lead' ELSE 'team' END" in mine_route
+assert "$payload['assignment_role'] = $incident->assignment_role" in mine_route
+assert "->map(" in mine_route
 duty_start = api.index("Route::patch('/me/duty-status'")
 duty_end = api.index("\n    });", duty_start)
 duty_route = api[duty_start:duty_end]
