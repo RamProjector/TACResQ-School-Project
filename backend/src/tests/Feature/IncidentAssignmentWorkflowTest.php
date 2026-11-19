@@ -126,6 +126,55 @@ class IncidentAssignmentWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_dispatcher_cannot_assign_a_unit_that_is_only_a_team_member_on_another_active_incident(): void
+    {
+        $requester = $this->user('assignment-team-only-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-team-only-dispatcher@example.test', 'dispatcher');
+        $lead = $this->user('assignment-team-only-lead@example.test', 'responder', 'assigned');
+        // The member's legacy duty flag is stale; pivot membership is authoritative.
+        $teamMember = $this->user('assignment-team-only-member@example.test', 'driver', 'available');
+        $activeIncident = Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Active team assignment',
+            'status' => 'on_scene',
+            'assigned_to' => $lead->id,
+        ]);
+        DB::table('incident_assignments')->insert([
+            'incident_id' => $activeIncident->id,
+            'user_id' => $lead->id,
+            'assigned_by' => $dispatcher->id,
+            'assigned_at' => now(),
+            'responder_status' => 'on_scene',
+            'status_updated_at' => now(),
+        ]);
+        DB::table('incident_assignments')->insert([
+            'incident_id' => $activeIncident->id,
+            'user_id' => $teamMember->id,
+            'assigned_by' => $dispatcher->id,
+            'assigned_at' => now(),
+            'responder_status' => 'on_scene',
+            'status_updated_at' => now(),
+        ]);
+        $newIncident = $this->incident($requester);
+
+        Sanctum::actingAs($dispatcher);
+        $this->postJson('/api/incidents/'.$newIncident->id.'/assign', [
+            'user_id' => $teamMember->id,
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseHas('incidents', [
+            'id' => $newIncident->id,
+            'status' => 'pending',
+            'assigned_to' => null,
+        ]);
+        $this->assertDatabaseCount('incident_assignments', 2);
+        $this->assertDatabaseHas('users', [
+            'id' => $teamMember->id,
+            'duty_status' => 'available',
+        ]);
+    }
+
     public function test_dispatcher_cannot_assign_the_same_incident_twice(): void
     {
         $requester = $this->user('assignment-repeat-requester@example.test', 'requester');
