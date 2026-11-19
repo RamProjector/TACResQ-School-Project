@@ -211,7 +211,8 @@ async function runDependencyProbe(
 /**
  * Data-free provider diagnostics for the already-authorized Admin console.
  * The database probe returns a fixed literal and the Auth probe calls only
- * Supabase's public health endpoint. No user/session/application data is read.
+ * Supabase's public health endpoint. The current session token is used only
+ * to authorize that fixed RPC; no profile, incident, or operational data is read.
  */
 export async function getAdminDependencyHealth(): Promise<AdminDependencyHealth> {
   if (!supabaseHealthConfig || !supabaseClient) {
