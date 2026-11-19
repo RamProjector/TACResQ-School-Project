@@ -18,6 +18,8 @@ for required in (
     'method: "POST"',
     'cache: "no-store"',
     'setTimeout(() => controller.abort(), 5000)',
+    "Promise.race([request(controller.signal), aborted])",
+    "removeEventListener(\"abort\", abortHandler)",
     'status: healthy ? "healthy" : "unavailable"',
     '"tacresq_database_ok"',
 ):
