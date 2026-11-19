@@ -317,6 +317,17 @@ assert "access_token" not in device_security.lower()
 assert "refresh_token" not in device_security.lower()
 print("PASS: device registry is RLS-enabled, backend-only, challenge-hash based, and contains no stored secrets.")
 
+core_privileges = (ROOT / "tools/test_core_table_privileges.sql").read_text()
+for required in (
+    "has_column_privilege('authenticated', table_oid, 'duty_status', 'UPDATE')",
+    "has_column_privilege('authenticated', table_oid, 'role', 'UPDATE')",
+    "has_column_privilege('authenticated', table_oid, 'status', 'UPDATE')",
+    "has_column_privilege('authenticated', table_oid, 'requester_id', 'UPDATE')",
+):
+    assert required in core_privileges, f"Missing exact column-level privilege assertion: {required}"
+assert "has_table_privilege('authenticated', table_oid, 'UPDATE')" not in core_privileges
+print("PASS: core privilege runtime contract checks narrow column grants without demanding table-wide UPDATE.")
+
 device_bounds = (MIGRATIONS / "20261119100000_bound_device_registry_metadata.sql").read_text()
 for required in (
     "user_devices_device_model_length_check",
