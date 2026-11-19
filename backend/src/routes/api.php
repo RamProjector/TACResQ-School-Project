@@ -378,6 +378,16 @@ Route::post('/bridge/rpc/{function}', function (
     string $function,
     \App\SupabaseBridge $bridge
 ) {
+    // Bound untrusted JSON before token verification or upstream work. RPC
+    // arguments are JSON objects, not arbitrary top-level arrays.
+    abort_if(strlen($request->getContent()) > 32768, 413, 'Request payload is too large.');
+    $arguments = $request->json()->all();
+    abort_unless(
+        is_array($arguments) && ($arguments === [] || !array_is_list($arguments)),
+        422,
+        'RPC arguments must be a JSON object.'
+    );
+
     $allowlist = config('tacru.bridge_rpc_allowlist', []);
     abort_unless(in_array($function, $allowlist, true), 404, 'RPC endpoint not found.');
 
@@ -400,7 +410,7 @@ Route::post('/bridge/rpc/{function}', function (
     }
     RateLimiter::hit($userRateKey, 60);
 
-    $result = $bridge->callRpc($token, $function, $request->json()->all());
+    $result = $bridge->callRpc($token, $function, $arguments);
     if ($result['status'] >= 500) {
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
