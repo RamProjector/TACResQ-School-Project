@@ -111,7 +111,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         $request->user()->tokens()->delete();
         return response()->json(['message' => 'All sessions have been revoked.'], 200)
             ->header('Cache-Control', 'no-store, private');
-    });
+    })->middleware('throttle:10,1');
     Route::post('/change-password', function (Request $request) use ($userJson) {
         $data = $request->validate([
             'current_password' => ['required', 'string', 'max:72'],
@@ -147,7 +147,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
 
         return response()->json(['token' => $token, 'user' => $userJson($user->fresh())], 200)
             ->header('Cache-Control', 'no-store, private');
-    });
+    })->middleware('throttle:5,1');
     Route::get('/me', fn (Request $request) => response()->json($userJson($request->user())));
     Route::patch('/me/duty-status', function (Request $request) use ($userJson, $onlyRoles) {
         $onlyRoles($request, ['responder', 'driver']);
