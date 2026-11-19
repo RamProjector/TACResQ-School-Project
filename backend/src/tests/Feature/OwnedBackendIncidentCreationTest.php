@@ -32,6 +32,10 @@ class OwnedBackendIncidentCreationTest extends TestCase
         $replay = $this->postJson('/api/incidents', $body);
         $replay->assertOk()->assertJsonPath('id', $incidentId);
 
+        // A replay must return the original persisted response, not rebuild a
+        // subtly different payload from mutable incident state.
+        $this->assertSame($first->json(), $replay->json());
+
         $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
         $this->assertDatabaseCount('incident_status_logs', 1);
         $this->assertDatabaseCount('incident_submission_keys', 1);
