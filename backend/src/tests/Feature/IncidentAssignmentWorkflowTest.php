@@ -363,6 +363,34 @@ class IncidentAssignmentWorkflowTest extends TestCase
         $this->getJson('/api/incidents/mine?limit=not-a-number')->assertUnprocessable();
     }
 
+    public function test_dispatcher_assignment_rejects_missing_malformed_and_unknown_unit_ids(): void
+    {
+        $requester = $this->user('assignment-invalid-id-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-invalid-id-dispatcher@example.test', 'dispatcher');
+        $incident = $this->incident($requester);
+
+        Sanctum::actingAs($dispatcher);
+
+        foreach ([
+            [] ,
+            ['user_id' => null],
+            ['user_id' => 'not-an-id'],
+            ['user_id' => 0],
+            ['user_id' => 999999999],
+        ] as $payload) {
+            $this->postJson('/api/incidents/'.$incident->id.'/assign', $payload)
+                ->assertUnprocessable();
+        }
+
+        $this->assertDatabaseHas('incidents', [
+            'id' => $incident->id,
+            'status' => 'pending',
+            'assigned_to' => null,
+        ]);
+        $this->assertDatabaseCount('incident_assignments', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
     private function user(string $email, string $role, ?string $dutyStatus = null): User
     {
         return User::create([
