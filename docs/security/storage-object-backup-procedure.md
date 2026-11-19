@@ -26,6 +26,7 @@ python3 tools/create_storage_backup_manifest.py \
 
 python3 tools/create_storage_backup_manifest.py \
   --directory ./backup/incident-chat-attachments \
+  --bucket incident-chat-attachments \
   --verify ./backup/incident-chat-attachments.manifest.json
 ```
 
