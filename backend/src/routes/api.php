@@ -69,12 +69,30 @@ Route::post('/login', function (Request $request) use ($userJson) {
 });
 
 Route::post('/register', function (Request $request) use ($userJson) {
+    // Registration is public by design, but account creation must be bounded
+    // before validation/database work to reduce automated signup abuse.
+    $registrationKey = 'auth-register-ip:'.hash('sha256', (string) $request->ip());
+    if (RateLimiter::tooManyAttempts($registrationKey, 10)) {
+        return response()->json(['message' => 'Too many registration attempts. Please retry later.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($registrationKey))
+            ->header('Cache-Control', 'no-store, private');
+    }
+    RateLimiter::hit($registrationKey, 900);
+
     $data = $request->validate([
-        'name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+        'name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'max:255'],
         'phone' => ['nullable', 'string', 'max:40'], 'password' => ['required', 'string', 'min:8', 'max:72'],
     ]);
+    $data['name'] = trim($data['name']);
+    $data['email'] = mb_strtolower(trim($data['email']));
+
+    // Normalize before lookup so case variants cannot create separate accounts.
+    $existing = User::whereRaw('LOWER(email) = ?', [$data['email']])->exists();
+    abort_if($existing, 422, 'Unable to create an account with these details.');
+
     $user = User::create([...$data, 'password' => Hash::make($data['password']), 'role' => 'requester', 'duty_status' => null]);
-    return response()->json(['token' => $user->createToken('android')->plainTextToken, 'user' => $userJson($user)], 201);
+    return response()->json(['token' => $user->createToken('android')->plainTextToken, 'user' => $userJson($user)], 201)
+        ->header('Cache-Control', 'no-store, private');
 });
 
 Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJson, $onlyRoles) {
