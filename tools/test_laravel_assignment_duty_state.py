@@ -43,8 +43,12 @@ assert "->where('assigned_to', $user->id)" in mine_route
 duty_start = api.index("Route::patch('/me/duty-status'")
 duty_end = api.index("\n    });", duty_start)
 duty_route = api[duty_start:duty_end]
+assert "DB::transaction(function () use ($request, $data)" in duty_route
+assert "User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail()" in duty_route
 assert "->orWhereExists(function ($assignment)" in duty_route
 assert "->from('incident_assignments')" in duty_route
+assert duty_route.index("lockForUpdate()") < duty_route.index("->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists()")
+assert "$unit->update($data)" in duty_route
 
 status_start = api.index("Route::patch('/incidents/{incident}/status'")
 status_end = api.index("\n    });", status_start)
@@ -56,6 +60,7 @@ assert "->pluck('user_id')" in status_route
 assert "$data['status'] === 'resolved' ? 'available' : $data['status']" in status_route
 
 print("PASS: Laravel assignment writes a durable incident_assignments membership mirror.")
-print("PASS: busy-unit and self-duty checks include team membership, not only legacy lead assignment.")
+print("PASS: busy-unit checks include team membership, not only legacy lead assignment.")
+print("PASS: duty changes lock the unit row and serialize against dispatcher assignment.")
 print("PASS: responder and driver personal incident lists include every assigned team member.")
 print("PASS: dispatcher progress mirrors status and duty state to every assigned team member.")
