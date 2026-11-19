@@ -320,12 +320,13 @@ for required in (
     "user_devices_app_version_length_check",
     "user_devices_public_key_length_check",
     "device_sessions_expiry_check",
+    "device_sessions_revocation_consistency_check",
     "device_challenges_max_lifetime_check",
     "interval '10 minutes'",
     "device_security_events_details_size_check",
-    "pg_column_size(details) <= 8192",
+    "octet_length(details::text) <= 8192",
     "device_integrity_checks_summary_size_check",
-    "pg_column_size(result_summary) <= 4096",
+    "octet_length(result_summary::text) <= 4096",
 ):
     assert required.lower() in device_bounds.lower(), (
         f"Missing device-registry resource/expiry bound: {required}"
