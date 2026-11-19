@@ -253,6 +253,44 @@ class IncidentAssignmentWorkflowTest extends TestCase
         );
     }
 
+    public function test_only_dispatchers_can_assign_or_advance_incidents(): void
+    {
+        $requester = $this->user('assignment-auth-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-auth-dispatcher@example.test', 'dispatcher');
+        $responder = $this->user('assignment-auth-responder@example.test', 'responder', 'available');
+        $incident = $this->incident($requester);
+
+        foreach (['requester', 'responder', 'driver', 'admin'] as $role) {
+            $account = $this->user('assignment-auth-'.$role.'@example.test', $role, $role === 'responder' || $role === 'driver' ? 'available' : null);
+            Sanctum::actingAs($account);
+
+            $this->postJson('/api/incidents/'.$incident->id.'/assign', [
+                'user_id' => $responder->id,
+            ])->assertForbidden();
+
+            $this->patchJson('/api/incidents/'.$incident->id.'/status', [
+                'status' => 'en_route',
+            ])->assertForbidden();
+        }
+
+        $this->assertDatabaseHas('incidents', [
+            'id' => $incident->id,
+            'status' => 'pending',
+            'assigned_to' => null,
+        ]);
+        $this->assertDatabaseCount('incident_assignments', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+        $this->assertDatabaseHas('users', [
+            'id' => $responder->id,
+            'duty_status' => 'available',
+        ]);
+
+        Sanctum::actingAs($dispatcher);
+        $this->postJson('/api/incidents/'.$incident->id.'/assign', [
+            'user_id' => $responder->id,
+        ])->assertOk();
+    }
+
     private function user(string $email, string $role, ?string $dutyStatus = null): User
     {
         return User::create([
