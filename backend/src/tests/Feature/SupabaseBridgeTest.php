@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\SupabaseBridge;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -227,6 +228,21 @@ class SupabaseBridgeTest extends TestCase
             'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => Http::response([
                 'message' => 'private database details',
             ], 503),
+        ]);
+
+        $this->withToken('valid-supabase-access-token')
+            ->postJson('/api/bridge/rpc/api_units', [])
+            ->assertStatus(502)
+            ->assertExactJson(['message' => 'Supabase is temporarily unavailable. Please retry.']);
+    }
+
+    public function test_rpc_connection_failure_returns_a_sanitized_502(): void
+    {
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(['id' => 'auth-user-123'], 200),
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => function () {
+                throw new ConnectionException('private connection detail');
+            },
         ]);
 
         $this->withToken('valid-supabase-access-token')
