@@ -18,6 +18,7 @@
 
 1. A timeout is an unknown outcome, not proof that the server did nothing.
 2. For incident creation, retain and reuse the same client-generated request UUID for every retry of the same logical submission. Do not create a new UUID merely because the response was lost.
+   - The Laravel API scopes the UUID to the authenticated requester, compares the canonical request payload, and returns the saved response for an identical completed retry. Reusing the UUID with changed details returns `409`; an in-flight duplicate also returns `409` rather than creating a second incident. The Supabase RPC has its own durable idempotency boundary; keep both paths covered because the app may use either backend mode.
 3. Never blindly retry assignment, cancellation, status transition, or other state-changing RPCs. Refresh authoritative incident state first; only retry after determining the prior operation did not commit.
 4. Apply bounded exponential backoff with jitter for safe reads and retryable upstream failures. Respect server Retry-After when supplied. Do not retry validation, authorization, or other 4xx errors.
 5. Keep emergency reporting available when device integrity or device registration services are unavailable; do not silently mark an unconfirmed incident as submitted.
