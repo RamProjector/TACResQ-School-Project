@@ -66,6 +66,9 @@ jobs:
       - name: Check password change and session rotation contract
         run: python3 tools/test_password_change_contract.py
 
+      - name: Check API response privacy and security headers
+        run: python3 tools/test_api_security_headers_contract.py
+
       - name: Check persistent feedback banner semantics
         run: python3 tools/test_feedback_banner_semantics.py
 
