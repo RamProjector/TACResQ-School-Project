@@ -11,6 +11,8 @@ LOGIN = SOURCE[START:END]
 
 REQUIRED = (
     "mb_strtolower(trim($credentials['email']))",
+    "'email' => ['required', 'string', 'email', 'max:255']",
+    "'password' => ['required', 'string', 'max:72']",
     "auth-login-account:",
     "auth-login-ip:",
     "RateLimiter::tooManyAttempts($ipKey, 120)",
@@ -31,6 +33,7 @@ assert "$credentials['password']" not in LOGIN.split("$accountKey =", 1)[1].spli
 assert "auth-login-account:'.hash('sha256', $normalizedEmail.'|'.(string) $request->ip())" in LOGIN
 assert "auth-login-account:'.hash('sha256', $normalizedEmail)" not in LOGIN
 
+print("PASS: Laravel login rejects oversized email and password inputs before authentication.")
 print("PASS: Laravel login has per-account/source and generous source throttles.")
 print("PASS: successful authentication clears only its account/source failure bucket.")
 print("PASS: login token responses and throttling responses are non-cacheable.")
