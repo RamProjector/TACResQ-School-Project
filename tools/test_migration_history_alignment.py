@@ -298,6 +298,9 @@ for required in (
     "challenge_hash ~ '^[0-9a-f]{64}$'",
     "auth_session_id uuid NOT NULL UNIQUE",
     "ON DELETE RESTRICT",
+    "GRANT USAGE, SELECT ON SEQUENCE",
+    "device_security_events_id_seq",
+    "device_integrity_checks_id_seq",
 ):
     assert required.lower() in device_security.lower(), (
         f"Missing device-security registry contract: {required}"
