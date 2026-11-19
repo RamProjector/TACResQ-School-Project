@@ -343,6 +343,22 @@ class RoutePreviewTest extends TestCase
         $this->assertStringNotContainsString('synthetic private router diagnostics', $response->getContent());
     }
 
+    public function test_private_router_connection_failure_is_sanitized_as_bad_gateway(): void
+    {
+        Http::fake(array_merge($this->supabaseFakes(), [
+            self::OSRM_BASE.'/*' => static function () {
+                throw new \\Illuminate\\Http\\Client\\ConnectionException('synthetic private router connection detail');
+            },
+        ]));
+
+        $response = $this->withToken(self::TOKEN)->postJson('/api/route-preview', $this->input());
+
+        $response->assertStatus(502)->assertExactJson([
+            'message' => 'Private route service is temporarily unavailable.',
+        ]);
+        $this->assertStringNotContainsString('synthetic private router connection detail', $response->getContent());
+    }
+
     public function test_other_upstream_errors_are_sanitized_as_bad_gateway(): void
     {
         $this->fakeServices(['message' => 'synthetic private router diagnostics'], 503);
