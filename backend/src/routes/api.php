@@ -388,12 +388,22 @@ Route::post('/bridge/rpc/{function}', function (
     // Bound untrusted JSON before token verification or upstream work. RPC
     // arguments are JSON objects, not arbitrary top-level arrays.
     abort_if(strlen($request->getContent()) > 32768, 413, 'Request payload is too large.');
-    $arguments = $request->json()->all();
+    try {
+        $decodedArguments = json_decode(
+            $request->getContent(),
+            false,
+            64,
+            JSON_THROW_ON_ERROR
+        );
+    } catch (\\JsonException) {
+        abort(422, 'RPC arguments must be a valid JSON object.');
+    }
     abort_unless(
-        is_array($arguments) && ($arguments === [] || !array_is_list($arguments)),
+        $decodedArguments instanceof \\stdClass,
         422,
         'RPC arguments must be a JSON object.'
     );
+    $arguments = get_object_vars($decodedArguments);
 
     $allowlist = config('tacru.bridge_rpc_allowlist', []);
     abort_unless(in_array($function, $allowlist, true), 404, 'RPC endpoint not found.');
