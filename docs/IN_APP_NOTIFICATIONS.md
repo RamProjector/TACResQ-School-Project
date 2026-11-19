@@ -52,3 +52,16 @@ Source contracts and disposable PostgreSQL replay do not prove live Supabase Rea
 ## Deployment boundary
 
 No live Supabase migration, Render deployment/configuration change, Firebase credential installation, production token registration, or production notification was performed by this review. Do not apply migrations, enable scheduled delivery, or deploy until the release gates and explicit authorization are satisfied.
+
+
+## Dispatcher cancellation-alert navigation review (2026-11-20)
+
+The dispatcher notification tap path was reviewed against the actual Android and Laravel code. The current implementation already supports the normal cancellation path: a push tap is resolved through the caller-scoped notification lookup, Android routes to the dispatcher queue, and the dispatcher-only `GET /incidents` collection includes terminal statuses in its bounded snapshot. The dispatcher screen renders resolved/cancelled incidents in a separate, read-only `Closed incidents` section, while active progress and assignment controls remain in their own sections. This separation is intentional: a cancelled SOS must remain inspectable as history and must not re-enter the pending queue.
+
+A new source contract pins the dispatcher notification focus state, inclusion of terminal records in the dispatcher snapshot, the separate closed-history rendering, the status indicator and assignment audit history, and the absence of assignment/progress/chat actions from the closed-history card. The existing CI step for `tools/test_dispatcher_active_incident_filter.py` already runs this expanded contract.
+
+### Known bounded-history limitation
+
+The dispatcher collection is capped at 100 incidents, while the closed-history UI shows the latest five by **request date**, not closure time. A notification older than the 100-record snapshot can still be found in the caller's notification inbox, but its incident may not be present in the currently loaded dispatcher collection. In that case the UI fails closed with an unavailable-target message. A future improvement would be an ID-scoped, dispatcher-authorized incident-detail RPC so a legitimate older notification can open its exact incident without widening the list query. Do not bypass this bound by loading an unbounded incident collection.
+
+Research basis: OWASP recommends validating authorization for every object request and specifically testing IDs surfaced through notification links, rather than trusting the fact that a user has authenticated or can supply an identifier. See [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html) and [OWASP REST Assessment Cheat Sheet — Broken Object Level Authorization](https://cheatsheetseries.owasp.org/cheatsheets/REST_Assessment_Cheat_Sheet.html).
