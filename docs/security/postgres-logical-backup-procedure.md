@@ -35,6 +35,7 @@ python3 tools/create_database_backup_manifest.py \
 
 python3 tools/create_database_backup_manifest.py \
   --directory ./backup/postgres \
+  --project-ref kttguamhznoflzagfutr \
   --verify ./backup/postgres.manifest.json
 ```
 
