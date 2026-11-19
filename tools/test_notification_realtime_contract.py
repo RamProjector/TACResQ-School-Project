@@ -39,8 +39,15 @@ checks = [
         and "client.newWebSocket(" in transport
     )),
     check("transport emits only allowlisted notification hints", all(token in transport for token in (
-        "notification_id", "incident_assigned", "incident_status_changed", "notification_created",
+        "notification_id", "incident_assigned", "incident_status_changed", "incident_message",
+        "incident_request_updated", "incident_cancelled", "notification_created",
     )) and "user_notifications" not in transport),
+    check("initial join and reconnect trigger authoritative inbox reconciliation", (
+        'if (status == "ok")' in transport
+        and "_state.value = RealtimeConnectionState.CONNECTED" in transport
+        and "_notificationHints.tryEmit(Unit)" in transport
+        and "authenticated inbox RPC" in transport
+    )),
     check("database broadcast payload is minimized", all(token in migration for token in (
         "realtime.send", "notification_id", "event_type", "true",
     )) and "'title', NEW" not in migration and "'body', NEW" not in migration),
