@@ -68,7 +68,7 @@ BEGIN
           'user_devices_revoked_reason_length_check'
         ))
         OR (conrelid = 'public.device_sessions'::regclass
-            AND conname = 'device_sessions_expiry_check')
+            AND conname IN ('device_sessions_expiry_check', 'device_sessions_revocation_consistency_check'))
         OR (conrelid = 'public.device_challenges'::regclass
             AND conname = 'device_challenges_max_lifetime_check')
         OR (conrelid = 'public.device_security_events'::regclass
@@ -76,7 +76,7 @@ BEGIN
         OR (conrelid = 'public.device_integrity_checks'::regclass
             AND conname = 'device_integrity_checks_summary_size_check')
       )
-  ) <> 8 THEN
+  ) <> 9 THEN
     RAISE EXCEPTION 'Device registry metadata, payload-size, and challenge-lifetime constraints are missing or unvalidated';
   END IF;
 
