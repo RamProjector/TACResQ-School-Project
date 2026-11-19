@@ -52,6 +52,31 @@ class IncidentProgressSynchronizationTest extends TestCase
             ->value('status_updated_at'));
     }
 
+    public function test_legacy_assigned_lead_is_synchronized_even_without_a_pivot_row(): void
+    {
+        $requester = $this->user('legacy-lead-requester@example.test', 'requester');
+        $dispatcher = $this->user('legacy-lead-dispatcher@example.test', 'dispatcher');
+        $lead = $this->user('legacy-lead-unit@example.test', 'responder', 'assigned');
+        $teammate = $this->user('legacy-lead-teammate@example.test', 'driver', 'assigned');
+
+        // Older assignments may have only incidents.assigned_to and no lead pivot row.
+        $incident = $this->assignedIncident($requester, $lead, $dispatcher, [$teammate]);
+
+        Sanctum::actingAs($dispatcher);
+        $this->patchJson('/api/incidents/'.$incident->id.'/status', [
+            'status' => 'en_route',
+        ])->assertOk()->assertJsonPath('status', 'en_route');
+
+        $this->assertDatabaseHas('users', ['id' => $lead->id, 'duty_status' => 'en_route']);
+        $this->assertDatabaseHas('users', ['id' => $teammate->id, 'duty_status' => 'en_route']);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $incident->id,
+            'user_id' => $teammate->id,
+            'responder_status' => 'en_route',
+        ]);
+        $this->assertDatabaseCount('incident_status_logs', 1);
+    }
+
     public function test_lead_and_team_member_cannot_change_duty_while_incident_is_active(): void
     {
         $requester = $this->user('duty-guard-requester@example.test', 'requester');
