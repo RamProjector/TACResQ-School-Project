@@ -291,6 +291,54 @@ class IncidentAssignmentWorkflowTest extends TestCase
         ])->assertOk();
     }
 
+    public function test_personal_incident_list_includes_only_the_units_lead_and_team_assignments(): void
+    {
+        $requester = $this->user('assignment-list-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-list-dispatcher@example.test', 'dispatcher');
+        $lead = $this->user('assignment-list-lead@example.test', 'responder', 'assigned');
+        $teamMember = $this->user('assignment-list-team@example.test', 'driver', 'assigned');
+        $unrelated = $this->user('assignment-list-unrelated@example.test', 'responder', 'available');
+
+        $leadIncident = Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Legacy lead incident',
+            'status' => 'assigned',
+            'assigned_to' => $lead->id,
+        ]);
+        $teamIncident = Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'fire',
+            'description' => 'Team member incident',
+            'status' => 'assigned',
+            'assigned_to' => $unrelated->id,
+        ]);
+        DB::table('incident_assignments')->insert([
+            'incident_id' => $teamIncident->id,
+            'user_id' => $teamMember->id,
+            'assigned_by' => $dispatcher->id,
+            'assigned_at' => now(),
+            'responder_status' => 'assigned',
+            'status_updated_at' => now(),
+        ]);
+
+        Sanctum::actingAs($lead);
+        $leadResponse = $this->getJson('/api/incidents/mine?limit=10')->assertOk();
+        $leadResponse->assertJsonFragment(['id' => $leadIncident->id, 'assignment_role' => 'lead']);
+        $leadResponse->assertJsonMissing(['id' => $teamIncident->id]);
+
+        Sanctum::actingAs($teamMember);
+        $teamResponse = $this->getJson('/api/incidents/mine?limit=10')->assertOk();
+        $teamResponse->assertJsonFragment(['id' => $teamIncident->id, 'assignment_role' => 'team']);
+        $teamResponse->assertJsonMissing(['id' => $leadIncident->id]);
+
+        Sanctum::actingAs($requester);
+        $requesterResponse = $this->getJson('/api/incidents/mine?limit=10')->assertOk();
+        $requesterResponse->assertJsonFragment(['id' => $leadIncident->id]);
+        $requesterResponse->assertJsonFragment(['id' => $teamIncident->id]);
+        $requesterResponse->assertJsonMissing(['assignment_role' => 'lead']);
+    }
+
     private function user(string $email, string $role, ?string $dutyStatus = null): User
     {
         return User::create([
