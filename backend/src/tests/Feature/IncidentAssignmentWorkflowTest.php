@@ -132,6 +132,39 @@ class IncidentAssignmentWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_dispatcher_cannot_reassign_a_legacy_lead_without_a_pivot_row(): void
+    {
+        $requester = $this->user('assignment-legacy-lead-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-legacy-lead-dispatcher@example.test', 'dispatcher');
+        // Older incident records may have assigned_to without a pivot membership row.
+        $legacyLead = $this->user('assignment-legacy-lead-unit@example.test', 'responder', 'available');
+        Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Legacy lead without pivot membership',
+            'status' => 'transporting',
+            'assigned_to' => $legacyLead->id,
+        ]);
+        $newIncident = $this->incident($requester);
+
+        Sanctum::actingAs($dispatcher);
+        $this->postJson('/api/incidents/'.$newIncident->id.'/assign', [
+            'user_id' => $legacyLead->id,
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseHas('incidents', [
+            'id' => $newIncident->id,
+            'status' => 'pending',
+            'assigned_to' => null,
+        ]);
+        $this->assertDatabaseCount('incident_assignments', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+        $this->assertDatabaseHas('users', [
+            'id' => $legacyLead->id,
+            'duty_status' => 'available',
+        ]);
+    }
+
     public function test_dispatcher_cannot_assign_a_unit_that_is_only_a_team_member_on_another_active_incident(): void
     {
         $requester = $this->user('assignment-team-only-requester@example.test', 'requester');
