@@ -56,6 +56,7 @@ type TacruDatabase = {
       api_admin_list_users_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_role: string }; Returns: { users: AdminUser[]; total_count: number } };
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
+      api_dependency_health: { Args: Record<string, never>; Returns: string };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
