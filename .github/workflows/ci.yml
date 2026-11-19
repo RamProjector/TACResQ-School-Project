@@ -518,6 +518,13 @@ jobs:
         working-directory: backend
         run: bash ../tools/docker_compose_retry.sh
 
+      - name: PHP syntax-check Laravel application source
+        working-directory: backend
+        run: |
+          docker compose exec -T api sh -ec '
+            find app bootstrap routes -type f -name "*.php" -print0 | xargs -0 -r -n1 php -l
+          '
+
       - name: Wait for Laravel readiness
         working-directory: backend
         run: |
