@@ -158,13 +158,16 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         return response()->json($userJson($request->user()->fresh()));
     });
     Route::get('/incidents/mine', function (Request $request) use ($incidentJson) {
+        // Preserve the legacy JSON-array response while bounding list work.
+        $validated = $request->validate(['limit' => ['sometimes', 'integer', 'min:1', 'max:100']]);
+        $limit = (int) ($validated['limit'] ?? 100);
         $user = $request->user();
         $query = Incident::query();
         if ($user->role === 'requester') $query->where('requester_id', $user->id);
         elseif (in_array($user->role, ['responder', 'driver'], true)) $query->where('assigned_to', $user->id);
         else abort(403, 'This account has no personal incident list.');
-        return response()->json($query->latest()->get()->map($incidentJson)->values());
-    });
+        return response()->json($query->latest()->limit($limit)->get()->map($incidentJson)->values());
+    })->middleware('throttle:120,1');
     Route::post('/incidents', function (Request $request) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['requester']);
         $data = $request->validate([
@@ -314,12 +317,16 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
     });
     Route::get('/incidents', function (Request $request) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['dispatcher']);
-        return response()->json(Incident::latest()->get()->map($incidentJson)->values());
-    });
+        $validated = $request->validate(['limit' => ['sometimes', 'integer', 'min:1', 'max:100']]);
+        $limit = (int) ($validated['limit'] ?? 100);
+        return response()->json(Incident::latest()->limit($limit)->get()->map($incidentJson)->values());
+    })->middleware('throttle:120,1');
     Route::get('/units', function (Request $request) use ($userJson, $onlyRoles) {
         $onlyRoles($request, ['dispatcher']);
-        return response()->json(User::whereIn('role', ['responder', 'driver'])->orderBy('name')->get()->map($userJson)->values());
-    });
+        $validated = $request->validate(['limit' => ['sometimes', 'integer', 'min:1', 'max:100']]);
+        $limit = (int) ($validated['limit'] ?? 100);
+        return response()->json(User::whereIn('role', ['responder', 'driver'])->orderBy('name')->limit($limit)->get()->map($userJson)->values());
+    })->middleware('throttle:120,1');
     Route::post('/incidents/{incident}/assign', function (Request $request, Incident $incident) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['dispatcher']);
         $data = $request->validate(['user_id' => ['required', 'integer', 'exists:users,id']]);

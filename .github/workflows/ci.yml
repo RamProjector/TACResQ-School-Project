@@ -60,6 +60,9 @@ jobs:
       - name: Check public registration throttling contract
         run: python3 tools/test_registration_rate_limit_contract.py
 
+      - name: Check bounded API collection responses
+        run: python3 tools/test_api_collection_bounds_contract.py
+
       - name: Check Sanctum session revocation contract
         run: python3 tools/test_session_revocation_contract.py
 
