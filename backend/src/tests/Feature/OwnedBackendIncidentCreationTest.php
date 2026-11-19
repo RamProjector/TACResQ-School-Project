@@ -131,6 +131,50 @@ class OwnedBackendIncidentCreationTest extends TestCase
         $this->assertDatabaseCount('incident_submission_keys', 0);
     }
 
+
+    public function test_gps_capture_metadata_is_persisted_and_manual_pin_cannot_claim_accuracy(): void
+    {
+        $requester = $this->requester('sos-location-provenance@example.test');
+        Sanctum::actingAs($requester);
+
+        $this->postJson('/api/incidents', [
+            'client_request_id' => 'f90d0c3a-61d0-4d78-bc6d-ec5ac1c9e331',
+            'type' => 'medical',
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'accuracy_m' => 8.5,
+            'location_recorded_at' => '2026-11-19T05:00:00Z',
+            'location_source' => 'gps',
+            'location_notes' => '  Main entrance  ',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('incidents', [
+            'requester_id' => $requester->id,
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'accuracy_m' => 8.5,
+            'location_source' => 'gps',
+            'location_notes' => 'Main entrance',
+        ]);
+
+        $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
+
+        $manualRequester = $this->requester('sos-manual-provenance@example.test');
+        Sanctum::actingAs($manualRequester);
+
+        $this->postJson('/api/incidents', [
+            'client_request_id' => '3f8d845c-4c4e-4410-9ed1-5e8e9e3f1a73',
+            'type' => 'fire',
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'accuracy_m' => 8.5,
+            'location_recorded_at' => '2026-11-19T05:00:00Z',
+            'location_source' => 'manual',
+        ])->assertStatus(422);
+
+        $this->assertSame(0, Incident::where('requester_id', $manualRequester->id)->count());
+    }
+
     private function requester(string $email): User
     {
         return User::create([
