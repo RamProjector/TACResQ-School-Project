@@ -219,3 +219,16 @@ assert re.search(
     r"public\.incident_status_logs,\s*public\.location_logs\s+TO\s+authenticated\s*;",
     OPERATIONAL_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
 ), "Authenticated RLS-filtered reads must remain available on operational tables"
+
+
+# Core profile/incident tables retain the current RLS-backed create/update
+# workflows, but authenticated clients must not directly delete or truncate.
+CORE_TABLE_PRIVILEGE_SQL = Path(
+    "supabase/migrations/20261118100000_restrict_core_table_destructive_privileges.sql"
+).read_text()
+assert re.search(
+    r"REVOKE\s+DELETE,\s*TRUNCATE\s+ON\s+TABLE\s+"
+    r"public\.profiles,\s*public\.incidents\s+FROM\s+"
+    r"PUBLIC,\s*anon,\s*authenticated\s*;",
+    CORE_TABLE_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
+), "profiles/incidents must revoke direct client DELETE and TRUNCATE"
