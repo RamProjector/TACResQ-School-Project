@@ -60,7 +60,11 @@ class IncidentAssignmentWorkflowTest extends TestCase
         $requester = $this->user('assignment-reject-requester@example.test', 'requester');
         $dispatcher = $this->user('assignment-reject-dispatcher@example.test', 'dispatcher');
         $offDutyResponder = $this->user('assignment-off-duty@example.test', 'responder', 'off_duty');
-        $requesterAccount = $this->user('assignment-not-unit@example.test', 'requester');
+        $nonFieldAccounts = [
+            $this->user('assignment-not-unit@example.test', 'requester'),
+            $this->user('assignment-not-unit-dispatcher@example.test', 'dispatcher'),
+            $this->user('assignment-not-unit-admin@example.test', 'admin'),
+        ];
         $incident = $this->incident($requester);
 
         Sanctum::actingAs($dispatcher);
@@ -69,9 +73,11 @@ class IncidentAssignmentWorkflowTest extends TestCase
             'user_id' => $offDutyResponder->id,
         ])->assertUnprocessable();
 
-        $this->postJson('/api/incidents/'.$incident->id.'/assign', [
-            'user_id' => $requesterAccount->id,
-        ])->assertUnprocessable();
+        foreach ($nonFieldAccounts as $account) {
+            $this->postJson('/api/incidents/'.$incident->id.'/assign', [
+                'user_id' => $account->id,
+            ])->assertUnprocessable();
+        }
 
         $this->assertDatabaseCount('incident_assignments', 0);
         $this->assertDatabaseCount('incident_status_logs', 0);
