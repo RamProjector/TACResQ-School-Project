@@ -40,7 +40,7 @@ The command is local/operator-invoked only. It is not exposed as an HTTP route, 
 |---|---|---|---|
 | Laravel process | Existing `GET /up` | App booted and can answer HTTP | Any external dependency works |
 | Supabase Auth | `GET /auth/v1/health` using the configured publishable key in the `apikey` header | Auth gateway responds | A particular user's credentials or session is valid |
-| Supabase Data API / database | A dedicated, narrowly granted read-only health RPC (to be reviewed and added separately) through the same bridge/auth path | API gateway, JWT validation, RPC routing, and database execution respond | All business RPCs, writes, or realtime services work |
+| Supabase Data API / database | The dedicated `public.api_dependency_health()` RPC (implemented in `20261119110000_public_data_free_dependency_health_rpc.sql`) through the same bridge/auth path | API gateway, JWT validation, RPC routing, and database execution respond | All business RPCs, writes, or realtime services work |
 | FCM | Local dispatcher configuration validation plus provider OAuth token acquisition without sending a message; separately inspect delivery outcomes | Credentials can be loaded and Google token endpoint can be reached | A device received a push or that FCM will deliver a future message |
 | Routing | Only when routing is enabled: request a route between fixed, non-sensitive synthetic coordinates against the configured provider; otherwise report disabled | Provider can calculate a basic route | Real incident destination accessibility, road closures, traffic, or emergency-vehicle suitability |
 
@@ -63,7 +63,7 @@ Supabase documents `/auth/v1/health` as a way to check whether a publishable key
 
 ### Phase 3 — safe probe implementations
 - Auth: GET `/auth/v1/health`, publishable key only, no user credentials.
-- RPC: add a reviewed read-only SQL health function returning a fixed constant, with EXECUTE grants limited to the intended caller role. Never use a business RPC as a health probe.
+- RPC: implemented `public.api_dependency_health()` as a `SECURITY INVOKER`, immutable SQL function pinned to `pg_catalog`; it returns only the fixed literal `tacresq_database_ok`, reads no application tables, and mutates no state. `anon` and `authenticated` can execute it with the publishable key; `PUBLIC` and `service_role` receive no function grant. Runtime checks execute it under both client roles and verify the privilege boundary. Never use a business RPC as a health probe.
 - FCM: validate service-account loading and obtain an OAuth access token; do not call the FCM send endpoint.
 - Routing: use fixed synthetic coordinates only, never coordinates from an incident or user. If the provider charges per request, keep the probe disabled until cost/allowance is verified.
 
@@ -81,7 +81,7 @@ Supabase documents `/auth/v1/health` as a way to check whether a publishable key
 - Do not claim FCM delivery from OAuth token acquisition alone.
 - Do not treat a successful route probe as proof of a safe or passable emergency route.
 - A dependency monitor must not block requester SOS submission. If the database itself is unavailable, the client must clearly show that the request was not server-confirmed and must not display it as dispatched.
-- Before implementation, verify the exact Auth health response contract and add a dedicated read-only RPC migration with static and runtime grant tests.
+- The data-free database health RPC and its static/runtime privilege tests are now committed. The Laravel live probe, Auth health response validation, persistent audit integration, administrator visibility, and scheduled monitoring remain future work; do not imply they are active.
 
 ## References
 
