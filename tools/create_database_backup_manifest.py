@@ -80,7 +80,7 @@ def write_manifest(manifest: dict[str, Any], destination: Path) -> None:
         raise
 
 
-def verify_manifest(directory: Path, manifest_path: Path) -> tuple[bool, list[str]]:
+def verify_manifest(directory: Path, manifest_path: Path, expected_project_ref: str | None = None) -> tuple[bool, list[str]]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(manifest, dict):
         raise ValueError("manifest root must be an object")
@@ -90,6 +90,8 @@ def verify_manifest(directory: Path, manifest_path: Path) -> tuple[bool, list[st
     commit = manifest.get("source_commit")
     if not isinstance(project_ref, str) or not re.fullmatch(r"[a-z0-9]{20}", project_ref):
         raise ValueError("manifest project_ref is invalid")
+    if expected_project_ref is not None and project_ref != expected_project_ref:
+        raise ValueError("manifest project_ref does not match the expected project")
     if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{7,40}", commit):
         raise ValueError("manifest source_commit is invalid")
     expected = manifest.get("components")
@@ -130,13 +132,13 @@ def verify_manifest(directory: Path, manifest_path: Path) -> tuple[bool, list[st
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--directory", required=True, type=Path)
-    parser.add_argument("--project-ref")
+    parser.add_argument("--project-ref", help="project ref; required when creating a manifest and optionally pins verification to an expected project")
     parser.add_argument("--commit")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--verify", type=Path)
     args = parser.parse_args()
     if args.verify:
-        ok, errors = verify_manifest(args.directory, args.verify)
+        ok, errors = verify_manifest(args.directory, args.verify, args.project_ref)
         if ok:
             print("Postgres backup component manifest verified.")
             return 0
