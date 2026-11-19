@@ -212,7 +212,7 @@ async function runDependencyProbe(
 /**
  * Data-free provider diagnostics for the already-authorized Admin console.
  * The database probe returns a fixed literal and the Auth probe calls only
- * Supabase's public health endpoint. The current session token is used only
+ * Laravel liveness and Supabase's public Auth health endpoint. The current session token is used only
  * to authorize that fixed RPC; no profile, incident, or operational data is read.
  */
 export async function getAdminDependencyHealth(): Promise<AdminDependencyHealth> {
