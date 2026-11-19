@@ -23,6 +23,9 @@ for required in (
 ):
     assert required in client, f"Missing bounded read-only health probe behavior: {required}"
 
+assert "supabaseUrl.replace(/\\/$/, '')" in client, (
+    "Supabase health endpoint URLs must normalize a trailing slash without producing a malformed URL"
+)
 assert "SUPABASE_SECRET_KEY" not in client
 assert "service_role" not in client
 assert "api_admin_list_users_page" not in client[client.index("export async function getAdminDependencyHealth"):]
