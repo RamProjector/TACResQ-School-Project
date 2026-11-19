@@ -11,7 +11,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import tempfile
 from typing import Any
@@ -40,7 +40,7 @@ def collect_components(directory: Path) -> list[dict[str, Any]]:
         if size == 0:
             raise ValueError(f"dump component is empty: {filename}")
         with path.open("rb") as stream:
-            if not stream.read(1).strip():
+            if not any(chunk.strip() for chunk in iter(lambda: stream.read(1024 * 1024), b"")):
                 raise ValueError(f"dump component contains only whitespace: {filename}")
         entries.append({"path": filename, "size_bytes": size, "sha256": digest_file(path)})
     return entries
@@ -84,6 +84,12 @@ def verify_manifest(directory: Path, manifest_path: Path) -> tuple[bool, list[st
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("format") != FORMAT:
         raise ValueError("unsupported database backup manifest format")
+    project_ref = manifest.get("project_ref")
+    commit = manifest.get("source_commit")
+    if not isinstance(project_ref, str) or not re.fullmatch(r"[a-z0-9]{20}", project_ref):
+        raise ValueError("manifest project_ref is invalid")
+    if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{7,40}", commit):
+        raise ValueError("manifest source_commit is invalid")
     expected = manifest.get("components")
     if not isinstance(expected, list):
         raise ValueError("manifest components must be a list")
