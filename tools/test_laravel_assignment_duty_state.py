@@ -32,6 +32,14 @@ assert "$unit->update(['duty_status' => 'available'])" not in route
 for column in ("'responder_status'", "'status_updated_at'", "'assigned_by'", "'assigned_at'"):
     assert column in migration, f"Assignment mirror migration missing column: {column}"
 
+mine_start = api.index("Route::get('/incidents/mine'")
+mine_end = api.index("\\n    });", mine_start)
+mine_route = api[mine_start:mine_end]
+assert "->orWhereExists(function ($assignment)" in mine_route
+assert "->from('incident_assignments')" in mine_route
+assert "->where('incident_assignments.user_id', $user->id)" in mine_route
+assert "->whereColumn('incident_assignments.incident_id', 'incidents.id')" in mine_route
+assert "->where('assigned_to', $user->id)" in mine_route
 duty_start = api.index("Route::patch('/me/duty-status'")
 duty_end = api.index("\n    });", duty_start)
 duty_route = api[duty_start:duty_end]
@@ -49,4 +57,5 @@ assert "$data['status'] === 'resolved' ? 'available' : $data['status']" in statu
 
 print("PASS: Laravel assignment writes a durable incident_assignments membership mirror.")
 print("PASS: busy-unit and self-duty checks include team membership, not only legacy lead assignment.")
+print("PASS: responder and driver personal incident lists include every assigned team member.")
 print("PASS: dispatcher progress mirrors status and duty state to every assigned team member.")
