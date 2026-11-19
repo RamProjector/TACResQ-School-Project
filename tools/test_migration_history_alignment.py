@@ -313,3 +313,24 @@ assert "private_key" not in device_security.lower()
 assert "access_token" not in device_security.lower()
 assert "refresh_token" not in device_security.lower()
 print("PASS: device registry is RLS-enabled, backend-only, challenge-hash based, and contains no stored secrets.")
+
+device_bounds = (MIGRATIONS / "20261119100000_bound_device_registry_metadata.sql").read_text()
+for required in (
+    "user_devices_device_model_length_check",
+    "user_devices_app_version_length_check",
+    "user_devices_public_key_length_check",
+    "device_sessions_expiry_check",
+    "device_challenges_max_lifetime_check",
+    "interval '10 minutes'",
+    "device_security_events_details_size_check",
+    "pg_column_size(details) <= 8192",
+    "device_integrity_checks_summary_size_check",
+    "pg_column_size(result_summary) <= 4096",
+):
+    assert required.lower() in device_bounds.lower(), (
+        f"Missing device-registry resource/expiry bound: {required}"
+    )
+assert "GRANT" not in device_bounds.upper()
+assert "DROP " not in device_bounds.upper()
+print("PASS: device registry metadata and event payloads are bounded; challenges expire within ten minutes.")
+
