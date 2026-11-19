@@ -33,6 +33,28 @@ BEGIN
     END LOOP;
   END LOOP;
 
+
+  -- Cross-account associations must be impossible even if verifier code
+  -- accidentally supplies a valid device UUID with another profile ID.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'device_sessions_device_owner_fk'
+      AND conrelid = 'public.device_sessions'::regclass
+      AND contype = 'f' AND convalidated
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'device_challenges_device_owner_fk'
+      AND conrelid = 'public.device_challenges'::regclass
+      AND contype = 'f' AND convalidated
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'device_integrity_checks_device_owner_fk'
+      AND conrelid = 'public.device_integrity_checks'::regclass
+      AND contype = 'f' AND convalidated
+  ) THEN
+    RAISE EXCEPTION 'Device/session/challenge/integrity ownership constraints are missing or unvalidated';
+  END IF;
+
   -- Mutable registry records are server-managed; event/integrity records
   -- are insert-only so service_role cannot rewrite or erase their history.
   IF NOT has_table_privilege('service_role', 'public.user_devices', 'SELECT')
