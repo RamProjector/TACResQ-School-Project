@@ -70,6 +70,7 @@ PENDING = {
     "20261118100000_restrict_core_table_destructive_privileges.sql",
     "20261119090000_device_security_registry_foundation.sql",
     "20261119100000_bound_device_registry_metadata.sql",
+    "20261119110000_public_data_free_dependency_health_rpc.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
@@ -353,3 +354,31 @@ assert "GRANT" not in device_bounds.upper()
 assert "DROP " not in device_bounds.upper()
 print("PASS: device registry metadata and event payloads are bounded; challenges expire within ten minutes.")
 
+
+# Public dependency probe is intentionally data-free and cannot mutate state.
+dependency_health = (MIGRATIONS / "20261119110000_public_data_free_dependency_health_rpc.sql").read_text()
+for required in (
+    "CREATE OR REPLACE FUNCTION public.api_dependency_health()",
+    "RETURNS text",
+    "LANGUAGE sql",
+    "IMMUTABLE",
+    "PARALLEL SAFE",
+    "SECURITY INVOKER",
+    "SET search_path = pg_catalog",
+    "SELECT 'tacresq_database_ok'::text",
+    "REVOKE ALL PRIVILEGES",
+    "FROM PUBLIC, anon, authenticated, service_role",
+    "GRANT EXECUTE",
+    "TO anon, authenticated",
+):
+    assert required.lower() in dependency_health.lower(), (
+        f"Missing least-privilege database health RPC contract: {required}"
+    )
+assert "SECURITY DEFINER" not in dependency_health.upper()
+assert "FROM public." not in dependency_health.lower()
+assert "INSERT " not in dependency_health.upper()
+assert "UPDATE " not in dependency_health.upper()
+assert "DELETE " not in dependency_health.upper()
+assert "TRUNCATE " not in dependency_health.upper()
+assert "GRANT EXECUTE ON FUNCTION public.api_dependency_health() TO service_role" not in dependency_health
+print("PASS: dependency health RPC is a fixed-result SECURITY INVOKER with no table access or mutation.")
