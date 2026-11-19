@@ -258,6 +258,50 @@ class IncidentAssignmentWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_cancelled_incident_history_does_not_block_a_new_assignment(): void
+    {
+        $requester = $this->user('assignment-cancelled-reuse-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-cancelled-reuse-dispatcher@example.test', 'dispatcher');
+        $responder = $this->user('assignment-cancelled-reuse-unit@example.test', 'responder', 'available');
+        $cancelledIncident = Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Cancelled historical assignment',
+            'status' => 'cancelled',
+            'assigned_to' => $responder->id,
+        ]);
+        DB::table('incident_assignments')->insert([
+            'incident_id' => $cancelledIncident->id,
+            'user_id' => $responder->id,
+            'assigned_by' => $dispatcher->id,
+            'assigned_at' => now(),
+            'responder_status' => 'cancelled',
+            'status_updated_at' => now(),
+        ]);
+        $newIncident = $this->incident($requester);
+
+        Sanctum::actingAs($dispatcher);
+        $this->postJson('/api/incidents/'.$newIncident->id.'/assign', [
+            'user_id' => $responder->id,
+        ])->assertOk()->assertJsonPath('status', 'assigned');
+
+        $this->assertDatabaseCount('incident_assignments', 2);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $cancelledIncident->id,
+            'user_id' => $responder->id,
+            'responder_status' => 'cancelled',
+        ]);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $newIncident->id,
+            'user_id' => $responder->id,
+            'responder_status' => 'assigned',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $responder->id,
+            'duty_status' => 'assigned',
+        ]);
+    }
+
     public function test_dispatcher_assignment_rejects_every_non_pending_incident_state_without_mutation(): void
     {
         $requester = $this->user('assignment-state-requester@example.test', 'requester');
