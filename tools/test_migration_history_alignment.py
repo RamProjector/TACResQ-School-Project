@@ -323,6 +323,7 @@ for required in (
     "has_column_privilege('authenticated', table_oid, 'role', 'UPDATE')",
     "has_column_privilege('authenticated', table_oid, 'status', 'UPDATE')",
     "has_column_privilege('authenticated', table_oid, 'requester_id', 'UPDATE')",
+    "authenticated must use authorized RPCs instead of direct incident updates",
     "authenticated must not directly INSERT into public.%",
 ):
     assert required in core_privileges, f"Missing exact core-table privilege assertion: {required}"
