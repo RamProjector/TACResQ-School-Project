@@ -192,6 +192,34 @@ class IncidentProgressSynchronizationTest extends TestCase
         $this->assertDatabaseCount('incident_assignments', 0);
     }
 
+    public function test_dispatcher_cannot_submit_unsupported_incident_progress_values(): void
+    {
+        $requester = $this->user('progress-invalid-requester@example.test', 'requester');
+        $dispatcher = $this->user('progress-invalid-dispatcher@example.test', 'dispatcher');
+        $lead = $this->user('progress-invalid-lead@example.test', 'responder', 'assigned');
+        $incident = $this->assignedIncident($requester, $lead, $dispatcher, [$lead]);
+
+        Sanctum::actingAs($dispatcher);
+        foreach (['pending', 'assigned', 'cancelled', 'unknown'] as $status) {
+            $this->patchJson('/api/incidents/'.$incident->id.'/status', [
+                'status' => $status,
+            ])->assertUnprocessable();
+        }
+
+        $this->assertDatabaseHas('incidents', [
+            'id' => $incident->id,
+            'status' => 'assigned',
+            'assigned_to' => $lead->id,
+        ]);
+        $this->assertDatabaseHas('users', ['id' => $lead->id, 'duty_status' => 'assigned']);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $incident->id,
+            'user_id' => $lead->id,
+            'responder_status' => 'assigned',
+        ]);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
     public function test_dispatcher_cannot_move_incident_progress_backwards(): void
     {
         $requester = $this->user('progress-backward-requester@example.test', 'requester');
