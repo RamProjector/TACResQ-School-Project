@@ -347,7 +347,7 @@ class RoutePreviewTest extends TestCase
     {
         Http::fake(array_merge($this->supabaseFakes(), [
             self::OSRM_BASE.'/*' => static function () {
-                throw new \\Illuminate\\Http\\Client\\ConnectionException('synthetic private router connection detail');
+                throw new \Illuminate\Http\Client\ConnectionException('synthetic private router connection detail');
             },
         ]));
 
