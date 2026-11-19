@@ -141,6 +141,34 @@ class IncidentProgressSynchronizationTest extends TestCase
         $this->assertDatabaseCount('incident_status_logs', 0);
     }
 
+    public function test_dispatcher_cannot_move_incident_progress_backwards(): void
+    {
+        $requester = $this->user('progress-backward-requester@example.test', 'requester');
+        $dispatcher = $this->user('progress-backward-dispatcher@example.test', 'dispatcher');
+        $lead = $this->user('progress-backward-lead@example.test', 'responder', 'on_scene');
+        $incident = $this->assignedIncident($requester, $lead, $dispatcher, [$lead]);
+
+        // The incident has already reached the scene; an earlier state is not a valid transition.
+        DB::table('incidents')->where('id', $incident->id)->update(['status' => 'on_scene']);
+        DB::table('incident_assignments')->where('incident_id', $incident->id)->update([
+            'responder_status' => 'on_scene',
+        ]);
+
+        Sanctum::actingAs($dispatcher);
+        $this->patchJson('/api/incidents/'.$incident->id.'/status', [
+            'status' => 'en_route',
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseHas('incidents', ['id' => $incident->id, 'status' => 'on_scene']);
+        $this->assertDatabaseHas('users', ['id' => $lead->id, 'duty_status' => 'on_scene']);
+        $this->assertDatabaseHas('incident_assignments', [
+            'incident_id' => $incident->id,
+            'user_id' => $lead->id,
+            'responder_status' => 'on_scene',
+        ]);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
     public function test_dispatcher_cannot_skip_incident_progress_states(): void
     {
         $requester = $this->user('progress-skip-requester@example.test', 'requester');
