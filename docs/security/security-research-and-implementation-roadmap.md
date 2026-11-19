@@ -47,6 +47,15 @@ TACResQ handles emergency requests, precise location, responder/driver assignmen
 - High-impact administrative actions require fresh authorization and produce immutable audit evidence.
 - Abuse limits are tested without locking out all users behind a shared network.
 
+**Implemented in PR #335 (Laravel API; CI validation pending)**
+
+- Login attempts use a per-account-and-source failure bucket (five failures, 15-minute decay) plus a separate generous source ceiling (120/minute). Successful authentication clears the account/source failure bucket. Responses avoid account-existence disclosure and token responses are marked `no-store`.
+- Public registration is rate-limited by source (10 attempts per 15 minutes) before validation/database work. Email is normalized before duplicate lookup; public signup remains requester-only.
+- Authenticated `POST /api/logout` revokes the current Sanctum token. Authenticated `POST /api/logout-all` revokes all personal access tokens for the account.
+- Static CI contracts cover the login, registration, and session-revocation behavior.
+
+**Not yet implemented:** password reset/recovery throttling, email/OTP verification, token expiry/rotation, per-device session listing/revocation, challenge verification, MFA/passkeys, security-event persistence for authentication abuse, and step-up authentication. The current logout-all endpoint is account-wide token revocation; it is not device-aware and does not yet revoke Supabase Auth sessions.
+
 ### P0 — Device security and identification
 
 See [device-security-research-and-implementation-plan.md](device-security-research-and-implementation-plan.md).
