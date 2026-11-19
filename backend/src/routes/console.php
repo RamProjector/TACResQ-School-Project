@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\\Support\\Facades\\Artisan;
-use Illuminate\\Support\\Facades\\Http;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 use Throwable;
 
 Artisan::command('tacru:dependency-health {--live : Perform bounded read-only Supabase health probes}', function (): int {
@@ -70,7 +70,7 @@ Artisan::command('tacru:dependency-health {--live : Perform bounded read-only Su
                 ->withHeaders(['apikey' => $publishableKey])
                 ->connectTimeout(2)
                 ->timeout(5)
-                ->post($supabaseUrl.'/rest/v1/rpc/api_dependency_health', new \\stdClass()),
+                ->post($supabaseUrl.'/rest/v1/rpc/api_dependency_health', new \stdClass()),
             static fn ($response): bool => json_decode($response->body(), true) === 'tacresq_database_ok',
         );
         $rpcStatus['scope'] = 'data_free_database_health_rpc';
