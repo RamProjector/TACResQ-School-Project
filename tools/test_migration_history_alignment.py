@@ -329,7 +329,7 @@ for required in (
     assert required in core_privileges, f"Missing exact core-table privilege assertion: {required}"
 assert "PostgreSQL has_table_privilege(..., 'UPDATE') intentionally returns false" in core_privileges
 core_migration = (MIGRATIONS / "20261118100000_restrict_core_table_destructive_privileges.sql").read_text()
-assert "creation and assignment use authorization-checked RPCs" in core_migration
+assert "incident creation, updates, and assignment use authorization-checked RPCs" in core_migration
 print("PASS: core privilege runtime contract checks narrow updates and RPC-only client creation.")
 
 device_bounds = (MIGRATIONS / "20261119100000_bound_device_registry_metadata.sql").read_text()
