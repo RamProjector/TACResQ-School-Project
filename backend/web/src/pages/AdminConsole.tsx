@@ -111,9 +111,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       setTotalUsers(userPage.total_count);
       setAudit(nextAudit);
       try {
-        setDependencyHealth(await getAdminDependencyHealth());
+        const nextHealth = await getAdminDependencyHealth();
+        if (requestId !== requestVersion.current) return;
+        setDependencyHealth(nextHealth);
         setDependencyHealthError(null);
       } catch {
+        if (requestId !== requestVersion.current) return;
         setDependencyHealth(null);
         setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
       }
