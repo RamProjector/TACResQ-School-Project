@@ -53,11 +53,11 @@ checks = {
             "enabled = mapStyleLoaded && !mapLoadError",
         )
     ) and "height(320.dp)" not in requester and "controller.zoomIn()" not in requester and "controller.zoomOut()" not in requester,
-    "fallback map center is clearly identified when GPS is unavailable": all(
+    "fallback map center is clearly identified when device location is unavailable": all(
         text in requester for text in (
             "startsAtTaclobanDefault = initial == null",
             "startsAtTaclobanDefault: Boolean",
-            "Starts at Tacloban, not your GPS position. Move the map to the emergency site.",
+            "Starts at Tacloban, not your device location. Move the map to the emergency site.",
             "Move the map before confirming.",
             "setOnTouchListener { _, event ->",
             "if (event.action == MotionEvent.ACTION_MOVE) userAdjustedMap = true",
@@ -87,7 +87,7 @@ checks = {
             "addOnCameraIdleListener",
             "centerCoordinates.value = target.latitude to target.longitude",
             '"Selected location: %.5f, %.5f"',
-            "Map pin only; it does not measure GPS accuracy.",
+            "Map pin only; it does not report device-location accuracy. Confirm the center pin marks the emergency site.",
             "Map data is unavailable. Cancel and share a landmark instead.",
         )
     ),
@@ -139,7 +139,7 @@ checks = {
     ),
     "success message describes the actual selected location": (
         "SOS sent. Dispatch confirmed the map pin you selected." in requester
-        and "SOS sent. Dispatch confirmed the one-time GPS pin you submitted." in requester
+        and "SOS sent. Dispatch confirmed the one-time device location pin you submitted." in requester
         and "TACResQ is not tracking you continuously" not in requester
         and "This one-time pin is sent; ongoing tracking is not." in requester
     ),
