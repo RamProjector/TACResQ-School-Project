@@ -1479,6 +1479,9 @@ $location_rpc_boundary_test$;
 SQL
 
 
+# Verify the data-free dependency health RPC privilege and execution contract.
+psql -v ON_ERROR_STOP=1 -f tools/test_dependency_health_rpc.sql
+
 # Verify incident-image Storage RLS and the authenticated image-message RPC
 # against the minimal Storage schema created above.
 psql -v ON_ERROR_STOP=1 -f tools/test_incident_chat_storage_policies.sql
