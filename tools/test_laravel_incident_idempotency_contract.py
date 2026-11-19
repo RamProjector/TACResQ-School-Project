@@ -43,6 +43,24 @@ checks = {
         and "Incident::create([" in ROUTE
         and "->update(['response_payload' => json_encode($payload, JSON_THROW_ON_ERROR)])" in ROUTE
     ),
+    "location metadata is validated before the idempotency fingerprint is stored": (
+        "'location_source' => ['nullable', Rule::in(['gps', 'manual', 'none'])]" in ROUTE
+        and "Coordinates require a GPS or manual location source." in ROUTE
+        and "A manually selected pin cannot claim GPS accuracy." in ROUTE
+        and "A location capture time is required with coordinates." in ROUTE
+        and ROUTE.index("Latitude and longitude must be supplied together.") < ROUTE.index("$requestPayload = json_encode(")
+    ),
+    "incident creation writes the initial pending status audit record": (
+        "'status' => 'pending'," in ROUTE
+        and "$incident->statusLogs()->create([" in ROUTE
+        and "'changed_by' => $request->user()->id" in ROUTE
+    ),
+    "database transaction encloses key, incident, and audit writes": (
+        "DB::transaction(function () use ($data, $request, $requestId, $requestPayload, $incidentJson)" in ROUTE
+        and "DB::table('incident_submission_keys')->insert([" in ROUTE
+        and "Incident::create([" in ROUTE
+        and "$incident->statusLogs()->create([" in ROUTE
+    ),
     "replayed and first-time responses have distinct HTTP success codes": (
         "response()->json($result['payload'], $result['replayed'] ? 200 : 201)" in ROUTE
     ),
