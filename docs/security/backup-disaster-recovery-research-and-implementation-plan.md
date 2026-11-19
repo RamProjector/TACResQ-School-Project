@@ -143,3 +143,15 @@ The admin browser must not receive raw database dumps, storage backup credential
 - Render FAQ (ephemeral filesystem): https://render.com/docs/faq
 
 **Decision:** First verify the actual Supabase plan, Storage buckets, and Render service configuration. Then implement encrypted off-site database and object exports with a tested isolated restore. Do not claim TACResQ has automated backups or recovery capability until both data layers have passed a restore drill.
+
+## 10. Current operator procedures and offline integrity tools
+
+- PostgreSQL logical export: `docs/security/postgres-logical-backup-procedure.md`
+- Storage object export: `docs/security/storage-object-backup-procedure.md`
+- PostgreSQL component manifest: `tools/create_database_backup_manifest.py`
+- Storage object manifest: `tools/create_storage_backup_manifest.py`
+
+The PostgreSQL procedure explicitly creates schema, data, and custom-role dump components. The Storage procedure separately copies actual object bytes. Both manifest tools operate offline and only verify local file integrity; neither performs a backup, encrypts data, uploads to a destination, or proves restorability.
+
+**CLI version safety:** Supabase CLI v3 changed database and Storage commands to target the local stack by default. Any hosted export must explicitly pass `--remote=<project-ref>`; the CLI prints a `Target:` line that an operator must verify. Pin the CLI version in future automation and validate its help output before relying on flags. Do not add a scheduled workflow until credentials, encryption, destination, retention, and notification paths are approved and tested.
+
