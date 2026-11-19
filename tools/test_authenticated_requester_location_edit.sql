@@ -291,7 +291,7 @@ BEGIN
   FROM public.incidents i
   JOIN public.profiles p ON p.id = i.requester_id
   WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000991'
-    AND i.status = 'pending'
+    AND i.description = 'Original report'
   ORDER BY i.id DESC
   LIMIT 1;
 
