@@ -15,12 +15,14 @@ import {
 import { Brand } from "@/components/Brand";
 import {
   getAdminAuditLogs,
+  getAdminDependencyHealth,
   getAdminUsersPage,
   getMyProfile,
   setAdminUserRole,
 } from "@/lib/supabase";
 import type {
   AdminAuditEvent,
+  AdminDependencyHealth,
   AdminManagedRole,
   AdminUser,
   TacruProfile,
@@ -53,6 +55,8 @@ function initials(name: string) {
 export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [audit, setAudit] = useState<AdminAuditEvent[]>([]);
+  const [dependencyHealth, setDependencyHealth] = useState<AdminDependencyHealth | null>(null);
+  const [dependencyHealthError, setDependencyHealthError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +110,13 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
       setAudit(nextAudit);
+      try {
+        setDependencyHealth(await getAdminDependencyHealth());
+        setDependencyHealthError(null);
+      } catch {
+        setDependencyHealth(null);
+        setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
+      }
     } catch (cause) {
       if (requestId !== requestVersion.current) return;
       // Never keep privileged data visible after an authorization or connection failure.
@@ -244,6 +255,31 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <article><span>REQUESTERS ON PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Requester accounts on this page</small></article>
             <article><span>FIELD UNITS ON PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responder and driver accounts on this page</small></article>
             <article><span>RECENT AUDIT EVENTS</span><strong>{audit.length}</strong><small>Latest records, maximum 100 loaded</small></article>
+          </section>
+
+          <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title">
+            <div className="admin-panel__heading">
+              <div><p className="admin-eyebrow">PLATFORM AVAILABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency health</h2></div>
+              <span className="admin-count">{dependencyHealth ? "Checked " + formatDate(dependencyHealth.checked_at) : "No verified result"}</span>
+            </div>
+            {dependencyHealthError ? (
+              <div className="admin-health-unavailable" role="status">{dependencyHealthError}</div>
+            ) : !dependencyHealth ? (
+              <div className="admin-health-unavailable" role="status">Waiting for the first diagnostic check…</div>
+            ) : (
+              <div className="admin-health-grid">
+                {([
+                  ["Supabase Auth", dependencyHealth.supabase_auth],
+                  ["Supabase database", dependencyHealth.supabase_database],
+                ] as const).map(([label, result]) => (
+                  <article className="admin-health-item" key={label}>
+                    <div><strong>{label}</strong><span className={"admin-health-status admin-health-status--" + result.status}>{result.status}</span></div>
+                    <small>{result.duration_ms === null ? "Response time unavailable" : result.duration_ms + " ms response time"}</small>
+                  </article>
+                ))}
+              </div>
+            )}
+            <p className="admin-panel__footnote">Read-only checks only. Auth health confirms the Auth endpoint responds; the database check executes a fixed, data-free RPC. These checks do not verify incident workflows, user sign-in, FCM delivery, or routing.</p>
           </section>
 
           <section className="admin-panel">
