@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
-use Throwable;
 
 Artisan::command('tacru:dependency-health {--live : Perform bounded read-only Supabase health probes}', function (): int {
     // The default remains configuration-only. Live mode is explicit and
@@ -32,7 +31,7 @@ Artisan::command('tacru:dependency-health {--live : Perform bounded read-only Su
             $status = $response->successful() && $validResponse($response)
                 ? 'healthy'
                 : ($response->status() === 429 ? 'degraded' : 'unavailable');
-        } catch (Throwable) {
+        } catch (\\Throwable) {
             // Provider exceptions can contain URLs, response bodies, or other
             // sensitive details. Report only a stable outcome category.
             $status = 'unavailable';
