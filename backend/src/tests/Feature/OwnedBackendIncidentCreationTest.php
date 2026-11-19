@@ -181,6 +181,43 @@ class OwnedBackendIncidentCreationTest extends TestCase
         $this->assertSame(0, Incident::where('requester_id', $manualRequester->id)->count());
     }
 
+
+    public function test_manual_pin_is_accepted_without_gps_accuracy_and_requires_capture_time(): void
+    {
+        $requester = $this->requester('sos-manual-pin@example.test');
+        Sanctum::actingAs($requester);
+
+        $this->postJson('/api/incidents', [
+            'client_request_id' => '5a0ef76a-0d47-40e8-96a5-3f2d8f1cb777',
+            'type' => 'vehicular',
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'location_source' => 'manual',
+            'location_recorded_at' => '2026-11-19T05:00:00Z',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('incidents', [
+            'requester_id' => $requester->id,
+            'location_source' => 'manual',
+            'accuracy_m' => null,
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+        ]);
+
+        $secondRequester = $this->requester('sos-missing-capture-time@example.test');
+        Sanctum::actingAs($secondRequester);
+
+        $this->postJson('/api/incidents', [
+            'client_request_id' => 'a9f0a82d-8e2a-4f5b-9e81-2e1b4f88a2ac',
+            'type' => 'vehicular',
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'location_source' => 'manual',
+        ])->assertStatus(422);
+
+        $this->assertSame(0, Incident::where('requester_id', $secondRequester->id)->count());
+    }
+
     private function requester(string $email): User
     {
         return User::create([
