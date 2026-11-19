@@ -8,12 +8,12 @@ This review does not introduce a permanent location lock at SOS submission. A lo
 
 ## Repository findings
 
-Reviewed the active PR #335 branch, `security/incident-assignment-privilege-hardening`, at head `64969179e1a6f24ad3df7fa9a20a5eb0350ee51e`.
+Reviewed the active PR #335 branch, `security/incident-assignment-privilege-hardening`, at head `1603b75a7eb185fa9d86c97ab1180060cab30097` before this follow-up commit.
 
 - Android requester home shows Edit and Cancel actions only when the active incident status is `PENDING`.
 - The edit dialog supports emergency type, description, location notes, and map-pin correction.
 - The Android repository calls Supabase RPCs `api_update_my_incident` and `api_cancel_my_incident`.
-- The edit RPC verifies the authenticated requester profile, ownership, pending status, and null legacy assignment; it locks the profile and incident rows.
+- The edit RPC verifies the authenticated requester profile, ownership, pending status, and null legacy assignment; it locks the profile and incident rows. The follow-up hardening also rejects any existing `incident_assignments` membership, even if legacy status/assignment columns are inconsistent.
 - Location changes validate coordinate pairs/ranges, source, manual-pin accuracy, and client-reported capture/selection timestamp freshness. Unchanged existing location metadata can be retained for text-only edits.
 - Edits are recorded in `incident_request_edit_logs`; the database trigger creates generic, deduplicated dispatcher inbox notifications.
 - The edit workflow applies a 60-second cooldown after an edit, requires review confirmation for subsequent edits, and allows a reviewed location-only correction during the cooldown.
@@ -23,7 +23,7 @@ Reviewed the active PR #335 branch, `security/incident-assignment-privilege-hard
 
 ## Review assessment
 
-The existing implementation is directionally sound and should be preserved. The main test gap addressed in this commit is authenticated cancellation coverage: ownership denial, terminal-state denial, successful pending cancellation, attributable status audit, and the ability to create a new request after cancellation.
+The existing implementation is directionally sound and should be preserved. This follow-up review found that the final edit RPC checked `status = pending` and `assigned_to IS NULL` but did not consult the normalized `incident_assignments` table. Since team membership is also used by assignment, duty, and status workflows, an inconsistent row could otherwise pass the edit gate. The RPC now fails closed when any team-membership row exists, and the authenticated migration-replay fixture covers that inconsistent state. The prior commit's cancellation coverage remains: ownership denial, terminal-state denial, successful pending cancellation, attributable status audit, and creation of a new request after cancellation.
 
 The UI's status check is a presentation safeguard only. The locked, server-side RPC check is authoritative when assignment and requester actions race. A stale screen must not be able to change an incident after dispatch assignment.
 
@@ -40,8 +40,8 @@ The UI's status check is a presentation safeguard only. The locked, server-side 
 
 ## Validation scope and deployment boundary
 
-- Added authenticated PostgreSQL migration-replay assertions for requester cancellation.
-- Extended the source contract to pin the Android pending-only action visibility and Supabase cancellation RPC guards.
-- These are committed regression checks; they are not evidence that the full CI suite or a live Supabase environment has passed.
+- Added authenticated PostgreSQL migration-replay assertions for requester cancellation and for denying edits when a team-membership row exists despite pending/unassigned legacy fields.
+- Extended the source contract to pin the Android pending-only action visibility, Supabase cancellation RPC guards, and normalized assignment-membership edit guard.
+- These are committed regression checks; they are not evidence that the full CI suite or a live Supabase environment has passed. The authenticated fixture deliberately creates inconsistent membership data to exercise fail-closed behavior; it does not imply that normal assignment RPCs create such a state.
 - No production migration was applied, no Render deployment/configuration was changed, and PR #335 remains unmerged.
 - Manual Android UI acceptance and a clean PostgreSQL migration replay remain required before merge.

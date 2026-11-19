@@ -47,7 +47,16 @@ BEGIN
     RAISE EXCEPTION 'Request not found' USING ERRCODE = 'P0002';
   END IF;
 
-  IF incident_row.status <> 'pending' OR incident_row.assigned_to IS NOT NULL THEN
+  -- Treat the normalized team-membership table as authoritative too. This
+  -- rejects inconsistent legacy rows where status/assigned_to still look pending
+  -- but a field unit is already attached to the incident.
+  IF incident_row.status <> 'pending'
+     OR incident_row.assigned_to IS NOT NULL
+     OR EXISTS (
+       SELECT 1
+       FROM public.incident_assignments a
+       WHERE a.incident_id = incident_row.id
+     ) THEN
     RAISE EXCEPTION 'This request can only be edited before dispatch assignment. Contact dispatch for urgent corrections.'
       USING ERRCODE = '22023';
   END IF;

@@ -8,6 +8,7 @@ SQL = MIGRATION.read_text().lower()
 SCREEN = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 API = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 CANCEL_SQL = (ROOT / "supabase/migrations/20261023031810_requester_single_active_and_cancel.sql").read_text().lower()
+FINAL_EDIT_SQL = (ROOT / "supabase/migrations/20261116190000_validate_requester_location_edits.sql").read_text().lower()
 MODEL = (ROOT / "app/src/main/java/com/tacresq/app/data/model/Models.kt").read_text()
 
 for required in (
@@ -25,6 +26,9 @@ for required in (
 ):
     assert required in SQL, f"Missing server-side requester edit safeguard: {required}"
 
+assert "public.incident_assignments a" in FINAL_EDIT_SQL
+assert "where a.incident_id = incident_row.id" in FINAL_EDIT_SQL
+assert "or exists (" in FINAL_EDIT_SQL
 assert 'rest/v1/rpc/api_update_my_incident' in API
 assert 'requester_edit_count' in MODEL
 assert 'requester_last_edited_at' in MODEL
@@ -63,4 +67,4 @@ assert 'canUseCurrentRequesterActions' in SCREEN
 assert 'contact dispatch if a unit may be responding' in SCREEN
 assert 'contact dispatch for urgent corrections' in SQL
 
-print("PASS: requester edits are ownership-checked, pending-only, cooldown-enforced, reviewed, and audited.")
+print("PASS: requester edits are ownership-checked, pending-only, assignment-membership-aware, cooldown-enforced, reviewed, and audited.")
