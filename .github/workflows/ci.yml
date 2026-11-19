@@ -68,6 +68,8 @@ jobs:
 
       - name: Test Supabase Storage backup manifest integrity
         run: python3 tools/test_create_storage_backup_manifest.py
+      - name: Test PostgreSQL backup manifest integrity
+        run: python3 tools/test_create_database_backup_manifest.py
 
       - name: Check API response privacy and security headers
         run: python3 tools/test_api_security_headers_contract.py
