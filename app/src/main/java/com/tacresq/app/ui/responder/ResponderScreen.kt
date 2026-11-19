@@ -142,7 +142,7 @@ class ResponderViewModel(
                 val claimableResult = if (me.isSuccess && userDuty == DutyStatus.AVAILABLE) {
                     repo.getClaimableIncidents()
                 } else null
-                val claimable = claimableResult?.getOrNull().orEmpty()
+                val claimable = if (userDuty == DutyStatus.AVAILABLE) claimableResult?.getOrNull().orEmpty() else emptyList()
                 val claimableError = when {
                     me.isFailure && userDuty == DutyStatus.AVAILABLE ->
                         "Could not verify your current duty status. Claimable requests are hidden until a successful refresh."
@@ -392,7 +392,7 @@ fun ResponderScreen(
         item {
             ScreenHeader(
                 title = "Current call",
-                subtitle = "Review assignments and manage optional location sharing. Dispatch maintains incident progress.",
+                subtitle = "Review assignments, update your status, and manage location sharing.",
                 onOpenNotifications = onOpenNotifications,
             )
         }

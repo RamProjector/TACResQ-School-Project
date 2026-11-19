@@ -57,6 +57,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -524,23 +527,62 @@ private fun GpsMapFilterButtons(
 private fun GpsMapCameraControls(
     modifier: Modifier = Modifier,
     enabled: Boolean,
+    onZoomIn: () -> Unit,
+    onZoomOut: () -> Unit,
     onShowAll: () -> Unit,
 ) {
-    androidx.compose.material3.FilledTonalIconButton(
-        onClick = onShowAll,
-        enabled = enabled,
-        modifier = modifier
-            .size(56.dp)
-            .semantics {
-                contentDescription = "Fit all visible map locations"
-            },
-        shape = RoundedCornerShape(20.dp),
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        androidx.compose.material3.Icon(
-            imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-        )
+        androidx.compose.material3.FilledTonalIconButton(
+            onClick = onZoomIn,
+            enabled = enabled,
+            modifier = Modifier
+                .size(48.dp)
+                .semantics {
+                    contentDescription = "Zoom in on map"
+                },
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Default.Add,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        androidx.compose.material3.FilledTonalIconButton(
+            onClick = onZoomOut,
+            enabled = enabled,
+            modifier = Modifier
+                .size(48.dp)
+                .semantics {
+                    contentDescription = "Zoom out on map"
+                },
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Default.Remove,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        androidx.compose.material3.FilledTonalIconButton(
+            onClick = onShowAll,
+            enabled = enabled,
+            modifier = Modifier
+                .size(48.dp)
+                .semantics {
+                    contentDescription = "Fit all visible map locations"
+                },
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 
@@ -1650,7 +1692,9 @@ fun GpsMapScreen(
                 routeJob = scope.launch {
                     try {
                         val settings = locationProvider.checkLocationSettings()
-                        if (!isCurrentRequest()) return@launch
+                        if (!isCurrentRequest()) {
+                            return@launch
+                        }
                         when (settings) {
                             LocationSettingsCheck.Ready -> Unit
                             is LocationSettingsCheck.NeedsResolution -> {
@@ -1667,7 +1711,9 @@ fun GpsMapScreen(
                             }
                         }
                         val capture = locationProvider.currentFix()
-                        if (!isCurrentRequest()) return@launch
+                        if (!isCurrentRequest()) {
+                            return@launch
+                        }
                         val fix = when (capture) {
                             is LocationCaptureResult.Success -> capture.fix
                             LocationCaptureResult.PermissionDenied -> {
@@ -2840,6 +2886,12 @@ fun GpsMapScreen(
                         .navigationBarsPadding()
                         .padding(start = 12.dp, bottom = 136.dp),
                     enabled = mapStyleLoaded,
+                    onZoomIn = {
+                        mapLibreMap?.animateCamera(org.maplibre.android.camera.CameraUpdateFactory.zoomIn(), 250)
+                    },
+                    onZoomOut = {
+                        mapLibreMap?.animateCamera(org.maplibre.android.camera.CameraUpdateFactory.zoomOut(), 250)
+                    },
                     onShowAll = ::showAllVisiblePoints,
                 )
             }
