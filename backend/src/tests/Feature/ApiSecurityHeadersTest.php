@@ -18,6 +18,19 @@ class ApiSecurityHeadersTest extends TestCase
             ->assertHeader('Referrer-Policy', 'no-referrer');
     }
 
+    public function test_unauthenticated_api_responses_are_non_cacheable(): void
+    {
+        config(['tacru.route_preview_enabled' => true]);
+
+        $this->getJson('/api/route-preview/provider')
+            ->assertUnauthorized()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('Pragma', 'no-cache')
+            ->assertHeader('Expires', '0')
+            ->assertHeader('X-Content-Type-Options', 'nosniff')
+            ->assertHeader('Referrer-Policy', 'no-referrer');
+    }
+
     public function test_non_api_portal_responses_are_not_given_api_cache_policy(): void
     {
         $response = $this->get('/');
