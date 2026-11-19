@@ -86,6 +86,71 @@ class IncidentAssignmentWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_dispatcher_cannot_assign_a_unit_that_is_already_on_another_active_incident(): void
+    {
+        $requester = $this->user('assignment-busy-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-busy-dispatcher@example.test', 'dispatcher');
+        // Active incident membership remains authoritative if duty status is stale.
+        $responder = $this->user('assignment-busy-unit@example.test', 'responder', 'available');
+        $activeIncident = Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Existing active assignment',
+            'status' => 'en_route',
+            'assigned_to' => $responder->id,
+        ]);
+        DB::table('incident_assignments')->insert([
+            'incident_id' => $activeIncident->id,
+            'user_id' => $responder->id,
+            'assigned_by' => $dispatcher->id,
+            'assigned_at' => now(),
+            'responder_status' => 'en_route',
+            'status_updated_at' => now(),
+        ]);
+        $newIncident = $this->incident($requester);
+
+        Sanctum::actingAs($dispatcher);
+        $this->postJson('/api/incidents/'.$newIncident->id.'/assign', [
+            'user_id' => $responder->id,
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseHas('incidents', [
+            'id' => $newIncident->id,
+            'status' => 'pending',
+            'assigned_to' => null,
+        ]);
+        $this->assertDatabaseCount('incident_assignments', 1);
+        $this->assertDatabaseHas('users', [
+            'id' => $responder->id,
+            'duty_status' => 'available',
+        ]);
+    }
+
+    public function test_dispatcher_cannot_assign_the_same_incident_twice(): void
+    {
+        $requester = $this->user('assignment-repeat-requester@example.test', 'requester');
+        $dispatcher = $this->user('assignment-repeat-dispatcher@example.test', 'dispatcher');
+        $responder = $this->user('assignment-repeat-unit@example.test', 'responder', 'available');
+        $incident = $this->incident($requester);
+
+        Sanctum::actingAs($dispatcher);
+        $this->postJson('/api/incidents/'.$incident->id.'/assign', [
+            'user_id' => $responder->id,
+        ])->assertOk();
+
+        $this->postJson('/api/incidents/'.$incident->id.'/assign', [
+            'user_id' => $responder->id,
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('incident_assignments', 1);
+        $this->assertDatabaseCount('incident_status_logs', 1);
+        $this->assertDatabaseHas('incidents', [
+            'id' => $incident->id,
+            'status' => 'assigned',
+            'assigned_to' => $responder->id,
+        ]);
+    }
+
     private function user(string $email, string $role, ?string $dutyStatus = null): User
     {
         return User::create([
