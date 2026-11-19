@@ -67,6 +67,8 @@ jobs:
         run: python3 tools/test_api_collection_bounds_contract.py
       - name: Check authenticated mutation throttling
         run: python3 tools/test_authenticated_mutation_throttles.py
+      - name: Check privacy-safe bridge rate-limit keys
+        run: python3 tools/test_bridge_rate_limit_key_privacy.py
 
       - name: Check Sanctum session revocation contract
         run: python3 tools/test_session_revocation_contract.py

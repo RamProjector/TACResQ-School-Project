@@ -367,7 +367,7 @@ Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge
     }
     abort_if (!$user, 401, 'The Supabase session is invalid or expired.');
 
-    $userRateKey = 'bridge-user:'.$user['id'];
+    $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
     if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
         return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
             ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
@@ -420,7 +420,7 @@ Route::post('/bridge/rpc/{function}', function (
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
 
-    $userRateKey = 'bridge-user:'.$user['id'];
+    $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
     if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
         return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
             ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
