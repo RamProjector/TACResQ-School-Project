@@ -9,7 +9,8 @@ class ApiSecurityHeadersTest extends TestCase
     public function test_api_responses_are_non_cacheable_and_include_privacy_headers(): void
     {
         $this->getJson('/api/route-preview/provider')
-            ->assertUnauthorized()
+            // The routing rollout kill switch intentionally runs before auth.
+            ->assertServiceUnavailable()
             ->assertHeader('Cache-Control', 'no-store, private')
             ->assertHeader('Pragma', 'no-cache')
             ->assertHeader('Expires', '0')
