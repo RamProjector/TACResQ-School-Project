@@ -1,9 +1,11 @@
 -- Runtime contract for profiles/incidents destructive privilege boundary.
+-- Profile creation is handled by the guarded auth-user trigger, not direct client INSERT.
 DO $core_table_privilege_boundary$
 DECLARE
   table_name text;
   table_oid regclass;
   required_privilege text;
+  required_privileges text[];
 BEGIN
   FOREACH table_name IN ARRAY ARRAY['profiles', 'incidents'] LOOP
     table_oid := to_regclass('public.' || table_name);
@@ -15,7 +17,15 @@ BEGIN
       RAISE EXCEPTION 'public.% must retain RLS', table_name;
     END IF;
 
-    FOREACH required_privilege IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE'] LOOP
+    -- Preserve only the grants needed by the existing client workflows.
+    -- Profiles are created by the SECURITY DEFINER signup trigger; clients
+    -- must not be able to insert arbitrary profile/role records directly.
+    required_privileges := CASE table_name
+      WHEN 'profiles' THEN ARRAY['SELECT', 'UPDATE']
+      WHEN 'incidents' THEN ARRAY['SELECT', 'INSERT', 'UPDATE']
+    END;
+
+    FOREACH required_privilege IN ARRAY required_privileges LOOP
       IF NOT has_table_privilege('authenticated', table_oid, required_privilege) THEN
         RAISE EXCEPTION 'authenticated must retain % on public.% for current guarded workflows',
           required_privilege, table_name;
