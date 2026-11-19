@@ -224,6 +224,38 @@ class IncidentProgressSynchronizationTest extends TestCase
         $this->assertDatabaseCount('incident_assignments', 0);
     }
 
+    public function test_dispatcher_can_resolve_an_incident_directly_from_on_scene(): void
+    {
+        $requester = $this->user('progress-direct-resolve-requester@example.test', 'requester');
+        $dispatcher = $this->user('progress-direct-resolve-dispatcher@example.test', 'dispatcher');
+        $lead = $this->user('progress-direct-resolve-lead@example.test', 'responder', 'on_scene');
+        $teammate = $this->user('progress-direct-resolve-teammate@example.test', 'driver', 'on_scene');
+        $incident = $this->assignedIncident($requester, $lead, $dispatcher, [$lead, $teammate]);
+        DB::table('incidents')->where('id', $incident->id)->update(['status' => 'on_scene']);
+        DB::table('incident_assignments')->where('incident_id', $incident->id)->update([
+            'responder_status' => 'on_scene',
+        ]);
+
+        Sanctum::actingAs($dispatcher);
+        $this->patchJson('/api/incidents/'.$incident->id.'/status', [
+            'status' => 'resolved',
+        ])->assertOk()->assertJsonPath('status', 'resolved');
+
+        $this->assertDatabaseHas('incidents', ['id' => $incident->id, 'status' => 'resolved']);
+        foreach ([$lead, $teammate] as $unit) {
+            $this->assertDatabaseHas('users', [
+                'id' => $unit->id,
+                'duty_status' => 'available',
+            ]);
+            $this->assertDatabaseHas('incident_assignments', [
+                'incident_id' => $incident->id,
+                'user_id' => $unit->id,
+                'responder_status' => 'resolved',
+            ]);
+        }
+        $this->assertDatabaseCount('incident_status_logs', 1);
+    }
+
     public function test_dispatcher_cannot_submit_unsupported_incident_progress_values(): void
     {
         $requester = $this->user('progress-invalid-requester@example.test', 'requester');
