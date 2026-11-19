@@ -30,6 +30,7 @@ These checks were read-only. No storage objects were downloaded or changed, no p
 - Supabase's current documentation states that automatic daily database backups are available on Pro, Team, and Enterprise plans; the documented retention is 7, 14, and up to 30 days respectively.
 - Free-plan projects do not receive automatic database backups. Supabase recommends regularly exporting data with `supabase db dump` and maintaining off-site backups.
 - Database backups contain Storage metadata, not the object bytes stored through the Storage API. A database restore cannot recover an object deleted after the selected backup.
+- The Supabase CLI `db dump` excludes Supabase-managed schemas including `auth` and `storage`. Its default output is schema-only; row data and custom roles require separate explicit dump options. Do not treat a successful default dump as a complete application backup.
 - Point-in-Time Recovery is a paid add-on; it must not be assumed available in the current free-first deployment.
 
 ### Render
@@ -45,13 +46,14 @@ These checks were read-only. No storage objects were downloaded or changed, no p
 | Postgres data | Operational tables, profiles, assignments, audit/security events | Scheduled logical export using Supabase CLI `db dump` on a trusted runner | Free plan requires an externally operated schedule and off-site destination |
 | Schema | Migration history and database definitions | Git version control plus clean-database migration replay | Does not preserve production rows |
 | Storage objects | Actual uploaded images/video and object metadata | Enumerate objects and copy bytes to a separate encrypted off-site backup destination; maintain a manifest | DB backup alone does not contain object bytes |
-| Auth/config | Auth configuration, redirect allowlist, email templates, bucket policies, relevant provider settings | Versioned, access-controlled configuration inventory; secrets stored separately in an encrypted secret manager/offline vault | Never export service-role keys or user credentials into the repository |
+| Auth/config | Auth users and identities, Auth configuration, redirect allowlist, email templates, bucket policies, relevant provider settings | Separate provider-supported Auth recovery/export procedure plus versioned configuration inventory | CLI database dumps exclude the managed `auth` schema; user password hashes and provider secrets must not be copied into Git or ordinary backup artifacts |
 | Render portal | Source, deployment configuration, environment-variable names, release identity | Git + documented environment inventory + known-good deploy reference | Container filesystem is not durable storage |
 | Recovery evidence | Backup job result, checksum, size, timestamp, schema version, restore test | Append-only backup manifest and restricted audit trail | A successful upload is not proof that a backup is restorable |
 
 ## 5. Free-first baseline
 
-1. Run a scheduled Postgres logical export using a trusted runner with narrowly scoped credentials. Do not put a database password or access token in source code, workflow logs, command-line arguments visible to other users, or artifacts.
+1. Run a scheduled Postgres logical export using a trusted runner with narrowly scoped credentials. The current CLI separates role-only, schema-only (default), and data-only output; produce and validate the required components explicitly. The CLI excludes managed `auth` and `storage` schemas. Do not put a database password or access token in source code, workflow logs, command-line arguments visible to other users, or artifacts.
+1. Handle Auth independently. Inventory the supported Supabase Auth export/recovery options and determine how identities, providers, MFA factors, and user metadata can be reconstructed. Never assume the CLI dump includes Auth users or that password hashes can be exported/restored. Until this is proven, the Auth recovery objective is not met.
 2. Encrypt the dump before it leaves the runner. Store it outside the Supabase project and outside the Render service filesystem.
 3. Back up Storage object bytes separately. The manifest should record bucket, object path, size, content type, checksum, and backup timestamp; it must not expose private object URLs or user-facing signed URLs.
 4. Keep schema migrations in Git. Record the exact commit SHA and migration version represented by each database backup.
@@ -74,13 +76,13 @@ No paid service is required for this baseline, but an off-site destination must 
 
 ### Restore and validate
 
-1. Restore Postgres into an isolated project first; never test restore procedures against the live project.
+1. Restore Postgres into an isolated project first; never test restore procedures against the live project. Restore roles, schema, and data components in a reviewed order; verify default privileges and custom-role credentials because they may not be preserved by provider backups.
 2. Reconcile custom database roles and reset credentials where the provider's backup format does not preserve them.
 3. Restore Storage object bytes independently, preserving bucket/path relationships and private/public access policies.
 4. Apply or verify the expected migration state without blindly replaying migrations over restored production data.
 5. Validate row counts and key relationships for profiles, incidents, assignments, status history, audit logs, device registry, and idempotency records.
 6. Validate that every restored attachment manifest entry has a corresponding object with matching size/checksum.
-7. Run auth sign-in, role authorization, incident creation/read, assignment RPC, notification dispatch, and admin audit-read smoke tests using test accounts.
+7. Reconstruct or validate Auth separately using provider-supported mechanisms and test accounts. Run auth sign-in, role authorization, incident creation/read, assignment RPC, notification dispatch, and admin audit-read smoke tests. Do not mark the Auth recovery objective complete while user/identity restoration remains untested.
 8. Confirm location and personal-data access policies, RLS, grants, triggers, RPC permissions, and storage policies.
 9. Document data loss window, restore duration, validation evidence, and any manual reconciliation.
 10. Promote/repoint production only after explicit approval and a successful isolated restore review.
@@ -92,7 +94,7 @@ A Supabase project restore can make the project inaccessible during the restore 
 | Priority | Proposed RPO | Proposed RTO | Notes |
 |---|---:|---:|---|
 | Emergency incident and assignment records | 24 hours maximum for the free-first baseline | 8 hours | Requires daily verified export; tighten only with tested automation and funding |
-| Auth/configuration and migration state | 24 hours | 8 hours | Keep configuration inventory and migration code separately versioned |
+| Auth/configuration and migration state | 24 hours | 8 hours | Provisional only; Auth user/identity recovery is not yet proven and must be separately tested |
 | Incident attachment objects | 24 hours | 8 hours | Requires independent object backup; do not assume DB backup includes bytes |
 | Admin portal source/deployment | Git commit-level | 4 hours | Requires documented Render environment reconstruction and smoke tests |
 
@@ -112,6 +114,8 @@ The admin browser must not receive raw database dumps, storage backup credential
 ## 9. Implementation sequence
 
 **P0 — Establish reality**
+- Verify exact Supabase CLI version and capture a safe dry-run of schema, data, and role export commands; account for the fact that managed `auth` and `storage` schemas are excluded.
+- Determine a supported Auth user/identity recovery approach and document which fields/providers cannot be exported or restored.
 - Confirm the Supabase plan, project backup availability, Storage buckets, object volume, Render service type, and whether any persistent disk exists.
 - Inventory data sensitivity, retention rules, and recovery ownership.
 - Verify actual database and Storage export access without changing production data.
