@@ -482,6 +482,7 @@ private fun GpsMapFilterButtons(
     onShowIncidents: () -> Unit,
     onShowActiveUnits: () -> Unit,
 ) {
+    if (role == Role.REQUESTER) return
     if (!hasIncidents && !(role == Role.DISPATCHER && hasActiveUnits)) return
 
     Row(
