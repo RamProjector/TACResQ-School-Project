@@ -91,3 +91,29 @@ A lightweight CI contract now characterizes the actual direct Supabase RPC, opt-
 The first full TACResQ CI run after the transport-contract commit exposed a pre-existing false-negative in `tools/test_api_collection_bounds_contract.py`. The personal-history endpoint already applies Laravel's query-builder `->limit($limit)->get()` after deterministic ordering, but the test searched for `.limit($limit)->get()` (one missing leading hyphen). The source implementation was bounded; the assertion was malformed.
 
 The correction changes only the test's expected source fragment. It does not change API behavior, limits, response shape, role authorization, or database data. The failure had prevented all later source-contract steps in that job from running, so a rerun is required to establish the complete result.
+
+
+## Android model and presentation contract review — 2026-11-20
+
+A direct review of the Android model and dispatcher screen narrows the implementation boundary:
+
+- Incident is the shared Gson DTO used by the dispatcher queue. Its required fields are id, type, and status; narrative, coordinates, location metadata, requester identity/contact, assignment IDs/statuses, creation time, and requester edit metadata are nullable or defaulted.
+- The current api_all_incidents() JSON projection includes the incident ID/type/description, coordinates and accuracy, location notes/capture time/source, status, requester name and phone, lead assignment, team member IDs, creation time, and requester edit count/time. It does not currently include the optional assigned_user_statuses or is_claimable DTO fields; the model defaults keep decoding compatible.
+- DispatcherScreen currently resolves the alert focus by searching the in-memory state.incidents list. The focused-alert presentation uses IncidentCard and exposes an Open conversation action; it does not itself render assignment or progress controls. The not-found state is informational and asks the dispatcher to refresh.
+- Assignment history is already a separate TacAssignmentHistoryApi capability, fetched by incident ID with a bounded limit of 50 and protected by table RLS. It is not an incident-detail lookup and must remain distinct from the new single-record read.
+- SupabaseTacApi implements the shared TacApi plus notification/chat/history capabilities. Its default queue operation is direct Supabase RPC; the optional Render bridge uses a separate Retrofit interface. A historical-read capability should be explicit and dispatcher-scoped rather than adding a generic object lookup to every role's API surface.
+
+### Recommended response shape and UI behavior
+
+The new RPC can return one JSON object compatible with the existing Incident DTO, but should deliberately omit requester phone unless the detail design demonstrates it is necessary. Do not return a one-element array or reuse the queue aggregate. Keep optional/defaulted fields absent where they are not required, and add a DTO decode test for the exact single-object response.
+
+The dispatcher view model should keep historical detail in a separate state property, not append it to incidents. This prevents a resolved/cancelled record fetched from an old notification from being counted as pending/active, affecting queue ordering, or accidentally entering assignment flows. The focused alert section should display the record read-only, retain the existing conversation action only if the incident chat authorization contract permits it, and never expose assignment, claimability, release, or progress controls for that historical-only state.
+
+### Implementation prerequisites still open
+
+1. Inspect the complete SupabaseRpcWire and SupabaseBridgeRpcWire declarations and bridge allowlist before deciding whether the opt-in bridge can support this RPC safely. If no bridge endpoint is implemented, keep the feature explicitly direct-Supabase-only rather than silently falling back to an unrelated Laravel route.
+2. Inspect incident SELECT RLS and notification ownership together. A notification ID is only a navigation hint; the new RPC must independently verify the current actor is a dispatcher and rely on invoker RLS for row visibility.
+3. Add PostgreSQL migration-replay tests for dispatcher access across all lifecycle states, denial for requester/responder/driver/anonymous roles, invalid IDs, and missing rows. Add Android DTO/repository/view-model source or unit tests proving the historical record is stored separately and is read-only.
+4. Keep queue pagination as a separate compatibility change. The current aggregate returns all incidents with no row bound, while the separate Laravel endpoint's 100-row cap does not constrain the default Supabase queue transport.
+
+This review is based on repository source inspection. It does not establish production database state, deployed bridge configuration, or physical-device behavior.
