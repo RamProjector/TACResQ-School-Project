@@ -163,7 +163,7 @@ private fun TacruNavigationRail(
     onDestinationSelected: (AppDestination) -> Unit,
 ) {
     NavigationRail(
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         roleNavigationDestinations(role).take(2).forEach { (destination, label) ->
@@ -231,9 +231,9 @@ private fun TacruBottomNavigation(
     val destinations = roleNavigationDestinations(role)
     NavigationBar(
         modifier = Modifier.fillMaxWidth(),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = 0.dp,
+        tonalElevation = 1.dp,
     ) {
         NavigationItem(destinations[0].first, destinations[0].second, selected, onDestinationSelected)
         NavigationItem(destinations[1].first, destinations[1].second, selected, onDestinationSelected)

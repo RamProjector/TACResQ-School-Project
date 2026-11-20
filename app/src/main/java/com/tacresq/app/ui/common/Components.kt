@@ -1,10 +1,15 @@
 package com.tacresq.app.ui.common
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
@@ -13,15 +18,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -57,40 +69,51 @@ import kotlin.math.ceil
 @Composable
 fun ScreenHeader(title: String, subtitle: String = "", onOpenNotifications: (() -> Unit)? = null) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f).semantics { heading() },
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            )
-            if (onOpenNotifications != null) {
-                IconButton(onClick = onOpenNotifications) {
-                    Icon(
-                        imageVector = Icons.Filled.Notifications,
-                        contentDescription = "Open notifications",
-                        tint = MaterialTheme.colorScheme.onSurface,
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.semantics { heading() },
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+                subtitle.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
             }
-        }
-        subtitle.takeIf { it.isNotBlank() }?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            )
+            if (onOpenNotifications != null) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ) {
+                    IconButton(onClick = onOpenNotifications) {
+                        Icon(
+                            imageVector = Icons.Filled.Notifications,
+                            contentDescription = "Open notifications",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -98,18 +121,37 @@ fun ScreenHeader(title: String, subtitle: String = "", onOpenNotifications: (() 
 @Composable
 fun SectionHeading(title: String, supportingText: String? = null) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 5.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            title,
-            modifier = Modifier.semantics { heading() },
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(18.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+            Text(
+                title,
+                modifier = Modifier.semantics { heading() },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
         supportingText?.takeIf { it.isNotBlank() }?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(
+                it,
+                modifier = Modifier.padding(start = 13.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -126,6 +168,11 @@ fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null, isSu
         isSuccess -> MaterialTheme.colorScheme.onSecondaryContainer
         else -> MaterialTheme.colorScheme.onTertiaryContainer
     }
+    val icon = when {
+        isError -> Icons.Filled.Warning
+        isSuccess -> Icons.Filled.CheckCircle
+        else -> Icons.Filled.Info
+    }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -135,10 +182,17 @@ fun Banner(text: String, isError: Boolean, onDismiss: (() -> Unit)? = null, isSu
         contentColor = content,
     ) {
         Row(
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
+            modifier = Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(text, modifier = Modifier.weight(1f))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = content,
+            )
+            Text(text, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
             if (onDismiss != null) {
                 TextButton(
                     onClick = onDismiss,
@@ -186,13 +240,35 @@ fun StatusPill(status: IncidentStatus) {
             colors.secondaryContainer to colors.onSecondaryContainer
         IncidentStatus.CANCELLED -> colors.surfaceVariant to colors.onSurfaceVariant
     }
-    Surface(color = container, contentColor = content, shape = RoundedCornerShape(50)) {
-        Text(
-            status.label,
-            color = content,
-            style = MaterialTheme.typography.labelMedium,
+    val animatedContainer by animateColorAsState(
+        targetValue = container,
+        animationSpec = tween(durationMillis = 300),
+        label = "statusPillContainer",
+    )
+    val animatedContent by animateColorAsState(
+        targetValue = content,
+        animationSpec = tween(durationMillis = 300),
+        label = "statusPillContent",
+    )
+    Surface(color = animatedContainer, contentColor = animatedContent, shape = RoundedCornerShape(50)) {
+        Row(
             modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
-        )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(animatedContent),
+            )
+            Text(
+                status.label,
+                color = animatedContent,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 
@@ -238,41 +314,81 @@ fun IncidentCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        border = if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+        border = BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+        ),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
             else MaterialTheme.colorScheme.surface,
             contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
             else MaterialTheme.colorScheme.onSurface,
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 0.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    incident.type.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 2,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                )
-                if (statusLabel == null) StatusPill(incident.status)
-                else StatusPill(statusLabel, incident.status.pillColor())
-            }
-            val time = formatTime(incident.createdAt)
-            if (time.isNotEmpty()) {
-                Text("Submitted $time", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            // Emergency descriptions may contain critical context. Keep the full text
-            // available in the incident card instead of silently truncating it.
-            incident.description?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
-                Text(note, style = MaterialTheme.typography.bodyMedium)
-            }
+        Column {
+            // Coloured severity strip at the top of the card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .background(
+                        if (incident.status.isActive) incident.status.pillColor().copy(alpha = 0.6f)
+                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    ),
+            )
+            Column(
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    // Emergency type icon
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = incident.status.pillColor().copy(alpha = 0.12f),
+                        modifier = Modifier.size(38.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                when (incident.type) {
+                                    com.tacresq.app.data.model.IncidentType.MEDICAL -> "🏥"
+                                    com.tacresq.app.data.model.IncidentType.FIRE -> "🔥"
+                                    com.tacresq.app.data.model.IncidentType.VEHICULAR -> "🚗"
+                                    com.tacresq.app.data.model.IncidentType.DISASTER -> "🌊"
+                                    com.tacresq.app.data.model.IncidentType.OTHER -> "⚠️"
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            incident.type.label,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
+                        val time = formatTime(incident.createdAt)
+                        if (time.isNotEmpty()) {
+                            Text(
+                                time,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (statusLabel == null) StatusPill(incident.status)
+                    else StatusPill(statusLabel, incident.status.pillColor())
+                }
+                // Emergency descriptions may contain critical context. Keep the full text
+                // available in the incident card instead of silently truncating it.
+                incident.description?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
+                    Text(note, style = MaterialTheme.typography.bodyMedium)
+                }
             // Landmark/access details are operational information, not decorative
             // metadata. Keep the complete note visible instead of silently truncating it.
             Text(
@@ -282,6 +398,7 @@ fun IncidentCard(
                 fontWeight = FontWeight.Medium,
             )
             actions()
+            }
         }
     }
 }
@@ -493,26 +610,27 @@ fun SyncStatus(
         error != null && syncedTime != null -> "Updates unavailable. Showing data last synced $syncedTime. $error"
         error != null -> "Updates unavailable. No successful sync yet. $error"
         syncedTime != null -> "Last synced $syncedTime"
-        else -> "Waiting for the first successful sync…"
+        else -> "Waiting for the first successful sync\u2026"
     }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         color = if (error != null) MaterialTheme.colorScheme.errorContainer
-        else MaterialTheme.colorScheme.surfaceVariant,
+        else MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = if (error != null) MaterialTheme.colorScheme.onErrorContainer
         else MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Surface(
-                modifier = Modifier.size(8.dp),
-                shape = RoundedCornerShape(50),
-                color = statusTint,
-            ) {}
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(statusTint),
+            )
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
