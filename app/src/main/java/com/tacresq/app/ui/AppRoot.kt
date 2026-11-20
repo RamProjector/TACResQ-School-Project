@@ -2,6 +2,9 @@ package com.tacresq.app.ui
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -479,6 +482,7 @@ internal fun RoleSectionScreen(
     historyStatusMessage: String? = null,
 ) {
     if (user.role == Role.ADMIN) return
+    val context = LocalContext.current
     if (destination == AppDestination.ALERTS) {
         NotificationsAndSafetyScreen(notificationsVm, user, logout, onOpenIncident, onOpenChat)
         return
@@ -708,9 +712,16 @@ internal fun RoleSectionScreen(
                                     selected = themeMode == mode,
                                     onClick = { onThemeModeChanged(mode) },
                                     label = { Text(mode.label) },
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                                 )
                             }
+                        }
+
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { openAppNotificationSettings(context) },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Text("Manage Android notification settings")
                         }
 
                         androidx.compose.material3.HorizontalDivider()
@@ -856,6 +867,19 @@ internal fun RoleSectionScreen(
             }
         }
     }
+}
+
+private fun openAppNotificationSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+    }
+    runCatching { context.startActivity(intent) }
+        .onFailure {
+            val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+            }
+            runCatching { context.startActivity(fallback) }
+        }
 }
 
 /**
