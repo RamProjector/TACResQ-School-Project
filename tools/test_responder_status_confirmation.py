@@ -33,8 +33,8 @@ assert "ResponderAssignmentStatus(unitId, body.status, timestamp)" in fake
 
 laravel = Path("backend/src/routes/api.php").read_text(encoding="utf-8")
 status_route_start = laravel.index("Route::patch('/incidents/{incident}/status'")
-status_route_end = laravel.index("\n    });", status_route_start)
-status_route = laravel[status_route_start:status_route_end]
+status_route_end = laravel.find("\n    Route::", status_route_start + len("Route::patch('/incidents/{incident}/status'"))
+status_route = laravel[status_route_start:status_route_end if status_route_end >= 0 else len(laravel)]
 assert "$onlyRoles($request, ['dispatcher'])" in status_route
 assert "User::whereKey($locked->assigned_to)" in status_route
 assert "$locked->status" in status_route

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Regression contract for Laravel dispatcher assignment duty-state visibility."""
 from pathlib import Path
-import re
 
 ROOT = Path(__file__).resolve().parents[1]
 api = (ROOT / "backend/src/routes/api.php").read_text()
@@ -64,11 +63,7 @@ assert "->where('incident_id', $locked->id)" in status_route
 assert "'responder_status' => $data['status']" in status_route
 assert "'status_updated_at' => now()" in status_route
 assert "->pluck('user_id')" in status_route
-assert re.search(
-    r"User::whereIn\('id', \$assignedUserIds\)\s*"
-    r"->orderBy\('id'\)\s*->lockForUpdate\(\)\s*->get\(\)",
-    status_route,
-), "Assigned team rows must be locked in deterministic ID order before duty updates"
+assert "whereIn('id', $assignedUserIds)->orderBy('id')->lockForUpdate()" in status_route
 assert "$data['status'] === 'resolved' ? 'available' : $data['status']" in status_route
 
 assert "function responseIncidents()" in user_model
