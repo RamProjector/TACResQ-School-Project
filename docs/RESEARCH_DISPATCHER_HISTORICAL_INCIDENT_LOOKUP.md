@@ -84,3 +84,10 @@ The incidents SELECT RLS policy also permits the authenticated dispatcher role t
 ### Source-contract coverage added
 
 A lightweight CI contract now characterizes the actual direct Supabase RPC, opt-in Render bridge, dispatcher focus behavior, and separate bounded Laravel route. It intentionally does not claim to execute PostgreSQL authorization or Android navigation. Authenticated migration-replay tests and manual device acceptance remain required before release.
+
+
+## CI regression follow-up — 2026-11-20
+
+The first full TACResQ CI run after the transport-contract commit exposed a pre-existing false-negative in `tools/test_api_collection_bounds_contract.py`. The personal-history endpoint already applies Laravel's query-builder `->limit($limit)->get()` after deterministic ordering, but the test searched for `.limit($limit)->get()` (one missing leading hyphen). The source implementation was bounded; the assertion was malformed.
+
+The correction changes only the test's expected source fragment. It does not change API behavior, limits, response shape, role authorization, or database data. The failure had prevented all later source-contract steps in that job from running, so a rerun is required to establish the complete result.

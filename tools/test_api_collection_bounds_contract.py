@@ -33,7 +33,7 @@ for name, block in routes.items():
         f"{name} must validate an optional limit between 1 and 100"
     )
     assert "$validated['limit'] ?? 100" in block, f"{name} must default to a bounded limit"
-    assert ".limit($limit)->get()" in block, f"{name} must apply the SQL limit before retrieval"
+    assert "->limit($limit)->get()" in block, f"{name} must apply the SQL limit before retrieval"
     assert "->middleware('throttle:120,1')" in block, f"{name} must have a per-user request ceiling"
     assert "response()->json(" in block and "->values()" in block, (
         f"{name} must preserve the existing JSON array response shape"
