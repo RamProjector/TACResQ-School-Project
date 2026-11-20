@@ -312,6 +312,7 @@ fun AppRoot(
                                             "Current request history could not be confirmed. Reconnect and refresh before relying on an empty list."
                                         else -> null
                                     },
+                                    onUpdateProfile = { name, phone -> container.repository.updateProfile(name, phone) },
                                 )
                             }
                         }
@@ -347,6 +348,7 @@ fun AppRoot(
                                     historyStatusMessage = if (vmState.syncError != null)
                                         "The latest response history could not be confirmed. This list may be out of date; refresh before relying on it."
                                     else null,
+                                    onUpdateProfile = { name, phone -> container.repository.updateProfile(name, phone) },
                                 )
                             }
                         }
@@ -382,6 +384,7 @@ fun AppRoot(
                                     historyStatusMessage = if (vmState.syncError != null)
                                         "The latest dispatch history could not be confirmed. This list may be out of date; refresh before relying on it."
                                     else null,
+                                    onUpdateProfile = { name, phone -> container.repository.updateProfile(name, phone) },
                                 )
                             }
                         }
@@ -489,6 +492,7 @@ internal fun RoleSectionScreen(
     onThemeModeChanged: (com.tacresq.app.ui.theme.ThemeMode) -> Unit = {},
     historyLoading: Boolean = false,
     historyStatusMessage: String? = null,
+    onUpdateProfile: suspend (String, String) -> Result<User> = { _, _ -> Result.success(user) },
 ) {
     if (user.role == Role.ADMIN) return
     val context = LocalContext.current
@@ -501,6 +505,12 @@ internal fun RoleSectionScreen(
     var showAccountDeletionDialog by remember(user.id) { mutableStateOf(false) }
     var showHelpGuideDialog by remember(user.id) { mutableStateOf(false) }
     var profileSubpage by rememberSaveable(user.id) { mutableStateOf(ProfileSubpage.HUB) }
+    var showEditProfileDialog by remember(user.id) { mutableStateOf(false) }
+    var editName by remember(user.id, user.name) { mutableStateOf(user.name) }
+    var editPhone by remember(user.id, user.phone) { mutableStateOf(user.phone.orEmpty()) }
+    var profileEditLoading by remember(user.id) { mutableStateOf(false) }
+    var profileEditError by remember(user.id) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     val role = user.role
     val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER && role != Role.ADMIN
     val title = when (destination) {
@@ -749,6 +759,17 @@ internal fun RoleSectionScreen(
                                         androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                                         ProfileDetail("Mobile", phone)
                                     }
+                                    androidx.compose.material3.TextButton(
+                                        onClick = {
+                                            editName = user.name
+                                            editPhone = user.phone.orEmpty()
+                                            profileEditError = null
+                                            showEditProfileDialog = true
+                                        },
+                                        modifier = Modifier.align(Alignment.End),
+                                    ) {
+                                        Text("Edit profile")
+                                    }
                                 }
                             }
 
@@ -928,6 +949,72 @@ internal fun RoleSectionScreen(
                             }
                         }
                     }
+                }
+
+                if (showEditProfileDialog) {
+                    AlertDialog(
+                        onDismissRequest = { if (!profileEditLoading) showEditProfileDialog = false },
+                        title = { Text("Edit profile") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(
+                                    "Update your registered name and mobile number so emergency responders can reach you.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                androidx.compose.material3.OutlinedTextField(
+                                    value = editName,
+                                    onValueChange = { editName = it },
+                                    label = { Text("Full name") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                androidx.compose.material3.OutlinedTextField(
+                                    value = editPhone,
+                                    onValueChange = { editPhone = it },
+                                    label = { Text("Mobile number") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                profileEditError?.let { err ->
+                                    Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        profileEditLoading = true
+                                        profileEditError = null
+                                        onUpdateProfile(editName, editPhone)
+                                            .onSuccess {
+                                                showEditProfileDialog = false
+                                            }
+                                            .onFailure {
+                                                profileEditError = it.message ?: "Could not update profile."
+                                            }
+                                        profileEditLoading = false
+                                    }
+                                },
+                                enabled = !profileEditLoading,
+                            ) {
+                                if (profileEditLoading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Text("Save changes")
+                                }
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(
+                                onClick = { showEditProfileDialog = false },
+                                enabled = !profileEditLoading,
+                            ) {
+                                Text("Cancel")
+                            }
+                        },
+                    )
                 }
 
                 // Privacy Policy Dialog (RA 10173 DPA & TACRU Standards)

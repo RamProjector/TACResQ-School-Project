@@ -120,6 +120,21 @@ class FakeTacApi(
         return updated
     }
 
+    override suspend fun updateProfile(body: UpdateProfileRequest): User {
+        delay(200)
+        require(body.name.isNotBlank()) { "Name cannot be blank." }
+        require(body.phone.isNotBlank()) { "Mobile number cannot be blank." }
+        return synchronized(lock) {
+            val me = current()
+            val updated = me.copy(name = body.name.trim(), phone = body.phone.trim())
+            val index = accounts.indexOfFirst { it.user.id == me.id }
+            if (index >= 0) {
+                accounts[index] = accounts[index].copy(user = updated)
+            }
+            updated
+        }
+    }
+
     override suspend fun myIncidents(): List<Incident> {
         delay(300)
         return synchronized(lock) {

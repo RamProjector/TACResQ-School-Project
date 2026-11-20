@@ -70,6 +70,12 @@ class SupabaseTacApi private constructor(
         return if (bridgeRpc != null) bridgeRpc.setDutyStatus(request) else rpc.setDutyStatus(request)
     }
 
+    override suspend fun updateProfile(body: UpdateProfileRequest): User {
+        require(body.name.isNotBlank()) { "Name cannot be blank." }
+        require(body.phone.isNotBlank()) { "Mobile number cannot be blank." }
+        return rpc.updateProfile(body)
+    }
+
     override suspend fun myIncidents(): List<Incident> =
         if (bridgeRpc != null) bridgeRpc.myIncidents(EmptyRpcBody()) else rpc.myIncidents(EmptyRpcBody())
 
@@ -377,6 +383,9 @@ private interface SupabaseRpcWire {
 
     @POST("rest/v1/rpc/api_set_duty_status")
     suspend fun setDutyStatus(@Body body: DutyStatusRpc): User
+
+    @POST("rest/v1/rpc/api_update_profile")
+    suspend fun updateProfile(@Body body: UpdateProfileRequest): User
 
     @POST("rest/v1/rpc/api_my_incidents")
     suspend fun myIncidents(@Body body: EmptyRpcBody): List<Incident>

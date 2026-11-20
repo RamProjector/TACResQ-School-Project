@@ -28,6 +28,7 @@ import com.tacresq.app.data.remote.ResponderLocationRequest
 import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.remote.TacNotificationApi
 import com.tacresq.app.data.remote.TacPushApi
+import com.tacresq.app.data.remote.UpdateProfileRequest
 import com.tacresq.app.data.remote.TacChatApi
 import com.tacresq.app.data.remote.UpdateStatusRequest
 import com.tacresq.app.data.remote.UpdateMyIncidentRequest
@@ -130,6 +131,16 @@ class TacRepository(
         val user = api.setDutyStatus(DutyStatusRequest(status))
         tokenHolder.value?.let { token -> store.save(Session(token, user)) }
         user
+    }
+
+    suspend fun updateProfile(name: String, phone: String): Result<User> = call {
+        val trimmedName = name.trim()
+        val trimmedPhone = phone.trim()
+        require(trimmedName.isNotBlank()) { "Name cannot be blank." }
+        require(trimmedPhone.isNotBlank()) { "Mobile number cannot be blank." }
+        val updated = api.updateProfile(UpdateProfileRequest(trimmedName, trimmedPhone))
+        tokenHolder.value?.let { token -> store.save(Session(token, updated)) }
+        updated
     }
 
     suspend fun myIncidents(): Result<List<Incident>> = call { api.myIncidents() }

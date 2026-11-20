@@ -86,6 +86,9 @@ interface TacApi {
     @PATCH("me/duty-status")
     suspend fun setDutyStatus(@Body body: DutyStatusRequest): User
 
+    @POST("rest/v1/rpc/api_update_profile")
+    suspend fun updateProfile(@Body body: UpdateProfileRequest): User
+
     /** Requester: their own requests. Responder/driver: incidents assigned to them. */
     @GET("incidents/mine")
     suspend fun myIncidents(): List<Incident>
@@ -200,6 +203,11 @@ data class ReleaseIncidentAssignmentRpc(
 data class AssignIncidentTeamRequest(@SerializedName("user_ids") val userIds: List<Long>)
 
 data class SetClaimableRequest(@SerializedName("claimable") val claimable: Boolean)
+
+data class UpdateProfileRequest(
+    @SerializedName("p_name") val name: String,
+    @SerializedName("p_phone") val phone: String,
+)
 
 data class ResponderLocationRequest(
     @SerializedName("incident_id") val incidentId: Long,
