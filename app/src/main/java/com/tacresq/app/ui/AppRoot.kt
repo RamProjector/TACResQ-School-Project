@@ -771,18 +771,6 @@ internal fun RoleSectionScreen(
                                         androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                                         ProfileDetail("Mobile", phone)
                                     }
-                                    androidx.compose.material3.TextButton(
-                                        onClick = {
-                                            editName = user.name
-                                            editPhone = user.phone.orEmpty()
-                                            profileEditError = null
-                                            profileEditSuccess = null
-                                            profileSubpage = ProfileSubpage.EDIT_PROFILE
-                                        },
-                                        modifier = Modifier.align(Alignment.End),
-                                    ) {
-                                        Text("Edit profile")
-                                    }
                                 }
                             }
 
