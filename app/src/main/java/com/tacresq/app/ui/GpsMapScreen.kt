@@ -528,14 +528,34 @@ private fun GpsMapFilterButtons(
 private fun GpsMapCameraControls(
     modifier: Modifier = Modifier,
     enabled: Boolean,
+    hasDeviceFix: Boolean,
     onZoomIn: () -> Unit,
     onZoomOut: () -> Unit,
     onShowAll: () -> Unit,
+    onCenterOnDevice: () -> Unit,
 ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (hasDeviceFix) {
+            androidx.compose.material3.FilledTonalIconButton(
+                onClick = onCenterOnDevice,
+                enabled = enabled,
+                modifier = Modifier
+                    .size(48.dp)
+                    .semantics {
+                        contentDescription = "Center on my location"
+                    },
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.MyLocation,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
         androidx.compose.material3.FilledTonalIconButton(
             onClick = onZoomIn,
             enabled = enabled,
@@ -2887,6 +2907,7 @@ fun GpsMapScreen(
                         .navigationBarsPadding()
                         .padding(start = 12.dp, bottom = 136.dp),
                     enabled = mapStyleLoaded,
+                    hasDeviceFix = deviceFix != null,
                     onZoomIn = {
                         mapLibreMap?.animateCamera(org.maplibre.android.camera.CameraUpdateFactory.zoomIn(), 250)
                     },
@@ -2894,6 +2915,12 @@ fun GpsMapScreen(
                         mapLibreMap?.animateCamera(org.maplibre.android.camera.CameraUpdateFactory.zoomOut(), 250)
                     },
                     onShowAll = ::showAllVisiblePoints,
+                    onCenterOnDevice = {
+                        deviceFix?.let { fix ->
+                            animateToPoint(LatLng(fix.latitude, fix.longitude), gpsMapPreviewZoom(fix.accuracyM))
+                            locationStatus = "Centered on your device location fix."
+                        }
+                    },
                 )
             }
         }
