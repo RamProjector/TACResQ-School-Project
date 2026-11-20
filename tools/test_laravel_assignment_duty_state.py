@@ -8,10 +8,15 @@ migration = (ROOT / "backend/src/database/migrations/2026_10_24_000004_create_ow
 incident_model = (ROOT / "backend/src/app/Models/Incident.php").read_text()
 user_model = (ROOT / "backend/src/app/Models/User.php").read_text()
 
-start = api.index("Route::post('/incidents/{incident}/assign'")
-end = api.index("\n    });", start)
-route = api[start:end]
 
+def route_block(marker: str) -> str:
+    """Extract a route through its next declaration, independent of closure style."""
+    start = api.index(marker)
+    end = api.find("\n    Route::", start + len(marker))
+    return api[start:end if end >= 0 else len(api)]
+
+
+route = route_block("Route::post('/incidents/{incident}/assign'")
 required = (
     "$onlyRoles($request, ['dispatcher'])",
     "Incident::whereKey($incident->id)->lockForUpdate()->firstOrFail()",
@@ -34,9 +39,7 @@ assert "$unit->update(['duty_status' => 'available'])" not in route
 for column in ("'responder_status'", "'status_updated_at'", "'assigned_by'", "'assigned_at'"):
     assert column in migration, f"Assignment mirror migration missing column: {column}"
 
-mine_start = api.index("Route::get('/incidents/mine'")
-mine_end = api.index("\n    });", mine_start)
-mine_route = api[mine_start:mine_end]
+mine_route = route_block("Route::get('/incidents/mine'")
 assert "->orWhereExists(function ($assignment)" in mine_route
 assert "->from('incident_assignments')" in mine_route
 assert "->where('incident_assignments.user_id', $user->id)" in mine_route
@@ -46,9 +49,8 @@ assert "AS assignment_role" in mine_route
 assert "CASE WHEN incidents.assigned_to = ? THEN 'lead' ELSE 'team' END" in mine_route
 assert "$payload['assignment_role'] = $incident->assignment_role" in mine_route
 assert "->map(" in mine_route
-duty_start = api.index("Route::patch('/me/duty-status'")
-duty_end = api.index("\n    });", duty_start)
-duty_route = api[duty_start:duty_end]
+
+duty_route = route_block("Route::patch('/me/duty-status'")
 assert "DB::transaction(function () use ($request, $data)" in duty_route
 assert "User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail()" in duty_route
 assert "->orWhereExists(function ($assignment)" in duty_route
@@ -56,9 +58,7 @@ assert "->from('incident_assignments')" in duty_route
 assert duty_route.index("lockForUpdate()") < duty_route.index("->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists()")
 assert "$unit->update($data)" in duty_route
 
-status_start = api.index("Route::patch('/incidents/{incident}/status'")
-status_end = api.index("\n    });", status_start)
-status_route = api[status_start:status_end]
+status_route = route_block("Route::patch('/incidents/{incident}/status'")
 assert "->where('incident_id', $locked->id)" in status_route
 assert "'responder_status' => $data['status']" in status_route
 assert "'status_updated_at' => now()" in status_route
