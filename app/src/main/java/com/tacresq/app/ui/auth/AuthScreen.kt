@@ -167,7 +167,7 @@ class AuthViewModel(private val repo: TacRepository) : ViewModel() {
             _state.value = AuthUiState(
                 error = when {
                     failure is CompromisedPasswordException || emailConfirmationRequired -> null
-                    failure != null -> failure.message?.takeIf { it.isNotBlank() }
+                    failure != null -> failure?.message?.takeIf { it.isNotBlank() }
                         ?: "Something went wrong. Please try again."
                     else -> null
                 },
