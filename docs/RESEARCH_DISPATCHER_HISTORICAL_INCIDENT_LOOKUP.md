@@ -117,3 +117,10 @@ The dispatcher view model should keep historical detail in a separate state prop
 4. Keep queue pagination as a separate compatibility change. The current aggregate returns all incidents with no row bound, while the separate Laravel endpoint's 100-row cap does not constrain the default Supabase queue transport.
 
 This review is based on repository source inspection. It does not establish production database state, deployed bridge configuration, or physical-device behavior.
+
+
+## CI regression follow-up — Laravel assignment source contract — 2026-11-20
+
+The next full CI run exposed a brittle assertion in `tools/test_laravel_assignment_duty_state.py`. The Laravel status route correctly builds the assigned-user query across multiple lines, orders users by ID, then applies `lockForUpdate()` before updating duty state. The test expected the entire chain on one line, so it failed despite the intended deterministic lock order being present.
+
+The contract now uses a whitespace-tolerant regular expression and still requires the exact query order: `whereIn(id)`, `orderBy(id)`, `lockForUpdate()`, then `get()`. This preserves the concurrency invariant and does not relax the test to accept arbitrary locking. No Laravel application code, database schema, or production data is changed.
