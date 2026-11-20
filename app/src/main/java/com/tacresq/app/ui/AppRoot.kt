@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.os.Build
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -463,6 +465,13 @@ private fun RoleApp(
     )
 }
 
+private enum class ProfileSubpage {
+    HUB,
+    SETTINGS,
+    PRIVACY,
+    HELP,
+}
+
 @Composable
 internal fun RoleSectionScreen(
     destination: AppDestination,
@@ -491,6 +500,7 @@ internal fun RoleSectionScreen(
     var showPrivacyPolicyDialog by remember(user.id) { mutableStateOf(false) }
     var showAccountDeletionDialog by remember(user.id) { mutableStateOf(false) }
     var showHelpGuideDialog by remember(user.id) { mutableStateOf(false) }
+    var profileSubpage by rememberSaveable(user.id) { mutableStateOf(ProfileSubpage.HUB) }
     val role = user.role
     val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER && role != Role.ADMIN
     val title = when (destination) {
@@ -650,183 +660,273 @@ internal fun RoleSectionScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    // 1. User Identity Hero Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.extraLarge,
-                        colors = androidx.compose.material3.CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-                        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                    if (profileSubpage != ProfileSubpage.HUB) {
+                        // Subpage Top Bar with Back Button
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { profileSubpage = ProfileSubpage.HUB },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            androidx.compose.material3.Icon(
+                                imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Default.ArrowBack,
+                                contentDescription = "Back to profile",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                when (profileSubpage) {
+                                    ProfileSubpage.SETTINGS -> "App Settings & Theme"
+                                    ProfileSubpage.PRIVACY -> "Privacy & Account (RA 10173)"
+                                    ProfileSubpage.HELP -> "Safety & Emergency Guide"
+                                    ProfileSubpage.HUB -> ""
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    }
+
+                    when (profileSubpage) {
+                        ProfileSubpage.HUB -> {
+                            // 1. User Identity Hero Card
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.extraLarge,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                                elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 2.dp),
                             ) {
-                                Surface(
-                                    modifier = Modifier.size(64.dp),
-                                    shape = androidx.compose.foundation.shape.CircleShape,
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp),
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            initials,
-                                            style = MaterialTheme.typography.headlineMedium,
-                                            fontWeight = FontWeight.Bold,
-                                        )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    ) {
+                                        Surface(
+                                            modifier = Modifier.size(64.dp),
+                                            shape = androidx.compose.foundation.shape.CircleShape,
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(
+                                                    initials,
+                                                    style = MaterialTheme.typography.headlineMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                )
+                                            }
+                                        }
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                                        ) {
+                                            Text(
+                                                user.name,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                            Text(
+                                                user.email,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            Row(
+                                                modifier = Modifier.padding(top = 4.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            ) {
+                                                StatusPill(role.label, MaterialTheme.colorScheme.primary)
+                                            }
+                                        }
+                                    }
+                                    user.phone?.takeIf { it.isNotBlank() }?.let { phone ->
+                                        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                        ProfileDetail("Mobile", phone)
                                     }
                                 }
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                            }
+
+                            // Menu Subpage Navigation Cards
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { profileSubpage = ProfileSubpage.SETTINGS },
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 ) {
-                                    Text(
-                                        user.name,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
+                                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text("App Settings & Theme", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                        Text("Theme mode and notification preferences", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    androidx.compose.material3.Icon(
+                                        imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    Text(
-                                        user.email,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                }
+                            }
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { profileSubpage = ProfileSubpage.PRIVACY },
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text("Privacy & account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                        Text("RA 10173 privacy notice and account information", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    androidx.compose.material3.Icon(
+                                        imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                }
+                            }
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable { profileSubpage = ProfileSubpage.HELP },
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text("Safety & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                        Text("Emergency guidance and operation guide", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    androidx.compose.material3.Icon(
+                                        imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+
+                            // Sign Out Button
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = { showSignOutConfirmation = true },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error,
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                            ) {
+                                Text("Sign out", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+
+                        ProfileSubpage.SETTINGS -> {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Text("App Settings & Theme", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                     Row(
-                                        modifier = Modifier.padding(top = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
-                                        StatusPill(role.label, MaterialTheme.colorScheme.primary)
+                                        com.tacresq.app.ui.theme.ThemeMode.entries.forEach { mode ->
+                                            androidx.compose.material3.FilterChip(
+                                                selected = themeMode == mode,
+                                                onClick = { onThemeModeChanged(mode) },
+                                                label = { Text(mode.label) },
+                                                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                                            )
+                                        }
+                                    }
+                                    androidx.compose.material3.OutlinedButton(
+                                        onClick = { openAppNotificationSettings(context) },
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                        shape = MaterialTheme.shapes.medium,
+                                    ) {
+                                        Text("Manage Android notification settings")
                                     }
                                 }
                             }
-                            user.phone?.takeIf { it.isNotBlank() }?.let { phone ->
-                                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                                ProfileDetail("Mobile", phone)
-                            }
                         }
-                    }
 
-                    // 2. App Settings & Theme Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.large,
-                        colors = androidx.compose.material3.CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
-                        ) {
-                            Text(
-                                "App Settings & Theme",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Row(
+                        ProfileSubpage.PRIVACY -> {
+                            Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                             ) {
-                                com.tacresq.app.ui.theme.ThemeMode.entries.forEach { mode ->
-                                    androidx.compose.material3.FilterChip(
-                                        selected = themeMode == mode,
-                                        onClick = { onThemeModeChanged(mode) },
-                                        label = { Text(mode.label) },
-                                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                                    )
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Text("Privacy & account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                    androidx.compose.material3.OutlinedButton(
+                                        onClick = { showPrivacyPolicyDialog = true },
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                        shape = MaterialTheme.shapes.medium,
+                                    ) {
+                                        Text("Read Privacy Policy (RA 10173 & TACRU)")
+                                    }
+                                    androidx.compose.material3.TextButton(
+                                        onClick = { showAccountDeletionDialog = true },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Text("Account deletion information")
+                                    }
                                 }
                             }
-                            androidx.compose.material3.OutlinedButton(
-                                onClick = { openAppNotificationSettings(context) },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                                shape = MaterialTheme.shapes.medium,
-                            ) {
-                                Text("Manage Android notification settings")
-                            }
                         }
-                    }
 
-                    // 3. Privacy & Account Actions Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.large,
-                        colors = androidx.compose.material3.CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Text(
-                                "Privacy & account",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            androidx.compose.material3.OutlinedButton(
-                                onClick = { showPrivacyPolicyDialog = true },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                                shape = MaterialTheme.shapes.medium,
-                            ) {
-                                Text("Read Privacy Policy (RA 10173 & TACRU)")
-                            }
-                            androidx.compose.material3.TextButton(
-                                onClick = { showAccountDeletionDialog = true },
+                        ProfileSubpage.HELP -> {
+                            Card(
                                 modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                             ) {
-                                Text("Account deletion information")
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Text("Safety & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                    ProfileDetail("Emergency help", "For immediate danger, contact local emergency services. Do not wait for an app update.")
+                                    ProfileDetail("Confirm your location", "Check the map pin against a landmark. GPS can drift indoors or near tall buildings.")
+                                    ProfileDetail("Location sharing", "When an en-route response has location sharing enabled, approximate location may continue to be sent while TACResQ is in the background. Stop sharing when it is no longer needed.")
+                                    ProfileDetail("Personal information", "Share only details needed for the response. Keep medical and contact details private.")
+                                    androidx.compose.material3.OutlinedButton(
+                                        onClick = { showHelpGuideDialog = true },
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                        shape = MaterialTheme.shapes.medium,
+                                    ) {
+                                        Text("Emergency Help & Operation Guide")
+                                    }
+                                }
                             }
                         }
-                    }
-
-                    // 4. Safety & Operational Guidance Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.large,
-                        colors = androidx.compose.material3.CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Text("Safety & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            ProfileDetail("Emergency help", "For immediate danger, contact local emergency services. Do not wait for an app update.")
-                            ProfileDetail("Confirm your location", "Check the map pin against a landmark. GPS can drift indoors or near tall buildings.")
-                            ProfileDetail("Location sharing", "When an en-route response has location sharing enabled, approximate location may continue to be sent while TACResQ is in the background. Stop sharing when it is no longer needed.")
-                            ProfileDetail("Personal information", "Share only details needed for the response. Keep medical and contact details private.")
-                            androidx.compose.material3.OutlinedButton(
-                                onClick = { showHelpGuideDialog = true },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                                shape = MaterialTheme.shapes.medium,
-                            ) {
-                                Text("Emergency Help & Operation Guide")
-                            }
-                        }
-                    }
-
-                    // 5. Standalone Sign-Out Button
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = { showSignOutConfirmation = true },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                        shape = MaterialTheme.shapes.large,
-                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error,
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-                    ) {
-                        Text("Sign out", fontWeight = FontWeight.SemiBold)
                     }
                 }
 
