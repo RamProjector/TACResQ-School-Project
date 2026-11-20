@@ -20,6 +20,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.GET
 import retrofit2.http.Headers
 import retrofit2.http.Streaming
@@ -35,6 +36,7 @@ class SupabaseTacApi private constructor(
     private val rpc: SupabaseRpcWire,
     private val storage: SupabaseStorageWire,
     private val bridgeRpc: SupabaseBridgeRpcWire?,
+    private val tokenProvider: () -> String?,
 ) : TacApi, TacNotificationApi, TacPushApi, TacChatApi, TacAssignmentHistoryApi {
     override suspend fun login(body: LoginRequest): AuthResponse = authenticate {
         auth.login(body)
@@ -74,6 +76,12 @@ class SupabaseTacApi private constructor(
         require(body.name.isNotBlank()) { "Name cannot be blank." }
         require(body.phone.isNotBlank()) { "Mobile number cannot be blank." }
         return rpc.updateProfile(body)
+    }
+
+    override suspend fun updatePassword(body: UpdatePasswordRequest) {
+        require(body.password.isNotBlank() && body.password.length >= 8) { "Password must be at least 8 characters." }
+        val token = tokenProvider() ?: throw IllegalStateException("Not authenticated.")
+        auth.updateUser("Bearer $token", body)
     }
 
     override suspend fun myIncidents(): List<Incident> =
@@ -289,6 +297,7 @@ class SupabaseTacApi private constructor(
                 retrofit.create(SupabaseRpcWire::class.java),
                 retrofit.create(SupabaseStorageWire::class.java),
                 bridgeRpc,
+                tokenProvider,
             )
         }
     }
@@ -320,6 +329,9 @@ private interface SupabaseAuthWire {
 
     @POST("auth/v1/logout")
     suspend fun logout(@Header("Authorization") authorization: String? = null, @Query("scope") scope: String = "local")
+
+    @PUT("auth/v1/user")
+    suspend fun updateUser(@Header("Authorization") authorization: String, @Body body: UpdatePasswordRequest): SupabaseSession
 }
 
 /**

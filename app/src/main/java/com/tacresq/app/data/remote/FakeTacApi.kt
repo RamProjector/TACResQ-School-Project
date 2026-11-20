@@ -135,6 +135,11 @@ class FakeTacApi(
         }
     }
 
+    override suspend fun updatePassword(body: UpdatePasswordRequest) {
+        delay(200)
+        require(body.password.isNotBlank() && body.password.length >= 8) { "Password must be at least 8 characters." }
+    }
+
     override suspend fun myIncidents(): List<Incident> {
         delay(300)
         return synchronized(lock) {

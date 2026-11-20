@@ -6,9 +6,11 @@ import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import com.tacresq.app.ui.common.ScreenHeader
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,10 +26,17 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -341,8 +350,12 @@ fun NotificationsAndSafetyScreen(
     val realtimeState by vm.realtimeState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val displayedNotifications = remember(state.items, state.focusedNotification) {
+    var showUnreadOnly by remember { mutableStateOf(false) }
+    val baseNotifications = remember(state.items, state.focusedNotification) {
         prioritizeFocusedNotification(state.items, state.focusedNotification)
+    }
+    val displayedNotifications = remember(baseNotifications, showUnreadOnly) {
+        if (showUnreadOnly) baseNotifications.filter { it.readAt == null } else baseNotifications
     }
 
     // Keep socket ownership tied to the visible screen, but never let startup failure block the inbox.
@@ -373,10 +386,37 @@ fun NotificationsAndSafetyScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                ScreenHeader(
-                    title = "Notifications",
-                    subtitle = "Push alerts bring you here; this inbox is the source of truth.",
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        ScreenHeader(
+                            title = "Notifications",
+                            subtitle = "Push alerts bring you here; this inbox is the source of truth.",
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        IconButton(onClick = { showUnreadOnly = !showUnreadOnly }) {
+                            Icon(
+                                imageVector = Icons.Default.FilterList,
+                                contentDescription = if (showUnreadOnly) "Show all notifications" else "Filter unread notifications",
+                                tint = if (showUnreadOnly) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        IconButton(onClick = { vm.refresh() }, enabled = !state.refreshing) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh notifications",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
             }
             item {
                 Card(

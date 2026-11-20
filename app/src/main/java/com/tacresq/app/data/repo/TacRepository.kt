@@ -29,6 +29,7 @@ import com.tacresq.app.data.remote.TacApi
 import com.tacresq.app.data.remote.TacNotificationApi
 import com.tacresq.app.data.remote.TacPushApi
 import com.tacresq.app.data.remote.UpdateProfileRequest
+import com.tacresq.app.data.remote.UpdatePasswordRequest
 import com.tacresq.app.data.remote.TacChatApi
 import com.tacresq.app.data.remote.UpdateStatusRequest
 import com.tacresq.app.data.remote.UpdateMyIncidentRequest
@@ -141,6 +142,12 @@ class TacRepository(
         val updated = api.updateProfile(UpdateProfileRequest(trimmedName, trimmedPhone))
         tokenHolder.value?.let { token -> store.save(Session(token, updated)) }
         updated
+    }
+
+    suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> = call {
+        require(currentPassword.isNotBlank()) { "Enter your current password." }
+        require(newPassword.isNotBlank() && newPassword.length >= 8) { "Use at least 8 characters for the new password." }
+        api.updatePassword(UpdatePasswordRequest(newPassword))
     }
 
     suspend fun myIncidents(): Result<List<Incident>> = call { api.myIncidents() }

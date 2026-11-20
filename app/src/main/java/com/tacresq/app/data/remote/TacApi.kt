@@ -89,6 +89,9 @@ interface TacApi {
     @POST("rest/v1/rpc/api_update_profile")
     suspend fun updateProfile(@Body body: UpdateProfileRequest): User
 
+    @POST("rest/v1/rpc/api_update_password")
+    suspend fun updatePassword(@Body body: UpdatePasswordRequest)
+
     /** Requester: their own requests. Responder/driver: incidents assigned to them. */
     @GET("incidents/mine")
     suspend fun myIncidents(): List<Incident>
@@ -208,6 +211,8 @@ data class UpdateProfileRequest(
     @SerializedName("p_name") val name: String,
     @SerializedName("p_phone") val phone: String,
 )
+
+data class UpdatePasswordRequest(@SerializedName("password") val password: String)
 
 data class ResponderLocationRequest(
     @SerializedName("incident_id") val incidentId: Long,

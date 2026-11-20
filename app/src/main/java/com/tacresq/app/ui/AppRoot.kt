@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.core.app.NotificationManagerCompat
 import androidx.compose.material3.Card
 import androidx.compose.material3.TextButton
@@ -473,6 +474,8 @@ private enum class ProfileSubpage {
     SETTINGS,
     PRIVACY,
     HELP,
+    EDIT_PROFILE,
+    CHANGE_PASSWORD,
 }
 
 @Composable
@@ -493,6 +496,7 @@ internal fun RoleSectionScreen(
     historyLoading: Boolean = false,
     historyStatusMessage: String? = null,
     onUpdateProfile: suspend (String, String) -> Result<User> = { _, _ -> Result.success(user) },
+    onUpdatePassword: suspend (String, String) -> Result<Unit> = { _, _ -> Result.success(Unit) },
 ) {
     if (user.role == Role.ADMIN) return
     val context = LocalContext.current
@@ -505,11 +509,17 @@ internal fun RoleSectionScreen(
     var showAccountDeletionDialog by remember(user.id) { mutableStateOf(false) }
     var showHelpGuideDialog by remember(user.id) { mutableStateOf(false) }
     var profileSubpage by rememberSaveable(user.id) { mutableStateOf(ProfileSubpage.HUB) }
-    var showEditProfileDialog by remember(user.id) { mutableStateOf(false) }
     var editName by remember(user.id, user.name) { mutableStateOf(user.name) }
     var editPhone by remember(user.id, user.phone) { mutableStateOf(user.phone.orEmpty()) }
     var profileEditLoading by remember(user.id) { mutableStateOf(false) }
     var profileEditError by remember(user.id) { mutableStateOf<String?>(null) }
+    var profileEditSuccess by remember(user.id) { mutableStateOf<String?>(null) }
+    var currentPassword by remember(user.id) { mutableStateOf("") }
+    var newPassword by remember(user.id) { mutableStateOf("") }
+    var confirmPassword by remember(user.id) { mutableStateOf("") }
+    var passwordChangeLoading by remember(user.id) { mutableStateOf(false) }
+    var passwordChangeError by remember(user.id) { mutableStateOf<String?>(null) }
+    var passwordChangeSuccess by remember(user.id) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val role = user.role
     val isHistory = destination == AppDestination.SECONDARY && role != Role.DISPATCHER && role != Role.ADMIN
@@ -687,6 +697,8 @@ internal fun RoleSectionScreen(
                                     ProfileSubpage.SETTINGS -> "App Settings & Theme"
                                     ProfileSubpage.PRIVACY -> "Privacy & Account (RA 10173)"
                                     ProfileSubpage.HELP -> "Safety & Emergency Guide"
+                                    ProfileSubpage.EDIT_PROFILE -> "Edit profile"
+                                    ProfileSubpage.CHANGE_PASSWORD -> "Change password"
                                     ProfileSubpage.HUB -> ""
                                 },
                                 style = MaterialTheme.typography.titleMedium,
@@ -764,7 +776,8 @@ internal fun RoleSectionScreen(
                                             editName = user.name
                                             editPhone = user.phone.orEmpty()
                                             profileEditError = null
-                                            showEditProfileDialog = true
+                                            profileEditSuccess = null
+                                            profileSubpage = ProfileSubpage.EDIT_PROFILE
                                         },
                                         modifier = Modifier.align(Alignment.End),
                                     ) {
@@ -774,6 +787,65 @@ internal fun RoleSectionScreen(
                             }
 
                             // Menu Subpage Navigation Cards
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    editName = user.name
+                                    editPhone = user.phone.orEmpty()
+                                    profileEditError = null
+                                    profileEditSuccess = null
+                                    profileSubpage = ProfileSubpage.EDIT_PROFILE
+                                },
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text("Edit profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                        Text("Update your name and mobile phone number", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    androidx.compose.material3.Icon(
+                                        imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    currentPassword = ""
+                                    newPassword = ""
+                                    confirmPassword = ""
+                                    passwordChangeError = null
+                                    passwordChangeSuccess = null
+                                    profileSubpage = ProfileSubpage.CHANGE_PASSWORD
+                                },
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text("Change password", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                        Text("Update your account security password", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    androidx.compose.material3.Icon(
+                                        imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+
                             Card(
                                 modifier = Modifier.fillMaxWidth().clickable { profileSubpage = ProfileSubpage.SETTINGS },
                                 shape = MaterialTheme.shapes.large,
@@ -893,6 +965,147 @@ internal fun RoleSectionScreen(
                             }
                         }
 
+                        ProfileSubpage.EDIT_PROFILE -> {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Text("Personal information", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                    Text("Update your name and mobile number. Responders use your phone number to contact you during an active emergency.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    androidx.compose.material3.OutlinedTextField(
+                                        value = editName,
+                                        onValueChange = { editName = it },
+                                        label = { Text("Full name") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                    androidx.compose.material3.OutlinedTextField(
+                                        value = editPhone,
+                                        onValueChange = { editPhone = it },
+                                        label = { Text("Mobile number") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                    profileEditError?.let { err ->
+                                        Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    profileEditSuccess?.let { succ ->
+                                        Text(succ, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            scope.launch {
+                                                profileEditLoading = true
+                                                profileEditError = null
+                                                profileEditSuccess = null
+                                                onUpdateProfile(editName, editPhone)
+                                                    .onSuccess {
+                                                        profileEditSuccess = "Profile updated successfully."
+                                                    }
+                                                    .onFailure {
+                                                        profileEditError = it.message ?: "Could not update profile."
+                                                    }
+                                                profileEditLoading = false
+                                            }
+                                        },
+                                        enabled = !profileEditLoading,
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                    ) {
+                                        if (profileEditLoading) {
+                                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                        } else {
+                                            Text("Save changes")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        ProfileSubpage.CHANGE_PASSWORD -> {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large,
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Text("Change account password", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                    Text("Choose a secure password with at least 8 characters.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    androidx.compose.material3.OutlinedTextField(
+                                        value = currentPassword,
+                                        onValueChange = { currentPassword = it },
+                                        label = { Text("Current password") },
+                                        singleLine = true,
+                                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                    androidx.compose.material3.OutlinedTextField(
+                                        value = newPassword,
+                                        onValueChange = { newPassword = it },
+                                        label = { Text("New password (min 8 chars)") },
+                                        singleLine = true,
+                                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                    androidx.compose.material3.OutlinedTextField(
+                                        value = confirmPassword,
+                                        onValueChange = { confirmPassword = it },
+                                        label = { Text("Confirm new password") },
+                                        singleLine = true,
+                                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                    passwordChangeError?.let { err ->
+                                        Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    passwordChangeSuccess?.let { succ ->
+                                        Text(succ, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            if (newPassword != confirmPassword) {
+                                                passwordChangeError = "New passwords do not match."
+                                                return@Button
+                                            }
+                                            scope.launch {
+                                                passwordChangeLoading = true
+                                                passwordChangeError = null
+                                                passwordChangeSuccess = null
+                                                onUpdatePassword(currentPassword, newPassword)
+                                                    .onSuccess {
+                                                        passwordChangeSuccess = "Password updated successfully."
+                                                        currentPassword = ""
+                                                        newPassword = ""
+                                                        confirmPassword = ""
+                                                    }
+                                                    .onFailure {
+                                                        passwordChangeError = it.message ?: "Could not update password."
+                                                    }
+                                                passwordChangeLoading = false
+                                            }
+                                        },
+                                        enabled = !passwordChangeLoading,
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                    ) {
+                                        if (passwordChangeLoading) {
+                                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                        } else {
+                                            Text("Update password")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         ProfileSubpage.PRIVACY -> {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -949,72 +1162,6 @@ internal fun RoleSectionScreen(
                             }
                         }
                     }
-                }
-
-                if (showEditProfileDialog) {
-                    AlertDialog(
-                        onDismissRequest = { if (!profileEditLoading) showEditProfileDialog = false },
-                        title = { Text("Edit profile") },
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text(
-                                    "Update your registered name and mobile number so emergency responders can reach you.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                androidx.compose.material3.OutlinedTextField(
-                                    value = editName,
-                                    onValueChange = { editName = it },
-                                    label = { Text("Full name") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                androidx.compose.material3.OutlinedTextField(
-                                    value = editPhone,
-                                    onValueChange = { editPhone = it },
-                                    label = { Text("Mobile number") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                profileEditError?.let { err ->
-                                    Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    scope.launch {
-                                        profileEditLoading = true
-                                        profileEditError = null
-                                        onUpdateProfile(editName, editPhone)
-                                            .onSuccess {
-                                                showEditProfileDialog = false
-                                            }
-                                            .onFailure {
-                                                profileEditError = it.message ?: "Could not update profile."
-                                            }
-                                        profileEditLoading = false
-                                    }
-                                },
-                                enabled = !profileEditLoading,
-                            ) {
-                                if (profileEditLoading) {
-                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                } else {
-                                    Text("Save changes")
-                                }
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(
-                                onClick = { showEditProfileDialog = false },
-                                enabled = !profileEditLoading,
-                            ) {
-                                Text("Cancel")
-                            }
-                        },
-                    )
                 }
 
                 // Privacy Policy Dialog (RA 10173 DPA & TACRU Standards)
