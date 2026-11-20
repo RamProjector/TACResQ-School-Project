@@ -646,129 +646,187 @@ internal fun RoleSectionScreen(
                     .joinToString("")
                     .ifBlank { "TR" }
 
-                Card(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Column(
-                        Modifier.fillMaxWidth().padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    // 1. User Identity Hero Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = androidx.compose.material3.CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 2.dp),
                     ) {
-                        // User Identity Header
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
-                            Surface(
-                                modifier = Modifier.size(56.dp),
-                                shape = androidx.compose.foundation.shape.CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
+                                Surface(
+                                    modifier = Modifier.size(64.dp),
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            initials,
+                                            style = MaterialTheme.typography.headlineMedium,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
+                                }
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                                ) {
                                     Text(
-                                        initials,
+                                        user.name,
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
                                     )
+                                    Text(
+                                        user.email,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Row(
+                                        modifier = Modifier.padding(top = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        StatusPill(role.label, MaterialTheme.colorScheme.primary)
+                                    }
                                 }
                             }
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(
-                                    user.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                Text(
-                                    user.email,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                StatusPill(role.label, MaterialTheme.colorScheme.primary)
+                            user.phone?.takeIf { it.isNotBlank() }?.let { phone ->
+                                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                ProfileDetail("Mobile", phone)
                             }
                         }
+                    }
 
-                        androidx.compose.material3.HorizontalDivider()
-
-                        // The identity header already contains name, email, and role.
-                        user.phone?.takeIf { it.isNotBlank() }?.let { ProfileDetail("Mobile", it) }
-
-                        androidx.compose.material3.HorizontalDivider()
-
-                        // App Settings & Theme Selection
-                        Text(
-                            "App Settings & Theme",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    // 2. App Settings & Theme Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        colors = androidx.compose.material3.CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
-                            com.tacresq.app.ui.theme.ThemeMode.entries.forEach { mode ->
-                                androidx.compose.material3.FilterChip(
-                                    selected = themeMode == mode,
-                                    onClick = { onThemeModeChanged(mode) },
-                                    label = { Text(mode.label) },
-                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                                )
+                            Text(
+                                "App Settings & Theme",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                com.tacresq.app.ui.theme.ThemeMode.entries.forEach { mode ->
+                                    androidx.compose.material3.FilterChip(
+                                        selected = themeMode == mode,
+                                        onClick = { onThemeModeChanged(mode) },
+                                        label = { Text(mode.label) },
+                                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                                    )
+                                }
+                            }
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = { openAppNotificationSettings(context) },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                shape = MaterialTheme.shapes.medium,
+                            ) {
+                                Text("Manage Android notification settings")
                             }
                         }
+                    }
 
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = { openAppNotificationSettings(context) },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    // 3. Privacy & Account Actions Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        colors = androidx.compose.material3.CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Text("Manage Android notification settings")
+                            Text(
+                                "Privacy & account",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = { showPrivacyPolicyDialog = true },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                shape = MaterialTheme.shapes.medium,
+                            ) {
+                                Text("Read Privacy Policy (RA 10173 & TACRU)")
+                            }
+                            androidx.compose.material3.TextButton(
+                                onClick = { showAccountDeletionDialog = true },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Account deletion information")
+                            }
                         }
+                    }
 
-                        androidx.compose.material3.HorizontalDivider()
-
-                        // Privacy and account actions. Only expose controls that have a real action.
-                        Text(
-                            "Privacy & account",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = { showPrivacyPolicyDialog = true },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    // 4. Safety & Operational Guidance Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        colors = androidx.compose.material3.CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Text("Read Privacy Policy (RA 10173 & TACRU)")
+                            Text("Safety & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            ProfileDetail("Emergency help", "For immediate danger, contact local emergency services. Do not wait for an app update.")
+                            ProfileDetail("Confirm your location", "Check the map pin against a landmark. GPS can drift indoors or near tall buildings.")
+                            ProfileDetail("Location sharing", "When an en-route response has location sharing enabled, approximate location may continue to be sent while TACResQ is in the background. Stop sharing when it is no longer needed.")
+                            ProfileDetail("Personal information", "Share only details needed for the response. Keep medical and contact details private.")
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = { showHelpGuideDialog = true },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                shape = MaterialTheme.shapes.medium,
+                            ) {
+                                Text("Emergency Help & Operation Guide")
+                            }
                         }
+                    }
 
-                        androidx.compose.material3.TextButton(
-                            onClick = { showAccountDeletionDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Account deletion information")
-                        }
-
-                        androidx.compose.material3.HorizontalDivider()
-
-                        // Safety & Privacy Guidance (Preserves Contract Text)
-                        Text("Safety & privacy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        ProfileDetail("Emergency help", "For immediate danger, contact local emergency services. Do not wait for an app update.")
-                        ProfileDetail("Confirm your location", "Check the map pin against a landmark. GPS can drift indoors or near tall buildings.")
-                        ProfileDetail("Location sharing", "When an en-route response has location sharing enabled, approximate location may continue to be sent while TACResQ is in the background. Stop sharing when it is no longer needed.")
-                        ProfileDetail("Personal information", "Share only details needed for the response. Keep medical and contact details private.")
-
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = { showHelpGuideDialog = true },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        ) {
-                            Text("Emergency Help & Operation Guide")
-                        }
-
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = { showSignOutConfirmation = true },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                        ) {
-                            Text("Sign out")
-                        }
+                    // 5. Standalone Sign-Out Button
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { showSignOutConfirmation = true },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                        shape = MaterialTheme.shapes.large,
+                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                    ) {
+                        Text("Sign out", fontWeight = FontWeight.SemiBold)
                     }
                 }
 
