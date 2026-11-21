@@ -183,3 +183,52 @@ print(
     f"PASS: least-privilege EXECUTE grants for {len(FUNCTIONS)} RPCs, "
     "restricted advanced table grants, and full anon/PUBLIC table/sequence revokes"
 )
+
+
+# incident_assignments is a client read-only table. The new migration must
+# remove every anon/PUBLIC privilege and every authenticated write/DDL privilege.
+ASSIGNMENT_PRIVILEGE_SQL = Path(
+    "supabase/migrations/20261118090000_restrict_incident_assignment_table_privileges.sql"
+).read_text()
+assert re.search(
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+TABLE\s+public\.incident_assignments\s+"
+    r"FROM\s+PUBLIC,\s*anon,\s*authenticated\s*;",
+    ASSIGNMENT_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
+), "incident_assignments must revoke all inherited/direct client privileges"
+assert re.search(
+    r"GRANT\s+SELECT\s+ON\s+TABLE\s+public\.incident_assignments\s+TO\s+authenticated\s*;",
+    ASSIGNMENT_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
+), "authenticated users must retain RLS-filtered assignment reads"
+assert "TRUNCATE" in ASSIGNMENT_PRIVILEGE_SQL.upper(), "Document the RLS-bypassing TRUNCATE risk"
+
+
+# Token, status-history, and location tables are read-only to client roles.
+# Their writes must pass through the reviewed RPC or server-only worker paths.
+OPERATIONAL_PRIVILEGE_SQL = Path(
+    "supabase/migrations/20261118092000_restrict_operational_table_writes.sql"
+).read_text()
+for table in ("fcm_tokens", "incident_status_logs", "location_logs"):
+    assert re.search(
+        rf"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+TABLE\s+public\.fcm_tokens,\s*"
+        rf"public\.incident_status_logs,\s*public\.location_logs\s+"
+        rf"FROM\s+PUBLIC,\s*anon,\s*authenticated\s*;",
+        OPERATIONAL_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
+    ), f"Missing direct client privilege revoke for {table}"
+assert re.search(
+    r"GRANT\s+SELECT\s+ON\s+TABLE\s+public\.fcm_tokens,\s*"
+    r"public\.incident_status_logs,\s*public\.location_logs\s+TO\s+authenticated\s*;",
+    OPERATIONAL_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
+), "Authenticated RLS-filtered reads must remain available on operational tables"
+
+
+# Core profile/incident tables retain the current RLS-backed create/update
+# workflows, but authenticated clients must not directly delete or truncate.
+CORE_TABLE_PRIVILEGE_SQL = Path(
+    "supabase/migrations/20261118100000_restrict_core_table_destructive_privileges.sql"
+).read_text()
+assert re.search(
+    r"REVOKE\s+DELETE,\s*TRUNCATE\s+ON\s+TABLE\s+"
+    r"public\.profiles,\s*public\.incidents\s+FROM\s+"
+    r"PUBLIC,\s*anon,\s*authenticated\s*;",
+    CORE_TABLE_PRIVILEGE_SQL, re.IGNORECASE | re.DOTALL
+), "profiles/incidents must revoke direct client DELETE and TRUNCATE"

@@ -65,6 +65,13 @@ PENDING = {
     "20261118003000_dispatch_request_edit_notifications.sql",
     "20261118010000_incident_assignment_event_history.sql",
     "20261118011000_dispatcher_release_incident_assignment.sql",
+    "20261118090000_restrict_incident_assignment_table_privileges.sql",
+    "20261118092000_restrict_operational_table_writes.sql",
+    "20261118100000_restrict_core_table_destructive_privileges.sql",
+    "20261119090000_device_security_registry_foundation.sql",
+    "20261119100000_bound_device_registry_metadata.sql",
+    "20261119110000_public_data_free_dependency_health_rpc.sql",
+    "20261120070000_notify_dispatcher_of_requester_cancellation.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
@@ -272,3 +279,107 @@ for required in (
     assert required in signup_validation, f"Missing server-side requester signup requirement: {required}"
 assert "raw_user_meta_data ->> 'role'" not in signup_validation
 print("PASS: public signup enforces name/contact requirements and always provisions requester role.")
+
+
+# Device registry remains backend-only until server-side proof verification exists.
+device_security = (MIGRATIONS / "20261119090000_device_security_registry_foundation.sql").read_text()
+for required in (
+    "CREATE TABLE IF NOT EXISTS public.user_devices",
+    "CREATE TABLE IF NOT EXISTS public.device_sessions",
+    "CREATE TABLE IF NOT EXISTS public.device_challenges",
+    "CREATE TABLE IF NOT EXISTS public.device_security_events",
+    "CREATE TABLE IF NOT EXISTS public.device_integrity_checks",
+    "ALTER TABLE public.user_devices ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE public.device_sessions ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE public.device_challenges ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE public.device_security_events ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE public.device_integrity_checks ENABLE ROW LEVEL SECURITY",
+    "REVOKE ALL PRIVILEGES ON TABLE",
+    "FROM PUBLIC, anon, authenticated, service_role",
+    "TO service_role",
+    "challenge_hash ~ '^[0-9a-f]{64}$'",
+    "auth_session_id uuid NOT NULL UNIQUE",
+    "ON DELETE RESTRICT",
+    "GRANT USAGE, SELECT ON SEQUENCE",
+    "device_security_events_id_seq",
+    "device_integrity_checks_id_seq",
+):
+    assert required.lower() in device_security.lower(), (
+        f"Missing device-security registry contract: {required}"
+    )
+assert "GRANT SELECT, INSERT, UPDATE ON TABLE public.user_devices TO authenticated" not in device_security
+assert "GRANT SELECT ON TABLE public.user_devices TO authenticated" not in device_security
+assert "CREATE POLICY" not in device_security.upper(), (
+    "Device registry must remain backend-only until verified server endpoints are implemented"
+)
+assert "DELETE FROM" not in device_security.upper()
+assert "DROP TABLE" not in device_security.upper()
+assert "private_key" not in device_security.lower()
+assert "access_token" not in device_security.lower()
+assert "refresh_token" not in device_security.lower()
+print("PASS: device registry is RLS-enabled, backend-only, challenge-hash based, and contains no stored secrets.")
+
+core_privileges = (ROOT / "tools/test_core_table_privileges.sql").read_text()
+for required in (
+    "has_column_privilege('authenticated', table_oid, 'duty_status', 'UPDATE')",
+    "has_column_privilege('authenticated', table_oid, 'role', 'UPDATE')",
+    "has_column_privilege('authenticated', table_oid, 'status', 'UPDATE')",
+    "has_column_privilege('authenticated', table_oid, 'requester_id', 'UPDATE')",
+    "authenticated must use authorized RPCs instead of direct incident updates",
+    "authenticated must not directly INSERT into public.%",
+):
+    assert required in core_privileges, f"Missing exact core-table privilege assertion: {required}"
+assert "PostgreSQL has_table_privilege(..., 'UPDATE') intentionally returns false" in core_privileges
+core_migration = (MIGRATIONS / "20261118100000_restrict_core_table_destructive_privileges.sql").read_text()
+assert "incident creation, updates, and assignment use authorization-checked RPCs" in core_migration
+print("PASS: core privilege runtime contract checks narrow updates and RPC-only client creation.")
+
+device_bounds = (MIGRATIONS / "20261119100000_bound_device_registry_metadata.sql").read_text()
+for required in (
+    "user_devices_device_model_length_check",
+    "user_devices_app_version_length_check",
+    "user_devices_public_key_length_check",
+    "device_sessions_expiry_check",
+    "device_sessions_revocation_consistency_check",
+    "device_challenges_max_lifetime_check",
+    "interval '10 minutes'",
+    "device_security_events_details_size_check",
+    "octet_length(details::text) <= 8192",
+    "device_integrity_checks_summary_size_check",
+    "octet_length(result_summary::text) <= 4096",
+):
+    assert required.lower() in device_bounds.lower(), (
+        f"Missing device-registry resource/expiry bound: {required}"
+    )
+assert "GRANT" not in device_bounds.upper()
+assert "DROP " not in device_bounds.upper()
+print("PASS: device registry metadata and event payloads are bounded; challenges expire within ten minutes.")
+
+
+# Public dependency probe is intentionally data-free and cannot mutate state.
+dependency_health = (MIGRATIONS / "20261119110000_public_data_free_dependency_health_rpc.sql").read_text()
+for required in (
+    "CREATE OR REPLACE FUNCTION public.api_dependency_health()",
+    "RETURNS text",
+    "LANGUAGE sql",
+    "IMMUTABLE",
+    "PARALLEL SAFE",
+    "SECURITY INVOKER",
+    "SET search_path = pg_catalog",
+    "SELECT 'tacresq_database_ok'::text",
+    "REVOKE ALL PRIVILEGES",
+    "FROM PUBLIC, anon, authenticated, service_role",
+    "GRANT EXECUTE",
+    "TO anon, authenticated",
+):
+    assert required.lower() in dependency_health.lower(), (
+        f"Missing least-privilege database health RPC contract: {required}"
+    )
+assert "SECURITY DEFINER" not in dependency_health.upper()
+assert "FROM public." not in dependency_health.lower()
+assert "INSERT " not in dependency_health.upper()
+assert "UPDATE " not in dependency_health.upper()
+assert "DELETE " not in dependency_health.upper()
+assert "TRUNCATE " not in dependency_health.upper()
+assert "GRANT EXECUTE ON FUNCTION public.api_dependency_health() TO service_role" not in dependency_health
+print("PASS: dependency health RPC is a fixed-result SECURITY INVOKER with no table access or mutation.")

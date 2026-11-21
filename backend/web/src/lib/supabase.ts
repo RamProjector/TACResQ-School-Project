@@ -56,6 +56,7 @@ type TacruDatabase = {
       api_admin_list_users_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_role: string }; Returns: { users: AdminUser[]; total_count: number } };
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
+      api_dependency_health: { Args: Record<string, never>; Returns: string };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -68,6 +69,7 @@ interface RuntimeSupabaseConfig {
 }
 
 let supabaseClient: SupabaseClient<TacruDatabase> | null = null;
+let supabaseHealthConfig: { url: string; publishableKey: string } | null = null;
 
 export async function initializeSupabase(): Promise<boolean> {
   let supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() ?? "";
@@ -87,6 +89,7 @@ export async function initializeSupabase(): Promise<boolean> {
   }
 
   if (!supabaseUrl || !supabasePublishableKey) return false;
+  supabaseHealthConfig = { url: supabaseUrl.replace(/\/$/, ''), publishableKey: supabasePublishableKey };
   supabaseClient = createClient<TacruDatabase>(supabaseUrl, supabasePublishableKey, {
     auth: {
       autoRefreshToken: true,
@@ -169,4 +172,110 @@ export async function getAdminAuditLogs(limit = 100): Promise<AdminAuditEvent[]>
   const { data, error } = await getSupabase().rpc("api_admin_list_audit_logs", { p_limit: limit });
   throwAdminError(error);
   return (data as unknown as AdminAuditEvent[] | null) ?? [];
+}
+
+
+export type DependencyProbeResult = {
+  status: "healthy" | "degraded" | "unavailable";
+  duration_ms: number | null;
+};
+
+export type AdminDependencyHealth = {
+  checked_at: string;
+  laravel_backend: DependencyProbeResult;
+  supabase_auth: DependencyProbeResult;
+  supabase_database: DependencyProbeResult;
+};
+
+async function runDependencyProbe(
+  request: (signal: AbortSignal) => Promise<boolean>,
+): Promise<DependencyProbeResult> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 5000);
+  const started = performance.now();
+  let abortHandler: (() => void) | null = null;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    abortHandler = () => reject(new DOMException("Dependency probe timed out.", "AbortError"));
+    controller.signal.addEventListener("abort", abortHandler, { once: true });
+  });
+  try {
+    // Race the whole probe, not only fetch(): session retrieval and other
+    // preflight work may not accept an AbortSignal themselves.
+    const healthy = await Promise.race([request(controller.signal), aborted]);
+    return {
+      status: healthy ? "healthy" : "unavailable",
+      duration_ms: Math.max(0, Math.round(performance.now() - started)),
+    };
+  } catch {
+    return {
+      status: controller.signal.aborted ? "degraded" : "unavailable",
+      duration_ms: Math.max(0, Math.round(performance.now() - started)),
+    };
+  } finally {
+    window.clearTimeout(timeout);
+    if (abortHandler) controller.signal.removeEventListener("abort", abortHandler);
+  }
+}
+
+/**
+ * Data-free provider diagnostics for the already-authorized Admin console.
+ * The database probe returns a fixed literal and the Auth probe calls only
+ * Laravel liveness and Supabase's public Auth health endpoint. The current session token is used only
+ * to authorize that fixed RPC; no profile, incident, or operational data is read.
+ */
+export async function getAdminDependencyHealth(): Promise<AdminDependencyHealth> {
+  if (!supabaseHealthConfig || !supabaseClient) {
+    throw new Error("Supabase is not initialized.");
+  }
+
+  const { url, publishableKey } = supabaseHealthConfig;
+  const [backend, auth, database] = await Promise.all([
+    runDependencyProbe(async (signal) => {
+      const response = await fetch("/up", {
+        method: "GET",
+        credentials: "omit",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal,
+      });
+      return response.ok;
+    }),
+    runDependencyProbe(async (signal) => {
+      const response = await fetch(url + "/auth/v1/health", {
+        method: "GET",
+        credentials: "omit",
+        headers: { apikey: publishableKey, Accept: "application/json" },
+        cache: "no-store",
+        signal,
+      });
+      return response.ok;
+    }),
+    runDependencyProbe(async (signal) => {
+      const { data, error } = await getSupabase().auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (error || !accessToken) return false;
+      const response = await fetch(url + "/rest/v1/rpc/api_dependency_health", {
+        method: "POST",
+        credentials: "omit",
+        headers: {
+          apikey: publishableKey,
+          Authorization: "Bearer " + accessToken,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: "{}",
+        cache: "no-store",
+        signal,
+      });
+      if (!response.ok) return false;
+      return await response.json() === "tacresq_database_ok";
+    }),
+  ]);
+
+  return {
+    checked_at: new Date().toISOString(),
+    laravel_backend: backend,
+    supabase_auth: auth,
+    supabase_database: database,
+  };
 }

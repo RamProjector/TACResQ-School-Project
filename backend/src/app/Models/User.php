@@ -15,4 +15,5 @@ class User extends Authenticatable
     protected function casts(): array { return ['email_verified_at' => 'datetime', 'password' => 'hashed']; }
     public function requestedIncidents() { return $this->hasMany(Incident::class, 'requester_id'); }
     public function assignedIncidents() { return $this->hasMany(Incident::class, 'assigned_to'); }
+    public function responseIncidents() { return $this->belongsToMany(Incident::class, 'incident_assignments')->withPivot(['assigned_by', 'assigned_at', 'responder_status', 'status_updated_at']); }
 }

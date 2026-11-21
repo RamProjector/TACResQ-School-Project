@@ -54,6 +54,41 @@ jobs:
       - name: Check inline authentication validation
         run: python3 tools/test_auth_inline_validation.py
 
+      - name: Check Laravel login throttling contract
+        run: python3 tools/test_login_rate_limit_contract.py
+
+      - name: Check route preview provider throttling contract
+        run: python3 tools/test_route_preview_provider_throttle.py
+
+      - name: Check public registration throttling contract
+        run: python3 tools/test_registration_rate_limit_contract.py
+
+      - name: Check bounded API collection responses
+        run: python3 tools/test_api_collection_bounds_contract.py
+      - name: Check authenticated mutation throttling
+        run: python3 tools/test_authenticated_mutation_throttles.py
+      - name: Check privacy-safe bridge rate-limit keys
+        run: python3 tools/test_bridge_rate_limit_key_privacy.py
+
+      - name: Check Laravel assignment duty-state visibility
+        run: python3 tools/test_laravel_assignment_duty_state.py
+
+      - name: Check Sanctum session revocation contract
+        run: python3 tools/test_session_revocation_contract.py
+
+      - name: Check password change and session rotation contract
+        run: python3 tools/test_password_change_contract.py
+
+      - name: Test Supabase Storage backup manifest integrity
+        run: python3 tools/test_create_storage_backup_manifest.py
+      - name: Test PostgreSQL backup manifest integrity
+        run: python3 tools/test_create_database_backup_manifest.py
+
+      - name: Check API response privacy and security headers
+        run: python3 tools/test_api_security_headers_contract.py
+      - name: Check Supabase bridge RPC JSON object contract
+        run: python3 tools/test_bridge_rpc_json_object_contract.py
+
       - name: Check persistent feedback banner semantics
         run: python3 tools/test_feedback_banner_semantics.py
 
@@ -103,6 +138,8 @@ jobs:
         run: python3 tools/test_incident_authorization.py
       - name: Check durable SOS idempotency contract
         run: python3 tools/test_durable_sos_idempotency.py
+      - name: Check Laravel incident submission idempotency contract
+        run: python3 tools/test_laravel_incident_idempotency_contract.py
 
       - name: Check requester active-incident and cancellation contract
         run: python3 tools/test_requester_active_incident.py
@@ -127,6 +164,8 @@ jobs:
 
       - name: Check dispatcher active incident lifecycle filtering
         run: python3 tools/test_dispatcher_active_incident_filter.py
+      - name: Check dispatcher historical lookup transport contract
+        run: python3 tools/test_dispatcher_historical_lookup_contract.py
 
       - name: Check per-responder assignment status contract
         run: python3 tools/test_per_responder_assignment_status.py
@@ -136,6 +175,11 @@ jobs:
 
       - name: Check requester location edit validation
         run: python3 tools/test_requester_location_edit_validation.py
+      - name: Requester edit and cancellation workflow contract
+        run: python3 tools/test_requester_edit_workflow.py
+
+      - name: Check requester edit and cancellation dispatch notifications
+        run: python3 tools/test_requester_edit_dispatch_notifications.py
 
       - name: Check dispatcher claimability lifecycle
         run: python3 tools/test_dispatch_claimability_lifecycle.py
@@ -162,6 +206,11 @@ jobs:
         run: python3 tools/test_manual_location_source.py
       - name: Check Supabase migration history alignment
         run: python3 tools/test_migration_history_alignment.py
+
+      - name: Check dependency health monitoring safety contract
+        run: python3 tools/test_dependency_health_monitoring_contract.py
+      - name: Check administrator dependency health visibility contract
+        run: python3 tools/test_admin_dependency_health_contract.py
 
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
@@ -502,6 +551,13 @@ jobs:
       - name: Build and start the Laravel/Postgres stack
         working-directory: backend
         run: bash ../tools/docker_compose_retry.sh
+
+      - name: PHP syntax-check Laravel application source
+        working-directory: backend
+        run: |
+          docker compose exec -T api sh -ec '
+            find app bootstrap routes -type f -name "*.php" -print0 | xargs -0 -r -n1 php -l
+          '
 
       - name: Wait for Laravel readiness
         working-directory: backend

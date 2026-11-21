@@ -180,6 +180,10 @@ class SupabaseNotificationRealtime(
                     if (status == "ok") {
                         retryCount = 0
                         _state.value = RealtimeConnectionState.CONNECTED
+                        // A successful initial join or reconnect is not proof that
+                        // events sent while offline were received. Reconcile from
+                        // the authenticated inbox RPC immediately after subscription.
+                        _notificationHints.tryEmit(Unit)
                     } else if (status == "error") {
                         _state.value = RealtimeConnectionState.ERROR
                         scheduleReconnect()
@@ -190,7 +194,13 @@ class SupabaseNotificationRealtime(
                     if (payload.get("event")?.asString != "notification_created") return
                     val hint = payload.getAsJsonObject("payload") ?: return
                     if (hint.get("notification_id")?.asLong ?: 0L > 0L &&
-                        hint.get("event_type")?.asString in setOf("incident_assigned", "incident_status_changed")
+                        hint.get("event_type")?.asString in setOf(
+                            "incident_assigned",
+                            "incident_status_changed",
+                            "incident_message",
+                            "incident_request_updated",
+                            "incident_cancelled",
+                        )
                     ) {
                         _notificationHints.tryEmit(Unit)
                     }

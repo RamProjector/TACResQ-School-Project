@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Incident;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -27,8 +29,18 @@ class OwnedBackendIncidentCreationTest extends TestCase
         $first->assertCreated()->assertJsonPath('status', 'pending');
         $incidentId = $first->json('id');
 
+        // Simulate later operational state changes. Idempotent retries must
+        // return the original submission acknowledgement, not current state.
+        Incident::whereKey($incidentId)->update(['status' => 'resolved']);
+
         $replay = $this->postJson('/api/incidents', $body);
         $replay->assertOk()->assertJsonPath('id', $incidentId);
+
+        // A replay must return the original persisted response, not rebuild a
+        // subtly different payload from mutable incident state.
+        $this->assertSame($first->json(), $replay->json());
+        $this->assertSame('pending', $replay->json('status'));
+        $this->assertSame('resolved', Incident::findOrFail($incidentId)->status);
 
         $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
         $this->assertDatabaseCount('incident_status_logs', 1);
@@ -60,6 +72,46 @@ class OwnedBackendIncidentCreationTest extends TestCase
         $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
     }
 
+    public function test_active_incident_states_block_new_sos_but_resolved_history_allows_one(): void
+    {
+        foreach (['pending', 'assigned', 'en_route', 'on_scene', 'transporting'] as $index => $status) {
+            $requester = $this->requester('sos-active-state-'.$status.'@example.test');
+            Incident::create([
+                'requester_id' => $requester->id,
+                'type' => 'medical',
+                'description' => 'Existing '.$status.' incident',
+                'status' => $status,
+            ]);
+
+            Sanctum::actingAs($requester);
+            $this->postJson('/api/incidents', [
+                'client_request_id' => sprintf('a11ce000-0000-4000-8000-%012d', $index + 1),
+                'type' => 'fire',
+                'description' => 'A second request must wait',
+            ])->assertStatus(409);
+
+            $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
+        }
+
+        $resolvedRequester = $this->requester('sos-after-resolution@example.test');
+        Incident::create([
+            'requester_id' => $resolvedRequester->id,
+            'type' => 'medical',
+            'description' => 'Resolved historical incident',
+            'status' => 'resolved',
+        ]);
+
+        Sanctum::actingAs($resolvedRequester);
+        $this->postJson('/api/incidents', [
+            'client_request_id' => 'a11ce000-0000-4000-8000-000000000099',
+            'type' => 'vehicular',
+            'description' => 'New request after resolution',
+        ])->assertCreated()->assertJsonPath('status', 'pending');
+
+        $this->assertSame(2, Incident::where('requester_id', $resolvedRequester->id)->count());
+        $this->assertDatabaseCount('incident_submission_keys', 1);
+    }
+
     public function test_idempotency_key_cannot_be_reused_for_different_details(): void
     {
         $requester = $this->requester('sos-key-reuse@example.test');
@@ -77,6 +129,255 @@ class OwnedBackendIncidentCreationTest extends TestCase
         ])->assertStatus(409);
 
         $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
+    }
+
+
+    public function test_failed_status_log_write_rolls_back_incident_and_idempotency_key(): void
+    {
+        $requester = $this->requester('sos-rollback@example.test');
+        Sanctum::actingAs($requester);
+
+        // Inject a failure at the final business write after the idempotency
+        // key and incident are inserted. The request transaction must undo all.
+        DB::unprepared(<<<'SQL'
+            CREATE FUNCTION tacresq_test_reject_status_log() RETURNS trigger
+            LANGUAGE plpgsql
+            AS $tacresq$
+            BEGIN
+                RAISE EXCEPTION 'synthetic status-log write failure';
+            END;
+            $tacresq$
+        SQL);
+        DB::unprepared(<<<'SQL'
+            CREATE TRIGGER tacresq_test_reject_status_log
+            BEFORE INSERT ON incident_status_logs
+            FOR EACH ROW EXECUTE FUNCTION tacresq_test_reject_status_log()
+        SQL);
+
+        try {
+            $this->withoutExceptionHandling();
+
+            try {
+                $this->postJson('/api/incidents', [
+                    'client_request_id' => 'fa0f06d0-8ad5-44ab-8b4a-14c3b3f8d8e1',
+                    'type' => 'medical',
+                    'description' => 'Rollback verification',
+                ]);
+                $this->fail('The injected status-log failure should abort SOS creation.');
+            } catch (QueryException $exception) {
+                $this->assertStringContainsString('synthetic status-log write failure', $exception->getMessage());
+            }
+        } finally {
+            DB::unprepared('DROP TRIGGER IF EXISTS tacresq_test_reject_status_log ON incident_status_logs');
+            DB::unprepared('DROP FUNCTION IF EXISTS tacresq_test_reject_status_log()');
+        }
+
+        $this->assertSame(0, Incident::where('requester_id', $requester->id)->count());
+        $this->assertDatabaseCount('incident_status_logs', 0);
+        $this->assertDatabaseCount('incident_submission_keys', 0);
+    }
+
+
+    public function test_gps_capture_metadata_is_persisted_and_manual_pin_cannot_claim_accuracy(): void
+    {
+        $requester = $this->requester('sos-location-provenance@example.test');
+        Sanctum::actingAs($requester);
+
+        $this->postJson('/api/incidents', [
+            'client_request_id' => 'f90d0c3a-61d0-4d78-bc6d-ec5ac1c9e331',
+            'type' => 'medical',
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'accuracy_m' => 8.5,
+            'location_recorded_at' => '2026-11-19T05:00:00Z',
+            'location_source' => 'gps',
+            'location_notes' => '  Main entrance  ',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('incidents', [
+            'requester_id' => $requester->id,
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'accuracy_m' => 8.5,
+            'location_source' => 'gps',
+            'location_notes' => 'Main entrance',
+        ]);
+
+        $this->assertSame(1, Incident::where('requester_id', $requester->id)->count());
+
+        $manualRequester = $this->requester('sos-manual-provenance@example.test');
+        Sanctum::actingAs($manualRequester);
+
+        $this->postJson('/api/incidents', [
+            'client_request_id' => '3f8d845c-4c4e-4410-9ed1-5e8e9e3f1a73',
+            'type' => 'fire',
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'accuracy_m' => 8.5,
+            'location_recorded_at' => '2026-11-19T05:00:00Z',
+            'location_source' => 'manual',
+        ])->assertStatus(422);
+
+        $this->assertSame(0, Incident::where('requester_id', $manualRequester->id)->count());
+    }
+
+
+    public function test_manual_pin_is_accepted_without_gps_accuracy_and_requires_capture_time(): void
+    {
+        $requester = $this->requester('sos-manual-pin@example.test');
+        Sanctum::actingAs($requester);
+
+        $this->postJson('/api/incidents', [
+            'client_request_id' => '5a0ef76a-0d47-40e8-96a5-3f2d8f1cb777',
+            'type' => 'vehicular',
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'location_source' => 'manual',
+            'location_recorded_at' => '2026-11-19T05:00:00Z',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('incidents', [
+            'requester_id' => $requester->id,
+            'location_source' => 'manual',
+            'accuracy_m' => null,
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+        ]);
+
+        $secondRequester = $this->requester('sos-missing-capture-time@example.test');
+        Sanctum::actingAs($secondRequester);
+
+        $this->postJson('/api/incidents', [
+            'client_request_id' => 'a9f0a82d-8e2a-4f5b-9e81-2e1b4f88a2ac',
+            'type' => 'vehicular',
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'location_source' => 'manual',
+        ])->assertStatus(422);
+
+        $this->assertSame(0, Incident::where('requester_id', $secondRequester->id)->count());
+    }
+
+
+    public function test_unauthenticated_client_cannot_create_sos_or_reserve_an_idempotency_key(): void
+    {
+        $this->postJson('/api/incidents', [
+            'client_request_id' => 'b8c2b4f0-4c3f-4d89-8f3a-0b2e1d4c5a67',
+            'type' => 'medical',
+            'description' => 'Unauthenticated SOS attempt',
+        ])->assertUnauthorized();
+
+        $this->assertDatabaseCount('incidents', 0);
+        $this->assertDatabaseCount('incident_submission_keys', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
+    public function test_invalid_coordinate_pairs_and_ranges_cannot_reserve_sos_submissions(): void
+    {
+        $requester = $this->requester('sos-invalid-coordinates@example.test');
+        Sanctum::actingAs($requester);
+
+        $invalidBodies = [
+            [
+                'client_request_id' => '1e1d7c5a-8f43-4a10-a47d-2b6b88f70001',
+                'type' => 'medical',
+                'latitude' => 10.3157,
+                'location_source' => 'gps',
+                'location_recorded_at' => '2026-11-19T05:00:00Z',
+            ],
+            [
+                'client_request_id' => '1e1d7c5a-8f43-4a10-a47d-2b6b88f70002',
+                'type' => 'medical',
+                'latitude' => 10.3157,
+                'longitude' => 181,
+                'location_source' => 'gps',
+                'location_recorded_at' => '2026-11-19T05:00:00Z',
+            ],
+            [
+                'client_request_id' => '1e1d7c5a-8f43-4a10-a47d-2b6b88f70003',
+                'type' => 'medical',
+                'latitude' => -91,
+                'longitude' => 123.8854,
+                'location_source' => 'gps',
+                'location_recorded_at' => '2026-11-19T05:00:00Z',
+            ],
+        ];
+
+        foreach ($invalidBodies as $body) {
+            $this->postJson('/api/incidents', $body)->assertUnprocessable();
+        }
+
+        $this->assertSame(0, Incident::where('requester_id', $requester->id)->count());
+        $this->assertDatabaseCount('incident_submission_keys', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
+    public function test_invalid_location_provenance_metadata_cannot_reserve_sos_submissions(): void
+    {
+        $requester = $this->requester('sos-invalid-location-metadata@example.test');
+        Sanctum::actingAs($requester);
+
+        $invalidBodies = [
+            [
+                'client_request_id' => '2e1d7c5a-8f43-4a10-a47d-2b6b88f70001',
+                'type' => 'medical',
+                'latitude' => 10.3157,
+                'longitude' => 123.8854,
+                'location_source' => 'network_provider',
+                'location_recorded_at' => '2026-11-19T05:00:00Z',
+            ],
+            [
+                'client_request_id' => '2e1d7c5a-8f43-4a10-a47d-2b6b88f70002',
+                'type' => 'medical',
+                'latitude' => 10.3157,
+                'longitude' => 123.8854,
+                'location_source' => 'gps',
+                'location_recorded_at' => 'not-a-timestamp',
+            ],
+            [
+                'client_request_id' => '2e1d7c5a-8f43-4a10-a47d-2b6b88f70003',
+                'type' => 'medical',
+                'latitude' => 10.3157,
+                'longitude' => 123.8854,
+                'location_source' => 'none',
+                'location_recorded_at' => '2026-11-19T05:00:00Z',
+            ],
+        ];
+
+        foreach ($invalidBodies as $body) {
+            $this->postJson('/api/incidents', $body)->assertUnprocessable();
+        }
+
+        $this->assertSame(0, Incident::where('requester_id', $requester->id)->count());
+        $this->assertDatabaseCount('incident_submission_keys', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
+    }
+
+    public function test_only_requesters_can_create_sos_incidents(): void
+    {
+        foreach (['responder', 'driver', 'admin'] as $role) {
+            $user = User::create([
+                'name' => ucfirst($role).' Test',
+                'email' => 'sos-role-'.$role.'@example.test',
+                'password' => 'test-only-password',
+                'role' => $role,
+            ]);
+            Sanctum::actingAs($user);
+
+            $this->postJson('/api/incidents', [
+                'client_request_id' => match ($role) {
+                    'responder' => 'f4a9e45d-2f75-4f35-8e11-1a2d6a0c1101',
+                    'driver' => 'f4a9e45d-2f75-4f35-8e11-1a2d6a0c1102',
+                    default => 'f4a9e45d-2f75-4f35-8e11-1a2d6a0c1103',
+                },
+                'type' => 'medical',
+                'description' => 'Must not be accepted for this role',
+            ])->assertForbidden();
+        }
+
+        $this->assertDatabaseCount('incidents', 0);
+        $this->assertDatabaseCount('incident_submission_keys', 0);
+        $this->assertDatabaseCount('incident_status_logs', 0);
     }
 
     private function requester(string $email): User

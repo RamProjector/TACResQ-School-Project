@@ -28,6 +28,7 @@ final class SupabaseBridge
                     'apikey' => $publishableKey,
                     'Authorization' => 'Bearer '.$accessToken,
                 ])
+                ->connectTimeout(2)
                 ->timeout(5)
                 ->get($baseUrl.'/auth/v1/user');
 
@@ -115,6 +116,7 @@ final class SupabaseBridge
                     'apikey' => $publishableKey,
                     'Authorization' => 'Bearer '.$accessToken,
                 ])
+                ->connectTimeout(2)
                 ->timeout(8)
                 // PostgREST RPC parameters must be a JSON object; PHP's empty
                 // array would serialize as [], not the no-argument object.

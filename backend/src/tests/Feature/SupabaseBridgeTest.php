@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\SupabaseBridge;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -92,15 +93,38 @@ class SupabaseBridgeTest extends TestCase
         $this->assertLessThanOrEqual(60, $retryAfter);
     }
 
+    public function test_rpc_rejects_oversized_payload_before_supabase_authentication(): void
+    {
+        Http::preventStrayRequests();
+
+        $this->withToken('valid-looking-token')
+            ->postJson('/api/bridge/rpc/api_create_incident_v4', [
+                'p_description' => str_repeat('x', 33000),
+            ])
+            ->assertStatus(413);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_rpc_rejects_non_object_json_arguments_before_authentication(): void
+    {
+        Http::preventStrayRequests();
+
+        $this->withToken('valid-looking-token')
+            ->postJson('/api/bridge/rpc/api_units', ['unexpected-list-item'])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'RPC arguments must be a JSON object.');
+
+        Http::assertNothingSent();
+    }
+
     public function test_invalid_supabase_token_is_rejected_without_rpc_execution(): void
     {
         Http::fake([
             'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(['message' => 'invalid token'], 401),
         ]);
 
-        $this->withToken('expired-or-invalid')
-            ->postJson('/api/bridge/rpc/api_create_incident_v4', [])
-            ->assertUnauthorized();
+        $this->postEmptyRpc('api_create_incident_v4', 'expired-or-invalid')->assertUnauthorized();
 
         Http::assertSentCount(1);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), '/rest/v1/rpc/'));
@@ -143,9 +167,7 @@ class SupabaseBridgeTest extends TestCase
             'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => Http::response([], 200),
         ]);
 
-        $this->withToken('valid-supabase-access-token')
-            ->postJson('/api/bridge/rpc/api_units', [])
-            ->assertOk();
+        $this->postEmptyRpc('api_units', 'valid-supabase-access-token')->assertOk();
 
         Http::assertSent(function ($request) {
             return str_contains($request->url(), '/rest/v1/rpc/api_units')
@@ -157,9 +179,7 @@ class SupabaseBridgeTest extends TestCase
     {
         Http::preventStrayRequests();
 
-        $this->withToken('any-token')
-            ->postJson('/api/bridge/rpc/arbitrary_function', [])
-            ->assertNotFound();
+        $this->postEmptyRpc('arbitrary_function', 'any-token')->assertNotFound();
 
         Http::assertNothingSent();
     }
@@ -204,10 +224,32 @@ class SupabaseBridgeTest extends TestCase
             ], 503),
         ]);
 
-        $this->withToken('valid-supabase-access-token')
-            ->postJson('/api/bridge/rpc/api_units', [])
+        $this->postEmptyRpc('api_units', 'valid-supabase-access-token')->assertStatus(502)
+            ->assertExactJson(['message' => 'Supabase is temporarily unavailable. Please retry.']);
+    }
+
+    public function test_rpc_connection_failure_returns_a_sanitized_502(): void
+    {
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(['id' => 'auth-user-123'], 200),
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => function () {
+                throw new ConnectionException('private connection detail');
+            },
+        ]);
+
+        $this->postEmptyRpc('api_units', 'valid-supabase-access-token')
             ->assertStatus(502)
             ->assertExactJson(['message' => 'Supabase is temporarily unavailable. Please retry.']);
+    }
+
+    private function postEmptyRpc(string $function, string $token)
+    {
+        // An empty PostgREST argument set is the JSON object {}, not the JSON array [].
+        return $this->call('POST', '/api/bridge/rpc/'.$function, [], [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+        ], '{}');
     }
 
     public function test_auth_upstream_outage_returns_502_not_a_false_invalid_session(): void

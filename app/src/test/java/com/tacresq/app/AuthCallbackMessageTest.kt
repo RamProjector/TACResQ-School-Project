@@ -14,6 +14,18 @@ class AuthCallbackMessageTest {
     }
 
     @Test
+    fun recoveryProofInQueryIsNotTreatedAsAnAuthenticatedSession() {
+        assertEquals(
+            AuthCallbackMessage.MESSAGE,
+            AuthCallbackMessage.from("tacresq://auth/callback?type=recovery&token_hash=untrusted-proof"),
+        )
+        assertEquals(
+            AuthCallbackMessage.MESSAGE,
+            AuthCallbackMessage.from("tacresq://auth/callback?access_token=untrusted-token"),
+        )
+    }
+
+    @Test
     fun rejectsOtherSchemesHostsAndPaths() {
         assertNull(AuthCallbackMessage.from("https://example.com/auth/callback"))
         assertNull(AuthCallbackMessage.from("tacresq://other/callback"))

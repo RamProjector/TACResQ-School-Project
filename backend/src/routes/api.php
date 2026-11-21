@@ -34,42 +34,178 @@ $onlyRoles = static function (Request $request, array $roles): void {
 };
 
 Route::post('/login', function (Request $request) use ($userJson) {
-    $credentials = $request->validate(['email' => ['required', 'email'], 'password' => ['required', 'string']]);
-    $user = User::where('email', $credentials['email'])->first();
-    if (!$user || !Hash::check($credentials['password'], $user->password)) {
-        return response()->json(['message' => 'The provided credentials are incorrect.'], 422);
+    $credentials = $request->validate([
+        'email' => ['required', 'string', 'email', 'max:255'],
+        // Match the legacy registration and password-change input ceiling so
+        // oversized credential strings are rejected before hashing work.
+        'password' => ['required', 'string', 'max:72'],
+    ]);
+    $normalizedEmail = mb_strtolower(trim($credentials['email']));
+    // Combine account and source to slow targeted guessing without allowing one
+    // hostile network to lock the account for every legitimate user.
+    $accountKey = 'auth-login-account:'.hash('sha256', $normalizedEmail.'|'.(string) $request->ip());
+    $ipKey = 'auth-login-ip:'.hash('sha256', (string) $request->ip());
+
+    // A generous source ceiling complements the stricter per-account/source
+    // bucket and avoids overly aggressive limits on carrier-grade NAT networks.
+    if (RateLimiter::tooManyAttempts($ipKey, 120)) {
+        return response()->json(['message' => 'Too many sign-in attempts. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($ipKey))
+            ->header('Cache-Control', 'no-store, private');
     }
-    return response()->json(['token' => $user->createToken('android')->plainTextToken, 'user' => $userJson($user)]);
+    RateLimiter::hit($ipKey, 60);
+
+    if (RateLimiter::tooManyAttempts($accountKey, 5)) {
+        return response()->json(['message' => 'Too many sign-in attempts. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($accountKey))
+            ->header('Cache-Control', 'no-store, private');
+    }
+
+    $user = User::whereRaw('LOWER(email) = ?', [$normalizedEmail])->first();
+    if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        RateLimiter::hit($accountKey, 900);
+        return response()->json(['message' => 'The provided credentials are incorrect.'], 422)
+            ->header('Cache-Control', 'no-store, private');
+    }
+
+    RateLimiter::clear($accountKey);
+    return response()->json(['token' => $user->createToken('android')->plainTextToken, 'user' => $userJson($user)])
+        ->header('Cache-Control', 'no-store, private');
 });
 
 Route::post('/register', function (Request $request) use ($userJson) {
+    // Registration is public by design, but account creation must be bounded
+    // before validation/database work to reduce automated signup abuse.
+    $registrationKey = 'auth-register-ip:'.hash('sha256', (string) $request->ip());
+    if (RateLimiter::tooManyAttempts($registrationKey, 10)) {
+        return response()->json(['message' => 'Too many registration attempts. Please retry later.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($registrationKey))
+            ->header('Cache-Control', 'no-store, private');
+    }
+    RateLimiter::hit($registrationKey, 900);
+
     $data = $request->validate([
-        'name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+        'name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'max:255'],
         'phone' => ['nullable', 'string', 'max:40'], 'password' => ['required', 'string', 'min:8', 'max:72'],
     ]);
+    $data['name'] = trim($data['name']);
+    $data['email'] = mb_strtolower(trim($data['email']));
+
+    // Normalize before lookup so case variants cannot create separate accounts.
+    $existing = User::whereRaw('LOWER(email) = ?', [$data['email']])->exists();
+    abort_if($existing, 422, 'Unable to create an account with these details.');
+
     $user = User::create([...$data, 'password' => Hash::make($data['password']), 'role' => 'requester', 'duty_status' => null]);
-    return response()->json(['token' => $user->createToken('android')->plainTextToken, 'user' => $userJson($user)], 201);
+    return response()->json(['token' => $user->createToken('android')->plainTextToken, 'user' => $userJson($user)], 201)
+        ->header('Cache-Control', 'no-store, private');
 });
 
 Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJson, $onlyRoles) {
-    Route::post('/logout', fn (Request $request) => tap(response()->noContent(), fn () => $request->user()->currentAccessToken()?->delete()));
+    Route::post('/logout', fn (Request $request) => tap(
+        response()->noContent()->header('Cache-Control', 'no-store, private'),
+        fn () => $request->user()->currentAccessToken()?->delete()
+    ));
+    // Self-service recovery control: invalidate every Sanctum personal access
+    // token for this account, including the token used for this request.
+    Route::post('/logout-all', function (Request $request) {
+        $request->user()->tokens()->delete();
+        return response()->json(['message' => 'All Laravel API tokens have been revoked.'], 200)
+            ->header('Cache-Control', 'no-store, private');
+    })->middleware('throttle:10,1');
+    Route::post('/change-password', function (Request $request) use ($userJson) {
+        $data = $request->validate([
+            'current_password' => ['required', 'string', 'max:72'],
+            'password' => ['required', 'string', 'min:12', 'max:72', 'confirmed'],
+        ]);
+        $user = $request->user();
+        $attemptKey = 'auth-password-change:'.hash('sha256', (string) $user->getAuthIdentifier());
+
+        if (RateLimiter::tooManyAttempts($attemptKey, 5)) {
+            return response()->json(['message' => 'Too many password-change attempts. Please retry later.'], 429)
+                ->header('Retry-After', (string) RateLimiter::availableIn($attemptKey))
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        if (!Hash::check($data['current_password'], $user->password)) {
+            RateLimiter::hit($attemptKey, 900);
+            return response()->json(['message' => 'The current password is incorrect.'], 422)
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        if (Hash::check($data['password'], $user->password)) {
+            return response()->json(['message' => 'Choose a password different from your current password.'], 422)
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        $user->forceFill(['password' => Hash::make($data['password'])])->save();
+
+        // Rotate every Sanctum session after a credential change, then return
+        // one fresh token so the account owner is not stranded mid-recovery.
+        $user->tokens()->delete();
+        $token = $user->createToken('android')->plainTextToken;
+        RateLimiter::clear($attemptKey);
+
+        return response()->json(['token' => $token, 'user' => $userJson($user->fresh())], 200)
+            ->header('Cache-Control', 'no-store, private');
+    })->middleware('throttle:5,1');
     Route::get('/me', fn (Request $request) => response()->json($userJson($request->user())));
     Route::patch('/me/duty-status', function (Request $request) use ($userJson, $onlyRoles) {
         $onlyRoles($request, ['responder', 'driver']);
         $data = $request->validate(['duty_status' => ['required', Rule::in(['available', 'off_duty'])]]);
-        $active = Incident::where('assigned_to', $request->user()->id)->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists();
-        abort_if($active, 422, 'Duty status cannot be changed while an incident is active.');
-        $request->user()->update($data);
-        return response()->json($userJson($request->user()->fresh()));
-    });
+        $updated = DB::transaction(function () use ($request, $data) {
+            // Serialize duty changes with dispatcher assignment, which locks this
+            // same user row before checking availability and creating membership.
+            $unit = User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $active = Incident::where(function ($query) use ($unit) {
+                $query->where('assigned_to', $unit->id)
+                    ->orWhereExists(function ($assignment) use ($unit) {
+                        $assignment->selectRaw('1')
+                            ->from('incident_assignments')
+                            ->whereColumn('incident_assignments.incident_id', 'incidents.id')
+                            ->where('incident_assignments.user_id', $unit->id);
+                    });
+            })->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists();
+            abort_if($active, 422, 'Duty status cannot be changed while an incident is active.');
+            $unit->update($data);
+            return $unit->fresh();
+        });
+        return response()->json($userJson($updated));
+    })->middleware('throttle:30,1');
     Route::get('/incidents/mine', function (Request $request) use ($incidentJson) {
+        // Preserve the legacy JSON-array response while bounding list work.
+        $validated = $request->validate(['limit' => ['sometimes', 'integer', 'min:1', 'max:100']]);
+        $limit = (int) ($validated['limit'] ?? 100);
         $user = $request->user();
         $query = Incident::query();
         if ($user->role === 'requester') $query->where('requester_id', $user->id);
-        elseif (in_array($user->role, ['responder', 'driver'], true)) $query->where('assigned_to', $user->id);
+        elseif (in_array($user->role, ['responder', 'driver'], true)) {
+            // Include every response-team member while retaining the legacy lead assignment.
+            $query->where(function ($membership) use ($user) {
+                $membership->where('assigned_to', $user->id)
+                    ->orWhereExists(function ($assignment) use ($user) {
+                        $assignment->selectRaw('1')
+                            ->from('incident_assignments')
+                            ->whereColumn('incident_assignments.incident_id', 'incidents.id')
+                            ->where('incident_assignments.user_id', $user->id);
+                    });
+            });
+            // Distinguish the legacy lead from other team members without N+1 queries.
+            $query->select('incidents.*')->selectRaw(
+                "CASE WHEN incidents.assigned_to = ? THEN 'lead' ELSE 'team' END AS assignment_role",
+                [$user->id]
+            );
+        }
         else abort(403, 'This account has no personal incident list.');
-        return response()->json($query->latest()->get()->map($incidentJson)->values());
-    });
+        return response()->json($query->orderByDesc('created_at')->orderByDesc('id')->limit($limit)->get()->map(
+            static function (Incident $incident) use ($incidentJson, $user): array {
+                $payload = $incidentJson($incident);
+                if (in_array($user->role, ['responder', 'driver'], true)) {
+                    $payload['assignment_role'] = $incident->assignment_role;
+                }
+                return $payload;
+            }
+        )->values());
+    })->middleware('throttle:120,1');
     Route::post('/incidents', function (Request $request) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['requester']);
         $data = $request->validate([
@@ -197,6 +333,12 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         $updated = DB::transaction(function () use ($incident, $data, $request, $transitions) {
             $locked = Incident::whereKey($incident->id)->lockForUpdate()->firstOrFail();
             abort_if($locked->assigned_to === null, 422, 'Assign a response unit before advancing incident progress.');
+            $lead = User::whereKey($locked->assigned_to)->first();
+            abort_unless(
+                $lead && in_array($lead->role, ['responder', 'driver'], true),
+                422,
+                'Assigned lead must be a responder or driver.'
+            );
             abort_unless(
                 in_array($data['status'], $transitions[$locked->status] ?? [], true),
                 422,
@@ -206,25 +348,50 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
             $locked->update(['status' => $data['status']]);
             $locked->statusLogs()->create(['status' => $data['status'], 'changed_by' => $request->user()->id]);
 
-            $unit = User::whereKey($locked->assigned_to)->lockForUpdate()->first();
-            if ($unit) {
-                $unit->update([
-                    'duty_status' => $data['status'] === 'resolved' ? 'available' : $data['status'],
+            DB::table('incident_assignments')
+                ->where('incident_id', $locked->id)
+                ->update([
+                    'responder_status' => $data['status'],
+                    'status_updated_at' => now(),
                 ]);
-            }
+
+            $assignedUserIds = DB::table('incident_assignments')
+                ->where('incident_id', $locked->id)
+                ->pluck('user_id')
+                ->push($locked->assigned_to)
+                ->filter()
+                ->unique()
+                ->values();
+            $units = User::whereIn('id', $assignedUserIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+            abort_unless(
+                $units->count() === $assignedUserIds->count()
+                    && $units->every(static fn (User $unit): bool => in_array($unit->role, ['responder', 'driver'], true)),
+                422,
+                'Every assigned response team member must be a responder or driver.'
+            );
+            $units->each(static fn (User $unit) => $unit->update([
+                'duty_status' => $data['status'] === 'resolved' ? 'available' : $data['status'],
+            ]));
             return $locked->fresh();
         });
 
         return response()->json($incidentJson($updated));
-    });
+    })->middleware('throttle:30,1');
     Route::get('/incidents', function (Request $request) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['dispatcher']);
-        return response()->json(Incident::latest()->get()->map($incidentJson)->values());
-    });
+        $validated = $request->validate(['limit' => ['sometimes', 'integer', 'min:1', 'max:100']]);
+        $limit = (int) ($validated['limit'] ?? 100);
+        return response()->json(Incident::orderByDesc('created_at')->orderByDesc('id')->limit($limit)->get()->map($incidentJson)->values());
+    })->middleware('throttle:120,1');
     Route::get('/units', function (Request $request) use ($userJson, $onlyRoles) {
         $onlyRoles($request, ['dispatcher']);
-        return response()->json(User::whereIn('role', ['responder', 'driver'])->orderBy('name')->get()->map($userJson)->values());
-    });
+        $validated = $request->validate(['limit' => ['sometimes', 'integer', 'min:1', 'max:100']]);
+        $limit = (int) ($validated['limit'] ?? 100);
+        return response()->json(User::whereIn('role', ['responder', 'driver'])->orderBy('name')->orderBy('id')->limit($limit)->get()->map($userJson)->values());
+    })->middleware('throttle:120,1');
     Route::post('/incidents/{incident}/assign', function (Request $request, Incident $incident) use ($incidentJson, $onlyRoles) {
         $onlyRoles($request, ['dispatcher']);
         $data = $request->validate(['user_id' => ['required', 'integer', 'exists:users,id']]);
@@ -234,15 +401,33 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
             $unit = User::whereKey($data['user_id'])->lockForUpdate()->firstOrFail();
             abort_unless(in_array($unit->role, ['responder', 'driver'], true), 422, 'Selected user is not a field unit.');
             abort_unless($unit->duty_status === 'available', 422, 'Selected unit is not available.');
-            $busy = Incident::where('assigned_to', $unit->id)->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists();
+            $busy = Incident::where(function ($query) use ($unit) {
+                $query->where('assigned_to', $unit->id)
+                    ->orWhereExists(function ($assignment) use ($unit) {
+                        $assignment->selectRaw('1')
+                            ->from('incident_assignments')
+                            ->whereColumn('incident_assignments.incident_id', 'incidents.id')
+                            ->where('incident_assignments.user_id', $unit->id);
+                    });
+            })->whereIn('status', ['assigned', 'en_route', 'on_scene', 'transporting'])->exists();
             abort_if($busy, 422, 'Selected unit already has an active incident.');
             $lockedIncident->update(['assigned_to' => $unit->id, 'status' => 'assigned']);
+            DB::table('incident_assignments')->insert([
+                'incident_id' => $lockedIncident->id,
+                'user_id' => $unit->id,
+                'assigned_by' => $request->user()->id,
+                'assigned_at' => now(),
+                'responder_status' => 'assigned',
+                'status_updated_at' => now(),
+            ]);
             $lockedIncident->statusLogs()->create(['status' => 'assigned', 'changed_by' => $request->user()->id]);
-            $unit->update(['duty_status' => 'available']);
+            // Keep the unit out of the available pool immediately after assignment.
+            // Subsequent dispatcher progress mirrors en_route/on_scene/transporting.
+            $unit->update(['duty_status' => 'assigned']);
             return $lockedIncident->fresh();
         });
         return response()->json($incidentJson($updated));
-    });
+    })->middleware('throttle:30,1');
 });
 
 // Transitional Render -> Supabase bridge. Apply a coarse per-IP ceiling before
@@ -265,7 +450,7 @@ Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge
     }
     abort_if (!$user, 401, 'The Supabase session is invalid or expired.');
 
-    $userRateKey = 'bridge-user:'.$user['id'];
+    $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
     if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
         return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
             ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
@@ -283,6 +468,26 @@ Route::post('/bridge/rpc/{function}', function (
     string $function,
     \App\SupabaseBridge $bridge
 ) {
+    // Bound untrusted JSON before token verification or upstream work. RPC
+    // arguments are JSON objects, not arbitrary top-level arrays.
+    abort_if(strlen($request->getContent()) > 32768, 413, 'Request payload is too large.');
+    try {
+        $decodedArguments = json_decode(
+            $request->getContent(),
+            false,
+            64,
+            JSON_THROW_ON_ERROR
+        );
+    } catch (\JsonException) {
+        abort(422, 'RPC arguments must be a valid JSON object.');
+    }
+    abort_unless(
+        $decodedArguments instanceof \stdClass,
+        422,
+        'RPC arguments must be a JSON object.'
+    );
+    $arguments = get_object_vars($decodedArguments);
+
     $allowlist = config('tacru.bridge_rpc_allowlist', []);
     abort_unless(in_array($function, $allowlist, true), 404, 'RPC endpoint not found.');
 
@@ -298,14 +503,14 @@ Route::post('/bridge/rpc/{function}', function (
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
 
-    $userRateKey = 'bridge-user:'.$user['id'];
+    $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
     if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
         return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
             ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
     }
     RateLimiter::hit($userRateKey, 60);
 
-    $result = $bridge->callRpc($token, $function, $request->json()->all());
+    $result = $bridge->callRpc($token, $function, $arguments);
     if ($result['status'] >= 500) {
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
@@ -442,6 +647,16 @@ Route::get('/route-preview/provider', function (Request $request, \App\SupabaseB
     } catch (\RuntimeException) {
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
+
+    // This endpoint performs another authenticated Supabase RPC; bound it per
+    // verified account before making the additional upstream request.
+    $providerRateKey = 'route-preview-provider-user:'.hash('sha256', (string) $authUser['id']);
+    if (RateLimiter::tooManyAttempts($providerRateKey, 30)) {
+        return response()->json(['message' => 'Too many route-provider checks. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($providerRateKey))
+            ->header('Cache-Control', 'no-store, private');
+    }
+    RateLimiter::hit($providerRateKey, 60);
 
     $profileResult = $bridge->callRpc($token, 'api_me', []);
     if ($profileResult['status'] >= 500) {
@@ -720,6 +935,7 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
         // incident ID, narrative, or personal information is sent to OSRM.
         $upstream = \Illuminate\Support\Facades\Http::acceptJson()
             ->asJson()
+            ->connectTimeout(3)
             ->timeout(12)
             ->post($routerBaseUrl.'/route/v1/driving', [
                 'coordinates' => [[$originLon, $originLat], [(float) $destinationLon, (float) $destinationLat]],

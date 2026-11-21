@@ -443,7 +443,7 @@ internal fun incidentLocationText(incident: Incident): String {
     }
 
     val source = when (incident.locationSource) {
-        "gps" -> "GPS"
+        "gps" -> "Device location"
         "manual" -> "Map pin"
         else -> "Unverified pin"
     }

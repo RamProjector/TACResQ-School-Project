@@ -435,30 +435,30 @@ class RequesterViewModel(
                     )
                 }
                 LocationCaptureResult.PermissionDenied -> showLocationError(
-                    "Location wasn't shared. You can try the location button again or send the SOS without a GPS pin."
+                    "Location wasn't shared. You can try the location button again or send the SOS without a device location pin."
                 )
                 LocationCaptureResult.ServicesDisabled -> showLocationError(
-                    "Device Location is turned off. Turn it on and retry, or send the SOS without a GPS pin."
+                    "Device Location is turned off. Turn it on and retry, or send the SOS without a device location pin."
                 )
                 LocationCaptureResult.TimedOut -> showLocationError(
-                    "A fresh GPS fix wasn't available within 15 seconds. Move near a window and retry, or send without a pin."
+                    "A fresh device location wasn't available within 15 seconds. Move near a window and retry, or send without a pin."
                 )
                 LocationCaptureResult.InvalidFix -> showLocationError(
-                    "The location provider returned an invalid or stale fix. No pin was attached; retry or send without GPS."
+                    "The location provider returned an invalid or stale fix. No pin was attached; retry or send without a device location."
                 )
                 LocationCaptureResult.Unavailable -> showLocationError(
-                    "Current location is temporarily unavailable. Retry, add a landmark, or send without a GPS pin."
+                    "Current location is temporarily unavailable. Retry, add a landmark, or send without a device location pin."
                 )
             }
         }
     }
 
     fun onLocationDenied() = showLocationError(
-        "Location permission wasn't granted. No GPS data was read. You can still send an SOS without a pin."
+        "Location permission wasn't granted. No device location was read. You can still send an SOS without a pin."
     )
 
     fun onLocationButtonError() = showLocationError(
-        "The secure location prompt couldn't start. Retry the location button or send without GPS."
+        "The secure location prompt couldn't start. Retry the location button or send without a device location."
     )
 
     fun setManualLocation(latitude: Double, longitude: Double) {
@@ -493,7 +493,7 @@ class RequesterViewModel(
             _state.update {
                 it.copy(
                     locationFix = null,
-                    locationError = "The selected location pin is older than two minutes and will not be sent. Capture a fresh GPS fix, choose the map pin again, or review without a pin.",
+                    locationError = "The selected location pin is older than two minutes and will not be sent. Capture a fresh device location, choose the map pin again, or review without a pin.",
                 )
             }
         }
@@ -541,7 +541,7 @@ class RequesterViewModel(
             _state.update {
                 it.copy(
                     locationFix = null,
-                    locationError = "The location pin expired while you were reviewing. No request was sent; capture a fresh GPS fix, choose the map pin again, or review again without a pin.",
+                    locationError = "The location pin expired while you were reviewing. No request was sent; capture a fresh device location, choose the map pin again, or review again without a pin.",
                 )
             }
             return
@@ -567,8 +567,8 @@ class RequesterViewModel(
                         val status = when {
                             !locationConfirmed -> "SOS request was accepted by the server, but its location response could not be verified."
                             fix?.manuallySelected == true -> "SOS sent. Dispatch confirmed the map pin you selected."
-                            fix != null -> "SOS sent. Dispatch confirmed the one-time GPS pin you submitted."
-                            else -> "SOS sent without a GPS pin. Dispatch received your request; any landmark note is included."
+                            fix != null -> "SOS sent. Dispatch confirmed the one-time device location pin you submitted."
+                            else -> "SOS sent without a device location pin. Dispatch received your request; any landmark note is included."
                         }
                         _state.update {
                             it.copy(
@@ -577,7 +577,7 @@ class RequesterViewModel(
                                 locationFix = null,
                                 locationError = null,
                                 notice = status,
-                                error = if (locationConfirmed) null else "Do not resend this SOS. The server accepted the request, but the GPS pin or location note did not match what you approved. Contact dispatch to verify the location.",
+                                error = if (locationConfirmed) null else "Do not resend this SOS. The server accepted the request, but the device location pin or location note did not match what you approved. Contact dispatch to verify the location.",
                                 incidents = listOf(created) + it.incidents,
                             )
                         }
@@ -1139,7 +1139,7 @@ fun RequesterScreen(
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                "Share what happened and where. GPS is optional.",
+                                "Share what happened and where. Device location is optional.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f),
                             )
@@ -1370,7 +1370,7 @@ fun RequesterScreen(
                         2 -> {
                             Text("Confirm your location", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
                             Text(
-                                "Your location is not tracked continuously. Share a one-time GPS pin, choose a map pin, or continue without GPS.",
+                                "Your location is not tracked continuously. Share a one-time device location pin, choose a map pin, or continue without a device location.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -1397,8 +1397,8 @@ fun RequesterScreen(
                             }
                             when {
                                 freshFix != null -> LocationFixCard(freshFix, onClear = vm::clearLocationFix)
-                                state.locationFix != null -> LocationNoticeCard("Location pin expired", "This pin will not be sent. Capture a fresh GPS fix, choose a map pin again, or continue without a pin.")
-                                !state.capturingLocation -> LocationNoticeCard("No GPS pin", "Add a landmark or continue without GPS.")
+                                state.locationFix != null -> LocationNoticeCard("Location pin expired", "This pin will not be sent. Capture a fresh device location, choose a map pin again, or continue without a pin.")
+                                !state.capturingLocation -> LocationNoticeCard("No device location pin", "Add a landmark or continue without a device location.")
                             }
                             state.locationError?.let { Banner(it, isError = true, onDismiss = vm::dismissMessages) }
                             OutlinedTextField(
@@ -1415,7 +1415,7 @@ fun RequesterScreen(
                                     when {
                                         freshFix != null -> Text("Optional: add a building, entrance, floor, or nearby landmark.")
                                         locationRequirementError != null -> Text(locationRequirementError!!)
-                                        else -> Text("Required when no GPS or map pin is attached. Add a place dispatch can locate.")
+                                        else -> Text("Required when no device or map pin is attached. Add a place dispatch can locate.")
                                     }
                                 },
                                 minLines = 2,
@@ -1476,7 +1476,7 @@ fun RequesterScreen(
                             description.trim().takeIf { it.isNotEmpty() }?.let { Text("Details: $it") }
                             if (freshFix != null) LocationFixCard(freshFix, onClear = { vm.clearLocationFix(); requestStep = 2 })
                             if (freshFix != null) Text("This one-time pin is sent; ongoing tracking is not.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            else LocationNoticeCard("Sending without a GPS pin", "Dispatch may need to call you to confirm the exact location.")
+                            else LocationNoticeCard("Sending without a device location pin", "Dispatch may need to call you to confirm the exact location.")
                             locationNotes.trim().takeIf { it.isNotEmpty() }?.let { Text("Landmark/access detail: $it") }
                             Text("Only send if help is needed now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1683,7 +1683,7 @@ fun RequesterScreen(
                     Text("Emergency: " + editType.label)
                     Text("Details: " + editDescription.trim().ifBlank { "None provided" })
                     Text("Location note: " + editLocationNotes.trim().ifBlank { "None provided" })
-                    Text(if (editLatitude != null && editLongitude != null) "Pin: %.5f, %.5f".format(Locale.US, editLatitude, editLongitude) else "No GPS/map pin")
+                    Text(if (editLatitude != null && editLongitude != null) "Pin: %.5f, %.5f".format(Locale.US, editLatitude, editLongitude) else "No device/map pin")
                     Text("This correction will be recorded for dispatch. Confirm only if these details are accurate.")
                     if (editCooldownSeconds > 0 && urgentLocationCorrection) {
                         Text("You are correcting only the emergency pin, so this safety-critical change can bypass the timer.")
@@ -1794,7 +1794,7 @@ private fun LocationFixCard(fix: GeoFix, onClear: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                if (fix.manuallySelected) "Map pin selected" else "One-time GPS fix ready",
+                if (fix.manuallySelected) "Map pin selected" else "One-time device location ready",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -2007,7 +2007,7 @@ private fun ManualLocationPickerDialog(
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                if (startsAtTaclobanDefault) "Starts at Tacloban, not your GPS position. Move the map to the emergency site."
+                                if (startsAtTaclobanDefault) "Starts at Tacloban, not your device location. Move the map to the emergency site."
                                 else "Move the map so the center pin marks the emergency site.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (startsAtTaclobanDefault) MaterialTheme.colorScheme.error
@@ -2061,7 +2061,7 @@ private fun ManualLocationPickerDialog(
                                 mapLoadError -> "Map data is unavailable. Cancel and share a landmark instead."
                                 !mapStyleLoaded -> "Loading map data…"
                                 startsAtTaclobanDefault && !userAdjustedMap -> "Move the map before confirming."
-                                else -> "Map pin only; it does not measure GPS accuracy. Confirm the center pin marks the emergency site."
+                                else -> "Map pin only; it does not report device-location accuracy. Confirm the center pin marks the emergency site."
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = if (mapLoadError || (startsAtTaclobanDefault && !userAdjustedMap)) {

@@ -45,5 +45,13 @@ jobs:
         run: python3 tools/test_rpc_grants.py
       - name: Replay migrations and verify existing database contracts
         run: bash tools/test_supabase_migration_replay.sh
+      - name: Verify incident assignment table privileges
+        run: psql -v ON_ERROR_STOP=1 -f tools/test_incident_assignment_privileges.sql
+      - name: Verify operational table write boundaries
+        run: psql -v ON_ERROR_STOP=1 -f tools/test_operational_table_privileges.sql
+      - name: Verify core table destructive privilege boundaries
+        run: psql -v ON_ERROR_STOP=1 -f tools/test_core_table_privileges.sql
+      - name: Verify backend-only device registry privileges
+        run: psql -v ON_ERROR_STOP=1 -f tools/test_device_security_privileges.sql
       - name: Verify GPS RPC privileges and authorization at runtime
         run: psql -v ON_ERROR_STOP=1 -f tools/test_location_rpc_security.sql

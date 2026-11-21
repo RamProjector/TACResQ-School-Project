@@ -1,0 +1,182 @@
+-- Runtime contract for the backend-only device registry.
+DO $device_registry_privilege_contract$
+DECLARE
+  table_name text;
+  table_oid regclass;
+  privilege_name text;
+  table_names text[] := ARRAY[
+    'user_devices',
+    'device_sessions',
+    'device_challenges',
+    'device_security_events',
+    'device_integrity_checks'
+  ];
+BEGIN
+  FOREACH table_name IN ARRAY table_names LOOP
+    table_oid := to_regclass('public.' || table_name);
+    IF table_oid IS NULL THEN
+      RAISE EXCEPTION 'Expected public.% table', table_name;
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = table_oid) THEN
+      RAISE EXCEPTION 'RLS must be enabled on public.%', table_name;
+    END IF;
+
+    FOREACH privilege_name IN ARRAY ARRAY[
+      'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+    ] LOOP
+      IF has_table_privilege('anon', table_oid, privilege_name)
+         OR has_table_privilege('authenticated', table_oid, privilege_name) THEN
+        RAISE EXCEPTION 'Client/PUBLIC role unexpectedly has % on public.%',
+          privilege_name, table_name;
+      END IF;
+    END LOOP;
+  END LOOP;
+
+
+  -- Cross-account associations must be impossible even if verifier code
+  -- accidentally supplies a valid device UUID with another profile ID.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'device_sessions_device_owner_fk'
+      AND conrelid = 'public.device_sessions'::regclass
+      AND contype = 'f' AND convalidated
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'device_challenges_device_owner_fk'
+      AND conrelid = 'public.device_challenges'::regclass
+      AND contype = 'f' AND convalidated
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'device_integrity_checks_device_owner_fk'
+      AND conrelid = 'public.device_integrity_checks'::regclass
+      AND contype = 'f' AND convalidated
+  ) THEN
+    RAISE EXCEPTION 'Device/session/challenge/integrity ownership constraints are missing or unvalidated';
+  END IF;
+
+  -- Input bounds and short challenge lifetimes are enforced by PostgreSQL,
+  -- not left to individual verifier implementations.
+  IF (
+    SELECT count(*) FROM pg_constraint
+    WHERE convalidated
+      AND (
+        (conrelid = 'public.user_devices'::regclass AND conname IN (
+          'user_devices_device_model_length_check',
+          'user_devices_app_version_length_check',
+          'user_devices_public_key_length_check',
+          'user_devices_revoked_reason_length_check'
+        ))
+        OR (conrelid = 'public.device_sessions'::regclass
+            AND conname IN ('device_sessions_expiry_check', 'device_sessions_revocation_consistency_check'))
+        OR (conrelid = 'public.device_challenges'::regclass
+            AND conname = 'device_challenges_max_lifetime_check')
+        OR (conrelid = 'public.device_security_events'::regclass
+            AND conname = 'device_security_events_details_size_check')
+        OR (conrelid = 'public.device_integrity_checks'::regclass
+            AND conname = 'device_integrity_checks_summary_size_check')
+      )
+  ) <> 9 THEN
+    RAISE EXCEPTION 'Device registry metadata, payload-size, and challenge-lifetime constraints are missing or unvalidated';
+  END IF;
+
+  -- Verify the actual CHECK expressions, not only their constraint names.
+  -- This catches accidental weakening while retaining the migration-history contract.
+  DECLARE
+    constraint_contract record;
+    constraint_definition text;
+  BEGIN
+    FOR constraint_contract IN
+      SELECT * FROM (VALUES
+        ('user_devices', 'user_devices_device_model_length_check', 'device_model', '120'),
+        ('user_devices', 'user_devices_app_version_length_check', 'app_version', '80'),
+        ('user_devices', 'user_devices_public_key_length_check', 'public_key', '4096'),
+        ('user_devices', 'user_devices_revoked_reason_length_check', 'revoked_reason', '500'),
+        ('device_sessions', 'device_sessions_expiry_check', 'expires_at', 'created_at'),
+        ('device_sessions', 'device_sessions_revocation_consistency_check', 'revoked_at', 'revoke_reason'),
+        ('device_challenges', 'device_challenges_max_lifetime_check', 'expires_at', 'created_at'),
+        ('device_security_events', 'device_security_events_details_size_check', 'details', '8192'),
+        ('device_integrity_checks', 'device_integrity_checks_summary_size_check', 'result_summary', '4096')
+      ) AS contracts(table_name, constraint_name, required_token_one, required_token_two)
+    LOOP
+      SELECT lower(pg_get_constraintdef(oid))
+      INTO constraint_definition
+      FROM pg_constraint
+      WHERE conrelid = to_regclass('public.' || constraint_contract.table_name)
+        AND conname = constraint_contract.constraint_name
+        AND convalidated;
+
+      IF constraint_definition IS NULL
+         OR position(lower(constraint_contract.required_token_one) IN constraint_definition) = 0
+         OR position(lower(constraint_contract.required_token_two) IN constraint_definition) = 0 THEN
+        RAISE EXCEPTION 'Device registry CHECK expression is missing expected tokens: %.%',
+          constraint_contract.table_name, constraint_contract.constraint_name;
+      END IF;
+    END LOOP;
+
+    -- The short challenge ceiling is security-sensitive; assert its actual
+    -- interval literal rather than relying on the constraint's display name.
+    SELECT lower(pg_get_constraintdef(oid))
+    INTO constraint_definition
+    FROM pg_constraint
+    WHERE conrelid = 'public.device_challenges'::regclass
+      AND conname = 'device_challenges_max_lifetime_check'
+      AND convalidated;
+    IF position('00:10:00' IN constraint_definition) = 0 THEN
+      RAISE EXCEPTION 'Device challenge lifetime must remain capped at ten minutes';
+    END IF;
+  END;
+
+  -- Identity sequences are backend-only too; table grants alone do not
+  -- protect INSERT ... RETURNING paths or direct sequence calls.
+  FOREACH privilege_name IN ARRAY ARRAY['USAGE', 'SELECT', 'UPDATE'] LOOP
+    IF has_sequence_privilege('anon', 'public.device_security_events_id_seq', privilege_name)
+       OR has_sequence_privilege('authenticated', 'public.device_security_events_id_seq', privilege_name)
+       OR has_sequence_privilege('anon', 'public.device_integrity_checks_id_seq', privilege_name)
+       OR has_sequence_privilege('authenticated', 'public.device_integrity_checks_id_seq', privilege_name) THEN
+      RAISE EXCEPTION 'Client/PUBLIC role unexpectedly has % on device registry sequences', privilege_name;
+    END IF;
+  END LOOP;
+
+  IF NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'SELECT')
+     OR has_sequence_privilege('service_role', 'public.device_security_events_id_seq', 'UPDATE')
+     OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'SELECT')
+     OR has_sequence_privilege('service_role', 'public.device_integrity_checks_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Unexpected service_role privileges on device registry sequences';
+  END IF;
+
+  -- Mutable registry records are server-managed; event/integrity records
+  -- are insert-only so service_role cannot rewrite or erase their history.
+  IF NOT has_table_privilege('service_role', 'public.user_devices', 'SELECT')
+     OR NOT has_table_privilege('service_role', 'public.user_devices', 'INSERT')
+     OR NOT has_table_privilege('service_role', 'public.user_devices', 'UPDATE')
+     OR has_table_privilege('service_role', 'public.user_devices', 'DELETE')
+     OR has_table_privilege('service_role', 'public.user_devices', 'TRUNCATE') THEN
+    RAISE EXCEPTION 'Unexpected service_role privileges on user_devices';
+  END IF;
+
+  FOREACH table_name IN ARRAY ARRAY['device_sessions', 'device_challenges'] LOOP
+    table_oid := to_regclass('public.' || table_name);
+    IF NOT has_table_privilege('service_role', table_oid, 'SELECT')
+       OR NOT has_table_privilege('service_role', table_oid, 'INSERT')
+       OR NOT has_table_privilege('service_role', table_oid, 'UPDATE')
+       OR has_table_privilege('service_role', table_oid, 'DELETE')
+       OR has_table_privilege('service_role', table_oid, 'TRUNCATE') THEN
+      RAISE EXCEPTION 'Unexpected service_role privileges on public.%', table_name;
+    END IF;
+  END LOOP;
+
+  FOREACH table_name IN ARRAY ARRAY['device_security_events', 'device_integrity_checks'] LOOP
+    table_oid := to_regclass('public.' || table_name);
+    IF NOT has_table_privilege('service_role', table_oid, 'SELECT')
+       OR NOT has_table_privilege('service_role', table_oid, 'INSERT')
+       OR has_table_privilege('service_role', table_oid, 'UPDATE')
+       OR has_table_privilege('service_role', table_oid, 'DELETE')
+       OR has_table_privilege('service_role', table_oid, 'TRUNCATE') THEN
+      RAISE EXCEPTION 'Unexpected service_role privileges on append-only public.%', table_name;
+    END IF;
+  END LOOP;
+END;
+$device_registry_privilege_contract$;

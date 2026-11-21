@@ -14,6 +14,11 @@ VALUES
     '00000000-0000-4000-8000-000000000992',
     'requester-location-edit-b@example.test',
     '{"name":"Requester Location Edit B","phone":"+63917000992","role":"requester"}'::jsonb
+  ),
+  (
+    '00000000-0000-4000-8000-000000000993',
+    'dispatcher-cancellation-alert@example.test',
+    '{"name":"Dispatcher Cancellation Alert","phone":"+63917000993","role":"dispatcher"}'::jsonb
   );
 
 -- Terminal requests remain visible in the fixture but are not editable.
@@ -44,6 +49,31 @@ SELECT id, 'fire', 'Other requester report', 10.3100, 123.9100, 10,
        'Side entrance', clock_timestamp(), 'gps', 'pending'
 FROM public.profiles
 WHERE auth_user_id = '00000000-0000-4000-8000-000000000992';
+
+-- Deliberately inconsistent legacy state: the second requester's pending
+-- incident has a team-membership row while assigned_to remains NULL.
+INSERT INTO public.incident_assignments (incident_id, user_id, assigned_by)
+SELECT i.id, p_member.id, NULL
+FROM public.incidents i
+JOIN public.profiles p_owner ON p_owner.id = i.requester_id
+JOIN public.profiles p_member ON p_member.auth_user_id = '00000000-0000-4000-8000-000000000991'
+WHERE p_owner.auth_user_id = '00000000-0000-4000-8000-000000000992'
+  AND i.status = 'pending'
+  AND i.description = 'Other requester report';
+
+SELECT set_config(
+  'tacresq.test_team_member_incident_id',
+  (
+    SELECT i.id::text
+    FROM public.incidents i
+    JOIN public.profiles p ON p.id = i.requester_id
+    WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000992'
+      AND i.description = 'Other requester report'
+    ORDER BY i.id DESC
+    LIMIT 1
+  ),
+  false
+);
 
 SELECT set_config(
   'tacresq.test.other_requester_incident_id',
@@ -79,6 +109,7 @@ DECLARE
   own_incident_id bigint;
   other_incident_id bigint := current_setting('tacresq.test.other_requester_incident_id')::bigint;
   cancelled_incident_id bigint := current_setting('tacresq.test.cancelled_incident_id')::bigint;
+  team_member_incident_id bigint := current_setting('tacresq.test_team_member_incident_id')::bigint;
   result jsonb;
   denied boolean;
 BEGIN
@@ -203,6 +234,52 @@ BEGIN
   IF NOT denied THEN
     RAISE EXCEPTION 'Cancelled incident was editable';
   END IF;
+  -- A team-membership row blocks the owner even when legacy columns/status
+  -- are inconsistent and still appear pending/unassigned. Switch JWT identity to
+  -- the second requester, whose pending incident carries the synthetic row.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000992', true);
+  denied := false;
+  BEGIN
+    PERFORM public.api_update_my_incident(
+      team_member_incident_id, 'fire', 'Attempted edit after team membership',
+      10.3101, 123.9101, NULL, 'Side entrance',
+      clock_timestamp(), 'manual', false
+    );
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Requester was able to edit an incident with assignment-team membership';
+  END IF;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000991', true);
+
+  -- A requester cannot cancel another account's pending incident.
+  denied := false;
+  BEGIN
+    PERFORM public.api_cancel_my_incident(other_incident_id);
+  EXCEPTION WHEN no_data_found THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Requester was able to cancel another account incident';
+  END IF;
+
+  -- A terminal request cannot be cancelled again.
+  denied := false;
+  BEGIN
+    PERFORM public.api_cancel_my_incident(cancelled_incident_id);
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Already-cancelled incident accepted a second cancellation';
+  END IF;
+
+  -- The owner may cancel the same pending request after reviewing/editing it.
+  result := public.api_cancel_my_incident(own_incident_id);
+  IF result->>'status' IS DISTINCT FROM 'cancelled' THEN
+    RAISE EXCEPTION 'Pending requester cancellation did not return cancelled status: %', result;
+  END IF;
 END;
 $requester_location_edit_authenticated$;
 
@@ -219,7 +296,7 @@ BEGIN
   FROM public.incidents i
   JOIN public.profiles p ON p.id = i.requester_id
   WHERE p.auth_user_id = '00000000-0000-4000-8000-000000000991'
-    AND i.status = 'pending'
+    AND i.description = 'Original report'
   ORDER BY i.id DESC
   LIMIT 1;
 
@@ -231,7 +308,57 @@ BEGIN
   IF edit_count <> 2 OR urgent_count <> 1 THEN
     RAISE EXCEPTION 'Expected two edit audit records with one urgent correction; found total %, urgent %', edit_count, urgent_count;
   END IF;
+  IF (SELECT count(*) FROM public.incident_status_logs
+      WHERE incident_id = v_incident_id
+        AND status = 'cancelled'
+        AND changed_by = (
+          SELECT id FROM public.profiles
+          WHERE auth_user_id = '00000000-0000-4000-8000-000000000991'
+        )) <> 1 THEN
+    RAISE EXCEPTION 'Requester cancellation did not create exactly one attributable status audit record';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.user_notifications n
+    JOIN public.profiles dispatcher ON dispatcher.id = n.recipient_user_id
+    WHERE n.incident_id = v_incident_id
+      AND n.event_type = 'incident_cancelled'
+      AND dispatcher.role = 'dispatcher'
+  ) THEN
+    RAISE EXCEPTION 'Requester cancellation did not create a dispatcher inbox notification';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.user_notifications n
+    JOIN public.profiles requester ON requester.id = n.recipient_user_id
+    WHERE n.incident_id = v_incident_id
+      AND n.event_type = 'incident_cancelled'
+      AND requester.auth_user_id = '00000000-0000-4000-8000-000000000991'
+  ) THEN
+    RAISE EXCEPTION 'Requester cancellation notification was incorrectly sent back to the requester';
+  END IF;
+
+  -- Cancellation releases the one-active-request guard for a fresh SOS.
+  INSERT INTO public.incidents (
+    requester_id, type, description, latitude, longitude, accuracy_m,
+    location_notes, location_recorded_at, location_source
+  )
+  SELECT id, 'medical', 'New report after cancellation', 10.3300, 123.9300, 8,
+         'Community entrance', clock_timestamp(), 'gps'
+  FROM public.profiles
+  WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
+
+  IF (SELECT count(*) FROM public.incidents
+      WHERE requester_id = (
+        SELECT id FROM public.profiles
+        WHERE auth_user_id = '00000000-0000-4000-8000-000000000991'
+      )
+      AND status NOT IN ('resolved', 'cancelled')) <> 1 THEN
+    RAISE EXCEPTION 'Cancellation did not free exactly one active-request slot';
+  END IF;
 END;
 $requester_location_edit_audit$;
 
-SELECT 'PASS: authenticated requester edit ownership, location validation, urgent correction, and audit behavior' AS result;
+SELECT 'PASS: authenticated requester edit, cancellation ownership, terminal-state, audit, and one-active-request behavior' AS result;
