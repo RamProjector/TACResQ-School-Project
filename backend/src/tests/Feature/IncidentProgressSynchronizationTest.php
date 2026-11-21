@@ -20,8 +20,9 @@ class IncidentProgressSynchronizationTest extends TestCase
         $lead = $this->user('progress-lead@example.test', 'responder', 'assigned');
         $teammate = $this->user('progress-teammate@example.test', 'driver', 'assigned');
         $unrelatedLead = $this->user('progress-unrelated-lead@example.test', 'responder', 'en_route');
+        $unrelatedRequester = $this->user('progress-unrelated-requester@example.test', 'requester');
         $unrelatedIncident = Incident::create([
-            'requester_id' => $requester->id,
+            'requester_id' => $unrelatedRequester->id,
             'type' => 'medical',
             'description' => 'Separate active incident must not be synchronized',
             'status' => 'en_route',
