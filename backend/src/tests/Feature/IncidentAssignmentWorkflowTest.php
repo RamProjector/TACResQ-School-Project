@@ -382,7 +382,9 @@ class IncidentAssignmentWorkflowTest extends TestCase
         $incident = $this->incident($requester);
 
         foreach (['requester', 'responder', 'driver', 'admin'] as $role) {
-            $account = $this->user('assignment-auth-'.$role.'@example.test', $role, $role === 'responder' || $role === 'driver' ? 'available' : null);
+            $account = $role === 'responder'
+                ? $responder
+                : $this->user('assignment-auth-'.$role.'@example.test', $role, $role === 'driver' ? 'available' : null);
             Sanctum::actingAs($account);
 
             $this->postJson('/api/incidents/'.$incident->id.'/assign', [
