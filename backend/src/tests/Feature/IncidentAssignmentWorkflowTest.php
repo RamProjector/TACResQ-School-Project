@@ -113,7 +113,8 @@ class IncidentAssignmentWorkflowTest extends TestCase
             'responder_status' => 'en_route',
             'status_updated_at' => now(),
         ]);
-        $newIncident = $this->incident($requester);
+        $newRequester = $this->user('assignment-busy-new-requester@example.test', 'requester');
+        $newIncident = $this->incident($newRequester);
 
         Sanctum::actingAs($dispatcher);
         $this->postJson('/api/incidents/'.$newIncident->id.'/assign', [
@@ -145,7 +146,8 @@ class IncidentAssignmentWorkflowTest extends TestCase
             'status' => 'transporting',
             'assigned_to' => $legacyLead->id,
         ]);
-        $newIncident = $this->incident($requester);
+        $newRequester = $this->user('assignment-legacy-new-requester@example.test', 'requester');
+        $newIncident = $this->incident($newRequester);
 
         Sanctum::actingAs($dispatcher);
         $this->postJson('/api/incidents/'.$newIncident->id.'/assign', [
@@ -195,7 +197,8 @@ class IncidentAssignmentWorkflowTest extends TestCase
             'responder_status' => 'on_scene',
             'status_updated_at' => now(),
         ]);
-        $newIncident = $this->incident($requester);
+        $newRequester = $this->user('assignment-team-new-requester@example.test', 'requester');
+        $newIncident = $this->incident($newRequester);
 
         Sanctum::actingAs($dispatcher);
         $this->postJson('/api/incidents/'.$newIncident->id.'/assign', [
@@ -309,8 +312,9 @@ class IncidentAssignmentWorkflowTest extends TestCase
         $responder = $this->user('assignment-state-unit@example.test', 'responder', 'available');
 
         foreach (['assigned', 'en_route', 'on_scene', 'transporting', 'resolved', 'cancelled'] as $status) {
+            $stateRequester = $this->user('assignment-state-'.$status.'@example.test', 'requester');
             $incident = Incident::create([
-                'requester_id' => $requester->id,
+                'requester_id' => $stateRequester->id,
                 'type' => 'medical',
                 'description' => 'Assignment state guard: '.$status,
                 'status' => $status,
@@ -372,7 +376,7 @@ class IncidentAssignmentWorkflowTest extends TestCase
 
     public function test_only_dispatchers_can_assign_or_advance_incidents(): void
     {
-        $requester = $this->user('assignment-auth-requester@example.test', 'requester');
+        $requester = $this->user('assignment-auth-owner@example.test', 'requester');
         $dispatcher = $this->user('assignment-auth-dispatcher@example.test', 'dispatcher');
         $responder = $this->user('assignment-auth-responder@example.test', 'responder', 'available');
         $incident = $this->incident($requester);
@@ -420,7 +424,7 @@ class IncidentAssignmentWorkflowTest extends TestCase
             'requester_id' => $requester->id,
             'type' => 'medical',
             'description' => 'Legacy lead incident',
-            'status' => 'assigned',
+            'status' => 'resolved',
             'assigned_to' => $lead->id,
         ]);
         $teamIncident = Incident::create([
