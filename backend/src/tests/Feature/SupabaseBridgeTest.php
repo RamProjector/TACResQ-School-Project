@@ -237,8 +237,7 @@ class SupabaseBridgeTest extends TestCase
             },
         ]);
 
-        $this->withToken('valid-supabase-access-token')
-            ->postJson('/api/bridge/rpc/api_units', [])
+        $this->postEmptyRpc('api_units', 'valid-supabase-access-token')
             ->assertStatus(502)
             ->assertExactJson(['message' => 'Supabase is temporarily unavailable. Please retry.']);
     }
