@@ -190,7 +190,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
                     });
             });
             // Distinguish the legacy lead from other team members without N+1 queries.
-            $query->selectRaw(
+            $query->select('incidents.*')->selectRaw(
                 "CASE WHEN incidents.assigned_to = ? THEN 'lead' ELSE 'team' END AS assignment_role",
                 [$user->id]
             );
