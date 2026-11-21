@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Incident;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -46,15 +47,15 @@ class IncidentResponseTeamRelationsTest extends TestCase
         $this->assertSame($responderId, $incident->responseTeam->first()->id);
         $this->assertSame('en_route', $incident->responseTeam->first()->pivot->responder_status);
         $this->assertSame($dispatcherId, $incident->responseTeam->first()->pivot->assigned_by);
-        $this->assertEquals($assignedAt, $incident->responseTeam->first()->pivot->assigned_at);
-        $this->assertEquals($statusUpdatedAt, $incident->responseTeam->first()->pivot->status_updated_at);
+        $this->assertSame($assignedAt->toDateTimeString(), Carbon::parse($incident->responseTeam->first()->pivot->assigned_at)->toDateTimeString());
+        $this->assertSame($statusUpdatedAt->toDateTimeString(), Carbon::parse($incident->responseTeam->first()->pivot->status_updated_at)->toDateTimeString());
 
         $this->assertCount(1, $responder->responseIncidents);
         $this->assertSame($incidentId, $responder->responseIncidents->first()->id);
         $this->assertSame('en_route', $responder->responseIncidents->first()->pivot->responder_status);
         $this->assertSame($dispatcherId, $responder->responseIncidents->first()->pivot->assigned_by);
-        $this->assertEquals($assignedAt, $responder->responseIncidents->first()->pivot->assigned_at);
-        $this->assertEquals($statusUpdatedAt, $responder->responseIncidents->first()->pivot->status_updated_at);
+        $this->assertSame($assignedAt->toDateTimeString(), Carbon::parse($responder->responseIncidents->first()->pivot->assigned_at)->toDateTimeString());
+        $this->assertSame($statusUpdatedAt->toDateTimeString(), Carbon::parse($responder->responseIncidents->first()->pivot->status_updated_at)->toDateTimeString());
     }
 
     private function insertUser(string $email, string $role): int
