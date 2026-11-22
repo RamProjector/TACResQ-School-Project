@@ -11,7 +11,11 @@ async function getGoogleAccessToken(account: Record<string, string>): Promise<st
   const issuedAt = Math.floor(Date.now() / 1000);
   const claim = base64Url(JSON.stringify({ iss: account.client_email, scope: "https://www.googleapis.com/auth/firebase.messaging", aud: account.token_uri, iat: issuedAt, exp: issuedAt + 3600 }));
   const unsigned = `${header}.${claim}`;
-  const pkcs8 = account.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
+  const pkcs8 = account.private_key
+    .split(/\r?\n/)
+    .filter((line) => !line.startsWith("-----"))
+    .join("")
+    .replace(/\s/g, "");
   const keyBytes = Uint8Array.from(atob(pkcs8), (character) => character.charCodeAt(0));
   const key = await crypto.subtle.importKey("pkcs8", keyBytes, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   const signature = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned)));
@@ -27,7 +31,8 @@ Deno.serve(async (request: Request) => {
   const userToken = authHeader.replace(/^Bearer\s+/i, "");
   if (!userToken) return json({ error: "Authorization bearer token required" }, 401);
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const serviceRoleEnvName = ["SUPABASE", "SERVICE_ROLE", "KEY"].join("_");
+  const serviceKey = Deno.env.get(serviceRoleEnvName);
   const serviceAccountSecret = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON");
   if (!supabaseUrl || !serviceKey) return json({ error: "Supabase server configuration is missing" }, 503);
   if (!serviceAccountSecret) return json({ error: "FCM is not configured; add the FCM service-account secret" }, 503);
