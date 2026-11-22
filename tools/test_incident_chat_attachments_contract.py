@@ -113,4 +113,20 @@ for required in (
 ):
     assert required in storage_tests, f"Storage authorization regression test missing: {required}"
 
+inventory = read("tools/report_incident_chat_attachment_inventory.sql")
+for required in (
+    "private.incident_chat_upload_reservations",
+    "pending_unfinalized_object_count",
+    "unreserved_orphan_object_count",
+    "active_reservation_without_object_count",
+    "expired_reservation_without_object_count",
+    "consumed_reservation_without_message_count",
+):
+    assert required in inventory, f"Read-only attachment inventory missing: {required}"
+assert "o.name AS" not in inventory, "Attachment inventory must not disclose raw object paths"
+assert not __import__("re").search(
+    r"(?im)^\\s*(DELETE|UPDATE|INSERT|TRUNCATE|DROP|ALTER)\\s+",
+    inventory,
+), "Attachment inventory must remain strictly read-only"
+
 print("PASS: incident chat images use private, incident-authorized storage and bounded Android image attachments.")
