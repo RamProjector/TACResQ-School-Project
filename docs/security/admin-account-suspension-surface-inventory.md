@@ -43,7 +43,8 @@ This inventory is intentionally conservative. A path is not marked covered merel
 - [Batch 3: dispatch, assignments, and GPS](admin-account-suspension-rpc-review-batch-3-dispatch-gps.md). This distinguishes public invoker wrappers from directly callable private SECURITY DEFINER implementations and records the missing account-state checks on dispatcher, field-unit, and location paths.
 - [Batch 4: profile, notifications, and FCM](admin-account-suspension-rpc-review-batch-4-profile-notifications-fcm.md). This records the notification RPC access gaps, direct FCM table policy requirements, and the narrow self-token cleanup exception to evaluate.
 - [Batch 5: Storage, device/session registry, and service-role Edge Function boundary](admin-account-suspension-rpc-review-batch-5-storage-device-session.md). This confirms the incident-chat Storage policies inherit the chat helper's missing active-account check; device tables have no direct client grants, but any future service-role verifier must check the original caller's current state; and the notification Edge Function must not treat JWT validity as proof that the account remains active.
-- Remaining work: inspect all remaining direct client/bridge call sites and complete the full effective-RPC/RLS/Storage contract before implementation.
+- [Batch 6: Android direct Supabase calls, optional bridge boundary, and notification Edge Function](admin-account-suspension-rpc-review-batch-6-android-direct-paths.md). This traces the concrete Android RPC/Storage calls that bypass Laravel and confirms the notification function currently reads caller ID/role without checking account state or filtering suspended recipients.
+- Remaining work: finish the effective-RPC/RLS contract, inspect remaining web and Laravel direct paths, and add still-valid-JWT negative tests before implementation.
 
 ## Required completion artifacts
 
