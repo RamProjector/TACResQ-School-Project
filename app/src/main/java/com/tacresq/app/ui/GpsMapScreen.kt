@@ -2985,7 +2985,7 @@ private fun MapIncidentCard(
                             style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.weight(1f),
                         )
-                        StatusPill(incident.status.label, incident.status.pillColor())
+                        StatusPill(incident.status.label, incident.status)
                     }
                 }
             }
