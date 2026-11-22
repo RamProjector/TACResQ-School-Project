@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertCircle, CheckCircle2, Clock3, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3, LogOut, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 
 type SecurityFactor = { id: string; name: string; status: string };
@@ -26,6 +26,7 @@ export default function AdminSecurityStatus() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmGlobalSignOut, setConfirmGlobalSignOut] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -123,6 +124,33 @@ export default function AdminSecurityStatus() {
     }
   }
 
+  async function signOutAllDevices() {
+    if (busy) return;
+    setBusy(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const auth = getSupabase().auth;
+      const { data, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalError) throw aalError;
+      const methods = data.currentAuthenticationMethods ?? [];
+      const usedTotp = methods.some((method) =>
+        typeof method === "string" ? method === "totp" :
+          typeof method === "object" && method !== null && method.method === "totp"
+      );
+      if (data.currentLevel !== "aal2" || !usedTotp) {
+        setConfirmGlobalSignOut(false);
+        throw new Error("Verify your authenticator again before revoking all sessions.");
+      }
+      const { error: signOutError } = await auth.signOut({ scope: "global" });
+      if (signOutError) throw signOutError;
+      // A successful global sign-out clears this browser session as well.
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : "All-device sign-out could not be completed.");
+      setBusy(false);
+    }
+  }
+
   async function cancelBackupEnrollment() {
     if (!enrollment || busy) return;
     setBusy(true);
@@ -186,6 +214,25 @@ export default function AdminSecurityStatus() {
             )}
             {pendingFactors.length > 0 && <p className="admin-security-status__note">{pendingFactors.length} pending factor(s) are not accepted for privileged operations.</p>}
           </div>
+          <div className="admin-security-status__revocation">
+            <div>
+              <h3>Sign out all devices</h3>
+              <p>Revoke refreshable Supabase sessions for this account across TACResQ browsers and devices, including the Android app. This action requires a current TOTP-verified AAL2 session.</p>
+            </div>
+            {!confirmGlobalSignOut ? (
+              <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { setActionError(null); setConfirmGlobalSignOut(true); }} disabled={busy || snapshot.currentLevel !== "aal2" || !snapshot.usedTotp}>
+                <LogOut size={15} /> Sign out all devices
+              </button>
+            ) : (
+              <div className="admin-security-status__confirm">
+                <p><strong>Confirm global sign-out?</strong> All devices will need to sign in again. Already-issued access tokens may remain valid until they expire.</p>
+                <div className="admin-security-status__actions">
+                  <button className="admin-refresh" type="button" onClick={() => setConfirmGlobalSignOut(false)} disabled={busy}>Cancel</button>
+                  <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { void signOutAllDevices(); }} disabled={busy}>{busy ? "Revoking sessions…" : "Confirm sign out everywhere"}</button>
+                </div>
+              </div>
+            )}
+          </div>
           <div className="admin-security-status__backup">
             <div>
               <h3>Backup authenticator</h3>
@@ -215,7 +262,7 @@ export default function AdminSecurityStatus() {
           )}
           {actionError && <p className="admin-security-status__message admin-security-status__message--error" role="alert"><AlertCircle size={16} /> {actionError}</p>}
           {notice && <p className="admin-security-status__message admin-security-status__message--success" role="status"><CheckCircle2 size={16} /> {notice}</p>}
-          <p className="admin-security-status__footnote">Authenticator setup keys and QR codes are shown only while registering a factor. This page cannot remove verified factors or disable MFA. Cancel only removes the unverified factor created by the active setup flow.</p>
+          <p className="admin-security-status__footnote">Authenticator setup keys and QR codes are shown only while registering a factor. This page cannot remove verified factors or disable MFA. Cancel only removes the unverified factor created by the active setup flow. Global sign-out revokes refreshable sessions; existing access tokens remain valid until expiry.</p>
         </>
       ) : null}
     </section>
