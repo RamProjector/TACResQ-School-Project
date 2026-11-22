@@ -234,10 +234,10 @@ export async function setAdminUserRole(userId: number, role: AdminManagedRole, r
     if (error.code === "42501" || error.code === "22023" || error.code === "P0002") {
       throwAdminError(error);
     }
-    throw new Error("The role change outcome could not be confirmed. The database may have applied the change before the connection was interrupted. Refresh the account directory and audit history before attempting it again.");
+    throw new Error("The role change outcome for profile #" + userId + " could not be confirmed. The database may have applied it before the connection was interrupted. Do not retry yet: refresh the account directory, then open Audit Logs, select “Admin role changes”, filter Target profile ID to " + userId + ", and refresh the audit results.");
   }
   if (!data || typeof data !== "object") {
-    throw new Error("The role change outcome could not be confirmed. Refresh the account directory and audit history before attempting it again.");
+    throw new Error("The role change outcome for profile #" + userId + " could not be confirmed. Do not retry yet: refresh the account directory, then open Audit Logs, select “Admin role changes”, filter Target profile ID to " + userId + ", and refresh the audit results.");
   }
   const result = data as unknown as AdminRoleChangeResult;
   const validRoles = new Set<AdminManagedRole>(["requester", "responder", "driver", "dispatcher"]);
@@ -251,7 +251,7 @@ export async function setAdminUserRole(userId: number, role: AdminManagedRole, r
     || result.role !== role
     || result.duty_status !== expectedDutyStatus
   ) {
-    throw new Error("The role change outcome could not be confirmed because the service returned an invalid confirmation. Refresh the account directory and audit history before attempting it again.");
+    throw new Error("The role change outcome for profile #" + userId + " could not be confirmed because the service returned an invalid confirmation. Do not retry yet: refresh the account directory, then open Audit Logs, select “Admin role changes”, filter Target profile ID to " + userId + ", and refresh the audit results.");
   }
   return result;
 }
