@@ -87,6 +87,22 @@ export default function AdminMfaGate({ children, onSignOut }: {
     return () => { active = false; };
   }, []);
 
+  async function cancelEnrollment() {
+    if (state !== "enroll" || !factorId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // This ID is the pending factor created by this gate instance only.
+      // Never enumerate and remove other pending factors from another device.
+      const { error: unenrollError } = await getSupabase().auth.mfa.unenroll({ factorId });
+      if (unenrollError) throw unenrollError;
+      onSignOut();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The pending setup could not be cancelled.");
+      setBusy(false);
+    }
+  }
+
   async function verifyCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!factorId || !/^\d{6}$/.test(code) || busy) return;
@@ -154,6 +170,11 @@ export default function AdminMfaGate({ children, onSignOut }: {
             <button className="button button--primary button--wide" type="submit" disabled={busy || code.length !== 6}>
               {busy ? <><LoaderCircle size={17} className="spin" /> Verifying…</> : "Verify and continue"}
             </button>
+            {state === "enroll" && (
+              <button className="button button--quiet button--wide" type="button" onClick={() => { void cancelEnrollment(); }} disabled={busy}>
+                {busy ? "Cancelling setup…" : "Cancel setup and sign out"}
+              </button>
+            )}
           </form>
         )}
         {state === "error" && (
