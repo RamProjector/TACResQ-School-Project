@@ -85,7 +85,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
-  const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState<string | null>(null);\n  const [copiedEventId, setCopiedEventId] = useState<string | null>(null);\n  const [copyError, setCopyError] = useState<string | null>(null);
+  const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState<string | null>(null);
+  const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -144,7 +146,19 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     };
   }, [page, query, category, source, from, to, actorId, targetId, incidentId, refreshVersion]);
 
-  async function copyEventId(eventId: string) {\n    setCopyError(null);\n    try {\n      if (!navigator.clipboard?.writeText) throw new Error("Clipboard access is unavailable in this browser context.");\n      await navigator.clipboard.writeText(eventId);\n      setCopiedEventId(eventId);\n    } catch {\n      setCopiedEventId(null);\n      setCopyError("Could not copy the event ID. You can select the ID text and copy it manually.");\n    }\n  }\n\n  function resetFilters() {
+  async function copyEventId(eventId: string) {
+    setCopyError(null);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard access is unavailable in this browser context.");
+      await navigator.clipboard.writeText(eventId);
+      setCopiedEventId(eventId);
+    } catch {
+      setCopiedEventId(null);
+      setCopyError("Could not copy the event ID. You can select the ID text and copy it manually.");
+    }
+  }
+
+  function resetFilters() {
     setQuery("");
     setCategory("all");
     setSource("all");
