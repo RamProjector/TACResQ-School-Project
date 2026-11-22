@@ -357,3 +357,18 @@
 .admin-health-summary { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:6px 16px; margin:0 22px 14px; padding:12px 14px; border:1px solid #e3e8df; border-radius:7px; background:#f8faf5; }
 .admin-health-summary strong { color:#405b52; font-size:11px; }
 .admin-health-summary span { color:#7b8983; font-size:9px; line-height:1.5; }
+
+
+/* Expandable source coverage, kept separate from the event result set. */
+.audit-page__coverage-details { padding:12px 22px; border-bottom:1px solid #e8ece5; background:#fffefa; }
+.audit-page__coverage-details > summary { color:#52645f; font-size:10px; font-weight:700; cursor:pointer; }
+.audit-page__coverage-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; padding-top:13px; }
+.audit-page__coverage-grid h3 { margin:0 0 8px; color:#40575a; font-size:10px; }
+.audit-page__coverage-grid ul { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.audit-page__coverage-grid li { display:flex; flex-direction:column; gap:3px; padding-left:10px; border-left:2px solid #dfe7dc; }
+.audit-page__coverage-grid li strong { color:#52645f; font-size:9px; }
+.audit-page__coverage-grid li span { color:#788581; font-size:9px; line-height:1.5; }
+@media (max-width:760px) {
+  .audit-page__coverage-details { padding:12px 14px; }
+  .audit-page__coverage-grid { grid-template-columns:1fr; gap:14px; }
+}
