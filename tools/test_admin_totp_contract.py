@@ -63,6 +63,11 @@ assert "auth.experimental.recoveryCodes" not in security_status, "Do not assume 
 assert "auth.mfa.enroll(" in security_status and "auth.mfa.challengeAndVerify(" in security_status
 assert "enrollment.secret" in security_status and "enrollment.qrCode" in security_status
 assert "auth.mfa.unenroll({ factorId: enrollment.factorId })" in security_status, "Only the pending factor created by this enrollment flow may be cancelled."
+gate_cancel = gate.split("async function cancelEnrollment()", 1)[1].split("async function verifyCode", 1)[0]
+assert "state !== \"enroll\"" in gate_cancel
+assert "auth.mfa.unenroll({ factorId })" in gate_cancel, "The sign-in gate may cancel only its own pending factor."
+assert "onSignOut()" in gate_cancel, "Cancelling initial MFA setup must sign out rather than leave an unenrolled Admin session active."
+assert "auth.mfa.unenroll(" not in gate.split("async function prepareAdminMfa()", 1)[1].split("export default function AdminMfaGate", 1)[0], "Sign-in preparation must not delete pending factors from other devices."
 assert "snapshot.factors.length >= 10" in security_status
 assert "Backup authenticator" in security_status and "separate device" in security_status
 assert "availableFactors" in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
