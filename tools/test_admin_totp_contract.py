@@ -62,6 +62,16 @@ assert "snapshot.factors.length >= 10" in security_status
 assert "Backup authenticator" in security_status and "separate device" in security_status
 assert "availableFactors" in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 assert "Authenticator device" in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
+# Global session revocation is limited to the current Admin account and requires
+# a fresh TOTP/AAL2 check immediately before the provider call.
+assert 'auth.signOut({ scope: "global" })' in security_status
+global_sign_out = security_status.split("async function signOutAllDevices()", 1)[1].split("async function cancelBackupEnrollment()", 1)[0]
+assert "getAuthenticatorAssuranceLevel()" in global_sign_out
+assert 'data.currentLevel !== "aal2" || !usedTotp' in global_sign_out
+assert "setConfirmGlobalSignOut(true)" in security_status
+assert "Confirm sign out everywhere" in security_status
+assert "Already-issued access tokens may remain valid until they expire." in security_status
+assert "admin-security-status__danger-action" in security_status
 assert 'factorsResult.data.all.filter((factor) => factor.factor_type === "totp")' in security_status
 assert 'factorsResult.data.all.filter((factor) => factor.factor_type === "totp")' in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 assert "p_actor_user_id: actorUserId" not in supabase_client.split("export async function getAdminAnalyticsSummary", 1)[1].split("export interface AdminAuditPage", 1)[0]
