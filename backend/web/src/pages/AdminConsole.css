@@ -308,3 +308,19 @@
   .admin-security-status__grid { grid-template-columns:1fr; }
   .admin-security-status .admin-panel__heading { align-items:flex-start; flex-direction:column; }
 }
+
+
+/* Backup TOTP enrollment; secrets are confined to the active setup flow. */
+.admin-security-status__backup { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-top:20px; padding:16px; border:1px solid #e3e8df; border-radius:7px; background:#fbfcf8; }
+.admin-security-status__backup h3,.admin-security-status__enrollment h3 { margin:0; color:#40575a; font:600 15px var(--display); }
+.admin-security-status__backup p,.admin-security-status__enrollment p { max-width:760px; margin:7px 0 0; color:#718081; font-size:10px; line-height:1.6; }
+.admin-security-status__enrollment { display:flex; max-width:520px; flex-direction:column; gap:8px; margin-top:14px; padding:17px; border:1px solid #e3e8df; border-radius:7px; background:#fffefa; }
+.admin-security-status__enrollment img { display:block; width:min(100%,210px); height:auto; align-self:center; padding:10px; border:1px solid #e3e8df; border-radius:7px; background:#fff; }
+.admin-security-status__enrollment label { margin-top:6px; color:#40575a; font-size:10px; font-weight:700; }
+.admin-security-status__enrollment input { width:100%; min-height:39px; padding:0 10px; border:1px solid #d7ddd6; border-radius:6px; color:#34494d; background:#fff; font:11px var(--mono); }
+.admin-security-status__actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-top:8px; }
+.admin-security-status__message--success { color:#27674f; }
+@media (max-width:640px) {
+  .admin-security-status__backup { flex-direction:column; }
+  .admin-security-status__backup .admin-refresh { align-self:flex-start; }
+}
