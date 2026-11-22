@@ -110,7 +110,7 @@ export default function Home({ session }: HomeProps) {
       if (current) setProfileLoading(false);
     });
     return () => { current = false; };
-  }, [session?.user.id]);
+  }, [session?.user.id, session?.access_token]);
 
   const handleSignOut = useCallback(() => {
     void getSupabase().auth.signOut({ scope: "local" });
@@ -120,7 +120,7 @@ export default function Home({ session }: HomeProps) {
   if (profileLoading) return <main className="loading-screen"><Brand /><LoaderCircle size={22} className="spin" /><span>Checking administrator access…</span></main>;
   if (profileError) return <AccessScreen title="We couldn't verify this profile." description={profileError} onSignOut={handleSignOut} icon="error" />;
   if (!profile) return <AccessScreen title="A TACResQ profile is required." description="This account is signed in, but no linked TACResQ profile was returned. Ask a trusted project administrator to verify the account mapping." onSignOut={handleSignOut} />;
-  if (profile.role === "admin") return <AdminMfaGate onSignOut={handleSignOut}><AdminConsole profile={profile} onSignOut={handleSignOut} /></AdminMfaGate>;
+  if (profile.role === "admin") return <AdminMfaGate key={session.access_token} onSignOut={handleSignOut}><AdminConsole profile={profile} onSignOut={handleSignOut} /></AdminMfaGate>;
   if (profile.role === "dispatcher") {
     return <AccessScreen title="Dispatch is handled in the Android app." description="The web dispatch dashboard has been retired to keep dispatch operations in one place. Sign in to the TACResQ Android app to manage incident queues, assignments, and response progress." onSignOut={handleSignOut} />;
   }
