@@ -7,7 +7,7 @@ components = Path(
 ).read_text(encoding="utf-8")
 
 palette_start = components.index("private fun IncidentStatus.statusPalette(isDark: Boolean)")
-palette_end = components.index("\\n@Composable", palette_start)
+palette_end = components.index("\n@Composable", palette_start)
 palette = components[palette_start:palette_end]
 
 expected = {
@@ -31,7 +31,7 @@ def contrast(first: str, second: str) -> float:
 
 for status, colors in expected.items():
     block_start = palette.index(f"IncidentStatus.{status} ->")
-    next_status = palette.find("\\n    IncidentStatus.", block_start + 1)
+    next_status = palette.find("\n    IncidentStatus.", block_start + 1)
     block = palette[block_start:next_status if next_status >= 0 else len(palette)]
     for color in colors:
         assert color in block, f"{status} is missing expected light/dark color {color}"
