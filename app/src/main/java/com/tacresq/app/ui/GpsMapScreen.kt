@@ -135,7 +135,6 @@ import com.tacresq.app.data.routing.RoutingProvider
 import com.tacresq.app.location.ResponderLocationTrackingController
 import com.tacresq.app.location.ResponderTrackingStatus
 import com.tacresq.app.ui.common.StatusPill
-import com.tacresq.app.ui.common.pillColor
 import com.tacresq.app.location.LocationCaptureResult
 import com.tacresq.app.location.LocationSettingsCheck
 import com.tacresq.app.location.LocationProvider
@@ -2971,7 +2970,7 @@ private fun MapIncidentCard(
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            StatusPill(incident.status.label, incident.status.pillColor())
+                            StatusPill(incident.status.label, incident.status)
                         }
                     }
                 } else {
