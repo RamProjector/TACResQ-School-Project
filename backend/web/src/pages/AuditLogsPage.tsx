@@ -84,7 +84,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [refreshVersion, setRefreshVersion] = useState(0);\n  const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -127,6 +128,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         setEvents(result.events);
         setTotal(result.total_count);
         setExpanded(null);
+        setLastSuccessfulRefresh(new Date().toISOString());
       }).catch((cause: unknown) => {
         if (!active) return;
         setEvents([]);
@@ -220,9 +222,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
 
       {error && <div className="admin-banner admin-banner--error" role="alert"><AlertCircle size={17} /><span>{error}</span></div>}
 
-      <div className="audit-page__summary">
+      <div className="audit-page__summary" aria-live="polite">
         <span>{loading ? "Loading investigation events…" : total.toLocaleString() + " matching events"}</span>
-        <span>Page {total === 0 ? 0 : page + 1} of {pageCount}</span>
+        <span>{lastSuccessfulRefresh ? "Last successful refresh: " + formatDate(lastSuccessfulRefresh) : "Not yet refreshed"} · Page {total === 0 ? 0 : page + 1} of {pageCount}</span>
       </div>
 
       <div className="admin-table-wrap audit-page__table-wrap">
