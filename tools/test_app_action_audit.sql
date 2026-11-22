@@ -1,0 +1,148 @@
+-- Verify metadata-only app-action audit writes and Admin investigation visibility.
+-- All fixtures are synthetic and run only in the clean PostgreSQL CI replay.
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('00000000-0000-4000-8000-000000000170', 'audit-requester-170@example.test',
+   '{"name":"Audit Requester","phone":"+63917000170","role":"requester"}'::jsonb),
+  ('00000000-0000-4000-8000-000000000171', 'audit-responder-171@example.test',
+   '{"name":"Audit Responder","phone":"+63917000171","role":"requester"}'::jsonb),
+  ('00000000-0000-4000-8000-000000000172', 'audit-admin-172@example.test',
+   '{"name":"Audit Admin","phone":"+63917000172","role":"requester"}'::jsonb);
+
+DO $app_action_audit_fixture$
+DECLARE
+  requester_id bigint;
+  responder_id bigint;
+  admin_id bigint;
+  incident_id bigint;
+  notification_id bigint;
+  event_count integer;
+  feed jsonb;
+BEGIN
+  SELECT id INTO requester_id FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000170';
+  SELECT id INTO responder_id FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000171';
+  SELECT id INTO admin_id FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000172';
+
+  IF requester_id IS NULL OR responder_id IS NULL OR admin_id IS NULL THEN
+    RAISE EXCEPTION 'App-action audit fixture profiles were not created';
+  END IF;
+
+  UPDATE public.profiles
+     SET role = 'responder', duty_status = 'off_duty'
+   WHERE id = responder_id;
+  UPDATE public.profiles SET role = 'admin' WHERE id = admin_id;
+
+  INSERT INTO public.incidents (
+    requester_id, type, description, latitude, longitude,
+    location_recorded_at, location_source
+  ) VALUES (
+    requester_id, 'medical', 'Synthetic audit flow fixture',
+    11.244, 125.003, now(), 'manual'
+  ) RETURNING id INTO incident_id;
+
+  -- A field-unit duty change is a committed user action; record the actor,
+  -- role, target profile, and before/after values, never location or secrets.
+  PERFORM set_config('request.jwt.claim.sub',
+    '00000000-0000-4000-8000-000000000171', false);
+  UPDATE public.profiles SET duty_status = 'available' WHERE id = responder_id;
+
+  -- Exercise the real authenticated chat RPC. The audit trigger must not copy
+  -- the message body or any attachment payload/path into its metadata.
+  PERFORM set_config('request.jwt.claim.sub',
+    '00000000-0000-4000-8000-000000000170', false);
+  PERFORM public.api_send_incident_message(
+    incident_id, 'Synthetic private chat body must not enter audit metadata',
+    '00000000-0000-4000-8000-000000000170'::uuid
+  );
+
+  INSERT INTO public.user_notifications (
+    recipient_user_id, incident_id, event_type, title, body
+  ) VALUES (
+    requester_id, incident_id, 'incident_message',
+    'New incident message', 'Open TACResQ to view the message.'
+  ) RETURNING id INTO notification_id;
+
+  -- Exercise the real notification-read RPC; the trigger logs only the
+  -- successful null -> timestamp transition and the notification type.
+  IF NOT public.api_mark_notification_read(notification_id) THEN
+    RAISE EXCEPTION 'Notification read RPC did not confirm the owned notification';
+  END IF;
+
+  SELECT count(*) INTO event_count
+    FROM public.app_action_audit_logs
+   WHERE (action = 'duty_status_changed' AND target_user_id = responder_id)
+      OR (action = 'incident_message_sent' AND incident_id = incident_id)
+      OR (action = 'notification_marked_read' AND incident_id = incident_id);
+
+  IF event_count <> 3 THEN
+    RAISE EXCEPTION 'Expected three distinct committed app-action events, found %', event_count;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM public.app_action_audit_logs
+     WHERE metadata::text ILIKE '%Synthetic private chat body%'
+        OR metadata::text ILIKE '%11.244%'
+        OR metadata::text ILIKE '%125.003%'
+  ) THEN
+    RAISE EXCEPTION 'App-action audit metadata contains private message content or coordinates';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM public.app_action_audit_logs
+     WHERE correlation_id IS NULL OR outcome <> 'success'
+        OR action NOT IN (
+          'duty_status_changed', 'incident_message_sent', 'notification_marked_read'
+        )
+  ) THEN
+    RAISE EXCEPTION 'App-action audit row has invalid correlation, outcome, or action';
+  END IF;
+
+  IF has_table_privilege('authenticated', 'public.app_action_audit_logs', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.app_action_audit_logs', 'INSERT')
+     OR has_table_privilege('anon', 'public.app_action_audit_logs', 'SELECT')
+     OR has_table_privilege('anon', 'public.app_action_audit_logs', 'INSERT') THEN
+    RAISE EXCEPTION 'Client roles must not read or forge app-action audit rows';
+  END IF;
+
+  -- The investigation feed remains protected by current Admin role + AAL2 + TOTP.
+  PERFORM set_config('request.jwt.claim.sub',
+    '00000000-0000-4000-8000-000000000172', false);
+  PERFORM set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000172","aal":"aal2","amr":[{"method":"totp"}]}',
+    false);
+  feed := public.api_admin_list_investigation_events(
+    100, 0, '', 'all', 'app_action_audit_logs',
+    NULL, NULL, NULL, NULL, NULL
+  );
+
+  IF (feed->>'total_count')::integer < 3
+     OR NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS event
+        WHERE event->>'event_type' = 'incident_message_sent'
+          AND event->>'summary' = 'Incident chat message sent'
+     )
+     OR NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS event
+        WHERE event->>'event_type' = 'notification_marked_read'
+     )
+     OR NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS event
+        WHERE event->>'event_type' = 'duty_status_changed'
+     ) THEN
+    RAISE EXCEPTION 'Admin investigation feed did not return the expected app-action events: %', feed;
+  END IF;
+
+  IF feed::text ILIKE '%Synthetic private chat body%'
+     OR feed::text ILIKE '%11.244%'
+     OR feed::text ILIKE '%125.003%' THEN
+    RAISE EXCEPTION 'Admin investigation feed leaked message content or coordinates';
+  END IF;
+END;
+$app_action_audit_fixture$;
+
+RESET ROLE;
+SELECT 'PASS: committed app actions are audited without private content and are visible only through the protected Admin feed.' AS result;
