@@ -41,7 +41,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<number | null>(null);\n  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   useEffect(() => {
     let active = true;
