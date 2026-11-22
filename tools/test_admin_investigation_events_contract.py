@@ -14,7 +14,7 @@ required_sql = (
     "AS RESTRICTIVE",
     "private.tacresq_actor_role()",
     "auth.jwt() ->> 'aal'",
-    "END = 'totp'",
+    "method.value ->> 'method' = 'totp'",
     "CREATE OR REPLACE FUNCTION public.api_admin_list_investigation_events",
     "PERFORM private.tacresq_require_admin_mfa()",
     "SECURITY DEFINER",
