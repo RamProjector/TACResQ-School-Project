@@ -301,3 +301,25 @@ pgcrypto is useful for secure random bytes and SHA-256 challenge hashing, but it
 - Keep all service credentials out of Android and browser bundles. Do not introduce a paid third-party verification service or a new hosted platform without approval.
 
 **Decision gate before implementation:** confirm the Supabase project's actual function deployment configuration and local CLI availability, select the supported verifier runtime, and prove with an authenticated integration test that the original user JWT reaches Postgres with the expected subject and session claim. If that cannot be demonstrated, keep the registry private and do not ship a partially trusted bridge.
+
+
+
+## 15. Repository verification: test harness and Android key capability
+
+A focused source review on this branch confirms the following implementation facts:
+
+- `tools/test_supabase_migration_replay.sh` creates minimal `auth.uid()` and `auth.jwt()` compatibility functions. The latter reads `request.jwt.claims`, but the replay fixtures do not currently set or assert a `session_id` claim, exercise missing/malformed session claims, or test device-session ownership. The script is a migration replay harness against a supplied PostgreSQL database; it is not a running Supabase Auth/PostgREST integration environment.
+- No `supabase/config.toml` exists on this branch, and repository search found no Edge Function source tree or `Deno.serve` implementation. The current repository therefore does not demonstrate a configured local Supabase function workflow or a deployed challenge-verifier convention.
+- Android `app/build.gradle.kts` sets `minSdk = 26`. `app/src/main/java/com/tacresq/app/data/local/SessionStore.kt` creates one Android Keystore AES key (`tacresq_session_aes_gcm_v1`) for AES/GCM/NoPadding encryption. That key is symmetric and is used for local data encryption; it is not a signing key and must not be reused as the device identity key.
+- The reviewed Android session store does not implement a P-256 key pair, public-key export, `SHA256withECDSA` signing, signature encoding conversion, key invalidation handling, or device-key rotation. Existing Keystore use proves only the local AES-GCM storage path.
+- The migration replay harness's `auth.jwt()` stub is suitable for deterministic SQL claim tests by setting `request.jwt.claims` within a transaction, but that alone cannot prove that a real signed Supabase JWT's session claim survives an Edge Function/proxy/PostgREST hop.
+
+### Required next implementation gates
+
+1. Extend isolated SQL contract coverage to set a synthetic `sub` and `session_id` in `request.jwt.claims`, then assert correct profile/session binding and rejection of absent, malformed, wrong-profile, and wrong-session claims. These are SQL-context tests, not substitutes for a real Supabase integration test.
+2. Establish a local Supabase project configuration and function test/deploy workflow only after confirming the actual project's configuration and approved deployment target. Do not add an assumed Edge Function and describe it as deployable without this setup.
+3. Add a distinct Android P-256 signing key alias and explicit signing/public-key serialization contract. Keep the existing AES-GCM key and encrypted session storage separate. Validate the exact Android Keystore signature bytes against the selected verifier's expected representation, including malformed DER and invalidated-key cases.
+4. Add a real authenticated integration test proving that the original user's verified JWT reaches the database with the expected `auth.uid()` and `session_id`. Do not infer this from the SQL replay stub or from decoding an unverified token in Laravel.
+5. Keep all device registry tables backend-only and unused by app/web flows until these gates, atomic challenge consumption, authorization tests, and operational deployment review are complete.
+
+**Current status:** these findings are repository inspection only. No asymmetric device key, verifier endpoint, Supabase configuration, migration application, or production deployment was added by this review.
