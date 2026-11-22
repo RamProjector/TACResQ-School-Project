@@ -540,7 +540,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-modal__icon"><ShieldCheck size={22} /></div>
             <p className="admin-eyebrow">PRIVILEGED ACTION</p>
             <h2 id="admin-role-dialog-title">Change account role</h2>
-            <p className="admin-modal__description">You are changing access for <strong>{target.name}</strong> ({target.email}). This action will be written to the audit log.</p>
+            <p className="admin-modal__description">You are changing access for <strong>{target.name}</strong> ({target.email}). Review the role transition carefully. The database enforces authorization and records the reason in the audit log.</p>
+            <div className="admin-role-transition" aria-live="polite" aria-atomic="true"><div><span>Current role</span><strong>{displayRole(target.role)}</strong></div><span className="admin-role-transition__arrow" aria-hidden="true">→</span><div><span>New role</span><strong>{displayRole(nextRole)}</strong></div></div>
+            <p className="admin-role-warning">Changing a role changes the account’s permissions in TACResQ. Confirm the intended access level with the responsible operator before saving.</p>
             <label className="admin-form-label" htmlFor="admin-new-role">New role</label>
             <select id="admin-new-role" value={nextRole} onChange={(event) => setNextRole(event.target.value as AdminManagedRole)} disabled={saving}>
               {roleOptions.map((role) => <option key={role} value={role}>{displayRole(role)}</option>)}
@@ -551,7 +553,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-modal__actions">
               <button className="admin-modal-cancel" type="button" onClick={() => setTarget(null)} disabled={saving}>Cancel</button>
               <button className="admin-modal-confirm" type="button" onClick={() => { void confirmRoleChange(); }} disabled={saving || nextRole === target.role || reason.trim().length < 10 || reason.trim().length > 500}>
-                {saving ? <><LoaderCircle size={16} className="admin-spin" /> Saving…</> : <><ShieldCheck size={16} /> Confirm role change</>}
+                {saving ? <><LoaderCircle size={16} className="admin-spin" /> Saving…</> : <><ShieldCheck size={16} /> Confirm {displayRole(nextRole)} access</>}
               </button>
             </div>
           </section>
