@@ -132,16 +132,19 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
       setAudit(nextAudit);
-      try {
-        const nextHealth = await getAdminDependencyHealth();
-        if (requestId !== requestVersion.current) return;
-        setDependencyHealth(nextHealth);
-        setDependencyHealthError(null);
-      } catch {
-        if (requestId !== requestVersion.current) return;
-        setDependencyHealth(null);
-        setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
-      }
+      // Keep provider diagnostics independent from the core account/audit refresh.
+      // A slow health endpoint must not keep the whole Admin workspace in a loading state.
+      void getAdminDependencyHealth()
+        .then((nextHealth) => {
+          if (requestId !== requestVersion.current) return;
+          setDependencyHealth(nextHealth);
+          setDependencyHealthError(null);
+        })
+        .catch(() => {
+          if (requestId !== requestVersion.current) return;
+          setDependencyHealth(null);
+          setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
+        });
     } catch (cause) {
       if (requestId !== requestVersion.current) return;
       // Never keep privileged data visible after an authorization or connection failure.
@@ -347,7 +350,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 ))}
               </div>
             )}
-            <p className="admin-panel__footnote">Read-only checks only. Laravel /up confirms application liveness; Auth checks its health endpoint; the database check executes a fixed, data-free RPC. These checks do not verify incident workflows, user sign-in, FCM delivery, or routing.</p>
+            <p className="admin-panel__footnote">Read-only checks only. Laravel /up confirms application liveness; Auth checks its health endpoint; the database check executes a fixed, data-free RPC. These checks do not verify incident workflows, user sign-in, FCM delivery, or routing. A “slow” result means a probe exceeded the five-second limit; startup delay is possible, so it is not proof of an outage. Refresh to retry.</p>
           </section>
 
           <section className="admin-panel" hidden={activeSection !== "users"}>
