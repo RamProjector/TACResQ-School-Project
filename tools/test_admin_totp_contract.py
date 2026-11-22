@@ -57,6 +57,10 @@ assert 'import AdminSecurityStatus from "@/components/AdminSecurityStatus"' in a
 assert "<AdminSecurityStatus />" in admin
 assert "getAuthenticatorAssuranceLevel()" in security_status
 assert "listFactors()" in security_status
+assert "const refreshVersion = useRef(0)" in security_status, "MFA status refreshes must reject out-of-order responses."
+assert "const requestId = ++refreshVersion.current" in security_status
+assert "if (requestId !== refreshVersion.current) return" in security_status
+assert "refreshVersion.current += 1" in security_status, "MFA status refreshes must be invalidated when the component effect is cleaned up."
 assert "currentLevel" in security_status and "usedTotp" in security_status
 assert 'typeof method === "string"' in security_status
 assert 'typeof method === "string"' in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
