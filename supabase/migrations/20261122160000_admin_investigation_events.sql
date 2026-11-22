@@ -32,12 +32,8 @@ CREATE POLICY incident_assignment_events_admin_require_aal2
         SELECT 1
         FROM jsonb_array_elements(
           coalesce((SELECT auth.jwt()) -> 'amr', '[]'::jsonb)
-        ) AS method
-        WHERE CASE jsonb_typeof(method)
-          WHEN 'object' THEN method ->> 'method'
-          WHEN 'string' THEN method #>> '{}'
-          ELSE NULL
-        END = 'totp'
+        ) AS method(value)
+        WHERE method.value ->> 'method' = 'totp'
       )
     )
   );
