@@ -53,3 +53,9 @@ The clean-replay inventory now separately emits non-internal triggers attached t
 For each Auth trigger, inspect its table, enabled mode, function signature, SECURITY DEFINER flag, function settings/search path, trigger definition, and source. In particular, verify that signup/profile creation cannot overwrite an existing suspension state and that any Auth lifecycle hook does not implicitly reactivate an account. Auth trigger execution must preserve the distinction between the Auth event subject and `current_user` inside a SECURITY DEFINER function.
 
 The new Auth-trigger query is still awaiting an exact-head clean migration replay. It is an inventory addition, not evidence that the Auth trigger paths are safe.
+
+## Executable Auth signup-trigger contract
+
+The clean migration replay now asserts that `auth.users` retains the expected `tacresq_auth_user_created` trigger, that it is enabled for normal origin writes, and that its function remains SECURITY DEFINER. This protects against accidental removal/disablement or an execution-mode change during later migration work.
+
+This is deliberately a structural regression contract only. It does **not** prove the signup function is suspension-safe: the function currently inserts a profile and uses `ON CONFLICT (auth_user_id) DO NOTHING`, which avoids overwriting an existing profile, but the eventual account-state implementation must preserve that property and must never initialize or reset an existing account to active. The exact-head clean replay still needs to execute this new assertion.
