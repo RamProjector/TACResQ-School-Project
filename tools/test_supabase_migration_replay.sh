@@ -51,12 +51,16 @@ CREATE TABLE storage.buckets (
   name text NOT NULL,
   public boolean NOT NULL DEFAULT false,
   file_size_limit bigint,
-  allowed_mime_types text[]
+  allowed_mime_types text[],
+  versioning_status text,
+  lifecycle_configuration jsonb
 );
 CREATE TABLE storage.objects (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   bucket_id text NOT NULL,
   name text NOT NULL,
-  metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 CREATE FUNCTION storage.foldername(object_name text)
@@ -1641,6 +1645,12 @@ psql -v ON_ERROR_STOP=1 -f tools/test_dependency_health_rpc.sql
 # Verify incident-image Storage RLS and the authenticated image-message RPC
 # against the minimal Storage schema created above.
 psql -v ON_ERROR_STOP=1 -f tools/test_incident_chat_storage_policies.sql
+
+# Execute the read-only attachment inventory against the replayed schema.
+# This catches SQL syntax, metadata comparison, CTE alias, and projection errors
+# that source-string assertions cannot detect.
+psql -v ON_ERROR_STOP=1 -f tools/report_incident_chat_attachment_inventory.sql
+
 psql -v ON_ERROR_STOP=1 -f tools/test_notification_rpc_security.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_delivery_queue.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_token_account_switch.sql
