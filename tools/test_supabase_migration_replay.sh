@@ -1152,6 +1152,17 @@ BEGIN
   IF visible_count < 1 THEN
     RAISE EXCEPTION 'A verified Admin TOTP session could not read its audit history';
   END IF;
+
+  -- RFC-8176 string-form AMR claims are also accepted by the MFA policy.
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal2","amr":["password","totp"]}',
+    true
+  );
+  SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
+  IF visible_count < 1 THEN
+    RAISE EXCEPTION 'A string-form TOTP AMR session could not read its audit history';
+  END IF;
 END;
 $admin_audit_rls_mfa_test$;
 RESET ROLE;
