@@ -103,3 +103,29 @@ JOIN pg_catalog.pg_proc AS p ON p.oid = t.tgfoid
 WHERE n.nspname = 'public'
   AND NOT t.tgisinternal
 ORDER BY c.relname, t.tgname;
+
+
+\\echo '=== Auth-schema triggers (including Auth user lifecycle hooks) ==='
+-- Auth triggers are outside the public-table inventory but can create or
+-- mutate application profiles during signup or account lifecycle operations.
+-- Keep this catalog separate so Auth-owned tables are not mistaken for
+-- application tables and every trigger's SECURITY DEFINER boundary is visible.
+SELECT
+  t.tgrelid::regclass AS table_name,
+  t.tgname AS trigger_name,
+  CASE WHEN t.tgenabled = 'D' THEN 'DISABLED'
+       WHEN t.tgenabled = 'R' THEN 'REPLICA'
+       WHEN t.tgenabled = 'A' THEN 'ALWAYS'
+       ELSE 'ORIGIN' END AS enabled_mode,
+  p.oid::regprocedure AS trigger_function,
+  p.prosecdef AS trigger_function_security_definer,
+  coalesce(array_to_string(p.proconfig, ', '), '(default search_path)') AS function_settings,
+  pg_catalog.pg_get_triggerdef(t.oid, true) AS trigger_definition,
+  p.prosrc AS trigger_function_source
+FROM pg_catalog.pg_trigger AS t
+JOIN pg_catalog.pg_class AS c ON c.oid = t.tgrelid
+JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+JOIN pg_catalog.pg_proc AS p ON p.oid = t.tgfoid
+WHERE n.nspname = 'auth'
+  AND NOT t.tgisinternal
+ORDER BY c.relname, t.tgname;
