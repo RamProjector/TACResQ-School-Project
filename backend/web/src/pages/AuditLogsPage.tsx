@@ -98,7 +98,6 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         </div>
         <button className="admin-refresh" type="button" onClick={() => {
           setLoading(true);
-          setPage((current) => current);
           // A same-page refresh is handled by changing a dedicated refresh counter below.
           setRefreshVersion((current) => current + 1);
         }} disabled={loading}>
