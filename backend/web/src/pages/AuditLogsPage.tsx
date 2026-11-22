@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertCircle, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Copy, LoaderCircle, RefreshCw, Search } from "lucide-react";
 import { getAdminInvestigationEventsPage } from "@/lib/supabase";
 import type { AdminInvestigationCategory, AdminInvestigationEvent, AdminInvestigationSource, TacruProfile } from "@/lib/supabase";
@@ -6,14 +6,12 @@ import type { AdminInvestigationCategory, AdminInvestigationEvent, AdminInvestig
 type AuditLogsPageProps = { profile: TacruProfile };
 
 const PAGE_SIZE = 25;
-
 const categoryLabels: Record<Exclude<AdminInvestigationCategory, "all">, string> = {
   administrative: "Administrative",
   authentication: "Authentication",
   incident: "Incident",
   assignment: "Assignment",
 };
-
 const sourceLabels: Record<Exclude<AdminInvestigationSource, "all">, string> = {
   admin_audit_logs: "Admin role changes",
   supabase_auth_audit_logs: "Supabase Auth",
@@ -30,7 +28,7 @@ function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat(undefined, {
     timeZone: "Asia/Manila",
     dateStyle: "medium",
-    timeStyle: "medium",
+    timeStyle: "short",
   }).format(date);
 }
 
@@ -47,16 +45,12 @@ function startOfNextDay(value: string) {
   return date.toISOString().slice(0, 10) + "T00:00:00+08:00";
 }
 
+function formatDetailLabel(value: string) {
+  return value.replaceAll("_", " ").replace(/\\b\\w/g, (letter) => letter.toUpperCase());
+}
+
 function sourceDisplay(value: string) {
   return sourceLabels[value as Exclude<AdminInvestigationSource, "all">] || formatDetailLabel(value);
-}
-
-function formatEventType(value: string) {
-  return value.replaceAll("_", " ");
-}
-
-function formatDetailLabel(value: string) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatDetailValue(value: unknown) {
@@ -81,9 +75,6 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [source, setSource] = useState<AdminInvestigationSource>("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [actorId, setActorId] = useState("");
-  const [targetId, setTargetId] = useState("");
-  const [incidentId, setIncidentId] = useState("");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,30 +89,17 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     const timer = window.setTimeout(() => {
       setLoading(true);
       setError(null);
-      const fromValue = startOfDay(from);
-      const toValue = startOfNextDay(to);
-      const actorFilter = actorId.trim() ? Number(actorId) : null;
-      const targetFilter = targetId.trim() ? Number(targetId) : null;
-      const incidentFilter = incidentId.trim() ? Number(incidentId) : null;
-      const numericFilters = [actorFilter, targetFilter, incidentFilter];
-      if (numericFilters.some((value) => value !== null && (!Number.isSafeInteger(value) || value < 1))) {
-        setEvents([]);
-        setTotal(0);
-        setError("Profile and incident ID filters must be positive whole numbers.");
-        setLoading(false);
-        return;
-      }
       void getAdminInvestigationEventsPage(
         PAGE_SIZE,
         page * PAGE_SIZE,
         query,
         category,
         source,
-        fromValue,
-        toValue,
-        actorFilter,
-        targetFilter,
-        incidentFilter,
+        startOfDay(from),
+        startOfNextDay(to),
+        null,
+        null,
+        null,
       ).then((result) => {
         if (!active) return;
         if (page > 0 && page * PAGE_SIZE >= result.total_count) {
@@ -148,7 +126,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [page, query, category, source, from, to, actorId, targetId, incidentId, refreshVersion]);
+  }, [page, query, category, source, from, to, refreshVersion]);
 
   async function copyEventId(eventId: string) {
     setCopyError(null);
@@ -158,7 +136,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       setCopiedEventId(eventId);
     } catch {
       setCopiedEventId(null);
-      setCopyError("Could not copy the event ID. You can select the ID text and copy it manually.");
+      setCopyError("Could not copy the technical reference. Select the reference text and copy it manually.");
     }
   }
 
@@ -168,14 +146,15 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     setSource("all");
     setFrom("");
     setTo("");
-    setActorId("");
-    setTargetId("");
-    setIncidentId("");
     setPage(0);
   }
 
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const hasFilters = Boolean(query || category !== "all" || source !== "all" || from || to || actorId || targetId || incidentId);
+  const pageCount = Math.ceil(total / PAGE_SIZE);
+  const hasFilters = Boolean(query || category !== "all" || source !== "all" || from || to);
+  const firstVisiblePage = Math.max(0, Math.min(page - 2, pageCount - 5));
+  const visiblePages = Array.from({ length: Math.min(5, pageCount) }, (_, index) => firstVisiblePage + index);
+  const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
+  const rangeEnd = Math.min((page + 1) * PAGE_SIZE, total);
 
   return (
     <section className="audit-page" aria-labelledby="audit-page-title">
@@ -183,7 +162,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <div>
           <p className="admin-eyebrow">ACCOUNTABILITY · READ-ONLY INVESTIGATION</p>
           <h2 id="audit-page-title"><Clock3 size={20} /> Audit history</h2>
-          <p>Review recorded administrative, authentication, incident-status, and responder-assignment events. Each entry retains its original source and event meaning. This page does not replace operational incident records.</p>
+          <p>Review recorded account, authentication, incident, and responder activity. Open an entry for its context; technical record identifiers stay out of the main feed.</p>
         </div>
         <button className="admin-refresh" type="button" onClick={() => {
           setLoading(true);
@@ -194,26 +173,26 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       </div>
 
       <div className="audit-page__coverage" role="note">
-        <strong>Coverage boundaries</strong>
-        <span>This feed includes six existing event sources. Supabase Auth events appear only when Postgres Auth Audit Log storage is active. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included yet.</span>
+        <strong>Coverage</strong>
+        <span>Six recorded event sources are queried. Supabase Auth events appear only when Auth Audit Log storage is enabled. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.</span>
       </div>
 
       <details className="audit-page__coverage-details">
-        <summary>Review included sources and known gaps</summary>
+        <summary>Included sources and known limitations</summary>
         <div className="audit-page__coverage-grid">
           <section aria-labelledby="audit-sources-included">
-            <h3 id="audit-sources-included">Included event sources</h3>
+            <h3 id="audit-sources-included">Included sources</h3>
             <ul>
               <li><strong>Admin role changes</strong><span>Role-change records and recorded reasons.</span></li>
-              <li><strong>Supabase Auth</strong><span>Provider events only when Auth Audit Logs Postgres storage is enabled and populated.</span></li>
+              <li><strong>Supabase Auth</strong><span>Provider events when Auth Audit Logs Postgres storage is enabled and populated.</span></li>
               <li><strong>Incident status</strong><span>Recorded status outcomes; not necessarily a complete before-and-after transition.</span></li>
-              <li><strong>Incident claiming</strong><span>Dispatcher claimability history.</span></li>
+              <li><strong>Incident claiming</strong><span>Claimability history.</span></li>
               <li><strong>Requester edits</strong><span>Changed-field names only; private snapshots are excluded.</span></li>
               <li><strong>Responder assignments</strong><span>Assignment, release, and team-closure events.</span></li>
             </ul>
           </section>
           <section aria-labelledby="audit-sources-gaps">
-            <h3 id="audit-sources-gaps">Not covered by this feed</h3>
+            <h3 id="audit-sources-gaps">Not yet covered</h3>
             <ul>
               <li><strong>Denied privileged RPC attempts</strong><span>No trusted, durable application event source is integrated yet.</span></li>
               <li><strong>Device-security events</strong><span>Trusted server-side event writers are not implemented.</span></li>
@@ -226,78 +205,91 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       <div className="audit-page__filters">
         <label className="admin-search audit-page__search">
           <Search size={16} />
-          <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search actor, target, incident, event or details" aria-label="Search investigation history" />
+          <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search people, incidents, events or details" aria-label="Search investigation history" />
         </label>
         <label><span>Category</span><select value={category} onChange={(event) => { setPage(0); setCategory(event.target.value as AdminInvestigationCategory); }}><option value="all">All categories</option><option value="administrative">Administrative</option><option value="authentication">Authentication</option><option value="incident">Incident</option><option value="assignment">Assignment</option></select></label>
         <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label><span>From (Manila)</span><input type="date" value={from} max={to || undefined} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
-        <label><span>To (Manila)</span><input type="date" value={to} min={from || undefined} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
-        <label><span>Actor profile ID</span><input type="number" min="1" step="1" value={actorId} onChange={(event) => { setPage(0); setActorId(event.target.value); }} placeholder="Any actor" /></label>
-        <label><span>Target profile ID</span><input type="number" min="1" step="1" value={targetId} onChange={(event) => { setPage(0); setTargetId(event.target.value); }} placeholder="Any target" /></label>
-        <label><span>Incident ID</span><input type="number" min="1" step="1" value={incidentId} onChange={(event) => { setPage(0); setIncidentId(event.target.value); }} placeholder="Any incident" /></label>
+        <label><span>From</span><input type="date" value={from} max={to || undefined} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
+        <label><span>To</span><input type="date" value={to} min={from || undefined} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
         <button className="audit-page__reset" type="button" onClick={resetFilters} disabled={!hasFilters}>Clear filters</button>
       </div>
 
       {error && <div className="admin-banner admin-banner--error" role="alert"><AlertCircle size={17} /><span>{error}</span></div>}
 
       <div className="audit-page__summary" aria-live="polite">
-        <span>{loading ? "Loading investigation events…" : error ? "Results unavailable" : total.toLocaleString() + " matching events"}</span>
-        <span>{lastSuccessfulRefresh ? "Last successful refresh: " + formatDate(lastSuccessfulRefresh) : "Not yet refreshed"} · {error ? "Page unavailable" : "Page " + (total === 0 ? 0 : page + 1) + " of " + pageCount}</span>
+        <span>{loading ? "Loading activity…" : error ? "Results unavailable" : total.toLocaleString() + " matching events"}</span>
+        <span>{lastSuccessfulRefresh ? "Updated " + formatDate(lastSuccessfulRefresh) + " · Asia/Manila" : "Not yet refreshed"}</span>
       </div>
 
-      <div className="admin-table-wrap audit-page__table-wrap">
-        <table className="admin-table admin-audit-table audit-page__table">
-          <thead><tr><th>Recorded (Manila)</th><th>Category</th><th>Actor</th><th>Target / incident</th><th>Event</th><th>Details</th></tr></thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={6}><div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading records from protected event sources…</div></td></tr>
-            ) : events.length === 0 ? (
-              <tr><td colSpan={6}><div className="admin-empty"><Clock3 size={20} /><strong>{error ? "Investigation records unavailable" : targetId.trim() && source === "admin_audit_logs" ? "No role-change event matches the current filters" : "No matching investigation events"}</strong><span>{error ? "The page does not substitute sample data." : targetId.trim() && source === "admin_audit_logs" ? "This does not prove that no role change was recorded. Check the date range, search text, actor ID, and category filters; keep the target profile ID and Admin role changes source selected, then refresh." : "Adjust your filters or check the source coverage note below."}</span></div></td></tr>
-            ) : events.map((event) => (
-              <Fragment key={event.event_id}>
-                <tr>
-                  <td className="admin-date">{formatDate(event.occurred_at)}</td>
-                  <td><span className="audit-page__category">{categoryLabels[event.category]}</span><small className="audit-page__subtext">{sourceDisplay(event.source)}</small></td>
-                  <td><strong>{actorDisplay(event, profile)}</strong><small className="audit-page__subtext">{event.actor_user_id === null ? "No linked profile" : "Profile #" + event.actor_user_id}</small></td>
-                  <td>
-                    <strong>{event.target_label || (event.incident_id !== null ? "Incident #" + event.incident_id : "—")}</strong>
-                    <small className="audit-page__subtext">{event.target_user_id !== null ? "Profile #" + event.target_user_id : event.incident_id !== null ? "Incident record" : "No linked target"}</small>
-                  </td>
-                  <td><strong>{event.summary}</strong><small className="audit-page__subtext">{formatEventType(event.event_type)}</small></td>
-                  <td><button className="audit-page__details" type="button" aria-expanded={expanded === event.event_id} onClick={() => setExpanded(expanded === event.event_id ? null : event.event_id)}>{expanded === event.event_id ? "Hide" : "View"} <ChevronDown size={14} /></button></td>
-                </tr>
-                {expanded === event.event_id && (
-                  <tr key={event.event_id + "-details"}>
-                    <td className="audit-page__expanded" colSpan={6}>
-                      <strong>Event details</strong>
-                      <p>{event.summary}</p>
-                      <dl>
-                        <div><dt>Event source</dt><dd>{sourceDisplay(event.source)}</dd></div>
-                        <div><dt>Source identifier</dt><dd><code>{event.source}</code></dd></div>
-                        <div><dt>Event ID</dt><dd className="audit-page__event-id"><code>{event.event_id}</code><button type="button" onClick={() => void copyEventId(event.event_id)} aria-label={copiedEventId === event.event_id ? "Event ID copied" : "Copy event ID"} title={copiedEventId === event.event_id ? "Copied" : "Copy event ID"}>{copiedEventId === event.event_id ? <Check size={12} /> : <Copy size={12} />}{copiedEventId === event.event_id ? "Copied" : "Copy ID"}</button></dd></div>
-                        <div><dt>Actor</dt><dd>{event.actor_label || "Unknown actor"}{event.actor_user_id === null ? "" : " · Profile #" + event.actor_user_id}</dd></div>
-                        <div><dt>Target</dt><dd>{event.target_label || (event.target_user_id === null ? "Not applicable" : "Profile #" + event.target_user_id)}</dd></div>
-                        <div><dt>Incident</dt><dd>{event.incident_id === null ? "Not applicable" : "#" + event.incident_id}</dd></div>
-                        <div><dt>Exact timestamp</dt><dd>{event.occurred_at}</dd></div>
-                        {Object.entries(event.details).map(([key, value]) => (
-                          <div key={key}><dt>{formatDetailLabel(key)}</dt><dd>{formatDetailValue(value)}</dd></div>
-                        ))}
-                      </dl>
-                      {copyError && <p className="audit-page__copy-error" role="status">{copyError}</p>}
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+      <div className="audit-page__list" aria-busy={loading}>
+        {loading ? (
+          <div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading recorded activity…</div>
+        ) : events.length === 0 ? (
+          <div className="admin-empty">
+            <Clock3 size={20} />
+            <strong>{error ? "Investigation records unavailable" : "No matching activity"}</strong>
+            <span>{error ? "No sample records are shown. Refresh after checking the Admin database connection." : "Try another search, date range, category, or source."}</span>
+          </div>
+        ) : events.map((event) => (
+          <article className="audit-event-card" key={event.event_id}>
+            <div className="audit-event-card__top">
+              <span className={"audit-page__category audit-page__category--" + event.category}>{categoryLabels[event.category]}</span>
+              <time dateTime={event.occurred_at}>{formatDate(event.occurred_at)}</time>
+            </div>
+            <div className="audit-event-card__heading">
+              <div>
+                <p>{sourceDisplay(event.source)}</p>
+                <h3>{event.summary}</h3>
+              </div>
+              <button className="audit-page__details" type="button" aria-expanded={expanded === event.event_id} onClick={() => setExpanded(expanded === event.event_id ? null : event.event_id)}>
+                {expanded === event.event_id ? "Hide details" : "View details"} <ChevronDown size={14} />
+              </button>
+            </div>
+            <div className="audit-event-card__meta">
+              <span><small>Performed by</small><strong>{actorDisplay(event, profile)}</strong></span>
+              <span><small>Related record</small><strong>{event.target_label || (event.incident_id !== null ? "Incident activity" : "—")}</strong></span>
+              <span><small>Activity</small><strong>{formatDetailLabel(event.event_type)}</strong></span>
+            </div>
+            {expanded === event.event_id && (
+              <div className="audit-event-card__details">
+                <p>{event.summary}</p>
+                <dl>
+                  <div><dt>Event source</dt><dd>{sourceDisplay(event.source)}</dd></div>
+                  <div><dt>Performed by</dt><dd>{event.actor_label || "Unknown actor"}</dd></div>
+                  <div><dt>Related record</dt><dd>{event.target_label || (event.incident_id !== null ? "Incident activity" : "Not applicable")}</dd></div>
+                  {Object.entries(event.details).filter(([key]) => key !== "edit_number").map(([key, value]) => (
+                    <div key={key}><dt>{formatDetailLabel(key)}</dt><dd>{formatDetailValue(value)}</dd></div>
+                  ))}
+                </dl>
+                <details className="audit-event-card__references">
+                  <summary>Technical references</summary>
+                  <dl>
+                    <div><dt>Event reference</dt><dd><code>{event.event_id}</code><button type="button" onClick={() => void copyEventId(event.event_id)} aria-label={copiedEventId === event.event_id ? "Reference copied" : "Copy technical reference"} title={copiedEventId === event.event_id ? "Copied" : "Copy reference"}>{copiedEventId === event.event_id ? <Check size={12} /> : <Copy size={12} />}{copiedEventId === event.event_id ? "Copied" : "Copy"}</button></dd></div>
+                    <div><dt>Source key</dt><dd><code>{event.source}</code></dd></div>
+                    {event.actor_user_id !== null && <div><dt>Actor profile reference</dt><dd>{event.actor_user_id}</dd></div>}
+                    {event.target_user_id !== null && <div><dt>Target profile reference</dt><dd>{event.target_user_id}</dd></div>}
+                    {event.incident_id !== null && <div><dt>Incident reference</dt><dd>{event.incident_id}</dd></div>}
+                    <div><dt>Exact timestamp</dt><dd><code>{event.occurred_at}</code></dd></div>
+                  </dl>
+                </details>
+                {copyError && <p className="audit-page__copy-error" role="status">{copyError}</p>}
+              </div>
+            )}
+          </article>
+        ))}
       </div>
 
       <div className="admin-pagination audit-page__pagination" aria-label="Investigation history pagination">
-        <span>{error ? "Results unavailable" : "Showing " + (total === 0 ? 0 : page * PAGE_SIZE + 1) + "–" + Math.min((page + 1) * PAGE_SIZE, total) + " of " + total.toLocaleString()}</span>
-        <div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading}><ChevronLeft size={14} /> Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || (page + 1) * PAGE_SIZE >= total}>Next <ChevronRight size={14} /></button></div>
+        <span>Showing {rangeStart}–{rangeEnd} of {total.toLocaleString()} <small>{pageCount ? "· Page " + (page + 1) + " of " + pageCount : ""}</small></span>
+        <div>
+          <button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading}><ChevronLeft size={14} /> Previous</button>
+          <div className="audit-page__page-numbers" aria-label="Page numbers">
+            {visiblePages.map((pageIndex) => <button key={pageIndex} type="button" className={pageIndex === page ? "is-current" : ""} aria-current={pageIndex === page ? "page" : undefined} onClick={() => setPage(pageIndex)} disabled={loading}>{pageIndex + 1}</button>)}
+          </div>
+          <button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || page + 1 >= pageCount}>Next <ChevronRight size={14} /></button>
+        </div>
       </div>
-      <p className="admin-panel__footnote">This feed reads existing administrative role-change, Supabase Auth, incident-status, claimability, sanitized requester-edit, and responder-assignment records through a TOTP/AAL2-protected, server-side query. Authentication events depend on Supabase Auth Audit Logs Postgres storage; if this category is empty, verify Authentication → Audit Logs because an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events are reduced to changed-field names only; their raw snapshots are never exposed. Denied privileged RPC attempts are not yet durably represented in this feed. API transport telemetry, device-security events, and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
+      <p className="admin-panel__footnote">This feed reads existing administrative role-change, Supabase Auth, incident-status, claimability, sanitized requester-edit, and responder-assignment records through a TOTP/AAL2-protected, server-side query. Authentication events depend on Supabase Auth Audit Logs Postgres storage; an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events expose changed-field names only; raw snapshots are never shown. Denied privileged RPC attempts are not yet durably represented. API transport telemetry, device-security events, and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
     </section>
   );
 }
