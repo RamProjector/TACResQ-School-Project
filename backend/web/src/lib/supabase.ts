@@ -202,7 +202,7 @@ export async function getAdminAnalyticsSummary(from: string, to: string): Promis
       point !== null
       && typeof point === "object"
       && typeof point.day === "string"
-      && /^\\d{4}-\\d{2}-\\d{2}$/.test(point.day)
+      && /^\d{4}-\d{2}-\d{2}$/.test(point.day)
       && Number.isFinite(Date.parse(point.day + "T00:00:00Z"))
       && new Date(point.day + "T00:00:00Z").toISOString().slice(0, 10) === point.day
       && Number.isSafeInteger(point.requests)
