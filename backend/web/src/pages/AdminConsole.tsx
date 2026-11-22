@@ -93,7 +93,16 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const modalRoot = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
   const requestVersion = useRef(0);
+
+  // Return keyboard focus to the control that opened the role-change dialog.
+  useEffect(() => {
+    if (target) return;
+    const trigger = previousFocus.current;
+    if (trigger?.isConnected) trigger.focus();
+    previousFocus.current = null;
+  }, [target]);
 
   useEffect(() => {
     if (!target) return;
@@ -231,6 +240,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function openRoleChange(user: AdminUser) {
     if (user.role === "admin") return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setTarget(user);
     setNextRole(user.role);
     setReason("");
