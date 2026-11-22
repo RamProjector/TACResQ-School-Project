@@ -50,6 +50,7 @@ CREATE OR REPLACE FUNCTION public.api_admin_list_investigation_events(
   p_offset integer DEFAULT 0,
   p_query text DEFAULT '',
   p_category text DEFAULT 'all',
+  p_source text DEFAULT 'all',
   p_from timestamptz DEFAULT NULL,
   p_to timestamptz DEFAULT NULL,
   p_actor_user_id bigint DEFAULT NULL,
@@ -80,6 +81,18 @@ BEGIN
     'all', 'administrative', 'authentication', 'incident', 'assignment'
   ) THEN
     RAISE EXCEPTION 'Unsupported investigation category'
+      USING ERRCODE = '22023';
+  END IF;
+  IF p_source IS NULL OR p_source NOT IN (
+    'all',
+    'admin_audit_logs',
+    'supabase_auth_audit_logs',
+    'incident_status_logs',
+    'incident_claimability_logs',
+    'incident_request_edit_logs',
+    'incident_assignment_events'
+  ) THEN
+    RAISE EXCEPTION 'Unsupported investigation source'
       USING ERRCODE = '22023';
   END IF;
   IF p_from IS NOT NULL AND p_to IS NOT NULL AND p_from >= p_to THEN
@@ -270,6 +283,7 @@ BEGIN
     SELECT e.*
     FROM source_events AS e
     WHERE (p_category = 'all' OR e.category = p_category)
+      AND (p_source = 'all' OR e.source = p_source)
       AND (p_from IS NULL OR e.occurred_at >= p_from)
       AND (p_to IS NULL OR e.occurred_at < p_to)
       AND (p_actor_user_id IS NULL OR e.actor_user_id = p_actor_user_id)
@@ -316,15 +330,15 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.api_admin_list_investigation_events(
-  integer, integer, text, text, timestamptz, timestamptz, bigint, bigint, bigint
+  integer, integer, text, text, text, timestamptz, timestamptz, bigint, bigint, bigint
 ) FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.api_admin_list_investigation_events(
-  integer, integer, text, text, timestamptz, timestamptz, bigint, bigint, bigint
+  integer, integer, text, text, text, timestamptz, timestamptz, bigint, bigint, bigint
 ) TO authenticated;
 
 COMMENT ON FUNCTION public.api_admin_list_investigation_events(
-  integer, integer, text, text, timestamptz, timestamptz, bigint, bigint, bigint
+  integer, integer, text, text, text, timestamptz, timestamptz, bigint, bigint, bigint
 ) IS
   'TOTP/AAL2-protected, bounded Admin investigation feed over existing administrative, authentication, incident-status, and assignment event sources.';
 
