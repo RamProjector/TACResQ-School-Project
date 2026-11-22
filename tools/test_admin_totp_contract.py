@@ -56,6 +56,20 @@ assert 'getAdminAuditLogsPage(' in audit_page and "const PAGE_SIZE = 25" in audi
 assert "page * PAGE_SIZE >= result.total_count" in audit_page, "Audit pagination must recover when concurrent changes invalidate the current offset."
 assert "Math.ceil(result.total_count / PAGE_SIZE) - 1" in audit_page, "Audit pagination must return to the last valid page after the record count shrinks."
 assert "getAdminAuditLogsPage" in supabase_client
+# Analytics must reject malformed/inconsistent aggregates before rendering them.
+analytics_validator = supabase_client.split("export async function getAdminAnalyticsSummary", 1)[1].split("export interface AdminAuditPage", 1)[0]
+for requirement in (
+    "Number.isFinite(Date.parse(value))",
+    'summary.reporting_timezone !== "Asia/Manila"',
+    "validDuration(summary.average_assignment_minutes)",
+    "validDuration(summary.median_assignment_minutes)",
+    "summary.assigned_request_count > summary.total_requests",
+    "dailyTotal !== summary.total_requests",
+    "summary.pending + summary.active + summary.resolved + summary.cancelled > summary.total_requests",
+):
+    assert requirement in analytics_validator, f"Analytics response validation omits {requirement}"
+assert 'new Date(point.day + "T00:00:00Z")' in analytics_validator, "Analytics day keys must be validated as timezone-neutral dates."
+assert 'new Date(point.day + "T00:00:00Z").toLocaleDateString' in admin and 'timeZone: "UTC"' in admin, "Daily analytics labels must not shift based on the administrator's browser timezone."
 assert "admin-audit-panel" not in admin
 assert "api_admin_list_audit_logs_page" in supabase_client
 assert "Admin profile ID" in audit_page and "Target profile ID" in audit_page
