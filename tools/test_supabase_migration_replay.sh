@@ -1013,6 +1013,16 @@ BEGIN
 
   denied := false;
   BEGIN
+    PERFORM public.api_admin_list_audit_logs_page(25, 0, '', 'all', NULL, NULL);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Paginated Admin audit RPC accepted AAL2 without TOTP';
+  END IF;
+
+  denied := false;
+  BEGIN
     PERFORM public.api_admin_analytics_summary(now() - interval '7 days', now());
   EXCEPTION WHEN insufficient_privilege THEN
     denied := true;
@@ -1059,6 +1069,16 @@ BEGIN
   END;
   IF NOT denied THEN
     RAISE EXCEPTION 'Ordinary requester must not read Admin audit events';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_audit_logs_page(25, 0, '', 'all', NULL, NULL);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Ordinary requester must not read paginated Admin audit events';
   END IF;
 
   -- Direct profile role mutation is rejected by the existing database guard.
