@@ -298,6 +298,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }, [onSignOut]);
 
   const filteredUsers = users;
+  const hasDirectoryFilters = query.trim().length > 0 || roleFilter !== "all";
+  const directoryFilterPending = query.trim() !== debouncedQuery;
 
   function openRoleChange(user: AdminUser) {
     if (user.role === "admin") return;
@@ -435,13 +437,15 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <section className="admin-panel" hidden={activeSection !== "users"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><Users size={19} /> User management</h2></div>
-              <span className="admin-count">{totalUsers === 0 ? 0 : page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalUsers)} of {totalUsers}</span>
+              <span className="admin-count">{totalUsers === 0 ? 0 : page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalUsers)} of {totalUsers} matching</span>
             </div>
             <div className="admin-toolbar">
               <label className="admin-search"><Search size={16} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder="Search name, email, phone or ID" aria-label="Search users" /></label>
               <label className="admin-role-filter"><span>Role</span><select value={roleFilter} onChange={(event) => { setPage(0); setRoleFilter(event.target.value as RoleFilter); }} aria-label="Filter users by role"><option value="all">All roles</option><option value="requester">Requester</option><option value="responder">Responder</option><option value="driver">Driver</option><option value="dispatcher">Dispatcher</option><option value="admin">Admin</option></select></label>
+              {hasDirectoryFilters && <button className="admin-filter-reset" type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setRoleFilter("all"); setPage(0); }} disabled={refreshing}>Clear filters</button>}
             </div>
-            <div className="admin-table-wrap">
+            <p className="admin-directory-status" role="status" aria-live="polite">{directoryFilterPending ? "Applying search…" : refreshing ? "Updating account results…" : hasDirectoryFilters ? "Showing " + totalUsers.toLocaleString() + " matching accounts. Search and role filters are applied on the server." : "Showing all accounts. Search and role filters are applied on the server."}</p>
+            <div className="admin-table-wrap" aria-busy={refreshing || directoryFilterPending}>
               <table className="admin-table">
                 <thead><tr><th>Account</th><th>Role</th><th>Duty status</th><th>Created</th><th>Action</th></tr></thead>
                 <tbody>
