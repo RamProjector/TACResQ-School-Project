@@ -63,9 +63,20 @@ checks = {
             "api_admin_set_user_role",
         )
     ),
-    "Existing web Admin console remains available": all(
-        label in web_admin_console
-        for label in ("Admin console", "Change role", "Administrative audit log")
+    "Existing web Admin console remains available": (
+        "export default function AdminConsole" in web_admin_console
+        and all(
+            marker in web_admin_console
+            for marker in (
+                "getAdminUsersPage",
+                "setAdminUserRole",
+                "getAdminAuditLogs",
+                'label: "Overview"',
+                'label: "User management"',
+                'label: "Analytics & reports"',
+                'label: "Audit & activity"',
+            )
+        )
     ),
 }
 failed = [name for name, passed in checks.items() if not passed]

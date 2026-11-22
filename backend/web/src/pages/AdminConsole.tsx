@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  Activity,
+  BarChart3,
+  DatabaseBackup,
+  History,
+  LayoutDashboard,
+  Settings,
+  ShieldAlert,
   ArrowDownUp,
   CheckCircle2,
   Clock3,
@@ -14,6 +21,7 @@ import {
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
 import {
+  getAdminAnalyticsSummary,
   getAdminAuditLogs,
   getAdminDependencyHealth,
   getAdminUsersPage,
@@ -21,6 +29,7 @@ import {
   setAdminUserRole,
 } from "@/lib/supabase";
 import type {
+  AdminAnalyticsSummary,
   AdminAuditEvent,
   AdminDependencyHealth,
   AdminManagedRole,
@@ -35,6 +44,17 @@ type AdminConsoleProps = {
 };
 
 type RoleFilter = "all" | AdminManagedRole | "admin";
+type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "settings" | "backups";
+
+const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashboard }[] = [
+  { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "users", label: "User management", icon: Users },
+  { id: "security", label: "Security & countermeasures", icon: ShieldAlert },
+  { id: "analytics", label: "Analytics & reports", icon: BarChart3 },
+  { id: "audit", label: "Audit & activity", icon: History },
+  { id: "settings", label: "Settings", icon: Settings },
+  { id: "backups", label: "Backup & recovery", icon: DatabaseBackup },
+];
 const roleOptions: AdminManagedRole[] = ["requester", "responder", "driver", "dispatcher"];
 
 function displayRole(role: string) {
@@ -63,6 +83,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [activeSection, setActiveSection] = useState<AdminSection>("overview");
+  const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [analyticsDays, setAnalyticsDays] = useState<7 | 30 | 90>(30);
   const [page, setPage] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const pageSize = 25;
@@ -139,6 +164,24 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  useEffect(() => {
+    if (activeSection !== "analytics") return;
+    let active = true;
+    const to = new Date();
+    const from = new Date(to.getTime() - analyticsDays * 24 * 60 * 60 * 1000);
+    setAnalyticsLoading(true);
+    setAnalyticsError(null);
+    void getAdminAnalyticsSummary(from.toISOString(), to.toISOString())
+      .then((result) => { if (active) setAnalytics(result); })
+      .catch((cause: unknown) => {
+        if (!active) return;
+        setAnalytics(null);
+        setAnalyticsError(cause instanceof Error ? cause.message : "Analytics could not be loaded.");
+      })
+      .finally(() => { if (active) setAnalyticsLoading(false); });
+    return () => { active = false; };
+  }, [activeSection, analyticsDays]);
+
   // Admin privileges can be revoked outside this browser session. Revalidate
   // when the console is visible and periodically while it remains open; a
   // successful profile response with a different role immediately signs out.
@@ -214,8 +257,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <Brand inverse />
-        <div className="admin-sidebar__label">SECURITY &amp; GOVERNANCE</div>
-        <div className="admin-nav-item admin-nav-item--active"><ShieldCheck size={17} /><span>Admin console</span></div>
+        <div className="admin-sidebar__label">ADMINISTRATION</div>
+        <nav className="admin-navigation" aria-label="Admin sections">
+          {adminSections.map(({ id, label, icon: Icon }) => (
+            <button key={id} type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => setActiveSection(id)}>
+              <Icon size={17} aria-hidden="true" /><span>{label}</span>
+            </button>
+          ))}
+        </nav>
         <div className="admin-sidebar__bottom">
           <div className="admin-security-note"><ShieldCheck size={16} /><p>Role changes require a reason and are recorded by the database.</p></div>
           <div className="admin-sidebar__version">TACRESQ · PRIVILEGED ACCESS</div>
@@ -239,8 +288,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <div className="admin-heading">
             <div>
               <p className="admin-eyebrow">ACCESS CONTROL <span>·</span> AUDITABLE OPERATIONS</p>
-              <h1>Admin console<span>.</span></h1>
-              <p>Manage operational roles and review recorded administrative changes.</p>
+              <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}<span>.</span></h1>
+              <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Review the administrative changes currently recorded by the database." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
             </div>
             <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
               <RefreshCw size={16} className={refreshing ? "admin-spin" : ""} /> Refresh data
@@ -255,14 +304,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </div>
           )}
 
-          <section className="admin-metrics" aria-label="Account summary">
+          <section className="admin-metrics" aria-label="Account summary" hidden={activeSection !== "overview"}>
             <article><span>REGISTERED PROFILES</span><strong>{totalUsers}</strong><small>Matching profiles across all pages</small></article>
             <article><span>REQUESTERS ON PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Requester accounts on this page</small></article>
             <article><span>FIELD UNITS ON PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responder and driver accounts on this page</small></article>
             <article><span>RECENT AUDIT EVENTS</span><strong>{audit.length}</strong><small>Latest records, maximum 100 loaded</small></article>
           </section>
 
-          <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title">
+          <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">PLATFORM AVAILABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency health</h2></div>
               <span className="admin-count">{dependencyHealth ? "Checked " + formatDate(dependencyHealth.checked_at) : "No verified result"}</span>
@@ -288,7 +337,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <p className="admin-panel__footnote">Read-only checks only. Laravel /up confirms application liveness; Auth checks its health endpoint; the database check executes a fixed, data-free RPC. These checks do not verify incident workflows, user sign-in, FCM delivery, or routing.</p>
           </section>
 
-          <section className="admin-panel">
+          <section className="admin-panel" hidden={activeSection !== "users"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><Users size={19} /> User management</h2></div>
               <span className="admin-count">{totalUsers === 0 ? 0 : page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalUsers)} of {totalUsers}</span>
@@ -321,7 +370,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident.</p>
           </section>
 
-          <section className="admin-panel admin-audit-panel">
+          <section className="admin-panel admin-audit-panel" hidden={activeSection !== "audit"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">ACCOUNTABILITY</p><h2><Clock3 size={19} /> Administrative audit log</h2></div>
               <span className="admin-count">Newest first · max 100</span>
@@ -348,6 +397,62 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </div>
             <p className="admin-panel__footnote">The client has no direct insert, update, or delete permission on audit rows. The role-change RPC writes the event in the same database transaction as the change.</p>
           </section>
+          {activeSection === "analytics" && (
+            <section className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title" aria-live="polite">
+              <div className="admin-panel__heading">
+                <div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div>
+                <label className="admin-analytics-range"><span>Period</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select></label>
+              </div>
+              {analyticsLoading ? (
+                <div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading verified incident aggregates…</div>
+              ) : analyticsError ? (
+                <div className="admin-health-unavailable" role="alert"><strong>Analytics unavailable.</strong> {analyticsError} The endpoint must be deployed before this report can display live data.</div>
+              ) : analytics ? (
+                <>
+                  <div className="admin-analytics-metrics">
+                    <article><span>TOTAL REQUESTS</span><strong>{analytics.total_requests.toLocaleString()}</strong><small>Created during selected period</small></article>
+                    <article><span>ACTIVE</span><strong>{analytics.active.toLocaleString()}</strong><small>Assigned, en route, on scene or transporting</small></article>
+                    <article><span>RESOLVED</span><strong>{analytics.resolved.toLocaleString()}</strong><small>Currently marked resolved</small></article>
+                    <article><span>CANCELLED</span><strong>{analytics.cancelled.toLocaleString()}</strong><small>Currently marked cancelled</small></article>
+                  </div>
+                  <div className="admin-analytics-detail-grid">
+                    <section className="admin-analytics-card" aria-labelledby="admin-assignment-time-title">
+                      <p className="admin-eyebrow">DISPATCH EFFICIENCY</p><h3 id="admin-assignment-time-title">Time to first assignment</h3>
+                      <div className="admin-analytics-time"><strong>{analytics.average_assignment_minutes === null ? "—" : analytics.average_assignment_minutes.toLocaleString() + " min"}</strong><span>Average</span></div>
+                      <div className="admin-analytics-secondary"><span>Median</span><strong>{analytics.median_assignment_minutes === null ? "—" : analytics.median_assignment_minutes.toLocaleString() + " min"}</strong></div>
+                      <p className="admin-panel__footnote">Based on the first recorded “assigned” status transition for requests created in this period. {analytics.assigned_request_count.toLocaleString()} requests had a valid assignment time.</p>
+                    </section>
+                    <section className="admin-analytics-card" aria-labelledby="admin-request-trend-title">
+                      <p className="admin-eyebrow">REQUEST VOLUME</p><h3 id="admin-request-trend-title">Daily requests</h3>
+                      {analytics.daily_requests.length === 0 ? <div className="admin-empty">No daily data for this period.</div> : <div className="admin-analytics-bars" role="img" aria-label={analytics.daily_requests.map((point) => point.day + ": " + point.requests + " requests").join("; ")}>
+                        {analytics.daily_requests.map((point) => {
+                          const maximum = Math.max(1, ...analytics.daily_requests.map((item) => item.requests));
+                          return <div className="admin-analytics-bar-column" key={point.day} title={point.day + ": " + point.requests + " requests"}><span>{point.requests || ""}</span><div><i style={{ height: Math.max(point.requests > 0 ? 4 : 0, point.requests / maximum * 100) + "%" }} /></div><small>{new Date(point.day + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</small></div>;
+                        })}
+                      </div>}
+                    </section>
+                  </div>
+                  <div className="admin-analytics-status-grid" aria-label="Current request status breakdown">
+                    {[["Pending", analytics.pending], ["Active", analytics.active], ["Resolved", analytics.resolved], ["Cancelled", analytics.cancelled]].map(([label, value]) => <div key={label}><span>{label}</span><strong>{value.toLocaleString()}</strong></div>)}
+                  </div>
+                  <p className="admin-panel__footnote">Aggregates include requests created within the selected timestamp range. Status counts reflect each request’s current status at query time, not historical status totals. All timestamps are evaluated by the database; daily buckets use {analytics.reporting_timezone}. No requester names, contact details, descriptions or coordinates are returned.</p>
+                </>
+              ) : null}
+            </section>
+          )}
+          {(["security", "settings", "backups"] as AdminSection[]).includes(activeSection) && (
+            <section className="admin-panel admin-roadmap-panel" aria-live="polite">
+              <div className="admin-panel__heading">
+                <div><p className="admin-eyebrow">BACKEND-VERIFIED CAPABILITIES</p><h2><ShieldCheck size={19} /> {adminSections.find((section) => section.id === activeSection)?.label}</h2></div>
+                <span className="admin-count">{activeSection === "security" ? "TOTP enforced" : "Not connected"}</span>
+              </div>
+              <div className="admin-roadmap-content">
+                <strong>{activeSection === "security" ? "Administrator access requires Google Authenticator TOTP." : activeSection === "analytics" ? "Operational analytics are not yet connected." : activeSection === "settings" ? "No persistent administrator settings are currently exposed." : "Backup and recovery status is not yet connected."}</strong>
+                <p>{activeSection === "security" ? "After password sign-in, administrators must enroll or verify a six-digit time-based code from Google Authenticator. Supabase Auth verifies the factor and issues an AAL2 session; the Admin RPCs and audit-log table independently require an AAL2 token with a TOTP authentication method. No SMS or email OTP is used. Supabase Auth does not currently provide app-generated recovery codes, so keep your authenticator available and do not remove your only verified factor." : activeSection === "analytics" ? "Incident and assignment records exist, but trusted admin-only aggregate endpoints and validated metric definitions are required before displaying operational performance figures." : activeSection === "settings" ? "Only settings with defined ownership, secure persistence, and a confirmed effect on application behavior will be added here. No local-only toggles will be presented as system settings." : "Repository backup procedures exist, but the portal has no verified live backup-job or restore-drill feed. Recovery readiness will remain unreported until both database and storage artifacts are validated."}</p>
+                <span className="admin-roadmap-status"><ShieldCheck size={14} /> Password + Google Authenticator TOTP · enforced server-side</span>
+              </div>
+            </section>
+          )}
           <footer className="admin-footer"><span>TACRESQ · PRIVILEGED ACCESS</span><span>Server-enforced authorization · No client-side role grants</span></footer>
         </div>
       </main>

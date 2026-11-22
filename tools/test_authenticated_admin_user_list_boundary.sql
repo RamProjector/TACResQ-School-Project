@@ -22,6 +22,11 @@ WHERE auth_user_id = '00000000-0000-4000-8000-000000000145';
 
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000145', false);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
+  false
+);
 
 DO $admin_user_list_authenticated$
 DECLARE
@@ -48,6 +53,11 @@ BEGIN
   PERFORM set_config(
     'request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000146',
+    false
+  );
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal1","amr":[{"method":"password","timestamp":3}]}',
     false
   );
   BEGIN

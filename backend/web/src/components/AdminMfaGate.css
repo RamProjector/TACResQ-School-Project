@@ -1,0 +1,5 @@
+.mfa-enrollment { display:flex; flex-direction:column; align-items:stretch; margin:20px 0 4px; }
+.mfa-qr { display:block; width:min(100%,220px); height:auto; align-self:center; padding:12px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+.mfa-enrollment label { margin:15px 0 7px; color:#32474b; font-size:12px; font-weight:700; }
+.mfa-enrollment input { width:100%; min-height:44px; padding:0 12px; border:1px solid #d7ddd6; border-radius:7px; color:var(--ink); background:#f8f9f4; font-family:var(--mono); font-size:12px; letter-spacing:.04em; }
+.mfa-help { margin:9px 0 0; color:#788683; font-size:11px; line-height:1.55; }

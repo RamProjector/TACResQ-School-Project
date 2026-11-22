@@ -56,6 +56,7 @@ type TacruDatabase = {
       api_admin_list_users_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_role: string }; Returns: { users: AdminUser[]; total_count: number } };
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
+      api_admin_analytics_summary: { Args: { p_from: string; p_to: string }; Returns: AdminAnalyticsSummary };
       api_dependency_health: { Args: Record<string, never>; Returns: string };
     };
     Enums: Record<string, never>;
@@ -153,6 +154,22 @@ function throwAdminError(error: { code?: string; message?: string } | null) {
   if (error.code === "P0002") throw new Error("The selected account could not be found.");
   throw new Error("The Admin service could not complete the request. Check the connection and try again.");
 }
+export interface AdminAnalyticsDailyPoint { day: string; requests: number; }
+export interface AdminAnalyticsSummary {
+  period_start: string;
+  period_end: string;
+  reporting_timezone: string;
+  total_requests: number;
+  pending: number;
+  active: number;
+  resolved: number;
+  cancelled: number;
+  average_assignment_minutes: number | null;
+  median_assignment_minutes: number | null;
+  assigned_request_count: number;
+  daily_requests: AdminAnalyticsDailyPoint[];
+}
+
 export interface AdminUserPage { users: AdminUser[]; total_count: number; }
 export async function getAdminUsersPage(limit: number, offset: number, query: string, role: string): Promise<AdminUserPage> {
   const { data, error } = await getSupabase().rpc("api_admin_list_users_page", { p_limit: limit, p_offset: offset, p_query: query.trim(), p_role: role });
@@ -168,6 +185,23 @@ export async function setAdminUserRole(userId: number, role: AdminManagedRole, r
   if (!data) throw new Error("The role change returned no confirmation.");
   return data as unknown as AdminRoleChangeResult;
 }
+export async function getAdminAnalyticsSummary(from: string, to: string): Promise<AdminAnalyticsSummary> {
+  const { data, error } = await getSupabase().rpc("api_admin_analytics_summary", {
+    p_from: from,
+    p_to: to,
+  });
+  throwAdminError(error);
+  if (!data || typeof data !== "object") throw new Error("The analytics service returned an invalid summary.");
+  const summary = data as unknown as AdminAnalyticsSummary;
+  const counts = [summary.total_requests, summary.pending, summary.active, summary.resolved, summary.cancelled, summary.assigned_request_count];
+  if (!counts.every((value) => Number.isSafeInteger(value) && value >= 0)
+      || !Array.isArray(summary.daily_requests)
+      || !summary.daily_requests.every((point) => typeof point.day === "string" && Number.isSafeInteger(point.requests) && point.requests >= 0)) {
+    throw new Error("The analytics service returned invalid aggregate values.");
+  }
+  return summary;
+}
+
 export async function getAdminAuditLogs(limit = 100): Promise<AdminAuditEvent[]> {
   const { data, error } = await getSupabase().rpc("api_admin_list_audit_logs", { p_limit: limit });
   throwAdminError(error);

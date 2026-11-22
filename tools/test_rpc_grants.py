@@ -36,6 +36,7 @@ ACTIVE_CLIENT_RPCS = {
     "api_admin_list_users_page",
     "api_admin_set_user_role",
     "api_admin_list_audit_logs",
+    "api_admin_analytics_summary",
     "api_active_responder_locations",
     "api_all_incidents",
     "api_assign_incident",
