@@ -1,5 +1,19 @@
 BEGIN;
 
+-- The investigation feed sorts and date-filters across these source histories.
+-- Add source-local time indexes; keep existing incident/actor indexes intact.
+CREATE INDEX IF NOT EXISTS incident_status_logs_created_idx
+  ON public.incident_status_logs (created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS incident_assignment_events_created_idx
+  ON public.incident_assignment_events (occurred_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS incident_claimability_logs_created_idx
+  ON public.incident_claimability_logs (created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS incident_request_edit_logs_created_idx
+  ON public.incident_request_edit_logs (created_at DESC, id DESC);
+
 -- Admins already have a permissive SELECT policy on assignment history.
 -- Make their direct table reads obey the same TOTP/AAL2 requirement as other
 -- Admin data, without changing the existing dispatcher read path.
