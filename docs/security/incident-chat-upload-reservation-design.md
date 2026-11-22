@@ -99,70 +99,105 @@ Do not automatically delete objects in this change. Server-side cleanup needs an
 
 No `pg_cron` extension or cleanup scheduler was present in the connected project during the read-only inspection. Do not assume a scheduled cleanup mechanism exists.
 
-## Policy decisions required before implementation
+## Evidence-based threat assessment
 
-The following values must be agreed rather than invented in a migration:
+### System boundary and verified facts
 
-- maximum concurrent in-flight reservations per profile;
-- upload count or byte budget per profile and/or incident, including the accounting window;
-- reservation expiry duration;
-- orphan cleanup grace period;
-- attachment retention period, if any;
-- whether a quota exhaustion response should block all further image sends or provide a retry-after time.
+The assessment is limited to TACResQ's incident-chat image path. It does not claim that the whole application or Supabase project is insecure.
 
-The 5 MiB per-object limit and JPEG/PNG/WebP allowlist are existing technical constraints, not substitutes for an aggregate quota policy.
+Verified source and configuration facts:
 
-## Proposed policy baseline for owner review (not approved)
+- Android uploads directly to the private Supabase Storage bucket before calling the image-message RPC.
+- The bucket enforces a 5 MiB per-object ceiling and JPEG/PNG/WebP allowlist.
+- Storage INSERT authorization checks the authenticated profile's path and incident-chat access, but it does not require a one-time upload operation record.
+- The image-message RPC independently checks authenticated sender, incident access, deterministic path, object existence, MIME metadata, and byte-size metadata.
+- The message rate limit is applied by the RPC after the object upload.
+- The point-in-time read-only inventory recorded one object with one message reference and no detected orphan or path mismatch. This is evidence that the inspected snapshot was clean, not evidence that the lifecycle gap cannot be abused.
+- No confirmed exploitation, storage exhaustion incident, or measured orphan rate has been established.
 
-To make the policy decision concrete without silently applying limits, the following is a conservative starting proposal for discussion. These are **recommendations only** and must not be treated as deployed settings:
+### Threat scenarios and risk reasoning
 
-| Control | Proposed starting value | Rationale |
-|---|---:|---|
-| Concurrent unexpired reservations | 2 per profile per incident | Allows a small amount of parallelism while limiting abandoned in-flight uploads |
-| Upload count budget | 20 images per profile per incident per rolling 24 hours | Count-based and easy to explain; does not penalize smaller images differently |
-| Aggregate byte budget | No separate aggregate byte cap initially | The existing 5 MiB object ceiling plus count budget gives a theoretical upper bound of 100 MiB per profile/incident/24h; avoid double-counting complexity until usage data exists |
-| Reservation lifetime | 15 minutes | Gives a mobile client time to upload on a variable connection without leaving long-lived upload authority |
-| Orphan cleanup grace | At least 7 days after reconciliation marks an object unreferenced | Provides time for delayed retries/support investigation; cleanup remains disabled until approved |
-| Attachment retention | No new automatic deletion policy in this implementation | Retention must align with incident/legal records policy and cannot be inferred from upload-abuse controls |
-| Quota response | Return a structured retry-after timestamp when the rolling window is the limiting factor | Lets Android explain when another upload can be attempted |
+| ID | Scenario | Existing control | Remaining exposure | Proposed mitigation |
+|---|---|---|---|---|
+| T1 | Authenticated incident member repeatedly uploads distinct UUID paths without creating messages | Private bucket, membership/path checks, 5 MiB per-object cap | Message rate limit runs after upload; no one-time upload authorization or aggregate accounting | Atomic reservation before Storage INSERT; configurable resource budget |
+| T2 | Concurrent requests race past a naïve quota check | Existing per-profile lock in the message RPC | That lock is acquired after upload and does not serialize reservation decisions | Serialize reservation accounting in the reservation transaction |
+| T3 | Caller attempts to reserve for another profile or incident | Message RPC derives profile from auth.uid() and checks incident access | A new reservation endpoint could introduce an IDOR if it trusts client profile IDs | Derive profile from auth.uid(); recheck current incident membership |
+| T4 | Expired or mismatched reservation is reused for another path or content type | Current deterministic path and no-overwrite upload | No reservation currently binds the upload operation to its intended path/type | Bind user, incident, exact path, MIME type, and state; Storage policy checks the same binding |
+| T5 | Upload succeeds but message finalization times out | Deterministic object path, no-overwrite behavior, idempotent message RPC | A retry may see HTTP 409; that status alone does not prove the stored bytes match the intended payload | Keep same operation identity; verify authoritative stored metadata before finalization; never treat 409 alone as proof |
+| T6 | Premature cleanup deletes evidence or an upload awaiting retry | No client DELETE privilege; no automatic cleanup currently | A future cleanup job could misclassify an unreferenced object | Keep deletion disabled; require reconciliation, approved retention, bounded service-role process, and a referenced-object exclusion |
+| T7 | Spoofed MIME metadata or malformed image is accepted | MIME allowlist and Storage metadata checks | Client-supplied content type is not proof of actual file content | Validate file signature and safely decode/inspect content where technically feasible; retain server-side size/type checks |
 
-The proposed count budget is a per-profile, per-incident control, not a global service quota. The implementation should keep the existing 5 MiB per-object ceiling and MIME allowlist unchanged. If the owner prefers a byte budget, select it instead of layering a second aggregate cap without usage evidence.
+### Risk classification
 
-**Important:** a 15-minute reservation expiry must not invalidate an object that was already uploaded and is awaiting message finalization. Expiry should prevent a *new* Storage INSERT; finalization/retry must have a separate, narrowly bounded state transition that verifies the already-existing object and preserves idempotency. Otherwise a slow mobile retry could strand an uploaded image.
+The principal concern is **resource consumption and lifecycle integrity**, not public disclosure. The private bucket and incident-membership checks are meaningful existing protections and must be preserved.
 
-Before implementation, approve or replace each proposed value. In particular, the 20-image rolling window and seven-day orphan grace period are policy choices, not facts derived from current production usage. Automatic deletion remains out of scope until retention and recovery requirements are explicitly approved.
+The reservation change is a defense-in-depth improvement: it moves authorization and resource accounting ahead of Storage object creation and ties the resulting object to one intended message operation. It does not by itself prove that image content is harmless, protect a compromised account, or provide backup/recovery.
 
-## Migration and rollout sequence
+## Policy decisions and sizing method
 
-1. Approve the quota and retention values above.
-2. Add a private reservation ledger and narrowly granted reserve/finalize RPCs.
-3. Add concurrency-safe reservation accounting and regression tests.
-4. Update the Storage INSERT policy to require the reservation.
-5. Update Android to reserve first, upload second, then call the existing image-message RPC. Preserve the deterministic UUID/path and no-overwrite retry behavior.
-6. Update the image-message RPC to consume the reservation transactionally.
-7. Replay all migrations from a clean database and run grant, RLS, path, concurrency, and idempotency tests.
-8. Perform real upload/download, duplicate-path, wrong-account, removed-member, expired-reservation, upload-success/message-failure, and quota-exhaustion acceptance tests in a non-production Supabase project.
-9. Only after a separately approved retention policy and cleanup design, add bounded orphan cleanup. Keep cleanup disabled until then.
+Do not hard-code a daily image count, concurrent-upload count, aggregate byte budget, reservation lifetime, or cleanup grace period solely because a proposed number sounds conservative. OWASP and Supabase guidance establish the need for authorization, validation, and resource controls; they do not prescribe TACResQ-specific numeric quotas.
 
-Do not apply a production migration as part of this design-only change.
+### Controls that are requirements
 
-## Required regression matrix
+- Preserve the existing 5 MiB per-object Storage ceiling.
+- Preserve the JPEG/PNG/WebP allowlist unless a separately reviewed product requirement changes it.
+- Require an authenticated, incident-scoped reservation for each new object path.
+- Derive the profile identity from auth.uid(), never from a caller-selected profile ID.
+- Make reservation accounting atomic under concurrent requests.
+- Keep the bucket private and do not grant client UPDATE or DELETE.
+- Make same-operation retries idempotent and verify the existing object before finalization.
+- Do not automatically delete attachments as part of this security change.
 
-- authenticated incident member can reserve only for an incident they can currently access;
-- caller cannot reserve for another profile;
-- invalid incident, UUID, MIME type, or size is rejected;
-- concurrent reservations cannot exceed the configured quota;
-- wrong profile, incident, MIME type, path, or expired reservation cannot upload;
-- reservation cannot authorize a second distinct object path;
-- same-path retry does not overwrite and remains idempotent;
-- HTTP 409 with mismatched object metadata or content identity cannot silently create a message;
-- message RPC independently rejects a missing or mismatched Storage object;
-- successful upload plus message consumes the reservation once;
-- upload success plus RPC timeout can safely retry with the same identity;
-- removed incident member cannot reserve, upload, or read;
-- referenced objects are never cleanup candidates;
-- cleanup failure is retryable and does not broaden client privileges.
+### Controls that require measured/configured values
+
+The following values should be configuration, not undocumented constants:
+
+- Maximum in-flight reservations per profile and incident.
+- Aggregate bytes or upload count over a defined rolling window.
+- Reservation expiry and any narrowly scoped finalization/retry grace.
+- Orphan reconciliation age threshold.
+- Any future retention period.
+
+Before selecting production values, collect representative usage from legitimate incident workflows or controlled pilot tests: image count per incident, bytes per incident, upload duration on weak mobile networks, retry frequency, and concurrent upload behavior. Use percentiles and an explicit safety margin; document the measurement period, sample size, and operational storage budget. If reliable usage data is unavailable, begin with per-object enforcement and atomic reservation state, keep aggregate quotas disabled/configurable, and monitor before tightening them.
+
+Do not use client-reported byte counts as authoritative quota usage. They may support early rejection only. Reserve a conservative amount for in-flight operations or reconcile against server-recorded Storage metadata after upload.
+
+Reservation expiry must prevent a new Storage INSERT after expiry. It must not automatically invalidate an object that was already uploaded and is awaiting message finalization. Define a separate, bounded finalization transition that verifies the existing object and preserves idempotency.
+
+Orphan cleanup grace and attachment retention are separate policy decisions. No cleanup scheduler was present in the connected project during the earlier read-only inspection. Keep cleanup disabled until an owner-approved retention policy, reconciliation evidence, bounded deletion process, and restore/backup implications are established.
+
+## Risk-to-control-to-test traceability
+
+| Risk | Control | Required verification evidence |
+|---|---|---|
+| T1: repeated pre-message uploads | Reservation required before Storage INSERT; configurable accounting | A member cannot create a second distinct unreserved object; configured quota is enforced server-side |
+| T2: concurrent quota bypass | Transaction-level serialization or locked quota row | Parallel reservation test proves no oversubscription |
+| T3: cross-user/incident authorization | auth.uid()-derived profile and current membership check | Wrong-profile, unrelated-account, and removed-member denial tests |
+| T4: reservation replay/mismatch | Exact path/type/state binding and one-time use | Wrong path, MIME, incident, profile, expiry, and second-use tests |
+| T5: ambiguous upload retry | Deterministic operation identity, no overwrite, authoritative object verification | Upload-success/response-lost and HTTP 409 mismatch tests |
+| T6: evidence deletion | Cleanup disabled; referenced-object exclusion required for any future cleanup | No deletion path in this change; reconciliation reports referenced/unreferenced separately |
+| T7: malformed content | Server-side size/type checks plus content-signature validation where supported | Spoofed MIME, invalid signature, malformed image, and oversize tests |
+
+A test result must be recorded against the exact commit and environment. Static source-contract checks alone are not sufficient evidence for actual Supabase Storage behavior.
+
+## Implementation contract
+
+1. Add a private reservation ledger that is not directly readable or writable by ordinary client roles.
+2. Add a narrowly granted authenticated reserve RPC. Derive the actor profile from auth.uid(); validate incident access; derive the deterministic object path on the server.
+3. Serialize reservation accounting so concurrent requests cannot exceed configured limits.
+4. Update Storage INSERT authorization to require a matching eligible reservation for the exact bucket/object path, caller, incident, and allowed MIME type.
+5. Update Android to reserve first, upload second, and finalize third. Preserve the existing client UUID and no-overwrite retry behavior.
+6. Update the image-message RPC to independently recheck incident access and object metadata, then consume the matching reservation in the same transaction as message creation.
+7. Preserve text messaging, image download authorization, private bucket behavior, and current participant access rules.
+8. Add migration replay, grant, RLS, authorization, concurrency, idempotency, retry, and storage-policy tests. Run real upload/download acceptance in an isolated non-production Supabase project before production rollout.
+9. Do not add an automatic cleanup worker, retention deletion, public bucket, client UPDATE/DELETE permission, or paid service in this PR.
+
+## Panel/technical-review explanation
+
+TACResQ already restricts incident-chat attachments to authorized participants, private storage, approved image types, and a 5 MiB per-object maximum. The identified weakness is that Storage accepts an object before the corresponding chat message is committed, while the message rate limit runs only after upload. Therefore, the message limit does not constrain distinct objects created by uploads that never become messages.
+
+The proposed reservation makes the backend authorize and account for each intended upload before Storage accepts it. It binds the authenticated user, incident, exact object path, and file type to one operation; the message transaction then consumes that operation only after independently verifying the stored object. Concurrency and retry tests demonstrate that the control cannot be bypassed by simultaneous requests or ambiguous mobile network failures. This is a targeted defense-in-depth improvement to resource management and attachment lifecycle integrity, not a claim that the existing private bucket is publicly exposed or that an attack has already occurred.
 
 ## Verification boundary
 
-This is an architecture proposal based on the current Android upload path, Storage policy model, image-message RPC, and read-only live configuration inspection. It does not implement a reservation RPC, migration, Android API change, quota, cleanup job, or production setting. No production data or object was changed.
+This design is based on the inspected Android upload path, SQL RPC and Storage policies, existing contract tests, and a point-in-time read-only inventory. It does not establish an observed attack rate or justify numeric quotas. No production migration, Storage policy, bucket setting, cleanup job, object deletion, or Android runtime behavior is changed by this document.
