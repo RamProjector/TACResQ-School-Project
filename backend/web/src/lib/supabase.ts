@@ -276,10 +276,17 @@ export async function getAdminInvestigationEventsPage(
     throw new Error("The investigation service returned an invalid page.");
   }
   const page = data as unknown as AdminInvestigationPage;
-  if (!Array.isArray(page.events) || !Number.isSafeInteger(page.total_count) || page.total_count < 0) {
+  if (
+    !Array.isArray(page.events)
+    || !Number.isSafeInteger(page.total_count)
+    || page.total_count < 0
+    || page.events.length > limit
+    || page.total_count < offset + page.events.length
+  ) {
     throw new Error("The investigation service returned an invalid page.");
   }
   const categories = new Set(["administrative", "authentication", "incident", "assignment"]);
+  const eventIds = new Set<string>();
   for (const event of page.events) {
     if (
       !event || typeof event !== "object"
@@ -289,6 +296,7 @@ export async function getAdminInvestigationEventsPage(
       || typeof event.event_type !== "string" || !event.event_type
       || typeof event.occurred_at !== "string" || !Number.isFinite(Date.parse(event.occurred_at))
       || typeof event.actor_label !== "string"
+      || (event.target_label !== null && typeof event.target_label !== "string")
       || typeof event.summary !== "string"
       || (event.actor_user_id !== null && (!Number.isSafeInteger(event.actor_user_id) || event.actor_user_id < 1))
       || (event.target_user_id !== null && (!Number.isSafeInteger(event.target_user_id) || event.target_user_id < 1))
@@ -297,6 +305,10 @@ export async function getAdminInvestigationEventsPage(
     ) {
       throw new Error("The investigation service returned an invalid event.");
     }
+    if (eventIds.has(event.event_id)) {
+      throw new Error("The investigation service returned duplicate event identifiers.");
+    }
+    eventIds.add(event.event_id);
   }
   return page;
 }
