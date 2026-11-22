@@ -137,7 +137,27 @@ BEGIN
   -- public SECURITY INVOKER wrapper.
   denied := false;
   BEGIN
-    result := public.api_update_incident_status(incident_id, 'en_route');
+    -- Dispatcher role does not restore direct table DML: status changes must
+  -- use the coordinated RPC so team snapshots and duty states stay synchronized.
+  DECLARE
+    direct_update_denied boolean := false;
+  BEGIN
+    UPDATE public.incidents SET status = 'on_scene' WHERE id = incident_id;
+  EXCEPTION WHEN insufficient_privilege THEN
+    direct_update_denied := true;
+  END;
+  IF NOT direct_update_denied THEN
+    RAISE EXCEPTION 'Authenticated dispatcher direct incident UPDATE was not denied';
+  END IF;
+
+  SELECT status, is_claimable INTO final_status, final_claimable
+  FROM public.incidents WHERE id = incident_id;
+  IF final_status IS DISTINCT FROM 'assigned' OR final_claimable IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Direct dispatcher update changed incident state: status %, claimable %',
+      final_status, final_claimable;
+  END IF;
+
+  result := public.api_update_incident_status(incident_id, 'en_route');
   EXCEPTION WHEN insufficient_privilege THEN
     denied := true;
   END;
