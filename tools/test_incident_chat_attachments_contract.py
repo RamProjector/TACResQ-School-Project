@@ -75,6 +75,8 @@ for required in (
     "legacy_image_compatibility",
     "reservation_enforcement_enabled = true",
     "A participant must not upload an object without a matching reservation",
+    "Strict finalization must reject an object without a reservation",
+    "Legacy image finalization must remain compatible while enforcement is disabled",
     "An unrelated account must not reserve an upload for another incident",
     "The 21st image reservation within one minute must be rejected",
     '"contentLength":"4"',
