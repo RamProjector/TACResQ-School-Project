@@ -173,7 +173,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       </div>
 
       <div className="audit-page__coverage" role="note">
-        <strong>Coverage</strong>
+        <strong>Coverage boundaries</strong>
         <span>Six recorded event sources are queried. Supabase Auth events appear only when Auth Audit Log storage is enabled. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.</span>
       </div>
 
