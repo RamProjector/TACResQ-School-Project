@@ -48,5 +48,6 @@ for rpc in (
 ):
     assert f"create or replace function public.{rpc}" in migration, f"Missing MFA wrapper for {rpc}"
 
+assert "grant execute on function public.api_admin_list_users()" not in migration, "The legacy unbounded Admin user-list RPC must remain revoked."
 assert "service_role" not in gate.lower(), "The browser must not use a service-role key."
 print("Admin TOTP enrollment, verification, and server-side enforcement contracts passed.")
