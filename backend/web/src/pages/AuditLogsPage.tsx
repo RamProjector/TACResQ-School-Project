@@ -133,7 +133,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
               <tr><td colSpan={6}><div className="admin-empty"><Clock3 size={20} /><strong>{error ? "Audit records unavailable" : "No matching audit records"}</strong><span>{error ? "The page does not substitute sample data." : "Adjust your filters or check again later."}</span></div></td></tr>
             ) : events.map((event) => (
               <Fragment key={event.id}>
-              <tr key={event.id}>
+              <tr>
                 <td className="admin-date">{formatDate(event.created_at)}</td>
                 <td><strong>{event.actor_user_id === profile.id ? "You" : event.actor_identity || "Unknown actor"}</strong><small className="audit-page__subtext">{event.actor_user_id === null ? "No linked profile" : "Profile #" + event.actor_user_id}</small></td>
                 <td>{event.target_user_id === null ? "Unknown / removed" : "Profile #" + event.target_user_id}</td>
