@@ -39,7 +39,8 @@ This inventory is intentionally conservative. A path is not marked covered merel
 ## Source-traced review progress
 
 - [Batch 1: requester incident lifecycle, field claiming, claimability, incident chat attachments, FCM token registration, and Admin investigation feed](admin-account-suspension-rpc-review-batch-1.md). The reviewed functions currently lack an independent account-state check; each gap and the correct enforcement boundary is recorded there.
-- Remaining batches must cover Admin/audit internals, dispatch and location operations, notifications/profile/device security, Storage, and every direct client/bridge path.
+- [Batch 2: Admin and audit](admin-account-suspension-rpc-review-batch-2-admin-audit.md). The shared Admin MFA helper checks role/AAL2/TOTP but has no account-state predicate; the batch records all protected Admin endpoints and direct audit-table policy requirements.
+- Remaining batches must cover dispatch and location operations, notifications/profile/device security, Storage, and every direct client/bridge path.
 
 ## Required completion artifacts
 
