@@ -218,4 +218,4 @@ assert audit_insert > profile_update, (
 )
 assert "trim(p_reason)" in role_body and "user_role_changed" in role_body
 
-print("Admin TOTP, role-change atomicity, wrapper ordering, grants, and audit RLS contracts passed.")
+print("Admin TOTP, backup-factor enrollment, role-change atomicity, wrapper ordering, grants, and audit RLS contracts passed.")
