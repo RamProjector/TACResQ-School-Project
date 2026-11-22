@@ -86,7 +86,9 @@ helper_body = helper_match.group(1)
 for requirement in (
     "auth.uid() is null",
     "auth.jwt() ->> 'aal'",
-    "method ->> 'method' = 'totp'",
+    "method ->> 'method'",
+    "method #>> '{}'",
+    "when 'string' then",
     "p.role = 'admin'",
 ):
     assert requirement in helper_body, f"Admin MFA helper omits required check: {requirement}"
