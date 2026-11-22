@@ -16,7 +16,7 @@ class Finding:
  evidence:str
 RULES=[
  ("CRITICAL","PRIVATE_KEY",re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----")),
-("CRITICAL","SUPABASE_SERVICE_ROLE",re.compile(r"(?:SUPABASE_)?SERVICE_ROLE(?:_KEY)?\s*[:=]\s*['"][^'"]{12,}['"]|sb_secret_[A-Za-z0-9_-]{12,}|service_role\s*[:=]\s*['"][^'"]{12,}['"]",re.I)),
+("CRITICAL","SUPABASE_SERVICE_ROLE",re.compile(r"""(?:SUPABASE_)?SERVICE_ROLE(?:_KEY)?\s*[:=]\s*['"][^'"]{12,}['"]|sb_secret_[A-Za-z0-9_-]{12,}|service_role\s*[:=]\s*['"][^'"]{12,}['"]""",re.I)),
  ("HIGH","DISABLE_TLS_VALIDATION",re.compile(r"(verify\s*=\s*False|CURLOPT_SSL_VERIFYPEER\s*,\s*false|TrustAllCerts|ALLOW_ALL_HOSTNAME_VERIFIER)",re.I)),
  ("HIGH","PERMISSIVE_RLS_POLICY",re.compile(r"CREATE\s+POLICY[\s\S]{0,300}USING\s*\(\s*true\s*\)|WITH\s+CHECK\s*\(\s*true\s*\)",re.I)),
  ("HIGH","RAW_SQL_CONCAT",re.compile(r"(?:DB::select|DB::statement|queryRaw|execSQL)\s*\([^\n]*(?:\$[A-Za-z_]|{\s*[A-Za-z_]| \+\s*[A-Za-z_])",re.I)),
