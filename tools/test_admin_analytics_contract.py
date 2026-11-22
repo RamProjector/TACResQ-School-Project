@@ -42,7 +42,7 @@ assert 'rpc("api_admin_analytics_summary"' in client
 assert "Number.isSafeInteger(value)" in client
 assert "getAdminAnalyticsSummary" in page
 assert "Time to first assignment" in page
-assert "Current status at query time" in page
+assert "current status at query time" in page
 
 print("PASS: Admin analytics requires a current admin profile and bounded period.")
 print("PASS: response is aggregate-only and contains no requester PII or coordinates.")
