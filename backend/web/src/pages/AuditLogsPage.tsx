@@ -110,7 +110,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <div>
           <p className="admin-eyebrow">ACCOUNTABILITY · READ-ONLY RECORDS</p>
           <h2 id="audit-page-title"><Clock3 size={20} /> Audit history</h2>
-          <p>Search the full administrative audit history. Records are written by protected database operations and cannot be edited or deleted here.</p>
+          <p>Search recorded administrative role changes. Operational incident and assignment histories remain in their dedicated workflows. Records are written by protected database operations and cannot be edited or deleted here.</p>
         </div>
         <button className="admin-refresh" type="button" onClick={() => {
           setLoading(true);
@@ -176,7 +176,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <span>Showing {total === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}</span>
         <div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading}><ChevronLeft size={14} /> Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || (page + 1) * PAGE_SIZE >= total}>Next <ChevronRight size={14} /></button></div>
       </div>
-      <p className="admin-panel__footnote">Audit records are retrieved through a server-side, TOTP-protected RPC. Search, action filtering, date filtering and pagination are applied in the database, not limited to the records visible on this page. This interface is read-only.</p>
+      <p className="admin-panel__footnote">This page currently contains role-change events written by the Admin role-change RPC. API transport telemetry, incident status changes, and assignment history are separate records with separate access controls. Search, actor/target filters, action/date filters and pagination are applied server-side. This interface is read-only.</p>
     </section>
   );
 }
