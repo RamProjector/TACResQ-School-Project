@@ -86,6 +86,7 @@ for marker in (
     "Source",
     "sourceLabels",
     "All sources",
+    "Coverage boundaries",
     "date boundaries and displayed times use Asia/Manila",
 ):
     assert marker in page, f"Missing Admin investigation UI contract: {marker}"
