@@ -97,13 +97,13 @@ BEGIN
      AND polname = 'tacresq_incident_chat_attachment_insert';
 
   IF read_policy_definition IS NULL OR
-     read_policy_definition NOT LIKE '%tacresq_can_access_incident_chat%' THEN
+     read_policy_definition NOT LIKE '%tacresq_auth_can_access_incident_chat%' THEN
     RAISE EXCEPTION 'Incident-chat Storage read policy is missing its participant-access check';
   END IF;
 
   IF insert_policy_definition IS NULL OR
      insert_policy_definition NOT LIKE '%tacresq_upload_reservation_allows_insert%' OR
-     insert_policy_definition NOT LIKE '%tacresq_can_access_incident_chat%' THEN
+     insert_policy_definition NOT LIKE '%tacresq_auth_can_access_incident_chat%' THEN
     RAISE EXCEPTION 'Incident-chat Storage insert policy is missing reservation or participant authorization';
   END IF;
 END;
