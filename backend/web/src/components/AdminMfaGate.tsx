@@ -20,7 +20,7 @@ async function prepareAdminMfa(): Promise<PreparedMfa> {
   if (aalResult.error) throw aalResult.error;
   if (factorsResult.error) throw factorsResult.error;
 
-  const usedTotp = aalResult.data.currentAuthenticationMethods?.some((method) => method.method === "totp") ?? false;
+  const usedTotp = aalResult.data.currentAuthenticationMethods?.some((method) => typeof method === "object" && method !== null && method.method === "totp") ?? false;
   if (aalResult.data.currentLevel === "aal2" && usedTotp) return { state: "ready" };
 
   const verified = factorsResult.data.totp.find((factor) => factor.status === "verified");
@@ -95,7 +95,7 @@ export default function AdminMfaGate({ children, onSignOut }: {
       if (verifyError) throw verifyError;
       const { data, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) throw aalError;
-      const usedTotp = data.currentAuthenticationMethods?.some((method) => method.method === "totp") ?? false;
+      const usedTotp = data.currentAuthenticationMethods?.some((method) => typeof method === "object" && method !== null && method.method === "totp") ?? false;
       if (data.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("TOTP verification was not confirmed. Please check your authenticator code and try again.");
       }
