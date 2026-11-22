@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 gate = (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 home = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
 admin = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
-migration = (ROOT / "supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql").read_text().lower()
+migration = (ROOT / "supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql").read_text().lower()\naudit_page_migration = (ROOT / "supabase/migrations/20261122140000_admin_audit_server_pagination.sql").read_text().lower()
 
 for marker in (
     'factortype: "totp"',
@@ -96,6 +96,31 @@ for public_name, internal_name in wrapper_targets.items():
         rf"grant execute on function public\.{public_name}\([^;]+?\)\s+to authenticated",
         migration,
     ), f"Authenticated role lacks the protected wrapper grant: {public_name}"
+
+# The dedicated audit-history endpoint independently enforces the shared TOTP gate
+# and bounds/searches/filtering before returning a server-paginated result.
+audit_wrapper = re.search(
+    r"create or replace function public[.]api_admin_list_audit_logs_page[(].*?as [$]function[$](.*?)[$]function[$];",
+    audit_page_migration,
+    flags=re.DOTALL,
+)
+assert audit_wrapper, "Missing dedicated paginated audit RPC"
+for requirement in (
+    "perform private.tacresq_require_admin_mfa()",
+    "limit p_limit offset p_offset",
+    "strpos(lower(coalesce(a.reason, '')), v_query)",
+    "a.actor_user_id::text",
+    "a.target_user_id::text",
+    "p_from",
+    "p_to",
+    "jsonb_build_object",
+    "total_count",
+):
+    assert requirement in audit_wrapper.group(1), f"Paginated audit RPC omits {requirement}"
+assert "p_limit > 100" in audit_wrapper.group(1)
+assert "p_offset > 1000000" in audit_wrapper.group(1)
+assert "revoke all on function public.api_admin_list_audit_logs_page" in audit_page_migration
+assert "grant execute on function public.api_admin_list_audit_logs_page" in audit_page_migration
 
 # Direct table reads must require both the AAL2 claim and a TOTP AMR entry.
 policy_match = re.search(
