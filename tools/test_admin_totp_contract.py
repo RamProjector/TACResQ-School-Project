@@ -35,6 +35,10 @@ assert "if (trigger?.isConnected) trigger.focus()" in admin, "Closing the role-c
 assert "complete administrative audit history" not in admin.lower(), "Do not imply that role-change-only records cover every admin or operational event."
 assert "page * pageSize >= userPage.total_count" in admin, "User management must recover when the current page becomes out of range after the account set shrinks."
 assert "Math.ceil(userPage.total_count / pageSize) - 1" in admin, "Out-of-range user pagination must return to the last valid page instead of showing a false empty state."
+assert "const [debouncedQuery, setDebouncedQuery] = useState(\"\")" in admin, "User search must keep a debounced query separate from the live input."
+assert "window.setTimeout(() => {" in admin and "setDebouncedQuery(query)" in admin and "}, 250)" in admin, "User directory search must debounce server requests."
+assert "getAdminUsersPage(pageSize, page * pageSize, debouncedQuery, roleFilter)" in admin, "User directory RPC must use the debounced query."
+
 
 # Audit history is a dedicated URL-addressable page, not a capped dashboard panel.
 audit_page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
