@@ -27,6 +27,7 @@ export default function AdminSecurityStatus() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmGlobalSignOut, setConfirmGlobalSignOut] = useState(false);
+  const [confirmRemoveFactorId, setConfirmRemoveFactorId] = useState<string | null>(null);
   const refreshVersion = useRef(0);
   const pendingEnrollmentId = useRef<string | null>(null);
 
@@ -182,6 +183,45 @@ export default function AdminSecurityStatus() {
     }
   }
 
+  async function removeAuthenticatorFactor(factor: SecurityFactor) {
+    if (busy) return;
+    if (factor.status === "verified" && verifiedFactors.length <= 1) {
+      setActionError("Keep at least one verified authenticator registered for administrator access.");
+      setConfirmRemoveFactorId(null);
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const auth = getSupabase().auth;
+      const { data: aal, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalError) throw aalError;
+      const methods = aal.currentAuthenticationMethods ?? [];
+      const usedTotp = methods.some((method) =>
+        typeof method === "string" ? method === "totp" :
+          typeof method === "object" && method !== null && method.method === "totp"
+      );
+      if (aal.currentLevel !== "aal2" || !usedTotp) {
+        throw new Error("Verify your authenticator again before removing a factor.");
+      }
+      const { error: unenrollError } = await auth.mfa.unenroll({ factorId: factor.id });
+      if (unenrollError) throw unenrollError;
+      if (pendingEnrollmentId.current === factor.id) pendingEnrollmentId.current = null;
+      if (enrollment?.factorId === factor.id) {
+        setEnrollment(null);
+        setVerificationCode("");
+      }
+      setConfirmRemoveFactorId(null);
+      setNotice(factor.name + " was removed.");
+      await refresh();
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : "The authenticator factor could not be removed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function cancelBackupEnrollment() {
     if (!enrollment || busy) return;
     setBusy(true);
@@ -240,6 +280,14 @@ export default function AdminSecurityStatus() {
                   <li key={factor.id}>
                     <span className="admin-security-status__factor-icon">{factor.status === "verified" ? <CheckCircle2 size={16} /> : <ShieldX size={16} />}</span>
                     <span><strong>{factor.name}</strong><small>{factor.status === "verified" ? "Verified" : "Pending verification"}</small></span>
+                    {confirmRemoveFactorId === factor.id ? (
+                      <span className="admin-security-status__actions">
+                        <button className="admin-refresh" type="button" onClick={() => setConfirmRemoveFactorId(null)} disabled={busy}>Keep</button>
+                        <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { void removeAuthenticatorFactor(factor); }} disabled={busy || (factor.status === "verified" && verifiedFactors.length <= 1)}>{busy ? "Removing…" : "Confirm remove"}</button>
+                      </span>
+                    ) : (
+                      <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { setActionError(null); setConfirmRemoveFactorId(factor.id); }} disabled={busy || (factor.status === "verified" && verifiedFactors.length <= 1)} title={factor.status === "verified" && verifiedFactors.length <= 1 ? "Keep at least one verified authenticator" : "Remove this authenticator"}>Remove</button>
+                    )}
                   </li>
                 ))}
               </ul>
