@@ -27,9 +27,15 @@ assert card.count("heightIn(min = 52.dp)") == 3
 assert "defaultElevation = 2.dp" in card
 assert "Current incident status unavailable" in screen
 assert "state.hasCurrentIncidentStatus && !showRequestForm" in screen
+assert "REQUEST ASSISTANCE" in screen
+assert "MaterialTheme.colorScheme.inverseSurface" in screen
+assert "MaterialTheme.colorScheme.inverseOnSurface" in screen
+hero_start = screen.index("if (activeIncident != null) item {")
+routine_status_start = screen.index("if (state.syncError != null)", hero_start)
+assert hero_start < routine_status_start, "Routine sync feedback must not push the primary emergency action down the screen."
 
 status_start = components.index("private fun IncidentStatus.statusPalette(isDark: Boolean)")
-status_end = components.index("\\n@Composable", status_start)
+status_end = components.index("\n@Composable", status_start)
 status_palette = components[status_start:status_end]
 for status in (
     "IncidentStatus.PENDING", "IncidentStatus.ASSIGNED", "IncidentStatus.EN_ROUTE",
