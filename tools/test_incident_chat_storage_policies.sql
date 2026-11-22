@@ -85,8 +85,9 @@ BEGIN
     4,
     '00000000-0000-4000-8000-000000000204'::uuid
   );
-  IF reservation->>'object_path' <> image_path
-     OR reservation->>'consumed' <> 'false' THEN
+  IF reservation->>'object_path' IS DISTINCT FROM image_path
+     OR reservation->'consumed' IS DISTINCT FROM 'false'::jsonb
+     OR reservation->>'reservation_id' IS NULL THEN
     RAISE EXCEPTION 'Reservation RPC returned unexpected authorization: %', reservation;
   END IF;
 
@@ -96,7 +97,8 @@ BEGIN
     4,
     '00000000-0000-4000-8000-000000000204'::uuid
   );
-  IF reservation_retry->>'reservation_id' <> reservation->>'reservation_id' THEN
+  IF reservation->>'reservation_id' IS NULL
+     OR reservation_retry->>'reservation_id' IS DISTINCT FROM reservation->>'reservation_id' THEN
     RAISE EXCEPTION 'Retrying a reservation must return the same operation identity';
   END IF;
 
@@ -114,12 +116,41 @@ BEGIN
     RAISE EXCEPTION 'A pending image reservation must not be reused as a text-message idempotency key';
   END IF;
 
+  -- Supabase Storage performs an INSERT permission probe before the final
+  -- object metadata is written. The probe exposes contentLength, not size.
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name, metadata)
+    VALUES (
+      'incident-chat-attachments',
+      image_path,
+      '{"mimetype":"image/jpeg","contentLength":"4"}'::jsonb
+    );
+    RAISE EXCEPTION 'Rollback successful pre-upload permission probe';
+  EXCEPTION WHEN raise_exception THEN
+    NULL;
+  END;
+
   INSERT INTO storage.objects (bucket_id, name, metadata)
   VALUES (
     'incident-chat-attachments',
     image_path,
     '{"mimetype":"image/jpeg","size":"4"}'::jsonb
   );
+
+  denied := false;
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name, metadata)
+    VALUES (
+      'incident-chat-attachments',
+      image_path,
+      '{"mimetype":"image/jpeg","size":"4"}'::jsonb
+    );
+  EXCEPTION WHEN unique_violation THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'A duplicate object path must not overwrite the existing attachment';
+  END IF;
 
   response := public.api_send_incident_image_message(
     incident_id,
@@ -141,7 +172,7 @@ BEGIN
     4,
     '00000000-0000-4000-8000-000000000204'::uuid
   );
-  IF reservation_retry->>'consumed' <> 'true' THEN
+  IF reservation_retry->'consumed' IS DISTINCT FROM 'true'::jsonb THEN
     RAISE EXCEPTION 'Finalized image reservation must remain idempotently consumed';
   END IF;
 
@@ -374,6 +405,7 @@ BEGIN
     );
   END LOOP;
 
+  denied := false;
   BEGIN
     PERFORM public.api_reserve_incident_image_upload(
       incident_id,
@@ -404,6 +436,34 @@ BEGIN
   END IF;
 END;
 $reservation_rate_limit_test$;
+RESET ROLE;
+
+-- Client message UUIDs are scoped to the sender. Two participants may use
+-- the same UUID without colliding on the reservation's internal primary key.
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000161', false);
+DO $same_client_uuid_reservations$
+DECLARE
+  responder_reservation jsonb;
+  requester_reservation jsonb;
+  incident_id bigint := current_setting('test.incident_id')::bigint;
+BEGIN
+  responder_reservation := public.api_reserve_incident_image_upload(
+    incident_id, 'image/jpeg', 4,
+    '00000000-0000-4000-8000-000000000220'::uuid
+  );
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000160', true);
+  requester_reservation := public.api_reserve_incident_image_upload(
+    incident_id, 'image/jpeg', 4,
+    '00000000-0000-4000-8000-000000000220'::uuid
+  );
+  IF responder_reservation->>'reservation_id' IS NULL
+     OR requester_reservation->>'reservation_id' IS NULL
+     OR responder_reservation->>'reservation_id' = requester_reservation->>'reservation_id' THEN
+    RAISE EXCEPTION 'Different senders must receive independent reservation identities for the same client UUID';
+  END IF;
+END;
+$same_client_uuid_reservations$;
 RESET ROLE;
 
 SELECT 'PASS: private incident image storage permits authorized uploads, requires reservations, and supports delayed finalization.' AS result;
