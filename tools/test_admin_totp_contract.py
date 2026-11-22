@@ -29,6 +29,19 @@ assert "[session?.user.id, session?.access_token]" in home, "Profile role must b
 assert "<AdminMfaGate key={session.access_token}" in home, "A new auth session must restart the Admin MFA gate."
 assert "Administrator access requires Google Authenticator TOTP." in admin
 
+# Audit history is a dedicated URL-addressable page, not a capped dashboard panel.
+audit_page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
+supabase_client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
+assert 'import AuditLogsPage from "@/pages/AuditLogsPage"' in admin
+assert 'new URLSearchParams(window.location.search).get("adminPage")' in admin
+assert 'window.history.pushState' in admin
+assert 'activeSection === "audit" && <AuditLogsPage profile={profile} />' in admin
+assert 'getAdminAuditLogsPage(' in audit_page and "const PAGE_SIZE = 25" in audit_page
+assert "getAdminAuditLogsPage" in supabase_client
+assert "admin-audit-panel" not in admin
+assert "api_admin_list_audit_logs_page" in supabase_client
+assert "cannot be edited or deleted here" in audit_page
+
 for marker in (
     "private.tacresq_require_admin_mfa",
     "revoke all on function public.api_admin_list_users()",
