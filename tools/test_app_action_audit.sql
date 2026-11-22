@@ -13,7 +13,7 @@ DECLARE
   requester_id bigint;
   responder_id bigint;
   admin_id bigint;
-  incident_id bigint;
+  v_incident_id bigint;
   notification_id bigint;
   event_count integer;
   feed jsonb;
@@ -40,7 +40,7 @@ BEGIN
   ) VALUES (
     requester_id, 'medical', 'Synthetic audit flow fixture',
     11.244, 125.003, now(), 'manual'
-  ) RETURNING id INTO incident_id;
+  ) RETURNING id INTO v_incident_id;
 
   -- A field-unit duty change is a committed user action; record the actor,
   -- role, target profile, and before/after values, never location or secrets.
@@ -53,14 +53,14 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000170', false);
   PERFORM public.api_send_incident_message(
-    incident_id, 'Synthetic private chat body must not enter audit metadata',
+    v_incident_id, 'Synthetic private chat body must not enter audit metadata',
     '00000000-0000-4000-8000-000000000170'::uuid
   );
 
   INSERT INTO public.user_notifications (
     recipient_user_id, incident_id, event_type, title, body
   ) VALUES (
-    requester_id, incident_id, 'incident_message',
+    requester_id, v_incident_id, 'incident_message',
     'New incident message', 'Open TACResQ to view the message.'
   ) RETURNING id INTO notification_id;
 
@@ -73,7 +73,7 @@ BEGIN
   SELECT count(*) INTO event_count
     FROM public.app_action_audit_logs AS audit
    WHERE (audit.action = 'duty_status_changed' AND audit.target_user_id = responder_id)
-      OR (audit.action = 'incident_message_sent' AND audit.incident_id = incident_id)
+      OR (audit.action = 'incident_message_sent' AND audit.incident_id = v_incident_id)
       OR (audit.action = 'notification_marked_read' AND audit.incident_id = incident_id);
 
   IF event_count <> 3 THEN
