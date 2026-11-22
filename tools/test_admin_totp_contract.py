@@ -42,6 +42,9 @@ assert "admin-audit-panel" not in admin
 assert "api_admin_list_audit_logs_page" in supabase_client
 assert "Admin profile ID" in audit_page and "Target profile ID" in audit_page
 assert "cannot be edited or deleted here" in audit_page
+assert "Supabase Auth separately records sign-in, sign-out, token-revocation and MFA factor events" in audit_page
+assert "not merged into this page" in audit_page
+assert (ROOT / "docs/security/admin-session-revocation-and-auth-audit-boundaries.md").exists()
 
 # The Security page reports live Supabase Auth state without exposing factor secrets.
 security_status = (ROOT / "backend/web/src/components/AdminSecurityStatus.tsx").read_text()
