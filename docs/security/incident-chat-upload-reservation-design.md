@@ -112,6 +112,26 @@ The following values must be agreed rather than invented in a migration:
 
 The 5 MiB per-object limit and JPEG/PNG/WebP allowlist are existing technical constraints, not substitutes for an aggregate quota policy.
 
+## Proposed policy baseline for owner review (not approved)
+
+To make the policy decision concrete without silently applying limits, the following is a conservative starting proposal for discussion. These are **recommendations only** and must not be treated as deployed settings:
+
+| Control | Proposed starting value | Rationale |
+|---|---:|---|
+| Concurrent unexpired reservations | 2 per profile per incident | Allows a small amount of parallelism while limiting abandoned in-flight uploads |
+| Upload count budget | 20 images per profile per incident per rolling 24 hours | Count-based and easy to explain; does not penalize smaller images differently |
+| Aggregate byte budget | No separate aggregate byte cap initially | The existing 5 MiB object ceiling plus count budget gives a theoretical upper bound of 100 MiB per profile/incident/24h; avoid double-counting complexity until usage data exists |
+| Reservation lifetime | 15 minutes | Gives a mobile client time to upload on a variable connection without leaving long-lived upload authority |
+| Orphan cleanup grace | At least 7 days after reconciliation marks an object unreferenced | Provides time for delayed retries/support investigation; cleanup remains disabled until approved |
+| Attachment retention | No new automatic deletion policy in this implementation | Retention must align with incident/legal records policy and cannot be inferred from upload-abuse controls |
+| Quota response | Return a structured retry-after timestamp when the rolling window is the limiting factor | Lets Android explain when another upload can be attempted |
+
+The proposed count budget is a per-profile, per-incident control, not a global service quota. The implementation should keep the existing 5 MiB per-object ceiling and MIME allowlist unchanged. If the owner prefers a byte budget, select it instead of layering a second aggregate cap without usage evidence.
+
+**Important:** a 15-minute reservation expiry must not invalidate an object that was already uploaded and is awaiting message finalization. Expiry should prevent a *new* Storage INSERT; finalization/retry must have a separate, narrowly bounded state transition that verifies the already-existing object and preserves idempotency. Otherwise a slow mobile retry could strand an uploaded image.
+
+Before implementation, approve or replace each proposed value. In particular, the 20-image rolling window and seven-day orphan grace period are policy choices, not facts derived from current production usage. Automatic deletion remains out of scope until retention and recovery requirements are explicitly approved.
+
 ## Migration and rollout sequence
 
 1. Approve the quota and retention values above.
