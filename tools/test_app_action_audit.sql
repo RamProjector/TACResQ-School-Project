@@ -121,7 +121,7 @@ BEGIN
     FROM public.app_action_audit_logs AS audit
    WHERE (audit.action = 'duty_status_changed' AND audit.target_user_id = responder_id)
       OR (audit.action = 'incident_message_sent' AND audit.incident_id = v_incident_id)
-      OR (audit.action = 'notification_marked_read' AND audit.incident_id = incident_id);
+      OR (audit.action = 'notification_marked_read' AND audit.incident_id = v_incident_id);
 
   IF event_count < 3 THEN
     RAISE EXCEPTION 'Expected committed app-action events for duty, chat, and notification flows; found %', event_count;
@@ -179,17 +179,17 @@ BEGIN
 
   IF (feed->>'total_count')::integer < 3
      OR NOT EXISTS (
-       SELECT 1 FROM jsonb_array_elements(feed->'events') AS events(event)
-        WHERE event->>'event_type' = 'incident_message_sent'
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS audit_events(item)
+        WHERE item->>'event_type' = 'incident_message_sent'
           AND event->>'summary' = 'Incident chat message sent'
      )
      OR NOT EXISTS (
-       SELECT 1 FROM jsonb_array_elements(feed->'events') AS events(event)
-        WHERE event->>'event_type' = 'notification_marked_read'
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS audit_events(item)
+        WHERE item->>'event_type' = 'notification_marked_read'
      )
      OR NOT EXISTS (
-       SELECT 1 FROM jsonb_array_elements(feed->'events') AS events(event)
-        WHERE event->>'event_type' = 'duty_status_changed'
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS audit_events(item)
+        WHERE item->>'event_type' = 'duty_status_changed'
      ) THEN
     RAISE EXCEPTION 'Admin investigation feed did not return the expected app-action events: %', feed;
   END IF;
