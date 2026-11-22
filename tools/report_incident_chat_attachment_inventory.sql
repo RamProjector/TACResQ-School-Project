@@ -132,7 +132,7 @@ reservation_summary AS (
     ) AS consumed_reservation_without_message_count,
     coalesce(sum(size_bytes) FILTER (
       WHERE consumed_at IS NULL AND expires_at > now()
-    ), 0) AS active_reserved_metadata_bytes
+    ), 0) AS active_reserved_declared_bytes
   FROM private.incident_chat_upload_reservations r
 )
 SELECT
