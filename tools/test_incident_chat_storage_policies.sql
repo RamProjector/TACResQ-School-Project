@@ -353,6 +353,20 @@ BEGIN
   IF NOT denied THEN
     RAISE EXCEPTION 'The 21st image reservation within one minute must be rejected';
   END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_send_incident_message(
+      incident_id,
+      'Text message must share the upload budget',
+      '00000000-0000-4000-8000-000000000321'::uuid
+    );
+  EXCEPTION WHEN SQLSTATE '54000' THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Text messages must not bypass pending image reservations';
+  END IF;
 END;
 $reservation_rate_limit_test$;
 RESET ROLE;
