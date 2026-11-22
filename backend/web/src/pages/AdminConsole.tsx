@@ -94,7 +94,7 @@ function formatDate(value: string | null | undefined) {
   if (!value) return "Time unavailable";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Time unavailable";
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function initials(name: string) {
