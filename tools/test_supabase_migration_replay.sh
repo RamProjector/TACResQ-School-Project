@@ -1668,6 +1668,40 @@ psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_admin_user_list_boundary.sql
 # Exercise dispatcher release, primary handoff, duty reservation, and audit events.
 psql -v ON_ERROR_STOP=1 -f tools/test_dispatcher_release_assignment.sql
 
+# Keep the Admin audit-log MFA policy restrictive. PostgreSQL ORs permissive
+# policies, so a second permissive AAL2 policy would not enforce MFA.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $audit_mfa_policy$
+DECLARE
+  mfa_policy_permissive text;
+  admin_policy_permissive text;
+BEGIN
+  SELECT permissive INTO mfa_policy_permissive
+    FROM pg_catalog.pg_policies
+   WHERE schemaname = 'public'
+     AND tablename = 'admin_audit_logs'
+     AND policyname = 'admin_audit_logs_require_aal2'
+     AND cmd = 'SELECT'
+     AND 'authenticated' = ANY(roles);
+
+  SELECT permissive INTO admin_policy_permissive
+    FROM pg_catalog.pg_policies
+   WHERE schemaname = 'public'
+     AND tablename = 'admin_audit_logs'
+     AND policyname = 'admin_audit_logs_read_admin'
+     AND cmd = 'SELECT'
+     AND 'authenticated' = ANY(roles);
+
+  IF mfa_policy_permissive IS DISTINCT FROM 'RESTRICTIVE' THEN
+    RAISE EXCEPTION 'Admin audit-log AAL2 policy must remain RESTRICTIVE';
+  END IF;
+  IF admin_policy_permissive IS DISTINCT FROM 'PERMISSIVE' THEN
+    RAISE EXCEPTION 'Admin audit-log role policy must remain PERMISSIVE';
+  END IF;
+END;
+$audit_mfa_policy$;
+SQL
+
 # Print the effective authenticated API, RLS, and Storage authorization surface.
 # This inventory is read-only and does not mark any path as suspension-safe.
 psql -v ON_ERROR_STOP=1 -f tools/check_account_suspension_authorization_surface.sql
