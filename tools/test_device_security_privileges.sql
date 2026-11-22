@@ -4,6 +4,8 @@ DECLARE
   table_name text;
   table_oid regclass;
   privilege_name text;
+  constraint_contract record;
+  constraint_definition text;
   table_names text[] := ARRAY[
     'user_devices',
     'device_sessions',
@@ -82,11 +84,7 @@ BEGIN
 
   -- Verify the actual CHECK expressions, not only their constraint names.
   -- This catches accidental weakening while retaining the migration-history contract.
-  DECLARE
-    constraint_contract record;
-    constraint_definition text;
-  BEGIN
-    FOR constraint_contract IN
+  FOR constraint_contract IN
       SELECT * FROM (VALUES
         ('user_devices', 'user_devices_device_model_length_check', 'device_model', '120'),
         ('user_devices', 'user_devices_app_version_length_check', 'app_version', '80'),
@@ -112,20 +110,19 @@ BEGIN
         RAISE EXCEPTION 'Device registry CHECK expression is missing expected tokens: %.%',
           constraint_contract.table_name, constraint_contract.constraint_name;
       END IF;
-    END LOOP;
+  END LOOP;
 
-    -- The short challenge ceiling is security-sensitive; assert its actual
+  -- The short challenge ceiling is security-sensitive; assert its actual
     -- interval literal rather than relying on the constraint's display name.
-    SELECT lower(pg_get_constraintdef(oid))
-    INTO constraint_definition
-    FROM pg_constraint
-    WHERE conrelid = 'public.device_challenges'::regclass
-      AND conname = 'device_challenges_max_lifetime_check'
-      AND convalidated;
-    IF position('00:10:00' IN constraint_definition) = 0 THEN
-      RAISE EXCEPTION 'Device challenge lifetime must remain capped at ten minutes';
-    END IF;
-  END;
+  SELECT lower(pg_get_constraintdef(oid))
+  INTO constraint_definition
+  FROM pg_constraint
+  WHERE conrelid = 'public.device_challenges'::regclass
+    AND conname = 'device_challenges_max_lifetime_check'
+    AND convalidated;
+  IF position('00:10:00' IN constraint_definition) = 0 THEN
+    RAISE EXCEPTION 'Device challenge lifetime must remain capped at ten minutes';
+  END IF;
 
   -- Identity sequences are backend-only too; table grants alone do not
   -- protect INSERT ... RETURNING paths or direct sequence calls.

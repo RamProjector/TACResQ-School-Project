@@ -56,3 +56,20 @@ A repository branch now adds a private POST endpoint at /internal/fcm/dispatch. 
 The matching operator guide is [FCM_SUPABASE_CRON_TRIGGER.md](FCM_SUPABASE_CRON_TRIGGER.md). It uses Supabase Vault + pg_cron + pg_net to check the delivery ledger every minute and call Render only when new, retry-due, or expired-lease work exists. This avoids an idle keep-alive that would consume Render Free instance hours. The current project already has Vault and pgcrypto installed, but pg_cron and pg_net were not installed at the time of review. No live extensions, Vault secrets, cron jobs, Render variables, deployments, or notifications have been changed by this implementation branch.
 
 **Deployment caveat:** this is best-effort queue processing, not a delivery SLA. Render Free can spin down after 15 minutes and needs about a minute to wake; pg_net's request timeout is set to 120 seconds. The worker batch is limited to three to keep provider calls bounded. The file-cache lock is only suitable for the current single-instance Render service. Physical-device delivery and actual Cron-to-Render invocation remain unverified until the operator setup and synthetic-device test are completed.
+
+## 2026-11-22 follow-up: deployed caller topology
+
+A fresh read-only check of the connected Supabase project (`kttguamhznoflzagfutr`) found:
+
+- Project status: `ACTIVE_HEALTHY`; PostgreSQL 17.
+- One active Edge Function: `tacresq-notify`, version 2, `verify_jwt = true`.
+- Installed extensions among the relevant dispatch set: `pgcrypto` only. Neither `pg_cron` nor `pg_net` is installed.
+- The database has no `cron.job` relation, consistent with `pg_cron` being absent. No Supabase database Cron job can currently be the caller for the signed Render endpoint through this project.
+- Repository-wide exact-string searches found no app, backend, or web caller for the legacy `tacresq-notify` function. They did find the signed Render endpoint implementation and its test, and PR #310's merged handoff records the endpoint deployed to Render.
+
+**What this proves:** there is no in-repository caller and no current Supabase Postgres Cron caller visible in this project. The Edge Function itself remains active and JWT-protected.
+
+**What this does not prove:** there may be external/manual callers, third-party automation, dashboard invocations, or other infrastructure outside this repository and the Supabase database. Function invocation logs and external integrations were not exhaustively inspected. Do not disable the active function until its owner confirms no external dependency.
+
+The legacy Edge Function is therefore classified as **active but with no caller identified in the inspected repository/database**. The signed Render endpoint is implemented and documented, but the required pg_cron/pg_net schedule is not configured in this project. No secrets, functions, extensions, cron jobs, deployments, or production data were changed.
+

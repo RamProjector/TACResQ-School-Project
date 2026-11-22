@@ -18,7 +18,7 @@ This is a point-in-time summary, not a live status dashboard. Check the reposito
 - Incident-scoped chat with server idempotency, private image attachment storage, and encrypted/account-bound Android text retry outbox (PR #312 merged 2026-11-16).
 - Centered GPS Map destination, incident pins, device-only locate-me preview, and dispatcher visibility of fresh consented en-route field-unit reports.
 - Authenticated Laravel route-preview proxy with Geoapify and private OSRM provider support. Backend route preview and Android route preview are disabled by default.
-- TACRU dispatcher web dashboard served by Laravel; dashboard uses Supabase Auth/RPC for operational data.
+- Administrator-only web portal served by Laravel for account/security/analytics/audit functions; dispatcher web access is retired and dispatch workflows remain in the Android app.
 - Admin role management foundation, bounded user listing, and append-only audit records.
 
 ## Implemented but not fully operationally verified
@@ -39,7 +39,7 @@ The current incident location-source values describe broad capture mode (such as
 - Automatic SOS submission in the background or general offline write synchronization.
 - Turn-by-turn voice navigation, live traffic, road closures, flooding, emergency-vehicle access, or guaranteed route ETA.
 - Automatic routing-provider failover.
-- Continuous/background responder tracking.
+- Always-on or silently started background responder tracking. The explicit, consent-gated foreground location service can continue its active session when the app is not visible; it must not be described as always-on tracking.
 - Production FCM Cron dispatch unless explicitly configured and verified by an authorized operator.
 - A formal incident team-leader role or standing roster.
 

@@ -11,7 +11,7 @@ This document replaces an outdated analysis that incorrectly described FCM, resp
 
 - **Android client:** Kotlin, Jetpack Compose, Gradle; role-based requester, responder/driver, dispatcher, and limited administrator workflows.
 - **Primary backend:** Supabase Auth, Postgres, RLS, and narrowly scoped RPCs. The Android app can intentionally select an in-memory fake backend for demo/testing.
-- **Dispatcher host:** Laravel 13 on Render serves the TACRU web dashboard and browser-safe runtime configuration. The dashboard uses Supabase Auth/RPC for identity and operational data; the temporary Render PostgreSQL database is not the source of truth for this path.
+- **Backend services:** Laravel 13 on Render provides the optional API bridge, browser-safe runtime configuration for the Admin portal, the optional authenticated route-preview proxy, and the signed FCM dispatch endpoint. It does not host dispatcher operations; dispatch is performed in the Android app. Supabase Auth/Postgres RPC remains the primary application data path.
 - **Maps and routing:** OpenStreetMap-based map display and incident pins; authenticated Laravel route-preview proxy supports Geoapify and private OSRM. Provider selection is server-side; Geoapify is the backend configuration default. Route preview is disabled by default in backend and Android configuration.
 - **Notifications:** persistent in-app notification records are authoritative; Android FCM registration and a trusted HTTP v1 sender/delivery ledger exist. The signed dispatch endpoint exists, but production scheduled dispatch is not active without operator setup and approval.
 
@@ -21,10 +21,10 @@ This document replaces an outdated analysis that incorrectly described FCM, resp
 A requester can submit an incident with an optional one-time GPS fix, accuracy/timestamp metadata, and supported landmark/location fallback. The app protects against duplicate SOS creation and can persist uncertain submission state for later reconciliation. It does not automatically submit an SOS in the background.
 
 ### Responder and driver
-A field unit can set permitted duty status, view individually assigned incidents or claimable incidents according to server rules, update its own assignment status, and use a static route preview for an authorized active assignment. Consented foreground location reporting is implemented; continuous/background tracking is not claimed.
+A field unit can set permitted duty status, view individually assigned incidents or claimable incidents according to server rules, update its own assignment status, and use a static route preview for an authorized active assignment. Consented location reporting runs in an explicit Android location foreground service and may continue while the app is not visible; always-on or silently started background tracking is not implemented.
 
 ### Dispatcher
-The dispatcher dashboard reads the incident queue and available units, coordinates multi-responder assignments, and displays supported assignment progress. The legacy `assigned_to` compatibility field is not a formal team-leader designation.
+The Android dispatcher workflow reads the incident queue and available units, coordinates multi-responder assignments, and displays supported assignment progress. The web portal denies dispatcher accounts. The legacy `assigned_to` compatibility field is not a formal team-leader designation.
 
 ### Administrator
 The repository includes a limited server-side user-management and audit foundation. Do not infer additional administration capabilities without inspecting the current RPCs and UI.
@@ -42,7 +42,7 @@ Do not infer that every SECURITY DEFINER function is unsafe merely because it is
 
 | Capability | Repository state | Verification boundary |
 |---|---|---|
-| Supabase-backed Android and dashboard | Implemented | Live account and production behavior must be checked separately |
+| Supabase-backed Android and Admin portal | Implemented in source | Live account and production behavior must be checked separately |
 | SOS and duplicate-submission protection | Implemented | Device/network failure paths need ongoing QA |
 | Per-responder assignment status and claiming | Implemented | Validate full multi-account workflow with synthetic users |
 | In-app notification inbox | Implemented | Remains authoritative when push is unavailable |

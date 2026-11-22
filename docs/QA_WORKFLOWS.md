@@ -1,6 +1,6 @@
 # TACResQ QA workflows
 
-This repository contains a Kotlin/Jetpack Compose Android application and a browser-based TACRU dispatcher dashboard. The commands below are intentionally safe for demo data only. TACResQ is not an emergency-services provider; never point stress tests, screenshots, or fake accounts at a live emergency system.
+This repository contains a Kotlin/Jetpack Compose Android application and an administrator-only browser portal. Dispatcher operations are performed in the Android app; the web portal rejects dispatcher accounts. The commands below are intentionally safe for demo data only. TACResQ is not an emergency-services provider; never point stress tests, screenshots, or fake accounts at a live emergency system.
 
 ## Fast pre-commit gate
 
@@ -39,16 +39,16 @@ To validate against configured Supabase from a debug build, use `./gradlew --no-
 
 ## Web navigation and functionality
 
-`tools/test_prototype.py` launches the checked-in interactive wireframe and verifies requester SOS creation, dispatcher assignment, responder status progression, all primary navigation destinations, and history. The existing `ci.yml` runs this in Chromium.
+`tools/test_prototype.py` launches the checked-in interactive wireframe and verifies requester SOS creation, dispatcher assignment, responder status progression, all primary navigation destinations, and history. This is a prototype workflow test, not a test of a production dispatcher web dashboard. The existing `ci.yml` runs this in Chromium.
 
-The dashboard production build is checked with:
+The Admin portal production build is checked with:
 
 ```bash
 pnpm --dir backend/web install --frozen-lockfile
 VITE_BASE_PATH=/dispatch/ pnpm --dir backend/web build
 ```
 
-The Laravel integration job starts `backend/compose.yaml`, checks `/up`, runs PHP feature tests, checks the `/dispatch/` document and static assets, and verifies that `config.json` is private and non-cacheable.
+The Laravel integration job starts `backend/compose.yaml`, checks `/up`, runs PHP feature tests, checks the Admin portal document and static assets, verifies dispatcher accounts are denied web dispatch access, and verifies runtime configuration is private and non-cacheable.
 
 ## Screenshot every activated state
 
@@ -64,7 +64,7 @@ The generated `artifacts/screenshots/README.md` is a browsable gallery. CI uploa
 
 ## Stress smoke test
 
-The safe stress test performs only GET requests against `/up`, `/dispatch/`, and `/dispatch/config.json`. It has explicit request and concurrency limits and refuses localhost unless opted in:
+The safe stress test performs only GET requests against `/up` and the Admin portal/runtime-config routes. It has explicit request and concurrency limits and refuses localhost unless opted in:
 
 ```bash
 python3 tools/stress_test.py \

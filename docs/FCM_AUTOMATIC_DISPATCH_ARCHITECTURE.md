@@ -14,6 +14,14 @@ There is no currently verified zero-cost path that both preserves the existing F
 
 **No production action is authorized by this document.** Do not enable extensions, create triggers, add secrets, deploy functions, change Render settings, run production migrations, or send a live push as part of this proposal.
 
+## 1A. Existing deployed Edge Function is not this proposed dispatcher
+
+A read-only review of the connected Supabase project on 2026-11-22 found an active `tacresq-notify` Edge Function with JWT verification enabled. Its recovered source is mirrored at `supabase/functions/tacresq-notify/index.ts` for audit purposes.
+
+That deployed function is a legacy direct-send implementation: it validates the caller with Supabase Auth, then uses a service-role client to read the actor, incident, and FCM registrations and sends directly to FCM. It does **not** claim rows through `api_claim_fcm_delivery_batch`, update `fcm_delivery_attempts`, use the repository's lease/retry/deduplication contract, or act as a wake-up trigger for the Laravel sender.
+
+Therefore, the proposed Edge Function architecture below must not be interpreted as a description of the existing deployed function. Do not repurpose the legacy function as the queue dispatcher or add new callers to it. If an Edge Function dispatcher is evaluated later, it must be a separately reviewed implementation that claims through the existing service-only RPC and preserves the complete delivery-ledger contract. Before disabling the legacy function, trace production callers and scheduled invocations outside this repository. No live function or setting was changed during this audit.
+
 ## 2. Verified current state
 
 - The persistent `user_notifications` inbox is authoritative; FCM is supplemental.

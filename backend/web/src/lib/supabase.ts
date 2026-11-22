@@ -4,6 +4,23 @@ export type TacruRole = "requester" | "responder" | "driver" | "dispatcher" | "a
 export type AdminManagedRole = Exclude<TacruRole, "admin">;
 export interface AdminUser { id: number; name: string; email: string; phone: string | null; role: TacruRole; duty_status: DutyStatus | null; created_at: string; }
 export interface AdminAuditEvent { id: number; actor_user_id: number | null; actor_identity: string; target_user_id: number | null; action: "user_role_changed"; old_role: TacruRole; new_role: TacruRole; reason: string; created_at: string; }
+export type AdminInvestigationCategory = "all" | "administrative" | "authentication" | "incident" | "assignment";
+export type AdminInvestigationSource = "all" | "admin_audit_logs" | "supabase_auth_audit_logs" | "incident_status_logs" | "incident_claimability_logs" | "incident_request_edit_logs" | "incident_assignment_events";
+export interface AdminInvestigationEvent {
+  event_id: string;
+  source: string;
+  category: Exclude<AdminInvestigationCategory, "all">;
+  event_type: string;
+  occurred_at: string;
+  actor_user_id: number | null;
+  actor_label: string;
+  target_user_id: number | null;
+  target_label: string | null;
+  incident_id: number | null;
+  summary: string;
+  details: Record<string, unknown>;
+}
+export interface AdminInvestigationPage { events: AdminInvestigationEvent[]; total_count: number; }
 export interface AdminRoleChangeResult { id: number; name: string; email: string; old_role: AdminManagedRole; role: AdminManagedRole; duty_status: DutyStatus | null; }
 export type DutyStatus = "off_duty" | "available" | "en_route" | "on_scene" | "transporting";
 export type IncidentType = "medical" | "fire" | "vehicular" | "disaster" | "other";
@@ -56,6 +73,8 @@ type TacruDatabase = {
       api_admin_list_users_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_role: string }; Returns: { users: AdminUser[]; total_count: number } };
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
+      api_admin_list_audit_logs_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_action: string; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null }; Returns: { events: AdminAuditEvent[]; total_count: number } };
+      api_admin_list_investigation_events: { Args: { p_limit: number; p_offset: number; p_query: string; p_category: AdminInvestigationCategory; p_source: AdminInvestigationSource; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null; p_incident_id: number | null }; Returns: AdminInvestigationPage };
       api_admin_analytics_summary: { Args: { p_from: string; p_to: string }; Returns: AdminAnalyticsSummary };
       api_dependency_health: { Args: Record<string, never>; Returns: string };
     };
@@ -176,14 +195,65 @@ export async function getAdminUsersPage(limit: number, offset: number, query: st
   throwAdminError(error);
   if (!data || typeof data !== "object") throw new Error("The Admin service returned an invalid user page.");
   const page = data as unknown as AdminUserPage;
-  if (!Array.isArray(page.users) || !Number.isSafeInteger(page.total_count) || page.total_count < 0) throw new Error("The Admin service returned an invalid user page.");
+  if (
+    !Array.isArray(page.users)
+    || !Number.isSafeInteger(page.total_count)
+    || page.total_count < 0
+    || page.users.length > limit
+    || page.total_count < offset + page.users.length
+  ) {
+    throw new Error("The Admin service returned an invalid user page.");
+  }
+  const roles = new Set<TacruRole>(["requester", "responder", "driver", "dispatcher", "admin"]);
+  const dutyStatuses = new Set<DutyStatus>(["off_duty", "available", "en_route", "on_scene", "transporting"]);
+  const userIds = new Set<number>();
+  for (const user of page.users) {
+    if (
+      !user || typeof user !== "object"
+      || !Number.isSafeInteger(user.id) || user.id < 1
+      || typeof user.name !== "string" || !user.name.trim()
+      || typeof user.email !== "string" || !user.email.trim()
+      || (user.phone !== null && typeof user.phone !== "string")
+      || !roles.has(user.role)
+      || (user.duty_status !== null && !dutyStatuses.has(user.duty_status))
+      || typeof user.created_at !== "string"
+      || !Number.isFinite(Date.parse(user.created_at))
+    ) {
+      throw new Error("The Admin service returned an invalid account record.");
+    }
+    if (userIds.has(user.id)) {
+      throw new Error("The Admin service returned duplicate account identifiers.");
+    }
+    userIds.add(user.id);
+  }
   return page;
 }
 export async function setAdminUserRole(userId: number, role: AdminManagedRole, reason: string): Promise<AdminRoleChangeResult> {
   const { data, error } = await getSupabase().rpc("api_admin_set_user_role", { p_user_id: userId, p_role: role, p_reason: reason });
-  throwAdminError(error);
-  if (!data) throw new Error("The role change returned no confirmation.");
-  return data as unknown as AdminRoleChangeResult;
+  if (error) {
+    if (error.code === "42501" || error.code === "22023" || error.code === "P0002") {
+      throwAdminError(error);
+    }
+    throw new Error("The role change outcome for profile #" + userId + " could not be confirmed. The database may have applied it before the connection was interrupted. Do not retry yet: refresh the account directory, then open Audit Logs, select “Admin role changes”, filter Target profile ID to " + userId + ", and refresh the audit results.");
+  }
+  if (!data || typeof data !== "object") {
+    throw new Error("The role change outcome for profile #" + userId + " could not be confirmed. Do not retry yet: refresh the account directory, then open Audit Logs, select “Admin role changes”, filter Target profile ID to " + userId + ", and refresh the audit results.");
+  }
+  const result = data as unknown as AdminRoleChangeResult;
+  const validRoles = new Set<AdminManagedRole>(["requester", "responder", "driver", "dispatcher"]);
+  const expectedDutyStatus: DutyStatus | null = role === "responder" || role === "driver" ? "off_duty" : null;
+  if (
+    !Number.isSafeInteger(result.id) || result.id !== userId
+    || typeof result.name !== "string" || !result.name.trim()
+    || typeof result.email !== "string" || !result.email.trim()
+    || !validRoles.has(result.old_role)
+    || result.old_role === role
+    || result.role !== role
+    || result.duty_status !== expectedDutyStatus
+  ) {
+    throw new Error("The role change outcome for profile #" + userId + " could not be confirmed because the service returned an invalid confirmation. Do not retry yet: refresh the account directory, then open Audit Logs, select “Admin role changes”, filter Target profile ID to " + userId + ", and refresh the audit results.");
+  }
+  return result;
 }
 export async function getAdminAnalyticsSummary(from: string, to: string): Promise<AdminAnalyticsSummary> {
   const { data, error } = await getSupabase().rpc("api_admin_analytics_summary", {
@@ -194,23 +264,140 @@ export async function getAdminAnalyticsSummary(from: string, to: string): Promis
   if (!data || typeof data !== "object") throw new Error("The analytics service returned an invalid summary.");
   const summary = data as unknown as AdminAnalyticsSummary;
   const counts = [summary.total_requests, summary.pending, summary.active, summary.resolved, summary.cancelled, summary.assigned_request_count];
+  const validTimestamp = (value: unknown) => typeof value === "string" && Number.isFinite(Date.parse(value));
+  const validDuration = (value: unknown) => value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0);
+  const validDailyPoints = Array.isArray(summary.daily_requests)
+    && summary.daily_requests.every((point) =>
+      point !== null
+      && typeof point === "object"
+      && typeof point.day === "string"
+      && /^\d{4}-\d{2}-\d{2}$/.test(point.day)
+      && Number.isFinite(Date.parse(point.day + "T00:00:00Z"))
+      && new Date(point.day + "T00:00:00Z").toISOString().slice(0, 10) === point.day
+      && Number.isSafeInteger(point.requests)
+      && point.requests >= 0
+    );
+  const dailyTotal = validDailyPoints
+    ? summary.daily_requests.reduce((total, point) => total + point.requests, 0)
+    : -1;
   if (!counts.every((value) => Number.isSafeInteger(value) && value >= 0)
-      || !Array.isArray(summary.daily_requests)
-      || !summary.daily_requests.every((point) => typeof point.day === "string" && Number.isSafeInteger(point.requests) && point.requests >= 0)) {
+      || !validTimestamp(summary.period_start)
+      || !validTimestamp(summary.period_end)
+      || Date.parse(summary.period_end) <= Date.parse(summary.period_start)
+      || summary.reporting_timezone !== "Asia/Manila"
+      || !validDuration(summary.average_assignment_minutes)
+      || !validDuration(summary.median_assignment_minutes)
+      || summary.assigned_request_count > summary.total_requests
+      || (summary.assigned_request_count === 0 && (summary.average_assignment_minutes !== null || summary.median_assignment_minutes !== null))
+      || (summary.assigned_request_count > 0 && (summary.average_assignment_minutes === null || summary.median_assignment_minutes === null))
+      || summary.pending + summary.active + summary.resolved + summary.cancelled > summary.total_requests
+      || !validDailyPoints
+      || dailyTotal !== summary.total_requests) {
     throw new Error("The analytics service returned invalid aggregate values.");
   }
   return summary;
 }
 
-export async function getAdminAuditLogs(limit = 100): Promise<AdminAuditEvent[]> {
-  const { data, error } = await getSupabase().rpc("api_admin_list_audit_logs", { p_limit: limit });
+export async function getAdminInvestigationEventsPage(
+  limit: number,
+  offset: number,
+  query: string,
+  category: AdminInvestigationCategory,
+  source: AdminInvestigationSource,
+  from: string | null,
+  to: string | null,
+  actorUserId: number | null,
+  targetUserId: number | null,
+  incidentId: number | null,
+): Promise<AdminInvestigationPage> {
+  const { data, error } = await getSupabase().rpc("api_admin_list_investigation_events", {
+    p_limit: limit,
+    p_offset: offset,
+    p_query: query.trim(),
+    p_category: category,
+    p_source: source,
+    p_from: from,
+    p_to: to,
+    p_actor_user_id: actorUserId,
+    p_target_user_id: targetUserId,
+    p_incident_id: incidentId,
+  });
   throwAdminError(error);
-  return (data as unknown as AdminAuditEvent[] | null) ?? [];
+  if (!data || typeof data !== "object") {
+    throw new Error("The investigation service returned an invalid page.");
+  }
+  const page = data as unknown as AdminInvestigationPage;
+  if (
+    !Array.isArray(page.events)
+    || !Number.isSafeInteger(page.total_count)
+    || page.total_count < 0
+    || page.events.length > limit
+    || page.total_count < offset + page.events.length
+  ) {
+    throw new Error("The investigation service returned an invalid page.");
+  }
+  const categories = new Set(["administrative", "authentication", "incident", "assignment"]);
+  const eventIds = new Set<string>();
+  for (const event of page.events) {
+    if (
+      !event || typeof event !== "object"
+      || typeof event.event_id !== "string" || !event.event_id
+      || typeof event.source !== "string" || !event.source
+      || !categories.has(event.category)
+      || typeof event.event_type !== "string" || !event.event_type
+      || typeof event.occurred_at !== "string" || !Number.isFinite(Date.parse(event.occurred_at))
+      || typeof event.actor_label !== "string"
+      || (event.target_label !== null && typeof event.target_label !== "string")
+      || typeof event.summary !== "string"
+      || (event.actor_user_id !== null && (!Number.isSafeInteger(event.actor_user_id) || event.actor_user_id < 1))
+      || (event.target_user_id !== null && (!Number.isSafeInteger(event.target_user_id) || event.target_user_id < 1))
+      || (event.incident_id !== null && (!Number.isSafeInteger(event.incident_id) || event.incident_id < 1))
+      || !event.details || typeof event.details !== "object" || Array.isArray(event.details)
+    ) {
+      throw new Error("The investigation service returned an invalid event.");
+    }
+    if (eventIds.has(event.event_id)) {
+      throw new Error("The investigation service returned duplicate event identifiers.");
+    }
+    eventIds.add(event.event_id);
+  }
+  return page;
+}
+
+export interface AdminAuditPage { events: AdminAuditEvent[]; total_count: number; }
+
+export async function getAdminAuditLogsPage(
+  limit: number,
+  offset: number,
+  query: string,
+  action: "all" | "user_role_changed",
+  from: string | null,
+  to: string | null,
+  actorUserId: number | null,
+  targetUserId: number | null,
+): Promise<AdminAuditPage> {
+  const { data, error } = await getSupabase().rpc("api_admin_list_audit_logs_page", {
+    p_limit: limit,
+    p_offset: offset,
+    p_query: query.trim(),
+    p_action: action,
+    p_from: from,
+    p_to: to,
+    p_actor_user_id: actorUserId,
+    p_target_user_id: targetUserId,
+  });
+  throwAdminError(error);
+  if (!data || typeof data !== "object") throw new Error("The audit service returned an invalid page.");
+  const page = data as unknown as AdminAuditPage;
+  if (!Array.isArray(page.events) || !Number.isSafeInteger(page.total_count) || page.total_count < 0) {
+    throw new Error("The audit service returned an invalid page.");
+  }
+  return page;
 }
 
 
 export type DependencyProbeResult = {
-  status: "healthy" | "degraded" | "unavailable";
+  status: "healthy" | "slow" | "unavailable";
   duration_ms: number | null;
 };
 
@@ -242,7 +429,7 @@ async function runDependencyProbe(
     };
   } catch {
     return {
-      status: controller.signal.aborted ? "degraded" : "unavailable",
+      status: controller.signal.aborted ? "slow" : "unavailable",
       duration_ms: Math.max(0, Math.round(performance.now() - started)),
     };
   } finally {

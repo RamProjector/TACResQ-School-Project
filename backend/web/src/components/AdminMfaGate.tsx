@@ -8,7 +8,7 @@ import "./AdminMfaGate.css";
 type GateState = "checking" | "enroll" | "verify" | "ready" | "error";
 type PreparedMfa =
   | { state: "ready" }
-  | { state: "verify"; factorId: string }
+  | { state: "verify"; factors: Array<{ id: string; name: string }> }
   | { state: "enroll"; factorId: string; qrCode: string; secret: string };
 
 async function prepareAdminMfa(): Promise<PreparedMfa> {
@@ -20,18 +20,19 @@ async function prepareAdminMfa(): Promise<PreparedMfa> {
   if (aalResult.error) throw aalResult.error;
   if (factorsResult.error) throw factorsResult.error;
 
-  const usedTotp = aalResult.data.currentAuthenticationMethods?.some((method) => typeof method === "object" && method !== null && method.method === "totp") ?? false;
+  const usedTotp = aalResult.data.currentAuthenticationMethods?.some((method) => typeof method === "string" ? method === "totp" : typeof method === "object" && method !== null && method.method === "totp") ?? false;
   if (aalResult.data.currentLevel === "aal2" && usedTotp) return { state: "ready" };
 
-  const verified = factorsResult.data.totp.find((factor) => factor.status === "verified");
-  if (verified) return { state: "verify", factorId: verified.id };
+  const totpFactors = factorsResult.data.all.filter((factor) => factor.factor_type === "totp");
+  const verified = totpFactors.filter((factor) => factor.status === "verified");
+  if (verified.length > 0) return {
+    state: "verify",
+    factors: verified.map((factor) => ({ id: factor.id, name: factor.friendly_name || "Authenticator app" })),
+  };
 
-  // Remove abandoned, unverified enrollment attempts before issuing a fresh QR.
-  for (const pending of factorsResult.data.totp.filter((factor) => factor.status !== "verified")) {
-    const { error } = await auth.mfa.unenroll({ factorId: pending.id });
-    if (error) throw error;
-  }
-
+  // Never delete pending factors during sign-in. A pending enrollment may belong
+  // to another active browser/device; only the factor's explicit owner action
+  // should cancel it. Start this session's own enrollment instead.
   const { data, error } = await auth.mfa.enroll({
     factorType: "totp",
     friendlyName: "TACResQ Administrator",
@@ -51,6 +52,7 @@ export default function AdminMfaGate({ children, onSignOut }: {
 }) {
   const [state, setState] = useState<GateState>("checking");
   const [factorId, setFactorId] = useState("");
+  const [availableFactors, setAvailableFactors] = useState<Array<{ id: string; name: string }>>([]);
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
   const [code, setCode] = useState("");
@@ -68,7 +70,8 @@ export default function AdminMfaGate({ children, onSignOut }: {
       if (result.state === "ready") {
         setState("ready");
       } else if (result.state === "verify") {
-        setFactorId(result.factorId);
+        setAvailableFactors(result.factors);
+        setFactorId(result.factors[0].id);
         setState("verify");
       } else {
         setFactorId(result.factorId);
@@ -84,6 +87,22 @@ export default function AdminMfaGate({ children, onSignOut }: {
     return () => { active = false; };
   }, []);
 
+  async function cancelEnrollment() {
+    if (state !== "enroll" || !factorId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // This ID is the pending factor created by this gate instance only.
+      // Never enumerate and remove other pending factors from another device.
+      const { error: unenrollError } = await getSupabase().auth.mfa.unenroll({ factorId });
+      if (unenrollError) throw unenrollError;
+      onSignOut();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The pending setup could not be cancelled.");
+      setBusy(false);
+    }
+  }
+
   async function verifyCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!factorId || !/^\d{6}$/.test(code) || busy) return;
@@ -95,7 +114,7 @@ export default function AdminMfaGate({ children, onSignOut }: {
       if (verifyError) throw verifyError;
       const { data, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) throw aalError;
-      const usedTotp = data.currentAuthenticationMethods?.some((method) => typeof method === "object" && method !== null && method.method === "totp") ?? false;
+      const usedTotp = data.currentAuthenticationMethods?.some((method) => typeof method === "string" ? method === "totp" : typeof method === "object" && method !== null && method.method === "totp") ?? false;
       if (data.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("TOTP verification was not confirmed. Please check your authenticator code and try again.");
       }
@@ -137,12 +156,25 @@ export default function AdminMfaGate({ children, onSignOut }: {
         )}
         {(state === "enroll" || state === "verify") && (
           <form className="login-form" onSubmit={verifyCode}>
+            {state === "verify" && availableFactors.length > 1 && (
+              <>
+                <label htmlFor="mfa-factor">Authenticator device</label>
+                <select id="mfa-factor" value={factorId} onChange={(event) => setFactorId(event.target.value)}>
+                  {availableFactors.map((factor) => <option key={factor.id} value={factor.id}>{factor.name}</option>)}
+                </select>
+              </>
+            )}
             <label htmlFor="mfa-code">Six-digit authenticator code</label>
             <input id="mfa-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} placeholder="000000" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required />
             {error && <div className="inline-alert inline-alert--error" role="alert"><AlertCircle size={17} />{error}</div>}
             <button className="button button--primary button--wide" type="submit" disabled={busy || code.length !== 6}>
               {busy ? <><LoaderCircle size={17} className="spin" /> Verifying…</> : "Verify and continue"}
             </button>
+            {state === "enroll" && (
+              <button className="button button--quiet button--wide" type="button" onClick={() => { void cancelEnrollment(); }} disabled={busy}>
+                {busy ? "Cancelling setup…" : "Cancel setup and sign out"}
+              </button>
+            )}
           </form>
         )}
         {state === "error" && (

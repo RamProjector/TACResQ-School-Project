@@ -17,6 +17,10 @@ assert "<AdminConsole" in home
 assert 'profile.role === "dispatcher"' in home
 assert "TACResQ Android app" in home
 
+# Web sign-out must match Android local-session behavior; global revocation is separate.
+assert 'auth.signOut({ scope: "local" })' in home
+assert "auth.signOut()" not in home
+
 # The deployed static app is the admin portal; no legacy /dispatch dashboard path remains.
 assert "VITE_BASE_PATH=/admin/" in dockerfile
 assert "./public/admin/" in dockerfile
@@ -28,5 +32,21 @@ assert "http://127.0.0.1:8000/admin/" in ci
 assert "/admin/assets/" in ci
 assert "administrator-only" in web_readme.lower()
 assert "incident queue" in web_readme.lower()
+
+# Keep the portal focused on implemented administrative capabilities.
+admin_console = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
+audit_page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
+for page in ('"overview"', '"users"', '"security"', '"analytics"', '"audit"'):
+    assert page in admin_console
+assert '"settings"' not in admin_console
+assert '"backups"' not in admin_console
+assert 'import AuditLogsPage from "@/pages/AuditLogsPage"' in admin_console
+assert 'activeSection === "audit" && <AuditLogsPage profile={profile} />' in admin_console
+assert 'value={query}' in audit_page
+assert 'events.map((event)' in audit_page
+assert 'getAdminInvestigationEventsPage(' in audit_page
+assert "const PAGE_SIZE = 25" in audit_page
+assert "latest 100 events" not in audit_page
+assert "BACKEND-VERIFIED CAPABILITIES" not in admin_console
 
 print("Web admin-only contract passed.")

@@ -368,6 +368,11 @@ END;
 $release_history_requester_hidden$;
 
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000158', false);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000158","aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
+  false
+);
 DO $release_history_admin_read$
 DECLARE visible_count integer;
 BEGIN

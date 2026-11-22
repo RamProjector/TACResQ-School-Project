@@ -74,6 +74,10 @@ PENDING = {
     "20261120070000_notify_dispatcher_of_requester_cancellation.sql",
     "20261122090000_admin_analytics_summary.sql",
     "20261122123000_require_totp_for_admin_rpcs.sql",
+    "20261122140000_admin_audit_server_pagination.sql",
+    "20261122150000_pin_incident_assignee_helper_search_path.sql",
+    "20261122153000_pin_dispatch_progress_rpc_search_path.sql",
+    "20261122160000_admin_investigation_events.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (

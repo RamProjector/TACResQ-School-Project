@@ -70,3 +70,25 @@ Research basis: OWASP recommends validating authorization for every object reque
 ## Historical dispatcher notification target review (2026-11-20)
 
 A valid dispatcher alert may refer to an incident older than the bounded 100-record dispatcher list. Current Android focus resolution searches the loaded list; if the incident is absent, it shows an unavailable-target message rather than bypassing authorization. This is safe but can strand a legitimate historical alert. The researched follow-up is an ID-scoped, dispatcher-only, read-only incident lookup that leaves the bounded queue intact. The full authorization matrix, transport considerations, and implementation gates are documented in [RESEARCH_DISPATCHER_HISTORICAL_INCIDENT_LOOKUP.md](RESEARCH_DISPATCHER_HISTORICAL_INCIDENT_LOOKUP.md).
+
+## Legacy direct-send Edge Function boundary (2026-11-22)
+
+The connected Supabase project also has an active `tacresq-notify` Edge Function. Its deployed source has been recovered into `supabase/functions/tacresq-notify/index.ts` for review. It validates a Supabase bearer token, performs manual role/incident checks with a service-role client, and sends directly to FCM. It does **not** use the persistent notification delivery queue or its attempt ledger, lease, and retry workflow.
+
+The canonical repository delivery path remains the Laravel `FcmNotificationDispatcher` plus the database-backed FCM delivery queue. Do not add new app or web callers to `tacresq-notify`, and do not enable both paths for the same event family: doing so can create duplicate pushes and bypass the canonical delivery ledger.
+
+The Edge Function has no explicit request-body size limit, per-account/per-incident send rate limit, or idempotency key. Its caller checks do not prove that a request corresponds to a unique database event. It remains deployed only pending a production caller/scheduler audit; disabling or deleting it requires confirming that no external workflow depends on it.
+
+The source mirror and documentation update do not deploy, disable, or reconfigure the live function. No Firebase credentials, notification records, or production delivery settings were changed.
+
+### Repository caller audit (2026-11-22)
+
+A repository-wide code search on the default branch found no tracked source reference to the Edge Function slug `tacresq-notify`, and no `incident_assigned` caller payload wired to that function. The tracked Android notification flow instead uses the persistent inbox/realtime refresh path, while the documented server delivery implementation is the Laravel queue dispatcher.
+
+This is evidence that there is no obvious in-repository caller in the searched branch; it is **not** proof that the deployed function is unused. Supabase Dashboard invocations, external schedulers, manually configured webhooks, older installed clients, and third-party workflows are outside GitHub source search. Before disabling the function, inspect its invocation logs over a representative operating period and reconcile each caller with the current Android, web, and Laravel release versions. If no external caller is found, schedule retirement as a separate reviewed change rather than silently deleting the function.
+
+### Push-delivery activation status clarification (2026-11-22)
+
+The Laravel queue sender is the canonical **implemented code path**, but it must not be described as an active automatic delivery service yet. The current connected Supabase project does not have `pg_cron` or `pg_net` installed, and its database therefore has no configured Supabase Cron job to invoke the signed Render dispatch endpoint. The Render web service itself starts the web server; its startup command does not run the FCM worker. The signed endpoint and operator guide are implementation only until the scheduler is explicitly configured and verified.
+
+Accordingly, the current operational guarantee is the authenticated persistent in-app inbox, subject to normal service availability. Automatic FCM queue processing, provider acceptance, and physical-device receipt remain **unverified**. Do not tell users that push notifications are reliably active, and do not use FCM as the sole emergency-alert channel. The legacy `tacresq-notify` Edge Function remains active, but no in-repository or Supabase database-Cron caller was identified in the inspected sources; external/manual callers have not been ruled out.

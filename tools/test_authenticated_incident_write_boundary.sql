@@ -164,12 +164,31 @@ DECLARE
   result jsonb;
   final_status text;
   final_claimable boolean;
+  direct_update_denied boolean := false;
 BEGIN
   SELECT i.id INTO incident_id
   FROM public.incidents i
   JOIN public.profiles requester ON requester.id = i.requester_id
   WHERE requester.auth_user_id = '00000000-0000-4000-8000-000000000972'
     AND i.description = 'Authenticated responder status RPC boundary fixture';
+
+  -- Dispatcher role does not restore direct table DML: status changes must
+  -- use the coordinated RPC so team snapshots and duty states stay synchronized.
+  BEGIN
+    UPDATE public.incidents SET status = 'on_scene' WHERE id = incident_id;
+  EXCEPTION WHEN insufficient_privilege THEN
+    direct_update_denied := true;
+  END;
+  IF NOT direct_update_denied THEN
+    RAISE EXCEPTION 'Authenticated dispatcher direct incident UPDATE was not denied';
+  END IF;
+
+  SELECT status, is_claimable INTO final_status, final_claimable
+  FROM public.incidents WHERE id = incident_id;
+  IF final_status IS DISTINCT FROM 'assigned' OR final_claimable IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Direct dispatcher update changed incident state: status %, claimable %',
+      final_status, final_claimable;
+  END IF;
 
   result := public.api_update_incident_status(incident_id, 'en_route');
   IF result->>'status' IS DISTINCT FROM 'en_route' THEN

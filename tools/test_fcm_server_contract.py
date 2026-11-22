@@ -97,4 +97,19 @@ assert "supabase_publishable_key" not in dispatcher
 assert "$profileId = (int) ($attempt['profile_id'] ?? 0);" in dispatcher
 assert "$profileId < 1" in dispatcher
 assert "'recipient_profile_id' => (string) $profileId" in dispatcher
-print("Trusted FCM server contract passed.")
+
+# The recovered tacresq-notify Edge Function is a legacy direct-send path.
+# Keep app/web clients on the durable inbox + canonical delivery ledger so
+# the same event cannot bypass deduplication, leases, and retry accounting.
+for source_root in (ROOT / "app/src", ROOT / "backend/web/src", ROOT / "backend/src"):
+    for source_file in source_root.rglob("*"):
+        if not source_file.is_file() or source_file.suffix.lower() not in {
+            ".kt", ".kts", ".java", ".ts", ".tsx", ".js", ".jsx", ".php",
+        }:
+            continue
+        source_text = source_file.read_text(encoding="utf-8", errors="ignore").lower()
+        assert "tacresq-notify" not in source_text, (
+            f"Legacy direct-send Edge Function must not be called by app/web/backend source: {source_file}"
+        )
+
+print("Trusted FCM server and legacy Edge Function boundary contract passed.")

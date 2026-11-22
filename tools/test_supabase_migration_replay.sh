@@ -899,8 +899,8 @@ BEGIN
     '{"aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
     true
   );
-  -- Function EXECUTE revocation is asserted above via has_function_privilege.
-  -- The dedicated SET ROLE authenticated test below verifies runtime denial.
+  -- Function EXECUTE grants are asserted above. Direct audit-table RLS is
+  -- exercised under the authenticated role after this authorization block.
 
   changed := public.api_admin_list_users_page(25, 0, '', 'all');
   IF jsonb_typeof(changed) IS DISTINCT FROM 'object'
@@ -968,6 +968,69 @@ BEGIN
     RAISE EXCEPTION 'Admin role-change RPC must reject changes to an Admin account';
   END IF;
 
+  -- A real Admin identity with AAL2 but no TOTP method must still be
+  -- rejected by every browser-callable privileged RPC wrapper.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal2","amr":[{"method":"password","timestamp":20}]}',
+    true
+  );
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_users_page(25, 0, '', 'all');
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin user pagination accepted AAL2 without TOTP';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_set_user_role(
+      999999,
+      'responder',
+      'Synthetic no-TOTP wrapper authorization test.'
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin role change accepted AAL2 without TOTP';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_audit_logs(100);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin audit RPC accepted AAL2 without TOTP';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_audit_logs_page(25, 0, '', 'all', NULL, NULL);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Paginated Admin audit RPC accepted AAL2 without TOTP';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_analytics_summary(now() - interval '7 days', now());
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin analytics RPC accepted AAL2 without TOTP';
+  END IF;
+
   -- Ordinary authenticated profiles must not list users or change another role.
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000130', true);
   PERFORM set_config(
@@ -1008,6 +1071,16 @@ BEGIN
     RAISE EXCEPTION 'Ordinary requester must not read Admin audit events';
   END IF;
 
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_audit_logs_page(25, 0, '', 'all', NULL, NULL);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Ordinary requester must not read paginated Admin audit events';
+  END IF;
+
   -- Direct profile role mutation is rejected by the existing database guard.
   denied := false;
   BEGIN
@@ -1037,6 +1110,62 @@ BEGIN
   END IF;
 END;
 $admin_authorization_test$;
+
+-- Exercise the restrictive audit-log MFA policy as an actual authenticated
+-- database role. Superuser-owned DO blocks bypass RLS and cannot prove this.
+SET ROLE authenticated;
+DO $admin_audit_rls_mfa_test$
+DECLARE
+  visible_count integer;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
+
+  -- A password-only AAL1 session must not see audit rows, even for an Admin.
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal1","amr":[{"method":"password","timestamp":10}]}',
+    true
+  );
+  SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
+  IF visible_count <> 0 THEN
+    RAISE EXCEPTION 'Admin audit rows were visible to an AAL1 session';
+  END IF;
+
+  -- AAL2 without a TOTP method must also be denied.
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal2","amr":[{"method":"password","timestamp":11}]}',
+    true
+  );
+  SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
+  IF visible_count <> 0 THEN
+    RAISE EXCEPTION 'Admin audit rows were visible without TOTP in the AAL2 session';
+  END IF;
+
+  -- The verified TOTP session must retain the intended Admin read access.
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal2","amr":[{"method":"password","timestamp":12},{"method":"totp","timestamp":13}]}',
+    true
+  );
+  SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
+  IF visible_count < 1 THEN
+    RAISE EXCEPTION 'A verified Admin TOTP session could not read its audit history';
+  END IF;
+
+  -- RFC-8176 string-form AMR claims are also accepted by the MFA policy.
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal2","amr":["password","totp"]}',
+    true
+  );
+  SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
+  IF visible_count < 1 THEN
+    RAISE EXCEPTION 'A string-form TOTP AMR session could not read its audit history';
+  END IF;
+END;
+$admin_audit_rls_mfa_test$;
+RESET ROLE;
 
 -- Every ordinary operational role must be denied by the database authorization
 -- boundary, even though each role can execute the authenticated RPC entrypoint.

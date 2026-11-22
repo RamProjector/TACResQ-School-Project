@@ -87,6 +87,7 @@ for required in (
     "public.api_cancel_my_incident(incident_id)",
     "public.api_update_incident_status(incident_id, 'en_route')",
     "Authenticated responder status RPC boundary fixture",
+    "Authenticated dispatcher direct incident UPDATE was not denied",
     "final_claimable",
     "incident_claimability_logs",
     "source_rpc = 'incident_status_transition'",

@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Activity,
   BarChart3,
-  DatabaseBackup,
   History,
   LayoutDashboard,
-  Settings,
   ShieldAlert,
   ArrowDownUp,
   CheckCircle2,
-  Clock3,
   LoaderCircle,
   LogOut,
   RefreshCw,
@@ -20,9 +17,10 @@ import {
   X,
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
+import AuditLogsPage from "@/pages/AuditLogsPage";
+import AdminSecurityStatus from "@/components/AdminSecurityStatus";
 import {
   getAdminAnalyticsSummary,
-  getAdminAuditLogs,
   getAdminDependencyHealth,
   getAdminUsersPage,
   getMyProfile,
@@ -30,7 +28,6 @@ import {
 } from "@/lib/supabase";
 import type {
   AdminAnalyticsSummary,
-  AdminAuditEvent,
   AdminDependencyHealth,
   AdminManagedRole,
   AdminUser,
@@ -44,21 +41,52 @@ type AdminConsoleProps = {
 };
 
 type RoleFilter = "all" | AdminManagedRole | "admin";
-type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "settings" | "backups";
+type AdminSection = "overview" | "users" | "security" | "analytics" | "audit";
 
 const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "users", label: "User management", icon: Users },
   { id: "security", label: "Security & countermeasures", icon: ShieldAlert },
   { id: "analytics", label: "Analytics & reports", icon: BarChart3 },
-  { id: "audit", label: "Audit & activity", icon: History },
-  { id: "settings", label: "Settings", icon: Settings },
-  { id: "backups", label: "Backup & recovery", icon: DatabaseBackup },
+  { id: "audit", label: "Audit Logs", icon: History },
 ];
 const roleOptions: AdminManagedRole[] = ["requester", "responder", "driver", "dispatcher"];
 
+function resolveAdminSection(search: string): AdminSection {
+  const route = new URLSearchParams(search).get("adminPage") ?? "overview";
+  if (route === "audit-logs") return "audit";
+  return ["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview";
+}
+
 function displayRole(role: string) {
   return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function getManilaAnalyticsRange(days: 7 | 30 | 90, now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  const year = Number(part("year"));
+  const month = Number(part("month"));
+  const day = Number(part("day"));
+  // Manila uses UTC+08:00. Start at local midnight and include today plus
+  // the preceding days so daily buckets align with the database calendar.
+  const from = new Date(Date.UTC(year, month - 1, day - (days - 1), 0, 0, 0) - 8 * 60 * 60 * 1000);
+  return { from: from.toISOString(), to: now.toISOString() };
+}
+
+function formatManilaDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone: "Asia/Manila",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }
 
 function formatDate(value: string | null | undefined) {
@@ -74,29 +102,50 @@ function initials(name: string) {
 
 export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) {
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [audit, setAudit] = useState<AdminAuditEvent[]>([]);
   const [dependencyHealth, setDependencyHealth] = useState<AdminDependencyHealth | null>(null);
   const [dependencyHealthError, setDependencyHealthError] = useState<string | null>(null);
+  const [dependencyHealthLoading, setDependencyHealthLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const [activeSection, setActiveSection] = useState<AdminSection>("overview");
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(0);
+      setDebouncedQuery(query);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+  const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
+
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [analyticsDays, setAnalyticsDays] = useState<7 | 30 | 90>(30);
+  const [analyticsRefreshVersion, setAnalyticsRefreshVersion] = useState(0);
   const [page, setPage] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
+  const [directoryLoadedAt, setDirectoryLoadedAt] = useState<string | null>(null);
   const pageSize = 25;
   const [target, setTarget] = useState<AdminUser | null>(null);
   const [nextRole, setNextRole] = useState<AdminManagedRole>("requester");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const modalRoot = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
   const requestVersion = useRef(0);
+
+  // Return keyboard focus to the control that opened the role-change dialog.
+  useEffect(() => {
+    if (target) return;
+    const trigger = previousFocus.current;
+    if (trigger?.isConnected) trigger.focus();
+    previousFocus.current = null;
+  }, [target]);
 
   useEffect(() => {
     if (!target) return;
@@ -113,6 +162,13 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      // Keep keyboard navigation inside the modal even if focus was moved
+      // outside it programmatically or by an unexpected browser interaction.
+      if (!root?.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
@@ -129,49 +185,88 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     const requestId = ++requestVersion.current;
     setRefreshing(true);
     setError(null);
+    setDirectoryError(null);
+    // A section change invalidates an in-flight Overview probe. Clear its
+    // loading state here because the superseded request will no longer finish
+    // with the current request ID and therefore cannot clear it itself.
+    if (activeSection !== "overview") setDependencyHealthLoading(false);
+    if (activeSection !== "overview" && activeSection !== "users") {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    // Run dependency probes independently from the account-directory RPC.
+    // A user-list failure must not suppress system-health diagnostics.
+    if (activeSection === "overview") {
+      setDependencyHealthLoading(true);
+      void getAdminDependencyHealth()
+        .then((nextHealth) => {
+          if (requestId !== requestVersion.current) return;
+          setDependencyHealth(nextHealth);
+          setDependencyHealthError(null);
+        })
+        .catch(() => {
+          if (requestId !== requestVersion.current) return;
+          setDependencyHealth(null);
+          setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
+        })
+        .finally(() => {
+          if (requestId === requestVersion.current) setDependencyHealthLoading(false);
+        });
+    }
     try {
-      const [userPage, nextAudit] = await Promise.all([getAdminUsersPage(pageSize, page * pageSize, query, roleFilter), getAdminAuditLogs(100)]);
+      const userPage = await getAdminUsersPage(pageSize, page * pageSize, debouncedQuery, roleFilter);
       if (requestId !== requestVersion.current) return;
+      // Record every successful directory response, including a response that
+      // requires moving pagination back after the account count shrinks.
+      setDirectoryLoadedAt(new Date().toISOString());
+      // The underlying account set can shrink while an administrator is on a
+      // later page (for example, after another admin changes/removes records).
+      // Move to the last valid page instead of presenting a false empty result.
+      if (page > 0 && page * pageSize >= userPage.total_count) {
+        setTotalUsers(userPage.total_count);
+        setUsers([]);
+        setPage(Math.max(0, Math.ceil(userPage.total_count / pageSize) - 1));
+        return;
+      }
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
-      setAudit(nextAudit);
-      try {
-        const nextHealth = await getAdminDependencyHealth();
-        if (requestId !== requestVersion.current) return;
-        setDependencyHealth(nextHealth);
-        setDependencyHealthError(null);
-      } catch {
-        if (requestId !== requestVersion.current) return;
-        setDependencyHealth(null);
-        setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
-      }
     } catch (cause) {
       if (requestId !== requestVersion.current) return;
       // Never keep privileged data visible after an authorization or connection failure.
       setUsers([]);
       setTotalUsers(0);
-      setAudit([]);
-      setDependencyHealth(null);
-      setDependencyHealthError("Diagnostics were not refreshed because administrator data could not be verified.");
-      setError(cause instanceof Error ? cause.message : "The Admin service could not load its data.");
+      setDirectoryLoadedAt(null);
+      // Dependency health is fetched independently and may still be valid
+      // even when the account-directory RPC fails.
+      const message = cause instanceof Error ? cause.message : "The Admin service could not load its data.";
+      setDirectoryError(message);
+      setError(message);
     } finally {
       if (requestId === requestVersion.current) {
         setLoading(false);
         setRefreshing(false);
       }
     }
-  }, [page, query, roleFilter]);
+  }, [activeSection, page, debouncedQuery, roleFilter]);
+
+  useEffect(() => {
+    const syncSection = () => setActiveSection(resolveAdminSection(window.location.search));
+    syncSection();
+    window.addEventListener("popstate", syncSection);
+    return () => window.removeEventListener("popstate", syncSection);
+  }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
   useEffect(() => {
     if (activeSection !== "analytics") return;
     let active = true;
-    const to = new Date();
-    const from = new Date(to.getTime() - analyticsDays * 24 * 60 * 60 * 1000);
+    const range = getManilaAnalyticsRange(analyticsDays);
     setAnalyticsLoading(true);
     setAnalyticsError(null);
-    void getAdminAnalyticsSummary(from.toISOString(), to.toISOString())
+    setAnalytics(null);
+    void getAdminAnalyticsSummary(range.from, range.to)
       .then((result) => { if (active) setAnalytics(result); })
       .catch((cause: unknown) => {
         if (!active) return;
@@ -180,7 +275,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       })
       .finally(() => { if (active) setAnalyticsLoading(false); });
     return () => { active = false; };
-  }, [activeSection, analyticsDays]);
+  }, [activeSection, analyticsDays, analyticsRefreshVersion]);
 
   // Admin privileges can be revoked outside this browser session. Revalidate
   // when the console is visible and periodically while it remains open; a
@@ -194,7 +289,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         const currentProfile = await getMyProfile();
         if (currentProfile.role !== "admin") {
           setUsers([]);
-          setAudit([]);
           setTarget(null);
           setError("Administrator access has been revoked. Sign in again with an authorized account.");
           onSignOut();
@@ -215,11 +309,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }, [onSignOut]);
 
   const filteredUsers = users;
-
-  const userById = useMemo(() => new Map<number, AdminUser>(users.map((user) => [user.id, user] as const)), [users]);
+  const hasDirectoryFilters = query.trim().length > 0 || roleFilter !== "all";
+  const directoryFilterPending = query.trim() !== debouncedQuery;
 
   function openRoleChange(user: AdminUser) {
     if (user.role === "admin") return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setTarget(user);
     setNextRole(user.role);
     setReason("");
@@ -241,6 +336,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setError(null);
     setNotice(null);
     try {
+      // Re-read this exact account immediately before mutation. The dialog may
+      // have remained open while another administrator changed the account.
+      const latestPage = await getAdminUsersPage(100, 0, String(target.id), "all");
+      const latestTarget = latestPage.users.find((user) => user.id === target.id);
+      if (!latestTarget || latestTarget.role !== target.role) {
+        setTarget(null);
+        await refresh();
+        setError(!latestTarget
+          ? "This account is no longer available in the directory. Refresh the results and review the account before trying again."
+          : "This account's role changed while the confirmation dialog was open. The requested change was not submitted. Review the refreshed account before trying again.");
+        return;
+      }
       const changed = await setAdminUserRole(target.id, nextRole, reason.trim());
       setNotice(changed.name + "'s role changed from " + displayRole(changed.old_role) + " to " + displayRole(changed.role) + ". The action was recorded in the audit log.");
       setTarget(null);
@@ -260,7 +367,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         <div className="admin-sidebar__label">ADMINISTRATION</div>
         <nav className="admin-navigation" aria-label="Admin sections">
           {adminSections.map(({ id, label, icon: Icon }) => (
-            <button key={id} type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => setActiveSection(id)}>
+            <button key={id} type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => { setActiveSection(id); const url = new URL(window.location.href); const route = id === "audit" ? "audit-logs" : id; if (url.searchParams.get("adminPage") !== route) { url.searchParams.set("adminPage", route); window.history.pushState({}, "", url.toString()); } }}>
               <Icon size={17} aria-hidden="true" /><span>{label}</span>
             </button>
           ))}
@@ -289,65 +396,88 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div>
               <p className="admin-eyebrow">ACCESS CONTROL <span>·</span> AUDITABLE OPERATIONS</p>
               <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}<span>.</span></h1>
-              <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Review the administrative changes currently recorded by the database." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+              <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Search recorded administrative role changes. Incident operations and authentication events are maintained in separate histories." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
             </div>
-            <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
+            {(activeSection === "overview" || activeSection === "users") && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
               <RefreshCw size={16} className={refreshing ? "admin-spin" : ""} /> Refresh data
-            </button>
+            </button>}
           </div>
 
-          {(error || notice) && (
-            <div className={error ? "admin-banner admin-banner--error" : "admin-banner admin-banner--success"} role={error ? "alert" : "status"}>
-              {error ? <AlertCircle size={17} /> : <CheckCircle2 size={17} />}
-              <span>{error || notice}</span>
-              <button type="button" aria-label="Dismiss message" onClick={() => { setError(null); setNotice(null); }}><X size={15} /></button>
+          {error && (
+            <div className="admin-banner admin-banner--error" role="alert">
+              <AlertCircle size={17} />
+              <span>{error}</span>
+              <button type="button" aria-label="Dismiss error" onClick={() => setError(null)}><X size={15} /></button>
+            </div>
+          )}
+          {notice && (
+            <div className="admin-banner admin-banner--success" role="status">
+              <CheckCircle2 size={17} />
+              <span>{notice}</span>
+              <button type="button" aria-label="Dismiss confirmation" onClick={() => setNotice(null)}><X size={15} /></button>
             </div>
           )}
 
           <section className="admin-metrics" aria-label="Account summary" hidden={activeSection !== "overview"}>
-            <article><span>REGISTERED PROFILES</span><strong>{totalUsers}</strong><small>Matching profiles across all pages</small></article>
-            <article><span>REQUESTERS ON PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Requester accounts on this page</small></article>
-            <article><span>FIELD UNITS ON PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responder and driver accounts on this page</small></article>
-            <article><span>RECENT AUDIT EVENTS</span><strong>{audit.length}</strong><small>Latest records, maximum 100 loaded</small></article>
+            <article><span>PROFILES MATCHING FILTERS</span><strong>{totalUsers}</strong><small>Across all directory pages</small></article>
+            <article><span>REQUESTERS · CURRENT PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Only the profiles on this page</small></article>
+            <article><span>FIELD UNITS · CURRENT PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responders and drivers on this page only</small></article>
+            <article><span>AUDIT HISTORY</span><strong>Separate</strong><small>Dedicated searchable audit history</small></article>
           </section>
+          <p className="admin-panel__footnote" hidden={activeSection !== "overview"}>Counts follow the current directory search and role filters. Requester and field-unit breakdowns describe only the currently loaded page of up to 25 profiles; they are not system-wide role totals. Directory page retrieved: {directoryLoadedAt ? formatManilaDateTime(directoryLoadedAt) : "not yet retrieved"} (Asia/Manila). This is the retrieval time, not each profile’s last-updated time.</p>
 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
-              <div><p className="admin-eyebrow">PLATFORM AVAILABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency health</h2></div>
-              <span className="admin-count">{dependencyHealth ? "Checked " + formatDate(dependencyHealth.checked_at) : "No verified result"}</span>
+              <div><p className="admin-eyebrow">SERVICE REACHABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency reachability</h2></div>
+              <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatManilaDateTime(dependencyHealth.checked_at) : "No verified result"}</span>
             </div>
             {dependencyHealthError ? (
               <div className="admin-health-unavailable" role="status">{dependencyHealthError}</div>
             ) : !dependencyHealth ? (
-              <div className="admin-health-unavailable" role="status">Waiting for the first diagnostic check…</div>
+              <div className="admin-health-unavailable" role="status">{dependencyHealthLoading ? "Checking the three configured dependencies…" : "Waiting for the first diagnostic check…"}</div>
             ) : (
-              <div className="admin-health-grid">
+              <>
+                <div className="admin-health-summary" role="status" aria-live="polite">
+                  <strong>
+                    {[dependencyHealth.laravel_backend, dependencyHealth.supabase_auth, dependencyHealth.supabase_database].every((probe) => probe.status === "healthy")
+                      ? "All three reachability probes responded"
+                      : [dependencyHealth.laravel_backend, dependencyHealth.supabase_auth, dependencyHealth.supabase_database].some((probe) => probe.status === "unavailable")
+                        ? "At least one reachability probe did not respond"
+                        : "At least one reachability probe exceeded five seconds"}
+                  </strong>
+                  <span>This summary covers only the three probes listed below, not complete emergency-service readiness.</span>
+                </div>
+                <div className="admin-health-grid">
                 {([
                   ["Laravel backend", dependencyHealth.laravel_backend],
                   ["Supabase Auth", dependencyHealth.supabase_auth],
                   ["Supabase database", dependencyHealth.supabase_database],
                 ] as const).map(([label, result]) => (
                   <article className="admin-health-item" key={label}>
-                    <div><strong>{label}</strong><span className={"admin-health-status admin-health-status--" + result.status} role="status" aria-label={label + " status: " + result.status}>{result.status}</span></div>
+                    <div><strong>{label}</strong><span className={"admin-health-status admin-health-status--" + result.status} role="status" aria-label={label + " reachability: " + result.status}>{result.status === "healthy" ? "reachable" : result.status === "slow" ? "timed out" : "unavailable"}</span></div>
                     <small>{result.duration_ms === null ? "Response time unavailable" : result.duration_ms + " ms response time"}</small>
                   </article>
                 ))}
-              </div>
+                </div>
+              </>
             )}
-            <p className="admin-panel__footnote">Read-only checks only. Laravel /up confirms application liveness; Auth checks its health endpoint; the database check executes a fixed, data-free RPC. These checks do not verify incident workflows, user sign-in, FCM delivery, or routing.</p>
+            <p className="admin-panel__footnote">Reachability only — not service readiness or emergency-operational status. Laravel /up confirms application liveness; Supabase Auth checks its health endpoint; the database probe executes a fixed, data-free RPC using the current Admin session. These checks do not verify incident creation, responder assignment, location accuracy, routing, push delivery, or end-to-end sign-in. “Timed out” means the probe exceeded five seconds; startup delay or network latency may contribute and does not by itself prove an outage. Refresh to retry.</p>
           </section>
 
           <section className="admin-panel" hidden={activeSection !== "users"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><Users size={19} /> User management</h2></div>
-              <span className="admin-count">{totalUsers === 0 ? 0 : page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalUsers)} of {totalUsers}</span>
+              <span className="admin-count">{directoryError ? "Account results unavailable" : totalUsers === 0 ? "0 matching accounts" : (page * pageSize + 1) + "–" + Math.min((page + 1) * pageSize, totalUsers) + " of " + totalUsers + " matching"}</span>
             </div>
             <div className="admin-toolbar">
-              <label className="admin-search"><Search size={16} /><input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search name, email, phone or ID" aria-label="Search users" /></label>
+              <label className="admin-search"><Search size={16} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder="Search name, email, phone or ID" aria-label="Search users" /></label>
               <label className="admin-role-filter"><span>Role</span><select value={roleFilter} onChange={(event) => { setPage(0); setRoleFilter(event.target.value as RoleFilter); }} aria-label="Filter users by role"><option value="all">All roles</option><option value="requester">Requester</option><option value="responder">Responder</option><option value="driver">Driver</option><option value="dispatcher">Dispatcher</option><option value="admin">Admin</option></select></label>
+              {hasDirectoryFilters && <button className="admin-filter-reset" type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setRoleFilter("all"); setPage(0); }} disabled={refreshing}>Clear filters</button>}
             </div>
-            <div className="admin-table-wrap">
-              <table className="admin-table">
+            <p className="admin-directory-status" role="status" aria-live="polite">{directoryFilterPending ? "Applying search…" : refreshing ? "Updating account results…" : directoryError ? "Account results could not be retrieved. Use Refresh data to try again." : hasDirectoryFilters ? "Showing " + totalUsers.toLocaleString() + " matching accounts. Search and role filters are applied on the server." : "Showing all accounts. Search and role filters are applied on the server."}{directoryLoadedAt && !directoryError ? " Last successful retrieval: " + formatManilaDateTime(directoryLoadedAt) + " (Asia/Manila)." : ""}</p>
+            <div className="admin-table-wrap" role="region" aria-label="Account results; horizontally scrollable" tabIndex={0} aria-busy={refreshing || directoryFilterPending}>
+              <table className="admin-table" aria-label="Administrator account directory">
+                <caption className="admin-table-caption">Account details and available role-management actions for the current directory page.</caption>
                 <thead><tr><th>Account</th><th>Role</th><th>Duty status</th><th>Created</th><th>Action</th></tr></thead>
                 <tbody>
                   {loading && users.length === 0 ? (
@@ -360,48 +490,25 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                       <td><span className={"admin-role admin-role--" + user.role}>{displayRole(user.role)}</span></td>
                       <td><span className="admin-duty">{user.duty_status ? user.duty_status.replaceAll("_", " ") : "Not applicable"}</span></td>
                       <td className="admin-date">{formatDate(user.created_at)}</td>
-                      <td>{user.role === "admin" ? <span className="admin-provisioned">Operator managed</span> : <button className="admin-change-role" type="button" onClick={() => openRoleChange(user)}><ArrowDownUp size={14} /> Change role</button>}</td>
+                      <td>{user.role === "admin" ? <span className="admin-provisioned">Operator managed</span> : <button className="admin-change-role" type="button" onClick={() => openRoleChange(user)} disabled={loading || refreshing || directoryFilterPending || Boolean(directoryError)}><ArrowDownUp size={14} /> Change role</button>}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="admin-pagination" aria-label="User directory pagination"><span>Page {totalUsers === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(totalUsers / pageSize))}</span><div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || refreshing}>Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={refreshing || (page + 1) * pageSize >= totalUsers}>Next</button></div></div>
-            <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident.</p>
+            <div className="admin-pagination" aria-label="User directory pagination"><span>Page {totalUsers === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(totalUsers / pageSize))}</span><div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || refreshing || Boolean(directoryError)}>Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={refreshing || Boolean(directoryError) || (page + 1) * pageSize >= totalUsers}>Next</button></div></div>
+            <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident. Duty status describes a responder or driver’s operational availability; it is not an account-enabled, suspended, or sign-in status. This directory does not currently expose account suspension state.</p>
           </section>
 
-          <section className="admin-panel admin-audit-panel" hidden={activeSection !== "audit"}>
-            <div className="admin-panel__heading">
-              <div><p className="admin-eyebrow">ACCOUNTABILITY</p><h2><Clock3 size={19} /> Administrative audit log</h2></div>
-              <span className="admin-count">Newest first · max 100</span>
-            </div>
-            <div className="admin-table-wrap">
-              <table className="admin-table admin-audit-table">
-                <thead><tr><th>Recorded</th><th>Actor</th><th>Target</th><th>Change</th><th>Reason</th></tr></thead>
-                <tbody>
-                  {loading && audit.length === 0 ? (
-                    <tr><td colSpan={5}><div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading audit events…</div></td></tr>
-                  ) : audit.length === 0 ? (
-                    <tr><td colSpan={5}><div className="admin-empty"><Clock3 size={20} /><strong>No administrative changes recorded yet</strong><span>Events appear after a role change succeeds.</span></div></td></tr>
-                  ) : audit.map((event) => (
-                    <tr key={event.id}>
-                      <td className="admin-date">{formatDate(event.created_at)}</td>
-                      <td>{event.actor_user_id === profile.id ? "You" : (userById.get(event.actor_user_id ?? -1)?.name ?? event.actor_identity)}</td>
-                      <td>{userById.get(event.target_user_id ?? -1)?.name ?? (event.target_user_id ? "Profile #" + event.target_user_id : "Unknown / removed")}</td>
-                      <td><span className="admin-audit-change">{displayRole(event.old_role)} <span>→</span> {displayRole(event.new_role)}</span></td>
-                      <td className="admin-audit-reason">{event.reason}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="admin-panel__footnote">The client has no direct insert, update, or delete permission on audit rows. The role-change RPC writes the event in the same database transaction as the change.</p>
-          </section>
+          {activeSection === "audit" && <AuditLogsPage profile={profile} />}
           {activeSection === "analytics" && (
             <section className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title" aria-live="polite">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div>
-                <label className="admin-analytics-range"><span>Period</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select></label>
+                <div className="admin-analytics-controls">
+                  <label className="admin-analytics-range"><span>Period</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
+                  <button className="admin-refresh" type="button" onClick={() => setAnalyticsRefreshVersion((version) => version + 1)} disabled={analyticsLoading}><RefreshCw size={15} className={analyticsLoading ? "admin-spin" : ""} /> Refresh report</button>
+                </div>
               </div>
               {analyticsLoading ? (
                 <div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading verified incident aggregates…</div>
@@ -409,6 +516,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div className="admin-health-unavailable" role="alert"><strong>Analytics unavailable.</strong> {analyticsError} The endpoint must be deployed before this report can display live data.</div>
               ) : analytics ? (
                 <>
+                  <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals.</p>
                   <div className="admin-analytics-metrics">
                     <article><span>TOTAL REQUESTS</span><strong>{analytics.total_requests.toLocaleString()}</strong><small>Created during selected period</small></article>
                     <article><span>ACTIVE</span><strong>{analytics.active.toLocaleString()}</strong><small>Assigned, en route, on scene or transporting</small></article>
@@ -427,7 +535,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                       {analytics.daily_requests.length === 0 ? <div className="admin-empty">No daily data for this period.</div> : <div className="admin-analytics-bars" role="img" aria-label={analytics.daily_requests.map((point) => point.day + ": " + point.requests + " requests").join("; ")}>
                         {analytics.daily_requests.map((point) => {
                           const maximum = Math.max(1, ...analytics.daily_requests.map((item) => item.requests));
-                          return <div className="admin-analytics-bar-column" key={point.day} title={point.day + ": " + point.requests + " requests"}><span>{point.requests || ""}</span><div><i style={{ height: Math.max(point.requests > 0 ? 4 : 0, point.requests / maximum * 100) + "%" }} /></div><small>{new Date(point.day + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</small></div>;
+                          return <div className="admin-analytics-bar-column" key={point.day} title={point.day + ": " + point.requests + " requests"}><span>{point.requests || ""}</span><div><i style={{ height: Math.max(point.requests > 0 ? 4 : 0, point.requests / maximum * 100) + "%" }} /></div><small>{new Date(point.day + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}</small></div>;
                         })}
                       </div>}
                     </section>
@@ -440,18 +548,21 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               ) : null}
             </section>
           )}
-          {(["security", "settings", "backups"] as AdminSection[]).includes(activeSection) && (
+          {activeSection === "security" && (
+            <>
             <section className="admin-panel admin-roadmap-panel" aria-live="polite">
               <div className="admin-panel__heading">
-                <div><p className="admin-eyebrow">BACKEND-VERIFIED CAPABILITIES</p><h2><ShieldCheck size={19} /> {adminSections.find((section) => section.id === activeSection)?.label}</h2></div>
-                <span className="admin-count">{activeSection === "security" ? "TOTP enforced" : "Not connected"}</span>
+                <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><ShieldCheck size={19} /> Security &amp; countermeasures</h2></div>
+                <span className="admin-count">TOTP enforced</span>
               </div>
               <div className="admin-roadmap-content">
-                <strong>{activeSection === "security" ? "Administrator access requires Google Authenticator TOTP." : activeSection === "analytics" ? "Operational analytics are not yet connected." : activeSection === "settings" ? "No persistent administrator settings are currently exposed." : "Backup and recovery status is not yet connected."}</strong>
-                <p>{activeSection === "security" ? "After password sign-in, administrators must enroll or verify a six-digit time-based code from Google Authenticator. Supabase Auth verifies the factor and issues an AAL2 session; the Admin RPCs and audit-log table independently require an AAL2 token with a TOTP authentication method. No SMS or email OTP is used. Supabase Auth does not currently provide app-generated recovery codes, so keep your authenticator available and do not remove your only verified factor." : activeSection === "analytics" ? "Incident and assignment records exist, but trusted admin-only aggregate endpoints and validated metric definitions are required before displaying operational performance figures." : activeSection === "settings" ? "Only settings with defined ownership, secure persistence, and a confirmed effect on application behavior will be added here. No local-only toggles will be presented as system settings." : "Repository backup procedures exist, but the portal has no verified live backup-job or restore-drill feed. Recovery readiness will remain unreported until both database and storage artifacts are validated."}</p>
+                <strong>Administrator access requires Google Authenticator TOTP.</strong>
+                <p>After password sign-in, administrators must enroll or verify a six-digit time-based code from Google Authenticator. Supabase Auth verifies the factor and issues an AAL2 session; the Admin RPCs and audit-log table independently require an AAL2 token with a TOTP authentication method. No SMS or email OTP is used. Supabase Auth does not currently provide app-generated recovery codes, so keep your authenticator available and do not remove your only verified factor.</p>
                 <span className="admin-roadmap-status"><ShieldCheck size={14} /> Password + Google Authenticator TOTP · enforced server-side</span>
               </div>
             </section>
+            <AdminSecurityStatus />
+            </>
           )}
           <footer className="admin-footer"><span>TACRESQ · PRIVILEGED ACCESS</span><span>Server-enforced authorization · No client-side role grants</span></footer>
         </div>
@@ -464,7 +575,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-modal__icon"><ShieldCheck size={22} /></div>
             <p className="admin-eyebrow">PRIVILEGED ACTION</p>
             <h2 id="admin-role-dialog-title">Change account role</h2>
-            <p className="admin-modal__description">You are changing access for <strong>{target.name}</strong> ({target.email}). This action will be written to the audit log.</p>
+            <p className="admin-modal__description">You are changing access for <strong>{target.name}</strong> ({target.email}). Review the role transition carefully. The database enforces authorization and records the reason in the audit log.</p>
+            <div className="admin-role-transition" aria-live="polite" aria-atomic="true"><div><span>Current role</span><strong>{displayRole(target.role)}</strong></div><span className="admin-role-transition__arrow" aria-hidden="true">→</span><div><span>New role</span><strong>{displayRole(nextRole)}</strong></div></div>
+            <p className="admin-role-warning">Changing a role changes the account’s permissions in TACResQ. Confirm the intended access level with the responsible operator before saving.</p>
             <label className="admin-form-label" htmlFor="admin-new-role">New role</label>
             <select id="admin-new-role" value={nextRole} onChange={(event) => setNextRole(event.target.value as AdminManagedRole)} disabled={saving}>
               {roleOptions.map((role) => <option key={role} value={role}>{displayRole(role)}</option>)}
@@ -475,7 +588,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-modal__actions">
               <button className="admin-modal-cancel" type="button" onClick={() => setTarget(null)} disabled={saving}>Cancel</button>
               <button className="admin-modal-confirm" type="button" onClick={() => { void confirmRoleChange(); }} disabled={saving || nextRole === target.role || reason.trim().length < 10 || reason.trim().length > 500}>
-                {saving ? <><LoaderCircle size={16} className="admin-spin" /> Saving…</> : <><ShieldCheck size={16} /> Confirm role change</>}
+                {saving ? <><LoaderCircle size={16} className="admin-spin" /> Saving…</> : <><ShieldCheck size={16} /> Confirm {displayRole(nextRole)} access</>}
               </button>
             </div>
           </section>

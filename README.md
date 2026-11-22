@@ -2,7 +2,7 @@
 
 TACResQ is a role-based emergency response coordination system for requesters, field responders, drivers, and dispatchers.
 
-The repository contains a Kotlin/Jetpack Compose Android application with a Gradle build, a Supabase-backed data contract, a TACRU dispatcher dashboard, and documented mobile response workflows.
+The repository contains a Kotlin/Jetpack Compose Android application with a Gradle build, a Supabase-backed data contract, an administrator-only web portal, and documented mobile response workflows.
 
 See [canonical product scope](docs/PRODUCT_SCOPE.md) for intended roles, safety boundaries, and verified-versus-planned functionality.
 
@@ -24,11 +24,11 @@ Set duty status, review an assigned incident, open an in-app route preview for a
 
 ### Dispatcher
 
-Review the incident queue, inspect available field units, confirm assignments, and review confirmed incident coordinates through the TACRU operations dashboard.
+Review the incident queue, inspect available field units, confirm assignments, and review confirmed incident coordinates in the TACResQ Android app.
 
 ### GPS Map
 
-Every authenticated role has a centered **GPS Map** destination in the mobile navigation shell. Selecting it hides the bottom navigation so the map fills the app viewport. The map automatically frames valid incident pins when they first become available, and **Show incident pins** lets users reframe one pin or all available pins on demand. **Locate me** requests permission only after a tap, centers on one fresh device fix, and shows a device-only marker; that preview is not uploaded or continuously tracked. The dispatcher view can also show fresh (at most two minutes old) foreground location reports from assigned en-route field units. Physical-device tile loading and GPS behavior remain unverified.
+Every authenticated role has a centered **GPS Map** destination in the mobile navigation shell. Selecting it hides the bottom navigation so the map fills the app viewport. The map automatically frames valid incident pins when they first become available, and **Show incident pins** lets users reframe one pin or all available pins on demand. **Locate me** requests permission only after a tap, centers on one fresh device fix, and shows a device-only marker; that preview is not uploaded or continuously tracked. The dispatcher role in Android can also show fresh (at most two minutes old) foreground location reports from assigned en-route field units. Physical-device tile loading and GPS behavior remain unverified.
 
 The [in-app routing foundation](docs/IN_APP_ROUTING_FOUNDATION.md) describes the authenticated Render proxy, which defaults to Geoapify's hosted Routing API and retains private self-hosted OSRM as an explicit alternative. Geoapify requires a backend-only secret. The responder's current location and assigned incident coordinates are sent to the selected provider. No automatic cross-provider failover occurs; external Maps remains a deliberate fallback. See the [routing provider selection guide](docs/ROUTING_PROVIDER_SELECTION.md) for privacy, cost, and fallback details. Routing remains disabled by default in Android builds. This is a static route preview, not turn-by-turn guidance or proof of road passability, closures, flooding, emergency-vehicle access, or current traffic. The [Render OSRM deployment runbook](docs/RENDER_OSRM_DEPLOYMENT.md) and non-applied [`render-osrm.example.yaml`](render-osrm.example.yaml) describe the optional private-service setup without changing infrastructure.
 
@@ -48,11 +48,11 @@ The [GPS map UI recommendation](docs/MOBILE_GPS_MAP_UI_RECOMMENDATION.md) explai
 | No-GPS and stale-GPS safety states | Implemented |
 | Dispatcher queue and assignment confirmation | Implemented |
 | Responder status progression | Implemented |
-| TACRU web dispatcher dashboard | Implemented |
+| Dispatcher web dashboard | Removed; dispatcher operations are handled in the Android app |
 | Centered role-aware GPS Map destination | Implemented |
 | Responder location sharing | Implemented in source as an explicit, consent-gated location foreground service for the responder's own en-route assignment; persistent notification provides a stop action; not device-validated |
 | In-app route preview | Authenticated Render proxy defaults to Geoapify and supports private OSRM as an explicit alternative for the responder/driver's own active assignment; Android disabled by default and requires a build opt-in; driving-only; no automatic provider failover; not turn-by-turn or device/route validated |
-| In-app map tiles and live fleet markers | OpenStreetMap tiles and incident pins implemented; dispatcher map can show fresh (≤2 min) consented en-route unit reports from the existing Supabase RPC. Physical-device/network behavior remains unverified |
+| In-app map tiles and live unit markers | OpenStreetMap tiles and incident pins implemented; the Android dispatcher map can show fresh (≤2 min) consented en-route unit reports from the existing Supabase RPC. Physical-device/network behavior remains unverified |
 | FCM push notifications | Client registration, trusted HTTP v1 sender, and server-only delivery ledger implemented; Render worker and physical-device delivery remain unverified |
 | Safe offline requester recovery | Encrypted local drafts plus a status-only incident snapshot (ID/type/status) with a 24-hour expiry and sign-out cleanup; cached status is read-only until a server refresh; automatic background SOS submission is intentionally not implemented; DataStore/Keystore restart behavior remains device-unverified |
 
@@ -129,9 +129,9 @@ The documented fake accounts use password `demo123`:
 
 Do not use fake accounts, real personal data, or real emergency data in public screenshots or deployed environments.
 
-## TACRU dispatcher dashboard
+## TACResQ Admin portal
 
-The responsive dispatcher console is bundled into the Laravel backend from [`backend/web/`](backend/web/README.md) and served at `/dispatch/`. It uses Supabase Auth and role-checked RPC calls. The dashboard supports queue filters, field-unit availability, confirmed-coordinate review, and explicit assignment confirmation.
+The web frontend in [`backend/web/`](backend/web/README.md) is an administrator-only portal for protected account management, security controls, analytics, and audit review. Dispatcher accounts are explicitly denied web dispatch access and are directed to the TACResQ Android app. Laravel remains in the architecture for backend APIs, optional routing, runtime configuration, and the separately authenticated FCM dispatch endpoint; it is not a dispatcher web console.
 
 ## Validation
 
