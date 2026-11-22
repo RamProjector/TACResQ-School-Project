@@ -339,3 +339,16 @@ Official references checked 22 November 2026:
 - Supabase, User sessions: https://supabase.com/docs/guides/auth/sessions
 - Supabase, JWT Claims Reference: https://supabase.com/docs/guides/auth/jwt-fields
 - Supabase, Row Level Security and `auth.jwt()`: https://supabase.com/docs/guides/database/postgres/row-level-security
+
+
+## 17. Live Supabase project inspection: existing Edge Function
+
+A read-only inspection of the connected Supabase project `TACResQ-School-Project` (project ref `kttguamhznoflzagfutr`, region `ap-southeast-1`) on 22 November 2026 corrected the earlier repository-only assessment:
+
+- The live project is `ACTIVE_HEALTHY` and has one active Edge Function: `tacresq-notify`, version 2, with `verify_jwt = true`.
+- The function source is not present in this Git branch, and the repository still has no `supabase/config.toml` or checked-in Edge Function directory. The project therefore has a deployed function precedent, but not a version-controlled local function workflow.
+- The deployed notification function uses `admin.auth.getUser(userToken)` to validate the caller, then uses a service-role Supabase client for profile/incident/FCM queries. This is a notification-specific privileged workflow. It does not implement device challenge issuance, P-256 signature verification, challenge replay protection, or session-to-device binding.
+- Important for the future verifier: validating a bearer token with `auth.getUser()` through an admin client does not by itself establish that a subsequent service-role database query runs with the caller's `auth.uid()` and `auth.jwt()` context. A verifier must deliberately preserve the original user JWT on the database operation or use a narrowly scoped, independently verified server-side transaction design. Do not assume the notification function's service-role query pattern is sufficient for session-bound proof.
+- The live migration history includes `device_security_registry_foundation`, `bound_device_registry_metadata`, and `require_totp_for_admin_rpcs`. This confirms those migrations are recorded in the connected project; it does not prove that device-verifier behavior exists. The device registry remains backend-only and currently has no client-facing verifier flow.
+
+**Correction:** earlier notes saying there was no existing Edge Function convention were too broad. There is one deployed notification function, but no checked-in function source or device-verification implementation. Future work must first bring the deployed function source under repository version control through a reviewed, non-destructive reconciliation; do not overwrite or redeploy it as part of device-proof work.
