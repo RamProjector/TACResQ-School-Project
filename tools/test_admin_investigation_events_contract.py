@@ -49,6 +49,8 @@ for marker in (
     "octet_length(metadata::text) <= 1024",
     "REVOKE ALL PRIVILEGES ON TABLE public.app_action_audit_logs",
     "private.tacresq_record_app_action_audit()",
+    "tacresq_app_action_audit_immutable",
+    "BEFORE UPDATE OR DELETE ON public.app_action_audit_logs",
     "AFTER INSERT ON public.incident_messages",
     "AFTER UPDATE OF read_at ON public.user_notifications",
     "AFTER UPDATE OF duty_status ON public.profiles",
