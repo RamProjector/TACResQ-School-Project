@@ -35,6 +35,14 @@ CREATE INDEX incident_chat_upload_reservations_recent_profile_idx
   ON private.incident_chat_upload_reservations (profile_id, created_at DESC)
   WHERE consumed_at IS NULL;
 
+ALTER TABLE private.incident_chat_upload_policy ENABLE ROW LEVEL SECURITY;
+ALTER TABLE private.incident_chat_upload_reservations ENABLE ROW LEVEL SECURITY;
+
+COMMENT ON TABLE private.incident_chat_upload_policy IS
+  'Private operational defaults for incident-chat upload reservation leases and pre-upload rate limits.';
+COMMENT ON TABLE private.incident_chat_upload_reservations IS
+  'Private one-operation authorization ledger for incident-chat Storage uploads; not exposed to client roles.';
+
 REVOKE ALL ON TABLE private.incident_chat_upload_policy
   FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE private.incident_chat_upload_reservations
