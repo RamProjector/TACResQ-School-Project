@@ -899,8 +899,8 @@ BEGIN
     '{"aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
     true
   );
-  -- Function EXECUTE revocation is asserted above via has_function_privilege.
-  -- The dedicated SET ROLE authenticated test below verifies runtime denial.
+  -- Function EXECUTE grants are asserted above. Direct audit-table RLS is
+  -- exercised under the authenticated role after this authorization block.
 
   changed := public.api_admin_list_users_page(25, 0, '', 'all');
   IF jsonb_typeof(changed) IS DISTINCT FROM 'object'
@@ -1037,6 +1037,51 @@ BEGIN
   END IF;
 END;
 $admin_authorization_test$;
+
+-- Exercise the restrictive audit-log MFA policy as an actual authenticated
+-- database role. Superuser-owned DO blocks bypass RLS and cannot prove this.
+SET ROLE authenticated;
+DO $admin_audit_rls_mfa_test$
+DECLARE
+  visible_count integer;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
+
+  -- A password-only AAL1 session must not see audit rows, even for an Admin.
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal1","amr":[{"method":"password","timestamp":10}]}',
+    true
+  );
+  SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
+  IF visible_count <> 0 THEN
+    RAISE EXCEPTION 'Admin audit rows were visible to an AAL1 session';
+  END IF;
+
+  -- AAL2 without a TOTP method must also be denied.
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal2","amr":[{"method":"password","timestamp":11}]}',
+    true
+  );
+  SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
+  IF visible_count <> 0 THEN
+    RAISE EXCEPTION 'Admin audit rows were visible without TOTP in the AAL2 session';
+  END IF;
+
+  -- The verified TOTP session must retain the intended Admin read access.
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal2","amr":[{"method":"password","timestamp":12},{"method":"totp","timestamp":13}]}',
+    true
+  );
+  SELECT count(*) INTO visible_count FROM public.admin_audit_logs;
+  IF visible_count < 1 THEN
+    RAISE EXCEPTION 'A verified Admin TOTP session could not read its audit history';
+  END IF;
+END;
+$admin_audit_rls_mfa_test$;
+RESET ROLE;
 
 -- Every ordinary operational role must be denied by the database authorization
 -- boundary, even though each role can execute the authenticated RPC entrypoint.
