@@ -68,6 +68,8 @@ api = read("app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 for required in (
     'storage/v1/object/{bucket}/{path}',
     'api_send_incident_image_message',
+    'api_reserve_incident_image_upload',
+    'rpc.reserveIncidentImageUpload',
     'x-upsert: false',
     'failure.code() != 409',
     'downloadIncidentImage(path: String)',
