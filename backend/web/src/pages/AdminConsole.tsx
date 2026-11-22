@@ -270,7 +270,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         <div className="admin-sidebar__label">ADMINISTRATION</div>
         <nav className="admin-navigation" aria-label="Admin sections">
           {adminSections.map(({ id, label, icon: Icon }) => (
-            <button key={id} type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => { setActiveSection(id); const url = new URL(window.location.href); url.searchParams.set("adminPage", id === "audit" ? "audit-logs" : id); window.history.pushState({}, "", url); }}>
+            <button key={id} type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => { setActiveSection(id); const url = new URL(window.location.href); const route = id === "audit" ? "audit-logs" : id; if (url.searchParams.get("adminPage") !== route) { url.searchParams.set("adminPage", route); window.history.pushState({}, "", url.toString()); } }}>
               <Icon size={17} aria-hidden="true" /><span>{label}</span>
             </button>
           ))}
