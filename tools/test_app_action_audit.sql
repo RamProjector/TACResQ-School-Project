@@ -183,14 +183,24 @@ BEGIN
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
         WHERE value->>'event_type' = 'incident_message_sent'
           AND value->>'summary' = 'Incident chat message sent'
+          AND value->'details'->>'actor_role' = 'requester'
+          AND value->'details'->>'target_type' = 'incident_message'
+          AND value->'details'->>'target_id' IS NOT NULL
+          AND value->'details'->>'outcome' = 'success'
+          AND value->'details'->>'correlation_id' IS NOT NULL
      )
      OR NOT EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
         WHERE value->>'event_type' = 'notification_marked_read'
+          AND value->'details'->>'target_type' = 'notification'
+          AND value->'details'->>'target_id' = notification_id::text
+          AND value->'details'->>'actor_role' = 'requester'
      )
      OR NOT EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
         WHERE value->>'event_type' = 'duty_status_changed'
+          AND value->'details'->>'actor_role' = 'responder'
+          AND value->'details'->'metadata'->>'new_status' = 'available'
      ) THEN
     RAISE EXCEPTION 'Admin investigation feed did not return the expected app-action events: %', feed;
   END IF;
