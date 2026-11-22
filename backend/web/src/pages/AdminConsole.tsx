@@ -126,6 +126,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [analyticsDays, setAnalyticsDays] = useState<7 | 30 | 90>(30);
+  const [analyticsRefreshVersion, setAnalyticsRefreshVersion] = useState(0);
   const [page, setPage] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [directoryLoadedAt, setDirectoryLoadedAt] = useState<string | null>(null);
@@ -274,7 +275,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       })
       .finally(() => { if (active) setAnalyticsLoading(false); });
     return () => { active = false; };
-  }, [activeSection, analyticsDays]);
+  }, [activeSection, analyticsDays, analyticsRefreshVersion]);
 
   // Admin privileges can be revoked outside this browser session. Revalidate
   // when the console is visible and periodically while it remains open; a
@@ -504,7 +505,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <section className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title" aria-live="polite">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div>
-                <label className="admin-analytics-range"><span>Period</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
+                <div className="admin-analytics-controls">
+                  <label className="admin-analytics-range"><span>Period</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
+                  <button className="admin-refresh" type="button" onClick={() => setAnalyticsRefreshVersion((version) => version + 1)} disabled={analyticsLoading}><RefreshCw size={15} className={analyticsLoading ? "admin-spin" : ""} /> Refresh report</button>
+                </div>
               </div>
               {analyticsLoading ? (
                 <div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading verified incident aggregates…</div>
