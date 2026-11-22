@@ -123,6 +123,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [analyticsDays, setAnalyticsDays] = useState<7 | 30 | 90>(30);
   const [page, setPage] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
+  const [directoryLoadedAt, setDirectoryLoadedAt] = useState<string | null>(null);
   const pageSize = 25;
   const [target, setTarget] = useState<AdminUser | null>(null);
   const [nextRole, setNextRole] = useState<AdminManagedRole>("requester");
@@ -216,11 +217,13 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       }
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
+      setDirectoryLoadedAt(new Date().toISOString());
     } catch (cause) {
       if (requestId !== requestVersion.current) return;
       // Never keep privileged data visible after an authorization or connection failure.
       setUsers([]);
       setTotalUsers(0);
+      setDirectoryLoadedAt(null);
       // Dependency health is fetched independently and may still be valid
       // even when the account-directory RPC fails.
       setError(cause instanceof Error ? cause.message : "The Admin service could not load its data.");
@@ -389,12 +392,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <article><span>FIELD UNITS · CURRENT PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responders and drivers on this page only</small></article>
             <article><span>AUDIT HISTORY</span><strong>Separate</strong><small>Dedicated searchable audit history</small></article>
           </section>
-          <p className="admin-panel__footnote" hidden={activeSection !== "overview"}>Counts follow the current directory search and role filters. Requester and field-unit breakdowns describe only the currently loaded page of up to 25 profiles; they are not system-wide role totals.</p>
+          <p className="admin-panel__footnote" hidden={activeSection !== "overview"}>Counts follow the current directory search and role filters. Requester and field-unit breakdowns describe only the currently loaded page of up to 25 profiles; they are not system-wide role totals. Directory page retrieved: {directoryLoadedAt ? formatManilaDateTime(directoryLoadedAt) : "not yet retrieved"} (Asia/Manila). This is the retrieval time, not each profile’s last-updated time.</p>
 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">SERVICE REACHABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency reachability</h2></div>
-              <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatDate(dependencyHealth.checked_at) : "No verified result"}</span>
+              <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatManilaDateTime(dependencyHealth.checked_at) : "No verified result"}</span>
             </div>
             {dependencyHealthError ? (
               <div className="admin-health-unavailable" role="status">{dependencyHealthError}</div>
