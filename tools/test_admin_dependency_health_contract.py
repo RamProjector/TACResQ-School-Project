@@ -40,6 +40,8 @@ assert "Laravel backend" in console
 assert "Dependency health" in console
 assert 'role="status" aria-label={label + " status: " + result.status}' in console
 assert "do not verify incident workflows" in console
-assert "getAdminDependencyHealth()" in console
+assert "void getAdminDependencyHealth()" in console
+assert "five-second limit" in console
+assert 'status: controller.signal.aborted ? "slow" : "unavailable"' in client
 
 print("PASS: admin dependency health is role-gated, bounded, data-free, and uses no privileged key.")
