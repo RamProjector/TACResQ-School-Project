@@ -212,6 +212,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     try {
       const userPage = await getAdminUsersPage(pageSize, page * pageSize, debouncedQuery, roleFilter);
       if (requestId !== requestVersion.current) return;
+      // Record every successful directory response, including a response that
+      // requires moving pagination back after the account count shrinks.
+      setDirectoryLoadedAt(new Date().toISOString());
       // The underlying account set can shrink while an administrator is on a
       // later page (for example, after another admin changes/removes records).
       // Move to the last valid page instead of presenting a false empty result.
@@ -223,7 +226,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       }
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
-      setDirectoryLoadedAt(new Date().toISOString());
     } catch (cause) {
       if (requestId !== requestVersion.current) return;
       // Never keep privileged data visible after an authorization or connection failure.
@@ -467,7 +469,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <label className="admin-role-filter"><span>Role</span><select value={roleFilter} onChange={(event) => { setPage(0); setRoleFilter(event.target.value as RoleFilter); }} aria-label="Filter users by role"><option value="all">All roles</option><option value="requester">Requester</option><option value="responder">Responder</option><option value="driver">Driver</option><option value="dispatcher">Dispatcher</option><option value="admin">Admin</option></select></label>
               {hasDirectoryFilters && <button className="admin-filter-reset" type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setRoleFilter("all"); setPage(0); }} disabled={refreshing}>Clear filters</button>}
             </div>
-            <p className="admin-directory-status" role="status" aria-live="polite">{directoryFilterPending ? "Applying search…" : refreshing ? "Updating account results…" : directoryError ? "Account results could not be retrieved. Use Refresh data to try again." : hasDirectoryFilters ? "Showing " + totalUsers.toLocaleString() + " matching accounts. Search and role filters are applied on the server." : "Showing all accounts. Search and role filters are applied on the server."}</p>
+            <p className="admin-directory-status" role="status" aria-live="polite">{directoryFilterPending ? "Applying search…" : refreshing ? "Updating account results…" : directoryError ? "Account results could not be retrieved. Use Refresh data to try again." : hasDirectoryFilters ? "Showing " + totalUsers.toLocaleString() + " matching accounts. Search and role filters are applied on the server." : "Showing all accounts. Search and role filters are applied on the server."}{directoryLoadedAt && !directoryError ? " Last successful retrieval: " + formatManilaDateTime(directoryLoadedAt) + " (Asia/Manila)." : ""}</p>
             <div className="admin-table-wrap" role="region" aria-label="Account results; horizontally scrollable" tabIndex={0} aria-busy={refreshing || directoryFilterPending}>
               <table className="admin-table" aria-label="Administrator account directory">
                 <caption className="admin-table-caption">Account details and available role-management actions for the current directory page.</caption>
