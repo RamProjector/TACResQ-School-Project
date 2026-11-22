@@ -121,6 +121,7 @@ audit_wrapper = re.search(
 )
 assert audit_wrapper, "Missing dedicated paginated audit RPC"
 for requirement in (
+    "create index if not exists admin_audit_logs_actor_created_idx",
     "perform private.tacresq_require_admin_mfa()",
     "limit p_limit offset p_offset",
     "strpos(lower(coalesce(a.reason, '')), v_query)",
