@@ -95,8 +95,8 @@ image_send_method = api[method_start:method_end]
 reserve_call = image_send_method.index("rpc.reserveIncidentImageUpload(")
 upload_call = image_send_method.find("storage.upload(")
 finalize_call = image_send_method.index("rpc.sendIncidentImageMessage(")
-assert reserve_call < finalize_call, "Image send must reserve before finalization"
-assert upload_call == -1 or reserve_call < upload_call < finalize_call, "Any image upload must follow reservation and precede finalization"
+assert reserve_call < upload_call < finalize_call, "Image send must reserve, upload, then finalize"
+assert upload_call >= 0, "Unconsumed reservations must retain the Storage upload path"
 assert "if (!reservation.consumed)" in image_send_method, "Consumed reservations must skip duplicate Storage uploads"
 
 screen = read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
