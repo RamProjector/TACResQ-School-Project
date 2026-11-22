@@ -63,19 +63,7 @@ ALTER FUNCTION public.api_admin_analytics_summary(timestamptz, timestamptz)
 REVOKE ALL ON FUNCTION public.api_admin_analytics_summary_internal(timestamptz, timestamptz)
   FROM PUBLIC, anon, authenticated;
 
-CREATE OR REPLACE FUNCTION public.api_admin_list_users()
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = pg_catalog
-AS $function$
-BEGIN
-  PERFORM private.tacresq_require_admin_mfa();
-  RETURN public.api_admin_list_users_internal();
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.api_admin_list_users_page(
+-- Keep the legacy unbounded user-list RPC revoked; the console uses bounded pagination.\n\nCREATE OR REPLACE FUNCTION public.api_admin_list_users_page(
   p_limit integer DEFAULT 25,
   p_offset integer DEFAULT 0,
   p_query text DEFAULT '',
@@ -134,9 +122,6 @@ BEGIN
   RETURN public.api_admin_analytics_summary_internal(p_from, p_to);
 END;
 $function$;
-
-REVOKE ALL ON FUNCTION public.api_admin_list_users() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.api_admin_list_users() TO authenticated;
 
 REVOKE ALL ON FUNCTION public.api_admin_list_users_page(integer, integer, text, text)
   FROM PUBLIC, anon;
