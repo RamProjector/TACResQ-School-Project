@@ -29,3 +29,6 @@ assert "prefers-reduced-motion: reduce" in styles
 for forbidden in ("assignIncident(", "getAllIncidents(", "getFieldUnits(", "DispatcherBoard"):
     assert forbidden not in home + admin
 print("TACResQ website visual foundation contract passed.")
+
+# Account creation timestamps must use the same explicit Manila timezone as portal activity timestamps.
+assert 'new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila"' in admin
