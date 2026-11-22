@@ -1,6 +1,7 @@
 package com.tacresq.app.ui.common
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -33,6 +35,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
@@ -176,20 +179,69 @@ fun MapLoadStatusOverlay(isLoading: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
+private data class IncidentStatusPalette(
+    val container: Color,
+    val content: Color,
+)
+
+private fun IncidentStatus.statusPalette(isDark: Boolean): IncidentStatusPalette = when (this) {
+    IncidentStatus.PENDING -> if (isDark) {
+        IncidentStatusPalette(Color(0xFF5B3A13), Color(0xFFFFE2B7))
+    } else {
+        IncidentStatusPalette(Color(0xFFFFF2DE), Color(0xFF6A3B00))
+    }
+    IncidentStatus.ASSIGNED -> if (isDark) {
+        IncidentStatusPalette(Color(0xFF173D57), Color(0xFFC2E3FA))
+    } else {
+        IncidentStatusPalette(Color(0xFFE3EEF8), Color(0xFF214F73))
+    }
+    IncidentStatus.EN_ROUTE -> if (isDark) {
+        IncidentStatusPalette(Color(0xFF174B47), Color(0xFFB7E8E0))
+    } else {
+        IncidentStatusPalette(Color(0xFFDDF2EF), Color(0xFF145D58))
+    }
+    IncidentStatus.ON_SCENE -> if (isDark) {
+        IncidentStatusPalette(Color(0xFF422C59), Color(0xFFE2CFF4))
+    } else {
+        IncidentStatusPalette(Color(0xFFEFE7F7), Color(0xFF5C3A7B))
+    }
+    IncidentStatus.TRANSPORTING -> if (isDark) {
+        IncidentStatusPalette(Color(0xFF1D4B3A), Color(0xFFC1E8D1))
+    } else {
+        IncidentStatusPalette(Color(0xFFE3F1E9), Color(0xFF215B45))
+    }
+    IncidentStatus.RESOLVED -> if (isDark) {
+        IncidentStatusPalette(Color(0xFF244B2A), Color(0xFFC9E7C9))
+    } else {
+        IncidentStatusPalette(Color(0xFFE7F2E7), Color(0xFF2C5F35))
+    }
+    IncidentStatus.CANCELLED -> if (isDark) {
+        IncidentStatusPalette(Color(0xFF37434B), Color(0xFFD0D9DE))
+    } else {
+        IncidentStatusPalette(Color(0xFFE9ECEE), Color(0xFF4F5B63))
+    }
+}
+
+@Composable
+private fun IncidentStatus.statusPalette(): IncidentStatusPalette =
+    statusPalette(isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f)
+
 @Composable
 fun StatusPill(status: IncidentStatus) {
-    val colors = MaterialTheme.colorScheme
-    val (container, content) = when (status) {
-        IncidentStatus.PENDING -> colors.tertiaryContainer to colors.onTertiaryContainer
-        IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE -> colors.primaryContainer to colors.onPrimaryContainer
-        IncidentStatus.ON_SCENE, IncidentStatus.TRANSPORTING, IncidentStatus.RESOLVED ->
-            colors.secondaryContainer to colors.onSecondaryContainer
-        IncidentStatus.CANCELLED -> colors.surfaceVariant to colors.onSurfaceVariant
-    }
-    Surface(color = container, contentColor = content, shape = RoundedCornerShape(50)) {
+    StatusPill(status.label, status)
+}
+
+@Composable
+fun StatusPill(text: String, status: IncidentStatus) {
+    val palette = status.statusPalette()
+    Surface(
+        color = palette.container,
+        contentColor = palette.content,
+        shape = RoundedCornerShape(50),
+    ) {
         Text(
-            status.label,
-            color = content,
+            text,
+            color = palette.content,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
         )
@@ -198,25 +250,31 @@ fun StatusPill(status: IncidentStatus) {
 
 @Composable
 fun StatusPill(text: String, color: Color) {
-    Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {
-        Text(
-            text,
-            color = color,
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
-        )
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(50),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(Modifier.size(6.dp).background(color, CircleShape))
+            Text(
+                text,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
     }
 }
 
-fun IncidentStatus.pillColor(): Color = when (this) {
-    IncidentStatus.PENDING -> Color(0xFFB26A00)
-    IncidentStatus.ASSIGNED -> Color(0xFF1565C0)
-    IncidentStatus.EN_ROUTE -> Color(0xFF3949AB)
-    IncidentStatus.ON_SCENE -> Color(0xFF6A1B9A)
-    IncidentStatus.TRANSPORTING -> Color(0xFF00796B)
-    IncidentStatus.RESOLVED -> Color(0xFF2E7D32)
-    IncidentStatus.CANCELLED -> Color(0xFF616161)
-}
+@Composable
+fun IncidentStatus.pillColor(): Color = statusPalette().content
+
+@Composable
+fun IncidentStatus.pillContainerColor(): Color = statusPalette().container
 
 /** Button text for moving an incident to this status. */
 fun IncidentStatus.actionLabel(): String = when (this) {
@@ -265,7 +323,7 @@ fun IncidentCard(
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
                 if (statusLabel == null) StatusPill(incident.status)
-                else StatusPill(statusLabel, incident.status.pillColor())
+                else StatusPill(statusLabel, incident.status)
             }
             val time = formatTime(incident.createdAt)
             if (time.isNotEmpty()) {
@@ -391,12 +449,12 @@ fun IncidentHistoryDetail(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                StatusPill(incident.status.label, incident.status.pillColor())
+                StatusPill(incident.status.label, incident.status)
             }
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.medium,
-                color = incident.status.pillColor().copy(alpha = 0.10f),
+                color = incident.status.pillContainerColor(),
                 contentColor = incident.status.pillColor(),
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
