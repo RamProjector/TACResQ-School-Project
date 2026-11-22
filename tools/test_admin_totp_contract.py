@@ -199,7 +199,7 @@ assert "grant execute on function public.api_admin_list_users()" not in migratio
 )
 # Sign-in must not silently unenroll pending TOTP factors created on another device.
 prepare_body = re.search(
-    r"async function prepareAdminMfa[(][)](.*?)(?=\\nexport default function AdminMfaGate)",
+    r"async function prepareAdminMfa[(][)](.*?)(?=\nexport default function AdminMfaGate)",
     gate,
     flags=re.DOTALL,
 )
