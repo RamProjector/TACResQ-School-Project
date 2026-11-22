@@ -49,6 +49,10 @@ function formatDetailLabel(value: string) {
 function formatDetailValue(value: unknown) {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) {
+    const labels = value.filter((item): item is string => typeof item === "string");
+    return labels.length ? labels.map(formatDetailLabel).join(", ") : "None";
+  }
   return "Not available";
 }
 
