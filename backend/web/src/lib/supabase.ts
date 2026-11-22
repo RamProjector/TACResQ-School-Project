@@ -195,9 +195,35 @@ export async function getAdminAnalyticsSummary(from: string, to: string): Promis
   if (!data || typeof data !== "object") throw new Error("The analytics service returned an invalid summary.");
   const summary = data as unknown as AdminAnalyticsSummary;
   const counts = [summary.total_requests, summary.pending, summary.active, summary.resolved, summary.cancelled, summary.assigned_request_count];
+  const validTimestamp = (value: unknown) => typeof value === "string" && Number.isFinite(Date.parse(value));
+  const validDuration = (value: unknown) => value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0);
+  const validDailyPoints = Array.isArray(summary.daily_requests)
+    && summary.daily_requests.every((point) =>
+      point !== null
+      && typeof point === "object"
+      && typeof point.day === "string"
+      && /^\\d{4}-\\d{2}-\\d{2}$/.test(point.day)
+      && Number.isFinite(Date.parse(point.day + "T00:00:00Z"))
+      && new Date(point.day + "T00:00:00Z").toISOString().slice(0, 10) === point.day
+      && Number.isSafeInteger(point.requests)
+      && point.requests >= 0
+    );
+  const dailyTotal = validDailyPoints
+    ? summary.daily_requests.reduce((total, point) => total + point.requests, 0)
+    : -1;
   if (!counts.every((value) => Number.isSafeInteger(value) && value >= 0)
-      || !Array.isArray(summary.daily_requests)
-      || !summary.daily_requests.every((point) => typeof point.day === "string" && Number.isSafeInteger(point.requests) && point.requests >= 0)) {
+      || !validTimestamp(summary.period_start)
+      || !validTimestamp(summary.period_end)
+      || Date.parse(summary.period_end) <= Date.parse(summary.period_start)
+      || summary.reporting_timezone !== "Asia/Manila"
+      || !validDuration(summary.average_assignment_minutes)
+      || !validDuration(summary.median_assignment_minutes)
+      || summary.assigned_request_count > summary.total_requests
+      || (summary.assigned_request_count === 0 && (summary.average_assignment_minutes !== null || summary.median_assignment_minutes !== null))
+      || (summary.assigned_request_count > 0 && (summary.average_assignment_minutes === null || summary.median_assignment_minutes === null))
+      || summary.pending + summary.active + summary.resolved + summary.cancelled > summary.total_requests
+      || !validDailyPoints
+      || dailyTotal !== summary.total_requests) {
     throw new Error("The analytics service returned invalid aggregate values.");
   }
   return summary;
