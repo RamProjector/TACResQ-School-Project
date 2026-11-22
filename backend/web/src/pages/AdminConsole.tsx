@@ -329,6 +329,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setError(null);
     setNotice(null);
     try {
+      // Re-read this exact account immediately before mutation. The dialog may
+      // have remained open while another administrator changed the account.
+      const latestPage = await getAdminUsersPage(1, 0, String(target.id), "all");
+      const latestTarget = latestPage.users.find((user) => user.id === target.id);
+      if (!latestTarget || latestTarget.role !== target.role) {
+        setTarget(null);
+        await refresh();
+        setError(!latestTarget
+          ? "This account is no longer available in the directory. Refresh the results and review the account before trying again."
+          : "This account's role changed while the confirmation dialog was open. The requested change was not submitted. Review the refreshed account before trying again.");
+        return;
+      }
       const changed = await setAdminUserRole(target.id, nextRole, reason.trim());
       setNotice(changed.name + "'s role changed from " + displayRole(changed.old_role) + " to " + displayRole(changed.role) + ". The action was recorded in the audit log.");
       setTarget(null);
