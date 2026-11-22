@@ -47,7 +47,7 @@ function startOfNextDay(value: string) {
   return date.toISOString().slice(0, 10) + "T00:00:00+08:00";
 }
 
-function formatEventType(value: string) {
+function sourceDisplay(value: string) {\n  return sourceLabels[value as Exclude<AdminInvestigationSource, "all">] || formatDetailLabel(value);\n}\n\nfunction formatEventType(value: string) {
   return value.replaceAll("_", " ");
 }
 
@@ -253,7 +253,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
               <Fragment key={event.event_id}>
                 <tr>
                   <td className="admin-date">{formatDate(event.occurred_at)}</td>
-                  <td><span className="audit-page__category">{categoryLabels[event.category]}</span></td>
+                  <td><span className="audit-page__category">{categoryLabels[event.category]}</span><small className="audit-page__subtext">{sourceDisplay(event.source)}</small></td>
                   <td><strong>{actorDisplay(event, profile)}</strong><small className="audit-page__subtext">{event.actor_user_id === null ? "No linked profile" : "Profile #" + event.actor_user_id}</small></td>
                   <td>
                     <strong>{event.target_label || (event.incident_id !== null ? "Incident #" + event.incident_id : "—")}</strong>
@@ -268,7 +268,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                       <strong>Event details</strong>
                       <p>{event.summary}</p>
                       <dl>
-                        <div><dt>Source</dt><dd>{event.source}</dd></div>
+                        <div><dt>Event source</dt><dd>{sourceDisplay(event.source)}</dd></div>\n                        <div><dt>Source identifier</dt><dd><code>{event.source}</code></dd></div>
                         <div><dt>Event ID</dt><dd className="audit-page__event-id"><code>{event.event_id}</code><button type="button" onClick={() => void copyEventId(event.event_id)} aria-label={copiedEventId === event.event_id ? "Event ID copied" : "Copy event ID"} title={copiedEventId === event.event_id ? "Copied" : "Copy event ID"}>{copiedEventId === event.event_id ? <Check size={12} /> : <Copy size={12} />}{copiedEventId === event.event_id ? "Copied" : "Copy ID"}</button></dd></div>
                         <div><dt>Actor</dt><dd>{event.actor_label || "Unknown actor"}{event.actor_user_id === null ? "" : " · Profile #" + event.actor_user_id}</dd></div>
                         <div><dt>Target</dt><dd>{event.target_label || (event.target_user_id === null ? "Not applicable" : "Profile #" + event.target_user_id)}</dd></div>
