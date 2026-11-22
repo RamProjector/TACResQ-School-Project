@@ -121,12 +121,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
 
-  // Keep the selected section in sync with browser Back/Forward navigation.
-  useEffect(() => {
-    const syncSectionFromUrl = () => setActiveSection(resolveAdminSection(window.location.search));
-    window.addEventListener("popstate", syncSectionFromUrl);
-    return () => window.removeEventListener("popstate", syncSectionFromUrl);
-  }, []);
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
@@ -246,11 +240,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }, [activeSection, page, debouncedQuery, roleFilter]);
 
   useEffect(() => {
-    const syncSection = () => {
-      const route = new URLSearchParams(window.location.search).get("adminPage") ?? "overview";
-      const next: AdminSection = route === "audit-logs" ? "audit" : (["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview");
-      setActiveSection(next);
-    };
+    const syncSection = () => setActiveSection(resolveAdminSection(window.location.search));
     syncSection();
     window.addEventListener("popstate", syncSection);
     return () => window.removeEventListener("popstate", syncSection);
