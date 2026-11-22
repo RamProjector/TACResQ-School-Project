@@ -197,6 +197,17 @@ assert "method ->> 'method'" in policy and "method #>> '{}'" in policy
 assert "grant execute on function public.api_admin_list_users()" not in migration, (
     "The legacy unbounded Admin user-list RPC must remain revoked."
 )
+# Sign-in must not silently unenroll pending TOTP factors created on another device.
+prepare_body = re.search(
+    r"async function prepareAdminMfa[(][)](.*?)(?=\\nexport default function AdminMfaGate)",
+    gate,
+    flags=re.DOTALL,
+)
+assert prepare_body, "Missing Admin MFA preparation flow"
+assert "auth.mfa.unenroll(" not in prepare_body.group(1), (
+    "Admin sign-in must not delete pending factors from another active enrollment."
+)
+
 assert "service_role" not in gate.lower(), "The browser must not use a service-role key."
 # Role changes must serialize concurrent updates and preserve the audit trail.
 role_migration = (
