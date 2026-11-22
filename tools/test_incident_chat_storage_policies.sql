@@ -68,6 +68,7 @@ DECLARE
   unrelated_path text;
   response jsonb;
   reservation jsonb;
+  reservation_retry jsonb;
   unreserved_path text;
   visible_count integer;
   denied boolean;
@@ -89,6 +90,16 @@ BEGIN
     RAISE EXCEPTION 'Reservation RPC returned unexpected authorization: %', reservation;
   END IF;
 
+  reservation_retry := public.api_reserve_incident_image_upload(
+    incident_id,
+    'image/jpeg',
+    4,
+    '00000000-0000-4000-8000-000000000204'::uuid
+  );
+  IF reservation_retry->>'reservation_id' <> reservation->>'reservation_id' THEN
+    RAISE EXCEPTION 'Retrying a reservation must return the same operation identity';
+  END IF;
+
   INSERT INTO storage.objects (bucket_id, name, metadata)
   VALUES (
     'incident-chat-attachments',
@@ -108,6 +119,16 @@ BEGIN
      OR response->>'attachment_mime_type' <> 'image/jpeg'
      OR response->>'attachment_size_bytes' <> '4' THEN
     RAISE EXCEPTION 'Image-message RPC returned unexpected attachment metadata: %', response;
+  END IF;
+
+  reservation_retry := public.api_reserve_incident_image_upload(
+    incident_id,
+    'image/jpeg',
+    4,
+    '00000000-0000-4000-8000-000000000204'::uuid
+  );
+  IF reservation_retry->>'consumed' <> 'true' THEN
+    RAISE EXCEPTION 'Finalized image reservation must remain idempotently consumed';
   END IF;
 
   -- A second object path cannot be inserted without its own reservation.
@@ -216,4 +237,43 @@ $image_chat_storage_authorization$;
 
 RESET ROLE;
 
-SELECT 'PASS: private incident image storage permits requester/responder participants and denies unrelated users.' AS result;
+-- An object uploaded while its reservation is valid may be finalized after
+-- the lease expires; expiry blocks new uploads, not delayed message finalization.
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000161', false);
+SET ROLE authenticated;
+SELECT public.api_reserve_incident_image_upload(
+  current_setting('test.incident_id')::bigint,
+  'image/jpeg',
+  4,
+  '00000000-0000-4000-8000-000000000208'::uuid
+);
+INSERT INTO storage.objects (bucket_id, name, metadata)
+VALUES (
+  'incident-chat-attachments',
+  format(
+    '%s/%s/00000000-0000-4000-8000-000000000208.jpg',
+    current_setting('test.incident_id')::bigint,
+    private.tacresq_auth_profile_id()
+  ),
+  '{"mimetype":"image/jpeg","size":"4"}'::jsonb
+);
+RESET ROLE;
+UPDATE private.incident_chat_upload_reservations
+   SET expires_at = now() - interval '1 second'
+ WHERE client_message_id = '00000000-0000-4000-8000-000000000208'::uuid;
+SET ROLE authenticated;
+SELECT public.api_send_incident_image_message(
+  current_setting('test.incident_id')::bigint,
+  'Delayed finalization',
+  format(
+    '%s/%s/00000000-0000-4000-8000-000000000208.jpg',
+    current_setting('test.incident_id')::bigint,
+    private.tacresq_auth_profile_id()
+  ),
+  'image/jpeg',
+  4,
+  '00000000-0000-4000-8000-000000000208'::uuid
+);
+RESET ROLE;
+
+SELECT 'PASS: private incident image storage permits authorized uploads, requires reservations, and supports delayed finalization.' AS result;
