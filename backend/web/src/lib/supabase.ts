@@ -230,9 +230,30 @@ export async function getAdminUsersPage(limit: number, offset: number, query: st
 }
 export async function setAdminUserRole(userId: number, role: AdminManagedRole, reason: string): Promise<AdminRoleChangeResult> {
   const { data, error } = await getSupabase().rpc("api_admin_set_user_role", { p_user_id: userId, p_role: role, p_reason: reason });
-  throwAdminError(error);
-  if (!data) throw new Error("The role change returned no confirmation.");
-  return data as unknown as AdminRoleChangeResult;
+  if (error) {
+    if (error.code === "42501" || error.code === "22023" || error.code === "P0002") {
+      throwAdminError(error);
+    }
+    throw new Error("The role change outcome could not be confirmed. The database may have applied the change before the connection was interrupted. Refresh the account directory and audit history before attempting it again.");
+  }
+  if (!data || typeof data !== "object") {
+    throw new Error("The role change outcome could not be confirmed. Refresh the account directory and audit history before attempting it again.");
+  }
+  const result = data as unknown as AdminRoleChangeResult;
+  const validRoles = new Set<AdminManagedRole>(["requester", "responder", "driver", "dispatcher"]);
+  const expectedDutyStatus: DutyStatus | null = role === "responder" || role === "driver" ? "off_duty" : null;
+  if (
+    !Number.isSafeInteger(result.id) || result.id !== userId
+    || typeof result.name !== "string" || !result.name.trim()
+    || typeof result.email !== "string" || !result.email.trim()
+    || !validRoles.has(result.old_role)
+    || result.old_role === role
+    || result.role !== role
+    || result.duty_status !== expectedDutyStatus
+  ) {
+    throw new Error("The role change outcome could not be confirmed because the service returned an invalid confirmation. Refresh the account directory and audit history before attempting it again.");
+  }
+  return result;
 }
 export async function getAdminAnalyticsSummary(from: string, to: string): Promise<AdminAnalyticsSummary> {
   const { data, error } = await getSupabase().rpc("api_admin_analytics_summary", {
