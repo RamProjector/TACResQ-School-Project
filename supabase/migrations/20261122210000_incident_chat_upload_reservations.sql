@@ -176,6 +176,16 @@ BEGIN
         'consumed', existing_reservation.consumed_at IS NOT NULL
       );
     END IF;
+  ELSE
+    IF EXISTS (
+      SELECT 1
+        FROM public.incident_messages m
+       WHERE m.sender_id = actor_profile_id
+         AND m.client_message_id = p_client_message_id
+    ) THEN
+      RAISE EXCEPTION 'Client message ID is already used by a text or image message'
+        USING ERRCODE = '23505';
+    END IF;
   END IF;
 
   SELECT policy.reservation_ttl_seconds, policy.uploads_per_minute
