@@ -53,8 +53,15 @@ assert "currentLevel" in security_status and "usedTotp" in security_status
 assert 'typeof method === "string"' in security_status
 assert 'typeof method === "string"' in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 assert "factor.friendly_name" in security_status and "factor.status" in security_status
-assert "factor.secret" not in security_status and "qr_code" not in security_status
-assert "auth.mfa.unenroll" not in security_status
+assert "factor.secret" not in security_status
+assert "auth.experimental.recoveryCodes" not in security_status, "Do not assume experimental recovery codes are enabled for project users."
+assert "auth.mfa.enroll(" in security_status and "auth.mfa.challengeAndVerify(" in security_status
+assert "enrollment.secret" in security_status and "enrollment.qrCode" in security_status
+assert "auth.mfa.unenroll({ factorId: enrollment.factorId })" in security_status, "Only the pending factor created by this enrollment flow may be cancelled."
+assert "snapshot.factors.length >= 10" in security_status
+assert "Backup authenticator" in security_status and "separate device" in security_status
+assert "availableFactors" in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
+assert "Authenticator device" in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 assert 'factorsResult.data.all.filter((factor) => factor.factor_type === "totp")' in security_status
 assert 'factorsResult.data.all.filter((factor) => factor.factor_type === "totp")' in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 assert "p_actor_user_id: actorUserId" not in supabase_client.split("export async function getAdminAnalyticsSummary", 1)[1].split("export interface AdminAuditPage", 1)[0]
