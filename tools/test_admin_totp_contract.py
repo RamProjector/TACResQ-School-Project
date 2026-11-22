@@ -44,6 +44,8 @@ assert 'new URLSearchParams(window.location.search).get("adminPage")' in admin
 assert 'window.history.pushState' in admin
 assert 'activeSection === "audit" && <AuditLogsPage profile={profile} />' in admin
 assert 'getAdminAuditLogsPage(' in audit_page and "const PAGE_SIZE = 25" in audit_page
+assert "page * PAGE_SIZE >= result.total_count" in audit_page, "Audit pagination must recover when concurrent changes invalidate the current offset."
+assert "Math.ceil(result.total_count / PAGE_SIZE) - 1" in audit_page, "Audit pagination must return to the last valid page after the record count shrinks."
 assert "getAdminAuditLogsPage" in supabase_client
 assert "admin-audit-panel" not in admin
 assert "api_admin_list_audit_logs_page" in supabase_client
