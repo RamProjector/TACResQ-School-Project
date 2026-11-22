@@ -366,7 +366,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             ) : !dependencyHealth ? (
               <div className="admin-health-unavailable" role="status">Waiting for the first diagnostic check…</div>
             ) : (
-              <div className="admin-health-grid">
+              <>
+                <div className="admin-health-summary" role="status" aria-live="polite">
+                  <strong>
+                    {Object.values(dependencyHealth).filter((value) => typeof value === "object" && value !== null && "status" in value).every((value) => value.status === "healthy")
+                      ? "All checked dependencies are healthy"
+                      : Object.values(dependencyHealth).some((value) => typeof value === "object" && value !== null && "status" in value && value.status === "unavailable")
+                        ? "One or more checked dependencies are unavailable"
+                        : "One or more checked dependencies are slow"}
+                  </strong>
+                  <span>This summary covers only the three probes listed below, not complete emergency-service readiness.</span>
+                </div>
+                <div className="admin-health-grid">
                 {([
                   ["Laravel backend", dependencyHealth.laravel_backend],
                   ["Supabase Auth", dependencyHealth.supabase_auth],
@@ -377,7 +388,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                     <small>{result.duration_ms === null ? "Response time unavailable" : result.duration_ms + " ms response time"}</small>
                   </article>
                 ))}
-              </div>
+                </div>
+              </>
             )}
             <p className="admin-panel__footnote">Read-only checks only. Laravel /up confirms application liveness; Auth checks its health endpoint; the database check executes a fixed, data-free RPC. These checks do not verify incident workflows, user sign-in, FCM delivery, or routing. A “slow” result means a probe exceeded the five-second limit; startup delay is possible, so it is not proof of an outage. Refresh to retry.</p>
           </section>
