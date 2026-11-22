@@ -237,3 +237,9 @@
   .admin-analytics-detail-grid { gap:8px; padding:0 14px 14px; }
   .admin-analytics-status-grid { grid-template-columns:repeat(2,minmax(0,1fr)); padding:0 14px 14px; }
 }
+
+/* Audit search is intentionally scoped to the latest bounded server result. */
+.admin-audit-search { margin:0 22px 16px; }
+@media (max-width:760px) {
+  .admin-audit-search { margin:0 14px 14px; }
+}
