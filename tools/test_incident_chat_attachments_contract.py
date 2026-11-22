@@ -33,6 +33,9 @@ for label, passed in {
         and "ALTER TABLE private.incident_chat_upload_reservations ENABLE ROW LEVEL SECURITY" in reservation_migration,
     "reservation policy is configurable": "reservation_ttl_seconds integer NOT NULL DEFAULT 900" in reservation_migration
         and "uploads_per_minute integer NOT NULL DEFAULT 20" in reservation_migration,
+    "reservation enforcement defaults off for staged rollout": "reservation_enforcement_enabled boolean NOT NULL DEFAULT false" in reservation_migration,
+    "legacy Storage uploads remain compatible until enforcement is enabled": "IF NOT enforcement_enabled THEN" in reservation_migration,
+    "legacy image finalization is rejected once enforcement is enabled": "ELSIF enforcement_enabled THEN" in reservation_migration,
     "reservation RPC derives the actor from auth.uid": "WHERE p.auth_user_id = auth.uid()" in reservation_migration,
     "reservation uses the same per-profile serialization lock": "PERFORM pg_advisory_xact_lock(actor_profile_id)" in reservation_migration,
     "reservation RPC is authenticated-only": "GRANT EXECUTE ON FUNCTION public.api_reserve_incident_image_upload" in reservation_migration,
@@ -69,6 +72,8 @@ assert "COALESCE(metadata->>'size', metadata->>'contentLength')" in storage_poli
 storage_tests = read("tools/test_incident_chat_storage_policies.sql")
 for required in (
     "public.api_reserve_incident_image_upload(",
+    "legacy_image_compatibility",
+    "reservation_enforcement_enabled = true",
     "A participant must not upload an object without a matching reservation",
     "An unrelated account must not reserve an upload for another incident",
     "The 21st image reservation within one minute must be rejected",
