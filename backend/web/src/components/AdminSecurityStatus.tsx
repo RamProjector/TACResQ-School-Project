@@ -54,11 +54,7 @@ export default function AdminSecurityStatus() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      await refresh();
-    })();
-    return () => { active = false; };
+    void refresh();
   }, [refresh]);
 
   const verifiedFactors = snapshot?.factors.filter((factor) => factor.status === "verified") ?? [];
