@@ -1506,6 +1506,9 @@ $location_rpc_boundary_test$;
 SQL
 
 
+# Verify backend-only device registry grants, ownership constraints, and metadata bounds.
+psql -v ON_ERROR_STOP=1 -f tools/test_device_security_privileges.sql
+
 # Verify the data-free dependency health RPC privilege and execution contract.
 psql -v ON_ERROR_STOP=1 -f tools/test_dependency_health_rpc.sql
 
