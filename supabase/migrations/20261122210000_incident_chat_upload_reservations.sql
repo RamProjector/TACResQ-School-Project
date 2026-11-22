@@ -618,8 +618,7 @@ BEGIN
         AND name ~ '^[1-9][0-9]*/[1-9][0-9]*/[0-9a-f-]{36}[.](jpg|png|webp)$'
         AND (storage.foldername(name))[2] = private.tacresq_auth_profile_id()::text
         AND metadata->>'mimetype' IN ('image/jpeg', 'image/png', 'image/webp')
-        AND COALESCE(metadata->>'size', metadata->>'contentLength') ~ '^[0-9]+
-        AND private.tacresq_auth_can_access_incident_chat(
+        AND COALESCE(metadata->>'size', metadata->>'contentLength') ~ '^[0-9]+$'        AND private.tacresq_auth_can_access_incident_chat(
           ((storage.foldername(name))[1])::bigint
         )
       )
