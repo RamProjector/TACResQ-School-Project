@@ -34,6 +34,7 @@ import type {
   TacruProfile,
 } from "@/lib/supabase";
 import "./AdminConsole.css";
+import "./PortalVisualFoundation.css";
 
 type AdminConsoleProps = {
   profile: TacruProfile;
@@ -360,16 +361,25 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     }
   }
 
+  const ActiveSectionIcon = adminSections.find((section) => section.id === activeSection)?.icon ?? LayoutDashboard;
+
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <Brand inverse />
-        <div className="admin-sidebar__label">ADMINISTRATION</div>
+        <div className="admin-sidebar__context">
+          <span>GOVERNANCE CONSOLE</span>
+          <p>Identity, access and accountability.</p>
+        </div>
         <nav className="admin-navigation" aria-label="Admin sections">
-          {adminSections.map(({ id, label, icon: Icon }) => (
-            <button key={id} type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => { setActiveSection(id); const url = new URL(window.location.href); const route = id === "audit" ? "audit-logs" : id; if (url.searchParams.get("adminPage") !== route) { url.searchParams.set("adminPage", route); window.history.pushState({}, "", url.toString()); } }}>
-              <Icon size={17} aria-hidden="true" /><span>{label}</span>
-            </button>
+          {adminSections.map(({ id, label, icon: Icon }, index) => (
+            <div className="admin-nav-entry" key={id}>
+              {index === 0 && <div className="admin-navigation__group-label">WORKSPACE</div>}
+              {index === 1 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">GOVERNANCE</div>}
+              <button type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => { setActiveSection(id); const url = new URL(window.location.href); const route = id === "audit" ? "audit-logs" : id; if (url.searchParams.get("adminPage") !== route) { url.searchParams.set("adminPage", route); window.history.pushState({}, "", url.toString()); } }}>
+                <Icon size={17} aria-hidden="true" /><span>{label}</span>
+              </button>
+            </div>
           ))}
         </nav>
         <div className="admin-sidebar__bottom">
@@ -393,10 +403,13 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
         <div className="admin-workspace">
           <div className="admin-heading">
-            <div>
-              <p className="admin-eyebrow">ACCESS CONTROL <span>·</span> AUDITABLE OPERATIONS</p>
-              <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}<span>.</span></h1>
-              <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+            <div className="admin-heading__identity">
+              <span className="admin-heading__icon"><ActiveSectionIcon size={22} aria-hidden="true" /></span>
+              <div>
+                <p className="admin-eyebrow">ACCESS CONTROL <span>·</span> AUDITABLE OPERATIONS</p>
+                <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}<span>.</span></h1>
+                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+              </div>
             </div>
             {(activeSection === "overview" || activeSection === "users") && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
               <RefreshCw size={16} className={refreshing ? "admin-spin" : ""} /> Refresh data
