@@ -67,6 +67,8 @@ DECLARE
   unrelated_profile_id bigint;
   unrelated_path text;
   response jsonb;
+  reservation jsonb;
+  unreserved_path text;
   visible_count integer;
   denied boolean;
 BEGIN
@@ -75,6 +77,17 @@ BEGIN
     incident_id,
     responder_profile_id
   );
+
+  reservation := public.api_reserve_incident_image_upload(
+    incident_id,
+    'image/jpeg',
+    4,
+    '00000000-0000-4000-8000-000000000204'::uuid
+  );
+  IF reservation->>'object_path' <> image_path
+     OR reservation->>'consumed' <> 'false' THEN
+    RAISE EXCEPTION 'Reservation RPC returned unexpected authorization: %', reservation;
+  END IF;
 
   INSERT INTO storage.objects (bucket_id, name, metadata)
   VALUES (
@@ -95,6 +108,27 @@ BEGIN
      OR response->>'attachment_mime_type' <> 'image/jpeg'
      OR response->>'attachment_size_bytes' <> '4' THEN
     RAISE EXCEPTION 'Image-message RPC returned unexpected attachment metadata: %', response;
+  END IF;
+
+  -- A second object path cannot be inserted without its own reservation.
+  unreserved_path := format(
+    '%s/%s/00000000-0000-4000-8000-000000000206.jpg',
+    incident_id,
+    responder_profile_id
+  );
+  denied := false;
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name, metadata)
+    VALUES (
+      'incident-chat-attachments',
+      unreserved_path,
+      '{"mimetype":"image/jpeg","size":"4"}'::jsonb
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'A participant must not upload an object without a matching reservation';
   END IF;
 
   -- The requester who owns this incident can read the responder's image.
@@ -122,6 +156,21 @@ BEGIN
      AND name = image_path;
   IF visible_count <> 0 THEN
     RAISE EXCEPTION 'An unrelated account must not read incident image objects';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_reserve_incident_image_upload(
+      incident_id,
+      'image/jpeg',
+      4,
+      '00000000-0000-4000-8000-000000000207'::uuid
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'An unrelated account must not reserve an upload for another incident';
   END IF;
 
   unrelated_profile_id := private.tacresq_auth_profile_id();
