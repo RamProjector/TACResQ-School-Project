@@ -176,7 +176,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <span>Showing {total === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}</span>
         <div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading}><ChevronLeft size={14} /> Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || (page + 1) * PAGE_SIZE >= total}>Next <ChevronRight size={14} /></button></div>
       </div>
-      <p className="admin-panel__footnote">This page currently contains role-change events written by the Admin role-change RPC. API transport telemetry, incident status changes, and assignment history are separate records with separate access controls. Search, actor/target filters, action/date filters and pagination are applied server-side. This interface is read-only.</p>
+      <p className="admin-panel__footnote">This page currently contains role-change events written by the Admin role-change RPC. Supabase Auth separately records sign-in, sign-out, token-revocation and MFA factor events in its Auth Audit Logs; those provider records are not merged into this page. Postgres storage of Auth Audit Logs is an optional project setting and has not been enabled or verified here. API transport telemetry, incident status changes, and assignment history are also separate records with separate access controls. Search, actor/target filters, action/date filters and pagination are applied server-side. This interface is read-only.</p>
     </section>
   );
 }
