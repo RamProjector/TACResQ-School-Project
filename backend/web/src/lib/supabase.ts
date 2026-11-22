@@ -4,6 +4,22 @@ export type TacruRole = "requester" | "responder" | "driver" | "dispatcher" | "a
 export type AdminManagedRole = Exclude<TacruRole, "admin">;
 export interface AdminUser { id: number; name: string; email: string; phone: string | null; role: TacruRole; duty_status: DutyStatus | null; created_at: string; }
 export interface AdminAuditEvent { id: number; actor_user_id: number | null; actor_identity: string; target_user_id: number | null; action: "user_role_changed"; old_role: TacruRole; new_role: TacruRole; reason: string; created_at: string; }
+export type AdminInvestigationCategory = "all" | "administrative" | "authentication" | "incident" | "assignment";
+export interface AdminInvestigationEvent {
+  event_id: string;
+  source: string;
+  category: Exclude<AdminInvestigationCategory, "all">;
+  event_type: string;
+  occurred_at: string;
+  actor_user_id: number | null;
+  actor_label: string;
+  target_user_id: number | null;
+  target_label: string | null;
+  incident_id: number | null;
+  summary: string;
+  details: Record<string, unknown>;
+}
+export interface AdminInvestigationPage { events: AdminInvestigationEvent[]; total_count: number; }
 export interface AdminRoleChangeResult { id: number; name: string; email: string; old_role: AdminManagedRole; role: AdminManagedRole; duty_status: DutyStatus | null; }
 export type DutyStatus = "off_duty" | "available" | "en_route" | "on_scene" | "transporting";
 export type IncidentType = "medical" | "fire" | "vehicular" | "disaster" | "other";
@@ -57,6 +73,7 @@ type TacruDatabase = {
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
       api_admin_list_audit_logs_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_action: string; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null }; Returns: { events: AdminAuditEvent[]; total_count: number } };
+      api_admin_list_investigation_events: { Args: { p_limit: number; p_offset: number; p_query: string; p_category: AdminInvestigationCategory; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null; p_incident_id: number | null }; Returns: AdminInvestigationPage };
       api_admin_analytics_summary: { Args: { p_from: string; p_to: string }; Returns: AdminAnalyticsSummary };
       api_dependency_health: { Args: Record<string, never>; Returns: string };
     };
@@ -227,6 +244,58 @@ export async function getAdminAnalyticsSummary(from: string, to: string): Promis
     throw new Error("The analytics service returned invalid aggregate values.");
   }
   return summary;
+}
+
+export async function getAdminInvestigationEventsPage(
+  limit: number,
+  offset: number,
+  query: string,
+  category: AdminInvestigationCategory,
+  from: string | null,
+  to: string | null,
+  actorUserId: number | null,
+  targetUserId: number | null,
+  incidentId: number | null,
+): Promise<AdminInvestigationPage> {
+  const { data, error } = await getSupabase().rpc("api_admin_list_investigation_events", {
+    p_limit: limit,
+    p_offset: offset,
+    p_query: query.trim(),
+    p_category: category,
+    p_from: from,
+    p_to: to,
+    p_actor_user_id: actorUserId,
+    p_target_user_id: targetUserId,
+    p_incident_id: incidentId,
+  });
+  throwAdminError(error);
+  if (!data || typeof data !== "object") {
+    throw new Error("The investigation service returned an invalid page.");
+  }
+  const page = data as unknown as AdminInvestigationPage;
+  if (!Array.isArray(page.events) || !Number.isSafeInteger(page.total_count) || page.total_count < 0) {
+    throw new Error("The investigation service returned an invalid page.");
+  }
+  const categories = new Set(["administrative", "authentication", "incident", "assignment"]);
+  for (const event of page.events) {
+    if (
+      !event || typeof event !== "object"
+      || typeof event.event_id !== "string" || !event.event_id
+      || typeof event.source !== "string" || !event.source
+      || !categories.has(event.category)
+      || typeof event.event_type !== "string" || !event.event_type
+      || typeof event.occurred_at !== "string" || !Number.isFinite(Date.parse(event.occurred_at))
+      || typeof event.actor_label !== "string"
+      || typeof event.summary !== "string"
+      || (event.actor_user_id !== null && (!Number.isSafeInteger(event.actor_user_id) || event.actor_user_id < 1))
+      || (event.target_user_id !== null && (!Number.isSafeInteger(event.target_user_id) || event.target_user_id < 1))
+      || (event.incident_id !== null && (!Number.isSafeInteger(event.incident_id) || event.incident_id < 1))
+      || !event.details || typeof event.details !== "object" || Array.isArray(event.details)
+    ) {
+      throw new Error("The investigation service returned an invalid event.");
+    }
+  }
+  return page;
 }
 
 export interface AdminAuditPage { events: AdminAuditEvent[]; total_count: number; }
