@@ -43,3 +43,17 @@ These observations prove schema/history drift. They do not prove which manual or
 - The actual Supabase Storage binary POST/download path has not yet been exercised with an authenticated test account. The CodeRabbit review thread requesting that acceptance remains open.
 - No remote schema, migration history, bucket, object, or data has been modified as part of this investigation.
 - PR #342 must remain open until exact-head CI is green and the Storage acceptance/reconciliation gates are satisfied. No production migration, deployment, or merge is authorized by this plan.
+
+
+## 2026-11-23 — Follow-up read-only baseline
+
+A second read-only check was performed before considering any migration write:
+
+- The policy singleton row is present and remains `singleton = true`, `reservation_ttl_seconds = 900`, and `uploads_per_minute = 20`.
+- The table still has no `reservation_enforcement_enabled` column. The existing row timestamp is `2026-11-22 14:54:44.167344+00`.
+- The migration ledger still contains the repository reservation migration and the additional `test_pr342_storage_policy_review_fixes` record.
+- The checked-in reservation migration defines the missing column as `boolean NOT NULL DEFAULT false`; its semantics are staged compatibility, not immediate enforcement.
+
+**Decision:** Do not apply the column-only migration yet. The unexplained history entry remains unrecoverable from the repository branch and no deployment SQL or execution record has been supplied. Applying another migration before identifying whether that entry changed related functions or Storage policies could mask an incomplete or conflicting test-project state. Preserve the existing schema, data, Storage objects, and migration history. The project remains non-canonical for HTTP acceptance until the extra history entry is explained and the full live catalog baseline is reviewed.
+
+No remote write, migration repair, schema reset, policy replacement, bucket change, upload, or deletion was performed.
