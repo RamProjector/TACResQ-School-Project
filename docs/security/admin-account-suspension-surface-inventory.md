@@ -42,7 +42,8 @@ This inventory is intentionally conservative. A path is not marked covered merel
 - [Batch 2: Admin and audit](admin-account-suspension-rpc-review-batch-2-admin-audit.md). The shared Admin MFA helper checks role/AAL2/TOTP but has no account-state predicate; the batch records all protected Admin endpoints and direct audit-table policy requirements.
 - [Batch 3: dispatch, assignments, and GPS](admin-account-suspension-rpc-review-batch-3-dispatch-gps.md). This distinguishes public invoker wrappers from directly callable private SECURITY DEFINER implementations and records the missing account-state checks on dispatcher, field-unit, and location paths.
 - [Batch 4: profile, notifications, and FCM](admin-account-suspension-rpc-review-batch-4-profile-notifications-fcm.md). This records the notification RPC access gaps, direct FCM table policy requirements, and the narrow self-token cleanup exception to evaluate.
-- Remaining batches must cover device/session/security RPCs, Storage, and every direct client/bridge path.
+- [Batch 5: Storage, device/session registry, and service-role Edge Function boundary](admin-account-suspension-rpc-review-batch-5-storage-device-session.md). This confirms the incident-chat Storage policies inherit the chat helper's missing active-account check; device tables have no direct client grants, but any future service-role verifier must check the original caller's current state; and the notification Edge Function must not treat JWT validity as proof that the account remains active.
+- Remaining work: inspect all remaining direct client/bridge call sites and complete the full effective-RPC/RLS/Storage contract before implementation.
 
 ## Required completion artifacts
 
