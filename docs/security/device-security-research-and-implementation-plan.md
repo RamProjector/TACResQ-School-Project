@@ -359,3 +359,32 @@ A read-only inspection of the connected Supabase project `TACResQ-School-Project
 The currently deployed `tacresq-notify` version 2 entrypoint has now been copied without behavioral edits into `supabase/functions/tacresq-notify/index.ts` on this branch. The deployed source digest observed during retrieval was `3a0a08f59ebb34d05034be0deabaa8ddffd276aec76f3c1623bb1c74f2cbb631`; the checked-in file was fetched again after commit and confirmed to contain the same 7,167 UTF-8 characters and the expected `Deno.serve` entrypoint.
 
 This is source recovery/version control only. It was **not** deployed, and no function configuration or secrets were changed. The existing function still does not implement device proof. Before any future deployment, compare the complete source and runtime settings against the live project, pin the Supabase JS dependency deliberately, and add isolated function tests. Do not deploy this mirror merely because it is now in Git.
+
+## 13. Deployed notification Edge Function reconciliation (2026-11-22)
+
+The live Supabase project exposes one active Edge Function, `tacresq-notify`, with JWT verification enabled. Its deployed source was recovered read-only and mirrored at `supabase/functions/tacresq-notify/index.ts`; the mirror is source recovery, not a deployment or endorsement of the function as the current delivery path.
+
+### Verified behavior of the recovered function
+
+- It accepts POST requests, validates the bearer token with Supabase Auth `getUser`, resolves the caller's `profiles` row, loads an incident using the service-role client, and manually checks role/ownership before selecting recipient FCM tokens.
+- It creates a Google OAuth service-account assertion in the Edge runtime and sends FCM HTTP v1 messages directly.
+- It does not claim rows from the repository's `fcm_delivery_attempts` queue, create delivery-ledger attempts, or use the queue's lease/retry/backoff workflow.
+- It has no explicit request-body byte limit, per-user/per-incident send rate limit, or idempotency key. A valid requester can repeat the `incident_created` call for their own incident; a dispatcher can repeat `incident_assigned` for an assigned incident. Those checks establish role/relationship but do not make delivery idempotent.
+- The `incident_assigned` branch checks that the caller is a dispatcher and that the incident is assigned, but does not bind the caller to a specific assignment event or assignment actor. This is not evidence of an incident-assignment privilege bypass—the database/RPC path authorizes the assignment—but it means the function itself is not an event-authenticated delivery trigger.
+- It deletes registrations after an FCM 404 or a response body containing `UNREGISTERED`; this is a separate token-cleanup implementation from the canonical Laravel sender.
+
+### Current repository delivery path
+
+The repository's Laravel `FcmNotificationDispatcher` claims bounded delivery work through `api_claim_fcm_delivery_batch`, sends using the shared `FcmHttpV1Client`, and records attempt outcomes, retry timing, invalid-token cleanup, and a ten-minute claim lease. Persistent inbox notifications are the durable source of truth; FCM is supplemental. This is materially more complete than the direct-send Edge Function path.
+
+### Decision and safety boundary
+
+- Treat the recovered Edge Function as a legacy/parallel implementation pending an explicit caller and deployment audit. Do not add new callers or route new notification events through it.
+- Keep the Laravel queue/attempt-ledger pipeline as the repository's canonical FCM delivery path unless a later architecture decision replaces it.
+- Before disabling or deleting the live function, trace all deployed callers and verify that no external workflow depends on it. No function was disabled, deleted, redeployed, or reconfigured during this review.
+- Before any future reuse, add bounded body parsing, per-account/per-incident rate limits, event provenance or server-generated queue claims, idempotency, bounded recipient/token batches, and tests for repeated calls, wrong roles, wrong incident ownership, revoked sessions, and invalid-token cleanup.
+- The function uses a service-role client after validating the user token. Its authorization therefore depends on the manual checks in this function, not on caller-scoped RLS. Preserve this distinction in every review; do not assume `auth.uid()` or `auth.jwt()` reflects the caller inside service-role PostgREST operations.
+- No live Supabase configuration, secrets, function deployment, notification delivery, or production data was changed.
+
+**Release gate:** the active Edge Function and the Laravel queue worker must not both deliver the same event family. Establish the actual production caller/scheduler topology before enabling, disabling, or changing either path.
+
