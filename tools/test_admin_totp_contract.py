@@ -50,7 +50,9 @@ assert "<AdminSecurityStatus />" in admin
 assert "getAuthenticatorAssuranceLevel()" in security_status
 assert "listFactors()" in security_status
 assert "currentLevel" in security_status and "usedTotp" in security_status
-assert "factor.friendlyName" in security_status and "factor.status" in security_status
+assert 'typeof method === "string"' in security_status
+assert 'typeof method === "string"' in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
+assert "factor.friendly_name" in security_status and "factor.status" in security_status
 assert "factor.secret" not in security_status and "qr_code" not in security_status
 assert "auth.mfa.unenroll" not in security_status
 assert "p_actor_user_id: actorUserId" not in supabase_client.split("export async function getAdminAnalyticsSummary", 1)[1].split("export interface AdminAuditPage", 1)[0]
@@ -60,7 +62,9 @@ for marker in (
     "revoke all on function public.api_admin_list_users()",
     "auth.jwt() ->> 'aal'",
     "jsonb_array_elements",
-    "method ->> 'method' = 'totp'",
+    "method ->> 'method'",
+    "method #>> '{}'",
+    "when 'string' then",
     "api_admin_list_users_page_internal",
     "api_admin_set_user_role_internal",
     "api_admin_list_audit_logs_internal",
