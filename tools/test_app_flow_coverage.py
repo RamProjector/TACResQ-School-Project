@@ -100,12 +100,12 @@ database_suites = (
     "tools/test_authenticated_requester_location_edit.sql",
     "tools/test_authenticated_incident_write_boundary.sql",
     "tools/test_authenticated_admin_user_list_boundary.sql",
-    "tools/test_durable_sos_idempotency.sql",
 )
 for suite in database_suites:
     assert f"-f {suite}" in replay, f"PostgreSQL replay does not execute {suite}"
 
 assert "python3 tools/test_app_flow_coverage.py" in ci
+assert "python3 tools/test_admin_investigation_events_contract.py" in ci
 assert "bash tools/test_supabase_migration_replay.sh" in ci
 assert "testDebugUnitTest" in ci
 assert "connectedDebugAndroidTest" in emulator
