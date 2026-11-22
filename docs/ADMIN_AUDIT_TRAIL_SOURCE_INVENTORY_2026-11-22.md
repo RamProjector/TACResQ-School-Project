@@ -35,8 +35,8 @@ This verification is read-only. No project settings, grants, policies, functions
 | `admin_audit_logs` | Append-only role changes; actor profile snapshot, target, old/new role, reason, timestamp. Inserted transactionally by the protected role-change RPC. | Authenticated direct writes/updates/deletes are revoked. Admin read path is protected by the TOTP/AAL2 RPC and restrictive MFA policy. Only `user_role_changed` is currently supported. | **Integrate first.** Preserve as the existing administrative audit source. Do not duplicate it. |
 | `incident_status_logs` | Incident creation/status history; status, actor profile ID, timestamp. Trigger writes on insert and status changes. | Existing read policy is participant/dispatcher-oriented; do not assume Admin can read it through the existing policy. Rows record the resulting status, not a complete before/after snapshot. | **Integrate through a new narrow Admin read RPC** only after confirming deployed grants/policies. Display “status changed to …”; do not invent a previous status. |
 | `incident_assignment_events` | Append-only team assignment, release, and incident-closure events; incident, affected field unit, actor when available, source, assignment/incident status, timestamp. | RLS read policy permits dispatcher/admin. Direct client writes are not granted. Migration adds triggers for membership insert/delete and incident closure. | **Reuse.** Add to Admin investigation feed through an Admin-protected bounded reader; retain dispatcher access rules and source attribution. |
-| `incident_claimability_logs` | Claimability changes with incident, actor, source RPC, previous/new values, status, timestamp. | RLS enabled; direct client access revoked; service-role only. No Admin read API/page found in reviewed source. | **Optional P1.** Add a narrowly scoped Admin reader only if claimability changes are needed for incident investigations. Do not broaden table grants. |
-| `incident_request_edit_logs` | Requester edit history, including before/after request data. | RLS enabled and direct client privileges revoked; intended for constrained RPC/trusted access. Stored snapshots can contain sensitive location/request details. | **Do not expose raw snapshots.** If investigation needs this source, design a sanitized event projection with minimal fields and explicit authorization. |
+| `incident_claimability_logs` | Claimability changes with incident, actor, source RPC, previous/new values, status, timestamp. | RLS enabled; direct client access revoked; service-role only. No Admin read API/page existed before this implementation. | **Integrate as an incident event.** The protected reader exposes only previous/new claimability, incident status, and source RPC; it does not broaden table grants. |
+| `incident_request_edit_logs` | Requester edit history, including before/after request data. | RLS enabled and direct client privileges revoked; intended for constrained RPC/trusted access. Stored snapshots contain sensitive location/request details and narrative text. | **Integrate a sanitized event only.** The reader compares before/after values internally and returns allowlisted changed-field names plus edit number; raw values, coordinates, and narratives are never returned. |
 | `api_operation_logs` | Laravel-mediated provider/operation telemetry: correlation ID, actor auth UUID when available, provider, operation, source, outcome, HTTP status, duration, provider request ID, error code, timestamp. | RLS enabled; service-role SELECT/INSERT only. Logger skips writes when server URL/secret is missing and uses bounded synchronous best-effort writes. Does not cover direct Android/dashboard Supabase calls, direct Storage calls, or the FCM worker comprehensively. | **Optional P1/P2.** Keep under System/Integration activity, not business audit. Expose only a safe metadata projection and clearly label its Laravel-only coverage. |
 | Supabase Auth Audit Logs | Provider-side authentication and MFA events, including sign-in/session/factor activity where supported by the provider. | Separate from `admin_audit_logs`. Postgres storage is an optional project setting and is not verified as enabled. No project-level connection/read path was found in the reviewed branch. | **Do not build a UI against assumed data.** Verify project setting and available provider access first. If unavailable, document the gap; do not synthesize auth events. |
 | `device_security_events` | Schema supports device registration/proof/integrity/revocation and suspicious-activity event types. | Migration explicitly keeps device tables backend-only until trusted verification endpoints, authorization, and runtime contracts exist. No integrated writer/read API was found in the reviewed source search. | **Not ready for UI integration.** Complete the device-security server workflow first; do not display an empty table as if monitoring is active. |
@@ -121,7 +121,7 @@ Do not promise immutable or tamper-proof storage solely because the UI is read-o
 6. Use server-side pagination, date bounds, actor/target/incident filters, and a bounded maximum page size.
 7. Avoid broadening direct table grants. Preserve source-specific RLS and use carefully scoped SECURITY DEFINER wrappers with pinned search paths where necessary.
 
-**Initial sources:** administrative role changes, incident status history, and incident assignment history. These have concrete existing event writers and direct value to Admin investigations. Add claimability only if the incident investigation workflow requires it and the read projection is justified.
+**Initial sources:** administrative role changes, Supabase Auth Audit Logs, incident status history, responder assignment history, dispatcher claimability history, and sanitized requester edit events. These have existing event writers and concrete investigation value. The requester-edit reader exposes changed-field names only, never the underlying before/after values.
 
 ### Phase C — Audit Logs UI
 
@@ -163,10 +163,31 @@ Do not promise immutable or tamper-proof storage solely because the UI is read-o
 
 ## 6. Readiness decision
 
-**Ready to implement next:** a protected, bounded Admin investigation read layer and UI integration for the three sources with existing event writers: `admin_audit_logs`, `incident_status_logs`, and `incident_assignment_events`, subject to deployed-schema/grant verification.
+**Implemented in the current PR branch (migration source not applied to production):** a protected, bounded Admin investigation read layer and UI integration for `admin_audit_logs`, `auth.audit_log_entries`, `incident_status_logs`, `incident_assignment_events`, `incident_claimability_logs`, and sanitized `incident_request_edit_logs`. The reader requires Admin + AAL2 + TOTP, preserves source identity, and does not return raw Auth or request-edit payloads.
 
 **Not ready to integrate yet:** Supabase Auth Audit Logs, `device_security_events`, and direct-client API/Storage telemetry. Their runtime source/configuration or trusted writer/read path is not established by this repository review.
 
-**Conditional:** `incident_claimability_logs`, `incident_request_edit_logs`, `api_operation_logs`, and `fcm_delivery_attempts`. Add only the minimal, privacy-safe read projections that a defined Admin investigation use case actually needs.
+**Deferred:** `api_operation_logs` and `fcm_delivery_attempts` remain operational diagnostics rather than user/admin business actions; add a separate, explicitly labeled System activity view only if administrators need provider troubleshooting. `device_security_events` remains unavailable until trusted server-side writers exist.
 
 No migrations were applied, no production settings changed, and no tests/builds/deployments were run during this source inventory.
+
+
+## 7. Implementation added to PR #338
+
+The following source changes have now been committed to the existing PR branch:
+
+- Added `api_admin_list_investigation_events`, a bounded, server-side union reader for the six approved event sources. It validates category, pagination, search length, date range, actor/target IDs, and incident ID.
+- Reuses the existing `private.tacresq_require_admin_mfa()` helper. The public RPC revokes default/public execution and grants execution only to authenticated callers; every call enforces current Admin role, AAL2, and TOTP.
+- Adds a restrictive policy to `incident_assignment_events` so Admin direct table reads also require TOTP/AAL2. The existing dispatcher read path remains allowed.
+- Keeps incident status, assignment, claimability, and requester-edit histories in their original tables. Request-edit details are reduced to changed-field names; raw before/after snapshots are not returned.
+- Adds Supabase Auth Audit Logs using only the event action and a linked profile label. The raw Auth payload, IP address, and user-agent data are not returned.
+- Expands the dedicated Audit Logs page with category, actor, target, incident, and Manila date filters, source attribution, event details, and server-side pagination.
+- Adds a static source-contract test. It has **not** been executed.
+
+### Deployment dependency
+
+The connected Supabase database does not yet contain the branch's earlier `api_admin_list_audit_logs_page` migration or the new investigation reader migration. Both must be reviewed and applied in order before this branch's Admin Audit Logs page can use the new reader. No migration has been applied to the connected project.
+
+The connected database currently reports zero rows in `auth.audit_log_entries`; the project-level Auth Audit Logs Postgres-storage toggle was not exposed by the available project metadata. Verify Authentication → Audit Logs in Supabase Dashboard before expecting provider events in the feed.
+
+No test, build, security scan, deployment, or production migration was run as part of these commits.
