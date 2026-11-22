@@ -124,6 +124,77 @@ BEGIN
     UNION ALL
 
     SELECT
+      'claimability:' || c.id::text,
+      'incident_claimability_logs',
+      'incident',
+      'incident_claimability_changed',
+      c.created_at,
+      c.actor_profile_id,
+      coalesce(actor.name, CASE
+        WHEN c.actor_profile_id IS NULL THEN 'System / migration'
+        ELSE 'Profile #' || c.actor_profile_id::text
+      END),
+      NULL::bigint,
+      NULL::text,
+      c.incident_id,
+      CASE WHEN c.new_claimable
+        THEN 'Incident made available for claiming'
+        ELSE 'Incident removed from claiming'
+      END,
+      jsonb_build_object(
+        'previous_claimable', c.previous_claimable,
+        'new_claimable', c.new_claimable,
+        'incident_status', c.incident_status,
+        'source_rpc', c.source_rpc
+      )
+    FROM public.incident_claimability_logs AS c
+    LEFT JOIN public.profiles AS actor ON actor.id = c.actor_profile_id
+
+    UNION ALL
+
+    SELECT
+      'request-edit:' || r.id::text,
+      'incident_request_edit_logs',
+      'incident',
+      'incident_request_edited',
+      r.created_at,
+      r.requester_id,
+      coalesce(actor.name, 'Profile #' || r.requester_id::text),
+      NULL::bigint,
+      NULL::text,
+      r.incident_id,
+      'Requester edited incident details',
+      jsonb_build_object(
+        'edit_number', r.edit_number,
+        'changed_fields', changes.changed_fields
+      )
+    FROM public.incident_request_edit_logs AS r
+    LEFT JOIN public.profiles AS actor ON actor.id = r.requester_id
+    LEFT JOIN LATERAL (
+      SELECT coalesce(
+        jsonb_agg(DISTINCT field_label ORDER BY field_label),
+        '[]'::jsonb
+      ) AS changed_fields
+      FROM (
+        SELECT CASE field.key
+          WHEN 'type' THEN 'emergency_type'
+          WHEN 'description' THEN 'description'
+          WHEN 'latitude' THEN 'location'
+          WHEN 'longitude' THEN 'location'
+          WHEN 'accuracy_m' THEN 'location_accuracy'
+          WHEN 'location_notes' THEN 'location_notes'
+          WHEN 'location_recorded_at' THEN 'location_timestamp'
+          WHEN 'location_source' THEN 'location_source'
+          ELSE 'other'
+        END AS field_label
+        FROM jsonb_object_keys(coalesce(r.before_values, '{}'::jsonb)) AS field(key)
+        WHERE r.before_values -> field.key IS DISTINCT FROM r.after_values -> field.key
+      ) AS changed
+    ) AS changes ON true
+
+    UNION ALL
+
+    SELECT
       'assignment:' || e.id::text,
       'incident_assignment_events',
       'assignment',
