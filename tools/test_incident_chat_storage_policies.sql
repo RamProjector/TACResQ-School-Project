@@ -67,6 +67,11 @@ BEGIN
   IF enforcement_enabled IS DISTINCT FROM false THEN
     RAISE EXCEPTION 'Reservation enforcement must default off for a safe legacy-client rollout';
   END IF;
+  IF has_table_privilege('authenticated', 'private.incident_chat_upload_policy', 'UPDATE')
+     OR has_table_privilege('authenticated', 'private.incident_chat_upload_policy', 'SELECT')
+     OR has_table_privilege('anon', 'private.incident_chat_upload_policy', 'UPDATE') THEN
+    RAISE EXCEPTION 'Client roles must not inspect or change the private rollout switch';
+  END IF;
 END;
 $reservation_rollout_default$;
 
