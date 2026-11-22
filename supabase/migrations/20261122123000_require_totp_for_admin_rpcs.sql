@@ -63,7 +63,9 @@ ALTER FUNCTION public.api_admin_analytics_summary(timestamptz, timestamptz)
 REVOKE ALL ON FUNCTION public.api_admin_analytics_summary_internal(timestamptz, timestamptz)
   FROM PUBLIC, anon, authenticated;
 
--- Keep the legacy unbounded user-list RPC revoked; the console uses bounded pagination.\n\nCREATE OR REPLACE FUNCTION public.api_admin_list_users_page(
+-- Keep the legacy unbounded user-list RPC revoked; the console uses bounded pagination.
+
+CREATE OR REPLACE FUNCTION public.api_admin_list_users_page(
   p_limit integer DEFAULT 25,
   p_offset integer DEFAULT 0,
   p_query text DEFAULT '',
