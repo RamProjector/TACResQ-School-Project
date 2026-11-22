@@ -29,6 +29,9 @@ required_sql = (
     "LIMIT p_limit OFFSET p_offset",
     "REVOKE ALL ON FUNCTION public.api_admin_list_investigation_events",
     "GRANT EXECUTE ON FUNCTION public.api_admin_list_investigation_events",
+    "incident_claimability_logs",
+    "incident_request_edit_logs",
+    "changed_fields",
 )
 for marker in required_sql:
     assert marker in migration, f"Missing investigation SQL contract: {marker}"
@@ -69,9 +72,6 @@ for marker in (
     "incident_id",
     "occurred_at",
     "source",
-    "incident_claimability_logs",
-    "incident_request_edit_logs",
-    "changed_fields",
 ):
     assert marker in client, f"Missing client event contract: {marker}"
 
