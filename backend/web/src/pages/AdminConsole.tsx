@@ -470,7 +470,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <span className="admin-count">{directoryError ? "Account results unavailable" : totalUsers === 0 ? "0 matching accounts" : (page * pageSize + 1) + "–" + Math.min((page + 1) * pageSize, totalUsers) + " of " + totalUsers + " matching"}</span>
             </div>
             <div className="admin-toolbar">
-              <label className="admin-search"><Search size={16} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder="Search name, email, phone or ID" aria-label="Search users" /></label>
+              <label className="admin-search"><Search size={16} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder="Search name, email or profile ID" aria-label="Search users" /></label>
               <label className="admin-role-filter"><span>Role</span><select value={roleFilter} onChange={(event) => { setPage(0); setRoleFilter(event.target.value as RoleFilter); }} aria-label="Filter users by role"><option value="all">All roles</option><option value="requester">Requester</option><option value="responder">Responder</option><option value="driver">Driver</option><option value="dispatcher">Dispatcher</option><option value="admin">Admin</option></select></label>
               {hasDirectoryFilters && <button className="admin-filter-reset" type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setRoleFilter("all"); setPage(0); }} disabled={refreshing}>Clear filters</button>}
             </div>
@@ -486,7 +486,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                     <tr><td colSpan={5}><div className="admin-empty"><Users size={20} /><strong>{error ? "User data is unavailable" : "No accounts match this filter"}</strong><span>{error ? "The page does not substitute demo accounts for live data." : "Try another search or role filter."}</span></div></td></tr>
                   ) : filteredUsers.map((user) => (
                     <tr key={user.id}>
-                      <td><div className="admin-account"><span className="admin-account__avatar">{initials(user.name)}</span><span><strong>{user.name}</strong><small>{user.email}{user.phone ? " · " + user.phone : ""}</small><small className="admin-account__id">Profile #{user.id}</small></span></div></td>
+                      <td><div className="admin-account"><span className="admin-account__avatar">{initials(user.name)}</span><span><strong>{user.name}</strong><small>{user.email}</small><small className="admin-account__id">Profile #{user.id}</small></span></div></td>
                       <td><span className={"admin-role admin-role--" + user.role}>{displayRole(user.role)}</span></td>
                       <td><span className="admin-duty">{user.duty_status ? user.duty_status.replaceAll("_", " ") : "Not applicable"}</span></td>
                       <td className="admin-date">{formatDate(user.created_at)}</td>
