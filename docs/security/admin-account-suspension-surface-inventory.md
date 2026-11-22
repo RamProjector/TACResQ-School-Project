@@ -41,7 +41,8 @@ This inventory is intentionally conservative. A path is not marked covered merel
 - [Batch 1: requester incident lifecycle, field claiming, claimability, incident chat attachments, FCM token registration, and Admin investigation feed](admin-account-suspension-rpc-review-batch-1.md). The reviewed functions currently lack an independent account-state check; each gap and the correct enforcement boundary is recorded there.
 - [Batch 2: Admin and audit](admin-account-suspension-rpc-review-batch-2-admin-audit.md). The shared Admin MFA helper checks role/AAL2/TOTP but has no account-state predicate; the batch records all protected Admin endpoints and direct audit-table policy requirements.
 - [Batch 3: dispatch, assignments, and GPS](admin-account-suspension-rpc-review-batch-3-dispatch-gps.md). This distinguishes public invoker wrappers from directly callable private SECURITY DEFINER implementations and records the missing account-state checks on dispatcher, field-unit, and location paths.
-- Remaining batches must cover notifications/profile/device security, Storage, and every direct client/bridge path.
+- [Batch 4: profile, notifications, and FCM](admin-account-suspension-rpc-review-batch-4-profile-notifications-fcm.md). This records the notification RPC access gaps, direct FCM table policy requirements, and the narrow self-token cleanup exception to evaluate.
+- Remaining batches must cover device/session/security RPCs, Storage, and every direct client/bridge path.
 
 ## Required completion artifacts
 
