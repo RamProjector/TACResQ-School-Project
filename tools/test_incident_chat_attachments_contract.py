@@ -9,7 +9,8 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-migration = read("supabase/migrations/20261108092703_incident_chat_image_attachments.sql")\nreservation_migration = read("supabase/migrations/20261122210000_incident_chat_upload_reservations.sql")
+migration = read("supabase/migrations/20261108092703_incident_chat_image_attachments.sql")
+reservation_migration = read("supabase/migrations/20261122210000_incident_chat_upload_reservations.sql")
 for label, passed in {
     "attachment metadata is stored with the message": "ADD COLUMN IF NOT EXISTS attachment_path text" in migration,
     "image-only messages remain bounded": "attachment_size_bytes BETWEEN 1 AND 5242880" in migration,
@@ -96,7 +97,9 @@ replay = read("tools/test_supabase_migration_replay.sh")
 storage_tests = read("tools/test_incident_chat_storage_policies.sql")
 assert "tools/test_incident_chat_storage_policies.sql" in replay, "Migration replay must execute Storage RLS tests"
 for required in (
-    "api_send_incident_image_message",\n    "api_reserve_incident_image_upload",\n    "rpc.reserveIncidentImageUpload",
+    "api_send_incident_image_message",
+    "api_reserve_incident_image_upload",
+    "rpc.reserveIncidentImageUpload",
     "The incident requester must be able to download an assigned responder image",
     "An unrelated account must not read incident image objects",
     "An unrelated account must not upload into another incident conversation",
