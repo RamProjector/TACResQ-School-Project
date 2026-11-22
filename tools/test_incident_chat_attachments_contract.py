@@ -38,6 +38,9 @@ for label, passed in {
     "reservation RPC is authenticated-only": "GRANT EXECUTE ON FUNCTION public.api_reserve_incident_image_upload" in reservation_migration,
     "Storage INSERT requires a live matching reservation": "private.tacresq_upload_reservation_allows_insert(" in reservation_migration
         and "r.expires_at > clock_timestamp()" in reservation_migration,
+    "Storage preflight accepts declared content length": "COALESCE(metadata->>'size', metadata->>'contentLength')" in reservation_migration,
+    "reservation identity is independent of sender message UUID": "gen_random_uuid(), actor_profile_id, p_incident_id, p_client_message_id" in reservation_migration,
+    "reservation expiry helper evaluates wall-clock time": "clock_timestamp()" in reservation_migration,
     "reservation binds exact object metadata": "r.object_path = p_object_path" in reservation_migration
         and "r.mime_type = p_mime_type" in reservation_migration
         and "r.size_bytes = p_size_bytes" in reservation_migration,
@@ -59,6 +62,9 @@ for required in (
     "A participant must not upload an object without a matching reservation",
     "An unrelated account must not reserve an upload for another incident",
     "The 21st image reservation within one minute must be rejected",
+    "'contentLength':'4'",
+    "A duplicate object path must not overwrite the existing attachment",
+    "Different senders must receive independent reservation identities",
 ):
     assert required in storage_tests, f"Storage reservation regression test missing: {required}"
 
