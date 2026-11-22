@@ -77,6 +77,14 @@ for required in (
 ):
     assert required in models, f"Chat attachment model missing: {required}"
 
+transport_test = read("app/src/test/java/com/tacresq/app/data/remote/SupabaseIncidentImageUploadTest.kt")
+for required in (
+    "consumedReservationSkipsDuplicateStorageUploadAndFinalizesExistingMessage",
+    "liveReservationUploadsBeforeFinalization",
+    "server.requestCount",
+):
+    assert required in transport_test, f"Image upload transport regression test missing: {required}"
+
 api = read("app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt")
 for required in (
     'storage/v1/object/{bucket}/{path}',
