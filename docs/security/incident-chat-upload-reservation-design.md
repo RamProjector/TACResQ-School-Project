@@ -259,4 +259,4 @@ UPDATE private.incident_chat_upload_policy
  WHERE singleton = true;
 ```
 
-Once enabled, both Storage INSERT and image-message finalization require a matching reservation. The switch is private and has no client-facing RPC or Admin UI. Verify the enabled state and repeat the authorized/unreserved/expired upload acceptance tests before considering the rollout complete. Do not enable it while legacy image-upload clients remain supported.
+Once enabled, both Storage INSERT and image-message finalization require a matching reservation. The switch is private and has no client-facing RPC or Admin UI. Verify the enabled state and repeat the authorized/unreserved/expired upload acceptance tests before considering the rollout complete. Do not enable it while legacy image-upload clients remain supported. If rollout must be rolled back, an authorized operator can set the switch back to `false`; this restores legacy finalization compatibility without deleting reservations, messages, or stored objects.
