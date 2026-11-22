@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Brand } from "@/components/Brand";
 import AuditLogsPage from "@/pages/AuditLogsPage";
+import AdminSecurityStatus from "@/components/AdminSecurityStatus";
 import {
   getAdminAnalyticsSummary,
   getAdminDependencyHealth,
@@ -436,6 +437,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <span className="admin-roadmap-status"><ShieldCheck size={14} /> Password + Google Authenticator TOTP · enforced server-side</span>
               </div>
             </section>
+            <AdminSecurityStatus />
           )}
           <footer className="admin-footer"><span>TACRESQ · PRIVILEGED ACCESS</span><span>Server-enforced authorization · No client-side role grants</span></footer>
         </div>
