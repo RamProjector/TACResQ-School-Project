@@ -200,3 +200,31 @@ The server may perform cryptographic verification before the atomic update to av
 Before enabling any endpoint, cover: expired challenge; replay after success; two concurrent submissions of the same valid proof (exactly one succeeds); wrong profile; wrong Supabase session; wrong purpose; wrong device; altered challenge bytes; malformed/oversized public key; unsupported curve; malformed DER signature; invalid signature; revoked device; revoked Supabase session; failed event insert rolling back acceptance; and rate-limit exhaustion. Also verify that no challenge, signature, bearer token, or private-key material appears in application logs or event details.
 
 **Release gate:** keep the registry private and unused by client flows until the trusted verifier, transaction boundary, server-side session/device enforcement, and the negative/concurrency test suite are implemented and reviewed. Do not add Device Security controls to the admin portal before that gate passes.
+
+
+## 12. Repository integration boundary (verified source review)
+
+The current repository has two distinct authentication/data paths. They must not be conflated when implementing device proof:
+
+- The Laravel routes under `backend/src/routes/api.php` protect the legacy API with `auth:sanctum` and Laravel `User` records. Its `/login`, `/register`, `/logout`, and `/logout-all` endpoints issue or revoke Laravel Sanctum personal-access tokens. Those tokens are not Supabase Auth sessions and cannot be written into `device_sessions.auth_session_id`.
+- The optional Laravel Supabase bridge uses `App\\SupabaseBridge::getUser()` to call Supabase Auth `/auth/v1/user` with the caller's bearer token. This verifies the token with Supabase and returns the Auth user, but the current method does not return verified JWT claims such as `session_id`. It must not decode the bearer token without independently verifying its signature, issuer, audience, and expiry.
+- The bridge's `callRpc()` forwards the caller's JWT and the publishable key to an allowlisted PostgREST RPC. It does not use a service-role key for business RPCs. The Laravel bridge is intentionally stateless and does not provide the PostgreSQL transaction connection needed to atomically consume a challenge and update the private registry.
+- The dispatcher/admin web client and the normal Android Supabase transport call Supabase RPCs directly with the signed-in user's JWT. They do not automatically traverse Laravel route middleware. A Laravel-only device check would therefore not protect those direct request paths.
+
+### Consequence for implementation
+
+Do not implement the device verifier as a Laravel Sanctum route, do not bind a Sanctum token ID to a Supabase session, and do not assume that adding a Laravel bridge endpoint protects direct Supabase RPC calls.
+
+The preferred first implementation boundary is a narrowly scoped Supabase-side verifier path that preserves the authenticated Supabase caller context and performs all registry mutations in one PostgreSQL transaction. The verifier must obtain the caller's verified subject and session claim from Supabase's validated request context (for example, the database's verified `auth.uid()` and `auth.jwt()` context for a user-JWT RPC), not from caller-supplied IDs. If an Edge Function is used for rate limiting or cryptographic processing, it must forward the original user JWT into the narrowly scoped database operation so the database can independently enforce the caller context; never replace it with service-role identity and then trust arbitrary profile/session parameters.
+
+Before choosing the exact implementation, inspect the current Supabase project configuration, installed Edge Function conventions, database extension availability, and function privilege patterns. The database function must pin `search_path`, validate the expected role/subject/session/purpose/device relationship, use conditional single-use challenge consumption, and keep table grants private. Do not add a broad SECURITY DEFINER RPC or expose the registry tables to `authenticated`.
+
+### Required integration inventory before coding
+
+1. Enumerate every direct Supabase RPC path used by Android and the admin/dispatcher web client, then identify which operations actually need device proof. Do not make emergency request creation dependent on proof.
+2. Confirm the profile mapping used by `api_me()` and how its profile identifier relates to the registry's `profile_id`; do not assume Laravel's Eloquent user ID is the same identifier.
+3. Inspect the existing Supabase migration conventions for function ownership, grants, fixed search paths, and tests. Keep verifier functions narrowly callable and deny direct table access.
+4. Decide how the verifier obtains a trusted session ID and how revoked sessions are checked at sensitive-operation boundaries. Supabase Auth `/user` validation alone does not expose the `session_id` claim in the current bridge implementation.
+5. Add tests for both the direct-Supabase path and optional bridge path, including a proof that a caller cannot use a different profile/session/device ID and that direct calls cannot bypass any intended enforcement.
+
+**Current implementation status:** no challenge issuance endpoint, signature verifier, device-session binding, or sensitive-operation enforcement has been implemented. The Laravel bridge and Sanctum logout endpoints are not substitutes for those controls. Keep the registry private until the Supabase-side transaction and request-path enforcement are complete.
