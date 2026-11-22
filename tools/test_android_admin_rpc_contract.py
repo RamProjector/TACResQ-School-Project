@@ -70,11 +70,13 @@ checks = {
             for marker in (
                 "getAdminUsersPage",
                 "setAdminUserRole",
-                "getAdminAuditLogs",
+                "AuditLogsPage",
+                'activeSection === "audit" && <AuditLogsPage profile={profile} />',
                 'label: "Overview"',
                 'label: "User management"',
+                'label: "Security & countermeasures"',
                 'label: "Analytics & reports"',
-                'label: "Audit & activity"',
+                'label: "Audit Logs"',
             )
         )
     ),
