@@ -24,6 +24,8 @@ for marker in (
     assert marker in gate.lower(), f"Missing Admin TOTP flow marker: {marker}"
 
 assert "AdminMfaGate" in home and 'profile.role === "admin"' in home
+assert "[session?.user.id, session?.access_token]" in home, "Profile role must be rechecked when the auth token/session changes."
+assert "<AdminMfaGate key={session.access_token}" in home, "A new auth session must restart the Admin MFA gate."
 assert "Administrator access requires Google Authenticator TOTP." in admin
 
 for marker in (
