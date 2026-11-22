@@ -76,7 +76,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const [activeSection, setActiveSection] = useState<AdminSection>(() => window.location.hash === "#/admin/audit-logs" ? "audit" : "overview");
+  const [activeSection, setActiveSection] = useState<AdminSection>(() => {
+    const route = window.location.hash.slice(1).replace(/^\/admin\/?/, "");
+    return route === "audit-logs" ? "audit" : (["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview");
+  });
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
@@ -122,6 +125,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     const requestId = ++requestVersion.current;
     setRefreshing(true);
     setError(null);
+    if (activeSection !== "overview" && activeSection !== "users") {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       const userPage = await getAdminUsersPage(pageSize, page * pageSize, query, roleFilter);
       if (requestId !== requestVersion.current) return;
@@ -129,7 +137,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       setTotalUsers(userPage.total_count);
       // Keep provider diagnostics independent from the core account/audit refresh.
       // A slow health endpoint must not keep the whole Admin workspace in a loading state.
-      void getAdminDependencyHealth()
+      if (activeSection === "overview") void getAdminDependencyHealth()
         .then((nextHealth) => {
           if (requestId !== requestVersion.current) return;
           setDependencyHealth(nextHealth);
@@ -154,7 +162,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         setRefreshing(false);
       }
     }
-  }, [page, query, roleFilter]);
+  }, [activeSection, page, query, roleFilter]);
 
   useEffect(() => {
     const syncSection = () => {
@@ -162,6 +170,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       const next: AdminSection = route === "audit-logs" ? "audit" : (["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview");
       setActiveSection(next);
     };
+    syncSection();
     window.addEventListener("hashchange", syncSection);
     return () => window.removeEventListener("hashchange", syncSection);
   }, []);
@@ -292,9 +301,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}<span>.</span></h1>
               <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Search and review the complete administrative audit history." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
             </div>
-            <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
+            {activeSection !== "audit" && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
               <RefreshCw size={16} className={refreshing ? "admin-spin" : ""} /> Refresh data
-            </button>
+            </button>}
           </div>
 
           {(error || notice) && (
