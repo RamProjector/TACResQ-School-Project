@@ -56,7 +56,7 @@ type TacruDatabase = {
       api_admin_list_users_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_role: string }; Returns: { users: AdminUser[]; total_count: number } };
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
-      api_admin_list_audit_logs_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_action: string; p_from: string | null; p_to: string | null }; Returns: { events: AdminAuditEvent[]; total_count: number } };
+      api_admin_list_audit_logs_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_action: string; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null }; Returns: { events: AdminAuditEvent[]; total_count: number } };
       api_admin_analytics_summary: { Args: { p_from: string; p_to: string }; Returns: AdminAnalyticsSummary };
       api_dependency_health: { Args: Record<string, never>; Returns: string };
     };
@@ -190,6 +190,8 @@ export async function getAdminAnalyticsSummary(from: string, to: string): Promis
   const { data, error } = await getSupabase().rpc("api_admin_analytics_summary", {
     p_from: from,
     p_to: to,
+    p_actor_user_id: actorUserId,
+    p_target_user_id: targetUserId,
   });
   throwAdminError(error);
   if (!data || typeof data !== "object") throw new Error("The analytics service returned an invalid summary.");
@@ -212,6 +214,8 @@ export async function getAdminAuditLogsPage(
   action: "all" | "user_role_changed",
   from: string | null,
   to: string | null,
+  actorUserId: number | null,
+  targetUserId: number | null,
 ): Promise<AdminAuditPage> {
   const { data, error } = await getSupabase().rpc("api_admin_list_audit_logs_page", {
     p_limit: limit,
