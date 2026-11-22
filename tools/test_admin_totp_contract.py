@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Contract checks for mandatory Google Authenticator TOTP on TACResQ Admin."""
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,19 +11,19 @@ migration = (ROOT / "supabase/migrations/20261122123000_require_totp_for_admin_r
 
 for marker in (
     'factorType: "totp"',
-    'friendlyName: "TACResQ Administrator"',
+    'friendlyName: "tacresq administrator"',
     "auth.mfa.enroll(",
-    "auth.mfa.listFactors()",
+    "auth.mfa.listfactors()",
     'factor.status === "verified"',
-    "auth.mfa.challengeAndVerify({ factorId, code })",
+    "auth.mfa.challengeandverify({ factorid, code })",
     'method.method === "totp"',
-    'data.currentLevel !== "aal2"',
-    'autoComplete="one-time-code"',
+    'data.currentlevel !== "aal2"',
+    'autocomplete="one-time-code"',
     'pattern="[0-9]{6}"',
 ):
-    assert marker in gate, f"Missing Admin TOTP flow marker: {marker}"
+    assert marker in gate.lower(), f"Missing Admin TOTP flow marker: {marker}"
 
-assert "AdminMfaGate" in home and "profile.role === \"admin\"" in home
+assert "AdminMfaGate" in home and 'profile.role === "admin"' in home
 assert "Administrator access requires Google Authenticator TOTP." in admin
 
 for marker in (
@@ -40,14 +41,57 @@ for marker in (
 ):
     assert marker in migration, f"Missing database MFA enforcement marker: {marker}"
 
-for rpc in (
-    "api_admin_list_users_page",
-    "api_admin_set_user_role",
-    "api_admin_list_audit_logs",
-    "api_admin_analytics_summary",
-):
-    assert f"create or replace function public.{rpc}" in migration, f"Missing MFA wrapper for {rpc}"
+# Verify each public wrapper checks MFA before delegating to its private
+# implementation; merely mentioning both names elsewhere is insufficient.
+wrapper_targets = {
+    "api_admin_list_users_page": "api_admin_list_users_page_internal",
+    "api_admin_set_user_role": "api_admin_set_user_role_internal",
+    "api_admin_list_audit_logs": "api_admin_list_audit_logs_internal",
+    "api_admin_analytics_summary": "api_admin_analytics_summary_internal",
+}
+for public_name, internal_name in wrapper_targets.items():
+    match = re.search(
+        rf"create or replace function public\\.{public_name}\\b.*?as \\$function\\$(.*?)\\$function\\$;",
+        migration,
+        flags=re.DOTALL,
+    )
+    assert match, f"Missing public MFA wrapper body: {public_name}"
+    body = match.group(1)
+    mfa_check = body.find("perform private.tacresq_require_admin_mfa()")
+    delegation = body.find(f"return public.{internal_name}(")
+    assert mfa_check >= 0 and delegation > mfa_check, (
+        f"{public_name} must enforce TOTP before calling {internal_name}"
+    )
 
-assert "grant execute on function public.api_admin_list_users()" not in migration, "The legacy unbounded Admin user-list RPC must remain revoked."
+    internal_signature = {
+        "api_admin_list_users_page": "api_admin_list_users_page_internal(integer, integer, text, text)",
+        "api_admin_set_user_role": "api_admin_set_user_role_internal(bigint, text, text)",
+        "api_admin_list_audit_logs": "api_admin_list_audit_logs_internal(integer)",
+        "api_admin_analytics_summary": "api_admin_analytics_summary_internal(timestamptz, timestamptz)",
+    }[public_name]
+    assert re.search(
+        rf"revoke all on function public\\.{re.escape(internal_signature)}\\s+from public, anon, authenticated",
+        migration,
+    ), f"Private implementation remains executable by a client role: {internal_name}"
+    assert re.search(
+        rf"grant execute on function public\\.{public_name}\\([^;]+?\\)\\s+to authenticated",
+        migration,
+    ), f"Authenticated role lacks the protected wrapper grant: {public_name}"
+
+# Direct table reads must require both the AAL2 claim and a TOTP AMR entry.
+policy_match = re.search(
+    r"create policy admin_audit_logs_require_aal2(.*?)\\);",
+    migration,
+    flags=re.DOTALL,
+)
+assert policy_match, "Missing restrictive audit-log MFA policy"
+policy = policy_match.group(1)
+assert "as restrictive" in policy and "for select" in policy
+assert "aal' = 'aal2'" in policy
+assert "method ->> 'method' = 'totp'" in policy
+
+assert "grant execute on function public.api_admin_list_users()" not in migration, (
+    "The legacy unbounded Admin user-list RPC must remain revoked."
+)
 assert "service_role" not in gate.lower(), "The browser must not use a service-role key."
-print("Admin TOTP enrollment, verification, and server-side enforcement contracts passed.")
+print("Admin TOTP enrollment, verification, wrapper ordering, grants, and audit RLS contracts passed.")
