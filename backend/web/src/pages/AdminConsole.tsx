@@ -3,10 +3,8 @@ import {
   AlertCircle,
   Activity,
   BarChart3,
-  DatabaseBackup,
   History,
   LayoutDashboard,
-  Settings,
   ShieldAlert,
   ArrowDownUp,
   CheckCircle2,
@@ -44,7 +42,7 @@ type AdminConsoleProps = {
 };
 
 type RoleFilter = "all" | AdminManagedRole | "admin";
-type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "settings" | "backups";
+type AdminSection = "overview" | "users" | "security" | "analytics" | "audit";
 
 const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -52,8 +50,6 @@ const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashb
   { id: "security", label: "Security & countermeasures", icon: ShieldAlert },
   { id: "analytics", label: "Analytics & reports", icon: BarChart3 },
   { id: "audit", label: "Audit & activity", icon: History },
-  { id: "settings", label: "Settings", icon: Settings },
-  { id: "backups", label: "Backup & recovery", icon: DatabaseBackup },
 ];
 const roleOptions: AdminManagedRole[] = ["requester", "responder", "driver", "dispatcher"];
 
@@ -440,15 +436,15 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               ) : null}
             </section>
           )}
-          {(["security", "settings", "backups"] as AdminSection[]).includes(activeSection) && (
+          {activeSection === "security" && (
             <section className="admin-panel admin-roadmap-panel" aria-live="polite">
               <div className="admin-panel__heading">
-                <div><p className="admin-eyebrow">BACKEND-VERIFIED CAPABILITIES</p><h2><ShieldCheck size={19} /> {adminSections.find((section) => section.id === activeSection)?.label}</h2></div>
-                <span className="admin-count">{activeSection === "security" ? "TOTP enforced" : "Not connected"}</span>
+                <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><ShieldCheck size={19} /> Security &amp; countermeasures</h2></div>
+                <span className="admin-count">TOTP enforced</span>
               </div>
               <div className="admin-roadmap-content">
-                <strong>{activeSection === "security" ? "Administrator access requires Google Authenticator TOTP." : activeSection === "analytics" ? "Operational analytics are not yet connected." : activeSection === "settings" ? "No persistent administrator settings are currently exposed." : "Backup and recovery status is not yet connected."}</strong>
-                <p>{activeSection === "security" ? "After password sign-in, administrators must enroll or verify a six-digit time-based code from Google Authenticator. Supabase Auth verifies the factor and issues an AAL2 session; the Admin RPCs and audit-log table independently require an AAL2 token with a TOTP authentication method. No SMS or email OTP is used. Supabase Auth does not currently provide app-generated recovery codes, so keep your authenticator available and do not remove your only verified factor." : activeSection === "analytics" ? "Incident and assignment records exist, but trusted admin-only aggregate endpoints and validated metric definitions are required before displaying operational performance figures." : activeSection === "settings" ? "Only settings with defined ownership, secure persistence, and a confirmed effect on application behavior will be added here. No local-only toggles will be presented as system settings." : "Repository backup procedures exist, but the portal has no verified live backup-job or restore-drill feed. Recovery readiness will remain unreported until both database and storage artifacts are validated."}</p>
+                <strong>Administrator access requires Google Authenticator TOTP.</strong>
+                <p>After password sign-in, administrators must enroll or verify a six-digit time-based code from Google Authenticator. Supabase Auth verifies the factor and issues an AAL2 session; the Admin RPCs and audit-log table independently require an AAL2 token with a TOTP authentication method. No SMS or email OTP is used. Supabase Auth does not currently provide app-generated recovery codes, so keep your authenticator available and do not remove your only verified factor.</p>
                 <span className="admin-roadmap-status"><ShieldCheck size={14} /> Password + Google Authenticator TOTP · enforced server-side</span>
               </div>
             </section>
