@@ -1,53 +1,75 @@
 import { Fragment, useEffect, useState } from "react";
 import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Clock3, LoaderCircle, RefreshCw, Search } from "lucide-react";
-import { getAdminAuditLogsPage } from "@/lib/supabase";
-import type { AdminAuditEvent, TacruProfile } from "@/lib/supabase";
+import { getAdminInvestigationEventsPage } from "@/lib/supabase";
+import type { AdminInvestigationCategory, AdminInvestigationEvent, TacruProfile } from "@/lib/supabase";
 
-type AuditAction = "all" | "user_role_changed";
 type AuditLogsPageProps = { profile: TacruProfile };
 
 const PAGE_SIZE = 25;
+
+const categoryLabels: Record<Exclude<AdminInvestigationCategory, "all">, string> = {
+  administrative: "Administrative",
+  authentication: "Authentication",
+  incident: "Incident",
+  assignment: "Assignment",
+};
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "Time unavailable";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Time unavailable";
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" }).format(date);
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: "Asia/Manila",
+    dateStyle: "medium",
+    timeStyle: "medium",
+  }).format(date);
 }
 
-// Audit date filters use the same fixed reporting zone as TACResQ analytics.
-// Do not use the browser's local timezone: administrators may review records
-// from devices configured outside the Philippines.
+// Audit date filters use the fixed TACResQ reporting zone, independent of the
+// administrator's device timezone.
 function startOfDay(value: string) {
   return value ? value + "T00:00:00+08:00" : null;
 }
 
 function startOfNextDay(value: string) {
   if (!value) return null;
-  // Advance the calendar date in UTC to avoid local DST/timezone transitions.
   const date = new Date(value + "T00:00:00Z");
   date.setUTCDate(date.getUTCDate() + 1);
   return date.toISOString().slice(0, 10) + "T00:00:00+08:00";
 }
 
-function displayRole(value: string | null | undefined) {
-  if (!value) return "Unknown";
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function formatEventType(value: string) {
+  return value.replaceAll("_", " ");
+}
+
+function formatDetailLabel(value: string) {
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatDetailValue(value: unknown) {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  return "Not available";
+}
+
+function actorDisplay(event: AdminInvestigationEvent, profile: TacruProfile) {
+  return event.actor_user_id === profile.id ? "You" : event.actor_label || "Unknown actor";
 }
 
 export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
-  const [events, setEvents] = useState<AdminAuditEvent[]>([]);
+  const [events, setEvents] = useState<AdminInvestigationEvent[]>([]);
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
-  const [action, setAction] = useState<AuditAction>("all");
+  const [category, setCategory] = useState<AdminInvestigationCategory>("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [actorId, setActorId] = useState("");
   const [targetId, setTargetId] = useState("");
+  const [incidentId, setIncidentId] = useState("");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
 
   useEffect(() => {
@@ -59,27 +81,27 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       const toValue = startOfNextDay(to);
       const actorFilter = actorId.trim() ? Number(actorId) : null;
       const targetFilter = targetId.trim() ? Number(targetId) : null;
-      if ((actorFilter !== null && (!Number.isSafeInteger(actorFilter) || actorFilter < 1))
-          || (targetFilter !== null && (!Number.isSafeInteger(targetFilter) || targetFilter < 1))) {
+      const incidentFilter = incidentId.trim() ? Number(incidentId) : null;
+      const numericFilters = [actorFilter, targetFilter, incidentFilter];
+      if (numericFilters.some((value) => value !== null && (!Number.isSafeInteger(value) || value < 1))) {
         setEvents([]);
         setTotal(0);
-        setError("Profile ID filters must be positive whole numbers.");
+        setError("Profile and incident ID filters must be positive whole numbers.");
         setLoading(false);
         return;
       }
-      void getAdminAuditLogsPage(
+      void getAdminInvestigationEventsPage(
         PAGE_SIZE,
         page * PAGE_SIZE,
         query,
-        action,
+        category,
         fromValue,
         toValue,
         actorFilter,
         targetFilter,
+        incidentFilter,
       ).then((result) => {
         if (!active) return;
-        // Audit records may be added/removed by concurrent privileged activity
-        // while this page is open. Recover if the selected offset no longer exists.
         if (page > 0 && page * PAGE_SIZE >= result.total_count) {
           setEvents([]);
           setTotal(result.total_count);
@@ -94,7 +116,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         if (!active) return;
         setEvents([]);
         setTotal(0);
-        setError(cause instanceof Error ? cause.message : "Audit history could not be loaded.");
+        setError(cause instanceof Error ? cause.message : "Investigation history could not be loaded.");
       }).finally(() => {
         if (active) setLoading(false);
       });
@@ -103,31 +125,32 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [page, query, action, from, to, actorId, targetId, refreshVersion]);
+  }, [page, query, category, from, to, actorId, targetId, incidentId, refreshVersion]);
 
   function resetFilters() {
     setQuery("");
-    setAction("all");
+    setCategory("all");
     setFrom("");
     setTo("");
     setActorId("");
     setTargetId("");
+    setIncidentId("");
     setPage(0);
   }
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const hasFilters = Boolean(query || category !== "all" || from || to || actorId || targetId || incidentId);
 
   return (
     <section className="audit-page" aria-labelledby="audit-page-title">
       <div className="audit-page__intro">
         <div>
-          <p className="admin-eyebrow">ACCOUNTABILITY · READ-ONLY RECORDS</p>
+          <p className="admin-eyebrow">ACCOUNTABILITY · READ-ONLY INVESTIGATION</p>
           <h2 id="audit-page-title"><Clock3 size={20} /> Audit history</h2>
-          <p>Search recorded administrative role changes. Operational incident and assignment histories remain in their dedicated workflows. Records are written by protected database operations and cannot be edited or deleted here.</p>
+          <p>Review recorded administrative, authentication, incident-status, and responder-assignment events. Each entry retains its original source and event meaning. This page does not replace operational incident records.</p>
         </div>
         <button className="admin-refresh" type="button" onClick={() => {
           setLoading(true);
-          // A same-page refresh is handled by changing a dedicated refresh counter below.
           setRefreshVersion((current) => current + 1);
         }} disabled={loading}>
           <RefreshCw size={15} /> Refresh
@@ -137,59 +160,75 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       <div className="audit-page__filters">
         <label className="admin-search audit-page__search">
           <Search size={16} />
-          <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search actor, target ID, action, role, reason or timestamp" aria-label="Search all audit logs" />
+          <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search actor, target, incident, event or details" aria-label="Search investigation history" />
         </label>
-        <label><span>Action</span><select value={action} onChange={(event) => { setPage(0); setAction(event.target.value as AuditAction); }}><option value="all">All actions</option><option value="user_role_changed">User role changed</option></select></label>
+        <label><span>Category</span><select value={category} onChange={(event) => { setPage(0); setCategory(event.target.value as AdminInvestigationCategory); }}><option value="all">All categories</option><option value="administrative">Administrative</option><option value="authentication">Authentication</option><option value="incident">Incident</option><option value="assignment">Assignment</option></select></label>
         <label><span>From (Manila)</span><input type="date" value={from} max={to || undefined} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
         <label><span>To (Manila)</span><input type="date" value={to} min={from || undefined} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
-        <label><span>Admin profile ID</span><input type="number" min="1" step="1" value={actorId} onChange={(event) => { setPage(0); setActorId(event.target.value); }} placeholder="Any admin" /></label>
+        <label><span>Actor profile ID</span><input type="number" min="1" step="1" value={actorId} onChange={(event) => { setPage(0); setActorId(event.target.value); }} placeholder="Any actor" /></label>
         <label><span>Target profile ID</span><input type="number" min="1" step="1" value={targetId} onChange={(event) => { setPage(0); setTargetId(event.target.value); }} placeholder="Any target" /></label>
-        <button className="audit-page__reset" type="button" onClick={resetFilters} disabled={!query && action === "all" && !from && !to && !actorId && !targetId}>Clear filters</button>
+        <label><span>Incident ID</span><input type="number" min="1" step="1" value={incidentId} onChange={(event) => { setPage(0); setIncidentId(event.target.value); }} placeholder="Any incident" /></label>
+        <button className="audit-page__reset" type="button" onClick={resetFilters} disabled={!hasFilters}>Clear filters</button>
       </div>
 
       {error && <div className="admin-banner admin-banner--error" role="alert"><AlertCircle size={17} /><span>{error}</span></div>}
 
       <div className="audit-page__summary">
-        <span>{loading ? "Loading audit records…" : total.toLocaleString() + " matching records"}</span>
+        <span>{loading ? "Loading investigation events…" : total.toLocaleString() + " matching events"}</span>
         <span>Page {total === 0 ? 0 : page + 1} of {pageCount}</span>
       </div>
 
       <div className="admin-table-wrap audit-page__table-wrap">
         <table className="admin-table admin-audit-table audit-page__table">
-          <thead><tr><th>Recorded</th><th>Actor</th><th>Target</th><th>Action</th><th>Role change</th><th>Details</th></tr></thead>
+          <thead><tr><th>Recorded (Manila)</th><th>Category</th><th>Actor</th><th>Target / incident</th><th>Event</th><th>Details</th></tr></thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6}><div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading records from Supabase…</div></td></tr>
+              <tr><td colSpan={6}><div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading records from protected event sources…</div></td></tr>
             ) : events.length === 0 ? (
-              <tr><td colSpan={6}><div className="admin-empty"><Clock3 size={20} /><strong>{error ? "Audit records unavailable" : "No matching audit records"}</strong><span>{error ? "The page does not substitute sample data." : "Adjust your filters or check again later."}</span></div></td></tr>
+              <tr><td colSpan={6}><div className="admin-empty"><Clock3 size={20} /><strong>{error ? "Investigation records unavailable" : "No matching investigation events"}</strong><span>{error ? "The page does not substitute sample data." : "Adjust your filters or check the source coverage note below."}</span></div></td></tr>
             ) : events.map((event) => (
-              <Fragment key={event.id}>
-              <tr>
-                <td className="admin-date">{formatDate(event.created_at)}</td>
-                <td><strong>{event.actor_user_id === profile.id ? "You" : event.actor_identity || "Unknown actor"}</strong><small className="audit-page__subtext">{event.actor_user_id === null ? "No linked profile" : "Profile #" + event.actor_user_id}</small></td>
-                <td>{event.target_user_id === null ? "Unknown / removed" : "Profile #" + event.target_user_id}</td>
-                <td><span className="admin-role">{event.action.replaceAll("_", " ")}</span></td>
-                <td><span className="admin-audit-change">{displayRole(event.old_role)} <span>→</span> {displayRole(event.new_role)}</span></td>
-                <td><button className="audit-page__details" type="button" aria-expanded={expanded === event.id} onClick={() => setExpanded(expanded === event.id ? null : event.id)}>{expanded === event.id ? "Hide" : "View"} <ChevronDown size={14} /></button></td>
-              </tr>
-              {expanded === event.id && (
-                <tr key={event.id + "-details"}><td className="audit-page__expanded" colSpan={6}>
-                  <strong>Recorded reason</strong>
-                  <p>{event.reason || "No reason was stored."}</p>
-                  <dl><div><dt>Audit record</dt><dd>#{event.id}</dd></div><div><dt>Actor profile</dt><dd>{event.actor_user_id ?? "Not linked"}</dd></div><div><dt>Target profile</dt><dd>{event.target_user_id ?? "Not linked"}</dd></div><div><dt>Exact timestamp</dt><dd>{event.created_at}</dd></div></dl>
-                </td></tr>
-              )}
+              <Fragment key={event.event_id}>
+                <tr>
+                  <td className="admin-date">{formatDate(event.occurred_at)}</td>
+                  <td><span className="audit-page__category">{categoryLabels[event.category]}</span></td>
+                  <td><strong>{actorDisplay(event, profile)}</strong><small className="audit-page__subtext">{event.actor_user_id === null ? "No linked profile" : "Profile #" + event.actor_user_id}</small></td>
+                  <td>
+                    <strong>{event.target_label || (event.incident_id !== null ? "Incident #" + event.incident_id : "—")}</strong>
+                    <small className="audit-page__subtext">{event.target_user_id !== null ? "Profile #" + event.target_user_id : event.incident_id !== null ? "Incident record" : "No linked target"}</small>
+                  </td>
+                  <td><strong>{event.summary}</strong><small className="audit-page__subtext">{formatEventType(event.event_type)}</small></td>
+                  <td><button className="audit-page__details" type="button" aria-expanded={expanded === event.event_id} onClick={() => setExpanded(expanded === event.event_id ? null : event.event_id)}>{expanded === event.event_id ? "Hide" : "View"} <ChevronDown size={14} /></button></td>
+                </tr>
+                {expanded === event.event_id && (
+                  <tr key={event.event_id + "-details"}>
+                    <td className="audit-page__expanded" colSpan={6}>
+                      <strong>Event details</strong>
+                      <p>{event.summary}</p>
+                      <dl>
+                        <div><dt>Source</dt><dd>{event.source}</dd></div>
+                        <div><dt>Event ID</dt><dd>{event.event_id}</dd></div>
+                        <div><dt>Actor</dt><dd>{event.actor_label || "Unknown actor"}{event.actor_user_id === null ? "" : " · Profile #" + event.actor_user_id}</dd></div>
+                        <div><dt>Target</dt><dd>{event.target_label || (event.target_user_id === null ? "Not applicable" : "Profile #" + event.target_user_id)}</dd></div>
+                        <div><dt>Incident</dt><dd>{event.incident_id === null ? "Not applicable" : "#" + event.incident_id}</dd></div>
+                        <div><dt>Exact timestamp</dt><dd>{event.occurred_at}</dd></div>
+                        {Object.entries(event.details).map(([key, value]) => (
+                          <div key={key}><dt>{formatDetailLabel(key)}</dt><dd>{formatDetailValue(value)}</dd></div>
+                        ))}
+                      </dl>
+                    </td>
+                  </tr>
+                )}
               </Fragment>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="admin-pagination audit-page__pagination" aria-label="Audit history pagination">
+      <div className="admin-pagination audit-page__pagination" aria-label="Investigation history pagination">
         <span>Showing {total === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}</span>
         <div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading}><ChevronLeft size={14} /> Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || (page + 1) * PAGE_SIZE >= total}>Next <ChevronRight size={14} /></button></div>
       </div>
-      <p className="admin-panel__footnote">This page currently contains role-change events written by the Admin role-change RPC. Supabase Auth separately records sign-in, sign-out, token-revocation and MFA factor events in its Auth Audit Logs; those provider records are not merged into this page. Postgres storage of Auth Audit Logs is an optional project setting and has not been enabled or verified here. API transport telemetry, incident status changes, and assignment history are also separate records with separate access controls. Search, actor/target filters, action/date filters and pagination are applied server-side. Date boundaries use Asia/Manila (UTC+08:00), independent of the browser timezone. This interface is read-only.</p>
+      <p className="admin-panel__footnote">This feed reads existing administrative role-change, incident-status, responder-assignment, and Supabase Auth Audit Log records through a TOTP/AAL2-protected, server-side query. Authentication events depend on Supabase Auth Audit Logs Postgres storage; if this category is empty, verify Authentication → Audit Logs because an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Claimability history, requester edit snapshots, API transport telemetry, device-security events, and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
     </section>
   );
 }
