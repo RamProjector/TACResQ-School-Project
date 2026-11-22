@@ -23,11 +23,12 @@ async function prepareAdminMfa(): Promise<PreparedMfa> {
   const usedTotp = aalResult.data.currentAuthenticationMethods?.some((method) => typeof method === "string" ? method === "totp" : typeof method === "object" && method !== null && method.method === "totp") ?? false;
   if (aalResult.data.currentLevel === "aal2" && usedTotp) return { state: "ready" };
 
-  const verified = factorsResult.data.totp.find((factor) => factor.status === "verified");
+  const totpFactors = factorsResult.data.all.filter((factor) => factor.factor_type === "totp");
+  const verified = totpFactors.find((factor) => factor.status === "verified");
   if (verified) return { state: "verify", factorId: verified.id };
 
   // Remove abandoned, unverified enrollment attempts before issuing a fresh QR.
-  for (const pending of factorsResult.data.totp.filter((factor) => factor.status !== "verified")) {
+  for (const pending of totpFactors.filter((factor) => factor.status !== "verified")) {
     const { error } = await auth.mfa.unenroll({ factorId: pending.id });
     if (error) throw error;
   }
