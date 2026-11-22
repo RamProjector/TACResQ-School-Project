@@ -242,6 +242,131 @@ REVOKE ALL ON FUNCTION public.api_reserve_incident_image_upload(bigint, text, bi
 GRANT EXECUTE ON FUNCTION public.api_reserve_incident_image_upload(bigint, text, bigint, uuid)
   TO authenticated;
 
+-- Keep text messages and pending image reservations inside one shared
+-- per-profile flood-guard budget. Otherwise text sends could race around
+-- reservations created before Storage upload.
+CREATE OR REPLACE FUNCTION public.api_send_incident_message(
+  p_incident_id bigint,
+  p_message text,
+  p_client_message_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  actor_profile_id bigint;
+  normalized_message text;
+  existing_message public.incident_messages%ROWTYPE;
+  created_message public.incident_messages%ROWTYPE;
+  recent_message_count integer;
+  recent_reservation_count integer;
+  uploads_limit integer;
+BEGIN
+  SELECT p.id
+    INTO actor_profile_id
+    FROM public.profiles p
+   WHERE p.auth_user_id = auth.uid();
+
+  IF actor_profile_id IS NULL THEN
+    RAISE EXCEPTION 'Authenticated profile is required'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_incident_id IS NULL OR p_incident_id < 1 THEN
+    RAISE EXCEPTION 'Incident ID is invalid'
+      USING ERRCODE = '22023';
+  END IF;
+
+  normalized_message := btrim(coalesce(p_message, ''));
+  IF length(normalized_message) < 1 OR length(normalized_message) > 2000 THEN
+    RAISE EXCEPTION 'Message must contain 1 to 2000 characters'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_client_message_id IS NULL THEN
+    RAISE EXCEPTION 'Client message ID is required for safe retries'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF NOT private.tacresq_can_access_incident_chat(p_incident_id, actor_profile_id) THEN
+    RAISE EXCEPTION 'Incident chat is not available to this account'
+      USING ERRCODE = '42501';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(actor_profile_id);
+
+  SELECT m.*
+    INTO existing_message
+    FROM public.incident_messages m
+   WHERE m.sender_id = actor_profile_id
+     AND m.client_message_id = p_client_message_id;
+
+  IF FOUND THEN
+    IF existing_message.incident_id <> p_incident_id
+       OR existing_message.message <> normalized_message THEN
+      RAISE EXCEPTION 'Client message ID was already used for different content'
+        USING ERRCODE = '23505';
+    END IF;
+    RETURN jsonb_build_object(
+      'id', existing_message.id,
+      'incident_id', existing_message.incident_id,
+      'sender_id', existing_message.sender_id,
+      'message', existing_message.message,
+      'created_at', existing_message.created_at
+    );
+  END IF;
+
+  SELECT policy.uploads_per_minute
+    INTO uploads_limit
+    FROM private.incident_chat_upload_policy policy
+   WHERE policy.singleton = true;
+
+  IF uploads_limit IS NULL THEN
+    RAISE EXCEPTION 'Incident image upload policy is not configured'
+      USING ERRCODE = '55000';
+  END IF;
+
+  SELECT count(*) INTO recent_message_count
+    FROM public.incident_messages m
+   WHERE m.sender_id = actor_profile_id
+     AND m.created_at >= now() - interval '1 minute';
+
+  SELECT count(*) INTO recent_reservation_count
+    FROM private.incident_chat_upload_reservations r
+   WHERE r.profile_id = actor_profile_id
+     AND r.created_at >= now() - interval '1 minute'
+     AND r.consumed_at IS NULL
+     AND r.expires_at > now();
+
+  IF recent_message_count + recent_reservation_count >= uploads_limit THEN
+    RAISE EXCEPTION 'Message rate limit reached; wait before sending again'
+      USING ERRCODE = '54000';
+  END IF;
+
+  INSERT INTO public.incident_messages (
+    incident_id, sender_id, client_message_id, message
+  ) VALUES (
+    p_incident_id, actor_profile_id, p_client_message_id, normalized_message
+  )
+  RETURNING * INTO created_message;
+
+  RETURN jsonb_build_object(
+    'id', created_message.id,
+    'incident_id', created_message.incident_id,
+    'sender_id', created_message.sender_id,
+    'message', created_message.message,
+    'created_at', created_message.created_at
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.api_send_incident_message(bigint, text, uuid)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.api_send_incident_message(bigint, text, uuid)
+  TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.api_send_incident_image_message(
   p_incident_id bigint,
   p_message text,
@@ -263,6 +388,8 @@ DECLARE
   existing_reservation private.incident_chat_upload_reservations%ROWTYPE;
   expected_extension text;
   recent_message_count integer;
+  recent_reservation_count integer;
+  uploads_limit integer;
 BEGIN
   SELECT p.id
     INTO actor_profile_id
@@ -380,12 +507,30 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  SELECT policy.uploads_per_minute
+    INTO uploads_limit
+    FROM private.incident_chat_upload_policy policy
+   WHERE policy.singleton = true;
+
+  IF uploads_limit IS NULL THEN
+    RAISE EXCEPTION 'Incident image upload policy is not configured'
+      USING ERRCODE = '55000';
+  END IF;
+
   SELECT count(*) INTO recent_message_count
     FROM public.incident_messages m
    WHERE m.sender_id = actor_profile_id
      AND m.created_at >= now() - interval '1 minute';
 
-  IF recent_message_count >= 20 THEN
+  SELECT count(*) INTO recent_reservation_count
+    FROM private.incident_chat_upload_reservations r
+   WHERE r.profile_id = actor_profile_id
+     AND r.created_at >= now() - interval '1 minute'
+     AND r.consumed_at IS NULL
+     AND r.expires_at > now()
+     AND r.client_message_id <> p_client_message_id;
+
+  IF recent_message_count + recent_reservation_count >= uploads_limit THEN
     RAISE EXCEPTION 'Message rate limit reached; wait before sending again'
       USING ERRCODE = '54000';
   END IF;
