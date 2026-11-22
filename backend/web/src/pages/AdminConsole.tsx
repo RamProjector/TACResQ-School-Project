@@ -143,6 +143,15 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     try {
       const userPage = await getAdminUsersPage(pageSize, page * pageSize, query, roleFilter);
       if (requestId !== requestVersion.current) return;
+      // The underlying account set can shrink while an administrator is on a
+      // later page (for example, after another admin changes/removes records).
+      // Move to the last valid page instead of presenting a false empty result.
+      if (page > 0 && page * pageSize >= userPage.total_count) {
+        setTotalUsers(userPage.total_count);
+        setUsers([]);
+        setPage(Math.max(0, Math.ceil(userPage.total_count / pageSize) - 1));
+        return;
+      }
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
       // Keep provider diagnostics independent from the core account refresh.
