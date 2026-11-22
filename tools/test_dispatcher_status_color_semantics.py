@@ -2,9 +2,18 @@
 """Keep incident status colors distinct, theme-aware, and WCAG AA readable."""
 from pathlib import Path
 
+dispatcher = Path(
+    "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt"
+).read_text(encoding="utf-8")
 components = Path(
     "app/src/main/java/com/tacresq/app/ui/common/Components.kt"
 ).read_text(encoding="utf-8")
+
+# The dispatcher continues to render the single shared incident milestone.
+assert "StatusPill(incident.status)" in dispatcher
+assert "StatusPill(memberStatus.status)" not in dispatcher
+assert "StatusPill(incident.status.label, MaterialTheme.colorScheme.secondary)" not in dispatcher
+assert "memberStatus" not in dispatcher
 
 palette_start = components.index("private fun IncidentStatus.statusPalette(isDark: Boolean)")
 palette_end = components.index("\n@Composable", palette_start)
