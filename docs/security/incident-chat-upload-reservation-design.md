@@ -205,6 +205,7 @@ Implemented on the PR branch:
 - Image-message finalization requires the matching reservation and consumes it in the same database transaction as message insertion.
 - Android now performs reserve → Storage upload → message finalization.
 - SQL Storage authorization regression fixture and static source-contract checks updated.
+- Read-only attachment inventory extended to distinguish unreserved orphan objects, uploaded-but-unfinalized objects, active/expired reservations without objects, and consumed reservations without message references. It emits aggregate counts/bytes only and performs no cleanup.
 
 Still requiring CI and isolated Supabase acceptance:
 
