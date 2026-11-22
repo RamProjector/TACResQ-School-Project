@@ -74,6 +74,15 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         targetFilter,
       ).then((result) => {
         if (!active) return;
+        // Audit records may be added/removed by concurrent privileged activity
+        // while this page is open. Recover if the selected offset no longer exists.
+        if (page > 0 && page * PAGE_SIZE >= result.total_count) {
+          setEvents([]);
+          setTotal(result.total_count);
+          setExpanded(null);
+          setPage(Math.max(0, Math.ceil(result.total_count / PAGE_SIZE) - 1));
+          return;
+        }
         setEvents(result.events);
         setTotal(result.total_count);
         setExpanded(null);
