@@ -228,18 +228,19 @@ class SupabaseTacApi private constructor(
         val path = reservation.objectPath
         require(path == expectedPath) { "Server returned an unexpected incident attachment path." }
 
-        try {
-            storage.upload(
-                bucket = "incident-chat-attachments",
-                path = path,
-                contentType = mimeType,
-                body = imageBytes.toRequestBody(mimeType.toMediaType()),
-            ).close()
-        } catch (failure: retrofit2.HttpException) {
-            // A retry after an ambiguous response reuses the same reservation/path.
-            // HTTP 409 is not proof that the stored bytes match; the server-side
-            // finalization RPC independently verifies the reserved object metadata.
-            if (failure.code() != 409) throw failure
+        if (!reservation.consumed) {
+            try {
+                storage.upload(
+                    bucket = "incident-chat-attachments",
+                    path = path,
+                    contentType = mimeType,
+                    body = imageBytes.toRequestBody(mimeType.toMediaType()),
+                ).close()
+            } catch (failure: retrofit2.HttpException) {
+                // A retry after an ambiguous upload response reuses the same reservation/path.
+                // HTTP 409 is not proof that the stored bytes match; finalization verifies metadata.
+                if (failure.code() != 409) throw failure
+            }
         }
         return rpc.sendIncidentImageMessage(
             SendIncidentImageMessageRpc(incidentId, normalized, path, mimeType, imageBytes.size.toLong(), messageId)
