@@ -71,6 +71,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [dependencyHealth, setDependencyHealth] = useState<AdminDependencyHealth | null>(null);
   const [dependencyHealthError, setDependencyHealthError] = useState<string | null>(null);
+  const [dependencyHealthLoading, setDependencyHealthLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,17 +158,23 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     }
     // Run dependency probes independently from the account-directory RPC.
     // A user-list failure must not suppress system-health diagnostics.
-    if (activeSection === "overview") void getAdminDependencyHealth()
-      .then((nextHealth) => {
-        if (requestId !== requestVersion.current) return;
-        setDependencyHealth(nextHealth);
-        setDependencyHealthError(null);
-      })
-      .catch(() => {
-        if (requestId !== requestVersion.current) return;
-        setDependencyHealth(null);
-        setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
-      });
+    if (activeSection === "overview") {
+      setDependencyHealthLoading(true);
+      void getAdminDependencyHealth()
+        .then((nextHealth) => {
+          if (requestId !== requestVersion.current) return;
+          setDependencyHealth(nextHealth);
+          setDependencyHealthError(null);
+        })
+        .catch(() => {
+          if (requestId !== requestVersion.current) return;
+          setDependencyHealth(null);
+          setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
+        })
+        .finally(() => {
+          if (requestId === requestVersion.current) setDependencyHealthLoading(false);
+        });
+    }
     try {
       const userPage = await getAdminUsersPage(pageSize, page * pageSize, debouncedQuery, roleFilter);
       if (requestId !== requestVersion.current) return;
@@ -359,12 +366,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">PLATFORM AVAILABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency health</h2></div>
-              <span className="admin-count">{dependencyHealth ? "Checked " + formatDate(dependencyHealth.checked_at) : "No verified result"}</span>
+              <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatDate(dependencyHealth.checked_at) : "No verified result"}</span>
             </div>
             {dependencyHealthError ? (
               <div className="admin-health-unavailable" role="status">{dependencyHealthError}</div>
             ) : !dependencyHealth ? (
-              <div className="admin-health-unavailable" role="status">Waiting for the first diagnostic check…</div>
+              <div className="admin-health-unavailable" role="status">{dependencyHealthLoading ? "Checking the three configured dependencies…" : "Waiting for the first diagnostic check…"}</div>
             ) : (
               <>
                 <div className="admin-health-summary" role="status" aria-live="polite">
