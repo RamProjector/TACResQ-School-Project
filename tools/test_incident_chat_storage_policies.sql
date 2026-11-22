@@ -445,21 +445,21 @@ SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000161
 DO $same_client_uuid_reservations$
 DECLARE
   responder_reservation jsonb;
-  requester_reservation jsonb;
+  dispatcher_reservation jsonb;
   incident_id bigint := current_setting('test.incident_id')::bigint;
 BEGIN
   responder_reservation := public.api_reserve_incident_image_upload(
     incident_id, 'image/jpeg', 4,
     '00000000-0000-4000-8000-000000000220'::uuid
   );
-  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000160', true);
-  requester_reservation := public.api_reserve_incident_image_upload(
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000162', true);
+  dispatcher_reservation := public.api_reserve_incident_image_upload(
     incident_id, 'image/jpeg', 4,
     '00000000-0000-4000-8000-000000000220'::uuid
   );
   IF responder_reservation->>'reservation_id' IS NULL
-     OR requester_reservation->>'reservation_id' IS NULL
-     OR responder_reservation->>'reservation_id' = requester_reservation->>'reservation_id' THEN
+     OR dispatcher_reservation->>'reservation_id' IS NULL
+     OR responder_reservation->>'reservation_id' = dispatcher_reservation->>'reservation_id' THEN
     RAISE EXCEPTION 'Different senders must receive independent reservation identities for the same client UUID';
   END IF;
 END;
