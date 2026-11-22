@@ -258,7 +258,7 @@
 .audit-page__reset:disabled { cursor:not-allowed; opacity:.45; }
 .audit-page__summary { display:flex; justify-content:space-between; gap:12px; padding:13px 22px; color:#7b8985; font:500 9px var(--mono); }
 .audit-page__table-wrap { min-height:140px; }
-.audit-page__table { min-width:850px; }
+.audit-page__table { min-width:980px; }
 .audit-page__table td { vertical-align:middle; }
 .audit-page__subtext { display:block; margin-top:4px; color:#87928f; font-size:8px; }
 .audit-page__details { display:inline-flex; align-items:center; gap:5px; min-height:29px; padding:0 8px; border:1px solid #dfe4dc; border-radius:5px; color:#4f6566; background:#fffefa; font-size:9px; font-weight:700; cursor:pointer; }
@@ -283,6 +283,12 @@
   .audit-page__pagination > div { justify-content:space-between; }
 }
 
+
+
+.audit-page__category { display:inline-flex; align-items:center; min-height:24px; padding:0 8px; border:1px solid #e0e5de; border-radius:5px; color:#596b68; background:#f6f8f3; font-size:9px; font-weight:700; white-space:nowrap; }
+.audit-page__table td strong { overflow-wrap:anywhere; }
+.audit-page__table td { max-width:300px; }
+.audit-page__expanded dl { row-gap:13px; }
 
 /* Live, read-only administrator MFA session status */
 .admin-security-status { margin-top:18px; }
