@@ -38,6 +38,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [action, setAction] = useState<AuditAction>("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [actorId, setActorId] = useState("");
+  const [targetId, setTargetId] = useState("");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,16 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       setError(null);
       const fromValue = startOfDay(from);
       const toValue = startOfNextDay(to);
+      const actorFilter = actorId.trim() ? Number(actorId) : null;
+      const targetFilter = targetId.trim() ? Number(targetId) : null;
+      if ((actorFilter !== null && (!Number.isSafeInteger(actorFilter) || actorFilter < 1))
+          || (targetFilter !== null && (!Number.isSafeInteger(targetFilter) || targetFilter < 1))) {
+        setEvents([]);
+        setTotal(0);
+        setError("Profile ID filters must be positive whole numbers.");
+        setLoading(false);
+        return;
+      }
       void getAdminAuditLogsPage(
         PAGE_SIZE,
         page * PAGE_SIZE,
@@ -58,6 +70,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         action,
         fromValue,
         toValue,
+        actorFilter,
+        targetFilter,
       ).then((result) => {
         if (!active) return;
         setEvents(result.events);
@@ -76,13 +90,15 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [page, query, action, from, to, refreshVersion]);
+  }, [page, query, action, from, to, actorId, targetId, refreshVersion]);
 
   function resetFilters() {
     setQuery("");
     setAction("all");
     setFrom("");
     setTo("");
+    setActorId("");
+    setTargetId("");
     setPage(0);
   }
 
@@ -113,7 +129,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <label><span>Action</span><select value={action} onChange={(event) => { setPage(0); setAction(event.target.value as AuditAction); }}><option value="all">All actions</option><option value="user_role_changed">User role changed</option></select></label>
         <label><span>From</span><input type="date" value={from} max={to || undefined} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
         <label><span>To</span><input type="date" value={to} min={from || undefined} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
-        <button className="audit-page__reset" type="button" onClick={resetFilters} disabled={!query && action === "all" && !from && !to}>Clear filters</button>
+        <label><span>Admin profile ID</span><input type="number" min="1" step="1" value={actorId} onChange={(event) => { setPage(0); setActorId(event.target.value); }} placeholder="Any admin" /></label>
+        <label><span>Target profile ID</span><input type="number" min="1" step="1" value={targetId} onChange={(event) => { setPage(0); setTargetId(event.target.value); }} placeholder="Any target" /></label>
+        <button className="audit-page__reset" type="button" onClick={resetFilters} disabled={!query && action === "all" && !from && !to && !actorId && !targetId}>Clear filters</button>
       </div>
 
       {error && <div className="admin-banner admin-banner--error" role="alert"><AlertCircle size={17} /><span>{error}</span></div>}
