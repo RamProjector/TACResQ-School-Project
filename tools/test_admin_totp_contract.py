@@ -74,7 +74,7 @@ assert 'new Date(point.day + "T00:00:00Z")' in analytics_validator, "Analytics d
 assert 'new Date(point.day + "T00:00:00Z").toLocaleDateString' in admin and 'timeZone: "UTC"' in admin, "Daily analytics labels must not shift based on the administrator's browser timezone."
 assert "admin-audit-panel" not in admin
 assert "api_admin_list_audit_logs_page" in supabase_client
-assert "Admin profile ID" in audit_page and "Target profile ID" in audit_page
+assert "Actor profile ID" in audit_page and "Target profile ID" in audit_page
 assert "cannot be edited or deleted here" in audit_page
 assert "Supabase Auth separately records sign-in, sign-out, token-revocation and MFA factor events" in audit_page
 assert "not merged into this page" in audit_page
