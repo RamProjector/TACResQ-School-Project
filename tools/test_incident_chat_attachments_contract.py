@@ -47,6 +47,8 @@ for label, passed in {
     "reservation rate limit aligns with existing message cap": "uploads_per_minute BETWEEN 1 AND 20" in reservation_migration,
     "text and image sends share pending reservation accounting": "CREATE OR REPLACE FUNCTION public.api_send_incident_message" in reservation_migration
         and "recent_message_count + recent_reservation_count >= uploads_limit" in reservation_migration,
+    "text RPC rejects image reservation key reuse": "Client message ID is already reserved for an image attachment" in reservation_migration
+        and "existing_message.attachment_path IS NOT NULL" in reservation_migration,
 }.items():
     assert passed, f"Upload reservation migration contract failed: {label}"
 
