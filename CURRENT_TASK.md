@@ -1809,3 +1809,16 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Updated the GPS runtime fixture to use UUIDs `250–253` and matching unique test phone/email values. No production GPS RPC, grant, RLS policy, or schema behavior changed.
 - Commit: `b6c641557d31211d67e8d6a60bce16e5696cc9ef` — `Isolate GPS RPC test fixture identities`.
 - Validation: fetched the committed test file and confirmed all four new UUIDs are present and none of the conflicting UUIDs remain. Exact-head CI must still prove the runtime authorization cases pass. No production database changes, deployment, APK distribution, or merge performed.
+
+
+
+## 2026-11-23 — PR #342 Storage test-project drift investigation
+
+- Re-verified PR #342 is open, mergeable, and not merged. Current branch head before this note: `25c7973d65a02c9f653623a7152997d00942c67a`.
+- Re-checked the isolated Supabase project `TACResQ-Storage-Test` (`kyomsyprjdseaghdxhdr`) using read-only queries. The live `private.incident_chat_upload_policy` still has only `singleton`, `reservation_ttl_seconds`, `uploads_per_minute`, and `updated_at`; it is missing `reservation_enforcement_enabled`. The read-only schema contract therefore correctly fails closed.
+- Supabase migration history reports the reservation migration as version `20261122145444` and also reports a later entry named `test_pr342_storage_policy_review_fixes` (version `20261122145856`). The checked PR branch's `supabase/migrations/` directory contains the tracked reservation migration but no migration with that test-only name. This establishes a migration-history/repository discrepancy alongside the schema mismatch; it does **not** establish exactly which operation caused the missing column.
+- The project's Storage logs currently expose `appVersion=1.96.4` for a tenant-management PUT request, not a binary object upload. This is not sufficient evidence of the Storage binary upload implementation or deployed release behavior.
+- No remote schema, migration history, bucket, object, or data was modified. No credentials or tokens were requested or exposed.
+- **Disposition:** Keep PR #342 open. Clean PostgreSQL replay passes on the PR head, but it cannot repair or prove the state of this separate remote project. Do not apply ad-hoc SQL or reset the project. Before HTTP acceptance, reconcile the test project's migration history and actual schema using a reviewed, forward-only migration process, then use a dedicated synthetic test account/incident to test binary POST, finalization, authenticated download, duplicate/retry behavior, and size mismatch rejection.
+- **Validation:** Read-only Supabase schema and migration-history queries; GitHub branch directory inspection; Storage log inspection. No HTTP upload/download acceptance, authenticated Android session, emulator UI workflow, production migration, deployment, or merge was performed.
+- **Next action:** Prepare a reviewed, non-destructive test-project reconciliation plan that identifies the expected schema delta and migration-history discrepancy before any remote write is considered.
