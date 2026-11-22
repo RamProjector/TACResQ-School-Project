@@ -1,16 +1,16 @@
 # Incident-chat upload reservation design
 
-**Status:** Design only; no migration or runtime behavior change is included in this change.
+**Status:** Implemented on PR #342's branch, not deployed to production. This document preserves the design rationale and records the implemented contract. The sections describing the old upload-before-message behavior are the pre-implementation baseline; current implementation and verification status are identified below.
 
 ## Decision summary
 
 The image upload currently reaches Supabase Storage before the image-message RPC. The message RPC's sender rate limit therefore does not protect Storage from repeated uploads that never become messages. The bucket remains private and incident-scoped, but an authenticated participant can create distinct UUID paths and consume storage without creating message rows.
 
-The recommended next implementation is a database-backed upload reservation that must exist before Storage accepts an object. Reservation creation must be atomic and must bind the authenticated profile, incident, exact deterministic object path, MIME type, and a short expiry. The Storage INSERT policy must validate that reservation. The existing image-message RPC must consume the same reservation after independently verifying the uploaded object.
+PR #342 implements a database-backed upload reservation before Storage accepts an object. Reservation creation is atomic and binds the authenticated profile, incident, exact deterministic object path, MIME type, declared size, and expiry. The Storage INSERT policy validates that reservation, and the image-message RPC consumes it after independently verifying the stored object.
 
-This document deliberately does **not** choose quota numbers, retention periods, reservation expiry, or cleanup schedules. Those are product/operational policy decisions and must be approved before a migration is authored.
+The implementation uses a configurable 900-second reservation lease and a configurable 20-per-minute shared message/upload ceiling, capped at the existing message limit. These defaults reuse existing controls; they are not represented as empirically measured usage limits. Aggregate byte budgets, daily quotas, retention periods, and cleanup schedules remain deferred policy decisions.
 
-## Verified current flow
+## Pre-implementation baseline: upload flow before PR #342
 
 Source review of `SupabaseTacApi.sendIncidentImageMessage` confirms:
 
@@ -201,17 +201,19 @@ Implemented on the PR branch:
 - Authenticated reservation RPC deriving profile identity from auth.uid().
 - Same per-profile advisory transaction lock used by message sends.
 - Idempotent reservation keyed to the client message UUID.
-- Storage INSERT policy requiring a live matching reservation and matching caller/path/MIME/size.
+- Storage INSERT policy requiring a live matching reservation and matching caller/path/MIME/size. It accepts the Storage API preflight's `contentLength` metadata as well as the final object's `size` metadata; the finalization RPC independently checks the stored object size.
 - Image-message finalization requires the matching reservation and consumes it in the same database transaction as message insertion.
 - Android now performs reserve → Storage upload → message finalization.
 - SQL Storage authorization regression fixture and static source-contract checks updated.
 - Read-only attachment inventory extended to distinguish unreserved orphan objects, uploaded-but-unfinalized objects, active/expired reservations without objects, consumed reservations without message references, message rows whose object is missing, and object metadata that differs from its message or reservation. It emits aggregate counts/bytes only and performs no cleanup. The active-reservation byte total is based on the size declared at reservation time, not a server-verified Storage object size; use the object totals for stored-byte reporting.
 
+Deployment sequencing: the restrictive Storage INSERT policy rejects older clients that upload without a reservation. Do not apply this migration to production until the reservation-capable Android release is available and older supported clients are retired or blocked through an approved minimum-version rollout. The PR does not itself force-update installed Android clients.
+
 Still requiring CI and isolated Supabase acceptance:
 
 - Full migration replay and RLS policy execution against the repository's PostgreSQL harness.
 - Android debug/release compilation and existing unit tests.
-- Real Storage upload/download, ambiguous retry, delayed finalization, and authorization tests in an isolated non-production Supabase project.
+- Real HTTP Storage upload/download and Android device acceptance, including ambiguous retry behavior. The isolated Supabase project's SQL-level RLS acceptance passed, but it does not exercise the HTTP Storage API.
 - Content-signature and safe image-decoding validation are not implemented by this reservation change. MIME and size metadata remain enforced, but client-provided MIME metadata alone is not proof of file content.
 - No production migration, Storage policy, or live bucket setting has been applied.
 
@@ -231,7 +233,7 @@ Still requiring CI and isolated Supabase acceptance:
 
 TACResQ already restricts incident-chat attachments to authorized participants, private storage, approved image types, and a 5 MiB per-object maximum. The identified weakness is that Storage accepts an object before the corresponding chat message is committed, while the message rate limit runs only after upload. Therefore, the message limit does not constrain distinct objects created by uploads that never become messages.
 
-The proposed reservation makes the backend authorize and account for each intended upload before Storage accepts it. It binds the authenticated user, incident, exact object path, and file type to one operation; the message transaction then consumes that operation only after independently verifying the stored object. Concurrency and retry tests demonstrate that the control cannot be bypassed by simultaneous requests or ambiguous mobile network failures. This is a targeted defense-in-depth improvement to resource management and attachment lifecycle integrity, not a claim that the existing private bucket is publicly exposed or that an attack has already occurred.
+The proposed reservation makes the backend authorize and account for each intended upload before Storage accepts it. It binds the authenticated user, incident, exact object path, and file type to one operation; the message transaction then consumes that operation only after independently verifying the stored object. The sequential SQL acceptance test verifies reservation retry identity, duplicate finalization, and delayed finalization. Parallel reservation stress and an HTTP upload-success/response-lost retry remain outstanding acceptance checks; these results do not yet demonstrate resistance to every concurrent or ambiguous-network schedule. This is a targeted defense-in-depth improvement to resource management and attachment lifecycle integrity, not a claim that the existing private bucket is publicly exposed or that an attack has already occurred.
 
 ## Verification boundary
 
