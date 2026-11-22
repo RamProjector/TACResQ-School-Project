@@ -74,6 +74,19 @@ export default function AdminSecurityStatus() {
     setActionError(null);
     setNotice(null);
     try {
+      // Do not rely on the status snapshot rendered earlier; require a fresh
+      // TOTP-verified AAL2 session immediately before creating another factor.
+      const auth = getSupabase().auth;
+      const { data: aal, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalError) throw aalError;
+      const methods = aal.currentAuthenticationMethods ?? [];
+      const usedTotp = methods.some((method) =>
+        typeof method === "string" ? method === "totp" :
+          typeof method === "object" && method !== null && method.method === "totp"
+      );
+      if (aal.currentLevel !== "aal2" || !usedTotp) {
+        throw new Error("Verify your authenticator again before adding a backup device.");
+      }
       const existingNames = new Set(snapshot.factors.map((factor) => factor.name));
       let suffix = 1;
       while (existingNames.has(`TACResQ Backup ${suffix}`)) suffix += 1;
