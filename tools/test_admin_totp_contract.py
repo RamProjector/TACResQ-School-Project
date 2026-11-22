@@ -7,7 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 gate = (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 home = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
 admin = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
-migration = (ROOT / "supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql").read_text().lower()\naudit_page_migration = (ROOT / "supabase/migrations/20261122140000_admin_audit_server_pagination.sql").read_text().lower()
+migration = (ROOT / "supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql").read_text().lower()
+audit_page_migration = (ROOT / "supabase/migrations/20261122140000_admin_audit_server_pagination.sql").read_text().lower()
 
 for marker in (
     'factortype: "totp"',
