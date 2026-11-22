@@ -1667,3 +1667,7 @@ psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_admin_user_list_boundary.sql
 
 # Exercise dispatcher release, primary handoff, duty reservation, and audit events.
 psql -v ON_ERROR_STOP=1 -f tools/test_dispatcher_release_assignment.sql
+
+# Print the effective authenticated API, RLS, and Storage authorization surface.
+# This inventory is read-only and does not mark any path as suspension-safe.
+psql -v ON_ERROR_STOP=1 -f tools/check_account_suspension_authorization_surface.sql
