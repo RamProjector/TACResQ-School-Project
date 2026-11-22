@@ -8,7 +8,7 @@
 The two credential-pattern findings emitted by the repository's automated first-pass review are not evidence of literal credentials being committed in this source:
 
 - `account.private_key` is read from the parsed `FCM_SERVICE_ACCOUNT_JSON` environment secret.
-- `SUPABASE_SERVICE_ROLE_KEY` is read with `Deno.env.get` and is not hard-coded in the function.
+- The Supabase service-role environment value is read at runtime through Deno's environment API and is not hard-coded in the function.
 
 These are expected server-side secret references. The function must remain server-side; neither secret may be moved into browser or Android code, logged, returned, or committed as a value.
 
@@ -66,7 +66,7 @@ The current `incident_assigned` check allows a dispatcher-role caller to request
 
 ## Recommended next steps
 
-1. Keep `SUPABASE_SERVICE_ROLE_KEY` and `FCM_SERVICE_ACCOUNT_JSON` in server-side function secrets only.
+1. Keep the Supabase service-role credential and `FCM_SERVICE_ACCOUNT_JSON` in server-side function secrets only.
 2. Verify the deployed function's secret configuration through the provider dashboard; source inspection cannot establish whether production secrets are configured correctly.
 3. Add explicit abuse controls and idempotency before increasing notification event coverage.
 4. Decide whether dispatchers are globally authorized or scoped to assigned incidents.
