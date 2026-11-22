@@ -86,3 +86,9 @@ No live Supabase migration, production message, account change, Render deploymen
 - A failed message send retains the selected image and reuses the same client message UUID when retried. A duplicate object upload response is treated as a retry, then the idempotent message RPC determines whether the message already exists.
 - No live Supabase migration or bucket mutation is performed by the PR. The migration must be applied through the normal reviewed deployment process before real-backend image sending is available.
 - Required acceptance includes migration replay, storage-policy review on Supabase, authenticated requester/dispatcher/assigned-responder access tests, unrelated-account denial, upload/download tests, retry after ambiguous network failure, 5 MB and MIME rejection, and Android device testing on both current and fallback Photo Picker paths.
+
+## Attachment upload lifecycle follow-up
+
+The private bucket and image-message RPC enforce incident-scoped access, but upload occurs before the message row is created. The message rate limit therefore does not cap distinct objects uploaded without a message. The reviewed live inventory was clean at the time of inspection; that snapshot does not eliminate the lifecycle gap.
+
+A proposed atomic upload-reservation design is recorded in [the attachment reservation design](security/incident-chat-upload-reservation-design.md). It is intentionally design-only until aggregate quota values, reservation expiry, retention, and cleanup grace period are approved. No client delete permission or automatic cleanup is introduced. Real Storage acceptance tests in a non-production project remain required before rollout.
