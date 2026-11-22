@@ -15,15 +15,19 @@ function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" }).format(date);
 }
 
+// Audit date filters use the same fixed reporting zone as TACResQ analytics.
+// Do not use the browser's local timezone: administrators may review records
+// from devices configured outside the Philippines.
 function startOfDay(value: string) {
-  return value ? new Date(value + "T00:00:00").toISOString() : null;
+  return value ? value + "T00:00:00+08:00" : null;
 }
 
 function startOfNextDay(value: string) {
   if (!value) return null;
-  const date = new Date(value + "T00:00:00");
-  date.setDate(date.getDate() + 1);
-  return date.toISOString();
+  // Advance the calendar date in UTC to avoid local DST/timezone transitions.
+  const date = new Date(value + "T00:00:00Z");
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10) + "T00:00:00+08:00";
 }
 
 function displayRole(value: string | null | undefined) {
@@ -136,8 +140,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search actor, target ID, action, role, reason or timestamp" aria-label="Search all audit logs" />
         </label>
         <label><span>Action</span><select value={action} onChange={(event) => { setPage(0); setAction(event.target.value as AuditAction); }}><option value="all">All actions</option><option value="user_role_changed">User role changed</option></select></label>
-        <label><span>From</span><input type="date" value={from} max={to || undefined} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
-        <label><span>To</span><input type="date" value={to} min={from || undefined} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
+        <label><span>From (Manila)</span><input type="date" value={from} max={to || undefined} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
+        <label><span>To (Manila)</span><input type="date" value={to} min={from || undefined} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
         <label><span>Admin profile ID</span><input type="number" min="1" step="1" value={actorId} onChange={(event) => { setPage(0); setActorId(event.target.value); }} placeholder="Any admin" /></label>
         <label><span>Target profile ID</span><input type="number" min="1" step="1" value={targetId} onChange={(event) => { setPage(0); setTargetId(event.target.value); }} placeholder="Any target" /></label>
         <button className="audit-page__reset" type="button" onClick={resetFilters} disabled={!query && action === "all" && !from && !to && !actorId && !targetId}>Clear filters</button>
@@ -185,7 +189,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <span>Showing {total === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}</span>
         <div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading}><ChevronLeft size={14} /> Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || (page + 1) * PAGE_SIZE >= total}>Next <ChevronRight size={14} /></button></div>
       </div>
-      <p className="admin-panel__footnote">This page currently contains role-change events written by the Admin role-change RPC. Supabase Auth separately records sign-in, sign-out, token-revocation and MFA factor events in its Auth Audit Logs; those provider records are not merged into this page. Postgres storage of Auth Audit Logs is an optional project setting and has not been enabled or verified here. API transport telemetry, incident status changes, and assignment history are also separate records with separate access controls. Search, actor/target filters, action/date filters and pagination are applied server-side. This interface is read-only.</p>
+      <p className="admin-panel__footnote">This page currently contains role-change events written by the Admin role-change RPC. Supabase Auth separately records sign-in, sign-out, token-revocation and MFA factor events in its Auth Audit Logs; those provider records are not merged into this page. Postgres storage of Auth Audit Logs is an optional project setting and has not been enabled or verified here. API transport telemetry, incident status changes, and assignment history are also separate records with separate access controls. Search, actor/target filters, action/date filters and pagination are applied server-side. Date boundaries use Asia/Manila (UTC+08:00), independent of the browser timezone. This interface is read-only.</p>
     </section>
   );
 }
