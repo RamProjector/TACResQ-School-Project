@@ -393,7 +393,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
-              <div><p className="admin-eyebrow">PLATFORM AVAILABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency health</h2></div>
+              <div><p className="admin-eyebrow">SERVICE REACHABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency reachability</h2></div>
               <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatDate(dependencyHealth.checked_at) : "No verified result"}</span>
             </div>
             {dependencyHealthError ? (
@@ -404,11 +404,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <>
                 <div className="admin-health-summary" role="status" aria-live="polite">
                   <strong>
-                    {Object.values(dependencyHealth).filter((value) => typeof value === "object" && value !== null && "status" in value).every((value) => value.status === "healthy")
-                      ? "All checked dependencies are healthy"
-                      : Object.values(dependencyHealth).some((value) => typeof value === "object" && value !== null && "status" in value && value.status === "unavailable")
-                        ? "One or more checked dependencies are unavailable"
-                        : "One or more checked dependencies are slow"}
+                    {[dependencyHealth.laravel_backend, dependencyHealth.supabase_auth, dependencyHealth.supabase_database].every((probe) => probe.status === "healthy")
+                      ? "All three reachability probes responded"
+                      : [dependencyHealth.laravel_backend, dependencyHealth.supabase_auth, dependencyHealth.supabase_database].some((probe) => probe.status === "unavailable")
+                        ? "At least one reachability probe did not respond"
+                        : "At least one reachability probe exceeded five seconds"}
                   </strong>
                   <span>This summary covers only the three probes listed below, not complete emergency-service readiness.</span>
                 </div>
@@ -419,14 +419,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   ["Supabase database", dependencyHealth.supabase_database],
                 ] as const).map(([label, result]) => (
                   <article className="admin-health-item" key={label}>
-                    <div><strong>{label}</strong><span className={"admin-health-status admin-health-status--" + result.status} role="status" aria-label={label + " status: " + result.status}>{result.status}</span></div>
+                    <div><strong>{label}</strong><span className={"admin-health-status admin-health-status--" + result.status} role="status" aria-label={label + " reachability: " + result.status}>{result.status === "healthy" ? "reachable" : result.status === "slow" ? "timed out" : "unavailable"}</span></div>
                     <small>{result.duration_ms === null ? "Response time unavailable" : result.duration_ms + " ms response time"}</small>
                   </article>
                 ))}
                 </div>
               </>
             )}
-            <p className="admin-panel__footnote">Read-only checks only. Laravel /up confirms application liveness; Auth checks its health endpoint; the database check executes a fixed, data-free RPC. These checks do not verify incident workflows, user sign-in, FCM delivery, or routing. A “slow” result means a probe exceeded the five-second limit; startup delay is possible, so it is not proof of an outage. Refresh to retry.</p>
+            <p className="admin-panel__footnote">Reachability only — not service readiness or emergency-operational status. Laravel /up confirms application liveness; Supabase Auth checks its health endpoint; the database probe executes a fixed, data-free RPC using the current Admin session. These checks do not verify incident creation, responder assignment, location accuracy, routing, push delivery, or end-to-end sign-in. “Timed out” means the probe exceeded five seconds; startup delay or network latency may contribute and does not by itself prove an outage. Refresh to retry.</p>
           </section>
 
           <section className="admin-panel" hidden={activeSection !== "users"}>
