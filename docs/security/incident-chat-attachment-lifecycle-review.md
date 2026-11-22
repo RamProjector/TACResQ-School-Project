@@ -56,3 +56,12 @@ The repository and current project configuration do not establish an approved at
 ## Verification boundary
 
 This review did not run a real upload/download acceptance test, replay migrations, inspect object bytes, change production configuration, or deploy a cleanup job. Live inspection was read-only and covered bucket settings, policy definitions, and object/message metadata. The source and metadata support the controls and gaps described above; they do not certify end-to-end Storage behavior or backup recoverability.
+
+## Follow-up implementation design — 2026-11-22
+
+A source-level follow-up traced the Android upload method in `SupabaseTacApi.sendIncidentImageMessage`. It confirms that the object is uploaded before the message RPC, using the deterministic incident/profile/client-UUID path; an HTTP 409 is treated as an ambiguous prior upload and the message RPC remains the final idempotency decision. The message-row rate limit therefore cannot prevent pre-message Storage object creation.
+
+The proposed reservation architecture is documented in [Incident-chat upload reservation design](incident-chat-upload-reservation-design.md). It requires an authenticated, incident-scoped, atomic reservation before Storage INSERT; exact binding to the deterministic path; conservative accounting for in-flight uploads; and transactional reservation consumption by the image-message RPC. Client-declared byte counts are not trusted for quota enforcement.
+
+No quota, reservation expiry, retention period, or orphan-cleanup grace period has been selected. These values require an explicit policy decision. The proposal does not add a migration or change Android behavior. Keep the current private bucket, no-overwrite behavior, and absence of client UPDATE/DELETE privileges.
+
