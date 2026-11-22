@@ -113,7 +113,7 @@ export default function Home({ session }: HomeProps) {
   }, [session?.user.id]);
 
   const handleSignOut = useCallback(() => {
-    void getSupabase().auth.signOut();
+    void getSupabase().auth.signOut({ scope: "local" });
   }, []);
 
   if (!session) return <LoginScreen />;
