@@ -17,6 +17,8 @@ required_sql = (
     "SET search_path = pg_catalog",
     "FROM public.admin_audit_logs AS a",
     "FROM public.incident_status_logs AS s",
+    "FROM public.incident_claimability_logs AS c",
+    "FROM public.incident_request_edit_logs AS r",
     "FROM public.incident_assignment_events AS e",
     "FROM auth.audit_log_entries AS a",
     "p_incident_id",
@@ -35,6 +37,13 @@ assert "payload ->> 'user_id'" in auth_projection
 assert "'ip_address'" not in auth_projection
 assert "user_agent" not in auth_projection
 assert "to_jsonb(a)" not in auth_projection
+
+# Requester edit history contains location and narrative snapshots. The
+# investigation feed may reveal changed-field names, never snapshot values.
+assert "'before_values'" not in migration
+assert "'after_values'" not in migration
+assert "changed_fields" in migration
+assert "r.before_values -> field.key IS DISTINCT FROM r.after_values -> field.key" in migration
 
 # The feed reads existing event sources; it must not create a duplicate ledger
 # or grant browser clients direct access to protected event tables.
@@ -56,6 +65,9 @@ for marker in (
     "incident_id",
     "occurred_at",
     "source",
+    "incident_claimability_logs",
+    "incident_request_edit_logs",
+    "changed_fields",
 ):
     assert marker in client, f"Missing client event contract: {marker}"
 
