@@ -71,10 +71,10 @@ BEGIN
   END IF;
 
   SELECT count(*) INTO event_count
-    FROM public.app_action_audit_logs
-   WHERE (action = 'duty_status_changed' AND target_user_id = responder_id)
-      OR (action = 'incident_message_sent' AND incident_id = incident_id)
-      OR (action = 'notification_marked_read' AND incident_id = incident_id);
+    FROM public.app_action_audit_logs AS audit
+   WHERE (audit.action = 'duty_status_changed' AND audit.target_user_id = responder_id)
+      OR (audit.action = 'incident_message_sent' AND audit.incident_id = incident_id)
+      OR (audit.action = 'notification_marked_read' AND audit.incident_id = incident_id);
 
   IF event_count <> 3 THEN
     RAISE EXCEPTION 'Expected three distinct committed app-action events, found %', event_count;
