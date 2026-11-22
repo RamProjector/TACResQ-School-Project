@@ -158,6 +158,7 @@ export interface AdminAnalyticsDailyPoint { day: string; requests: number; }
 export interface AdminAnalyticsSummary {
   period_start: string;
   period_end: string;
+  reporting_timezone: string;
   total_requests: number;
   pending: number;
   active: number;
