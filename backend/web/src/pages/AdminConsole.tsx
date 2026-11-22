@@ -79,7 +79,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedQuery(query), 250);
+    const timer = window.setTimeout(() => {
+      setPage(0);
+      setDebouncedQuery(query);
+    }, 250);
     return () => window.clearTimeout(timer);
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => {
@@ -378,7 +381,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <span className="admin-count">{totalUsers === 0 ? 0 : page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalUsers)} of {totalUsers}</span>
             </div>
             <div className="admin-toolbar">
-              <label className="admin-search"><Search size={16} /><input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search name, email, phone or ID" aria-label="Search users" /></label>
+              <label className="admin-search"><Search size={16} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder="Search name, email, phone or ID" aria-label="Search users" /></label>
               <label className="admin-role-filter"><span>Role</span><select value={roleFilter} onChange={(event) => { setPage(0); setRoleFilter(event.target.value as RoleFilter); }} aria-label="Filter users by role"><option value="all">All roles</option><option value="requester">Requester</option><option value="responder">Responder</option><option value="driver">Driver</option><option value="dispatcher">Dispatcher</option><option value="admin">Admin</option></select></label>
             </div>
             <div className="admin-table-wrap">
