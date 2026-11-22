@@ -8,7 +8,9 @@ CREATE OR REPLACE FUNCTION public.api_admin_list_audit_logs_page(
   p_query text DEFAULT '',
   p_action text DEFAULT 'all',
   p_from timestamptz DEFAULT NULL,
-  p_to timestamptz DEFAULT NULL
+  p_to timestamptz DEFAULT NULL,
+  p_actor_user_id bigint DEFAULT NULL,
+  p_target_user_id bigint DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -39,6 +41,11 @@ BEGIN
     RAISE EXCEPTION 'Audit date range start must be before its end'
       USING ERRCODE = '22023';
   END IF;
+  IF (p_actor_user_id IS NOT NULL AND p_actor_user_id < 1)
+     OR (p_target_user_id IS NOT NULL AND p_target_user_id < 1) THEN
+    RAISE EXCEPTION 'Audit profile filters must be positive IDs'
+      USING ERRCODE = '22023';
+  END IF;
 
   SELECT count(*)
     INTO v_total_count
@@ -46,6 +53,8 @@ BEGIN
    WHERE (p_action = 'all' OR a.action = p_action)
      AND (p_from IS NULL OR a.created_at >= p_from)
      AND (p_to IS NULL OR a.created_at < p_to)
+     AND (p_actor_user_id IS NULL OR a.actor_user_id = p_actor_user_id)
+     AND (p_target_user_id IS NULL OR a.target_user_id = p_target_user_id)
      AND (
        v_query = ''
        OR strpos(lower(coalesce(a.actor_identity, '')), v_query) > 0
@@ -70,6 +79,8 @@ BEGIN
        WHERE (p_action = 'all' OR a.action = p_action)
          AND (p_from IS NULL OR a.created_at >= p_from)
          AND (p_to IS NULL OR a.created_at < p_to)
+         AND (p_actor_user_id IS NULL OR a.actor_user_id = p_actor_user_id)
+         AND (p_target_user_id IS NULL OR a.target_user_id = p_target_user_id)
          AND (
            v_query = ''
            OR strpos(lower(coalesce(a.actor_identity, '')), v_query) > 0
@@ -92,7 +103,7 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.api_admin_list_audit_logs_page(integer, integer, text, text, timestamptz, timestamptz)
+REVOKE ALL ON FUNCTION public.api_admin_list_audit_logs_page(integer, integer, text, text, timestamptz, timestamptz, bigint, bigint)
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_admin_list_audit_logs_page(integer, integer, text, text, timestamptz, timestamptz)
   TO authenticated;
