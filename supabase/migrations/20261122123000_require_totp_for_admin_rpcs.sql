@@ -15,7 +15,11 @@ BEGIN
      OR NOT EXISTS (
        SELECT 1
        FROM jsonb_array_elements(coalesce(auth.jwt() -> 'amr', '[]'::jsonb)) AS method
-       WHERE method ->> 'method' = 'totp'
+       WHERE CASE jsonb_typeof(method)
+         WHEN 'object' THEN method ->> 'method'
+         WHEN 'string' THEN method #>> '{}'
+         ELSE NULL
+       END = 'totp'
      ) THEN
     RAISE EXCEPTION 'Administrator TOTP verification required'
       USING ERRCODE = '42501';
