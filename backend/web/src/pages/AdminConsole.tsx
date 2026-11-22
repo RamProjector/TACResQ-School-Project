@@ -384,11 +384,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </button>}
           </div>
 
-          {(error || notice) && (
-            <div className={error ? "admin-banner admin-banner--error" : "admin-banner admin-banner--success"} role={error ? "alert" : "status"}>
-              {error ? <AlertCircle size={17} /> : <CheckCircle2 size={17} />}
-              <span>{error || notice}</span>
-              <button type="button" aria-label="Dismiss message" onClick={() => { setError(null); setNotice(null); }}><X size={15} /></button>
+          {error && (
+            <div className="admin-banner admin-banner--error" role="alert">
+              <AlertCircle size={17} />
+              <span>{error}</span>
+              <button type="button" aria-label="Dismiss error" onClick={() => setError(null)}><X size={15} /></button>
+            </div>
+          )}
+          {notice && (
+            <div className="admin-banner admin-banner--success" role="status">
+              <CheckCircle2 size={17} />
+              <span>{notice}</span>
+              <button type="button" aria-label="Dismiss confirmation" onClick={() => setNotice(null)}><X size={15} /></button>
             </div>
           )}
 
