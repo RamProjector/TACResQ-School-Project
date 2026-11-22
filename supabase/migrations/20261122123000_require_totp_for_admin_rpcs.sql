@@ -162,7 +162,11 @@ CREATE POLICY admin_audit_logs_require_aal2
     AND EXISTS (
       SELECT 1
       FROM jsonb_array_elements(coalesce((SELECT auth.jwt()) -> 'amr', '[]'::jsonb)) AS method
-      WHERE method ->> 'method' = 'totp'
+      WHERE CASE jsonb_typeof(method)
+        WHEN 'object' THEN method ->> 'method'
+        WHEN 'string' THEN method #>> '{}'
+        ELSE NULL
+      END = 'totp'
     )
   );
 
