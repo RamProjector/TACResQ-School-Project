@@ -100,7 +100,9 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.api_admin_analytics_summary(timestamptz, timestamptz)
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.api_admin_analytics_summary(timestamptz, timestamptz)
+  FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.api_admin_analytics_summary(timestamptz, timestamptz)
   TO authenticated;
 
