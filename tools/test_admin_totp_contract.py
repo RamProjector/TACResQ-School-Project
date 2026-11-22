@@ -51,7 +51,7 @@ wrapper_targets = {
 }
 for public_name, internal_name in wrapper_targets.items():
     match = re.search(
-        rf"create or replace function public\.{public_name}\b.*?as \\$function\$(.*?)\\$function\\$;",
+        rf"create or replace function public\.{public_name}\b.*?as \$function\$(.*?)\$function\\$;",
         migration,
         flags=re.DOTALL,
     )
