@@ -124,9 +124,9 @@ for required in (
 ):
     assert required in inventory, f"Read-only attachment inventory missing: {required}"
 assert "o.name AS" not in inventory, "Attachment inventory must not disclose raw object paths"
-assert not __import__("re").search(
-    r"(?im)^\\s*(DELETE|UPDATE|INSERT|TRUNCATE|DROP|ALTER)\\s+",
-    inventory,
-), "Attachment inventory must remain strictly read-only"
+assert not any(
+    line.lstrip().upper().startswith(("DELETE ", "UPDATE ", "INSERT ", "TRUNCATE ", "DROP ", "ALTER "))
+    for line in inventory.splitlines()
+), "Attachment inventory must remain strictly read-only", "Attachment inventory must remain strictly read-only"
 
 print("PASS: incident chat images use private, incident-authorized storage and bounded Android image attachments.")
