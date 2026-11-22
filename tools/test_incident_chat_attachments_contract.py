@@ -29,7 +29,7 @@ for label, passed in {
     assert passed, f"Attachment migration contract failed: {label}"
 
 for label, passed in {
-    "reservation ledger is private": "CREATE TABLE private.incident_chat_upload_reservations" in reservation_migration,
+    "reservation ledger is private": "CREATE TABLE private.incident_chat_upload_reservations" in reservation_migration\n        and "ALTER TABLE private.incident_chat_upload_reservations ENABLE ROW LEVEL SECURITY" in reservation_migration,
     "reservation policy is configurable": "reservation_ttl_seconds integer NOT NULL DEFAULT 900" in reservation_migration
         and "uploads_per_minute integer NOT NULL DEFAULT 20" in reservation_migration,
     "reservation RPC derives the actor from auth.uid": "WHERE p.auth_user_id = auth.uid()" in reservation_migration,
@@ -51,7 +51,7 @@ storage_tests = read("tools/test_incident_chat_storage_policies.sql")
 for required in (
     "public.api_reserve_incident_image_upload(",
     "A participant must not upload an object without a matching reservation",
-    "An unrelated account must not reserve an upload for another incident",
+    "An unrelated account must not reserve an upload for another incident",\n    "The 21st image reservation within one minute must be rejected",
 ):
     assert required in storage_tests, f"Storage reservation regression test missing: {required}"
 
