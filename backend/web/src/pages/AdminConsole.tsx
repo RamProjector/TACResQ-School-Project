@@ -229,7 +229,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         ?? (event.target_user_id ? "profile " + event.target_user_id : "unknown removed");
       return [
         actor, targetName, event.actor_identity, event.reason,
-        event.action, event.old_role, event.new_role, event.created_at,
+        event.action, event.old_role, event.new_role,
+        event.actor_user_id, event.target_user_id,
+        event.created_at, formatDate(event.created_at),
       ].some((value) => String(value ?? "").toLocaleLowerCase().includes(normalized));
     });
   }, [audit, auditQuery, profile.id, userById]);
