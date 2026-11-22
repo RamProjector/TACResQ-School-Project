@@ -238,3 +238,25 @@ The proposed reservation makes the backend authorize and account for each intend
 ## Verification boundary
 
 This design is based on the inspected Android upload path, SQL RPC and Storage policies, existing contract tests, and a point-in-time read-only inventory. It does not establish an observed attack rate or justify numeric quotas. No production migration, Storage policy, bucket setting, cleanup job, object deletion, or Android runtime behavior is changed by this document.
+
+
+## Staged client rollout
+
+The migration adds a private `reservation_enforcement_enabled` switch that defaults to `false`. This prevents the migration from breaking already-installed Android clients that still upload first and finalize without a reservation.
+
+While the switch is false:
+- The Storage policy still requires the private incident-chat bucket, caller-owned deterministic path, supported MIME type, valid size metadata, and current incident-chat membership.
+- The reservation validator permits the legacy upload path.
+- The finalization RPC accepts a legacy no-reservation message only in this compatibility mode, while still checking the deterministic path, stored object MIME/size, chat authorization, and shared message rate budget.
+- Reservation-capable clients continue to reserve first; their reservations are checked and consumed even during compatibility mode.
+
+After all supported Android clients use reserve → upload → finalize and older versions are retired or blocked, an authorized database operator enables strict enforcement with:
+
+```sql
+UPDATE private.incident_chat_upload_policy
+   SET reservation_enforcement_enabled = true,
+       updated_at = clock_timestamp()
+ WHERE singleton = true;
+```
+
+Once enabled, both Storage INSERT and image-message finalization require a matching reservation. The switch is private and has no client-facing RPC or Admin UI. Verify the enabled state and repeat the authorized/unreserved/expired upload acceptance tests before considering the rollout complete. Do not enable it while legacy image-upload clients remain supported.
