@@ -9,7 +9,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-migration = read("supabase/migrations/20261108092703_incident_chat_image_attachments.sql")
+migration = read("supabase/migrations/20261108092703_incident_chat_image_attachments.sql")\nreservation_migration = read("supabase/migrations/20261122210000_incident_chat_upload_reservations.sql")
 for label, passed in {
     "attachment metadata is stored with the message": "ADD COLUMN IF NOT EXISTS attachment_path text" in migration,
     "image-only messages remain bounded": "attachment_size_bytes BETWEEN 1 AND 5242880" in migration,
@@ -26,6 +26,33 @@ for label, passed in {
     "message history includes attachment metadata": "'attachment_path', page.attachment_path" in migration,
 }.items():
     assert passed, f"Attachment migration contract failed: {label}"
+
+for label, passed in {
+    "reservation ledger is private": "CREATE TABLE private.incident_chat_upload_reservations" in reservation_migration,
+    "reservation policy is configurable": "reservation_ttl_seconds integer NOT NULL DEFAULT 900" in reservation_migration
+        and "uploads_per_minute integer NOT NULL DEFAULT 20" in reservation_migration,
+    "reservation RPC derives the actor from auth.uid": "WHERE p.auth_user_id = auth.uid()" in reservation_migration,
+    "reservation uses the same per-profile serialization lock": "PERFORM pg_advisory_xact_lock(actor_profile_id)" in reservation_migration,
+    "reservation RPC is authenticated-only": "GRANT EXECUTE ON FUNCTION public.api_reserve_incident_image_upload" in reservation_migration,
+    "Storage INSERT requires a live matching reservation": "private.tacresq_upload_reservation_allows_insert(" in reservation_migration
+        and "r.expires_at > now()" in reservation_migration,
+    "reservation binds exact object metadata": "r.object_path = p_object_path" in reservation_migration
+        and "r.mime_type = p_mime_type" in reservation_migration
+        and "r.size_bytes = p_size_bytes" in reservation_migration,
+    "image finalization requires matching reservation": "A matching unconsumed image upload reservation is required" in reservation_migration,
+    "reservation is consumed in the message transaction": "SET consumed_at = now()" in reservation_migration,
+    "expired reservations can still finalize uploaded objects": "a delayed finalization may still complete" in reservation_migration,
+    "reservation rate limit aligns with existing message cap": "uploads_per_minute BETWEEN 1 AND 20" in reservation_migration,
+}.items():
+    assert passed, f"Upload reservation migration contract failed: {label}"
+
+storage_tests = read("tools/test_incident_chat_storage_policies.sql")
+for required in (
+    "public.api_reserve_incident_image_upload(",
+    "A participant must not upload an object without a matching reservation",
+    "An unrelated account must not reserve an upload for another incident",
+):
+    assert required in storage_tests, f"Storage reservation regression test missing: {required}"
 
 models = read("app/src/main/java/com/tacresq/app/data/model/Models.kt")
 for required in (
@@ -46,6 +73,11 @@ for required in (
 ):
     assert required in api, f"Authenticated storage transport missing: {required}"
 
+reserve_call = api.index("rpc.reserveIncidentImageUpload(")
+upload_call = api.index("storage.upload(", reserve_call)
+finalize_call = api.index("rpc.sendIncidentImageMessage(", upload_call)
+assert reserve_call < upload_call < finalize_call, "Image send must reserve, upload, then finalize"
+
 screen = read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
 for required in (
     "ActivityResultContracts.PickVisualMedia()",
@@ -64,7 +96,7 @@ replay = read("tools/test_supabase_migration_replay.sh")
 storage_tests = read("tools/test_incident_chat_storage_policies.sql")
 assert "tools/test_incident_chat_storage_policies.sql" in replay, "Migration replay must execute Storage RLS tests"
 for required in (
-    "api_send_incident_image_message",
+    "api_send_incident_image_message",\n    "api_reserve_incident_image_upload",\n    "rpc.reserveIncidentImageUpload",
     "The incident requester must be able to download an assigned responder image",
     "An unrelated account must not read incident image objects",
     "An unrelated account must not upload into another incident conversation",
