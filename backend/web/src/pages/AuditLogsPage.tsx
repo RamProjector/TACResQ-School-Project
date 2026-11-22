@@ -46,7 +46,7 @@ function startOfNextDay(value: string) {
 }
 
 function formatDetailLabel(value: string) {
-  return value.replaceAll("_", " ").replace(/\\b\\w/g, (letter) => letter.toUpperCase());
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function sourceDisplay(value: string) {
