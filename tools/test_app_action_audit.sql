@@ -32,10 +32,8 @@ BEGIN
   UPDATE public.profiles
      SET role = 'responder', duty_status = 'off_duty'
    WHERE id = responder_id;
-  -- Discard the fixture's initial role-provisioning transition; below we
-  -- assert the in-session user-initiated duty-status change separately.
-  DELETE FROM public.app_action_audit_logs
-   WHERE action = 'duty_status_changed' AND target_user_id = responder_id;
+  -- Provisioning itself is retained as a system-attributed duty transition;
+  -- below we separately assert the authenticated responder's own transition.
   UPDATE public.profiles SET role = 'admin' WHERE id = admin_id;
 
   INSERT INTO public.incidents (
@@ -151,6 +149,15 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'App-action audit row has invalid correlation, outcome, or action';
   END IF;
+
+  BEGIN
+    UPDATE public.app_action_audit_logs
+       SET metadata = '{}'::jsonb
+     WHERE action = 'incident_message_sent' AND incident_id = v_incident_id;
+    RAISE EXCEPTION 'App-action audit history unexpectedly allowed mutation';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
 
   IF has_table_privilege('authenticated', 'public.app_action_audit_logs', 'SELECT')
      OR has_table_privilege('authenticated', 'public.app_action_audit_logs', 'INSERT')
