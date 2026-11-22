@@ -29,4 +29,12 @@ assert "/admin/assets/" in ci
 assert "administrator-only" in web_readme.lower()
 assert "incident queue" in web_readme.lower()
 
+# Keep the portal focused on implemented administrative capabilities.
+admin_console = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
+for page in ('"overview"', '"users"', '"security"', '"analytics"', '"audit"'):
+    assert page in admin_console
+assert '"settings"' not in admin_console
+assert '"backups"' not in admin_console
+assert "BACKEND-VERIFIED CAPABILITIES" not in admin_console
+
 print("Web admin-only contract passed.")
