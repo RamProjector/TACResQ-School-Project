@@ -968,6 +968,59 @@ BEGIN
     RAISE EXCEPTION 'Admin role-change RPC must reject changes to an Admin account';
   END IF;
 
+  -- A real Admin identity with AAL2 but no TOTP method must still be
+  -- rejected by every browser-callable privileged RPC wrapper.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal2","amr":[{"method":"password","timestamp":20}]}',
+    true
+  );
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_users_page(25, 0, '', 'all');
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin user pagination accepted AAL2 without TOTP';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_set_user_role(
+      999999,
+      'responder',
+      'Synthetic no-TOTP wrapper authorization test.'
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin role change accepted AAL2 without TOTP';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_list_audit_logs(100);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin audit RPC accepted AAL2 without TOTP';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_analytics_summary(now() - interval '7 days', now());
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Admin analytics RPC accepted AAL2 without TOTP';
+  END IF;
+
   -- Ordinary authenticated profiles must not list users or change another role.
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000130', true);
   PERFORM set_config(
