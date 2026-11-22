@@ -37,20 +37,20 @@ assert "api_admin_list_users_page" not in client[client.index("export async func
 assert "api_dependency_health" in client[client.index("export async function getAdminDependencyHealth"):]
 assert "health: '/up'" in bootstrap
 assert "Laravel backend" in console
-assert "Dependency health" in console
-assert 'role="status" aria-label={label + " status: " + result.status}' in console
-assert "do not verify incident workflows" in console
+assert "Dependency reachability" in console
+assert 'role="status" aria-label={label + " reachability: " + result.status}' in console
+assert "do not verify incident creation" in console
 assert "void getAdminDependencyHealth()" in console
-assert "five-second limit" in console
+assert "exceeded five seconds" in console
 assert "dependencyHealthLoading" in console
 assert '"Last checked "' in console
 assert '"Checking…"' in console
 assert 'status: controller.signal.aborted ? "slow" : "unavailable"' in client
 
 
-assert "All checked dependencies are healthy" in console
-assert "One or more checked dependencies are unavailable" in console
-assert "One or more checked dependencies are slow" in console
+assert "All three reachability probes responded" in console
+assert "At least one reachability probe did not respond" in console
+assert "At least one reachability probe exceeded five seconds" in console
 assert "not complete emergency-service readiness" in console
 
 print("PASS: admin dependency health is role-gated, bounded, data-free, and reports probe scope clearly.")
