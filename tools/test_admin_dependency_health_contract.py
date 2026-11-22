@@ -44,4 +44,10 @@ assert "void getAdminDependencyHealth()" in console
 assert "five-second limit" in console
 assert 'status: controller.signal.aborted ? "slow" : "unavailable"' in client
 
-print("PASS: admin dependency health is role-gated, bounded, data-free, and uses no privileged key.")
+
+assert "All checked dependencies are healthy" in console
+assert "One or more checked dependencies are unavailable" in console
+assert "One or more checked dependencies are slow" in console
+assert "not complete emergency-service readiness" in console
+
+print("PASS: admin dependency health is role-gated, bounded, data-free, and reports probe scope clearly.")
