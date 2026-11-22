@@ -432,7 +432,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </table>
             </div>
             <div className="admin-pagination" aria-label="User directory pagination"><span>Page {totalUsers === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(totalUsers / pageSize))}</span><div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || refreshing}>Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={refreshing || (page + 1) * pageSize >= totalUsers}>Next</button></div></div>
-            <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident.</p>
+            <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident. Duty status describes a responder or driver’s operational availability; it is not an account-enabled, suspended, or sign-in status. This directory does not currently expose account suspension state.</p>
           </section>
 
           {activeSection === "audit" && <AuditLogsPage profile={profile} />}
