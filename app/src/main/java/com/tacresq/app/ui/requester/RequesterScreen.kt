@@ -1155,37 +1155,37 @@ fun RequesterScreen(
             item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
         }
 
-                if (state.isShowingCachedIncidentStatuses) item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    ) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text("Last-confirmed request statuses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "These may have changed. Creating, editing, cancelling, and opening incident messages require a live refresh. A saved-SOS recovery, if present below, uses its original idempotency key.",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            if (state.cachedIncidentStatuses.isEmpty()) {
-                                Text("No requests were recorded at the last successful sync.", style = MaterialTheme.typography.bodyMedium)
-                            } else {
-                                state.cachedIncidentStatuses.forEach { cached ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            Text("Request reference #${cached.incidentId}", style = MaterialTheme.typography.labelMedium)
-                                            Text(cached.type.label, style = MaterialTheme.typography.bodySmall)
-                                        }
-                                        StatusPill(cached.status.requesterLabel, cached.status)
-                                    }
+        if (state.isShowingCachedIncidentStatuses) item {
+            Card(
+                modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Last-confirmed request statuses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "These may have changed. Creating, editing, cancelling, and opening incident messages require a live refresh. A saved-SOS recovery, if present below, uses its original idempotency key.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (state.cachedIncidentStatuses.isEmpty()) {
+                        Text("No requests were recorded at the last successful sync.", style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        state.cachedIncidentStatuses.forEach { cached ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text("Request reference #${cached.incidentId}", style = MaterialTheme.typography.labelMedium)
+                                    Text(cached.type.label, style = MaterialTheme.typography.bodySmall)
                                 }
+                                StatusPill(cached.status.requesterLabel, cached.status)
                             }
                         }
                     }
                 }
+            }
+        }
 
         if (showRequestForm && (!requesterActionsEnabled || activeIncident != null || state.pendingSosAvailable)) item {
             Card(
