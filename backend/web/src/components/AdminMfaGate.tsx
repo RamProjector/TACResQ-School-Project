@@ -8,7 +8,7 @@ import "./AdminMfaGate.css";
 type GateState = "checking" | "enroll" | "verify" | "ready" | "error";
 type PreparedMfa =
   | { state: "ready" }
-  | { state: "verify"; factorId: string }
+  | { state: "verify"; factors: Array<{ id: string; name: string }> }
   | { state: "enroll"; factorId: string; qrCode: string; secret: string };
 
 async function prepareAdminMfa(): Promise<PreparedMfa> {
@@ -24,8 +24,11 @@ async function prepareAdminMfa(): Promise<PreparedMfa> {
   if (aalResult.data.currentLevel === "aal2" && usedTotp) return { state: "ready" };
 
   const totpFactors = factorsResult.data.all.filter((factor) => factor.factor_type === "totp");
-  const verified = totpFactors.find((factor) => factor.status === "verified");
-  if (verified) return { state: "verify", factorId: verified.id };
+  const verified = totpFactors.filter((factor) => factor.status === "verified");
+  if (verified.length > 0) return {
+    state: "verify",
+    factors: verified.map((factor) => ({ id: factor.id, name: factor.friendly_name || "Authenticator app" })),
+  };
 
   // Remove abandoned, unverified enrollment attempts before issuing a fresh QR.
   for (const pending of totpFactors.filter((factor) => factor.status !== "verified")) {
@@ -52,6 +55,7 @@ export default function AdminMfaGate({ children, onSignOut }: {
 }) {
   const [state, setState] = useState<GateState>("checking");
   const [factorId, setFactorId] = useState("");
+  const [availableFactors, setAvailableFactors] = useState<Array<{ id: string; name: string }>>([]);
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
   const [code, setCode] = useState("");
@@ -69,7 +73,8 @@ export default function AdminMfaGate({ children, onSignOut }: {
       if (result.state === "ready") {
         setState("ready");
       } else if (result.state === "verify") {
-        setFactorId(result.factorId);
+        setAvailableFactors(result.factors);
+        setFactorId(result.factors[0].id);
         setState("verify");
       } else {
         setFactorId(result.factorId);
@@ -138,6 +143,14 @@ export default function AdminMfaGate({ children, onSignOut }: {
         )}
         {(state === "enroll" || state === "verify") && (
           <form className="login-form" onSubmit={verifyCode}>
+            {state === "verify" && availableFactors.length > 1 && (
+              <>
+                <label htmlFor="mfa-factor">Authenticator device</label>
+                <select id="mfa-factor" value={factorId} onChange={(event) => setFactorId(event.target.value)}>
+                  {availableFactors.map((factor) => <option key={factor.id} value={factor.id}>{factor.name}</option>)}
+                </select>
+              </>
+            )}
             <label htmlFor="mfa-code">Six-digit authenticator code</label>
             <input id="mfa-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} placeholder="000000" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required />
             {error && <div className="inline-alert inline-alert--error" role="alert"><AlertCircle size={17} />{error}</div>}
