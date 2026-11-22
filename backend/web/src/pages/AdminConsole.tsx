@@ -71,6 +71,7 @@ function initials(name: string) {
 export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [audit, setAudit] = useState<AdminAuditEvent[]>([]);
+  const [auditQuery, setAuditQuery] = useState("");
   const [dependencyHealth, setDependencyHealth] = useState<AdminDependencyHealth | null>(null);
   const [dependencyHealthError, setDependencyHealthError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -213,6 +214,22 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const filteredUsers = users;
 
   const userById = useMemo(() => new Map<number, AdminUser>(users.map((user) => [user.id, user] as const)), [users]);
+
+  const filteredAudit = useMemo(() => {
+    const normalized = auditQuery.trim().toLocaleLowerCase();
+    if (!normalized) return audit;
+    return audit.filter((event) => {
+      const actor = event.actor_user_id === profile.id
+        ? "you"
+        : (userById.get(event.actor_user_id ?? -1)?.name ?? event.actor_identity);
+      const targetName = userById.get(event.target_user_id ?? -1)?.name
+        ?? (event.target_user_id ? "profile " + event.target_user_id : "unknown removed");
+      return [
+        actor, targetName, event.actor_identity, event.reason,
+        event.action, event.old_role, event.new_role, event.created_at,
+      ].some((value) => String(value ?? "").toLocaleLowerCase().includes(normalized));
+    });
+  }, [audit, auditQuery, profile.id, userById]);
 
   function openRoleChange(user: AdminUser) {
     if (user.role === "admin") return;
@@ -369,8 +386,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <section className="admin-panel admin-audit-panel" hidden={activeSection !== "audit"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">ACCOUNTABILITY</p><h2><Clock3 size={19} /> Administrative audit log</h2></div>
-              <span className="admin-count">Newest first · max 100</span>
+              <span className="admin-count">{filteredAudit.length} of {audit.length} loaded · max 100</span>
             </div>
+            <label className="admin-search admin-audit-search"><Search size={16} /><input type="search" value={auditQuery} onChange={(event) => setAuditQuery(event.target.value)} maxLength={120} placeholder="Search actor, target, role change or reason" aria-label="Search loaded audit events" /></label>
             <div className="admin-table-wrap">
               <table className="admin-table admin-audit-table">
                 <thead><tr><th>Recorded</th><th>Actor</th><th>Target</th><th>Change</th><th>Reason</th></tr></thead>
@@ -379,7 +397,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                     <tr><td colSpan={5}><div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading audit events…</div></td></tr>
                   ) : audit.length === 0 ? (
                     <tr><td colSpan={5}><div className="admin-empty"><Clock3 size={20} /><strong>No administrative changes recorded yet</strong><span>Events appear after a role change succeeds.</span></div></td></tr>
-                  ) : audit.map((event) => (
+                  ) : filteredAudit.length === 0 ? (
+                    <tr><td colSpan={5}><div className="admin-empty"><Search size={20} /><strong>No matching audit events</strong><span>Try a different search term. Only the latest 100 events are loaded.</span></div></td></tr>
+                  ) : filteredAudit.map((event) => (
                     <tr key={event.id}>
                       <td className="admin-date">{formatDate(event.created_at)}</td>
                       <td>{event.actor_user_id === profile.id ? "You" : (userById.get(event.actor_user_id ?? -1)?.name ?? event.actor_identity)}</td>
@@ -391,7 +411,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 </tbody>
               </table>
             </div>
-            <p className="admin-panel__footnote">The client has no direct insert, update, or delete permission on audit rows. The role-change RPC writes the event in the same database transaction as the change.</p>
+            <p className="admin-panel__footnote">Search filters the latest 100 events returned by the server; it does not search older history. The client has no direct insert, update, or delete permission on audit rows. The role-change RPC writes the event in the same database transaction as the change.</p>
           </section>
           {activeSection === "analytics" && (
             <section className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title" aria-live="polite">
