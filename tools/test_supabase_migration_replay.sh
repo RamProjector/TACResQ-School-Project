@@ -12,6 +12,12 @@ CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
 CREATE ROLE service_role NOLOGIN BYPASSRLS;
 CREATE SCHEMA auth;
+-- Supabase Auth's investigation feed reads only these allowlisted audit fields.
+CREATE TABLE auth.audit_log_entries (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE auth.users (
   id uuid PRIMARY KEY,
   email text,
