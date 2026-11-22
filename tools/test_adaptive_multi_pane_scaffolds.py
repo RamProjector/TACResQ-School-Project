@@ -25,11 +25,12 @@ assert "modifier = Modifier.weight(1f)" in source
 assert "detailId == incident.id" in source
 components = (root / "app/src/main/java/com/tacresq/app/ui/common/Components.kt").read_text()
 assert "BorderStroke(" in components
-assert "if (selected) 2.dp else 1.dp" in components
-assert "border = if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null" in components
+assert "width = if (selected) 1.5.dp else 1.dp" in components
+assert "border = BorderStroke(" in components
+assert "MaterialTheme.colorScheme.outlineVariant" in components
 assert "containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer" in components
 assert "else MaterialTheme.colorScheme.surface" in components
-assert "if (selected) 2.dp else 0.dp" in components
+assert "elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)" in components
 assert '"Open conversation"' in components
 assert "Incident not in the current list" in source
 
