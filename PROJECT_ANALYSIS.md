@@ -21,7 +21,7 @@ This document replaces an outdated analysis that incorrectly described FCM, resp
 A requester can submit an incident with an optional one-time GPS fix, accuracy/timestamp metadata, and supported landmark/location fallback. The app protects against duplicate SOS creation and can persist uncertain submission state for later reconciliation. It does not automatically submit an SOS in the background.
 
 ### Responder and driver
-A field unit can set permitted duty status, view individually assigned incidents or claimable incidents according to server rules, update its own assignment status, and use a static route preview for an authorized active assignment. Consented foreground location reporting is implemented; continuous/background tracking is not claimed.
+A field unit can set permitted duty status, view individually assigned incidents or claimable incidents according to server rules, update its own assignment status, and use a static route preview for an authorized active assignment. Consented location reporting runs in an explicit Android location foreground service and may continue while the app is not visible; always-on or silently started background tracking is not implemented.
 
 ### Dispatcher
 The Android dispatcher workflow reads the incident queue and available units, coordinates multi-responder assignments, and displays supported assignment progress. The web portal denies dispatcher accounts. The legacy `assigned_to` compatibility field is not a formal team-leader designation.
