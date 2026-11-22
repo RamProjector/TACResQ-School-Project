@@ -121,16 +121,16 @@ BEGIN
 
   IF (feed->>'total_count')::integer < 3
      OR NOT EXISTS (
-       SELECT 1 FROM jsonb_array_elements(feed->'events') AS event
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS events(event)
         WHERE event->>'event_type' = 'incident_message_sent'
           AND event->>'summary' = 'Incident chat message sent'
      )
      OR NOT EXISTS (
-       SELECT 1 FROM jsonb_array_elements(feed->'events') AS event
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS events(event)
         WHERE event->>'event_type' = 'notification_marked_read'
      )
      OR NOT EXISTS (
-       SELECT 1 FROM jsonb_array_elements(feed->'events') AS event
+       SELECT 1 FROM jsonb_array_elements(feed->'events') AS events(event)
         WHERE event->>'event_type' = 'duty_status_changed'
      ) THEN
     RAISE EXCEPTION 'Admin investigation feed did not return the expected app-action events: %', feed;
