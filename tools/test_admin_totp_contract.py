@@ -198,12 +198,10 @@ assert "grant execute on function public.api_admin_list_users()" not in migratio
     "The legacy unbounded Admin user-list RPC must remain revoked."
 )
 # Sign-in must not silently unenroll pending TOTP factors created on another device.
-prepare_body = re.search(
-    r"async function prepareAdminMfa[(][)](.*?)(?=\nexport default function AdminMfaGate)",
-    gate,
-    flags=re.DOTALL,
-)
-assert prepare_body, "Missing Admin MFA preparation flow"
+prepare_start = gate.find("async function prepareAdminMfa()")
+prepare_end = gate.find("export default function AdminMfaGate", prepare_start)
+assert prepare_start >= 0 and prepare_end > prepare_start, "Missing Admin MFA preparation flow"
+prepare_body = gate[prepare_start:prepare_end]
 assert "auth.mfa.unenroll(" not in prepare_body.group(1), (
     "Admin sign-in must not delete pending factors from another active enrollment."
 )
