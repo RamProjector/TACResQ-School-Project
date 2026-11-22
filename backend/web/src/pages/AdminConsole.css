@@ -422,3 +422,15 @@
   .admin-table-wrap { overscroll-behavior-inline:contain; }
   .admin-table { min-width:720px; }
 }
+
+
+/* Explicit before/after preview for privileged role changes. */
+.admin-role-transition { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:12px; margin:18px 0 10px; padding:14px; border:1px solid #e4e9e1; border-radius:7px; background:#f8faf6; }
+.admin-role-transition > div { display:flex; min-width:0; flex-direction:column; gap:5px; }
+.admin-role-transition > div > span { color:#87938e; font:600 8px var(--mono); letter-spacing:.08em; text-transform:uppercase; }
+.admin-role-transition strong { color:#34494d; font-size:12px; overflow-wrap:anywhere; }
+.admin-role-transition__arrow { color:var(--ember-dark); font-size:18px; }
+.admin-role-warning { margin:0 0 15px; color:#8a654d; font-size:10px; line-height:1.55; }
+@media (max-width:420px) {
+  .admin-role-transition { gap:7px; padding:11px; }
+}
