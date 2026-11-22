@@ -114,7 +114,11 @@ BEGIN
       a.action AS event_type,
       a.created_at AS occurred_at,
       a.actor_user_id,
-      a.actor_identity AS actor_label,
+      coalesce(
+        nullif(btrim(a.actor_identity), ''),
+        CASE WHEN a.actor_user_id IS NULL THEN 'Trusted operator / unknown'
+             ELSE 'Profile #' || a.actor_user_id::text END
+      ) AS actor_label,
       a.target_user_id,
       coalesce(target.name, 'Profile #' || a.target_user_id::text) AS target_label,
       NULL::bigint AS incident_id,
