@@ -301,8 +301,9 @@ BEGIN
 
   IF FOUND THEN
     IF existing_message.incident_id <> p_incident_id
-       OR existing_message.message <> normalized_message THEN
-      RAISE EXCEPTION 'Client message ID was already used for different content'
+       OR existing_message.message <> normalized_message
+       OR existing_message.attachment_path IS NOT NULL THEN
+      RAISE EXCEPTION 'Client message ID was already used for different content or message type'
         USING ERRCODE = '23505';
     END IF;
     RETURN jsonb_build_object(
@@ -312,6 +313,16 @@ BEGIN
       'message', existing_message.message,
       'created_at', existing_message.created_at
     );
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM private.incident_chat_upload_reservations r
+     WHERE r.profile_id = actor_profile_id
+       AND r.client_message_id = p_client_message_id
+  ) THEN
+    RAISE EXCEPTION 'Client message ID is already reserved for an image attachment'
+      USING ERRCODE = '23505';
   END IF;
 
   SELECT policy.uploads_per_minute
