@@ -629,19 +629,3 @@ END;
 $storage_reservation_policy$;
 
 COMMIT;
-
-        AND private.tacresq_upload_reservation_allows_insert(
-          name,
-          metadata->>'mimetype',
-          COALESCE(metadata->>'size', metadata->>'contentLength')::bigint
-        )
-        AND private.tacresq_auth_can_access_incident_chat(
-          ((storage.foldername(name))[1])::bigint
-        )
-      )
-    $sql$;
-  END IF;
-END;
-$storage_reservation_policy$;
-
-COMMIT;
