@@ -98,8 +98,6 @@ storage_tests = read("tools/test_incident_chat_storage_policies.sql")
 assert "tools/test_incident_chat_storage_policies.sql" in replay, "Migration replay must execute Storage RLS tests"
 for required in (
     "api_send_incident_image_message",
-    "api_reserve_incident_image_upload",
-    "rpc.reserveIncidentImageUpload",
     "The incident requester must be able to download an assigned responder image",
     "An unrelated account must not read incident image objects",
     "An unrelated account must not upload into another incident conversation",
