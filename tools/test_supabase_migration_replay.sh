@@ -81,7 +81,37 @@ for migration in supabase/migrations/*.sql; do
 done
 
 psql -v ON_ERROR_STOP=1 <<'SQL'
-DO $$
+-- The Auth -> profile trigger is a privileged account-lifecycle boundary.
+-- Fail replay if it disappears, is disabled, or loses its expected definer mode.
+DO $auth_profile_trigger_contract$
+DECLARE
+  trigger_enabled "char";
+  function_is_definer boolean;
+BEGIN
+  SELECT t.tgenabled, p.prosecdef
+    INTO trigger_enabled, function_is_definer
+    FROM pg_catalog.pg_trigger AS t
+    JOIN pg_catalog.pg_proc AS p ON p.oid = t.tgfoid
+   WHERE t.tgrelid = 'auth.users'::regclass
+     AND t.tgname = 'tacresq_auth_user_created'
+     AND NOT t.tgisinternal;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Expected Auth signup trigger tacresq_auth_user_created is missing';
+  END IF;
+  IF trigger_enabled <> 'O' THEN
+    RAISE EXCEPTION 'Auth signup trigger must be enabled for normal origin writes; found mode %', trigger_enabled;
+  END IF;
+  IF function_is_definer IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Auth signup trigger function must retain its SECURITY DEFINER execution mode';
+  END IF;
+  IF to_regprocedure('public.tacresq_profile_on_signup()') IS NULL THEN
+    RAISE EXCEPTION 'Auth signup trigger function public.tacresq_profile_on_signup() is missing';
+  END IF;
+END;
+$auth_profile_trigger_contract$;
+
+DO $
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
