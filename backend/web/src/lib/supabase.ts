@@ -5,6 +5,7 @@ export type AdminManagedRole = Exclude<TacruRole, "admin">;
 export interface AdminUser { id: number; name: string; email: string; phone: string | null; role: TacruRole; duty_status: DutyStatus | null; created_at: string; }
 export interface AdminAuditEvent { id: number; actor_user_id: number | null; actor_identity: string; target_user_id: number | null; action: "user_role_changed"; old_role: TacruRole; new_role: TacruRole; reason: string; created_at: string; }
 export type AdminInvestigationCategory = "all" | "administrative" | "authentication" | "incident" | "assignment";
+export type AdminInvestigationSource = "all" | "admin_audit_logs" | "supabase_auth_audit_logs" | "incident_status_logs" | "incident_claimability_logs" | "incident_request_edit_logs" | "incident_assignment_events";
 export interface AdminInvestigationEvent {
   event_id: string;
   source: string;
@@ -73,7 +74,7 @@ type TacruDatabase = {
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
       api_admin_list_audit_logs_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_action: string; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null }; Returns: { events: AdminAuditEvent[]; total_count: number } };
-      api_admin_list_investigation_events: { Args: { p_limit: number; p_offset: number; p_query: string; p_category: AdminInvestigationCategory; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null; p_incident_id: number | null }; Returns: AdminInvestigationPage };
+      api_admin_list_investigation_events: { Args: { p_limit: number; p_offset: number; p_query: string; p_category: AdminInvestigationCategory; p_source: AdminInvestigationSource; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null; p_incident_id: number | null }; Returns: AdminInvestigationPage };
       api_admin_analytics_summary: { Args: { p_from: string; p_to: string }; Returns: AdminAnalyticsSummary };
       api_dependency_health: { Args: Record<string, never>; Returns: string };
     };
@@ -251,6 +252,7 @@ export async function getAdminInvestigationEventsPage(
   offset: number,
   query: string,
   category: AdminInvestigationCategory,
+  source: AdminInvestigationSource,
   from: string | null,
   to: string | null,
   actorUserId: number | null,
@@ -262,6 +264,7 @@ export async function getAdminInvestigationEventsPage(
     p_offset: offset,
     p_query: query.trim(),
     p_category: category,
+    p_source: source,
     p_from: from,
     p_to: to,
     p_actor_user_id: actorUserId,
