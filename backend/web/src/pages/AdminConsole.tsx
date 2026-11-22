@@ -17,7 +17,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Brand } from "@/components/Brand";
+import { Brand } from "@/components/Brand";\nimport AuditLogsPage from "@/pages/AuditLogsPage";
 import {
   getAdminAnalyticsSummary,
   getAdminAuditLogs,
@@ -49,7 +49,7 @@ const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashb
   { id: "users", label: "User management", icon: Users },
   { id: "security", label: "Security & countermeasures", icon: ShieldAlert },
   { id: "analytics", label: "Analytics & reports", icon: BarChart3 },
-  { id: "audit", label: "Audit & activity", icon: History },
+  { id: "audit", label: "Audit Logs", icon: History },
 ];
 const roleOptions: AdminManagedRole[] = ["requester", "responder", "driver", "dispatcher"];
 
@@ -80,7 +80,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const [activeSection, setActiveSection] = useState<AdminSection>("overview");
+  const [activeSection, setActiveSection] = useState<AdminSection>(() => window.location.hash === "#/admin/audit-logs" ? "audit" : "overview");
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
@@ -127,7 +127,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setRefreshing(true);
     setError(null);
     try {
-      const [userPage, nextAudit] = await Promise.all([getAdminUsersPage(pageSize, page * pageSize, query, roleFilter), getAdminAuditLogs(100)]);
+      const userPage = await getAdminUsersPage(pageSize, page * pageSize, query, roleFilter);
       if (requestId !== requestVersion.current) return;
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
@@ -161,6 +161,16 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       }
     }
   }, [page, query, roleFilter]);
+
+  useEffect(() => {
+    const syncSection = () => {
+      const route = window.location.hash.replace(/^#\\/admin\\/?/, "");
+      const next: AdminSection = route === "audit-logs" ? "audit" : (["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview");
+      setActiveSection(next);
+    };
+    window.addEventListener("hashchange", syncSection);
+    return () => window.removeEventListener("hashchange", syncSection);
+  }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -216,26 +226,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   const filteredUsers = users;
 
-  const userById = useMemo(() => new Map<number, AdminUser>(users.map((user) => [user.id, user] as const)), [users]);
-
-  const filteredAudit = useMemo(() => {
-    const normalized = auditQuery.trim().toLocaleLowerCase();
-    if (!normalized) return audit;
-    return audit.filter((event) => {
-      const actor = event.actor_user_id === profile.id
-        ? "you"
-        : (userById.get(event.actor_user_id ?? -1)?.name ?? event.actor_identity);
-      const targetName = userById.get(event.target_user_id ?? -1)?.name
-        ?? (event.target_user_id ? "profile " + event.target_user_id : "unknown removed");
-      return [
-        actor, targetName, event.actor_identity, event.reason,
-        event.action, event.old_role, event.new_role,
-        event.actor_user_id, event.target_user_id,
-        event.created_at, formatDate(event.created_at),
-      ].some((value) => String(value ?? "").toLocaleLowerCase().includes(normalized));
-    });
-  }, [audit, auditQuery, profile.id, userById]);
-
   function openRoleChange(user: AdminUser) {
     if (user.role === "admin") return;
     setTarget(user);
@@ -278,7 +268,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         <div className="admin-sidebar__label">ADMINISTRATION</div>
         <nav className="admin-navigation" aria-label="Admin sections">
           {adminSections.map(({ id, label, icon: Icon }) => (
-            <button key={id} type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => setActiveSection(id)}>
+            <button key={id} type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => { setActiveSection(id); window.location.hash = id === "audit" ? "/admin/audit-logs" : "/admin/" + id; }}>
               <Icon size={17} aria-hidden="true" /><span>{label}</span>
             </button>
           ))}
@@ -307,7 +297,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div>
               <p className="admin-eyebrow">ACCESS CONTROL <span>·</span> AUDITABLE OPERATIONS</p>
               <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}<span>.</span></h1>
-              <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Review the administrative changes currently recorded by the database." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+              <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Search and review the complete administrative audit history." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
             </div>
             <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
               <RefreshCw size={16} className={refreshing ? "admin-spin" : ""} /> Refresh data
@@ -326,7 +316,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <article><span>REGISTERED PROFILES</span><strong>{totalUsers}</strong><small>Matching profiles across all pages</small></article>
             <article><span>REQUESTERS ON PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Requester accounts on this page</small></article>
             <article><span>FIELD UNITS ON PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responder and driver accounts on this page</small></article>
-            <article><span>RECENT AUDIT EVENTS</span><strong>{audit.length}</strong><small>Latest records, maximum 100 loaded</small></article>
+            <article><span>RECENT AUDIT EVENTS</span><strong>Separate</strong><small>Dedicated searchable audit history</small></article>
           </section>
 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" hidden={activeSection !== "overview"}>
@@ -388,37 +378,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident.</p>
           </section>
 
-          <section className="admin-panel admin-audit-panel" hidden={activeSection !== "audit"}>
-            <div className="admin-panel__heading">
-              <div><p className="admin-eyebrow">ACCOUNTABILITY</p><h2><Clock3 size={19} /> Administrative audit log</h2></div>
-              <span className="admin-count">{filteredAudit.length} of {audit.length} loaded · max 100</span>
-            </div>
-            <label className="admin-search admin-audit-search"><Search size={16} /><input type="search" value={auditQuery} onChange={(event) => setAuditQuery(event.target.value)} maxLength={120} placeholder="Search actor, target, role change or reason" aria-label="Search loaded audit events" /></label>
-            <div className="admin-table-wrap">
-              <table className="admin-table admin-audit-table">
-                <thead><tr><th>Recorded</th><th>Actor</th><th>Target</th><th>Change</th><th>Reason</th></tr></thead>
-                <tbody>
-                  {loading && audit.length === 0 ? (
-                    <tr><td colSpan={5}><div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading audit events…</div></td></tr>
-                  ) : audit.length === 0 ? (
-                    <tr><td colSpan={5}><div className="admin-empty"><Clock3 size={20} /><strong>No administrative changes recorded yet</strong><span>Events appear after a role change succeeds.</span></div></td></tr>
-                  ) : filteredAudit.length === 0 ? (
-                    <tr><td colSpan={5}><div className="admin-empty"><Search size={20} /><strong>No matching audit events</strong><span>Try a different search term. Only the latest 100 events are loaded.</span></div></td></tr>
-                  ) : filteredAudit.map((event) => (
-                    <tr key={event.id}>
-                      <td className="admin-date">{formatDate(event.created_at)}</td>
-                      <td>{event.actor_user_id === profile.id ? "You" : (userById.get(event.actor_user_id ?? -1)?.name ?? event.actor_identity)}</td>
-                      <td>{userById.get(event.target_user_id ?? -1)?.name ?? (event.target_user_id ? "Profile #" + event.target_user_id : "Unknown / removed")}</td>
-                      <td><span className="admin-audit-change">{displayRole(event.old_role)} <span>→</span> {displayRole(event.new_role)}</span></td>
-                      <td className="admin-audit-reason">{event.reason}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="admin-panel__footnote">Search filters the latest 100 events returned by the server; it does not search older history. The client has no direct insert, update, or delete permission on audit rows. The role-change RPC writes the event in the same database transaction as the change.</p>
-          </section>
-          {activeSection === "analytics" && (
+          {activeSection === "audit" && <AuditLogsPage profile={profile} />}\n          {activeSection === "analytics" && (
             <section className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title" aria-live="polite">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div>
