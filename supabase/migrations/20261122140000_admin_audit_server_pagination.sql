@@ -105,7 +105,7 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.api_admin_list_audit_logs_page(integer, integer, text, text, timestamptz, timestamptz, bigint, bigint)
   FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.api_admin_list_audit_logs_page(integer, integer, text, text, timestamptz, timestamptz)
+GRANT EXECUTE ON FUNCTION public.api_admin_list_audit_logs_page(integer, integer, text, text, timestamptz, timestamptz, bigint, bigint)
   TO authenticated;
 
 COMMIT;
