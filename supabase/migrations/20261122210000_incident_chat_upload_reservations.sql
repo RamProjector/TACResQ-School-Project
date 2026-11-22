@@ -47,10 +47,6 @@ REVOKE ALL ON TABLE private.incident_chat_upload_policy
   FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE private.incident_chat_upload_reservations
   FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON TABLE private.incident_chat_upload_policy
-  TO service_role;
-GRANT SELECT, INSERT, UPDATE ON TABLE private.incident_chat_upload_reservations
-  TO service_role;
 
 CREATE OR REPLACE FUNCTION private.tacresq_upload_reservation_allows_insert(
   p_object_path text,
