@@ -343,7 +343,28 @@ DECLARE
   incident_id bigint := current_setting('test.incident_id')::bigint;
   operation_id uuid;
 BEGIN
-  FOR i IN 300..319 LOOP
+  PERFORM public.api_send_incident_message(
+    incident_id,
+    'Existing text for idempotency test',
+    '00000000-0000-4000-8000-000000000322'::uuid
+  );
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_reserve_incident_image_upload(
+      incident_id,
+      'image/jpeg',
+      4,
+      '00000000-0000-4000-8000-000000000322'::uuid
+    );
+  EXCEPTION WHEN unique_violation THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'An image reservation must not reuse an existing text-message key';
+  END IF;
+
+  FOR i IN 300..318 LOOP
     operation_id := ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
     PERFORM public.api_reserve_incident_image_upload(
       incident_id,
@@ -358,7 +379,7 @@ BEGIN
       incident_id,
       'image/jpeg',
       4,
-      '00000000-0000-4000-8000-000000000320'::uuid
+      '00000000-0000-4000-8000-000000000319'::uuid
     );
   EXCEPTION WHEN SQLSTATE '54000' THEN
     denied := true;
