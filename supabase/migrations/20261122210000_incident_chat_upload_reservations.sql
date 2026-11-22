@@ -9,6 +9,9 @@ CREATE TABLE private.incident_chat_upload_policy (
     CHECK (reservation_ttl_seconds BETWEEN 60 AND 3600),
   uploads_per_minute integer NOT NULL DEFAULT 20
     CHECK (uploads_per_minute BETWEEN 1 AND 20),
+  -- Keep legacy image clients working during staged rollout. Operators enable
+  -- reservation enforcement only after old clients are no longer supported.
+  reservation_enforcement_enabled boolean NOT NULL DEFAULT false,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -64,10 +67,26 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   actor_profile_id bigint;
+  enforcement_enabled boolean;
 BEGIN
   actor_profile_id := private.tacresq_auth_profile_id();
   IF actor_profile_id IS NULL THEN
     RETURN false;
+  END IF;
+
+  SELECT policy.reservation_enforcement_enabled
+    INTO enforcement_enabled
+    FROM private.incident_chat_upload_policy AS policy
+   WHERE policy.singleton = true;
+
+  IF enforcement_enabled IS NULL THEN
+    RETURN false;
+  END IF;
+  IF NOT enforcement_enabled THEN
+    -- Staged rollout compatibility: the policy still checks bucket, caller
+    -- path, MIME, size, and incident membership; only the reservation gate
+    -- remains disabled until the operator enables it after client migration.
+    RETURN true;
   END IF;
 
   RETURN EXISTS (
@@ -272,6 +291,8 @@ DECLARE
   recent_message_count integer;
   recent_reservation_count integer;
   uploads_limit integer;
+  reservation_found boolean;
+  enforcement_enabled boolean;
 BEGIN
   SELECT p.id
     INTO actor_profile_id
@@ -495,19 +516,33 @@ BEGIN
     );
   END IF;
 
+  SELECT policy.reservation_enforcement_enabled
+    INTO enforcement_enabled
+    FROM private.incident_chat_upload_policy AS policy
+   WHERE policy.singleton = true;
+  IF enforcement_enabled IS NULL THEN
+    RAISE EXCEPTION 'Incident image upload policy is not configured'
+      USING ERRCODE = '55000';
+  END IF;
+
   SELECT r.*
     INTO existing_reservation
     FROM private.incident_chat_upload_reservations r
    WHERE r.profile_id = actor_profile_id
      AND r.client_message_id = p_client_message_id
    FOR UPDATE;
+  reservation_found := FOUND;
 
-  IF NOT FOUND
-     OR existing_reservation.incident_id <> p_incident_id
-     OR existing_reservation.object_path <> p_attachment_path
-     OR existing_reservation.mime_type <> p_attachment_mime_type
-     OR existing_reservation.size_bytes <> p_attachment_size_bytes
-     OR existing_reservation.consumed_at IS NOT NULL THEN
+  IF reservation_found THEN
+    IF existing_reservation.incident_id <> p_incident_id
+       OR existing_reservation.object_path <> p_attachment_path
+       OR existing_reservation.mime_type <> p_attachment_mime_type
+       OR existing_reservation.size_bytes <> p_attachment_size_bytes
+       OR existing_reservation.consumed_at IS NOT NULL THEN
+      RAISE EXCEPTION 'Image upload reservation does not match this message'
+        USING ERRCODE = '42501';
+    END IF;
+  ELSIF enforcement_enabled THEN
     RAISE EXCEPTION 'A matching unconsumed image upload reservation is required'
       USING ERRCODE = '42501';
   END IF;
@@ -574,14 +609,16 @@ BEGIN
   )
   RETURNING * INTO created_message;
 
-  UPDATE private.incident_chat_upload_reservations
-     SET consumed_at = now()
-   WHERE reservation_id = existing_reservation.reservation_id
-     AND consumed_at IS NULL;
+  IF reservation_found THEN
+    UPDATE private.incident_chat_upload_reservations
+       SET consumed_at = now()
+     WHERE reservation_id = existing_reservation.reservation_id
+       AND consumed_at IS NULL;
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Image upload reservation was already consumed'
-      USING ERRCODE = '23505';
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Image upload reservation was already consumed'
+        USING ERRCODE = '23505';
+    END IF;
   END IF;
 
   RETURN jsonb_build_object(
