@@ -33,6 +33,8 @@ assert "previousFocus = useRef<HTMLElement | null>(null)" in admin, "The role-ch
 assert "previousFocus.current = document.activeElement instanceof HTMLElement" in admin
 assert "if (trigger?.isConnected) trigger.focus()" in admin, "Closing the role-change dialog must restore focus to its trigger when it still exists."
 assert "complete administrative audit history" not in admin.lower(), "Do not imply that role-change-only records cover every admin or operational event."
+assert "page * pageSize >= userPage.total_count" in admin, "User management must recover when the current page becomes out of range after the account set shrinks."
+assert "Math.ceil(userPage.total_count / pageSize) - 1" in admin, "Out-of-range user pagination must return to the last valid page instead of showing a false empty state."
 
 # Audit history is a dedicated URL-addressable page, not a capped dashboard panel.
 audit_page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
