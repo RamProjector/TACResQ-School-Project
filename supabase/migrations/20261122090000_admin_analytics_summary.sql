@@ -55,13 +55,13 @@ BEGIN
     SELECT d.day::date AS day,
            count(i.id)::integer AS requests
     FROM generate_series(
-      date_trunc('day', p_from),
-      date_trunc('day', p_to - interval '1 microsecond'),
+      date_trunc('day', p_from AT TIME ZONE 'Asia/Manila'),
+      date_trunc('day', (p_to - interval '1 microsecond') AT TIME ZONE 'Asia/Manila'),
       interval '1 day'
     ) AS d(day)
     LEFT JOIN incident_scope i
-      ON i.created_at >= d.day
-     AND i.created_at < d.day + interval '1 day'
+      ON i.created_at AT TIME ZONE 'Asia/Manila' >= d.day
+     AND i.created_at AT TIME ZONE 'Asia/Manila' < d.day + interval '1 day'
     GROUP BY d.day
     ORDER BY d.day
   ),
@@ -74,6 +74,7 @@ BEGIN
   SELECT jsonb_build_object(
     'period_start', p_from,
     'period_end', p_to,
+    'reporting_timezone', 'Asia/Manila',
     'total_requests', (SELECT count(*)::integer FROM incident_scope),
     'pending', (SELECT count(*)::integer FROM incident_scope WHERE status = 'pending'),
     'active', (SELECT count(*)::integer FROM incident_scope WHERE status IN ('assigned', 'en_route', 'on_scene', 'transporting')),
