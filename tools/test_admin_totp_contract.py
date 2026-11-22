@@ -113,4 +113,39 @@ assert "grant execute on function public.api_admin_list_users()" not in migratio
     "The legacy unbounded Admin user-list RPC must remain revoked."
 )
 assert "service_role" not in gate.lower(), "The browser must not use a service-role key."
-print("Admin TOTP enrollment, verification, wrapper ordering, grants, and audit RLS contracts passed.")
+# Role changes must serialize concurrent updates and preserve the audit trail.
+role_migration = (
+    ROOT / "supabase/migrations/20261112215653_admin_role_audit_foundation.sql"
+).read_text().lower()
+role_match = re.search(
+    r"create or replace function public[.]api_admin_set_user_role[(].*?"
+    r"as [$]function[$](.*?)[$]function[$];",
+    role_migration,
+    flags=re.DOTALL,
+)
+assert role_match, "Missing Admin role-change RPC implementation"
+role_body = role_match.group(1)
+row_lock = role_body.find("for update")
+role_read = role_body.find("old_role := target_row.role")
+assert row_lock >= 0 and role_read > row_lock, (
+    "Target profile must be locked before its current role is evaluated"
+)
+assert "p_role not in ('requester', 'responder', 'driver', 'dispatcher')" in role_body
+assert "target_row.role = 'admin'" in role_body
+active_incident_guard = role_body.find(
+    "status in ('assigned', 'en_route', 'on_scene', 'transporting')"
+)
+profile_update = role_body.find("update public.profiles")
+audit_insert = role_body.find("insert into public.admin_audit_logs")
+assert active_incident_guard >= 0 and profile_update > active_incident_guard, (
+    "Active-incident eligibility must be checked before changing the profile"
+)
+assert "public.incident_assignments" in role_body, (
+    "Role changes must account for team assignments as well as incidents.assigned_to"
+)
+assert audit_insert > profile_update, (
+    "The role update and its audit event must remain in the same RPC transaction"
+)
+assert "trim(p_reason)" in role_body and "user_role_changed" in role_body
+
+print("Admin TOTP, role-change atomicity, wrapper ordering, grants, and audit RLS contracts passed.")
