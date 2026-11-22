@@ -459,3 +459,151 @@
     outline-offset:2px;
   }
 }
+
+
+/* Admin workspace card hierarchy and activity-feed presentation. */
+.admin-metrics article {
+  position:relative;
+  overflow:hidden;
+  min-height:124px;
+  padding:19px 20px 17px;
+  border:1px solid #e0e6dd;
+  border-radius:11px;
+  background:#fffefa;
+  box-shadow:0 6px 18px rgba(20,42,49,.035);
+  transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+.admin-metrics article::before {
+  position:absolute;
+  top:0;
+  left:18px;
+  right:18px;
+  height:2px;
+  border-radius:0 0 3px 3px;
+  background:#a7b9aa;
+  content:"";
+}
+.admin-metrics article:hover {
+  transform:translateY(-2px);
+  border-color:#d2ddd2;
+  box-shadow:0 10px 24px rgba(20,42,49,.065);
+}
+.admin-metrics article > span { color:#71817c; font-size:8px; letter-spacing:.12em; }
+.admin-metrics strong { margin:15px 0 7px; font-size:30px; }
+.admin-metrics small { max-width:250px; line-height:1.5; }
+.admin-panel { border-radius:11px; box-shadow:0 7px 22px rgba(20,42,49,.035); }
+.admin-health-grid { gap:14px; }
+.admin-health-item { padding:16px; border-radius:9px; background:#fcfdf9; }
+
+/* Compact, readable audit activity cards replace the dense six-column table. */
+.audit-page__list {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:16px 22px 20px;
+  background:#fbfcf8;
+}
+.audit-event-card {
+  min-width:0;
+  padding:16px 18px;
+  border:1px solid #e2e7df;
+  border-radius:9px;
+  background:#fffefa;
+  box-shadow:0 3px 10px rgba(20,42,49,.025);
+  transition:border-color .16s ease, box-shadow .16s ease;
+}
+.audit-event-card:hover { border-color:#d5dfd5; box-shadow:0 6px 16px rgba(20,42,49,.045); }
+.audit-event-card__top,
+.audit-event-card__heading {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+}
+.audit-event-card__top time { color:#84918c; font:500 9px var(--mono); text-align:right; }
+.audit-page__category { border-radius:999px; padding:0 10px; min-height:23px; }
+.audit-page__category--administrative { color:#536a62; background:#f0f5ef; }
+.audit-page__category--authentication { color:#5b6874; background:#f1f4f7; }
+.audit-page__category--incident { color:#876b45; background:#faf5e9; }
+.audit-page__category--assignment { color:#536d78; background:#eef5f7; }
+.audit-event-card__heading { align-items:flex-start; margin-top:12px; }
+.audit-event-card__heading > div { min-width:0; }
+.audit-event-card__heading p { margin:0 0 5px; color:#87928e; font-size:9px; font-weight:700; letter-spacing:.04em; }
+.audit-event-card__heading h3 { margin:0; color:var(--ink-deep); font:600 14px/1.45 var(--display); overflow-wrap:anywhere; }
+.audit-event-card__meta {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+  margin-top:15px;
+  padding-top:13px;
+  border-top:1px solid #edf0e9;
+}
+.audit-event-card__meta span { display:flex; min-width:0; flex-direction:column; gap:5px; }
+.audit-event-card__meta small { color:#899590; font:600 8px var(--mono); letter-spacing:.07em; text-transform:uppercase; }
+.audit-event-card__meta strong { color:#53676a; font-size:10px; font-weight:600; overflow-wrap:anywhere; }
+.audit-event-card__details {
+  margin-top:14px;
+  padding:14px;
+  border:1px solid #e8ece5;
+  border-radius:7px;
+  background:#f8faf5;
+}
+.audit-event-card__details > p { margin:0 0 12px; color:#627372; font-size:10px; line-height:1.6; }
+.audit-event-card__details dl {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:12px 18px;
+  margin:0;
+}
+.audit-event-card__details dl div { display:flex; min-width:0; flex-direction:column; gap:4px; }
+.audit-event-card__details dt { color:#899590; font:600 8px var(--mono); letter-spacing:.06em; text-transform:uppercase; }
+.audit-event-card__details dd { margin:0; color:#53676a; font-size:9px; overflow-wrap:anywhere; }
+.audit-event-card__references { margin-top:14px; padding-top:11px; border-top:1px solid #e5ebe2; }
+.audit-event-card__references summary { color:#6e7f79; font-size:9px; font-weight:700; cursor:pointer; }
+.audit-event-card__references dl { margin-top:12px; }
+.audit-event-card__references dd { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.audit-event-card__references code { color:#53676a; font:500 9px var(--mono); overflow-wrap:anywhere; }
+.audit-event-card__references button {
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  min-height:25px;
+  padding:0 7px;
+  border:1px solid #dce4da;
+  border-radius:5px;
+  color:#536b61;
+  background:#fffefa;
+  font-size:8px;
+  font-weight:700;
+  cursor:pointer;
+}
+.audit-page__copy-error { color:#963d31 !important; }
+.audit-page__page-numbers { display:flex; gap:4px; }
+.audit-page__pagination > div { align-items:center; }
+.audit-page__pagination .audit-page__page-numbers button {
+  min-width:31px;
+  padding:0 8px;
+  justify-content:center;
+}
+.audit-page__pagination .audit-page__page-numbers button.is-current {
+  border-color:#c9d8ca;
+  color:#294f43;
+  background:#edf4ed;
+}
+.audit-page__pagination > span small { color:#97a19c; font-size:9px; }
+
+@media (max-width:760px) {
+  .admin-metrics article { min-height:112px; padding:14px; }
+  .audit-page__list { padding:12px 14px 16px; }
+  .audit-event-card { padding:14px; }
+  .audit-event-card__meta { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .audit-event-card__heading { flex-direction:column; align-items:stretch; }
+  .audit-event-card__heading .audit-page__details { align-self:flex-start; }
+  .audit-page__pagination { flex-direction:column; align-items:stretch; }
+  .audit-page__pagination > div { justify-content:space-between; flex-wrap:wrap; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .admin-metrics article,
+  .audit-event-card { transition:none; }
+  .admin-metrics article:hover { transform:none; }
+}
