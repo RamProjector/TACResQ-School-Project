@@ -27,9 +27,21 @@ AS $auth_uid$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $auth_uid$;
 
+CREATE FUNCTION auth.jwt()
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+AS $auth_jwt$
+  SELECT coalesce(
+    nullif(current_setting('request.jwt.claims', true), ''),
+    '{}'
+  )::jsonb
+$auth_jwt$;
+
 -- Match Supabase's auth schema/function visibility for PostgREST roles.
 GRANT USAGE ON SCHEMA auth TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.jwt() TO authenticated;
 
 -- Minimal Supabase Storage schema for migration replay. This lets the test
 -- exercise real RLS policies without depending on a running Supabase service.
