@@ -74,6 +74,51 @@ BEGIN
     RAISE EXCEPTION 'Notification read RPC did not confirm the owned notification';
   END IF;
 
+  -- A different authenticated user cannot mark the notification read. This
+  -- denied/no-op result must not create a successful-action audit row.
+  PERFORM set_config('request.jwt.claim.sub',
+    '00000000-0000-4000-8000-000000000171', false);
+  IF public.api_mark_notification_read(notification_id) THEN
+    RAISE EXCEPTION 'Unrelated responder must not read the requester's notification';
+  END IF;
+  PERFORM set_config('request.jwt.claim.sub',
+    '00000000-0000-4000-8000-000000000170', false);
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.app_action_audit_logs AS audit
+     WHERE audit.action = 'incident_message_sent'
+       AND audit.actor_profile_id = requester_id
+       AND audit.actor_role = 'requester'
+       AND audit.incident_id = v_incident_id
+       AND audit.outcome = 'success'
+       AND audit.metadata->>'message_kind' = 'text'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.app_action_audit_logs AS audit
+     WHERE audit.action = 'notification_marked_read'
+       AND audit.actor_profile_id = requester_id
+       AND audit.actor_role = 'requester'
+       AND audit.target_id = notification_id::text
+       AND audit.metadata->>'notification_type' = 'incident_message'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.app_action_audit_logs AS audit
+     WHERE audit.action = 'duty_status_changed'
+       AND audit.actor_profile_id = responder_id
+       AND audit.actor_role = 'responder'
+       AND audit.target_user_id = responder_id
+       AND audit.metadata->>'previous_status' = 'off_duty'
+       AND audit.metadata->>'new_status' = 'available'
+  ) THEN
+    RAISE EXCEPTION 'App-action audit rows do not preserve the expected actor, target, outcome, or safe metadata';
+  END IF;
+
+  IF (
+    SELECT count(*) FROM public.app_action_audit_logs AS audit
+     WHERE audit.action = 'notification_marked_read'
+       AND audit.target_id = notification_id::text
+  ) <> 1 THEN
+    RAISE EXCEPTION 'An unauthorized notification-read attempt must not appear as a successful action';
+  END IF;
+
   SELECT count(*) INTO event_count
     FROM public.app_action_audit_logs AS audit
    WHERE (audit.action = 'duty_status_changed' AND audit.target_user_id = responder_id)
