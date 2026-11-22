@@ -38,6 +38,7 @@ assert "Math.ceil(userPage.total_count / pageSize) - 1" in admin, "Out-of-range 
 assert "const [debouncedQuery, setDebouncedQuery] = useState(\"\")" in admin, "User search must keep a debounced query separate from the live input."
 assert "window.setTimeout(() => {" in admin and "setDebouncedQuery(query)" in admin and "}, 250)" in admin, "User directory search must debounce server requests."
 assert "getAdminUsersPage(pageSize, page * pageSize, debouncedQuery, roleFilter)" in admin, "User directory RPC must use the debounced query."
+assert "!root?.contains(document.activeElement)" in admin and "(event.shiftKey ? last : first).focus()" in admin, "Role-change dialog must recover focus if keyboard navigation escapes its modal boundary."
 
 
 # Audit history is a dedicated URL-addressable page, not a capped dashboard panel.
