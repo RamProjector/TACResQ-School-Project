@@ -29,12 +29,17 @@ This inventory is intentionally conservative. A path is not marked covered merel
 
 ## RLS and privilege evidence that changes the implementation plan
 
-- The repository's security review records 18 public SECURITY DEFINER functions callable by authenticated users in the inspected live catalog snapshot. That count is a review baseline, not a complete current branch inventory.
+- The clean migration replay for this branch reports 20 authenticated-callable public SECURITY DEFINER functions (72 authenticated-callable public functions total). See [the clean-replay authorization snapshot](admin-account-suspension-clean-replay-snapshot.md) for the exact signatures and [RPC review batch 1](admin-account-suspension-rpc-review-batch-1.md) for source-traced account-state gaps. This isolated replay count supersedes the older 18-function preliminary review; it is not a live connected-project catalog.
 - Five RLS-enabled operational tables were reviewed as intentionally having no direct client policies/grants: fcm_delivery_attempts, incident_messages, incident_request_edit_logs, incident_submission_keys, and user_notifications. Their RPCs/server writers still need caller-state checks.
 - Some policies use private.tacresq_actor_role(); others resolve ownership by directly selecting profiles for auth.uid(). Updating the role helper alone is insufficient.
 - SECURITY DEFINER functions may bypass ordinary RLS. Each callable definer function needs a current-state guard inside its trusted body.
 - Supabase Storage authorization is separate from ordinary Postgres table RLS and must be covered in the same release.
 - The Laravel bridge is not the universal request path. Android and the web dashboard call Supabase directly, so Laravel middleware cannot provide complete suspension enforcement.
+
+## Source-traced review progress
+
+- [Batch 1: requester incident lifecycle, field claiming, claimability, incident chat attachments, FCM token registration, and Admin investigation feed](admin-account-suspension-rpc-review-batch-1.md). The reviewed functions currently lack an independent account-state check; each gap and the correct enforcement boundary is recorded there.
+- Remaining batches must cover Admin/audit internals, dispatch and location operations, notifications/profile/device security, Storage, and every direct client/bridge path.
 
 ## Required completion artifacts
 
