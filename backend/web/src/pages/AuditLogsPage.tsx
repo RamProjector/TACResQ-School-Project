@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Clock3, LoaderCircle, RefreshCw, Search } from "lucide-react";
 import { getAdminAuditLogsPage } from "@/lib/supabase";
 import type { AdminAuditEvent, TacruProfile } from "@/lib/supabase";
@@ -132,6 +132,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
             ) : events.length === 0 ? (
               <tr><td colSpan={6}><div className="admin-empty"><Clock3 size={20} /><strong>{error ? "Audit records unavailable" : "No matching audit records"}</strong><span>{error ? "The page does not substitute sample data." : "Adjust your filters or check again later."}</span></div></td></tr>
             ) : events.map((event) => (
+              <Fragment key={event.id}>
               <tr key={event.id}>
                 <td className="admin-date">{formatDate(event.created_at)}</td>
                 <td><strong>{event.actor_user_id === profile.id ? "You" : event.actor_identity || "Unknown actor"}</strong><small className="audit-page__subtext">{event.actor_user_id === null ? "No linked profile" : "Profile #" + event.actor_user_id}</small></td>
@@ -147,6 +148,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                   <dl><div><dt>Audit record</dt><dd>#{event.id}</dd></div><div><dt>Actor profile</dt><dd>{event.actor_user_id ?? "Not linked"}</dd></div><div><dt>Target profile</dt><dd>{event.target_user_id ?? "Not linked"}</dd></div><div><dt>Exact timestamp</dt><dd>{event.created_at}</dd></div></dl>
                 </td></tr>
               )}
+              </Fragment>
             ))}
           </tbody>
         </table>
