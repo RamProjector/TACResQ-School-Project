@@ -92,7 +92,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       <div className="audit-page__intro">
         <div>
           <p className="admin-eyebrow">ACCOUNTABILITY · READ-ONLY RECORDS</p>
-          <h2 id="audit-page-title"><Clock3 size={20} /> Audit Logs</h2>
+          <h2 id="audit-page-title"><Clock3 size={20} /> Audit history</h2>
           <p>Search the full administrative audit history. Records are written by protected database operations and cannot be edited or deleted here.</p>
         </div>
         <button className="admin-refresh" type="button" onClick={() => {
