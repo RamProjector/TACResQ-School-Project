@@ -62,7 +62,7 @@ for required in (
     "A participant must not upload an object without a matching reservation",
     "An unrelated account must not reserve an upload for another incident",
     "The 21st image reservation within one minute must be rejected",
-    "'contentLength':'4'",
+    '"contentLength":"4"',
     "A duplicate object path must not overwrite the existing attachment",
     "Different senders must receive independent reservation identities",
 ):
