@@ -45,7 +45,9 @@ ALTER TABLE private.incident_chat_upload_policy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private.incident_chat_upload_reservations ENABLE ROW LEVEL SECURITY;
 
 COMMENT ON TABLE private.incident_chat_upload_policy IS
-  'Private operational defaults for incident-chat upload reservation leases and pre-upload rate limits.';
+  'Private operational defaults for incident-chat upload leases, pre-upload rate limits, and staged reservation enforcement.';
+COMMENT ON COLUMN private.incident_chat_upload_policy.reservation_enforcement_enabled IS
+  'False preserves legacy upload/finalization during Android rollout; enable only after all supported clients reserve before Storage upload.';
 COMMENT ON TABLE private.incident_chat_upload_reservations IS
   'Private one-operation authorization ledger for incident-chat Storage uploads; not exposed to client roles.';
 
