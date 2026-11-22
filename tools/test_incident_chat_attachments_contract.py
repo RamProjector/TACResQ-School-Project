@@ -133,4 +133,26 @@ assert not any(
     for line in inventory.splitlines()
 ), "Attachment inventory must remain strictly read-only"
 
+
+# The standalone inventory query is not part of migration replay, so guard its
+# CTE metadata comparisons and final projection explicitly.
+for required in (
+    "AS has_message_metadata_mismatch",
+    "AS has_reservation_metadata_mismatch",
+    "o.message_metadata_mismatch_count",
+    "o.reservation_metadata_mismatch_count",
+    "AS active_reserved_declared_bytes",
+    "r.active_reserved_declared_bytes",
+    "m.messages_with_missing_object_count",
+    "FROM bucket b",
+    "CROSS JOIN object_summary o",
+    "CROSS JOIN message_summary m",
+    "CROSS JOIN reservation_summary r",
+):
+    assert required in inventory, f"Attachment inventory SQL contract missing: {required}"
+assert "r.active_reserved_metadata_bytes" not in inventory, "Inventory must project the declared-byte alias that its CTE defines"
+assert "^[0-9]+$" in inventory, "Inventory size metadata parsing must use a complete numeric pattern"
+assert inventory.count("WITH bucket AS") == 1, "Inventory must contain one complete query, not duplicated fragments"
+assert inventory.rstrip().endswith(";"), "Inventory query must terminate cleanly"
+
 print("PASS: incident chat images use private, incident-authorized storage and bounded Android image attachments.")
