@@ -103,6 +103,7 @@ BEGIN
     v_action := 'notification_marked_read';
     v_target_type := 'notification';
     v_target_id := NEW.id::text;
+    v_target_user_id := NEW.recipient_user_id;
     v_incident_id := NEW.incident_id;
     v_metadata := jsonb_build_object('notification_type', NEW.event_type);
   ELSIF TG_TABLE_NAME = 'profiles' AND TG_OP = 'UPDATE' THEN
