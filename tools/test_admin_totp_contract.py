@@ -41,6 +41,23 @@ for marker in (
 ):
     assert marker in migration, f"Missing database MFA enforcement marker: {marker}"
 
+# The shared gate must validate both the verified JWT assurance claims
+# and the current database role, not merely the browser's displayed role.
+helper_match = re.search(
+    r"create or replace function private\\.tacresq_require_admin_mfa\\(\\).*?as \\$function\\$(.*?)\\$function\\$;",
+    migration,
+    flags=re.DOTALL,
+)
+assert helper_match, "Missing private Admin MFA helper body"
+helper_body = helper_match.group(1)
+for requirement in (
+    "auth.uid() is null",
+    "auth.jwt() ->> 'aal'",
+    "method ->> 'method' = 'totp'",
+    "p.role = 'admin'",
+):
+    assert requirement in helper_body, f"Admin MFA helper omits required check: {requirement}"
+
 # Verify each public wrapper checks MFA before delegating to its private
 # implementation; merely mentioning both names elsewhere is insufficient.
 wrapper_targets = {
