@@ -4,7 +4,6 @@ import { getSupabase } from "@/lib/supabase";
 
 type SecuritySnapshot = {
   currentLevel: string | null;
-  nextLevel: string | null;
   usedTotp: boolean;
   factors: Array<{ id: string; name: string; status: string }>;
 };
@@ -33,15 +32,15 @@ export default function AdminSecurityStatus() {
       if (factorsResult.error) throw factorsResult.error;
       const methods = aalResult.data.currentAuthenticationMethods ?? [];
       const usedTotp = methods.some((method) =>
-        typeof method === "object" && method !== null && method.method === "totp"
+        typeof method === "string" ? method === "totp" :
+          typeof method === "object" && method !== null && method.method === "totp"
       );
       setSnapshot({
         currentLevel: aalResult.data.currentLevel ?? null,
-        nextLevel: aalResult.data.nextLevel ?? null,
         usedTotp,
         factors: factorsResult.data.totp.map((factor) => ({
           id: factor.id,
-          name: factor.friendlyName || "Authenticator app",
+          name: factor.friendly_name || "Authenticator app",
           status: factor.status,
         })),
       });
