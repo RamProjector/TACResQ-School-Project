@@ -241,8 +241,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       {error && <div className="admin-banner admin-banner--error" role="alert"><AlertCircle size={17} /><span>{error}</span></div>}
 
       <div className="audit-page__summary" aria-live="polite">
-        <span>{loading ? "Loading investigation events…" : total.toLocaleString() + " matching events"}</span>
-        <span>{lastSuccessfulRefresh ? "Last successful refresh: " + formatDate(lastSuccessfulRefresh) : "Not yet refreshed"} · Page {total === 0 ? 0 : page + 1} of {pageCount}</span>
+        <span>{loading ? "Loading investigation events…" : error ? "Results unavailable" : total.toLocaleString() + " matching events"}</span>
+        <span>{lastSuccessfulRefresh ? "Last successful refresh: " + formatDate(lastSuccessfulRefresh) : "Not yet refreshed"} · {error ? "Page unavailable" : "Page " + (total === 0 ? 0 : page + 1) + " of " + pageCount}</span>
       </div>
 
       <div className="admin-table-wrap audit-page__table-wrap">
@@ -294,7 +294,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       </div>
 
       <div className="admin-pagination audit-page__pagination" aria-label="Investigation history pagination">
-        <span>Showing {total === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}</span>
+        <span>{error ? "Results unavailable" : "Showing " + (total === 0 ? 0 : page * PAGE_SIZE + 1) + "–" + Math.min((page + 1) * PAGE_SIZE, total) + " of " + total.toLocaleString()}</span>
         <div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading}><ChevronLeft size={14} /> Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || (page + 1) * PAGE_SIZE >= total}>Next <ChevronRight size={14} /></button></div>
       </div>
       <p className="admin-panel__footnote">This feed reads existing administrative role-change, Supabase Auth, incident-status, claimability, sanitized requester-edit, and responder-assignment records through a TOTP/AAL2-protected, server-side query. Authentication events depend on Supabase Auth Audit Logs Postgres storage; if this category is empty, verify Authentication → Audit Logs because an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events are reduced to changed-field names only; their raw snapshots are never exposed. Denied privileged RPC attempts are not yet durably represented in this feed. API transport telemetry, device-security events, and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
