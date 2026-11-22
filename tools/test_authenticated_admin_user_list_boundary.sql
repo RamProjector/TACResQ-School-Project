@@ -20,6 +20,18 @@ UPDATE public.profiles
 SET role = 'admin', duty_status = NULL
 WHERE auth_user_id = '00000000-0000-4000-8000-000000000145';
 
+INSERT INTO public.admin_audit_logs (
+  actor_user_id, actor_identity, target_user_id, action,
+  old_role, new_role, reason
+)
+SELECT actor.id, 'admin-user-list-boundary@example.test', target.id,
+       'user_role_changed', 'requester', 'responder',
+       'Audit pagination fixture for authenticated RPC coverage.'
+FROM public.profiles actor
+CROSS JOIN public.profiles target
+WHERE actor.auth_user_id = '00000000-0000-4000-8000-000000000145'
+  AND target.auth_user_id = '00000000-0000-4000-8000-000000000146';
+
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000145', false);
 SELECT set_config(
@@ -47,6 +59,26 @@ BEGIN
      OR jsonb_typeof(result->'users') IS DISTINCT FROM 'array'
      OR jsonb_array_length(result->'users') > 25 THEN
     RAISE EXCEPTION 'Authorized admin pagination did not return a bounded user page: %', result;
+  END IF;
+
+  result := public.api_admin_list_audit_logs_page(
+    25, 0, 'audit pagination fixture', 'user_role_changed',
+    now() - interval '1 day', now() + interval '1 day'
+  );
+  IF jsonb_typeof(result) IS DISTINCT FROM 'object'
+     OR jsonb_typeof(result->'events') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(result->'events') <> 1
+     OR (result->>'total_count')::integer <> 1
+     OR result->'events'->0->>'reason' NOT LIKE '%Audit pagination fixture%' THEN
+    RAISE EXCEPTION 'Authorized audit search/filter did not return the expected event: %', result;
+  END IF;
+
+  result := public.api_admin_list_audit_logs_page(
+    25, 1, 'audit pagination fixture', 'all', NULL, NULL
+  );
+  IF jsonb_array_length(result->'events') <> 0
+     OR (result->>'total_count')::integer <> 1 THEN
+    RAISE EXCEPTION 'Audit offset pagination did not preserve the matching total: %', result;
   END IF;
 
   denied := false;
