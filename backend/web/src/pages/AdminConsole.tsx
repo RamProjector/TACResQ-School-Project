@@ -135,7 +135,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       if (requestId !== requestVersion.current) return;
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
-      // Keep provider diagnostics independent from the core account/audit refresh.
+      // Keep provider diagnostics independent from the core account refresh.
       // A slow health endpoint must not keep the whole Admin workspace in a loading state.
       if (activeSection === "overview") void getAdminDependencyHealth()
         .then((nextHealth) => {
@@ -318,7 +318,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <article><span>REGISTERED PROFILES</span><strong>{totalUsers}</strong><small>Matching profiles across all pages</small></article>
             <article><span>REQUESTERS ON PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Requester accounts on this page</small></article>
             <article><span>FIELD UNITS ON PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responder and driver accounts on this page</small></article>
-            <article><span>RECENT AUDIT EVENTS</span><strong>Separate</strong><small>Dedicated searchable audit history</small></article>
+            <article><span>AUDIT HISTORY</span><strong>Separate</strong><small>Dedicated searchable audit history</small></article>
           </section>
 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" hidden={activeSection !== "overview"}>
