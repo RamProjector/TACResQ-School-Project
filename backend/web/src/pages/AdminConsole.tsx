@@ -471,7 +471,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                       <td><span className={"admin-role admin-role--" + user.role}>{displayRole(user.role)}</span></td>
                       <td><span className="admin-duty">{user.duty_status ? user.duty_status.replaceAll("_", " ") : "Not applicable"}</span></td>
                       <td className="admin-date">{formatDate(user.created_at)}</td>
-                      <td>{user.role === "admin" ? <span className="admin-provisioned">Operator managed</span> : <button className="admin-change-role" type="button" onClick={() => openRoleChange(user)}><ArrowDownUp size={14} /> Change role</button>}</td>
+                      <td>{user.role === "admin" ? <span className="admin-provisioned">Operator managed</span> : <button className="admin-change-role" type="button" onClick={() => openRoleChange(user)} disabled={loading || refreshing || directoryFilterPending || Boolean(directoryError)}><ArrowDownUp size={14} /> Change role</button>}</td>
                     </tr>
                   ))}
                 </tbody>
