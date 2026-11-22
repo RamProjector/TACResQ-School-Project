@@ -252,7 +252,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
             {loading ? (
               <tr><td colSpan={6}><div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading records from protected event sources…</div></td></tr>
             ) : events.length === 0 ? (
-              <tr><td colSpan={6}><div className="admin-empty"><Clock3 size={20} /><strong>{error ? "Investigation records unavailable" : "No matching investigation events"}</strong><span>{error ? "The page does not substitute sample data." : "Adjust your filters or check the source coverage note below."}</span></div></td></tr>
+              <tr><td colSpan={6}><div className="admin-empty"><Clock3 size={20} /><strong>{error ? "Investigation records unavailable" : targetId.trim() && source === "admin_audit_logs" ? "No role-change event matches the current filters" : "No matching investigation events"}</strong><span>{error ? "The page does not substitute sample data." : targetId.trim() && source === "admin_audit_logs" ? "This does not prove that no role change was recorded. Check the date range, search text, actor ID, and category filters; keep the target profile ID and Admin role changes source selected, then refresh." : "Adjust your filters or check the source coverage note below."}</span></div></td></tr>
             ) : events.map((event) => (
               <Fragment key={event.event_id}>
                 <tr>
