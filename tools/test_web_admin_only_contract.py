@@ -35,6 +35,9 @@ for page in ('"overview"', '"users"', '"security"', '"analytics"', '"audit"'):
     assert page in admin_console
 assert '"settings"' not in admin_console
 assert '"backups"' not in admin_console
+assert 'value={auditQuery}' in admin_console
+assert 'filteredAudit.map((event)' in admin_console
+assert 'latest 100 events' in admin_console
 assert "BACKEND-VERIFIED CAPABILITIES" not in admin_console
 
 print("Web admin-only contract passed.")
