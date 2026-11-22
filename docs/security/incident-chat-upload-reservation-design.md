@@ -249,6 +249,7 @@ While the switch is false:
 - The reservation validator permits the legacy upload path.
 - The finalization RPC accepts a legacy no-reservation message only in this compatibility mode, while still checking the deterministic path, stored object MIME/size, chat authorization, and shared message rate budget.
 - Reservation-capable clients continue to reserve first; their reservations are checked and consumed even during compatibility mode.
+- This is a temporary compatibility state, not the final security posture: legacy uploads that never reach finalization are not counted as reservations. Keep the window short and enable strict enforcement after the supported-client migration.
 
 After all supported Android clients use reserve → upload → finalize and older versions are retired or blocked, an authorized database operator enables strict enforcement with:
 
