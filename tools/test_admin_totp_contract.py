@@ -55,6 +55,8 @@ assert 'typeof method === "string"' in (ROOT / "backend/web/src/components/Admin
 assert "factor.friendly_name" in security_status and "factor.status" in security_status
 assert "factor.secret" not in security_status and "qr_code" not in security_status
 assert "auth.mfa.unenroll" not in security_status
+assert 'factorsResult.data.all.filter((factor) => factor.factor_type === "totp")' in security_status
+assert 'factorsResult.data.all.filter((factor) => factor.factor_type === "totp")' in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 assert "p_actor_user_id: actorUserId" not in supabase_client.split("export async function getAdminAnalyticsSummary", 1)[1].split("export interface AdminAuditPage", 1)[0]
 
 for marker in (
@@ -168,7 +170,7 @@ assert policy_match, "Missing restrictive audit-log MFA policy"
 policy = policy_match.group(1)
 assert "as restrictive" in policy and "for select" in policy
 assert "->> 'aal') = 'aal2'" in policy
-assert "method ->> 'method' = 'totp'" in policy
+assert "method ->> 'method'" in policy and "method #>> '{}'" in policy
 
 assert "grant execute on function public.api_admin_list_users()" not in migration, (
     "The legacy unbounded Admin user-list RPC must remain revoked."
