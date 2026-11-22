@@ -255,7 +255,17 @@ class SupabaseTacApi private constructor(
     }
 
     companion object {
-        fun create(tokenProvider: () -> String?, useRenderBridge: Boolean = false): TacApi {
+        fun create(tokenProvider: () -> String?, useRenderBridge: Boolean = false): TacApi =
+            createInternal(tokenProvider, useRenderBridge, AppConfig.SUPABASE_URL)
+
+        internal fun createForTesting(tokenProvider: () -> String?, baseUrl: String): TacApi =
+            createInternal(tokenProvider, useRenderBridge = false, baseUrl = baseUrl)
+
+        private fun createInternal(
+            tokenProvider: () -> String?,
+            useRenderBridge: Boolean,
+            baseUrl: String,
+        ): TacApi {
             val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
             val common = OkHttpClient.Builder()
                 .addInterceptor { chain ->
@@ -270,7 +280,7 @@ class SupabaseTacApi private constructor(
                 .build()
             val gson = GsonBuilder().serializeNulls().create()
             val retrofit = Retrofit.Builder()
-                .baseUrl(AppConfig.SUPABASE_URL.trimEnd('/') + "/")
+                .baseUrl(baseUrl.trimEnd('/') + "/")
                 .client(common)
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
