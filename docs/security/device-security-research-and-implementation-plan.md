@@ -125,3 +125,78 @@ Do not collapse these stages into a single broad SECURITY DEFINER function. Pref
 - NIST SP 800-63B-4 Digital Identity Guidelines: https://pages.nist.gov/800-63-4/
 
 Research must be rechecked against current platform documentation before implementing provider-specific verification. Provider verdict formats and API requirements can change.
+
+
+## 11. Server challenge protocol contract (implementation prerequisite)
+
+This contract narrows the challenge-service work before any endpoint or client UI is added. It is a design specification, not evidence that verification is implemented.
+
+### Challenge issuance
+
+- Require a valid Supabase access token. Verify its signature, issuer, audience, expiry, and subject on the trusted server; never accept a profile ID or auth-session ID as authoritative client input.
+- Resolve the profile from the verified subject using the existing account-to-profile mapping. Read the Supabase `session_id` claim from the verified JWT and bind it to the challenge. Do not expose or grant client access to `auth.sessions`.
+- Accept only the enumerated purposes: `registration`, `session_proof`, and `step_up`. Enforce purpose-specific device requirements: registration has no existing device ID; session proof and step-up require an active device owned by the verified profile.
+- Generate 32 cryptographically random bytes with the platform CSPRNG. Return the raw challenge exactly once as unpadded base64url, together with its UUID, purpose, and expiry. Persist only lowercase hexadecimal SHA-256 of the raw 32 bytes.
+- Use a two-minute validity window for newly issued challenges. The existing ten-minute database maximum is a hard upper bound, not the recommended operational lifetime.
+- Apply per-account, per-session, and per-IP issuance limits at the trusted API boundary. Do not log the raw challenge, authorization header, JWT, or signature.
+
+### Signed message and key handling
+
+The client signs a fixed UTF-8/ASCII message, not reserialized JSON. The exact byte sequence is:
+
+```text
+TACRESQ-DEVICE-PROOF
+v1
+{challenge_id}
+{purpose}
+{profile_id}
+{session_id}
+{device_uid_or_dash}
+{challenge_base64url}
+```
+
+Each value is the exact server-issued value; lines are separated by a single LF byte, with no trailing LF. For registration, `device_uid_or_dash` is the single hyphen character. The server reconstructs this message from its persisted challenge and verified request context; it must not trust client-supplied profile, session, purpose, or device ownership values.
+
+- Use P-256 / ES256 for the first Android Keystore implementation. Store the public key as a bounded, validated SubjectPublicKeyInfo (X.509) DER encoding in base64; never accept private-key material.
+- Android's `SHA256withECDSA` signature is ASN.1 DER encoded. Define the API signature field as base64url of those DER bytes and convert/validate it explicitly at the verifier boundary. Do not silently mix DER ECDSA with the 64-byte JOSE ES256 representation.
+- Reject malformed keys, unsupported curves/algorithms, oversized inputs, invalid DER, and signatures that do not verify. A key's existence or a client-supplied `trust_status` is never proof.
+
+### Atomic consumption and transaction behavior
+
+1. Load the challenge by UUID and verify that it exists, is unconsumed, unexpired, and matches the verified profile, Supabase session, purpose, and expected device association.
+2. Recompute SHA-256 over the decoded 32-byte challenge and compare it with the stored hash using a constant-time comparison.
+3. Verify the signature against the registered or proposed public key and the exact signed message. For registration, validate the proposed public key before associating it with the new device record.
+4. In one database transaction, atomically consume the challenge with a conditional update equivalent to:
+
+   ```sql
+   UPDATE public.device_challenges
+      SET consumed_at = clock_timestamp()
+    WHERE id = :challenge_id
+      AND profile_id = :verified_profile_id
+      AND auth_session_id = :verified_session_id
+      AND purpose = :expected_purpose
+      AND challenge_hash = :expected_hash
+      AND consumed_at IS NULL
+      AND expires_at > clock_timestamp()
+   RETURNING id;
+   ```
+
+   Exactly one returned row means consumption succeeded. Zero rows means expired, replayed, mismatched, or concurrently consumed; reject the proof. Never perform a read-then-write consumption without this conditional update.
+5. In that same transaction, persist the registration/session association or verification timestamp and append the corresponding security event. If any required write fails, roll back the transaction so a partially accepted proof is not recorded.
+6. Return a generic proof failure to the client. Keep detailed internal rejection reasons in bounded security events, without storing challenge values, signatures, tokens, or private data.
+
+The server may perform cryptographic verification before the atomic update to avoid consuming a challenge for an invalid signature; the conditional update is still mandatory because concurrent valid submissions must have exactly one winner. A failed signature must not create or activate a device.
+
+### Session binding and revocation boundary
+
+- A successful `session_proof` binds only the verified Supabase `session_id` to the verified device and profile. Do not bind by access-token text, refresh-token text, IP address, or user-agent fingerprint.
+- Enforce the device-session association at server-side sensitive-operation boundaries. A client-side badge or cached device state is not enforcement.
+- For sensitive requests, validate that the JWT is valid and that the referenced Supabase session still exists and is not revoked, then confirm the device-session association is active. Do not query `auth.sessions` from a client or expose it through a public RPC.
+- Revoking a device must revoke its associated registry session rows and make subsequent protected operations fail. Supabase refresh-token revocation and already-issued JWT expiry are separate concerns; do not claim immediate global revocation unless the request path performs the server-side session check.
+- Do not make device proof a prerequisite for requester emergency submission. Device proof can add risk context and trigger proportionate abuse controls, but must not block a legitimate request for help.
+
+### Required negative and concurrency tests
+
+Before enabling any endpoint, cover: expired challenge; replay after success; two concurrent submissions of the same valid proof (exactly one succeeds); wrong profile; wrong Supabase session; wrong purpose; wrong device; altered challenge bytes; malformed/oversized public key; unsupported curve; malformed DER signature; invalid signature; revoked device; revoked Supabase session; failed event insert rolling back acceptance; and rate-limit exhaustion. Also verify that no challenge, signature, bearer token, or private-key material appears in application logs or event details.
+
+**Release gate:** keep the registry private and unused by client flows until the trusted verifier, transaction boundary, server-side session/device enforcement, and the negative/concurrency test suite are implemented and reviewed. Do not add Device Security controls to the admin portal before that gate passes.
