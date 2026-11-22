@@ -48,6 +48,7 @@ This inventory is intentionally conservative. A path is not marked covered merel
 - [Batch 7: web and Laravel authentication paths](admin-account-suspension-rpc-review-batch-7-web-and-laravel-auth.md) and [batch 8: direct RLS/table policies](admin-account-suspension-rpc-review-batch-8-direct-rls.md) complete the source-traced web, Laravel, and direct-policy reviews.
 - [Batch 9: adversarial regression and transaction test plan](admin-account-suspension-regression-test-plan.md) converts the gaps into a role/surface matrix, same-still-valid-JWT checks, concurrency cases, and release gates. These are specifications, not executed suspended-account tests.
 - [Batch 10: authenticated views and derived reads](admin-account-suspension-rpc-review-batch-10-views.md) closes an inventory blind spot by adding authenticated-readable public views/materialized views to the clean-replay catalog output.
+- [Batch 11: trigger-mediated authorization paths](admin-account-suspension-rpc-review-batch-11-triggers.md) maps implicit database side effects and adds trigger/function source to the clean-replay inventory.
 - Remaining work: classify the actual view rows returned by clean replay; classify every authenticated-callable private function and trigger-mediated execution path; map each direct client read/write to its effective grant/RLS/view boundary; then implement disposable PostgreSQL same-valid-JWT negative tests and concurrency tests. No account-state migration should begin until those items are closed.
 
 ## Required completion artifacts
