@@ -185,6 +185,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setRefreshing(true);
     setError(null);
     setDirectoryError(null);
+    // A section change invalidates an in-flight Overview probe. Clear its
+    // loading state here because the superseded request will no longer finish
+    // with the current request ID and therefore cannot clear it itself.
+    if (activeSection !== "overview") setDependencyHealthLoading(false);
     if (activeSection !== "overview" && activeSection !== "users") {
       setLoading(false);
       setRefreshing(false);
