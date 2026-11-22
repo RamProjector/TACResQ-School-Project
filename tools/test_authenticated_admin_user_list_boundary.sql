@@ -44,7 +44,12 @@ DO $admin_user_list_authenticated$
 DECLARE
   result jsonb;
   denied boolean := false;
+  actor_profile_id bigint;
+  target_profile_id bigint;
 BEGIN
+  SELECT id INTO actor_profile_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000145';
+  SELECT id INTO target_profile_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000146';
+
   BEGIN
     PERFORM public.api_admin_list_users();
   EXCEPTION WHEN insufficient_privilege THEN
@@ -63,7 +68,8 @@ BEGIN
 
   result := public.api_admin_list_audit_logs_page(
     25, 0, 'audit pagination fixture', 'user_role_changed',
-    now() - interval '1 day', now() + interval '1 day'
+    now() - interval '1 day', now() + interval '1 day',
+    actor_profile_id, target_profile_id
   );
   IF jsonb_typeof(result) IS DISTINCT FROM 'object'
      OR jsonb_typeof(result->'events') IS DISTINCT FROM 'array'
