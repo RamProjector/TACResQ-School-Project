@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Clock3, LoaderCircle, RefreshCw, Search } from "lucide-react";
 import { getAdminInvestigationEventsPage } from "@/lib/supabase";
-import type { AdminInvestigationCategory, AdminInvestigationEvent, TacruProfile } from "@/lib/supabase";
+import type { AdminInvestigationCategory, AdminInvestigationEvent, AdminInvestigationSource, TacruProfile } from "@/lib/supabase";
 
 type AuditLogsPageProps = { profile: TacruProfile };
 
@@ -12,6 +12,15 @@ const categoryLabels: Record<Exclude<AdminInvestigationCategory, "all">, string>
   authentication: "Authentication",
   incident: "Incident",
   assignment: "Assignment",
+};
+
+const sourceLabels: Record<Exclude<AdminInvestigationSource, "all">, string> = {
+  admin_audit_logs: "Admin role changes",
+  supabase_auth_audit_logs: "Supabase Auth",
+  incident_status_logs: "Incident status",
+  incident_claimability_logs: "Incident claiming",
+  incident_request_edit_logs: "Requester edits",
+  incident_assignment_events: "Responder assignments",
 };
 
 function formatDate(value: string | null | undefined) {
@@ -65,6 +74,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<AdminInvestigationCategory>("all");
+  const [source, setSource] = useState<AdminInvestigationSource>("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [actorId, setActorId] = useState("");
@@ -99,6 +109,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         page * PAGE_SIZE,
         query,
         category,
+        source,
         fromValue,
         toValue,
         actorFilter,
@@ -129,11 +140,12 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [page, query, category, from, to, actorId, targetId, incidentId, refreshVersion]);
+  }, [page, query, category, source, from, to, actorId, targetId, incidentId, refreshVersion]);
 
   function resetFilters() {
     setQuery("");
     setCategory("all");
+    setSource("all");
     setFrom("");
     setTo("");
     setActorId("");
@@ -143,7 +155,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   }
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const hasFilters = Boolean(query || category !== "all" || from || to || actorId || targetId || incidentId);
+  const hasFilters = Boolean(query || category !== "all" || source !== "all" || from || to || actorId || targetId || incidentId);
 
   return (
     <section className="audit-page" aria-labelledby="audit-page-title">
@@ -167,6 +179,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           <input type="search" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value); }} maxLength={120} placeholder="Search actor, target, incident, event or details" aria-label="Search investigation history" />
         </label>
         <label><span>Category</span><select value={category} onChange={(event) => { setPage(0); setCategory(event.target.value as AdminInvestigationCategory); }}><option value="all">All categories</option><option value="administrative">Administrative</option><option value="authentication">Authentication</option><option value="incident">Incident</option><option value="assignment">Assignment</option></select></label>
+        <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label><span>From (Manila)</span><input type="date" value={from} max={to || undefined} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
         <label><span>To (Manila)</span><input type="date" value={to} min={from || undefined} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
         <label><span>Actor profile ID</span><input type="number" min="1" step="1" value={actorId} onChange={(event) => { setPage(0); setActorId(event.target.value); }} placeholder="Any actor" /></label>
