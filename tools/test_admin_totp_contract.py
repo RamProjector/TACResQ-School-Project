@@ -10,8 +10,8 @@ admin = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
 migration = (ROOT / "supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql").read_text().lower()
 
 for marker in (
-    'factorType: "totp"',
-    'friendlyName: "tacresq administrator"',
+    'factortype: "totp"',
+    'friendlyname: "tacresq administrator"',
     "auth.mfa.enroll(",
     "auth.mfa.listfactors()",
     'factor.status === "verified"',
@@ -51,7 +51,7 @@ wrapper_targets = {
 }
 for public_name, internal_name in wrapper_targets.items():
     match = re.search(
-        rf"create or replace function public\\.{public_name}\\b.*?as \\$function\\$(.*?)\\$function\\$;",
+        rf"create or replace function public\.{public_name}\b.*?as \\$function\$(.*?)\\$function\\$;",
         migration,
         flags=re.DOTALL,
     )
@@ -70,17 +70,17 @@ for public_name, internal_name in wrapper_targets.items():
         "api_admin_analytics_summary": "api_admin_analytics_summary_internal(timestamptz, timestamptz)",
     }[public_name]
     assert re.search(
-        rf"revoke all on function public\\.{re.escape(internal_signature)}\\s+from public, anon, authenticated",
+        rf"revoke all on function public\.{re.escape(internal_signature)}\s+from public, anon, authenticated",
         migration,
     ), f"Private implementation remains executable by a client role: {internal_name}"
     assert re.search(
-        rf"grant execute on function public\\.{public_name}\\([^;]+?\\)\\s+to authenticated",
+        rf"grant execute on function public\.{public_name}\([^;]+?\)\s+to authenticated",
         migration,
     ), f"Authenticated role lacks the protected wrapper grant: {public_name}"
 
 # Direct table reads must require both the AAL2 claim and a TOTP AMR entry.
 policy_match = re.search(
-    r"create policy admin_audit_logs_require_aal2(.*?)\\);",
+    r"create policy admin_audit_logs_require_aal2(.*?);",
     migration,
     flags=re.DOTALL,
 )
