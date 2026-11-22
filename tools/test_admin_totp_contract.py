@@ -27,10 +27,10 @@ assert "Administrator access requires Google Authenticator TOTP." in admin
 
 for marker in (
     "private.tacresq_require_admin_mfa",
+    "revoke all on function public.api_admin_list_users()",
     "auth.jwt() ->> 'aal'",
     "jsonb_array_elements",
     "method ->> 'method' = 'totp'",
-    "api_admin_list_users_internal",
     "api_admin_list_users_page_internal",
     "api_admin_set_user_role_internal",
     "api_admin_list_audit_logs_internal",
