@@ -102,6 +102,7 @@ DECLARE
   uploads_limit integer;
   recent_message_count integer;
   recent_reservation_count integer;
+  reservation_found boolean;
 BEGIN
   SELECT p.id
     INTO actor_profile_id
@@ -151,8 +152,9 @@ BEGIN
    WHERE r.profile_id = actor_profile_id
      AND r.client_message_id = p_client_message_id
    FOR UPDATE;
+  reservation_found := FOUND;
 
-  IF FOUND THEN
+  IF reservation_found THEN
     IF existing_reservation.incident_id <> p_incident_id
        OR existing_reservation.object_path <> expected_path
        OR existing_reservation.mime_type <> p_mime_type
@@ -200,7 +202,7 @@ BEGIN
       USING ERRCODE = '54000';
   END IF;
 
-  IF FOUND THEN
+  IF reservation_found THEN
     UPDATE private.incident_chat_upload_reservations
        SET created_at = now(),
            expires_at = now() + make_interval(secs => ttl_seconds)
@@ -422,8 +424,6 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.api_send_incident_image_message(bigint, text, text, bigint, uuid)
-  FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.api_send_incident_image_message(bigint, text, text, text, bigint, uuid)
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.api_send_incident_image_message(bigint, text, text, text, bigint, uuid)
