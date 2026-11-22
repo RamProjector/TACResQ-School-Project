@@ -178,6 +178,31 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <span>This feed includes six existing event sources. Supabase Auth events appear only when Postgres Auth Audit Log storage is active. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included yet.</span>
       </div>
 
+      <details className="audit-page__coverage-details">
+        <summary>Review included sources and known gaps</summary>
+        <div className="audit-page__coverage-grid">
+          <section aria-labelledby="audit-sources-included">
+            <h3 id="audit-sources-included">Included event sources</h3>
+            <ul>
+              <li><strong>Admin role changes</strong><span>Role-change records and recorded reasons.</span></li>
+              <li><strong>Supabase Auth</strong><span>Provider events only when Auth Audit Logs Postgres storage is enabled and populated.</span></li>
+              <li><strong>Incident status</strong><span>Recorded status outcomes; not necessarily a complete before-and-after transition.</span></li>
+              <li><strong>Incident claiming</strong><span>Dispatcher claimability history.</span></li>
+              <li><strong>Requester edits</strong><span>Changed-field names only; private snapshots are excluded.</span></li>
+              <li><strong>Responder assignments</strong><span>Assignment, release, and team-closure events.</span></li>
+            </ul>
+          </section>
+          <section aria-labelledby="audit-sources-gaps">
+            <h3 id="audit-sources-gaps">Not covered by this feed</h3>
+            <ul>
+              <li><strong>Denied privileged RPC attempts</strong><span>No trusted, durable application event source is integrated yet.</span></li>
+              <li><strong>Device-security events</strong><span>Trusted server-side event writers are not implemented.</span></li>
+              <li><strong>Direct-client API and Storage activity</strong><span>Laravel telemetry does not cover direct Android or browser Supabase calls.</span></li>
+            </ul>
+          </section>
+        </div>
+      </details>
+
       <div className="audit-page__filters">
         <label className="admin-search audit-page__search">
           <Search size={16} />
