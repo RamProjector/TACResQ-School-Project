@@ -202,7 +202,7 @@ prepare_start = gate.find("async function prepareAdminMfa()")
 prepare_end = gate.find("export default function AdminMfaGate", prepare_start)
 assert prepare_start >= 0 and prepare_end > prepare_start, "Missing Admin MFA preparation flow"
 prepare_body = gate[prepare_start:prepare_end]
-assert "auth.mfa.unenroll(" not in prepare_body.group(1), (
+assert "auth.mfa.unenroll(" not in prepare_body, (
     "Admin sign-in must not delete pending factors from another active enrollment."
 )
 
