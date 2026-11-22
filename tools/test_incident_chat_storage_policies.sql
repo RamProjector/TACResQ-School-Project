@@ -56,6 +56,78 @@ BEGIN
 END;
 $image_chat_bucket_test$;
 
+DO $reservation_rollout_default$
+DECLARE
+  enforcement_enabled boolean;
+BEGIN
+  SELECT reservation_enforcement_enabled
+    INTO enforcement_enabled
+    FROM private.incident_chat_upload_policy
+   WHERE singleton = true;
+  IF enforcement_enabled IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'Reservation enforcement must default off for a safe legacy-client rollout';
+  END IF;
+END;
+$reservation_rollout_default$;
+
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000161', false);
+SET ROLE authenticated;
+
+DO $legacy_image_compatibility$
+DECLARE
+  incident_id bigint := current_setting('test.incident_id')::bigint;
+  responder_profile_id bigint := private.tacresq_auth_profile_id();
+  legacy_path text;
+  response jsonb;
+BEGIN
+  legacy_path := format(
+    '%s/%s/00000000-0000-4000-8000-000000000203.jpg',
+    incident_id,
+    responder_profile_id
+  );
+
+  -- The legacy Storage binary upload probe carries contentLength but no size.
+  -- The temporary compatibility mode must permit this preflight and final write.
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name, metadata)
+    VALUES (
+      'incident-chat-attachments',
+      legacy_path,
+      '{"mimetype":"image/jpeg","contentLength":"4"}'::jsonb
+    );
+    RAISE EXCEPTION 'Rollback successful legacy upload permission probe';
+  EXCEPTION WHEN raise_exception THEN
+    NULL;
+  END;
+
+  INSERT INTO storage.objects (bucket_id, name, metadata)
+  VALUES (
+    'incident-chat-attachments',
+    legacy_path,
+    '{"mimetype":"image/jpeg","size":"4"}'::jsonb
+  );
+
+  -- Old clients upload first and finalize without creating a reservation.
+  response := public.api_send_incident_image_message(
+    incident_id,
+    'Legacy compatibility',
+    legacy_path,
+    'image/jpeg',
+    4,
+    '00000000-0000-4000-8000-000000000203'::uuid
+  );
+  IF response->>'attachment_path' IS DISTINCT FROM legacy_path THEN
+    RAISE EXCEPTION 'Legacy image finalization must remain compatible while enforcement is disabled';
+  END IF;
+END;
+$legacy_image_compatibility$;
+
+RESET ROLE;
+UPDATE private.incident_chat_upload_policy
+   SET reservation_enforcement_enabled = true,
+       updated_at = clock_timestamp()
+ WHERE singleton = true;
+
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000161', false);
 SET ROLE authenticated;
 
@@ -208,10 +280,14 @@ BEGIN
   END IF;
 
   response := public.api_my_incident_messages(incident_id, 50, NULL);
-  IF jsonb_array_length(response) <> 1
-     OR response->0->>'attachment_path' <> image_path
-     OR response->0->>'sender_name' <> 'Image Chat Responder' THEN
-    RAISE EXCEPTION 'Authorized message history must include sender and attachment metadata: %', response;
+  IF jsonb_array_length(response) <> 2
+     OR NOT EXISTS (
+       SELECT 1
+         FROM jsonb_array_elements(response) AS message_row(value)
+        WHERE value->>'attachment_path' = image_path
+          AND value->>'sender_name' = 'Image Chat Responder'
+     ) THEN
+    RAISE EXCEPTION 'Authorized message history must include legacy and reserved attachment metadata: %', response;
   END IF;
 
   -- An unrelated authenticated profile cannot list or download the image.
