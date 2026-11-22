@@ -58,6 +58,10 @@ for marker in (
     "'notification_marked_read'",
     "'duty_status_changed'",
     "FROM public.app_action_audit_logs AS a",
+    "'correlation_id', a.correlation_id",
+    "'actor_role', a.actor_role",
+    "'target_type', a.target_type",
+    "'target_id', a.target_id",
     "'app_action_audit_logs'",
     "PERFORM private.tacresq_require_admin_mfa()",
 ):
