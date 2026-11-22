@@ -434,3 +434,23 @@
 @media (max-width:420px) {
   .admin-role-transition { gap:7px; padding:11px; }
 }
+
+
+/* Keep every Admin section reachable and visibly focusable in the compact nav. */
+@media (max-width:760px) {
+  .admin-navigation {
+    scroll-snap-type:x proximity;
+    scroll-padding-inline:4px;
+    overscroll-behavior-inline:contain;
+    -webkit-overflow-scrolling:touch;
+    padding:4px 4px 9px;
+  }
+  .admin-nav-item {
+    flex:0 0 auto;
+    scroll-snap-align:start;
+  }
+  .admin-nav-item:focus-visible {
+    outline:2px solid #f39471;
+    outline-offset:2px;
+  }
+}
