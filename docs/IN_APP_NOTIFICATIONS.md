@@ -70,3 +70,14 @@ Research basis: OWASP recommends validating authorization for every object reque
 ## Historical dispatcher notification target review (2026-11-20)
 
 A valid dispatcher alert may refer to an incident older than the bounded 100-record dispatcher list. Current Android focus resolution searches the loaded list; if the incident is absent, it shows an unavailable-target message rather than bypassing authorization. This is safe but can strand a legitimate historical alert. The researched follow-up is an ID-scoped, dispatcher-only, read-only incident lookup that leaves the bounded queue intact. The full authorization matrix, transport considerations, and implementation gates are documented in [RESEARCH_DISPATCHER_HISTORICAL_INCIDENT_LOOKUP.md](RESEARCH_DISPATCHER_HISTORICAL_INCIDENT_LOOKUP.md).
+
+## Legacy direct-send Edge Function boundary (2026-11-22)
+
+The connected Supabase project also has an active `tacresq-notify` Edge Function. Its deployed source has been recovered into `supabase/functions/tacresq-notify/index.ts` for review. It validates a Supabase bearer token, performs manual role/incident checks with a service-role client, and sends directly to FCM. It does **not** use the persistent notification delivery queue or its attempt ledger, lease, and retry workflow.
+
+The canonical repository delivery path remains the Laravel `FcmNotificationDispatcher` plus the database-backed FCM delivery queue. Do not add new app or web callers to `tacresq-notify`, and do not enable both paths for the same event family: doing so can create duplicate pushes and bypass the canonical delivery ledger.
+
+The Edge Function has no explicit request-body size limit, per-account/per-incident send rate limit, or idempotency key. Its caller checks do not prove that a request corresponds to a unique database event. It remains deployed only pending a production caller/scheduler audit; disabling or deleting it requires confirming that no external workflow depends on it.
+
+The source mirror and documentation update do not deploy, disable, or reconfigure the live function. No Firebase credentials, notification records, or production delivery settings were changed.
+
