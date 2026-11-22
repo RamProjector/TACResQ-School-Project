@@ -22,8 +22,7 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   v_query text := lower(btrim(coalesce(p_query, '')));
-  v_events jsonb;
-  v_total_count bigint;
+  v_result jsonb;
 BEGIN
   PERFORM private.tacresq_require_admin_mfa();
 
@@ -50,59 +49,46 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  SELECT count(*)
-    INTO v_total_count
-    FROM public.admin_audit_logs a
-   WHERE (p_action = 'all' OR a.action = p_action)
-     AND (p_from IS NULL OR a.created_at >= p_from)
-     AND (p_to IS NULL OR a.created_at < p_to)
-     AND (p_actor_user_id IS NULL OR a.actor_user_id = p_actor_user_id)
-     AND (p_target_user_id IS NULL OR a.target_user_id = p_target_user_id)
-     AND (
-       v_query = ''
-       OR strpos(lower(coalesce(a.actor_identity, '')), v_query) > 0
-       OR strpos(lower(coalesce(a.reason, '')), v_query) > 0
-       OR strpos(lower(coalesce(a.action, '')), v_query) > 0
-       OR strpos(lower(coalesce(a.old_role, '')), v_query) > 0
-       OR strpos(lower(coalesce(a.new_role, '')), v_query) > 0
-       OR strpos(coalesce(a.actor_user_id::text, ''), v_query) > 0
-       OR strpos(coalesce(a.target_user_id::text, ''), v_query) > 0
-       OR strpos(a.created_at::text, v_query) > 0
-     );
-
-  SELECT coalesce(
-      jsonb_agg(to_jsonb(page_row) ORDER BY page_row.created_at DESC, page_row.id DESC),
+  WITH filtered AS MATERIALIZED (
+    SELECT a.id, a.actor_user_id, a.actor_identity, a.target_user_id,
+           a.action, a.old_role, a.new_role, a.reason, a.created_at
+      FROM public.admin_audit_logs a
+     WHERE (p_action = 'all' OR a.action = p_action)
+       AND (p_from IS NULL OR a.created_at >= p_from)
+       AND (p_to IS NULL OR a.created_at < p_to)
+       AND (p_actor_user_id IS NULL OR a.actor_user_id = p_actor_user_id)
+       AND (p_target_user_id IS NULL OR a.target_user_id = p_target_user_id)
+       AND (
+         v_query = ''
+         OR strpos(lower(coalesce(a.actor_identity, '')), v_query) > 0
+         OR strpos(lower(coalesce(a.reason, '')), v_query) > 0
+         OR strpos(lower(coalesce(a.action, '')), v_query) > 0
+         OR strpos(lower(coalesce(a.old_role, '')), v_query) > 0
+         OR strpos(lower(coalesce(a.new_role, '')), v_query) > 0
+         OR strpos(coalesce(a.actor_user_id::text, ''), v_query) > 0
+         OR strpos(coalesce(a.target_user_id::text, ''), v_query) > 0
+         OR strpos(a.created_at::text, v_query) > 0
+       )
+  )
+  SELECT jsonb_build_object(
+    'events',
+    coalesce(
+      (
+        SELECT jsonb_agg(to_jsonb(page_row) ORDER BY page_row.created_at DESC, page_row.id DESC)
+        FROM (
+          SELECT *
+          FROM filtered
+          ORDER BY created_at DESC, id DESC
+          LIMIT p_limit OFFSET p_offset
+        ) page_row
+      ),
       '[]'::jsonb
-    )
-    INTO v_events
-    FROM (
-      SELECT a.id, a.actor_user_id, a.actor_identity, a.target_user_id,
-             a.action, a.old_role, a.new_role, a.reason, a.created_at
-        FROM public.admin_audit_logs a
-       WHERE (p_action = 'all' OR a.action = p_action)
-         AND (p_from IS NULL OR a.created_at >= p_from)
-         AND (p_to IS NULL OR a.created_at < p_to)
-         AND (p_actor_user_id IS NULL OR a.actor_user_id = p_actor_user_id)
-         AND (p_target_user_id IS NULL OR a.target_user_id = p_target_user_id)
-         AND (
-           v_query = ''
-           OR strpos(lower(coalesce(a.actor_identity, '')), v_query) > 0
-           OR strpos(lower(coalesce(a.reason, '')), v_query) > 0
-           OR strpos(lower(coalesce(a.action, '')), v_query) > 0
-           OR strpos(lower(coalesce(a.old_role, '')), v_query) > 0
-           OR strpos(lower(coalesce(a.new_role, '')), v_query) > 0
-           OR strpos(coalesce(a.actor_user_id::text, ''), v_query) > 0
-           OR strpos(coalesce(a.target_user_id::text, ''), v_query) > 0
-           OR strpos(a.created_at::text, v_query) > 0
-         )
-       ORDER BY a.created_at DESC, a.id DESC
-       LIMIT p_limit OFFSET p_offset
-    ) page_row;
+    ),
+    'total_count', (SELECT count(*) FROM filtered)
+  )
+  INTO v_result;
 
-  RETURN jsonb_build_object(
-    'events', v_events,
-    'total_count', v_total_count
-  );
+  RETURN v_result;
 END;
 $function$;
 
