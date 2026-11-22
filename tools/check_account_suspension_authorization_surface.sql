@@ -105,7 +105,7 @@ WHERE n.nspname = 'public'
 ORDER BY c.relname, t.tgname;
 
 
-\\echo '=== Auth-schema triggers (including Auth user lifecycle hooks) ==='
+\echo '=== Auth-schema triggers (including Auth user lifecycle hooks) ==='
 -- Auth triggers are outside the public-table inventory but can create or
 -- mutate application profiles during signup or account lifecycle operations.
 -- Keep this catalog separate so Auth-owned tables are not mistaken for
