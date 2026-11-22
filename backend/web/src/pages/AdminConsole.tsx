@@ -166,7 +166,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   useEffect(() => {
     const syncSection = () => {
-    const route = new URLSearchParams(window.location.search).get("adminPage") ?? "overview";
+      const route = new URLSearchParams(window.location.search).get("adminPage") ?? "overview";
       const next: AdminSection = route === "audit-logs" ? "audit" : (["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview");
       setActiveSection(next);
     };
