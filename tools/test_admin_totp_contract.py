@@ -61,6 +61,9 @@ assert "factor.friendly_name" in security_status and "factor.status" in security
 assert "factor.secret" not in security_status
 assert "auth.experimental.recoveryCodes" not in security_status, "Do not assume experimental recovery codes are enabled for project users."
 assert "auth.mfa.enroll(" in security_status and "auth.mfa.challengeAndVerify(" in security_status
+backup_enrollment = security_status.split("async function addBackupAuthenticator()", 1)[1].split("async function verifyBackupAuthenticator", 1)[0]
+assert "getAuthenticatorAssuranceLevel()" in backup_enrollment, "Backup enrollment must recheck the live session rather than trust a stale rendered MFA snapshot."
+assert 'aal.currentLevel !== "aal2" || !usedTotp' in backup_enrollment, "Backup enrollment must require fresh TOTP-verified AAL2 immediately before creating a factor."
 assert "enrollment.secret" in security_status and "enrollment.qrCode" in security_status
 assert "auth.mfa.unenroll({ factorId: enrollment.factorId })" in security_status, "Only the pending factor created by this enrollment flow may be cancelled."
 gate_cancel = gate.split("async function cancelEnrollment()", 1)[1].split("async function verifyCode", 1)[0]
