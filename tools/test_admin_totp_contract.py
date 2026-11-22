@@ -29,6 +29,9 @@ assert "[session?.user.id, session?.access_token]" in home, "Profile role must b
 assert "<AdminMfaGate key={session.access_token}" in home, "A new auth session must restart the Admin MFA gate."
 assert "Administrator access requires Google Authenticator TOTP." in admin
 assert "Search recorded administrative role changes." in admin
+assert "previousFocus = useRef<HTMLElement | null>(null)" in admin, "The role-change dialog must remember its opener for keyboard focus restoration."
+assert "previousFocus.current = document.activeElement instanceof HTMLElement" in admin
+assert "if (trigger?.isConnected) trigger.focus()" in admin, "Closing the role-change dialog must restore focus to its trigger when it still exists."
 assert "complete administrative audit history" not in admin.lower(), "Do not imply that role-change-only records cover every admin or operational event."
 
 # Audit history is a dedicated URL-addressable page, not a capped dashboard panel.
