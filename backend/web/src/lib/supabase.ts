@@ -195,7 +195,37 @@ export async function getAdminUsersPage(limit: number, offset: number, query: st
   throwAdminError(error);
   if (!data || typeof data !== "object") throw new Error("The Admin service returned an invalid user page.");
   const page = data as unknown as AdminUserPage;
-  if (!Array.isArray(page.users) || !Number.isSafeInteger(page.total_count) || page.total_count < 0) throw new Error("The Admin service returned an invalid user page.");
+  if (
+    !Array.isArray(page.users)
+    || !Number.isSafeInteger(page.total_count)
+    || page.total_count < 0
+    || page.users.length > limit
+    || page.total_count < offset + page.users.length
+  ) {
+    throw new Error("The Admin service returned an invalid user page.");
+  }
+  const roles = new Set<TacruRole>(["requester", "responder", "driver", "dispatcher", "admin"]);
+  const dutyStatuses = new Set<DutyStatus>(["off_duty", "available", "en_route", "on_scene", "transporting"]);
+  const userIds = new Set<number>();
+  for (const user of page.users) {
+    if (
+      !user || typeof user !== "object"
+      || !Number.isSafeInteger(user.id) || user.id < 1
+      || typeof user.name !== "string" || !user.name.trim()
+      || typeof user.email !== "string" || !user.email.trim()
+      || (user.phone !== null && typeof user.phone !== "string")
+      || !roles.has(user.role)
+      || (user.duty_status !== null && !dutyStatuses.has(user.duty_status))
+      || typeof user.created_at !== "string"
+      || !Number.isFinite(Date.parse(user.created_at))
+    ) {
+      throw new Error("The Admin service returned an invalid account record.");
+    }
+    if (userIds.has(user.id)) {
+      throw new Error("The Admin service returned duplicate account identifiers.");
+    }
+    userIds.add(user.id);
+  }
   return page;
 }
 export async function setAdminUserRole(userId: number, role: AdminManagedRole, reason: string): Promise<AdminRoleChangeResult> {
