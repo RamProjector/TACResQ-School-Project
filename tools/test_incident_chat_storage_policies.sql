@@ -317,4 +317,44 @@ END;
 $expired_reservation_test$;
 RESET ROLE;
 
+-- The reservation flood guard uses the existing 20-message-per-minute ceiling.
+-- Use the incident owner, who has not sent messages in this fixture, to isolate
+-- reservation counting from message counting.
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000160', false);
+SET ROLE authenticated;
+DO $reservation_rate_limit_test$
+DECLARE
+  i integer;
+  denied boolean := false;
+  incident_id bigint := current_setting('test.incident_id')::bigint;
+  operation_id uuid;
+BEGIN
+  FOR i IN 300..319 LOOP
+    operation_id := ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    PERFORM public.api_reserve_incident_image_upload(
+      incident_id,
+      'image/jpeg',
+      4,
+      operation_id
+    );
+  END LOOP;
+
+  BEGIN
+    PERFORM public.api_reserve_incident_image_upload(
+      incident_id,
+      'image/jpeg',
+      4,
+      '00000000-0000-4000-8000-000000000320'::uuid
+    );
+  EXCEPTION WHEN SQLSTATE '54000' THEN
+    denied := true;
+  END;
+
+  IF NOT denied THEN
+    RAISE EXCEPTION 'The 21st image reservation within one minute must be rejected';
+  END IF;
+END;
+$reservation_rate_limit_test$;
+RESET ROLE;
+
 SELECT 'PASS: private incident image storage permits authorized uploads, requires reservations, and supports delayed finalization.' AS result;
