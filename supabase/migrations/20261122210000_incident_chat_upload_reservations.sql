@@ -35,6 +35,9 @@ CREATE INDEX incident_chat_upload_reservations_recent_profile_idx
   ON private.incident_chat_upload_reservations (profile_id, created_at DESC)
   WHERE consumed_at IS NULL;
 
+CREATE INDEX incident_chat_upload_reservations_incident_idx
+  ON private.incident_chat_upload_reservations (incident_id);
+
 ALTER TABLE private.incident_chat_upload_policy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private.incident_chat_upload_reservations ENABLE ROW LEVEL SECURITY;
 
@@ -55,7 +58,7 @@ CREATE OR REPLACE FUNCTION private.tacresq_upload_reservation_allows_insert(
 )
 RETURNS boolean
 LANGUAGE plpgsql
-STABLE
+VOLATILE
 SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
@@ -75,7 +78,7 @@ BEGIN
        AND r.mime_type = p_mime_type
        AND r.size_bytes = p_size_bytes
        AND r.consumed_at IS NULL
-       AND r.expires_at > now()
+       AND r.expires_at > clock_timestamp()
        AND private.tacresq_can_access_incident_chat(r.incident_id, actor_profile_id)
   );
 END;
@@ -227,7 +230,7 @@ BEGIN
       reservation_id, profile_id, incident_id, client_message_id,
       object_path, mime_type, size_bytes, expires_at
     ) VALUES (
-      p_client_message_id, actor_profile_id, p_incident_id, p_client_message_id,
+      gen_random_uuid(), actor_profile_id, p_incident_id, p_client_message_id,
       expected_path, p_mime_type, p_size_bytes,
       now() + make_interval(secs => ttl_seconds)
     )
@@ -615,11 +618,22 @@ BEGIN
         AND name ~ '^[1-9][0-9]*/[1-9][0-9]*/[0-9a-f-]{36}[.](jpg|png|webp)$'
         AND (storage.foldername(name))[2] = private.tacresq_auth_profile_id()::text
         AND metadata->>'mimetype' IN ('image/jpeg', 'image/png', 'image/webp')
-        AND metadata->>'size' ~ '^[0-9]+$'
+        AND COALESCE(metadata->>'size', metadata->>'contentLength') ~ '^[0-9]+
+        AND private.tacresq_auth_can_access_incident_chat(
+          ((storage.foldername(name))[1])::bigint
+        )
+      )
+    $sql$;
+  END IF;
+END;
+$storage_reservation_policy$;
+
+COMMIT;
+
         AND private.tacresq_upload_reservation_allows_insert(
           name,
           metadata->>'mimetype',
-          (metadata->>'size')::bigint
+          COALESCE(metadata->>'size', metadata->>'contentLength')::bigint
         )
         AND private.tacresq_auth_can_access_incident_chat(
           ((storage.foldername(name))[1])::bigint
