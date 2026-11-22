@@ -30,12 +30,9 @@ async function prepareAdminMfa(): Promise<PreparedMfa> {
     factors: verified.map((factor) => ({ id: factor.id, name: factor.friendly_name || "Authenticator app" })),
   };
 
-  // Remove abandoned, unverified enrollment attempts before issuing a fresh QR.
-  for (const pending of totpFactors.filter((factor) => factor.status !== "verified")) {
-    const { error } = await auth.mfa.unenroll({ factorId: pending.id });
-    if (error) throw error;
-  }
-
+  // Never delete pending factors during sign-in. A pending enrollment may belong
+  // to another active browser/device; only the factor's explicit owner action
+  // should cancel it. Start this session's own enrollment instead.
   const { data, error } = await auth.mfa.enroll({
     factorType: "totp",
     friendlyName: "TACResQ Administrator",
