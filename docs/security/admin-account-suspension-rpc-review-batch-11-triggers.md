@@ -45,3 +45,11 @@ The next clean migration replay must confirm the query executes. Review the emit
 ## Validation boundary
 
 This is a source review and inventory enhancement. The trigger catalog output has not yet been observed from a new exact-head CI replay. No trigger, function, table, policy, connected Supabase project, or production record was changed by this review.
+
+## Auth-schema lifecycle triggers (added follow-up)
+
+The clean-replay inventory now separately emits non-internal triggers attached to tables in the `auth` schema. This is intentionally separate from the public-table query: Auth lifecycle hooks may create or mutate application profiles, but they are not ordinary public-table triggers and must not be omitted from the account-state review.
+
+For each Auth trigger, inspect its table, enabled mode, function signature, SECURITY DEFINER flag, function settings/search path, trigger definition, and source. In particular, verify that signup/profile creation cannot overwrite an existing suspension state and that any Auth lifecycle hook does not implicitly reactivate an account. Auth trigger execution must preserve the distinction between the Auth event subject and `current_user` inside a SECURITY DEFINER function.
+
+The new Auth-trigger query is still awaiting an exact-head clean migration replay. It is an inventory addition, not evidence that the Auth trigger paths are safe.
