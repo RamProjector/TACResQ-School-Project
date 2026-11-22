@@ -58,7 +58,7 @@ assert "page * PAGE_SIZE >= result.total_count" in audit_page, "Audit pagination
 assert "Math.ceil(result.total_count / PAGE_SIZE) - 1" in audit_page, "Audit pagination must return to the last valid page after the record count shrinks."
 assert "getAdminAuditLogsPage" in supabase_client
 # Analytics must reject malformed/inconsistent aggregates before rendering them.
-analytics_validator = supabase_client.split("export async function getAdminAnalyticsSummary", 1)[1].split("export interface AdminAuditPage", 1)[0]
+analytics_validator = supabase_client.split("export async function getAdminAnalyticsSummary", 1)[1].split("export async function getAdminInvestigationEventsPage", 1)[0]
 for requirement in (
     "Number.isFinite(Date.parse(value))",
     'summary.reporting_timezone !== "Asia/Manila"',
@@ -75,9 +75,9 @@ assert 'new Date(point.day + "T00:00:00Z").toLocaleDateString' in admin and 'tim
 assert "admin-audit-panel" not in admin
 assert "api_admin_list_audit_logs_page" in supabase_client
 assert "Actor profile ID" in audit_page and "Target profile ID" in audit_page
-assert "cannot be edited or deleted here" in audit_page
-assert "Supabase Auth separately records sign-in, sign-out, token-revocation and MFA factor events" in audit_page
-assert "not merged into this page" in audit_page
+assert "This interface is read-only." in audit_page
+assert "Authentication events depend on Supabase Auth Audit Logs Postgres storage" in audit_page
+assert "Denied privileged RPC attempts are not yet durably represented in this feed." in audit_page
 assert (ROOT / "docs/security/admin-session-revocation-and-auth-audit-boundaries.md").exists()
 
 # The Security page reports live Supabase Auth state without exposing factor secrets.
