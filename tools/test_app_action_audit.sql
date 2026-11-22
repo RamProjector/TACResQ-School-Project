@@ -77,7 +77,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000171', false);
   IF public.api_mark_notification_read(notification_id) THEN
-    RAISE EXCEPTION 'Unrelated responder must not read the requester's notification';
+    RAISE EXCEPTION 'Unrelated responder must not read this notification';
   END IF;
   PERFORM set_config('request.jwt.claim.sub',
     '00000000-0000-4000-8000-000000000170', false);
