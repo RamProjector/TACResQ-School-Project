@@ -28,6 +28,8 @@ assert "AdminMfaGate" in home and 'profile.role === "admin"' in home
 assert "[session?.user.id, session?.access_token]" in home, "Profile role must be rechecked when the auth token/session changes."
 assert "<AdminMfaGate key={session.access_token}" in home, "A new auth session must restart the Admin MFA gate."
 assert "Administrator access requires Google Authenticator TOTP." in admin
+assert "Search recorded administrative role changes." in admin
+assert "complete administrative audit history" not in admin.lower(), "Do not imply that role-change-only records cover every admin or operational event."
 
 # Audit history is a dedicated URL-addressable page, not a capped dashboard panel.
 audit_page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
