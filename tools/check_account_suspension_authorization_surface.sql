@@ -60,3 +60,21 @@ JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
 WHERE n.nspname = 'private'
   AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
 ORDER BY p.proname, p.oid::regprocedure::text;
+
+
+\echo '=== Authenticated-readable public views and materialized views ==='
+-- Views can expose rows through their owner unless security_invoker is enabled.
+-- Keep them separate from ordinary-table RLS inventory: their effective
+-- authorization semantics are not established by the base-table policy list.
+SELECT
+  c.oid::regclass AS relation,
+  CASE c.relkind WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' END AS relation_kind,
+  has_table_privilege('authenticated', c.oid, 'SELECT') AS authenticated_select,
+  coalesce(array_to_string(c.reloptions, ', '), '(default view options)') AS relation_options,
+  pg_catalog.pg_get_viewdef(c.oid, true) AS view_definition
+FROM pg_catalog.pg_class AS c
+JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relkind IN ('v', 'm')
+  AND has_table_privilege('authenticated', c.oid, 'SELECT')
+ORDER BY c.relname;
