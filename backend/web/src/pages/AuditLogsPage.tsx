@@ -278,6 +278,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                           <div key={key}><dt>{formatDetailLabel(key)}</dt><dd>{formatDetailValue(value)}</dd></div>
                         ))}
                       </dl>
+                      {copyError && <p className="audit-page__copy-error" role="status">{copyError}</p>}
                     </td>
                   </tr>
                 )}
