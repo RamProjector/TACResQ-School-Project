@@ -12,6 +12,22 @@ TACResQ does not need a new, all-purpose audit table. The repository already con
 
 The current Audit Logs page is accurately limited to administrative role changes. It must not be relabeled as a complete audit trail until additional sources are safely integrated and coverage limitations are explicit.
 
+## 1.1 Deployed Supabase verification snapshot
+
+A read-only inspection was performed against the connected TACResQ Supabase project on 2026-11-22. The project reported `ACTIVE_HEALTHY` on PostgreSQL 17.11.
+
+- The deployed migration ledger currently ends at `20261122050858_require_totp_for_admin_rpcs`.
+- The branch migration `20261122140000_admin_audit_server_pagination.sql` is **not applied** in the connected database.
+- The deployed legacy `api_admin_list_audit_logs(integer)` exists, but `api_admin_list_audit_logs_page(...)` does not. The current branch Audit Logs page calls the latter. This is a deployment dependency for the current branch, not a reason to apply the migration automatically.
+- All reviewed event relations exist in the connected database: `admin_audit_logs`, `incident_status_logs`, `incident_assignment_events`, `incident_claimability_logs`, `incident_request_edit_logs`, `api_operation_logs`, `device_security_events`, `fcm_delivery_attempts`, and `auth.audit_log_entries`.
+- The read-only count snapshot returned 1 Admin role-change record, 2 incident status records, and 0 records in assignment history, claimability history, API operation telemetry, device security events, Auth Audit Logs, and FCM delivery attempts. These are point-in-time counts, not a claim that those sources are configured or operational end-to-end.
+- The `auth.audit_log_entries` relation exists but currently has zero rows. Supabase's current Auth Audit Logs documentation says Postgres storage is optional and can be disabled while external dashboard logs remain available. The project-level toggle could not be verified through the available project metadata. Therefore, treat the database source as present but unconfirmed for event capture until the Dashboard setting is checked.
+- The connected database grants authenticated SELECT on `admin_audit_logs`, `incident_status_logs`, and `incident_assignment_events`; RLS further restricts row visibility. Authenticated direct SELECT is not granted on `incident_claimability_logs`, `api_operation_logs`, or `device_security_events`.
+- The deployed `incident_status_logs` SELECT policy allows participants and dispatchers, not Admins. The `incident_assignment_events` SELECT policy allows dispatchers and Admins, but does not itself require Admin TOTP/AAL2. Any Admin investigation reader must therefore enforce Admin + AAL2 + TOTP, and the direct assignment-event policy should be hardened so an Admin cannot bypass step-up authentication by querying the table directly. Dispatcher access must remain unchanged.
+- The live assignment-event table currently has zero rows; its trigger/migration source exists, but the Admin feed must still show an accurate empty state rather than implying that assignment history is missing or broken.
+
+This verification is read-only. No project settings, grants, policies, functions, or data were changed.
+
 ## 1. Verified source inventory
 
 | Source | Existing purpose and captured events | Current access / limitation | Admin integration decision |
