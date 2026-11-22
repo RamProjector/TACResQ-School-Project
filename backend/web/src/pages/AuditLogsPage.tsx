@@ -139,14 +139,14 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                 <td><span className="admin-role">{event.action.replaceAll("_", " ")}</span></td>
                 <td><span className="admin-audit-change">{displayRole(event.old_role)} <span>→</span> {displayRole(event.new_role)}</span></td>
                 <td><button className="audit-page__details" type="button" aria-expanded={expanded === event.id} onClick={() => setExpanded(expanded === event.id ? null : event.id)}>{expanded === event.id ? "Hide" : "View"} <ChevronDown size={14} /></button></td>
-                {expanded === event.id && (
-                  <td className="audit-page__expanded" colSpan={6}>
-                    <strong>Recorded reason</strong>
-                    <p>{event.reason || "No reason was stored."}</p>
-                    <dl><div><dt>Audit record</dt><dd>#{event.id}</dd></div><div><dt>Actor profile</dt><dd>{event.actor_user_id ?? "Not linked"}</dd></div><div><dt>Target profile</dt><dd>{event.target_user_id ?? "Not linked"}</dd></div><div><dt>Exact timestamp</dt><dd>{event.created_at}</dd></div></dl>
-                  </td>
-                )}
               </tr>
+              {expanded === event.id && (
+                <tr key={event.id + "-details"}><td className="audit-page__expanded" colSpan={6}>
+                  <strong>Recorded reason</strong>
+                  <p>{event.reason || "No reason was stored."}</p>
+                  <dl><div><dt>Audit record</dt><dd>#{event.id}</dd></div><div><dt>Actor profile</dt><dd>{event.actor_user_id ?? "Not linked"}</dd></div><div><dt>Target profile</dt><dd>{event.target_user_id ?? "Not linked"}</dd></div><div><dt>Exact timestamp</dt><dd>{event.created_at}</dd></div></dl>
+                </td></tr>
+              )}
             ))}
           </tbody>
         </table>
