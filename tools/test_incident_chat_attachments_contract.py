@@ -37,7 +37,7 @@ for label, passed in {
     "reservation uses the same per-profile serialization lock": "PERFORM pg_advisory_xact_lock(actor_profile_id)" in reservation_migration,
     "reservation RPC is authenticated-only": "GRANT EXECUTE ON FUNCTION public.api_reserve_incident_image_upload" in reservation_migration,
     "Storage INSERT requires a live matching reservation": "private.tacresq_upload_reservation_allows_insert(" in reservation_migration
-        and "r.expires_at > now()" in reservation_migration,
+        and "r.expires_at > clock_timestamp()" in reservation_migration,
     "reservation binds exact object metadata": "r.object_path = p_object_path" in reservation_migration
         and "r.mime_type = p_mime_type" in reservation_migration
         and "r.size_bytes = p_size_bytes" in reservation_migration,
@@ -83,10 +83,15 @@ for required in (
 ):
     assert required in api, f"Authenticated storage transport missing: {required}"
 
-reserve_call = api.index("rpc.reserveIncidentImageUpload(")
-upload_call = api.index("storage.upload(", reserve_call)
-finalize_call = api.index("rpc.sendIncidentImageMessage(", upload_call)
-assert reserve_call < upload_call < finalize_call, "Image send must reserve, upload, then finalize"
+method_start = api.index("override suspend fun sendIncidentImageMessage(")
+method_end = api.index("override suspend fun downloadIncidentImage", method_start)
+image_send_method = api[method_start:method_end]
+reserve_call = image_send_method.index("rpc.reserveIncidentImageUpload(")
+upload_call = image_send_method.find("storage.upload(")
+finalize_call = image_send_method.index("rpc.sendIncidentImageMessage(")
+assert reserve_call < finalize_call, "Image send must reserve before finalization"
+assert upload_call == -1 or reserve_call < upload_call < finalize_call, "Any image upload must follow reservation and precede finalization"
+assert "if (!reservation.consumed)" in image_send_method, "Consumed reservations must skip duplicate Storage uploads"
 
 screen = read("app/src/main/java/com/tacresq/app/ui/chat/IncidentChatScreen.kt")
 for required in (
