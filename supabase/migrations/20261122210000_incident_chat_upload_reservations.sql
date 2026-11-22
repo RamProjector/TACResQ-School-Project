@@ -619,6 +619,11 @@ BEGIN
         AND (storage.foldername(name))[2] = private.tacresq_auth_profile_id()::text
         AND metadata->>'mimetype' IN ('image/jpeg', 'image/png', 'image/webp')
         AND COALESCE(metadata->>'size', metadata->>'contentLength') ~ '^[0-9]+$'
+        AND private.tacresq_upload_reservation_allows_insert(
+          name,
+          metadata->>'mimetype',
+          COALESCE(metadata->>'size', metadata->>'contentLength')::bigint
+        )
         AND private.tacresq_auth_can_access_incident_chat(
           ((storage.foldername(name))[1])::bigint
         )
