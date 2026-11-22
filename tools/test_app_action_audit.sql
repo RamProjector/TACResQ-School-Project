@@ -182,7 +182,7 @@ BEGIN
      OR NOT EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
         WHERE value->>'event_type' = 'incident_message_sent'
-          AND event->>'summary' = 'Incident chat message sent'
+          AND value->>'summary' = 'Incident chat message sent'
      )
      OR NOT EXISTS (
        SELECT 1 FROM jsonb_array_elements(feed->'events') AS j(value)
