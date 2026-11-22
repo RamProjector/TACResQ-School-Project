@@ -396,7 +396,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div>
               <p className="admin-eyebrow">ACCESS CONTROL <span>·</span> AUDITABLE OPERATIONS</p>
               <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}<span>.</span></h1>
-              <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Search recorded administrative role changes. Incident operations and authentication events are maintained in separate histories." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+              <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
             </div>
             {(activeSection === "overview" || activeSection === "users") && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
               <RefreshCw size={16} className={refreshing ? "admin-spin" : ""} /> Refresh data
@@ -422,7 +422,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <article><span>PROFILES MATCHING FILTERS</span><strong>{totalUsers}</strong><small>Across all directory pages</small></article>
             <article><span>REQUESTERS · CURRENT PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Only the profiles on this page</small></article>
             <article><span>FIELD UNITS · CURRENT PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responders and drivers on this page only</small></article>
-            <article><span>AUDIT HISTORY</span><strong>Separate</strong><small>Dedicated searchable audit history</small></article>
+            <article><span>AUDIT HISTORY</span><strong>Activity feed</strong><small>Searchable read-only history across six event sources</small></article>
           </section>
           <p className="admin-panel__footnote" hidden={activeSection !== "overview"}>Counts follow the current directory search and role filters. Requester and field-unit breakdowns describe only the currently loaded page of up to 25 profiles; they are not system-wide role totals. Directory page retrieved: {directoryLoadedAt ? formatManilaDateTime(directoryLoadedAt) : "not yet retrieved"} (Asia/Manila). This is the retrieval time, not each profile’s last-updated time.</p>
 

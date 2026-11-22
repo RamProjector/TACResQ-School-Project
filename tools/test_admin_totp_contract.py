@@ -28,7 +28,7 @@ assert "AdminMfaGate" in home and 'profile.role === "admin"' in home
 assert "[session?.user.id, session?.access_token]" in home, "Profile role must be rechecked when the auth token/session changes."
 assert "<AdminMfaGate key={session.access_token}" in home, "A new auth session must restart the Admin MFA gate."
 assert "Administrator access requires Google Authenticator TOTP." in admin
-assert "Search recorded administrative role changes." in admin
+assert "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." in admin
 assert "previousFocus = useRef<HTMLElement | null>(null)" in admin, "The role-change dialog must remember its opener for keyboard focus restoration."
 assert "previousFocus.current = document.activeElement instanceof HTMLElement" in admin
 assert "if (trigger?.isConnected) trigger.focus()" in admin, "Closing the role-change dialog must restore focus to its trigger when it still exists."
@@ -74,7 +74,8 @@ assert 'new Date(point.day + "T00:00:00Z")' in analytics_validator, "Analytics d
 assert 'new Date(point.day + "T00:00:00Z").toLocaleDateString' in admin and 'timeZone: "UTC"' in admin, "Daily analytics labels must not shift based on the administrator's browser timezone."
 assert "admin-audit-panel" not in admin
 assert "api_admin_list_audit_logs_page" in supabase_client
-assert "Actor profile ID" in audit_page and "Target profile ID" in audit_page
+assert "Technical references" in audit_page, "Internal identifiers must be available only in the separate technical-reference disclosure."
+assert "Actor profile ID" not in audit_page and "Target profile ID" not in audit_page, "The normal audit filters must not expose numeric profile-ID fields."
 assert "This interface is read-only." in audit_page
 assert "Authentication events depend on Supabase Auth Audit Logs Postgres storage" in audit_page
 assert "Denied privileged RPC attempts are not yet durably represented in this feed." in audit_page
