@@ -323,3 +323,19 @@ A focused source review on this branch confirms the following implementation fac
 5. Keep all device registry tables backend-only and unused by app/web flows until these gates, atomic challenge consumption, authorization tests, and operational deployment review are complete.
 
 **Current status:** these findings are repository inspection only. No asymmetric device key, verifier endpoint, Supabase configuration, migration application, or production deployment was added by this review.
+
+
+## 16. Supabase Auth session-claim documentation check
+
+The current Supabase Auth documentation identifies `session_id` as a required access-token claim: it is a UUID identifying the user's Auth session and correlates with the primary key in `auth.sessions`. Supabase also documents that a session row is removed when the session is terminated by sign-out, and that sensitive endpoints can check whether the JWT's `session_id` still has a corresponding session row.
+
+Implementation implications:
+- The protocol's use of the verified `session_id` claim is aligned with the documented Supabase Auth token contract; it is not an application-defined custom claim.
+- The database must read the claim from the validated request context (for example, `auth.jwt() ->> 'session_id'`) and reject absent or invalid UUID values. Never accept a caller-supplied session ID.
+- A future sensitive-operation gate may check the session row's existence to detect a terminated session, but access to `auth.sessions` must remain server-side and narrowly scoped. Do not expose that table or its contents to client roles.
+- Documentation confirms the claim's intended meaning; it does not prove that this project's deployed Auth configuration, PostgREST path, Laravel bridge, or any future Edge Function forwards the original user JWT unchanged. An authenticated integration test is still required before device binding is enabled.
+
+Official references checked 22 November 2026:
+- Supabase, User sessions: https://supabase.com/docs/guides/auth/sessions
+- Supabase, JWT Claims Reference: https://supabase.com/docs/guides/auth/jwt-fields
+- Supabase, Row Level Security and `auth.jwt()`: https://supabase.com/docs/guides/database/postgres/row-level-security
