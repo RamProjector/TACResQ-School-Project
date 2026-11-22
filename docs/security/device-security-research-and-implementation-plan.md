@@ -352,3 +352,10 @@ A read-only inspection of the connected Supabase project `TACResQ-School-Project
 - The live migration history includes `device_security_registry_foundation`, `bound_device_registry_metadata`, and `require_totp_for_admin_rpcs`. This confirms those migrations are recorded in the connected project; it does not prove that device-verifier behavior exists. The device registry remains backend-only and currently has no client-facing verifier flow.
 
 **Correction:** earlier notes saying there was no existing Edge Function convention were too broad. There is one deployed notification function, but no checked-in function source or device-verification implementation. Future work must first bring the deployed function source under repository version control through a reviewed, non-destructive reconciliation; do not overwrite or redeploy it as part of device-proof work.
+
+
+### Source reconciliation follow-up
+
+The currently deployed `tacresq-notify` version 2 entrypoint has now been copied without behavioral edits into `supabase/functions/tacresq-notify/index.ts` on this branch. The deployed source digest observed during retrieval was `3a0a08f59ebb34d05034be0deabaa8ddffd276aec76f3c1623bb1c74f2cbb631`; the checked-in file was fetched again after commit and confirmed to contain the same 7,167 UTF-8 characters and the expected `Deno.serve` entrypoint.
+
+This is source recovery/version control only. It was **not** deployed, and no function configuration or secrets were changed. The existing function still does not implement device proof. Before any future deployment, compare the complete source and runtime settings against the live project, pin the Supabase JS dependency deliberately, and add isolated function tests. Do not deploy this mirror merely because it is now in Git.
