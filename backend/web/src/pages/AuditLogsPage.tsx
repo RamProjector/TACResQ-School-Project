@@ -173,6 +173,11 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         </button>
       </div>
 
+      <div className="audit-page__coverage" role="note">
+        <strong>Coverage boundaries</strong>
+        <span>This feed includes six existing event sources. Supabase Auth events appear only when Postgres Auth Audit Log storage is active. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included yet.</span>
+      </div>
+
       <div className="audit-page__filters">
         <label className="admin-search audit-page__search">
           <Search size={16} />
