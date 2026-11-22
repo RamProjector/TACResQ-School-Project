@@ -331,7 +331,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     try {
       // Re-read this exact account immediately before mutation. The dialog may
       // have remained open while another administrator changed the account.
-      const latestPage = await getAdminUsersPage(1, 0, String(target.id), "all");
+      const latestPage = await getAdminUsersPage(100, 0, String(target.id), "all");
       const latestTarget = latestPage.users.find((user) => user.id === target.id);
       if (!latestTarget || latestTarget.role !== target.role) {
         setTarget(null);
