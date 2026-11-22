@@ -45,6 +45,8 @@ for label, passed in {
     "reservation is consumed in the message transaction": "SET consumed_at = now()" in reservation_migration,
     "expired reservations can still finalize uploaded objects": "a delayed finalization may still complete" in reservation_migration,
     "reservation rate limit aligns with existing message cap": "uploads_per_minute BETWEEN 1 AND 20" in reservation_migration,
+    "text and image sends share pending reservation accounting": "CREATE OR REPLACE FUNCTION public.api_send_incident_message" in reservation_migration
+        and "recent_message_count + recent_reservation_count >= uploads_limit" in reservation_migration,
 }.items():
     assert passed, f"Upload reservation migration contract failed: {label}"
 
