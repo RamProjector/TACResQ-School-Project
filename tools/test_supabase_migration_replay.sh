@@ -133,6 +133,49 @@ BEGIN
 END;
 $auth_profile_trigger_contract$;
 
+-- Exercise the final Auth signup trigger's server-side contact validation.
+-- A rejected signup must roll back the Auth row as well as profile creation.
+DO $auth_signup_validation_test$
+DECLARE
+  rejected boolean;
+  test_user_id uuid;
+BEGIN
+  test_user_id := '00000000-0000-4000-8000-000000000198';
+  rejected := false;
+  BEGIN
+    INSERT INTO auth.users (id, email, raw_user_meta_data)
+    VALUES (test_user_id, 'invalid-phone-signup@example.test',
+      '{"name":"Invalid Phone","phone":"abc"}'::jsonb);
+  EXCEPTION WHEN invalid_parameter_value THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Auth signup trigger must reject a phone number without 7-15 digits';
+  END IF;
+  IF EXISTS (SELECT 1 FROM auth.users WHERE id = test_user_id)
+     OR EXISTS (SELECT 1 FROM public.profiles WHERE auth_user_id = test_user_id) THEN
+    RAISE EXCEPTION 'Rejected invalid-phone signup must leave neither Auth nor profile row';
+  END IF;
+
+  test_user_id := '00000000-0000-4000-8000-000000000199';
+  rejected := false;
+  BEGIN
+    INSERT INTO auth.users (id, email, raw_user_meta_data)
+    VALUES (test_user_id, 'long-name-signup@example.test',
+      jsonb_build_object('name', repeat('N', 121), 'phone', '+63917000099'));
+  EXCEPTION WHEN invalid_parameter_value THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Auth signup trigger must reject names longer than 120 characters';
+  END IF;
+  IF EXISTS (SELECT 1 FROM auth.users WHERE id = test_user_id)
+     OR EXISTS (SELECT 1 FROM public.profiles WHERE auth_user_id = test_user_id) THEN
+    RAISE EXCEPTION 'Rejected overlength-name signup must leave neither Auth nor profile row';
+  END IF;
+END;
+$auth_signup_validation_test$;
+
 DO $
 BEGIN
   IF NOT EXISTS (
