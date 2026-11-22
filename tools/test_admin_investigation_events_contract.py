@@ -1,0 +1,72 @@
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+migration = (ROOT / "supabase/migrations/20261122160000_admin_investigation_events.sql").read_text()
+page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
+client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
+
+required_sql = (
+    "CREATE POLICY incident_assignment_events_admin_require_aal2",
+    "AS RESTRICTIVE",
+    "private.tacresq_actor_role()",
+    "auth.jwt() ->> 'aal'",
+    "END = 'totp'",
+    "CREATE OR REPLACE FUNCTION public.api_admin_list_investigation_events",
+    "PERFORM private.tacresq_require_admin_mfa()",
+    "SECURITY DEFINER",
+    "SET search_path = pg_catalog",
+    "FROM public.admin_audit_logs AS a",
+    "FROM public.incident_status_logs AS s",
+    "FROM public.incident_assignment_events AS e",
+    "FROM auth.audit_log_entries AS a",
+    "p_incident_id",
+    "LIMIT p_limit OFFSET p_offset",
+    "REVOKE ALL ON FUNCTION public.api_admin_list_investigation_events",
+    "GRANT EXECUTE ON FUNCTION public.api_admin_list_investigation_events",
+)
+for marker in required_sql:
+    assert marker in migration, f"Missing investigation SQL contract: {marker}"
+
+# Auth rows are projected through allowlisted fields only. Do not expose raw
+# provider payloads, IP addresses, or user-agent metadata in the Admin feed.
+auth_projection = migration.split("FROM auth.audit_log_entries AS a", 1)[0].split("UNION ALL")[-1]
+assert "payload ->> 'action'" in auth_projection
+assert "payload ->> 'user_id'" in auth_projection
+assert "'ip_address'" not in auth_projection
+assert "user_agent" not in auth_projection
+assert "to_jsonb(a)" not in auth_projection
+
+# The feed reads existing event sources; it must not create a duplicate ledger
+# or grant browser clients direct access to protected event tables.
+for forbidden in (
+    "INSERT INTO public.admin_audit_logs",
+    "INSERT INTO public.incident_status_logs",
+    "INSERT INTO public.incident_assignment_events",
+    "GRANT SELECT ON TABLE public.incident_claimability_logs",
+    "GRANT SELECT ON TABLE public.api_operation_logs",
+):
+    assert forbidden not in migration, f"Unexpected write or broad grant: {forbidden}"
+
+for marker in (
+    "api_admin_list_investigation_events",
+    "administrative",
+    "authentication",
+    "incident",
+    "assignment",
+    "incident_id",
+    "occurred_at",
+    "source",
+):
+    assert marker in client, f"Missing client event contract: {marker}"
+
+for marker in (
+    "getAdminInvestigationEventsPage",
+    "Authentication",
+    "Incident",
+    "Assignment",
+    "Source",
+    "Date boundaries use Asia/Manila",
+):
+    assert marker in page, f"Missing Admin investigation UI contract: {marker}"
+
+print("PASS: Admin investigation source, authorization, privacy, and UI contracts are present.")
