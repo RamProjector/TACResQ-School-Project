@@ -42,6 +42,9 @@ assert 'role="status" aria-label={label + " status: " + result.status}' in conso
 assert "do not verify incident workflows" in console
 assert "void getAdminDependencyHealth()" in console
 assert "five-second limit" in console
+assert "dependencyHealthLoading" in console
+assert '"Last checked "' in console
+assert '"Checking…"` in console
 assert 'status: controller.signal.aborted ? "slow" : "unavailable"' in client
 
 
