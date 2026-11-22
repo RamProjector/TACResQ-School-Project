@@ -38,7 +38,7 @@ export default function AdminSecurityStatus() {
       setSnapshot({
         currentLevel: aalResult.data.currentLevel ?? null,
         usedTotp,
-        factors: factorsResult.data.totp.map((factor) => ({
+        factors: factorsResult.data.all.filter((factor) => factor.factor_type === "totp").map((factor) => ({
           id: factor.id,
           name: factor.friendly_name || "Authenticator app",
           status: factor.status,
