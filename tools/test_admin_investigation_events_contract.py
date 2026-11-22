@@ -26,6 +26,7 @@ required_sql = (
     "FROM public.incident_assignment_events AS e",
     "FROM auth.audit_log_entries AS a",
     "p_incident_id",
+    "p_source",
     "LIMIT p_limit OFFSET p_offset",
     "REVOKE ALL ON FUNCTION public.api_admin_list_investigation_events",
     "GRANT EXECUTE ON FUNCTION public.api_admin_list_investigation_events",
@@ -65,6 +66,8 @@ for forbidden in (
 
 for marker in (
     "api_admin_list_investigation_events",
+    "AdminInvestigationSource",
+    "p_source: source",
     "administrative",
     "authentication",
     "incident",
@@ -81,6 +84,8 @@ for marker in (
     "Incident",
     "Assignment",
     "Source",
+    "sourceLabels",
+    "All sources",
     "date boundaries and displayed times use Asia/Manila",
 ):
     assert marker in page, f"Missing Admin investigation UI contract: {marker}"
