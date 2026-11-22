@@ -76,7 +76,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query), 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => {
     const route = new URLSearchParams(window.location.search).get("adminPage") ?? "overview";
     return route === "audit-logs" ? "audit" : (["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview");
@@ -141,7 +146,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       return;
     }
     try {
-      const userPage = await getAdminUsersPage(pageSize, page * pageSize, query, roleFilter);
+      const userPage = await getAdminUsersPage(pageSize, page * pageSize, debouncedQuery, roleFilter);
       if (requestId !== requestVersion.current) return;
       // The underlying account set can shrink while an administrator is on a
       // later page (for example, after another admin changes/removes records).
@@ -181,7 +186,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         setRefreshing(false);
       }
     }
-  }, [activeSection, page, query, roleFilter]);
+  }, [activeSection, page, debouncedQuery, roleFilter]);
 
   useEffect(() => {
     const syncSection = () => {
