@@ -43,6 +43,18 @@ assert "api_admin_list_audit_logs_page" in supabase_client
 assert "Admin profile ID" in audit_page and "Target profile ID" in audit_page
 assert "cannot be edited or deleted here" in audit_page
 
+# The Security page reports live Supabase Auth state without exposing factor secrets.
+security_status = (ROOT / "backend/web/src/components/AdminSecurityStatus.tsx").read_text()
+assert 'import AdminSecurityStatus from "@/components/AdminSecurityStatus"' in admin
+assert "<AdminSecurityStatus />" in admin
+assert "getAuthenticatorAssuranceLevel()" in security_status
+assert "listFactors()" in security_status
+assert "currentLevel" in security_status and "usedTotp" in security_status
+assert "factor.friendlyName" in security_status and "factor.status" in security_status
+assert "factor.secret" not in security_status and "qr_code" not in security_status
+assert "auth.mfa.unenroll" not in security_status
+assert "p_actor_user_id: actorUserId" not in supabase_client.split("export async function getAdminAnalyticsSummary", 1)[1].split("export interface AdminAuditPage", 1)[0]
+
 for marker in (
     "private.tacresq_require_admin_mfa",
     "revoke all on function public.api_admin_list_users()",
