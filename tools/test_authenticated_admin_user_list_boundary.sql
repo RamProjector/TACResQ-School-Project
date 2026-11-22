@@ -1,4 +1,4 @@
--- Verify the Admin list RPC boundary under the actual authenticated role.
+-- Verify the Admin list and paginated audit RPC boundaries under the authenticated role.
 -- Use fixtures owned by this test: the broader replay suite deliberately deletes
 -- its earlier Admin/audit fixtures to verify audit-history retention.
 INSERT INTO auth.users (id, email, raw_user_meta_data)
