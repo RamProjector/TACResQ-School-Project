@@ -56,6 +56,33 @@ function displayRole(role: string) {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
+function getManilaAnalyticsRange(days: 7 | 30 | 90, now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  const year = Number(part("year"));
+  const month = Number(part("month"));
+  const day = Number(part("day"));
+  // Manila uses UTC+08:00. Start at local midnight and include today plus
+  // the preceding days so daily buckets align with the database calendar.
+  const from = new Date(Date.UTC(year, month - 1, day - (days - 1), 0, 0, 0) - 8 * 60 * 60 * 1000);
+  return { from: from.toISOString(), to: now.toISOString() };
+}
+
+function formatManilaDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone: "Asia/Manila",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
 function formatDate(value: string | null | undefined) {
   if (!value) return "Time unavailable";
   const date = new Date(value);
@@ -221,11 +248,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   useEffect(() => {
     if (activeSection !== "analytics") return;
     let active = true;
-    const to = new Date();
-    const from = new Date(to.getTime() - analyticsDays * 24 * 60 * 60 * 1000);
+    const range = getManilaAnalyticsRange(analyticsDays);
     setAnalyticsLoading(true);
     setAnalyticsError(null);
-    void getAdminAnalyticsSummary(from.toISOString(), to.toISOString())
+    setAnalytics(null);
+    void getAdminAnalyticsSummary(range.from, range.to)
       .then((result) => { if (active) setAnalytics(result); })
       .catch((cause: unknown) => {
         if (!active) return;
@@ -440,7 +467,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <section className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title" aria-live="polite">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div>
-                <label className="admin-analytics-range"><span>Period</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select></label>
+                <label className="admin-analytics-range"><span>Period</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
               </div>
               {analyticsLoading ? (
                 <div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading verified incident aggregates…</div>
@@ -448,6 +475,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div className="admin-health-unavailable" role="alert"><strong>Analytics unavailable.</strong> {analyticsError} The endpoint must be deployed before this report can display live data.</div>
               ) : analytics ? (
                 <>
+                  <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals.</p>
                   <div className="admin-analytics-metrics">
                     <article><span>TOTAL REQUESTS</span><strong>{analytics.total_requests.toLocaleString()}</strong><small>Created during selected period</small></article>
                     <article><span>ACTIVE</span><strong>{analytics.active.toLocaleString()}</strong><small>Assigned, en route, on scene or transporting</small></article>
