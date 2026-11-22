@@ -108,6 +108,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -183,6 +184,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     const requestId = ++requestVersion.current;
     setRefreshing(true);
     setError(null);
+    setDirectoryError(null);
     if (activeSection !== "overview" && activeSection !== "users") {
       setLoading(false);
       setRefreshing(false);
@@ -230,7 +232,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       setDirectoryLoadedAt(null);
       // Dependency health is fetched independently and may still be valid
       // even when the account-directory RPC fails.
-      setError(cause instanceof Error ? cause.message : "The Admin service could not load its data.");
+      const message = cause instanceof Error ? cause.message : "The Admin service could not load its data.";
+      setDirectoryError(message);
+      setError(message);
     } finally {
       if (requestId === requestVersion.current) {
         setLoading(false);
@@ -437,14 +441,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <section className="admin-panel" hidden={activeSection !== "users"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><Users size={19} /> User management</h2></div>
-              <span className="admin-count">{totalUsers === 0 ? 0 : page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalUsers)} of {totalUsers} matching</span>
+              <span className="admin-count">{directoryError ? "Account results unavailable" : totalUsers === 0 ? "0 matching accounts" : (page * pageSize + 1) + "–" + Math.min((page + 1) * pageSize, totalUsers) + " of " + totalUsers + " matching"}</span>
             </div>
             <div className="admin-toolbar">
               <label className="admin-search"><Search size={16} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder="Search name, email, phone or ID" aria-label="Search users" /></label>
               <label className="admin-role-filter"><span>Role</span><select value={roleFilter} onChange={(event) => { setPage(0); setRoleFilter(event.target.value as RoleFilter); }} aria-label="Filter users by role"><option value="all">All roles</option><option value="requester">Requester</option><option value="responder">Responder</option><option value="driver">Driver</option><option value="dispatcher">Dispatcher</option><option value="admin">Admin</option></select></label>
               {hasDirectoryFilters && <button className="admin-filter-reset" type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setRoleFilter("all"); setPage(0); }} disabled={refreshing}>Clear filters</button>}
             </div>
-            <p className="admin-directory-status" role="status" aria-live="polite">{directoryFilterPending ? "Applying search…" : refreshing ? "Updating account results…" : hasDirectoryFilters ? "Showing " + totalUsers.toLocaleString() + " matching accounts. Search and role filters are applied on the server." : "Showing all accounts. Search and role filters are applied on the server."}</p>
+            <p className="admin-directory-status" role="status" aria-live="polite">{directoryFilterPending ? "Applying search…" : refreshing ? "Updating account results…" : directoryError ? "Account results could not be retrieved. Use Refresh data to try again." : hasDirectoryFilters ? "Showing " + totalUsers.toLocaleString() + " matching accounts. Search and role filters are applied on the server." : "Showing all accounts. Search and role filters are applied on the server."}</p>
             <div className="admin-table-wrap" role="region" aria-label="Account results; horizontally scrollable" tabIndex={0} aria-busy={refreshing || directoryFilterPending}>
               <table className="admin-table" aria-label="Administrator account directory">
                 <caption className="admin-table-caption">Account details and available role-management actions for the current directory page.</caption>
@@ -466,7 +470,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 </tbody>
               </table>
             </div>
-            <div className="admin-pagination" aria-label="User directory pagination"><span>Page {totalUsers === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(totalUsers / pageSize))}</span><div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || refreshing}>Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={refreshing || (page + 1) * pageSize >= totalUsers}>Next</button></div></div>
+            <div className="admin-pagination" aria-label="User directory pagination"><span>Page {totalUsers === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(totalUsers / pageSize))}</span><div><button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || refreshing || Boolean(directoryError)}>Previous</button><button type="button" onClick={() => setPage((current) => current + 1)} disabled={refreshing || Boolean(directoryError) || (page + 1) * pageSize >= totalUsers}>Next</button></div></div>
             <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident. Duty status describes a responder or driver’s operational availability; it is not an account-enabled, suspended, or sign-in status. This directory does not currently expose account suspension state.</p>
           </section>
 
