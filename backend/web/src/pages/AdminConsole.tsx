@@ -393,7 +393,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}<span>.</span></h1>
               <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Search recorded administrative role changes. Incident operations and authentication events are maintained in separate histories." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
             </div>
-            {activeSection !== "audit" && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
+            {(activeSection === "overview" || activeSection === "users") && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
               <RefreshCw size={16} className={refreshing ? "admin-spin" : ""} /> Refresh data
             </button>}
           </div>
