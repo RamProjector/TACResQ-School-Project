@@ -88,7 +88,13 @@ Never copy raw incident narratives, precise coordinates, contact details, privat
 
 For request-edit history, expose only a separately reviewed, minimized projection if there is a concrete investigation need. Use incident/profile identifiers and safe event summaries rather than copying sensitive snapshots.
 
-### 3.5 Retention and integrity
+### 3.5 Denied privileged actions remain a gap
+
+The current durable source set does not reliably capture every denied Admin RPC or authorization failure. A database insert performed in the same transaction that raises an exception is rolled back with that transaction; a client-reported “denied” event would be spoofable and is not an acceptable audit source. The current Laravel API-operation logger covers only Laravel-mediated operations and is best-effort; it does not cover the Admin web client's direct Supabase RPC calls.
+
+Do not add a client-side denial logger or claim that the current feed captures every blocked attempt. A future implementation needs a trusted failure-recording path outside the failed transaction (for example, a carefully scoped server-side gateway or a verified provider log source), with bounded metadata, rate limiting, correlation IDs, and no request bodies or credentials.
+
+### 3.6 Retention and integrity
 
 The reviewed migrations establish append-only or restricted write paths for several sources, but they do not establish one complete retention policy across all sources. Before broad rollout, define:
 - retention period per source and purpose;
@@ -165,7 +171,7 @@ Do not promise immutable or tamper-proof storage solely because the UI is read-o
 
 **Implemented in the current PR branch (migration source not applied to production):** a protected, bounded Admin investigation read layer and UI integration for `admin_audit_logs`, `auth.audit_log_entries`, `incident_status_logs`, `incident_assignment_events`, `incident_claimability_logs`, and sanitized `incident_request_edit_logs`. The reader requires Admin + AAL2 + TOTP, preserves source identity, and does not return raw Auth or request-edit payloads.
 
-**Not ready to integrate yet:** Supabase Auth Audit Logs, `device_security_events`, and direct-client API/Storage telemetry. Their runtime source/configuration or trusted writer/read path is not established by this repository review.
+**Not fully covered yet:** denied privileged RPC attempts, direct-client API/Storage operations, and device-security events. The Auth Audit Logs table exists but currently has zero rows and the project-level Postgres-storage setting remains unverified. Do not claim these event classes are comprehensively captured.
 
 **Deferred:** `api_operation_logs` and `fcm_delivery_attempts` remain operational diagnostics rather than user/admin business actions; add a separate, explicitly labeled System activity view only if administrators need provider troubleshooting. `device_security_events` remains unavailable until trusted server-side writers exist.
 
@@ -179,6 +185,7 @@ The following source changes have now been committed to the existing PR branch:
 - Added `api_admin_list_investigation_events`, a bounded, server-side union reader for the six approved event sources. It validates category, pagination, search length, date range, actor/target IDs, and incident ID.
 - Reuses the existing `private.tacresq_require_admin_mfa()` helper. The public RPC revokes default/public execution and grants execution only to authenticated callers; every call enforces current Admin role, AAL2, and TOTP.
 - Adds a restrictive policy to `incident_assignment_events` so Admin direct table reads also require TOTP/AAL2. The existing dispatcher read path remains allowed.
+- Includes dispatcher claimability changes and sanitized requester-edit events. For requester edits, only the changed-field names and edit number are returned; location and narrative snapshots remain private.
 - Keeps incident status, assignment, claimability, and requester-edit histories in their original tables. Request-edit details are reduced to changed-field names; raw before/after snapshots are not returned.
 - Adds Supabase Auth Audit Logs using only the event action and a linked profile label. The raw Auth payload, IP address, and user-agent data are not returned.
 - Expands the dedicated Audit Logs page with category, actor, target, incident, and Manila date filters, source attribution, event details, and server-side pagination.
