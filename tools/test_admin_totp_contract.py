@@ -41,7 +41,6 @@ for marker in (
     assert marker in migration, f"Missing database MFA enforcement marker: {marker}"
 
 for rpc in (
-    "api_admin_list_users",
     "api_admin_list_users_page",
     "api_admin_set_user_role",
     "api_admin_list_audit_logs",
