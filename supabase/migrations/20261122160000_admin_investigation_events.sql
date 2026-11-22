@@ -340,6 +340,6 @@ GRANT EXECUTE ON FUNCTION public.api_admin_list_investigation_events(
 COMMENT ON FUNCTION public.api_admin_list_investigation_events(
   integer, integer, text, text, text, timestamptz, timestamptz, bigint, bigint, bigint
 ) IS
-  'TOTP/AAL2-protected, bounded Admin investigation feed over existing administrative, authentication, incident-status, and assignment event sources.';
+  'TOTP/AAL2-protected, bounded Admin investigation feed over existing administrative, authentication, incident-status, claimability, requester-edit, and assignment event sources.';
 
 COMMIT;
