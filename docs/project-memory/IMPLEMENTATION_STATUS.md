@@ -39,7 +39,7 @@ The current incident location-source values describe broad capture mode (such as
 - Automatic SOS submission in the background or general offline write synchronization.
 - Turn-by-turn voice navigation, live traffic, road closures, flooding, emergency-vehicle access, or guaranteed route ETA.
 - Automatic routing-provider failover.
-- Continuous/background responder tracking.
+- Always-on or silently started background responder tracking. The explicit, consent-gated foreground location service can continue its active session when the app is not visible; it must not be described as always-on tracking.
 - Production FCM Cron dispatch unless explicitly configured and verified by an authorized operator.
 - A formal incident team-leader role or standing roster.
 
