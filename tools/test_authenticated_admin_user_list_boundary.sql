@@ -32,6 +32,18 @@ CROSS JOIN public.profiles target
 WHERE actor.auth_user_id = '00000000-0000-4000-8000-000000000145'
   AND target.auth_user_id = '00000000-0000-4000-8000-000000000146';
 
+-- Capture fixture IDs before switching to the RLS-constrained API role.
+SELECT set_config(
+  'tacresq.test_admin_profile_id',
+  (SELECT id::text FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000145'),
+  false
+);
+SELECT set_config(
+  'tacresq.test_target_profile_id',
+  (SELECT id::text FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000146'),
+  false
+);
+
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000145', false);
 SELECT set_config(
@@ -47,8 +59,8 @@ DECLARE
   actor_profile_id bigint;
   target_profile_id bigint;
 BEGIN
-  SELECT id INTO actor_profile_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000145';
-  SELECT id INTO target_profile_id FROM public.profiles WHERE auth_user_id = '00000000-0000-4000-8000-000000000146';
+  actor_profile_id := current_setting('tacresq.test_admin_profile_id')::bigint;
+  target_profile_id := current_setting('tacresq.test_target_profile_id')::bigint;
 
   BEGIN
     PERFORM public.api_admin_list_users();
