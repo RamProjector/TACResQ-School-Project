@@ -91,6 +91,10 @@ for migration in supabase/migrations/*.sql; do
   psql -v ON_ERROR_STOP=1 -f "${migration}"
 done
 
+# Fail early if the replayed schema does not satisfy the incident-chat upload contract.
+# The same read-only check can be run manually against a deployed test project.
+psql -v ON_ERROR_STOP=1 -f tools/check_incident_chat_upload_schema.sql
+
 psql -v ON_ERROR_STOP=1 <<'SQL'
 DO $$
 BEGIN
