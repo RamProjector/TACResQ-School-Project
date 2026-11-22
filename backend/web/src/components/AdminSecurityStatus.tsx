@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { AlertCircle, CheckCircle2, Clock3, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 
@@ -89,7 +90,7 @@ export default function AdminSecurityStatus() {
     }
   }
 
-  async function verifyBackupAuthenticator(event: React.FormEvent<HTMLFormElement>) {
+  async function verifyBackupAuthenticator(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!enrollment || !/^\d{6}$/.test(verificationCode) || busy) return;
     setBusy(true);
