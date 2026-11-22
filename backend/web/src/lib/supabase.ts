@@ -224,6 +224,8 @@ export async function getAdminAuditLogsPage(
     p_action: action,
     p_from: from,
     p_to: to,
+    p_actor_user_id: actorUserId,
+    p_target_user_id: targetUserId,
   });
   throwAdminError(error);
   if (!data || typeof data !== "object") throw new Error("The audit service returned an invalid page.");
