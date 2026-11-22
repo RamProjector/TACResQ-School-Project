@@ -10,6 +10,7 @@ Reviewed source:
 - `20261023081706_dispatch_team_assignment.sql`
 - `20261023103737_per_responder_assignment_status.sql`
 - `20261116042927_responder_incident_claiming.sql`
+- `20261116200000_harden_dispatch_claimability_lifecycle.sql`
 - `20261117234000_dispatch_managed_incident_progress.sql`
 - `20261118010000_incident_assignment_event_history.sql`
 - `20261118011000_dispatcher_release_incident_assignment.sql`
@@ -57,23 +58,30 @@ The Admin analytics RPC classifies:
 
 This is an incident-created-period report, not a count of all incidents that were active during any portion of the selected period. Assignment-time averages only include incidents with a usable first assigned status log. The UI/report should retain those definitions so the metrics are not misinterpreted.
 
-## High-priority integrity finding: direct dispatcher status updates can bypass synchronization
+## Direct incident-table writes: already blocked by a later migration
 
-The dispatcher-managed progress RPC performs a coordinated transaction:
-1. Locks and validates the incident and requested transition.
-2. Updates the incident status.
-3. Updates every current `incident_assignments.responder_status` and `status_updated_at`.
-4. Updates each assigned profile's duty status.
-5. Preserves availability when a unit has another active assignment.
+The initial source review identified a potential mismatch: the core schema granted authenticated users column-level incident updates, the RLS policy allows dispatcher incident updates, and the transition trigger contains a dispatcher status branch. Read in isolation, those objects appear to allow a direct status update that would skip the coordinated progress RPC.
 
-However, the migration history also retains:
-- An authenticated UPDATE grant on incident status/assignment columns from the core schema.
-- An RLS update policy that permits dispatchers to update incidents.
-- A trigger guard branch that accepts valid dispatcher milestone changes directly on the incident row.
+**The complete migration history changes that conclusion.** Migration `20261116200000_harden_dispatch_claimability_lifecycle.sql` explicitly:
+- Revokes table-level INSERT, UPDATE, and DELETE on `public.incidents` from PUBLIC, anon, and authenticated.
+- Dynamically revokes historical column-level INSERT and UPDATE grants across every incident column, including `status`, `assigned_to`, and `updated_at`.
+- Documents that supported Android and web clients write incidents through SECURITY DEFINER RPCs.
 
-That means a dispatcher-authorized direct table update may satisfy the row-level policy and transition guard without invoking the RPC's synchronization steps. The incident status log and closure event triggers may still fire, but the team member status snapshots and profile duty states are not guaranteed to be synchronized by those triggers. The older status trigger updates only the legacy `assigned_to` profile, not every team member.
+Therefore, the earlier direct-table bypass is **already blocked in the repository's migration source** for authenticated client roles. The RLS policy and trigger branch do not restore the missing SQL table privilege. The coordinated dispatcher RPC remains the supported path and performs the incident, team-member status, and duty-state updates in one transaction.
 
-**Recommended correction:** make the coordinated progress RPC the only authenticated client write path for incident milestones. Before removing the direct table UPDATE path, inspect every Android, dispatcher-web, and Laravel caller to confirm all legitimate progress writes already use the RPC. Then revoke the relevant direct UPDATE grant (or narrow it to non-progress columns if any legitimate direct writes remain), retain the RLS read boundary, and add negative tests proving direct dispatcher status updates are denied while the RPC continues to synchronize all team members. Do not apply this change to a live database without an approved migration/release.
+### Caller review
+
+- Android `DispatcherScreen` calls `TacRepository.updateIncidentStatus`.
+- The repository delegates to `TacApi.updateIncidentStatus`.
+- `SupabaseTacApi` calls `api_update_incident_status` through either the authenticated Supabase RPC endpoint or the optional Render bridge RPC route.
+- The web dispatch dashboard is retired; Admin web navigation does not provide a second dispatcher status-write path.
+- The reviewed Android and web source does not call the PostgREST `incidents` table endpoint for incident writes.
+
+### Remaining verification improvement
+
+The existing authenticated write-boundary SQL fixture checked direct UPDATE denial for requester and responder roles, and checked that the dispatcher RPC succeeds. It did not explicitly attempt a direct UPDATE while authenticated as a dispatcher. I added that missing assertion to `tools/test_authenticated_incident_write_boundary.sql`: a dispatcher direct status update must raise insufficient privilege, leave the incident unchanged, and then the supported RPC must still advance it and clear claimability.
+
+This is a regression-test addition only; it was not executed in this continuation. No additional privilege migration is warranted based on the inspected source. The migration still needs to be applied and verified in the target database under the separately approved release process before claiming the live environment has the same boundary.
 
 ## Cancellation and availability
 
@@ -85,7 +93,7 @@ That means a dispatcher-authorized direct table update may satisfy the row-level
 ## Follow-up work
 
 Priority order:
-1. **P0 — Close the direct status-update bypass** after confirming all client callers and adding regression coverage for RPC-only progress.
+1. **P1 — Run the expanded authenticated write-boundary fixture** in the disposable PostgreSQL migration replay, including the new dispatcher direct-write denial assertion.
 2. **P1 — Add transaction-level tests** for multi-member resolution, a member concurrently assigned to another incident, release of the primary member, and status changes racing with assignment/release.
 3. **P1 — Validate status-history completeness** for creation, claim, dispatcher assignment, each milestone, requester cancellation, and legacy compatibility paths. Include actor identity and event ordering.
 4. **P1 — Make metric definitions visible** in Analytics, especially the incident-created date scope and the first-assignment-time denominator.
