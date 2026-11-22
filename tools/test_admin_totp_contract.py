@@ -44,7 +44,7 @@ for marker in (
 # The shared gate must validate both the verified JWT assurance claims
 # and the current database role, not merely the browser's displayed role.
 helper_match = re.search(
-    r"create or replace function private\\.tacresq_require_admin_mfa\\(\\).*?as \\$function\\$(.*?)\\$function\\$;",
+    r"create or replace function private[.]tacresq_require_admin_mfa[(][)].*?as [$]function[$](.*?)[$]function[$];",
     migration,
     flags=re.DOTALL,
 )
