@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Clock3, LoaderCircle, RefreshCw, Search } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Copy, LoaderCircle, RefreshCw, Search } from "lucide-react";
 import { getAdminInvestigationEventsPage } from "@/lib/supabase";
 import type { AdminInvestigationCategory, AdminInvestigationEvent, AdminInvestigationSource, TacruProfile } from "@/lib/supabase";
 
@@ -85,7 +85,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
-  const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState<string | null>(null);
+  const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState<string | null>(null);\n  const [copiedEventId, setCopiedEventId] = useState<string | null>(null);\n  const [copyError, setCopyError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -144,7 +144,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     };
   }, [page, query, category, source, from, to, actorId, targetId, incidentId, refreshVersion]);
 
-  function resetFilters() {
+  async function copyEventId(eventId: string) {\n    setCopyError(null);\n    try {\n      if (!navigator.clipboard?.writeText) throw new Error("Clipboard access is unavailable in this browser context.");\n      await navigator.clipboard.writeText(eventId);\n      setCopiedEventId(eventId);\n    } catch {\n      setCopiedEventId(null);\n      setCopyError("Could not copy the event ID. You can select the ID text and copy it manually.");\n    }\n  }\n\n  function resetFilters() {
     setQuery("");
     setCategory("all");
     setSource("all");
@@ -255,7 +255,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                       <p>{event.summary}</p>
                       <dl>
                         <div><dt>Source</dt><dd>{event.source}</dd></div>
-                        <div><dt>Event ID</dt><dd>{event.event_id}</dd></div>
+                        <div><dt>Event ID</dt><dd className="audit-page__event-id"><code>{event.event_id}</code><button type="button" onClick={() => void copyEventId(event.event_id)} aria-label={copiedEventId === event.event_id ? "Event ID copied" : "Copy event ID"} title={copiedEventId === event.event_id ? "Copied" : "Copy event ID"}>{copiedEventId === event.event_id ? <Check size={12} /> : <Copy size={12} />}{copiedEventId === event.event_id ? "Copied" : "Copy ID"}</button></dd></div>
                         <div><dt>Actor</dt><dd>{event.actor_label || "Unknown actor"}{event.actor_user_id === null ? "" : " · Profile #" + event.actor_user_id}</dd></div>
                         <div><dt>Target</dt><dd>{event.target_label || (event.target_user_id === null ? "Not applicable" : "Profile #" + event.target_user_id)}</dd></div>
                         <div><dt>Incident</dt><dd>{event.incident_id === null ? "Not applicable" : "#" + event.incident_id}</dd></div>
