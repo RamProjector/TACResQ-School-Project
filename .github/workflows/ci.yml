@@ -209,6 +209,9 @@ jobs:
       - name: Check Admin analytics authorization and privacy contract
         run: python3 tools/test_admin_analytics_contract.py
 
+      - name: Check administrator TOTP MFA enforcement
+        run: python3 tools/test_admin_totp_contract.py
+
       - name: Check dependency health monitoring safety contract
         run: python3 tools/test_dependency_health_monitoring_contract.py
       - name: Check administrator dependency health visibility contract
