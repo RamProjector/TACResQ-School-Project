@@ -11,8 +11,14 @@ class AddedLineParserTests(unittest.TestCase):
   patch="@@ -4,2 +4,3 @@\n old_line\n-removed()\n+added_one()\n+added_two()\n"
   self.assertEqual(list(reviewer.added_lines(patch)),[(5,"added_one()"),(6,"added_two()")])
  def test_critical_service_role_pattern_is_detected(self):
-  findings=reviewer.review_file("app/src/main/java/Example.kt",'+val key = "SUPABASE_SERVICE_ROLE_KEY"\n')
+  findings=reviewer.review_file("app/src/main/java/Example.kt",'+val key = "sb_secret_12345678901234567890"\n')
   self.assertTrue(any(f.severity=="CRITICAL" and f.rule=="SUPABASE_SERVICE_ROLE" for f in findings))
+ def test_server_environment_variable_name_is_not_a_secret_value(self):
+  findings=reviewer.review_file("supabase/functions/tacresq-notify/index.ts",'+const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");\n')
+  self.assertFalse(any(f.rule=="SUPABASE_SERVICE_ROLE" for f in findings))
+ def test_pem_delimiter_regex_is_not_a_private_key(self):
+  findings=reviewer.review_file("supabase/functions/tacresq-notify/index.ts",'+const key = value.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, "");\n')
+  self.assertFalse(any(f.rule=="PRIVATE_KEY" for f in findings))
  def test_publishable_key_identifier_is_not_flagged_as_service_role(self):
   findings=reviewer.review_file("app/src/main/java/Example.kt",'+const val SUPABASE_PUBLISHABLE_KEY = "sb_publishable_demo"\n')
   self.assertFalse(any(f.rule=="SUPABASE_SERVICE_ROLE" for f in findings))
