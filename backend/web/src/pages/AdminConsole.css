@@ -340,3 +340,6 @@
   .admin-security-status__revocation > button { align-self:flex-start; }
   .admin-security-status__confirm { width:100%; }
 }
+.admin-health-summary { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:6px 16px; margin:0 22px 14px; padding:12px 14px; border:1px solid #e3e8df; border-radius:7px; background:#f8faf5; }
+.admin-health-summary strong { color:#405b52; font-size:11px; }
+.admin-health-summary span { color:#7b8983; font-size:9px; line-height:1.5; }
