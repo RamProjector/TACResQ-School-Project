@@ -52,6 +52,12 @@ const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashb
 ];
 const roleOptions: AdminManagedRole[] = ["requester", "responder", "driver", "dispatcher"];
 
+function resolveAdminSection(search: string): AdminSection {
+  const route = new URLSearchParams(search).get("adminPage") ?? "overview";
+  if (route === "audit-logs") return "audit";
+  return ["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview";
+}
+
 function displayRole(role: string) {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
@@ -113,10 +119,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     }, 250);
     return () => window.clearTimeout(timer);
   }, [query]);
-  const [activeSection, setActiveSection] = useState<AdminSection>(() => {
-    const route = new URLSearchParams(window.location.search).get("adminPage") ?? "overview";
-    return route === "audit-logs" ? "audit" : (["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview");
-  });
+  const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
+
+  // Keep the selected section in sync with browser Back/Forward navigation.
+  useEffect(() => {
+    const syncSectionFromUrl = () => setActiveSection(resolveAdminSection(window.location.search));
+    window.addEventListener("popstate", syncSectionFromUrl);
+    return () => window.removeEventListener("popstate", syncSectionFromUrl);
+  }, []);
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
