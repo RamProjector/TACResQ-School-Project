@@ -894,6 +894,11 @@ BEGIN
   END IF;
 
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000128', true);
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal2","amr":[{"method":"password","timestamp":1},{"method":"totp","timestamp":2}]}',
+    true
+  );
   -- Function EXECUTE revocation is asserted above via has_function_privilege.
   -- The dedicated SET ROLE authenticated test below verifies runtime denial.
 
@@ -965,6 +970,11 @@ BEGIN
 
   -- Ordinary authenticated profiles must not list users or change another role.
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000130', true);
+  PERFORM set_config(
+    'request.jwt.claims',
+    '{"aal":"aal1","amr":[{"method":"password","timestamp":3}]}',
+    true
+  );
   denied := false;
   BEGIN
     PERFORM public.api_admin_list_users();
@@ -1049,6 +1059,11 @@ BEGIN
     ) AS ordinary_principals(auth_id, role_name)
   LOOP
     PERFORM set_config('request.jwt.claim.sub', principal.auth_id::text, true);
+    PERFORM set_config(
+      'request.jwt.claims',
+      '{"aal":"aal1","amr":[{"method":"password","timestamp":4}]}',
+      true
+    );
 
     denied := false;
     BEGIN
