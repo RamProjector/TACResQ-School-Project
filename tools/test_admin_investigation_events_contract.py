@@ -6,6 +6,10 @@ page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 
 required_sql = (
+    "CREATE INDEX IF NOT EXISTS incident_status_logs_created_idx",
+    "CREATE INDEX IF NOT EXISTS incident_assignment_events_created_idx",
+    "CREATE INDEX IF NOT EXISTS incident_claimability_logs_created_idx",
+    "CREATE INDEX IF NOT EXISTS incident_request_edit_logs_created_idx",
     "CREATE POLICY incident_assignment_events_admin_require_aal2",
     "AS RESTRICTIVE",
     "private.tacresq_actor_role()",
