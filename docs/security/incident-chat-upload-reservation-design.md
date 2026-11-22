@@ -180,6 +180,40 @@ Orphan cleanup grace and attachment retention are separate policy decisions. No 
 
 A test result must be recorded against the exact commit and environment. Static source-contract checks alone are not sufficient evidence for actual Supabase Storage behavior.
 
+## Initial configurable defaults and rationale
+
+The first implementation uses the existing image/message policy as its baseline rather than introducing a new daily quota:
+
+- Reservation lease: 900 seconds (15 minutes), configurable in the private policy row. This is an operational retry window, not a claim that 15 minutes is an industry standard. It may be adjusted after mobile upload-duration and retry measurements.
+- Upload reservations: at most 20 new image operations per profile per rolling minute, configurable up to the existing 20-message-per-minute ceiling. This reuses the current message flood-guard ceiling and moves the check before Storage accepts the object; it does not add a separate daily image quota.
+- Per-object size remains 5 MiB. No aggregate daily byte budget or concurrent-reservation ceiling is introduced without usage evidence.
+- The reservation is idempotent for the same profile/client-message UUID and binds one exact object path, MIME type, and declared size.
+- Expiry blocks a new Storage INSERT. It does not block finalization of an object that Storage already accepted while the reservation was valid.
+- The policy row is private and is not exposed as an Admin setting. Changing it requires an authorized database-operator action and should be recorded operationally.
+
+This baseline constrains pre-message image upload attempts to the existing message-rate policy while preserving the option to tune the retry lease. It does not eliminate orphan objects or replace a future evidence-based aggregate storage budget.
+
+## Current implementation status in this PR
+
+Implemented on the PR branch:
+
+- Private reservation ledger and private policy row.
+- Authenticated reservation RPC deriving profile identity from auth.uid().
+- Same per-profile advisory transaction lock used by message sends.
+- Idempotent reservation keyed to the client message UUID.
+- Storage INSERT policy requiring a live matching reservation and matching caller/path/MIME/size.
+- Image-message finalization requires the matching reservation and consumes it in the same database transaction as message insertion.
+- Android now performs reserve → Storage upload → message finalization.
+- SQL Storage authorization regression fixture and static source-contract checks updated.
+
+Still requiring CI and isolated Supabase acceptance:
+
+- Full migration replay and RLS policy execution against the repository's PostgreSQL harness.
+- Android debug/release compilation and existing unit tests.
+- Real Storage upload/download, ambiguous retry, delayed finalization, and authorization tests in an isolated non-production Supabase project.
+- Content-signature and safe image-decoding validation are not implemented by this reservation change. MIME and size metadata remain enforced, but client-provided MIME metadata alone is not proof of file content.
+- No production migration, Storage policy, or live bucket setting has been applied.
+
 ## Implementation contract
 
 1. Add a private reservation ledger that is not directly readable or writable by ordinary client roles.
