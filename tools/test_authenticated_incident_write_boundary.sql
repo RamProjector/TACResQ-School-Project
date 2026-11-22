@@ -112,6 +112,7 @@ DECLARE
   result jsonb;
   final_status text;
   final_claimable boolean;
+  direct_update_denied boolean := false;
 BEGIN
   SELECT i.id INTO incident_id
   FROM public.incidents i
@@ -139,8 +140,6 @@ BEGIN
   BEGIN
     -- Dispatcher role does not restore direct table DML: status changes must
   -- use the coordinated RPC so team snapshots and duty states stay synchronized.
-  DECLARE
-    direct_update_denied boolean := false;
   BEGIN
     UPDATE public.incidents SET status = 'on_scene' WHERE id = incident_id;
   EXCEPTION WHEN insufficient_privilege THEN
