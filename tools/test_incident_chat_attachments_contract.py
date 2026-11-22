@@ -49,6 +49,7 @@ for label, passed in {
         and "recent_message_count + recent_reservation_count >= uploads_limit" in reservation_migration,
     "text RPC rejects image reservation key reuse": "Client message ID is already reserved for an image attachment" in reservation_migration
         and "existing_message.attachment_path IS NOT NULL" in reservation_migration,
+    "reservation RPC rejects existing message key reuse": "Client message ID is already used by a text or image message" in reservation_migration,
 }.items():
     assert passed, f"Upload reservation migration contract failed: {label}"
 
