@@ -87,9 +87,12 @@ DO $auth_profile_trigger_contract$
 DECLARE
   trigger_enabled "char";
   function_is_definer boolean;
+  function_settings text[];
+  function_source text;
+  signup_function oid;
 BEGIN
-  SELECT t.tgenabled, p.prosecdef
-    INTO trigger_enabled, function_is_definer
+  SELECT t.tgenabled, p.prosecdef, p.oid
+    INTO trigger_enabled, function_is_definer, signup_function
     FROM pg_catalog.pg_trigger AS t
     JOIN pg_catalog.pg_proc AS p ON p.oid = t.tgfoid
    WHERE t.tgrelid = 'auth.users'::regclass
@@ -105,8 +108,27 @@ BEGIN
   IF function_is_definer IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'Auth signup trigger function must retain its SECURITY DEFINER execution mode';
   END IF;
-  IF to_regprocedure('public.tacresq_profile_on_signup()') IS NULL THEN
-    RAISE EXCEPTION 'Auth signup trigger function public.tacresq_profile_on_signup() is missing';
+  IF signup_function IS DISTINCT FROM to_regprocedure('public.tacresq_profile_on_signup()') THEN
+    RAISE EXCEPTION 'Auth signup trigger must call public.tacresq_profile_on_signup()';
+  END IF;
+
+  SELECT p.proconfig, p.prosrc
+    INTO function_settings, function_source
+    FROM pg_catalog.pg_proc AS p
+   WHERE p.oid = signup_function;
+
+  IF NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'Auth signup SECURITY DEFINER function must pin search_path to pg_catalog';
+  END IF;
+  IF function_source NOT LIKE '%ON CONFLICT (auth_user_id) DO NOTHING%'
+     OR function_source NOT LIKE '%''requester''%'
+     OR function_source NOT LIKE '%pg_catalog.regexp_replace%'
+     OR function_source NOT LIKE '%pg_catalog.lower%' THEN
+    RAISE EXCEPTION 'Final Auth signup function lost its conflict-safe requester role or qualified normalization contract';
+  END IF;
+  IF has_function_privilege('authenticated', signup_function, 'EXECUTE')
+     OR has_function_privilege('anon', signup_function, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Auth signup trigger function must not be directly executable by client roles';
   END IF;
 END;
 $auth_profile_trigger_contract$;
