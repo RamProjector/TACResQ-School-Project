@@ -121,6 +121,9 @@ for required in (
     "active_reservation_without_object_count",
     "expired_reservation_without_object_count",
     "consumed_reservation_without_message_count",
+    "message_metadata_mismatch_count",
+    "reservation_metadata_mismatch_count",
+    "messages_with_missing_object_count",
 ):
     assert required in inventory, f"Read-only attachment inventory missing: {required}"
 assert "o.name AS" not in inventory, "Attachment inventory must not disclose raw object paths"
