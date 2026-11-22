@@ -44,6 +44,25 @@ REVOKE ALL PRIVILEGES ON SEQUENCE public.app_action_audit_logs_id_seq
 COMMENT ON TABLE public.app_action_audit_logs IS
   'Append-only metadata-only audit of committed app actions not already covered by dedicated domain event histories. Excludes content, credentials, tokens, and coordinates.';
 
+CREATE OR REPLACE FUNCTION private.tacresq_reject_app_action_audit_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+BEGIN
+  RAISE EXCEPTION 'App-action audit history is append-only'
+    USING ERRCODE = '42501';
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION private.tacresq_reject_app_action_audit_mutation()
+  FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE TRIGGER tacresq_app_action_audit_immutable
+  BEFORE UPDATE OR DELETE ON public.app_action_audit_logs
+  FOR EACH ROW EXECUTE FUNCTION private.tacresq_reject_app_action_audit_mutation();
+
 CREATE OR REPLACE FUNCTION private.tacresq_record_app_action_audit()
 RETURNS trigger
 LANGUAGE plpgsql
