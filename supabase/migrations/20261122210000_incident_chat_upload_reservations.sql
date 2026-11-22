@@ -431,6 +431,8 @@ DECLARE
   recent_message_count integer;
   recent_reservation_count integer;
   uploads_limit integer;
+  reservation_found boolean;
+  enforcement_enabled boolean;
 BEGIN
   SELECT p.id
     INTO actor_profile_id
