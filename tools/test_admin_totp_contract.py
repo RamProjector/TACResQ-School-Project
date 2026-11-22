@@ -68,6 +68,7 @@ for requirement in (
     "summary.pending + summary.active + summary.resolved + summary.cancelled > summary.total_requests",
 ):
     assert requirement in analytics_validator, f"Analytics response validation omits {requirement}"
+assert r"/^\\d{4}-\\d{2}-\\d{2}$/" in analytics_validator, "Analytics day validation must use a real YYYY-MM-DD digit pattern."
 assert 'new Date(point.day + "T00:00:00Z")' in analytics_validator, "Analytics day keys must be validated as timezone-neutral dates."
 assert 'new Date(point.day + "T00:00:00Z").toLocaleDateString' in admin and 'timeZone: "UTC"' in admin, "Daily analytics labels must not shift based on the administrator's browser timezone."
 assert "admin-audit-panel" not in admin
