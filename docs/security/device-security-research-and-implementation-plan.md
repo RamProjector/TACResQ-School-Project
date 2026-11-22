@@ -222,9 +222,11 @@ Before choosing the exact implementation, inspect the current Supabase project c
 ### Required integration inventory before coding
 
 1. Enumerate every direct Supabase RPC path used by Android and the admin/dispatcher web client, then identify which operations actually need device proof. Do not make emergency request creation dependent on proof.
-2. Confirm the profile mapping used by `api_me()` and how its profile identifier relates to the registry's `profile_id`; do not assume Laravel's Eloquent user ID is the same identifier.
+2. **Profile mapping confirmed from the migration source:** `public.profiles.auth_user_id` is the UUID foreign key to `auth.users(id)`, while `public.profiles.id` is the bigint returned by `api_me()` and referenced by the device registry's `profile_id`. Resolve the registry profile by matching the verified `auth.uid()` to `profiles.auth_user_id`, then use that row's bigint `id`. Never use the Supabase Auth UUID or Laravel Eloquent user ID as `profile_id`.
 3. Inspect the existing Supabase migration conventions for function ownership, grants, fixed search paths, and tests. Keep verifier functions narrowly callable and deny direct table access.
 4. Decide how the verifier obtains a trusted session ID and how revoked sessions are checked at sensitive-operation boundaries. Supabase Auth `/user` validation alone does not expose the `session_id` claim in the current bridge implementation.
 5. Add tests for both the direct-Supabase path and optional bridge path, including a proof that a caller cannot use a different profile/session/device ID and that direct calls cannot bypass any intended enforcement.
+
+**Schema detail confirmed:** `device_sessions.auth_session_id` is `NOT NULL` and unique; `device_challenges.auth_session_id` is nullable in the foundation migration. A registration challenge may have no device ID, but issuance and proof still need to bind it to a verified Supabase session. Do not interpret the nullable challenge column as permission to accept an unbound session.
 
 **Current implementation status:** no challenge issuance endpoint, signature verifier, device-session binding, or sensitive-operation enforcement has been implemented. The Laravel bridge and Sanctum logout endpoints are not substitutes for those controls. Keep the registry private until the Supabase-side transaction and request-path enforcement are complete.
