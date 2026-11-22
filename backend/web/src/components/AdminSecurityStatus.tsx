@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { AlertCircle, CheckCircle2, Clock3, LogOut, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
@@ -27,8 +27,10 @@ export default function AdminSecurityStatus() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmGlobalSignOut, setConfirmGlobalSignOut] = useState(false);
+  const refreshVersion = useRef(0);
 
   const refresh = useCallback(async () => {
+    const requestId = ++refreshVersion.current;
     setLoading(true);
     setError(null);
     try {
@@ -44,6 +46,7 @@ export default function AdminSecurityStatus() {
         typeof method === "string" ? method === "totp" :
           typeof method === "object" && method !== null && method.method === "totp"
       );
+      if (requestId !== refreshVersion.current) return;
       setSnapshot({
         currentLevel: aalResult.data.currentLevel ?? null,
         usedTotp,
@@ -54,15 +57,20 @@ export default function AdminSecurityStatus() {
         })),
       });
     } catch (cause) {
+      if (requestId !== refreshVersion.current) return;
       setError(cause instanceof Error ? cause.message : "Could not retrieve the current MFA status.");
       setSnapshot(null);
     } finally {
-      setLoading(false);
+      if (requestId === refreshVersion.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void refresh();
+    return () => {
+      // Ignore a response from an earlier request after unmount or effect cleanup.
+      refreshVersion.current += 1;
+    };
   }, [refresh]);
 
   const verifiedFactors = snapshot?.factors.filter((factor) => factor.status === "verified") ?? [];
