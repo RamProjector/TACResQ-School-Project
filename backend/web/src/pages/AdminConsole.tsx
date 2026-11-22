@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Activity,
@@ -8,7 +8,6 @@ import {
   ShieldAlert,
   ArrowDownUp,
   CheckCircle2,
-  Clock3,
   LoaderCircle,
   LogOut,
   RefreshCw,
@@ -17,10 +16,10 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Brand } from "@/components/Brand";\nimport AuditLogsPage from "@/pages/AuditLogsPage";
+import { Brand } from "@/components/Brand";
+import AuditLogsPage from "@/pages/AuditLogsPage";
 import {
   getAdminAnalyticsSummary,
-  getAdminAuditLogs,
   getAdminDependencyHealth,
   getAdminUsersPage,
   getMyProfile,
@@ -28,7 +27,6 @@ import {
 } from "@/lib/supabase";
 import type {
   AdminAnalyticsSummary,
-  AdminAuditEvent,
   AdminDependencyHealth,
   AdminManagedRole,
   AdminUser,
@@ -70,8 +68,6 @@ function initials(name: string) {
 
 export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) {
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [audit, setAudit] = useState<AdminAuditEvent[]>([]);
-  const [auditQuery, setAuditQuery] = useState("");
   const [dependencyHealth, setDependencyHealth] = useState<AdminDependencyHealth | null>(null);
   const [dependencyHealthError, setDependencyHealthError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,7 +127,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       if (requestId !== requestVersion.current) return;
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
-      setAudit(nextAudit);
       // Keep provider diagnostics independent from the core account/audit refresh.
       // A slow health endpoint must not keep the whole Admin workspace in a loading state.
       void getAdminDependencyHealth()
@@ -150,7 +145,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       // Never keep privileged data visible after an authorization or connection failure.
       setUsers([]);
       setTotalUsers(0);
-      setAudit([]);
       setDependencyHealth(null);
       setDependencyHealthError("Diagnostics were not refreshed because administrator data could not be verified.");
       setError(cause instanceof Error ? cause.message : "The Admin service could not load its data.");
@@ -164,7 +158,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   useEffect(() => {
     const syncSection = () => {
-      const route = window.location.hash.replace(/^#\\/admin\\/?/, "");
+      const route = window.location.hash.slice(1).replace(/^\/admin\/?/, "");
       const next: AdminSection = route === "audit-logs" ? "audit" : (["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview");
       setActiveSection(next);
     };
@@ -204,7 +198,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         const currentProfile = await getMyProfile();
         if (currentProfile.role !== "admin") {
           setUsers([]);
-          setAudit([]);
           setTarget(null);
           setError("Administrator access has been revoked. Sign in again with an authorized account.");
           onSignOut();
@@ -378,7 +371,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident.</p>
           </section>
 
-          {activeSection === "audit" && <AuditLogsPage profile={profile} />}\n          {activeSection === "analytics" && (
+          {activeSection === "audit" && <AuditLogsPage profile={profile} />}
+          {activeSection === "analytics" && (
             <section className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title" aria-live="polite">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div>
