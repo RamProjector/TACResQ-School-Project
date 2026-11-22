@@ -77,7 +77,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [activeSection, setActiveSection] = useState<AdminSection>(() => {
-    const route = window.location.hash.slice(1).replace(/^\/admin\/?/, "");
+    const route = new URLSearchParams(window.location.search).get("adminPage") ?? "overview";
     return route === "audit-logs" ? "audit" : (["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview");
   });
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
@@ -166,13 +166,13 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   useEffect(() => {
     const syncSection = () => {
-      const route = window.location.hash.slice(1).replace(/^\/admin\/?/, "");
+    const route = new URLSearchParams(window.location.search).get("adminPage") ?? "overview";
       const next: AdminSection = route === "audit-logs" ? "audit" : (["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview");
       setActiveSection(next);
     };
     syncSection();
-    window.addEventListener("hashchange", syncSection);
-    return () => window.removeEventListener("hashchange", syncSection);
+    window.addEventListener("popstate", syncSection);
+    return () => window.removeEventListener("popstate", syncSection);
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
@@ -270,7 +270,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         <div className="admin-sidebar__label">ADMINISTRATION</div>
         <nav className="admin-navigation" aria-label="Admin sections">
           {adminSections.map(({ id, label, icon: Icon }) => (
-            <button key={id} type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => { setActiveSection(id); window.location.hash = id === "audit" ? "/admin/audit-logs" : "/admin/" + id; }}>
+            <button key={id} type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => { setActiveSection(id); const url = new URL(window.location.href); url.searchParams.set("adminPage", id === "audit" ? "audit-logs" : id); window.history.pushState({}, "", url); }}>
               <Icon size={17} aria-hidden="true" /><span>{label}</span>
             </button>
           ))}
