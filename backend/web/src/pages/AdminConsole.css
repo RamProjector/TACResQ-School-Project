@@ -324,3 +324,19 @@
   .admin-security-status__backup { flex-direction:column; }
   .admin-security-status__backup .admin-refresh { align-self:flex-start; }
 }
+
+
+/* Confirmed, current-account-only global Supabase session revocation. */
+.admin-security-status__revocation { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-top:18px; padding:16px; border:1px solid #eadbd4; border-radius:7px; background:#fffaf7; }
+.admin-security-status__revocation h3 { margin:0; color:#40575a; font:600 15px var(--display); }
+.admin-security-status__revocation p { max-width:760px; margin:7px 0 0; color:#718081; font-size:10px; line-height:1.6; }
+.admin-security-status__danger-action { border-color:#c98774 !important; color:#934b3b !important; background:#fff !important; }
+.admin-security-status__danger-action:hover:not(:disabled) { background:#fff2ed !important; }
+.admin-security-status__confirm { display:flex; max-width:430px; flex-direction:column; gap:10px; }
+.admin-security-status__confirm p { margin:0; }
+.admin-security-status__confirm strong { color:#934b3b; }
+@media (max-width:640px) {
+  .admin-security-status__revocation { flex-direction:column; }
+  .admin-security-status__revocation > button { align-self:flex-start; }
+  .admin-security-status__confirm { width:100%; }
+}
