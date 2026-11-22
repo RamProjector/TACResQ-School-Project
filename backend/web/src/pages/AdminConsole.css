@@ -282,3 +282,29 @@
   .audit-page__pagination { flex-direction:column; align-items:stretch; }
   .audit-page__pagination > div { justify-content:space-between; }
 }
+
+
+/* Live, read-only administrator MFA session status */
+.admin-security-status { margin-top:18px; }
+.admin-security-status .admin-panel__heading { align-items:center; }
+.admin-security-status__grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.admin-security-status__item { display:flex; min-width:0; flex-direction:column; gap:7px; padding:16px; border:1px solid #e3e8df; border-radius:7px; background:#fbfcf8; }
+.admin-security-status__item > span,.admin-security-status__factor-list h3 { color:#7e8987; font:600 9px var(--mono); letter-spacing:.08em; text-transform:uppercase; }
+.admin-security-status__item strong { color:var(--ink-deep); font-size:16px; }
+.admin-security-status__item small,.admin-security-status__factor-list li small { color:#718081; font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+.admin-security-status__factor-list { margin-top:20px; }
+.admin-security-status__factor-list h3 { margin:0 0 10px; }
+.admin-security-status__factor-list > p { color:#718081; font-size:12px; }
+.admin-security-status__factor-list ul { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.admin-security-status__factor-list li { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid #e5e9e2; border-radius:6px; }
+.admin-security-status__factor-icon { display:grid; width:30px; height:30px; flex:0 0 auto; place-items:center; border-radius:50%; color:#477b60; background:#e8f1e8; }
+.admin-security-status__factor-list li > span:last-child { display:flex; min-width:0; flex-direction:column; gap:3px; }
+.admin-security-status__factor-list li strong { color:#34494d; font-size:11px; }
+.admin-security-status__note,.admin-security-status__footnote { color:#788581; font-size:10px; line-height:1.6; }
+.admin-security-status__footnote { margin:16px 0 0; padding-top:12px; border-top:1px solid #e7eae3; }
+.admin-security-status__message { display:flex; align-items:center; gap:8px; color:#718081; font-size:12px; }
+.admin-security-status__message--error { color:#a44737; }
+@media (max-width:640px) {
+  .admin-security-status__grid { grid-template-columns:1fr; }
+  .admin-security-status .admin-panel__heading { align-items:flex-start; flex-direction:column; }
+}
