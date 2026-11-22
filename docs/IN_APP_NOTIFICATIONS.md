@@ -81,3 +81,8 @@ The Edge Function has no explicit request-body size limit, per-account/per-incid
 
 The source mirror and documentation update do not deploy, disable, or reconfigure the live function. No Firebase credentials, notification records, or production delivery settings were changed.
 
+### Repository caller audit (2026-11-22)
+
+A repository-wide code search on the default branch found no tracked source reference to the Edge Function slug `tacresq-notify`, and no `incident_assigned` caller payload wired to that function. The tracked Android notification flow instead uses the persistent inbox/realtime refresh path, while the documented server delivery implementation is the Laravel queue dispatcher.
+
+This is evidence that there is no obvious in-repository caller in the searched branch; it is **not** proof that the deployed function is unused. Supabase Dashboard invocations, external schedulers, manually configured webhooks, older installed clients, and third-party workflows are outside GitHub source search. Before disabling the function, inspect its invocation logs over a representative operating period and reconcile each caller with the current Android, web, and Laravel release versions. If no external caller is found, schedule retirement as a separate reviewed change rather than silently deleting the function.
