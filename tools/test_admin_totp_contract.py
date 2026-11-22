@@ -40,6 +40,7 @@ assert 'getAdminAuditLogsPage(' in audit_page and "const PAGE_SIZE = 25" in audi
 assert "getAdminAuditLogsPage" in supabase_client
 assert "admin-audit-panel" not in admin
 assert "api_admin_list_audit_logs_page" in supabase_client
+assert "Admin profile ID" in audit_page and "Target profile ID" in audit_page
 assert "cannot be edited or deleted here" in audit_page
 
 for marker in (
@@ -127,6 +128,8 @@ for requirement in (
     "a.target_user_id::text",
     "p_from",
     "p_to",
+    "p_actor_user_id",
+    "p_target_user_id",
     "jsonb_build_object",
     "total_count",
 ):
