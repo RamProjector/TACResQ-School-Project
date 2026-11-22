@@ -38,9 +38,9 @@ REVOKE ALL ON FUNCTION private.tacresq_require_admin_mfa()
 
 -- Preserve the reviewed implementations as private internal functions. Their
 -- old client grants are removed; only the MFA-enforcing wrappers remain callable.
-ALTER FUNCTION public.api_admin_list_users()
-  RENAME TO api_admin_list_users_internal;
-REVOKE ALL ON FUNCTION public.api_admin_list_users_internal()
+-- Keep the legacy unbounded RPC name for compatibility, but it remains
+-- explicitly unavailable to every client role.
+REVOKE ALL ON FUNCTION public.api_admin_list_users()
   FROM PUBLIC, anon, authenticated;
 
 ALTER FUNCTION public.api_admin_list_users_page(integer, integer, text, text)
