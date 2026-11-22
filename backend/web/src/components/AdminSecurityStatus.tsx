@@ -28,6 +28,7 @@ export default function AdminSecurityStatus() {
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmGlobalSignOut, setConfirmGlobalSignOut] = useState(false);
   const refreshVersion = useRef(0);
+  const pendingEnrollmentId = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     const requestId = ++refreshVersion.current;
@@ -73,6 +74,13 @@ export default function AdminSecurityStatus() {
     };
   }, [refresh]);
 
+  useEffect(() => () => {
+    // Navigating away must not leave an abandoned, unverified factor behind.
+    // This is best-effort cleanup; Supabase remains the authority on factor state.
+    const factorId = pendingEnrollmentId.current;
+    if (factorId) void getSupabase().auth.mfa.unenroll({ factorId });
+  }, []);
+
   const verifiedFactors = snapshot?.factors.filter((factor) => factor.status === "verified") ?? [];
   const pendingFactors = snapshot?.factors.filter((factor) => factor.status !== "verified") ?? [];
 
@@ -103,6 +111,7 @@ export default function AdminSecurityStatus() {
         friendlyName: `TACResQ Backup ${suffix}`,
       });
       if (enrollError) throw enrollError;
+      pendingEnrollmentId.current = data.id;
       setEnrollment({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
       setVerificationCode("");
     } catch (cause) {
@@ -134,6 +143,7 @@ export default function AdminSecurityStatus() {
       if (data.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("The backup authenticator was not confirmed for this session. Please try again.");
       }
+      pendingEnrollmentId.current = null;
       setEnrollment(null);
       setVerificationCode("");
       setNotice("Backup authenticator verified and added.");
@@ -179,6 +189,7 @@ export default function AdminSecurityStatus() {
     try {
       const { error: unenrollError } = await getSupabase().auth.mfa.unenroll({ factorId: enrollment.factorId });
       if (unenrollError) throw unenrollError;
+      pendingEnrollmentId.current = null;
       setEnrollment(null);
       setVerificationCode("");
       setNotice("Unverified backup enrollment cancelled.");
