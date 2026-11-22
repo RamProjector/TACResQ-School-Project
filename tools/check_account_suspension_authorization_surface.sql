@@ -23,7 +23,7 @@ SELECT
   has_table_privilege('authenticated', c.oid, 'DELETE') AS authenticated_delete,
   coalesce((
     SELECT string_agg(
-      format('%s [%s] USING=%s CHECK=%s', pol.policyname, pol.cmd, coalesce(pol.qual, '—'), coalesce(pol.with_check, '—')),
+      format('%s [%s %s] USING=%s CHECK=%s', pol.policyname, pol.permissive, pol.cmd, coalesce(pol.qual, '—'), coalesce(pol.with_check, '—')),
       E'\n' ORDER BY pol.policyname
     )
     FROM pg_catalog.pg_policies AS pol
@@ -38,6 +38,7 @@ ORDER BY c.relname;
 \echo '=== Supabase Storage object policies ==='
 SELECT
   pol.policyname,
+  pol.permissive,
   pol.cmd,
   pol.roles,
   pol.qual,
