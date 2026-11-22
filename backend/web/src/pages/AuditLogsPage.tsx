@@ -84,7 +84,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [refreshVersion, setRefreshVersion] = useState(0);\n  const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -169,7 +169,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           setLoading(true);
           setRefreshVersion((current) => current + 1);
         }} disabled={loading}>
-          <RefreshCw size={15} /> Refresh
+          <RefreshCw size={15} className={loading ? "admin-spin" : undefined} /> {loading ? "Refreshing…" : "Refresh"}
         </button>
       </div>
 
