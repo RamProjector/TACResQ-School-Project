@@ -285,3 +285,19 @@ This is a deliberately conservative first rollout. If later threat modeling iden
 5. Add server-side enforcement and isolated PostgreSQL/HTTP tests before Android or web UI integration. Existing clients must continue operating safely while the registry remains unused.
 
 **Scope decision:** do not add device-proof parameters to the existing emergency/dispatch RPC signatures in this phase. First deliver a narrowly scoped registration and session-binding protocol, prove replay resistance and ownership, then separately propose any additional operation-level enforcement based on a concrete threat and safe fallback.
+
+
+## 14. Cryptographic runtime feasibility (repository-only review)
+
+The current migration baseline enables pgcrypto, but the repository search found no Supabase Edge Function source tree, no Supabase config.toml, and no Deno.serve implementation. This means there is currently no established Edge Function deployment/test convention to extend. Do not assume an Edge Function already exists or that adding a source file alone deploys it.
+
+pgcrypto is useful for secure random bytes and SHA-256 challenge hashing, but its presence does not establish a supported P-256/ES256 signature-verification primitive. Do not implement a home-grown ECDSA verifier in SQL or mistake digest/hash support for public-key signature verification.
+
+**Recommended technical split for the first implementation:**
+- A trusted runtime with a maintained cryptographic library performs public-key signature verification. A Supabase Edge Function using the Web Crypto API is a viable candidate, but it would be a new deployment surface and must be reviewed for project config, JWT verification settings, local test setup, secret handling, rate limiting, and operational observability before adoption.
+- The original user's Supabase JWT must remain the caller identity when the trusted runtime invokes the narrowly scoped database operation. The database independently resolves auth.uid(), profile id, and session_id from the validated request context; it must not trust profile/session identifiers supplied by the client or by a service-role-only request.
+- PostgreSQL performs the atomic challenge consume, key/device/session ownership checks, device/session state changes, and security event insertion in one transaction. The raw challenge and signature must not be persisted or logged.
+- Start with one key algorithm and one platform path. The current schema's allowance for both Ed25519 and ES256 is not evidence that either verifier is implemented. ES256 must explicitly handle the Android Keystore ECDSA signature encoding expected by the chosen Web Crypto/library interface; test the DER-to-raw conversion boundary rather than assuming the formats match.
+- Keep all service credentials out of Android and browser bundles. Do not introduce a paid third-party verification service or a new hosted platform without approval.
+
+**Decision gate before implementation:** confirm the Supabase project's actual function deployment configuration and local CLI availability, select the supported verifier runtime, and prove with an authenticated integration test that the original user JWT reaches Postgres with the expected subject and session claim. If that cannot be demonstrated, keep the registry private and do not ship a partially trusted bridge.
