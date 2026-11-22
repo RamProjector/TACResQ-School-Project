@@ -549,6 +549,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </section>
           )}
           {activeSection === "security" && (
+            <>
             <section className="admin-panel admin-roadmap-panel" aria-live="polite">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><ShieldCheck size={19} /> Security &amp; countermeasures</h2></div>
@@ -561,6 +562,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </div>
             </section>
             <AdminSecurityStatus />
+            </>
           )}
           <footer className="admin-footer"><span>TACRESQ · PRIVILEGED ACCESS</span><span>Server-enforced authorization · No client-side role grants</span></footer>
         </div>
