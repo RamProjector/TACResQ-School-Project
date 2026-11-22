@@ -59,6 +59,6 @@ Auth-provider audit coverage depends on the provider's configured event emission
 2. Verify authorized and unrelated accounts against the live Storage API, including expired reservation denial and safe retry.
 3. Exercise requester, responder, driver, dispatcher, and Admin flows on physical devices/browser with the correct test roles.
 4. Verify real GPS permission denial/recovery, background/foreground transitions, photo picker, network interruption, push delivery, and notification deep links.
-5. Confirm the Android rollout blocks or retires clients that still upload without reservations before applying the restrictive Storage policy to production.
+5. Keep `reservation_enforcement_enabled=false` during staged deployment so legacy clients retain upload-first finalization; enable it only after all supported clients use reservations and older builds are retired or blocked.
 
 No production migration, production data, production Storage policy, or deployment is authorized by this test plan.
