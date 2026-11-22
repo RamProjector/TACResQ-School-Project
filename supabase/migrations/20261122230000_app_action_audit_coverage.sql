@@ -430,7 +430,14 @@ BEGIN
         WHEN 'duty_status_changed' THEN 'Field-unit duty status changed'
         ELSE 'Application action recorded'
       END,
-      jsonb_build_object('outcome', a.outcome, 'metadata', a.metadata)
+      jsonb_build_object(
+        'correlation_id', a.correlation_id,
+        'actor_role', a.actor_role,
+        'target_type', a.target_type,
+        'target_id', a.target_id,
+        'outcome', a.outcome,
+        'metadata', a.metadata
+      )
     FROM public.app_action_audit_logs AS a
     LEFT JOIN public.profiles AS actor ON actor.id = a.actor_profile_id
     LEFT JOIN public.profiles AS target ON target.id = a.target_user_id
