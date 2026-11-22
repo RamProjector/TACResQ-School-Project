@@ -33,7 +33,8 @@ for sensitive_field in ("requester_id", "description", "latitude", "longitude", 
 
 # Restrict function execution to signed-in sessions; no anon or PUBLIC execution.
 assert "REVOKE ALL ON FUNCTION public.api_admin_analytics_summary" in migration
-assert "FROM PUBLIC, anon, authenticated" in migration
+assert "FROM PUBLIC, anon;" in migration
+assert "FROM authenticated;" in migration
 assert "GRANT EXECUTE ON FUNCTION public.api_admin_analytics_summary" in migration
 assert "TO authenticated" in migration
 
