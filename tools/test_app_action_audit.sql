@@ -32,6 +32,10 @@ BEGIN
   UPDATE public.profiles
      SET role = 'responder', duty_status = 'off_duty'
    WHERE id = responder_id;
+  -- Discard the fixture's initial role-provisioning transition; below we
+  -- assert the in-session user-initiated duty-status change separately.
+  DELETE FROM public.app_action_audit_logs
+   WHERE action = 'duty_status_changed' AND target_user_id = responder_id;
   UPDATE public.profiles SET role = 'admin' WHERE id = admin_id;
 
   INSERT INTO public.incidents (
