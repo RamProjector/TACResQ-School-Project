@@ -123,7 +123,7 @@ assert "Already-issued access tokens may remain valid until they expire." in sec
 assert "admin-security-status__danger-action" in security_status
 assert 'factorsResult.data.all.filter((factor) => factor.factor_type === "totp")' in security_status
 assert 'factorsResult.data.all.filter((factor) => factor.factor_type === "totp")' in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
-assert "p_actor_user_id: actorUserId" not in supabase_client.split("export async function getAdminAnalyticsSummary", 1)[1].split("export interface AdminAuditPage", 1)[0]
+assert "p_actor_user_id: actorUserId" not in analytics_validator
 
 for marker in (
     "private.tacresq_require_admin_mfa",
