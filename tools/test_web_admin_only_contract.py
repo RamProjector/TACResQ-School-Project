@@ -17,6 +17,10 @@ assert "<AdminConsole" in home
 assert 'profile.role === "dispatcher"' in home
 assert "TACResQ Android app" in home
 
+# Web sign-out must match Android local-session behavior; global revocation is separate.
+assert 'auth.signOut({ scope: "local" })' in home
+assert "auth.signOut()" not in home
+
 # The deployed static app is the admin portal; no legacy /dispatch dashboard path remains.
 assert "VITE_BASE_PATH=/admin/" in dockerfile
 assert "./public/admin/" in dockerfile
