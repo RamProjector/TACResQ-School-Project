@@ -283,6 +283,37 @@ export default function AdminSecurityStatus() {
           )}
           {actionError && <p className="admin-security-status__message admin-security-status__message--error" role="alert"><AlertCircle size={16} /> {actionError}</p>}
           {notice && <p className="admin-security-status__message admin-security-status__message--success" role="status"><CheckCircle2 size={16} /> {notice}</p>}
+          <section className="admin-security-status__coverage" aria-labelledby="admin-security-coverage-title">
+            <div className="admin-security-status__coverage-heading">
+              <div>
+                <p className="admin-eyebrow">CONTROL COVERAGE</p>
+                <h3 id="admin-security-coverage-title">What the Admin security layer covers</h3>
+                <p>These are implementation facts, not a live security certification. Database enforcement below is defined in this branch's migration; production application has not been verified here.</p>
+              </div>
+            </div>
+            <div className="admin-security-status__coverage-grid">
+              <div className="admin-security-status__coverage-group">
+                <h4><ShieldCheck size={15} /> Defined privileged-access controls</h4>
+                <ul>
+                  <li><strong>TOTP + AAL2 gate</strong><span>Admin RPCs require an authenticated user, a TOTP method in the session claims, AAL2, and an Admin profile role.</span></li>
+                  <li><strong>Protected Admin operations</strong><span>User listing, role changes, audit retrieval, and analytics summary are wrapped by the MFA gate.</span></li>
+                  <li><strong>Audit-table read protection</strong><span>Direct reads of Admin audit records also require TOTP-verified AAL2 claims.</span></li>
+                  <li><strong>Role-change accountability</strong><span>Role changes require a reason and are recorded through the protected Admin operation.</span></li>
+                </ul>
+                <p className="admin-security-status__coverage-caveat">Deployment status: not verified. These protections take effect only after the corresponding database migration is applied to the target Supabase project.</p>
+              </div>
+              <div className="admin-security-status__coverage-group admin-security-status__coverage-group--gaps">
+                <h4><ShieldX size={15} /> Not currently verified or implemented</h4>
+                <ul>
+                  <li><strong>Account suspension</strong><span>No verified Admin suspend/disable-account control is available in this console.</span></li>
+                  <li><strong>Denied-action audit trail</strong><span>Rejected privileged requests are not yet recorded in a trusted, durable Admin event stream.</span></li>
+                  <li><strong>Device-security telemetry</strong><span>No trusted server-side writer currently feeds device-security events into this control center.</span></li>
+                  <li><strong>Backup and restore status</strong><span>Live backup-job and restore-drill evidence is not connected to this page.</span></li>
+                  <li><strong>Push-delivery monitoring</strong><span>FCM delivery attempts and outcomes are not verified by this console.</span></li>
+                </ul>
+              </div>
+            </div>
+          </section>
           <p className="admin-security-status__footnote">Authenticator setup keys and QR codes are shown only while registering a factor. This page cannot remove verified factors or disable MFA. Cancel only removes the unverified factor created by the active setup flow. Global sign-out revokes refreshable sessions; existing access tokens remain valid until expiry.</p>
         </>
       ) : null}
