@@ -230,3 +230,58 @@ Before choosing the exact implementation, inspect the current Supabase project c
 **Schema detail confirmed:** `device_sessions.auth_session_id` is `NOT NULL` and unique; `device_challenges.auth_session_id` is nullable in the foundation migration. A registration challenge may have no device ID, but issuance and proof still need to bind it to a verified Supabase session. Do not interpret the nullable challenge column as permission to accept an unbound session.
 
 **Current implementation status:** no challenge issuance endpoint, signature verifier, device-session binding, or sensitive-operation enforcement has been implemented. The Laravel bridge and Sanctum logout endpoints are not substitutes for those controls. Keep the registry private until the Supabase-side transaction and request-path enforcement are complete.
+
+
+## 13. Client RPC inventory and device-proof scope (verified branch source review)
+
+### Current direct Supabase callers
+
+**Android (app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt)**
+
+The default Retrofit transport calls Supabase PostgREST directly with the current user's bearer token. The opt-in Render bridge covers only a subset; several sensitive operations intentionally bypass it. The current direct RPC surface includes:
+
+- Identity/profile and field operations: api_me, api_set_duty_status, api_my_incidents, api_all_incidents, api_units, api_active_responder_locations.
+- Requester lifecycle: api_create_incident_v4, api_cancel_my_incident, api_update_my_incident.
+- Dispatch and field response: api_update_incident_status, api_assign_incident, api_assign_incident_team, api_release_incident_assignment, api_claim_incident, api_claimable_incidents, api_set_incident_claimable, api_record_location_v2.
+- Notifications and device messaging: api_my_notifications, api_my_notification, api_mark_notification_read, api_register_fcm_token, api_unregister_fcm_token.
+- Incident chat: api_my_incident_messages, api_send_incident_message, api_send_incident_image_message.
+
+Android also reads RLS-protected assignment history and uses Supabase Storage directly for incident image uploads/downloads. Those paths are not protected by a Laravel-only gate either.
+
+**Web admin portal (backend/web/src/lib/supabase.ts)**
+
+The current admin/dashboard RPC callers include api_me, api_all_incidents, api_units, api_active_responder_locations, api_assign_incident, api_admin_list_users_page, api_admin_set_user_role, api_admin_analytics_summary, and api_admin_list_audit_logs. Dependency health is a direct PostgREST fetch. This inventory is the observed current source surface, not a guarantee that every legacy function remains used.
+
+### Existing Google Authenticator control must remain authoritative for Admin
+
+The branch contains migration 20261122123000_require_totp_for_admin_rpcs.sql and AdminMfaGate.tsx contract coverage. The migration requires a Supabase AAL2 JWT with a TOTP entry in amr for the four Admin RPC wrappers (user pagination, role change, audit logs, analytics) and adds a restrictive AAL2/TOTP policy to direct audit-log reads. The previous internal implementations are renamed and their client grants revoked; the legacy unbounded user-list RPC remains unavailable.
+
+Consequences:
+- Keep Google Authenticator TOTP as the Admin step-up factor. Do not add a second device-signature prompt to those same four Admin operations merely to duplicate MFA.
+- A registered device key is not equivalent to AAL2, a TOTP factor, or a verified user identity. Never allow device proof to satisfy the SQL Admin MFA gate.
+- Re-check that the TOTP migration is applied through the approved migration process before treating live Admin RPCs as protected; source presence alone is not deployment evidence.
+
+### Recommended device-proof boundaries
+
+Device proof should initially establish and maintain a cryptographic association between one app installation, one TACResQ profile, and one verified Supabase Auth session. It should not become a blanket prerequisite for ordinary emergency workflows.
+
+| Operation group | Initial device-proof policy | Reason |
+|---|---|---|
+| Device registration, key rotation, device revocation, session-to-device binding | **Require fresh proof** from the relevant key or a separately authenticated recovery path | These operations change the device trust relationship itself. |
+| Admin user-role changes, Admin audit/analytics/user-list RPCs | **Keep TOTP AAL2 mandatory; device proof is supplementary only** | Existing database TOTP enforcement is the authoritative Admin step-up control. |
+| Requester SOS creation and emergency location submission | **Never require device proof** | A missing, unsupported, lost, or newly installed device must not block a request for help. Preserve existing authenticated requester/role validation and idempotency controls. |
+| Responder claim, dispatcher assignment/release, incident status progression, responder location update | **Do not require an interactive step-up in the first rollout** | These are time-sensitive operational actions. Continue enforcing current server-side role, assignment, duty, lifecycle, and incident-lock checks. Device trust may inform monitoring/risk review, but must not replace those checks. |
+| Ordinary incident reads, notifications, and authorized chat | **No new device-proof gate initially** | Avoid breaking dispatch visibility, incident coordination, and notification navigation. Existing RLS and RPC authorization remain mandatory. |
+| Password recovery, account recovery, or a future change to authentication factors | **Require the provider's verified reauthentication/MFA or recovery flow; evaluate device proof as an additional signal** | A device key alone cannot recover an account or override Supabase Auth. |
+
+This is a deliberately conservative first rollout. If later threat modeling identifies a specific high-risk operation that needs device step-up, add it as a narrow server-enforced policy with a fallback/recovery route and emergency-safe failure behavior. Do not implement UI-only checks.
+
+### Remaining implementation blockers
+
+1. Confirm the exact verified Supabase JWT session claim available in the deployed PostgREST request context and test it using a real authenticated request. The current Laravel getUser() bridge validates a token but does not expose verified session_id claims to the bridge controller.
+2. Decide whether challenge issuance/signature verification belongs in a Supabase Edge Function or another trusted server component. The selected path must retain the original user JWT when calling the database, while keeping secret/service-role credentials server-only.
+3. Verify available cryptographic libraries/extensions and deployment conventions before selecting ES256 or Ed25519 verification. The schema currently permits both; the initial implementation should select one supported algorithm rather than claim both are implemented.
+4. Inventory all data surfaces that need device binding, including direct table reads, Storage operations, and any web-only paths—not just named RPCs.
+5. Add server-side enforcement and isolated PostgreSQL/HTTP tests before Android or web UI integration. Existing clients must continue operating safely while the registry remains unused.
+
+**Scope decision:** do not add device-proof parameters to the existing emergency/dispatch RPC signatures in this phase. First deliver a narrowly scoped registration and session-binding protocol, prove replay resistance and ownership, then separately propose any additional operation-level enforcement based on a concrete threat and safe fallback.
