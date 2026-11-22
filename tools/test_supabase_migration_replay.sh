@@ -60,6 +60,7 @@ CREATE TABLE storage.objects (
   bucket_id text NOT NULL,
   name text NOT NULL,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (bucket_id, name),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
