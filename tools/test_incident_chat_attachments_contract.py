@@ -56,6 +56,16 @@ for label, passed in {
 }.items():
     assert passed, f"Upload reservation migration contract failed: {label}"
 
+storage_policy = reservation_migration.split(
+    "CREATE POLICY tacresq_incident_chat_attachment_insert", 1
+)[1]
+assert "private.tacresq_upload_reservation_allows_insert(" in storage_policy, (
+    "Storage INSERT policy must invoke the live reservation validator"
+)
+assert "COALESCE(metadata->>'size', metadata->>'contentLength')" in storage_policy, (
+    "Storage INSERT policy must support the pre-upload contentLength probe"
+)
+
 storage_tests = read("tools/test_incident_chat_storage_policies.sql")
 for required in (
     "public.api_reserve_incident_image_upload(",
