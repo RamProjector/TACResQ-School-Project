@@ -23,6 +23,18 @@ Source review of `SupabaseTacApi.sendIncidentImageMessage` confirms:
 
 The live read-only inventory documented in the lifecycle review found one object, one matching message reference, no path mismatch, and no orphan at the time of inspection. This snapshot does not establish a long-term orphan rate or prove object-byte recoverability.
 
+## Additional source-level constraints
+
+A deeper comparison of the Android transport, current SQL migration, and existing concurrency controls establishes these implementation details:
+
+- The Android method receives a `senderId` to construct the deterministic path, but the database RPC independently resolves the authoritative profile from `auth.uid()` and checks that the path embeds that profile. The reservation RPC must follow the database-side identity pattern; a client-supplied profile ID must never authorize a reservation.
+- The current Storage INSERT policy checks the bucket, path shape, path profile, and current incident-chat membership. It does **not** bind the object to a one-time operation record, so a participant can create multiple distinct UUID paths while still being an authorized chat member.
+- The image-message RPC takes a per-profile advisory transaction lock before its idempotency and message-rate checks. Existing location writers also use one-key advisory locks keyed by profile ID. A future reservation implementation must define a consistent lock namespace/order and avoid introducing deadlocks or accidental cross-feature contention. A reservation lock must serialize quota accounting with other reservations, not assume the message RPC's later lock protects uploads that already happened.
+- The current image-message RPC verifies Storage object path, MIME metadata, and byte-size metadata. It does not compare a server-verified content digest. The Android pending retry state may preserve a local hash, but a client-provided hash is not proof of stored object bytes. If the system requires cryptographic same-content retry binding, the future design must identify a server-verifiable checksum source or explicitly document that current server idempotency is path/MIME/size-based rather than byte-for-byte.
+- The HTTP 409 path is only a signal that the deterministic object name already exists. It is not, by itself, proof that the existing object's bytes match the current device payload. The finalization RPC must verify the existing object against the reservation's authoritative metadata before creating or returning a message.
+
+These points are constraints for the implementation and acceptance tests, not evidence of a confirmed cross-account disclosure.
+
 ## Required reservation contract
 
 ### 1. Reservation creation
@@ -123,6 +135,7 @@ Do not apply a production migration as part of this design-only change.
 - wrong profile, incident, MIME type, path, or expired reservation cannot upload;
 - reservation cannot authorize a second distinct object path;
 - same-path retry does not overwrite and remains idempotent;
+- HTTP 409 with mismatched object metadata or content identity cannot silently create a message;
 - message RPC independently rejects a missing or mismatched Storage object;
 - successful upload plus message consumes the reservation once;
 - upload success plus RPC timeout can safely retry with the same identity;
