@@ -372,3 +372,10 @@
   .audit-page__coverage-details { padding:12px 14px; }
   .audit-page__coverage-grid { grid-template-columns:1fr; gap:14px; }
 }
+
+
+.audit-page__event-id { display:flex; align-items:center; flex-wrap:wrap; gap:7px; }
+.audit-page__event-id code { color:#52645f; font:9px var(--mono); overflow-wrap:anywhere; }
+.audit-page__event-id button { display:inline-flex; align-items:center; gap:4px; min-height:25px; padding:0 7px; border:1px solid #dfe6dd; border-radius:5px; color:#52645f; background:#fff; font-size:9px; cursor:pointer; }
+.audit-page__event-id button:hover { border-color:#aebeb0; background:#f6f9f4; }
+.audit-page__copy-error { margin:9px 0 0 !important; color:#965744 !important; font-size:10px !important; }
