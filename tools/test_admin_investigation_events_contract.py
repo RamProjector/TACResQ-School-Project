@@ -68,7 +68,7 @@ for forbidden in (
     "NEW.message",
     "NEW.latitude",
     "NEW.longitude",
-    "NEW.attachment_path",
+    "jsonb_build_object('attachment_path'",
     "NEW.token",
     "access_token",
     "refresh_token",
