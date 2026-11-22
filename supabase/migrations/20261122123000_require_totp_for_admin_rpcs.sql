@@ -11,7 +11,12 @@ SET search_path = pg_catalog
 AS $function$
 BEGIN
   IF auth.uid() IS NULL
-     OR (auth.jwt() ->> 'aal') IS DISTINCT FROM 'aal2' THEN
+     OR (auth.jwt() ->> 'aal') IS DISTINCT FROM 'aal2'
+     OR NOT EXISTS (
+       SELECT 1
+       FROM jsonb_array_elements(coalesce(auth.jwt() -> 'amr', '[]'::jsonb)) AS method
+       WHERE method ->> 'method' = 'totp'
+     ) THEN
     RAISE EXCEPTION 'Administrator TOTP verification required'
       USING ERRCODE = '42501';
   END IF;
@@ -161,6 +166,13 @@ CREATE POLICY admin_audit_logs_require_aal2
   AS RESTRICTIVE
   FOR SELECT
   TO authenticated
-  USING ((SELECT auth.jwt() ->> 'aal') = 'aal2');
+  USING (
+    (SELECT auth.jwt() ->> 'aal') = 'aal2'
+    AND EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(coalesce((SELECT auth.jwt()) -> 'amr', '[]'::jsonb)) AS method
+      WHERE method ->> 'method' = 'totp'
+    )
+  );
 
 COMMIT;
