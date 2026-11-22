@@ -65,7 +65,7 @@ for marker in (
     "Incident",
     "Assignment",
     "Source",
-    "Date boundaries use Asia/Manila",
+    "date boundaries and displayed times use Asia/Manila",
 ):
     assert marker in page, f"Missing Admin investigation UI contract: {marker}"
 
