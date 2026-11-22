@@ -363,6 +363,50 @@ $image_chat_storage_authorization$;
 
 RESET ROLE;
 
+-- The finalization RPC independently enforces reservations after the switch
+-- is enabled, even if an object somehow exists outside the Storage INSERT path.
+INSERT INTO storage.objects (bucket_id, name, metadata)
+VALUES (
+  'incident-chat-attachments',
+  format(
+    '%s/%s/00000000-0000-4000-8000-000000000210.jpg',
+    current_setting('test.incident_id')::bigint,
+    private.tacresq_auth_profile_id()
+  ),
+  '{"mimetype":"image/jpeg","size":"4"}'::jsonb
+);
+SET ROLE authenticated;
+DO $strict_image_finalization$
+DECLARE
+  denied boolean := false;
+  incident_id bigint := current_setting('test.incident_id')::bigint;
+  responder_profile_id bigint := private.tacresq_auth_profile_id();
+  object_path text;
+BEGIN
+  object_path := format(
+    '%s/%s/00000000-0000-4000-8000-000000000210.jpg',
+    incident_id,
+    responder_profile_id
+  );
+  BEGIN
+    PERFORM public.api_send_incident_image_message(
+      incident_id,
+      'No reservation',
+      object_path,
+      'image/jpeg',
+      4,
+      '00000000-0000-4000-8000-000000000210'::uuid
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Strict finalization must reject an object without a reservation';
+  END IF;
+END;
+$strict_image_finalization$;
+RESET ROLE;
+
 -- An object uploaded while its reservation is valid may be finalized after
 -- the lease expires; expiry blocks new uploads, not delayed message finalization.
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000161', false);
