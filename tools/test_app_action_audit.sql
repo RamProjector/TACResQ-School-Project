@@ -96,6 +96,7 @@ BEGIN
        AND audit.actor_profile_id = requester_id
        AND audit.actor_role = 'requester'
        AND audit.target_id = notification_id::text
+       AND audit.target_user_id = requester_id
        AND audit.metadata->>'notification_type' = 'incident_message'
   ) OR NOT EXISTS (
     SELECT 1 FROM public.app_action_audit_logs AS audit
