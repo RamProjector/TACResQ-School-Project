@@ -210,7 +210,7 @@ export async function getAdminAuditLogs(limit = 100): Promise<AdminAuditEvent[]>
 
 
 export type DependencyProbeResult = {
-  status: "healthy" | "degraded" | "unavailable";
+  status: "healthy" | "slow" | "unavailable";
   duration_ms: number | null;
 };
 
@@ -242,7 +242,7 @@ async function runDependencyProbe(
     };
   } catch {
     return {
-      status: controller.signal.aborted ? "degraded" : "unavailable",
+      status: controller.signal.aborted ? "slow" : "unavailable",
       duration_ms: Math.max(0, Math.round(performance.now() - started)),
     };
   } finally {
