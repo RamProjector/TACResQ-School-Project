@@ -215,7 +215,7 @@ export default function AdminSecurityStatus() {
           )}
           {actionError && <p className="admin-security-status__message admin-security-status__message--error" role="alert"><AlertCircle size={16} /> {actionError}</p>}
           {notice && <p className="admin-security-status__message admin-security-status__message--success" role="status"><CheckCircle2 size={16} /> {notice}</p>}
-          <p className="admin-security-status__footnote">Authenticator setup keys and QR codes are shown only while registering a factor. This page does not expose factor deletion or disable controls, and a verified authenticator is never removed automatically.</p>
+          <p className="admin-security-status__footnote">Authenticator setup keys and QR codes are shown only while registering a factor. This page cannot remove verified factors or disable MFA. Cancel only removes the unverified factor created by the active setup flow.</p>
         </>
       ) : null}
     </section>
