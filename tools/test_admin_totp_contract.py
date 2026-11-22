@@ -38,6 +38,10 @@ assert "Math.ceil(userPage.total_count / pageSize) - 1" in admin, "Out-of-range 
 assert "const [debouncedQuery, setDebouncedQuery] = useState(\"\")" in admin, "User search must keep a debounced query separate from the live input."
 assert "window.setTimeout(() => {" in admin and "setDebouncedQuery(query)" in admin and "}, 250)" in admin, "User directory search must debounce server requests."
 assert "getAdminUsersPage(pageSize, page * pageSize, debouncedQuery, roleFilter)" in admin, "User directory RPC must use the debounced query."
+# Overview dependency probes must run independently of the account-directory RPC.
+refresh_body = admin.split("const refresh = useCallback(async () => {", 1)[1].split("}, [activeSection, page, debouncedQuery, roleFilter]);", 1)[0]
+assert refresh_body.index("void getAdminDependencyHealth()") < refresh_body.index("try {"), "Dependency diagnostics must start before the account-list RPC."
+assert "setDependencyHealth(null)" not in refresh_body.split("} catch (cause) {", 1)[1], "A user-directory failure must not erase independently obtained dependency health."
 assert "!root?.contains(document.activeElement)" in admin and "(event.shiftKey ? last : first).focus()" in admin, "Role-change dialog must recover focus if keyboard navigation escapes its modal boundary."
 
 
