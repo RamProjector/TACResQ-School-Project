@@ -194,7 +194,7 @@ The following source changes have now been committed to the existing PR branch:
 
 ### Deployment dependency
 
-The connected Supabase database does not yet contain the branch's earlier `api_admin_list_audit_logs_page` migration or the new investigation reader migration. Both must be reviewed and applied in order before this branch's Admin Audit Logs page can use the new reader. No migration has been applied to the connected project.
+The connected Supabase database does not yet contain the new investigation reader migration. The required Admin TOTP helper and the six event-source relations are already present in the deployed schema. The updated Audit Logs page depends on `api_admin_list_investigation_events`, not the older `api_admin_list_audit_logs_page` RPC. When deploying the PR, review and apply the pending migration chain in timestamp order; do not apply migrations individually out of order. No migration has been applied to the connected project.
 
 The connected database currently reports zero rows in `auth.audit_log_entries`; the project-level Auth Audit Logs Postgres-storage toggle was not exposed by the available project metadata. Verify Authentication → Audit Logs in Supabase Dashboard before expecting provider events in the feed.
 
