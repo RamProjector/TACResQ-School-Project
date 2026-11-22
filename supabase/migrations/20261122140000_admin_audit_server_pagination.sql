@@ -1,5 +1,8 @@
 BEGIN;
 
+CREATE INDEX IF NOT EXISTS admin_audit_logs_actor_created_idx
+  ON public.admin_audit_logs (actor_user_id, created_at DESC, id DESC);
+
 -- Dedicated, searchable audit-history endpoint. The public wrapper repeats the
 -- shared TOTP + current Admin-role check; the table remains read-only to clients.
 CREATE OR REPLACE FUNCTION public.api_admin_list_audit_logs_page(
