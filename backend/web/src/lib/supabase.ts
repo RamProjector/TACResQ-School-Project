@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export type TacruRole = "requester" | "responder" | "driver" | "dispatcher" | "admin";
 export type AdminManagedRole = Exclude<TacruRole, "admin">;
-export interface AdminUser { id: number; name: string; email: string; phone: string | null; role: TacruRole; duty_status: DutyStatus | null; created_at: string; }
+export interface AdminUser { id: number; name: string; email: string; role: TacruRole; duty_status: DutyStatus | null; created_at: string; }
 export interface AdminAuditEvent { id: number; actor_user_id: number | null; actor_identity: string; target_user_id: number | null; action: "user_role_changed"; old_role: TacruRole; new_role: TacruRole; reason: string; created_at: string; }
 export type AdminInvestigationCategory = "all" | "administrative" | "authentication" | "incident" | "assignment";
 export type AdminInvestigationSource = "all" | "admin_audit_logs" | "supabase_auth_audit_logs" | "incident_status_logs" | "incident_claimability_logs" | "incident_request_edit_logs" | "incident_assignment_events";
@@ -217,7 +217,6 @@ export async function getAdminUsersPage(limit: number, offset: number, query: st
       || !Number.isSafeInteger(user.id) || user.id < 1
       || typeof user.name !== "string" || !user.name.trim()
       || typeof user.email !== "string" || !user.email.trim()
-      || (user.phone !== null && typeof user.phone !== "string")
       || !roles.has(user.role)
       || (user.duty_status !== null && !dutyStatuses.has(user.duty_status))
       || typeof user.created_at !== "string"
