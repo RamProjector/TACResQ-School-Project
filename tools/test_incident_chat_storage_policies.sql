@@ -100,6 +100,20 @@ BEGIN
     RAISE EXCEPTION 'Retrying a reservation must return the same operation identity';
   END IF;
 
+  denied := false;
+  BEGIN
+    PERFORM public.api_send_incident_message(
+      incident_id,
+      'Entrance photo',
+      '00000000-0000-4000-8000-000000000204'::uuid
+    );
+  EXCEPTION WHEN unique_violation THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'A pending image reservation must not be reused as a text-message idempotency key';
+  END IF;
+
   INSERT INTO storage.objects (bucket_id, name, metadata)
   VALUES (
     'incident-chat-attachments',
