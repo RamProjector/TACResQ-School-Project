@@ -147,7 +147,7 @@ Do not promise immutable or tamper-proof storage solely because the UI is read-o
 
 ## 6. Readiness decision
 
-**Ready to implement next:** a protected, bounded Admin investigation read layer and UI integration for the three sources with existing event writers: `admin_audit_logs`, `incident_status_logs`, and `incident_assignment_events), subject to deployed-schema/grant verification.
+**Ready to implement next:** a protected, bounded Admin investigation read layer and UI integration for the three sources with existing event writers: `admin_audit_logs`, `incident_status_logs`, and `incident_assignment_events`, subject to deployed-schema/grant verification.
 
 **Not ready to integrate yet:** Supabase Auth Audit Logs, `device_security_events`, and direct-client API/Storage telemetry. Their runtime source/configuration or trusted writer/read path is not established by this repository review.
 
