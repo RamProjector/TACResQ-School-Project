@@ -276,4 +276,45 @@ SELECT public.api_send_incident_image_message(
 );
 RESET ROLE;
 
+-- An expired reservation must not authorize a new Storage INSERT.
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000161', false);
+SET ROLE authenticated;
+SELECT public.api_reserve_incident_image_upload(
+  current_setting('test.incident_id')::bigint,
+  'image/jpeg',
+  4,
+  '00000000-0000-4000-8000-000000000209'::uuid
+);
+RESET ROLE;
+UPDATE private.incident_chat_upload_reservations
+   SET expires_at = now() - interval '1 second'
+ WHERE client_message_id = '00000000-0000-4000-8000-000000000209'::uuid;
+SET ROLE authenticated;
+DO $expired_reservation_test$
+DECLARE
+  denied boolean := false;
+  object_path text;
+BEGIN
+  object_path := format(
+    '%s/%s/00000000-0000-4000-8000-000000000209.jpg',
+    current_setting('test.incident_id')::bigint,
+    private.tacresq_auth_profile_id()
+  );
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name, metadata)
+    VALUES (
+      'incident-chat-attachments',
+      object_path,
+      '{"mimetype":"image/jpeg","size":"4"}'::jsonb
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'An expired reservation must not authorize a new Storage INSERT';
+  END IF;
+END;
+$expired_reservation_test$;
+RESET ROLE;
+
 SELECT 'PASS: private incident image storage permits authorized uploads, requires reservations, and supports delayed finalization.' AS result;
