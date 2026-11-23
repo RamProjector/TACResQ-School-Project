@@ -87,9 +87,9 @@ for required in (
     assert required in read_rpc_migration, f"Read-RPC account-state guard is missing: {required}"
 
 for function_name, replay_marker in (
-    ("api_reserve_incident_image_upload", "existing_reservation"),
-    ("api_send_incident_message", "existing_message"),
-    ("api_send_incident_image_message", "existing_message"),
+    ("api_reserve_incident_image_upload", "from private.incident_chat_upload_reservations"),
+    ("api_send_incident_message", "from public.incident_messages"),
+    ("api_send_incident_image_message", "from public.incident_messages"),
 ):
     function_body = chat_idempotency_migration.split(
         f"create or replace function public.{function_name}", 1
