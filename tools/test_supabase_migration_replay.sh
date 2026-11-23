@@ -1899,3 +1899,49 @@ BEGIN
 END;
 $account_suspension_privilege_baseline$;
 SQL
+
+# Preserve the audit-log MFA gate as a RESTRICTIVE policy. A second
+# PERMISSIVE policy would be OR-combined with the Admin-role policy and
+# silently let role membership bypass the AAL2/TOTP requirement.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $admin_audit_policy_contract$
+DECLARE
+  policy_mode text;
+  policy_command text;
+  policy_roles text[];
+  policy_qual text;
+BEGIN
+  SELECT permissive, cmd, roles, qual
+    INTO policy_mode, policy_command, policy_roles, policy_qual
+    FROM pg_catalog.pg_policies
+   WHERE schemaname = 'public'
+     AND tablename = 'admin_audit_logs'
+     AND policyname = 'admin_audit_logs_require_aal2';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Required admin audit AAL2 policy is missing';
+  END IF;
+  IF policy_mode IS DISTINCT FROM 'RESTRICTIVE' THEN
+    RAISE EXCEPTION 'Admin audit AAL2 policy must remain RESTRICTIVE; found %', policy_mode;
+  END IF;
+  IF policy_command IS DISTINCT FROM 'SELECT' OR NOT ('authenticated' = ANY(policy_roles)) THEN
+    RAISE EXCEPTION 'Admin audit AAL2 policy must apply to authenticated SELECT';
+  END IF;
+  IF policy_qual IS NULL
+     OR policy_qual NOT LIKE '%aal2%'
+     OR policy_qual NOT LIKE '%totp%' THEN
+    RAISE EXCEPTION 'Admin audit AAL2 policy must require both aal2 and TOTP';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'admin_audit_logs'
+       AND policyname = 'admin_audit_logs_read_admin'
+       AND permissive = 'PERMISSIVE'
+       AND cmd = 'SELECT'
+  ) THEN
+    RAISE EXCEPTION 'Admin audit role policy must remain a separate PERMISSIVE SELECT policy';
+  END IF;
+END;
+$admin_audit_policy_contract$;
+SQL
