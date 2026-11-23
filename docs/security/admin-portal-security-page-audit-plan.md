@@ -50,12 +50,14 @@ Separate live operational controls from deployment/migration diagnostics. Show o
 - [x] P0: Sole verified TOTP factor is visibly locked and the backup-authenticator warning is prominent.
 - [x] P0: Local Sanctum authenticator recovery limitation is documented as a fail-closed policy; no unsafe reset/bypass is exposed.
 - [ ] P0: Implement an independently verifiable, two-person local Admin recovery workflow with immutable audit and disposable-PostgreSQL concurrency tests.
-- [ ] P0: Deduplicate the verified-factor and global-session blocks after a full-page review.
+- [x] P0: Full-page review confirms one canonical verified-factor list, one global-session revocation action, and one backup-enrollment action; convert each action group into a separately labelled semantic section.
 - [ ] P1: Surface the verified access-token expiry window in the global sign-out confirmation.
 - [x] P1: Separate live Admin MFA/session controls from the branch-only database implementation inventory and explicit environment-verification caveat.
 - [x] P2: Remove the redundant Security-page heading punctuation, expose the full administrator name through an accessible label/title despite compact truncation, and add print rules that suppress navigation chrome and avoid splitting key Admin panels.
 
 ## Follow-up findings
+- The live MFA panel has one authenticator inventory, one global sign-out control, and one backup-enrollment action. These are now distinct, labelled semantic sections for assistive technology; the backup action is not duplicated in the lockout warning.
+
 
 - The Security page now labels the live MFA/session area separately from the branch implementation inventory. The latter explicitly states that migration presence in this branch does not establish deployment or production enforcement; environment verification remains unavailable from this repository-only change.
 - The global sign-out confirmation continues to warn that already-issued access tokens can remain valid until expiry. No numeric expiry window is displayed because the effective Supabase JWT lifetime for the target project has not been independently verified; do not infer it from a local default or assume the project configuration.
