@@ -1091,3 +1091,71 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
         'instructions' => $instructions,
     ]);
 })->middleware('throttle:600,1');
+
+
+// Local Laravel Admin TOTP enrollment is deliberately separate from Supabase Auth.
+// The secret is returned once for authenticator setup and stored only encrypted.
+Route::middleware(['auth:sanctum', 'account.active'])->prefix('admin/security/totp')->group(function () {
+    Route::post('/enroll', function (Request $request) {
+        $user = $request->user();
+        abort_unless($user !== null && $user->role === 'admin', 403, 'Administrator access is required.');
+
+        $data = $request->validate([
+            'current_password' => ['required', 'string', 'max:72'],
+        ]);
+        abort_unless(Hash::check($data['current_password'], $user->password), 403, 'Administrator re-authentication failed.');
+
+        $result = DB::transaction(function () use ($user) {
+            $lockedUser = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedUser->role === 'admin' && !$lockedUser->is_suspended, 403, 'Administrator access is required.');
+
+            $existing = DB::table('local_admin_totp_credentials')
+                ->where('user_id', $lockedUser->id)
+                ->lockForUpdate()
+                ->first();
+            abort_if($existing !== null && $existing->confirmed_at !== null, 409, 'A confirmed authenticator is already enrolled. Contact the account recovery administrator to replace it.');
+
+            $totp = app(\App\Services\LocalAdminTotpService::class);
+            $secret = $totp->generateSecret();
+            DB::table('local_admin_totp_credentials')->updateOrInsert(
+                ['user_id' => $lockedUser->id],
+                [
+                    'secret_ciphertext' => $totp->encryptSecret($secret),
+                    'confirmed_at' => null,
+                    'last_used_step' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            );
+
+            return [
+                'secret' => $secret,
+                'label' => 'TACResQ:'.$lockedUser->email,
+            ];
+        }, 3);
+
+        $label = rawurlencode($result['label']);
+        $issuer = rawurlencode('TACResQ');
+        $uri = 'otpauth://totp/'.$label.'?secret='.$result['secret'].'&issuer='.$issuer.'&algorithm=SHA1&digits=6&period=30';
+
+        return response()->json([
+            'secret' => $result['secret'],
+            'otpauth_uri' => $uri,
+            'message' => 'Add this account to an authenticator app, then confirm with its current six-digit code. The secret is shown only in this response.',
+        ])->header('Cache-Control', 'no-store, private');
+    })->middleware('throttle:3,1');
+
+    Route::post('/confirm', function (Request $request) {
+        $user = $request->user();
+        abort_unless($user !== null && $user->role === 'admin', 403, 'Administrator access is required.');
+        $data = $request->validate(['totp_code' => ['required', 'string', 'regex:/^\d{6}$/']]);
+
+        if (!app(\App\Services\LocalAdminTotpService::class)->confirmEnrollment($user, $data['totp_code'])) {
+            return response()->json(['message' => 'The authenticator code is invalid or the enrollment has expired.'], 422)
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        return response()->json(['enabled' => true, 'message' => 'Authenticator verification is enabled for this local Admin account.'])
+            ->header('Cache-Control', 'no-store, private');
+    })->middleware('throttle:5,1');
+});
