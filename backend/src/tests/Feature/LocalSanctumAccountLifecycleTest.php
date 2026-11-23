@@ -560,7 +560,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
     public function test_lifecycle_recorder_rejects_non_positive_actor_and_target_ids(): void
     {
-        $recorder = app(\\App\\Services\\LocalAccountLifecycleRecorder::class);
+        $recorder = app(\App\Services\LocalAccountLifecycleRecorder::class);
         $invalidPairs = [
             [0, 20],
             [-1, 20],
@@ -579,7 +579,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
                     'suspended',
                 ));
                 $this->fail('Lifecycle actor and target IDs must both be positive.');
-            } catch (\\InvalidArgumentException $exception) {
+            } catch (\InvalidArgumentException $exception) {
                 $this->assertStringContainsString('valid, distinct actor and target', $exception->getMessage());
             }
         }
