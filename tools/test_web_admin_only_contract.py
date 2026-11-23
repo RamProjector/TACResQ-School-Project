@@ -167,6 +167,11 @@ assert '<span>Period (Manila time)</span>' in admin_console
 assert 'No daily buckets were returned for this reporting period.' in admin_console
 assert 'No daily data for this period.' not in admin_console
 
+# A shrinking server-side account set must move the directory back to its last valid page.
+assert "if (page > 0 && page * pageSize >= userPage.total_count)" in admin_console
+assert "Math.max(0, Math.ceil(userPage.total_count / pageSize) - 1)" in admin_console
+assert "setUsers([]);" in admin_console
+
 # Pending server-side directory searches must not display rows from the previous query.
 assert "const filteredUsers = directoryFilterPending ? [] : users;" in admin_console
 assert "Applying search…" in admin_console
