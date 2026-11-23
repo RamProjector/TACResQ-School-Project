@@ -75,4 +75,13 @@ assert ".admin-heading__identity { break-after:avoid; }" in admin_css
 assert ".admin-security-status__coverage { break-before:auto !important; }" in admin_css
 assert "break-inside:avoid-page" in admin_css
 
+# Audit history labels its actual seven queried sources and exposes accessible detail controls.
+assert "Seven recorded event sources are queried." in audit_page
+assert "Six recorded event sources are queried." not in audit_page
+assert 'aria-controls={"audit-event-details-" + event.event_id}' in audit_page
+assert 'id={"audit-event-details-" + event.event_id}' in audit_page
+assert 'aria-label={(expanded === event.event_id ? "Hide details for " : "View details for ") + event.summary}' in audit_page
+assert 'role="status" aria-live="polite">{copyError || (copiedEventId ? "Technical reference copied." : "")}' in audit_page
+assert '<dd>{actorDisplay(event, profile)}</dd>' in audit_page
+
 print("Web admin-only contract passed.")
