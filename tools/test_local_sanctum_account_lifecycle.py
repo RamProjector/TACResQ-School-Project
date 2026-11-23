@@ -189,3 +189,12 @@ assert "length(btrim(reason)) BETWEEN 1 AND 500" in audit_constraints_migration
 assert "action = 'suspended' AND previous_state = 'active' AND new_state = 'suspended'" in audit_constraints_migration
 assert "action = 'reactivated' AND previous_state = 'suspended' AND new_state = 'active'" in audit_constraints_migration
 assert "test_postgres_lifecycle_audit_constraints_reject_invalid_records" in feature
+for constraint in (
+    "local_lifecycle_distinct_parties_check",
+    "local_lifecycle_actor_positive_check",
+    "local_lifecycle_target_positive_check",
+    "local_lifecycle_reason_nonblank_check",
+    "local_lifecycle_transition_check",
+):
+    assert constraint in feature, f"PostgreSQL rejection tests must identify the exact failing constraint: {constraint}"
+assert "The expected named CHECK constraint must reject this record." in feature
