@@ -267,6 +267,35 @@ final class FcmNotificationDispatcherTest extends TestCase
             && strtotime((string) ($request->data()['next_attempt_at'] ?? '')) > time());
     }
 
+    public function test_permanent_provider_failure_is_not_treated_as_invalid_token(): void
+    {
+        Http::fake([
+            'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response([$this->attempt()], 200),
+            'https://project.supabase.co/rest/v1/fcm_delivery_attempts*' => Http::response([], 204),
+        ]);
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldReceive('assertCredentialsAvailable')->once();
+        $fcm->shouldReceive('send')->once()->andReturn([
+            'sent' => false,
+            'invalid_token' => false,
+            'retryable' => false,
+            'status' => 400,
+            'retry_after_seconds' => null,
+            'provider_message_name' => null,
+            'error_code' => 'INVALID_ARGUMENT',
+        ]);
+
+        $stats = (new FcmNotificationDispatcher($fcm))->dispatch(1);
+
+        self::assertSame(1, $stats['failed']);
+        self::assertSame(0, $stats['invalid_tokens']);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/fcm_tokens'));
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/fcm_delivery_attempts')
+            && ($request->data()['status'] ?? null) === 'permanent_failure'
+            && ($request->data()['last_error_code'] ?? null) === 'INVALID_ARGUMENT');
+    }
+
     private function attempt(int $attemptId = 801, string $token = 'device-token-a'): array
     {
         return [
