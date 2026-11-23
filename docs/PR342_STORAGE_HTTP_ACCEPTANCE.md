@@ -9,7 +9,7 @@ The guarded harness `tools/test_incident_chat_storage_http_acceptance.py` exerci
 - Uses only a publishable/anon key and a normal authenticated test-user access token. It does not accept or need a service-role key.
 - Requires a pre-created synthetic incident to which the test user has legitimate incident-chat access.
 - Uploads a valid 1x1 synthetic PNG, finalizes one image message, retries finalization, and downloads the object using the same authenticated Storage endpoint as Android.
-- Optionally verifies that a second unrelated authenticated account cannot download the object.
+- Requires and verifies that a second unrelated authenticated account cannot download the object (HTTP 401, 403, or 404).
 - Intentionally does not delete the test message or Storage object. Run only in a dedicated test incident and account; do not use real incident data.
 
 ## Prerequisites
@@ -31,7 +31,7 @@ export SUPABASE_URL=https://kyomsyprjdseaghdxhdr.supabase.co
 export SUPABASE_ANON_KEY='your publishable-or-anon-key'
 export SUPABASE_ACCESS_TOKEN='short-lived access token for the synthetic test user'
 export TACRESQ_TEST_INCIDENT_ID='the synthetic incident id'
-# Optional: a second authenticated account that is not a participant
+# Required: a second authenticated account that is not a participant
 export TACRESQ_UNRELATED_ACCESS_TOKEN='short-lived unrelated-account access token'
 
 python3 tools/test_incident_chat_storage_http_acceptance.py
@@ -47,9 +47,9 @@ A successful run proves, for the tested project release and account/incident com
 - the reservation and finalization RPCs work over PostgREST;
 - retrying finalization returns the original message;
 - the authenticated Storage GET returns the exact uploaded bytes;
-- optionally, a nonparticipant cannot download the object.
+- a nonparticipant cannot download the object (the check is mandatory).
 
-It does **not** prove every role/assignment transition, expired-reservation rejection, size-mismatch rejection, unsupported MIME rejection, duplicate-object POST behavior, client UPDATE/DELETE denial, Android Photo Picker behavior, or physical-device network recovery. Those require separate acceptance cases. SQL migration replay remains useful for database-policy regression coverage but is not a substitute for this HTTP test.
+It does **not** prove every role/assignment transition, HTTP-level size-mismatch rejection (stored-size mismatch is covered by SQL regression), expired-reservation behavior through HTTP, unsupported MIME rejection, duplicate-object POST behavior, client UPDATE/DELETE denial, Android Photo Picker behavior, or physical-device network recovery. Those require separate acceptance cases. SQL migration replay remains useful for database-policy regression coverage but is not a substitute for this HTTP test.
 
 ## Current execution status
 
