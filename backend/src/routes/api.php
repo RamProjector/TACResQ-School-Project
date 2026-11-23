@@ -458,7 +458,7 @@ Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
     if ($profile['status'] >= 400 || !is_array($profile['body']) || !isset($profile['body']['id'])) {
-        app(\\App\\ApiOperationAuditLogger::class)->record(
+        app(\App\ApiOperationAuditLogger::class)->record(
             'supabase',
             'bridge.active_profile',
             'rejected',
@@ -531,7 +531,7 @@ Route::post('/bridge/rpc/{function}', function (
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
     if ($profile['status'] >= 400 || !is_array($profile['body']) || !isset($profile['body']['id'])) {
-        app(\\App\\ApiOperationAuditLogger::class)->record(
+        app(\App\ApiOperationAuditLogger::class)->record(
             'supabase',
             'bridge.active_profile',
             'rejected',
