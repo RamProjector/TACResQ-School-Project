@@ -35,6 +35,7 @@ import type {
 } from "@/lib/supabase";
 import "./AdminConsole.css";
 import "./PortalVisualFoundation.css";
+import "./AdminResolution.css";
 
 type AdminConsoleProps = {
   profile: TacruProfile;
