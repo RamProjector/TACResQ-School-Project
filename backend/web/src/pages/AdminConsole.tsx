@@ -533,7 +533,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 </div>
               </div>
               {analyticsLoading ? (
-                <div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading verified incident aggregates…</div>
+                <div className="admin-empty" role="status" aria-live="polite"><LoaderCircle size={19} className="admin-spin" /> Loading verified incident aggregates…</div>
               ) : analyticsError ? (
                 <div className="admin-health-unavailable" role="alert"><strong>Analytics unavailable.</strong> {analyticsError} The endpoint must be deployed before this report can display live data.</div>
               ) : analytics ? (
