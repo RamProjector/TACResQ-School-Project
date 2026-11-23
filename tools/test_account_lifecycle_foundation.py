@@ -13,6 +13,7 @@ assignment_helper_migration = (ROOT / "supabase/migrations/20261123150000_accoun
 volatility_migration = (ROOT / "supabase/migrations/20261123160000_account_lifecycle_helper_volatility.sql").read_text().lower()
 transition_migration = (ROOT / "supabase/migrations/20261123170000_account_lifecycle_admin_transition_rpc.sql").read_text().lower()
 chat_idempotency_migration = (ROOT / "supabase/migrations/20261123180000_account_lifecycle_chat_idempotency_guards.sql").read_text().lower()
+write_rpc_migration = (ROOT / "supabase/migrations/20261123190000_account_lifecycle_write_rpc_entry_guards.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
 storage_test = (ROOT / "tools/test_incident_chat_storage_policies.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
@@ -85,6 +86,25 @@ for required in (
     "grant execute on function public.api_claimable_incidents() to authenticated",
 ):
     assert required in read_rpc_migration, f"Read-RPC account-state guard is missing: {required}"
+
+for function_name in ("api_create_incident_v4", "api_cancel_my_incident"):
+    function_body = write_rpc_migration.split(
+        f"create or replace function public.{function_name}", 1
+    )[1].split("$function$;", 1)[0]
+    profile_state_check = function_body.find("account_status = 'active'")
+    profile_lock = function_body.find("for update")
+    assert profile_state_check >= 0 and profile_lock > profile_state_check, (
+        f"{function_name} must lock only an active caller before returning incident state"
+    )
+claim_body = write_rpc_migration.split(
+    "create or replace function public.api_claim_incident", 1
+)[1].split("$function$;", 1)[0]
+assert claim_body.count("account_status = 'active'") == 2, (
+    "Incident claiming must check active state both before incident lookup and after its profile lock"
+)
+assert claim_body.find("from public.incidents") < claim_body.rfind("for update"), (
+    "Claim flow must preserve incident-then-profile lock ordering"
+)
 
 for function_name, replay_marker in (
     ("api_reserve_incident_image_upload", "from private.incident_chat_upload_reservations"),
@@ -191,6 +211,9 @@ for required in (
     "suspended caller unexpectedly replayed a text-message operation",
     "suspended caller unexpectedly replayed an image reservation",
     "suspended caller unexpectedly replayed an image-message operation",
+    "suspended requester unexpectedly replayed or created an sos",
+    "suspended requester unexpectedly accessed incident cancellation",
+    "suspended caller must not enter the incident claim workflow",
     "suspended field-unit caller must not receive claimable incident data",
     "test_account_lifecycle_definer_write",
     "security definer table write unexpectedly succeeded",
