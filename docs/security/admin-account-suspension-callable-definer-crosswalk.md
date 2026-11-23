@@ -86,3 +86,12 @@ The next call-graph review found three more direct SECURITY DEFINER boundaries w
 These changes intentionally preserve the established assignment, release, location validation, rate-limit, and duty-status business logic rather than rewriting it. The clean-replay contract checks effective function security/volatility/search-path settings, active-state predicates, share locks, client grants, internal-function revocation, and the legacy assignment alias. The Python contract ties each migration to those SQL assertions.
 
 The contracts are source/replay definitions only until the disposable PostgreSQL migration replay runs successfully. No live incident, assignment, location log, duty status, or connected Supabase project was changed.
+
+
+## Follow-up implementation — dispatcher roster and queue reads
+
+The next read-path review found that `public.api_units()` exposed the responder/driver directory through a SECURITY DEFINER function that checked the dispatcher role without requiring an active profile. Its existing roster query is now preserved as a private internal implementation with client EXECUTE revoked. The public wrapper requires an active dispatcher and takes a `FOR SHARE` profile lock before delegation.
+
+The related `public.api_all_incidents()` queue function remains SECURITY INVOKER but now uses `private.tacresq_actor_role()`, the shared active-aware role resolver, instead of a raw profile-role lookup. This keeps both roster and queue reads aligned with the account lifecycle boundary.
+
+The SQL replay contract verifies wrapper attributes, active-state locking, private implementation permissions, and the invoker queue helper. The Python source contract ties those assertions to the migration. These are not claims of live PostgreSQL replay or deployment validation.
