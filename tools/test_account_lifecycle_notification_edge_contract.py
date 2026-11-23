@@ -111,7 +111,7 @@ object_shape_guard = source.index('if (!payload || typeof payload !== "object" |
 required_fields = source.index('if (typeof event !== "string" || !Number.isSafeInteger(incidentId) || incidentId <= 0)')
 unsupported_event = source.index('if (!["incident_created", "incident_assigned", "incident_status"].includes(event))')
 assert body_parse < json_error < object_shape_guard < required_fields < unsupported_event < actor_lookup
-assert 'typeof rawIncidentId === "string" && /^\\\\d+$/.test(rawIncidentId)' in source
+assert 'typeof rawIncidentId === "number"' in source
 assert unsupported_event < recipient_lookup < oauth_call < fcm_send, (
     "Invalid payloads and unsupported event types must be rejected before delivery."
 )
