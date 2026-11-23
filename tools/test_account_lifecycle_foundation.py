@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261123090000_account_lifecycle_foundation.sql").read_text().lower()
 rls_migration = (ROOT / "supabase/migrations/20261123100000_account_lifecycle_restrictive_rls.sql").read_text().lower()
+identity_migration = (ROOT / "supabase/migrations/20261123110000_account_lifecycle_identity_helpers.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
 design = (ROOT / "docs/security/admin-account-suspension-design.md").read_text().lower()
@@ -50,6 +51,18 @@ assert "create policy" not in migration, (
 )
 
 for required in (
+    "create or replace function private.tacresq_actor_role()",
+    "create or replace function private.tacresq_auth_profile_id()",
+    "account_status = 'active'",
+    "for share",
+    "volatile",
+    "set search_path = pg_catalog",
+    "grant execute on function private.tacresq_actor_role()",
+    "grant execute on function private.tacresq_auth_profile_id()",
+):
+    assert required in identity_migration, f"Identity helper migration is missing: {required}"
+
+for required in (
     "create policy tacresq_active_account_required",
     "as restrictive for all to authenticated",
     "using ((select private.tacresq_current_account_active()))",
@@ -65,6 +78,7 @@ for required in (
     "account_status = 'suspended'",
     "account_status = 'active'",
     "restrictive rls must hide the suspended caller profile",
+    "a suspended profile must fail all active identity helpers",
     "authenticated client unexpectedly inserted an account audit row",
 ):
     assert required in runtime_test, f"Runtime account lifecycle test is missing: {required}"
