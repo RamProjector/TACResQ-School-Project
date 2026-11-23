@@ -191,7 +191,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             ['actor_user_id' => null, 'reason' => 'Tampered during reference cleanup'],
         ] as $changes) {
             try {
-                DB::table('local_account_lifecycle_events')->where('id', $eventId)->update($changes);
+                DB::transaction(fn () => DB::table('local_account_lifecycle_events')->where('id', $eventId)->update($changes));
                 $this->fail('PostgreSQL must reject every lifecycle-event reference mutation.');
             } catch (QueryException $exception) {
                 $this->assertStringContainsString('append-only', $exception->getMessage());
@@ -221,8 +221,8 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ]);
 
         try {
-            DB::table('local_account_lifecycle_events')->where('id', $eventId)
-                ->update(['reason' => 'Tampered reason']);
+            DB::transaction(fn () => DB::table('local_account_lifecycle_events')->where('id', $eventId)
+                ->update(['reason' => 'Tampered reason']));
             $this->fail('PostgreSQL must reject lifecycle-event content updates.');
         } catch (QueryException $exception) {
             $this->assertStringContainsString('append-only', $exception->getMessage());
@@ -249,7 +249,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ]);
 
         try {
-            DB::statement('TRUNCATE TABLE local_account_lifecycle_events');
+            DB::transaction(fn () => DB::statement('TRUNCATE TABLE local_account_lifecycle_events'));
             $this->fail('PostgreSQL must reject lifecycle-event truncation.');
         } catch (QueryException $exception) {
             $this->assertStringContainsString('append-only', $exception->getMessage());
@@ -275,7 +275,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ]);
 
         try {
-            DB::table('local_account_lifecycle_events')->where('id', $eventId)->delete();
+            DB::transaction(fn () => DB::table('local_account_lifecycle_events')->where('id', $eventId)->delete());
             $this->fail('PostgreSQL must reject lifecycle-event deletion.');
         } catch (QueryException $exception) {
             $this->assertStringContainsString('append-only', $exception->getMessage());
