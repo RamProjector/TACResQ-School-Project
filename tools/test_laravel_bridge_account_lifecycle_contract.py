@@ -37,3 +37,24 @@ assert "test_bridge_me_does_not_return_auth_identity_without_active_profile" in 
 assert "test_active_profile_preflight_outage_fails_closed_as_502" in tests
 assert "Http::assertNotSent" in tests
 print("Laravel Supabase bridge account-lifecycle contract passed.")
+
+
+# The bridge must reject malformed/oversized arguments and non-allowlisted
+# RPC names before authenticating or forwarding anything upstream.
+rpc_route = route_block("Route::post('/bridge/rpc", "// One-off deployment diagnostic")
+assert rpc_route.index("strlen($request->getContent()) > 32768") < rpc_route.index("$bridge->getUser($token)")
+assert rpc_route.index("JSON_THROW_ON_ERROR") < rpc_route.index("$bridge->getUser($token)")
+assert "instanceof \\stdClass" in rpc_route
+assert rpc_route.index("$allowlist = config('tacru.bridge_rpc_allowlist', [])") < rpc_route.index("$bridge->getUser($token)")
+assert "abort_unless(in_array($function, $allowlist, true), 404" in rpc_route
+
+# Active-profile preflight must use the exact same verified bearer token,
+# precede the requested RPC, and fail closed for missing/unprovisioned profiles.
+assert rpc_route.index("$bridge->callRpc($token, 'api_me', [])") < rpc_route.index("$bridge->callRpc($token, $function, $arguments)")
+assert "active_profile_required" in rpc_route
+assert "is_array($profile['body'])" in rpc_route
+assert "isset($profile['body']['id'])" in rpc_route
+assert "LOWER(email)" not in rpc_route and "email" not in rpc_route.lower(), (
+    "Bridge authorization must not infer a Supabase profile from email."
+)
+assert "test_suspended_or_unprovisioned_profile_is_denied_before_bridge_rpc" in tests
