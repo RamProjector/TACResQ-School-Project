@@ -34,4 +34,39 @@ assert "actorError || !actor || actor.account_status !== \"active\"" in source, 
 assert 'if (recipientError) return json({ error: "Could not verify notification recipients" }, 500);' in source
 assert 'if (targetProfileIds.length === 0) return json({ sent: 0, reason: "No active target accounts are provisioned" });' in source
 assert 'if (!registrations?.length) return json({ sent: 0, reason: "Recipients have not registered an FCM token" });' in source
+
+# Each event must establish its own role/ownership relationship before any
+# recipient lookup; an active account alone is not sufficient authorization.
+created_branch = source.index('if (event === "incident_created")')
+assigned_branch = source.index('} else if (event === "incident_assigned")', created_branch)
+status_branch = source.index('} else {', assigned_branch)
+for marker, branch_start, branch_end in (
+    ('actor.role !== "requester" || actor.id !== incident.requester_id', created_branch, assigned_branch),
+    ('actor.role !== "dispatcher" || incident.status !== "assigned" || !incident.assigned_to', assigned_branch, status_branch),
+    ('!["responder", "driver"].includes(actor.role) || actor.id !== incident.assigned_to', status_branch, recipient_lookup),
+):
+    position = source.index(marker, branch_start, branch_end)
+    assert branch_start < position < recipient_lookup, (
+        f"Event authorization must precede recipient resolution: {marker}"
+    )
+
+# The service-role and FCM credentials are server-only. Configuration or
+# recipient failures must return before Google OAuth/FCM network side effects.
+assert 'Deno.env.get("SUPABASE_URL")' in source
+assert 'Deno.env.get(serviceRoleEnvName)' in source
+assert 'Deno.env.get("FCM_SERVICE_ACCOUNT_JSON")' in source
+assert "request.json()" in source
+assert "payload.profile_id" not in source and "payload.user_id" not in source, (
+    "Notification identity and recipient selection must not trust client-supplied profile IDs."
+)
+secret_validation = source.index('if (!googleAccount.client_email || !googleAccount.private_key || !googleAccount.project_id || !googleAccount.token_uri)')
+assert token_lookup < secret_validation < oauth_call < fcm_send, (
+    "Validate server-side FCM configuration before OAuth or delivery."
+)
+assert "json({ error: serviceKey" not in source
+assert "json({ error: serviceAccountSecret" not in source
+assert "console.error" in source and "private_key" not in source.split("console.error", 1)[1], (
+    "Provider failures must not log service-account private-key material."
+)
+
 print("Notification Edge Function authorization-order source contract passed.")
