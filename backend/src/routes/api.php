@@ -1105,13 +1105,11 @@ Route::middleware(['auth:sanctum', 'account.active'])->prefix('admin/security/to
         ]);
         $result = DB::transaction(function () use ($user, $data) {
             $lockedUser = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
-            abort_unless(
-                $lockedUser->role === 'admin'
-                    && !$lockedUser->is_suspended
-                    && Hash::check($data['current_password'], $lockedUser->password),
-                403,
-                'Administrator re-authentication failed.',
-            );
+            if ($lockedUser->role !== 'admin'
+                || $lockedUser->is_suspended
+                || !Hash::check($data['current_password'], $lockedUser->password)) {
+                return null;
+            }
 
             $existing = DB::table('local_admin_totp_credentials')
                 ->where('user_id', $lockedUser->id)
@@ -1139,6 +1137,11 @@ Route::middleware(['auth:sanctum', 'account.active'])->prefix('admin/security/to
                 'label' => 'TACResQ:'.$lockedUser->email,
             ];
         }, 3);
+
+        if ($result === null) {
+            return response()->json(['message' => 'Administrator re-authentication failed.'], 403)
+                ->header('Cache-Control', 'no-store, private');
+        }
 
         $label = rawurlencode($result['label']);
         $issuer = rawurlencode('TACResQ');
