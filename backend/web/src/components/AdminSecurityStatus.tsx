@@ -253,7 +253,7 @@ export default function AdminSecurityStatus() {
         </button>
       </div>
       {loading && !snapshot ? (
-        <p className="admin-security-status__message"><Clock3 size={16} /> Checking Supabase Auth…</p>
+        <p className="admin-security-status__message" role="status" aria-live="polite"><Clock3 size={16} /> Checking Supabase Auth…</p>
       ) : error ? (
         <p className="admin-security-status__message admin-security-status__message--error" role="alert"><AlertCircle size={16} /> {error}</p>
       ) : snapshot ? (
