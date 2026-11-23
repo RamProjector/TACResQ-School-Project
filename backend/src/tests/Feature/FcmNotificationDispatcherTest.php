@@ -296,6 +296,132 @@ final class FcmNotificationDispatcherTest extends TestCase
             && ($request->data()['last_error_code'] ?? null) === 'INVALID_ARGUMENT');
     }
 
+    public function test_send_exception_is_recorded_and_later_recipient_is_processed(): void
+    {
+        $patches = [];
+        Http::fake(function ($request) use (&$patches) {
+            if (str_contains($request->url(), '/rpc/api_claim_fcm_delivery_batch')) {
+                return Http::response([$this->attempt(901), $this->attempt(902, 'device-token-b')], 200);
+            }
+            if (str_contains($request->url(), '/fcm_delivery_attempts')) {
+                $patches[] = $request->data();
+                return Http::response([], 204);
+            }
+
+            return Http::response([], 500);
+        });
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldReceive('assertCredentialsAvailable')->once();
+        $fcm->shouldReceive('send')->twice()
+            ->andThrow(new \\RuntimeException('provider details must not be logged'))
+            ->andReturn($this->sentResult());
+
+        $stats = (new FcmNotificationDispatcher($fcm))->dispatch(2);
+
+        self::assertSame(1, $stats['failed']);
+        self::assertSame(1, $stats['sent']);
+        self::assertSame('TRANSPORT_FAILURE', $patches[0]['last_error_code'] ?? null);
+        self::assertSame('sent', $patches[1]['status'] ?? null);
+    }
+
+    public function test_invalid_token_cleanup_failure_does_not_stop_next_recipient(): void
+    {
+        $patchedStatuses = [];
+        Http::fake(function ($request) use (&$patchedStatuses) {
+            if (str_contains($request->url(), '/rpc/api_claim_fcm_delivery_batch')) {
+                return Http::response([$this->attempt(911), $this->attempt(912, 'device-token-b')], 200);
+            }
+            if (str_contains($request->url(), '/fcm_tokens')) {
+                return Http::response([], 503);
+            }
+            if (str_contains($request->url(), '/fcm_delivery_attempts')) {
+                $patchedStatuses[] = $request->data()['status'] ?? null;
+                return Http::response([], 204);
+            }
+
+            return Http::response([], 500);
+        });
+
+        $invalid = [
+            'sent' => false,
+            'invalid_token' => true,
+            'retryable' => false,
+            'status' => 404,
+            'retry_after_seconds' => null,
+            'provider_message_name' => null,
+            'error_code' => 'UNREGISTERED',
+        ];
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldReceive('assertCredentialsAvailable')->once();
+        $fcm->shouldReceive('send')->twice()->andReturn($invalid, $this->sentResult());
+
+        $stats = (new FcmNotificationDispatcher($fcm))->dispatch(2);
+
+        self::assertSame(1, $stats['failed']);
+        self::assertSame(1, $stats['sent']);
+        self::assertSame(['failed', 'sent'], $patchedStatuses);
+    }
+
+    public function test_missing_fcm_project_id_fails_before_queue_claim(): void
+    {
+        Http::fake();
+        config(['tacru.fcm_project_id' => '']);
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldNotReceive('assertCredentialsAvailable');
+        $fcm->shouldNotReceive('send');
+
+        try {
+            (new FcmNotificationDispatcher($fcm))->dispatch(1);
+            self::fail('Expected missing FCM project configuration to fail closed.');
+        } catch (\\RuntimeException $exception) {
+            self::assertSame('FCM dispatcher requires FCM_PROJECT_ID.', $exception->getMessage());
+        }
+
+        Http::assertNothingSent();
+    }
+
+    public function test_non_array_claim_response_is_rejected_before_send(): void
+    {
+        Http::fake([
+            'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response(['unexpected' => 'shape'], 200),
+        ]);
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldReceive('assertCredentialsAvailable')->once();
+        $fcm->shouldNotReceive('send');
+
+        try {
+            (new FcmNotificationDispatcher($fcm))->dispatch(1);
+            self::fail('Expected malformed queue response to abort dispatch.');
+        } catch (\\RuntimeException $exception) {
+            self::assertSame('Supabase FCM delivery queue claim failed.', $exception->getMessage());
+        }
+    }
+
+    public function test_empty_queue_returns_zero_counts_without_sending(): void
+    {
+        Http::fake([
+            'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response([], 200),
+        ]);
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldReceive('assertCredentialsAvailable')->once();
+        $fcm->shouldNotReceive('send');
+
+        $stats = (new FcmNotificationDispatcher($fcm))->dispatch(1);
+
+        self::assertSame([
+            'notifications' => 0,
+            'tokens' => 0,
+            'sent' => 0,
+            'invalid_tokens' => 0,
+            'failed' => 0,
+            'skipped' => 0,
+        ], $stats);
+    }
+
     private function attempt(int $attemptId = 801, string $token = 'device-token-a'): array
     {
         return [
