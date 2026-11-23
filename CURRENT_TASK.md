@@ -1834,3 +1834,10 @@ Supabase Security Advisor still reports `auth_leaked_password_protection`: leake
 - Commits: `0c2998b6da3ec83f06ea9a04cd2b86dcd48a3bf2` (HTTP harness) and `9d6cb2402baf64976ff4a4b357ace7757ab74ac8` (acceptance guide). Earlier reconciliation plan: `138b5b80100d13417376267cd0db0ba9b672bd2a`.
 - **Validation boundary:** Static source inspection confirms the harness uses the same authenticated Storage object endpoint and RPC parameter names as Android. It has not been run; no synthetic account/incident credentials were supplied. The test project remains unmodified. Exact-head RPC contract, frontend review, and TACResQ CI workflows were queued/in progress at time of note; do not claim them green until polled on the final head.
 - **Disposition:** Keep PR #342 open and unmerged. The harness is a preparation step, not evidence that HTTP acceptance has passed. No remote schema, migration history, bucket, object, user data, production deployment, or strict-enforcement setting was changed.
+
+## Admin portal usability and synchronization follow-up — 2026-11-23
+
+- Simplified administrator-facing sign-in and workspace wording; replaced internal terminology with task-oriented labels (Security, Reports, Activity log) without changing authentication, MFA, or authorization behavior.
+- Commits: `1760a8db6d0c29bf53a755b4650319560163ee40` and `2f05899021438c3e3933bef583222c57e910b574`.
+- Re-synchronizing PR #344 against the latest `main` while preserving PR #342's newer CI and task-handoff changes. The website visual-foundation contract is retained in CI.
+- Automated validation and browser/device acceptance must pass before merge; no production deployment or database changes are included.
