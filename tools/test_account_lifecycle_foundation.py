@@ -30,7 +30,7 @@ for required in (
     "set search_path = pg_catalog",
     "where p.auth_user_id = auth.uid()",
     "select p.account_status = 'active'",
-    "for key share",
+    "for share",
     "volatile",
     "grant execute on function private.tacresq_current_account_active() to authenticated",
     "revoke update (account_status, suspended_at, suspended_by, suspension_reason)",
