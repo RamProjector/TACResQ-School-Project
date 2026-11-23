@@ -7,6 +7,7 @@ migration = (ROOT / "backend/src/database/migrations/2026_11_23_000007_add_local
 audit_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000008_create_local_account_lifecycle_events.php").read_text()
 append_only_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000009_enforce_local_lifecycle_event_append_only.php").read_text()
 audit_constraints_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000011_constrain_local_account_lifecycle_events.php").read_text()
+audit_identity_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000012_require_local_lifecycle_audit_identities.php").read_text()
 model = (ROOT / "backend/src/app/Models/User.php").read_text()
 middleware = (ROOT / "backend/src/app/Http/Middleware/EnsureLocalAccountIsActive.php").read_text()
 routes = (ROOT / "backend/src/routes/api.php").read_text()
@@ -203,6 +204,15 @@ assert "length(btrim(reason)) BETWEEN 1 AND 500" in audit_constraints_migration
 assert "action = 'suspended' AND previous_state = 'active' AND new_state = 'suspended'" in audit_constraints_migration
 assert "action = 'reactivated' AND previous_state = 'suspended' AND new_state = 'active'" in audit_constraints_migration
 assert "test_postgres_lifecycle_audit_constraints_reject_invalid_records" in feature
+assert "test_postgres_lifecycle_audit_requires_actor_and_target_ids" in feature
+assert "ALTER COLUMN actor_user_id SET NOT NULL" in audit_identity_migration
+assert "ALTER COLUMN target_user_id SET NOT NULL" in audit_identity_migration
+assert "ALTER COLUMN actor_user_id DROP NOT NULL" in audit_identity_migration
+assert "ALTER COLUMN target_user_id DROP NOT NULL" in audit_identity_migration
+assert audit_identity_migration.count("DB::connection()->getDriverName() !== 'pgsql'") == 2
+assert "use Illuminate\\Database\\Migrations\\Migration;" in audit_identity_migration
+assert "use Illuminate\\Support\\Facades\\DB;" in audit_identity_migration
+assert audit_identity_migration.rstrip().endswith("};")
 for constraint in (
     "local_lifecycle_distinct_parties_check",
     "local_lifecycle_actor_positive_check",
