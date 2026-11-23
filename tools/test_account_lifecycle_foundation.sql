@@ -137,6 +137,25 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'A public table with authenticated privileges is missing the restrictive active-account RLS policy';
   END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relkind IN ('r', 'p')
+       AND NOT EXISTS (
+         SELECT 1
+           FROM pg_catalog.pg_trigger t
+          WHERE t.tgrelid = c.oid
+            AND t.tgname = 'tacresq_active_account_write_guard'
+            AND t.tgenabled = 'O'
+            AND t.tgfoid = to_regprocedure('private.tacresq_reject_suspended_account_write()')
+            AND NOT t.tgisinternal
+       )
+  ) THEN
+    RAISE EXCEPTION 'A public table is missing the enabled suspended-account write guard trigger';
+  END IF;
 END;
 $schema_contract$;
 
@@ -148,6 +167,25 @@ VALUES (
   'account-lifecycle-991@example.test',
   '{"name":"Lifecycle Contract","phone":"+63917000991","role":"requester"}'::jsonb
 );
+
+-- Disposable SECURITY DEFINER writer simulates a privileged application RPC.
+-- It is removed before the replay's general callable-definer inventory runs.
+CREATE OR REPLACE FUNCTION public.test_account_lifecycle_definer_write()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $test$
+BEGIN
+  UPDATE public.profiles
+     SET updated_at = clock_timestamp()
+   WHERE auth_user_id = auth.uid();
+END;
+$test$;
+REVOKE ALL ON FUNCTION public.test_account_lifecycle_definer_write()
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.test_account_lifecycle_definer_write()
+  TO authenticated;
 
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000991', false);
 SET ROLE authenticated;
@@ -181,6 +219,12 @@ BEGIN
      OR private.tacresq_actor_role() IS NOT NULL THEN
     RAISE EXCEPTION 'A suspended profile must fail all active identity helpers with the same valid JWT';
   END IF;
+  BEGIN
+    PERFORM public.test_account_lifecycle_definer_write();
+    RAISE EXCEPTION 'SECURITY DEFINER table write unexpectedly succeeded for a suspended caller';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
   SELECT count(*) INTO visible_profile_count
     FROM public.profiles
    WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
@@ -271,5 +315,7 @@ BEGIN
   END IF;
 END;
 $immutable_audit_contract$;
+
+DROP FUNCTION public.test_account_lifecycle_definer_write();
 
 SELECT set_config('request.jwt.claim.sub', '', false);
