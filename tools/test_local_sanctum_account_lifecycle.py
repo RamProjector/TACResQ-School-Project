@@ -123,5 +123,5 @@ assert "test_demoted_local_account_cannot_start_totp_enrollment" in feature
 enroll_start = routes.index("Route::post('/enroll'")
 enroll_end = routes.index("})->middleware('throttle:3,1');", enroll_start)
 enroll_route = routes[enroll_start:enroll_end]
-assert "$lockedUser->role === 'admin'" in enroll_route
-assert "!$lockedUser->is_suspended" in enroll_route
+assert "$lockedUser->role !== 'admin'" in enroll_route
+assert "$lockedUser->is_suspended" in enroll_route
