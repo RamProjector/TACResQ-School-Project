@@ -6,6 +6,9 @@ DECLARE
   expected_signature text;
   resolved_oid oid;
   unexpected_signature text;
+  public_callable_count integer;
+  public_definer_count integer;
+  public_invoker_count integer;
   expected_signatures text[] := ARRAY[
     'public.api_admin_analytics_summary(timestamp with time zone,timestamp with time zone)',
     'public.api_admin_list_audit_logs(integer)',
@@ -87,7 +90,26 @@ BEGIN
     RAISE EXCEPTION 'Inventory contract must contain exactly 21 classified signatures; found %',
       cardinality(expected_signatures);
   END IF;
+
+  SELECT
+    count(*)::integer,
+    count(*) FILTER (WHERE p.prosecdef)::integer,
+    count(*) FILTER (WHERE NOT p.prosecdef)::integer
+  INTO public_callable_count, public_definer_count, public_invoker_count
+  FROM pg_catalog.pg_proc AS p
+  JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.prokind = 'f'
+    AND has_function_privilege('authenticated', p.oid, 'EXECUTE');
+
+  IF public_callable_count <> 73
+     OR public_definer_count <> 21
+     OR public_invoker_count <> 52 THEN
+    RAISE EXCEPTION
+      'Public callable function baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 73/21/52',
+      public_callable_count, public_definer_count, public_invoker_count;
+  END IF;
 END;
 $account_suspension_definer_inventory$;
 
-\echo 'PASS: all 21 classified public SECURITY DEFINER signatures remain inventoried; no new callable definer entry point is unreviewed.'
+\echo 'PASS: all 21 public SECURITY DEFINER signatures and the 73/21/52 public callable baseline remain inventoried.'
