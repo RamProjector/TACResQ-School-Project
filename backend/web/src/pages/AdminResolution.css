@@ -243,3 +243,39 @@
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Header and navigation resilience for intermediate desktop and tablet widths. */
+.admin-main, .admin-topbar, .admin-topbar__right, .admin-breadcrumb { min-width: 0; }
+.admin-breadcrumb { flex: 1 1 auto; overflow: hidden; }
+.admin-breadcrumb strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-topbar__right { flex: 0 1 auto; }
+.admin-user { min-width: 0; }
+.admin-user > span:last-child { min-width: 0; }
+.admin-user strong { display: block; max-width: min(24vw,240px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-signout { flex: 0 0 auto; white-space: nowrap; }
+@media (min-width: 761px) and (max-width: 1100px) {
+  .admin-shell { grid-template-columns: 196px minmax(0,1fr); }
+  .admin-sidebar { min-width: 0; padding-inline: 12px; }
+  .admin-nav-item { min-width: 0; gap: 9px; padding-inline: 10px; }
+  .admin-nav-item span { overflow: hidden; text-overflow: ellipsis; }
+  .admin-workspace { padding-inline: 20px; }
+  .admin-topbar { gap: 12px; padding-inline: 20px; }
+  .admin-access-pill { padding-inline: 9px; }
+  .admin-user strong { max-width: 150px; }
+}
+@media (max-width: 760px) {
+  .admin-sidebar { min-width: 0; }
+  .admin-navigation { width: 100%; max-width: 100%; }
+  .admin-nav-entry { flex: 0 0 auto; }
+  .admin-nav-item { min-height: 42px; padding-inline: 12px; }
+  .admin-topbar { align-items: center; }
+  .admin-breadcrumb { font-size: 9px; }
+  .admin-user strong { max-width: 120px; }
+}
+@media (max-width: 480px) {
+  .admin-topbar { flex-wrap: wrap; padding-block: 10px; }
+  .admin-breadcrumb { flex-basis: 100%; }
+  .admin-topbar__right { width: 100%; justify-content: flex-end; }
+  .admin-user strong { max-width: 160px; }
+}
