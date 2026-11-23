@@ -273,6 +273,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <span>{lastSuccessfulRefresh ? "Updated " + formatDate(lastSuccessfulRefresh) + " · Asia/Manila" : "Not yet refreshed"}</span>
       </div>
 
+      <p className="audit-page__copy-error" role="status" aria-live="polite">{copyError || (copiedEventId ? "Technical reference copied." : "")}</p>
+
       <div className="audit-page__list" aria-busy={loading}>
         {loading ? (
           <div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading recorded activity…</div>
@@ -324,7 +326,6 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                     <div><dt>Exact timestamp</dt><dd><code>{event.occurred_at}</code></dd></div>
                   </dl>
                 </details>
-                {copyError && <p className="audit-page__copy-error" role="status">{copyError}</p>}
               </div>
             )}
           </article>
