@@ -36,6 +36,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             'confirmed_at' => now(),
             'expires_at' => null,
             'last_used_step' => null,
+            'last_used_code_hash' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -537,6 +538,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         $this->assertNotNull($credential->confirmed_at);
         $this->assertNull($credential->expires_at);
         $this->assertSame($step, (int) $credential->last_used_step);
+        $this->assertSame(hash('sha256', $code), $credential->last_used_code_hash);
         $this->assertStringNotContainsString($secret, $credential->secret_ciphertext);
     }
 
