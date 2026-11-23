@@ -234,6 +234,32 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_local_lifecycle_audit_event_rejects_truncate_on_postgres(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('The append-only trigger is PostgreSQL-specific.');
+        }
+
+        DB::table('local_account_lifecycle_events')->insert([
+            'action' => 'suspended',
+            'reason' => 'Truncate protection',
+            'previous_state' => 'active',
+            'new_state' => 'suspended',
+            'created_at' => now(),
+        ]);
+
+        try {
+            DB::statement('TRUNCATE TABLE local_account_lifecycle_events');
+            $this->fail('PostgreSQL must reject lifecycle-event truncation.');
+        } catch (QueryException $exception) {
+            $this->assertStringContainsString('append-only', $exception->getMessage());
+        }
+
+        $this->assertDatabaseHas('local_account_lifecycle_events', [
+            'reason' => 'Truncate protection',
+        ]);
+    }
+
     public function test_local_lifecycle_audit_event_rejects_deletion_on_postgres(): void
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {
