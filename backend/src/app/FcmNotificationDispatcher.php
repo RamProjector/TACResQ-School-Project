@@ -161,7 +161,7 @@ class FcmNotificationDispatcher
         try {
             $this->updateAttempt($id, $status, $providerName, $errorCode, $nextAttemptAt);
             return true;
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             // Do not log provider payloads, tokens, or exception messages.
             Log::warning('FCM delivery ledger update failed for attempt.', [
                 'attempt_id' => $id,
