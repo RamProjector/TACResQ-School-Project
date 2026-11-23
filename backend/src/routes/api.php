@@ -1122,6 +1122,7 @@ Route::middleware(['auth:sanctum', 'account.active'])->prefix('admin/security/to
                 [
                     'secret_ciphertext' => $totp->encryptSecret($secret),
                     'confirmed_at' => null,
+                    'expires_at' => now()->addMinutes(10),
                     'last_used_step' => null,
                     'created_at' => now(),
                     'updated_at' => now(),
