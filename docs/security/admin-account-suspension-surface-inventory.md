@@ -61,6 +61,10 @@ This inventory is intentionally conservative. A path is not marked covered merel
 - [Batch 20: application invoker entry points and authenticated-callable private SECURITY DEFINER functions](admin-account-suspension-rpc-review-batch-20-invoker-and-private-callables.md) extends the crosswalk to the application invoker paths and the nine authenticated-callable private definer functions.
 - [Callable SECURITY DEFINER crosswalk](admin-account-suspension-callable-definer-crosswalk.md) maps all 20 public authenticated-callable definer signatures to the existing source-review batches and identifies the remaining 52 invoker/private-function call-graph work. This is a crosswalk, not an automated proof of complete call coverage.
 
+## Account-state design contract
+
+- [Account-state and operational-continuity contract](admin-account-suspension-state-contract.md) defines the proposed lifecycle fields, transactional audit invariants, service-role checks, and negative-test release gates. It is a design artifact only; the current profile schema has no account-status field, and no migration or runtime enforcement has been introduced.
+
 ## Required completion artifacts
 
 Before the implementation can be called complete, add and review:
