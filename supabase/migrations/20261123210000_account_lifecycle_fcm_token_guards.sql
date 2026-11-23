@@ -51,6 +51,37 @@ CREATE POLICY tacresq_fcm_delete_self_cleanup
     profile_id = (SELECT private.tacresq_auth_profile_id_for_token_cleanup())
   );
 
+-- Keep unregister as an invoker operation so RLS still enforces the narrow
+-- self-delete policy, while resolving identity without requiring active status.
+CREATE OR REPLACE FUNCTION public.api_unregister_fcm_token(p_token text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  actor_profile_id bigint;
+BEGIN
+  IF auth.uid() IS NULL OR p_token IS NULL THEN
+    RETURN;
+  END IF;
+
+  actor_profile_id := private.tacresq_auth_profile_id_for_token_cleanup();
+  IF actor_profile_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  DELETE FROM public.fcm_tokens
+   WHERE profile_id = actor_profile_id
+     AND token = p_token;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.api_unregister_fcm_token(text)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.api_unregister_fcm_token(text)
+  TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.api_register_fcm_token(p_token text)
 RETURNS void
 LANGUAGE plpgsql
