@@ -41,7 +41,7 @@ assert "pg_default_acl" in inventory
 # The crosswalk is deliberately honest about the difference between listing
 # known SECURITY DEFINER signatures and reviewing every nested call path.
 assert "20 public" in crosswalk
-assert "52 invoker/private-function" in crosswalk
+assert "52 authenticated-callable public security invoker functions" in crosswalk
 assert "not an automated proof" in crosswalk or "not proof" in crosswalk
 assert "call-graph" in review
 print("Account-lifecycle callable inventory contract passed.")
