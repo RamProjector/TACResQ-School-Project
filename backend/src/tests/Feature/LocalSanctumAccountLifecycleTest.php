@@ -493,4 +493,63 @@ class LocalSanctumAccountLifecycleTest extends TestCase
     }
 
 
+
+    public function test_local_admin_totp_implementation_matches_rfc_6238_sha1_vector(): void
+    {
+        $service = app(\App\Services\LocalAdminTotpService::class);
+        $this->assertSame('287082', $service->codeForStep('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 1));
+    }
+
+    public function test_local_admin_can_enroll_and_confirm_authenticator_factor(): void
+    {
+        $admin = User::create([
+            'name' => 'Local TOTP Admin',
+            'email' => 'local-totp-admin@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+
+        $enrollment = $this->postJson('/api/admin/security/totp/enroll', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonStructure(['secret', 'otpauth_uri', 'message']);
+
+        $secret = $enrollment->json('secret');
+        $this->assertIsString($secret);
+        $this->assertStringContainsString('issuer=TACResQ', $enrollment->json('otpauth_uri'));
+        $this->assertDatabaseHas('local_admin_totp_credentials', [
+            'user_id' => $admin->id,
+            'confirmed_at' => null,
+        ]);
+
+        $step = intdiv(now()->timestamp, 30);
+        $code = app(\App\Services\LocalAdminTotpService::class)->codeForStep($secret, $step);
+        $this->postJson('/api/admin/security/totp/confirm', ['totp_code' => $code])
+            ->assertOk()->assertJsonPath('enabled', true)
+            ->assertHeader('Cache-Control', 'no-store, private');
+
+        $credential = DB::table('local_admin_totp_credentials')->where('user_id', $admin->id)->first();
+        $this->assertNotNull($credential->confirmed_at);
+        $this->assertSame($step, (int) $credential->last_used_step);
+        $this->assertStringNotContainsString($secret, $credential->secret_ciphertext);
+    }
+
+    public function test_local_admin_cannot_silently_replace_a_confirmed_authenticator(): void
+    {
+        $admin = User::create([
+            'name' => 'Local TOTP Admin',
+            'email' => 'local-totp-rotate@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        $this->postJson('/api/admin/security/totp/enroll', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertConflict();
+    }
+
+
 }
