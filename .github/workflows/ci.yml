@@ -88,6 +88,9 @@ jobs:
       - name: Check separate Laravel Sanctum identity boundary
         run: python3 tools/test_sanctum_identity_boundary.py
 
+      - name: Check local Laravel Sanctum suspension enforcement
+        run: python3 tools/test_local_sanctum_account_lifecycle.py
+
       - name: Check Laravel assignment duty-state visibility
         run: python3 tools/test_laravel_assignment_duty_state.py
 
