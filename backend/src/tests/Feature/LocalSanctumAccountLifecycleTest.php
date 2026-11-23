@@ -478,6 +478,37 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_lifecycle_recorder_accepts_reactivation_and_maximum_reason_length(): void
+    {
+        $actor = $this->createLocalUser();
+        $target = User::create([
+            'name' => 'Lifecycle Reactivation Target',
+            'email' => 'lifecycle-reactivation-target@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'requester',
+        ]);
+        $reason = str_repeat('R', 500);
+
+        $eventId = DB::transaction(fn () => app(\\App\\Services\\LocalAccountLifecycleRecorder::class)->record(
+            $actor->id,
+            $target->id,
+            'reactivated',
+            $reason,
+            'suspended',
+            'active',
+        ));
+
+        $this->assertDatabaseHas('local_account_lifecycle_events', [
+            'id' => $eventId,
+            'actor_user_id' => $actor->id,
+            'target_user_id' => $target->id,
+            'action' => 'reactivated',
+            'reason' => $reason,
+            'previous_state' => 'suspended',
+            'new_state' => 'active',
+        ]);
+    }
+
     public function test_lifecycle_recorder_event_rolls_back_with_account_transaction(): void
     {
         $actor = $this->createLocalUser();
