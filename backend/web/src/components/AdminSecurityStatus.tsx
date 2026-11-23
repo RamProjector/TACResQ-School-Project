@@ -242,7 +242,7 @@ export default function AdminSecurityStatus() {
   }
 
   return (
-    <section className="admin-panel admin-security-status" aria-live="polite" aria-labelledby="admin-security-status-title">
+    <section className="admin-panel admin-security-status" aria-labelledby="admin-security-status-title" aria-busy={loading || busy}>
       <div className="admin-panel__heading">
         <div>
           <p className="admin-eyebrow">LIVE SESSION CHECK</p>
