@@ -18,8 +18,17 @@ final class DispatchFcmNotifications extends Command
                 $this->info('FCM configuration and ADC credentials are available; no notification was sent.');
                 return self::SUCCESS;
             }
-            $limit = $this->option('limit');
-            $limit = $limit === null ? null : (int) $limit;
+            $rawLimit = $this->option('limit');
+            if ($rawLimit !== null) {
+                $parsedLimit = filter_var($rawLimit, FILTER_VALIDATE_INT);
+                if ($parsedLimit === false || $parsedLimit < 1 || $parsedLimit > 50) {
+                    $this->error('The --limit option must be an integer between 1 and 50.');
+                    return self::INVALID;
+                }
+                $limit = $parsedLimit;
+            } else {
+                $limit = null;
+            }
             $stats = $dispatcher->dispatch($limit);
         } catch (\Throwable $exception) {
             // Never print configuration values, provider response bodies, or tokens.
