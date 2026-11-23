@@ -215,7 +215,7 @@ assert "test_postgres_lifecycle_audit_requires_actor_and_target_ids" in feature
 assert "test_postgres_identity_migration_fails_closed_when_legacy_events_are_unattributed" in feature, "PostgreSQL migration preflight must have an executable fail-closed test"
 assert "test_postgres_identity_migration_enforces_and_rolls_back_both_required_columns" in feature, "PostgreSQL migration must have executable up/down coverage"
 assert "migration->up()" in feature and "migration->down()" in feature, "Migration integration tests must execute both directions"
-assert "ACCESS EXCLUSIVE" in migration, "Identity migration must serialize its preflight with concurrent writes"
+assert "ACCESS EXCLUSIVE" in audit_identity_migration, "Identity migration must serialize its preflight with concurrent writes"
 assert "assertSame('55000'" in feature, "Append-only trigger tests must assert PostgreSQL SQLSTATE 55000"
 assert "assertSame('23502'" in feature, "Required audit identity tests must assert PostgreSQL SQLSTATE 23502"
 assert "assertSame('23514'" in feature, "Audit CHECK constraint tests must assert PostgreSQL SQLSTATE 23514"
