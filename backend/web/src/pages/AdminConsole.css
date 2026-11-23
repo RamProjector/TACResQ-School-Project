@@ -890,3 +890,30 @@
 @media (prefers-reduced-motion:reduce) {
   .audit-page__lifecycle-pagination button { transition:none; }
 }
+
+
+/* Keyboard users can bypass repeated privileged navigation and reach the active workspace. */
+.admin-skip-link {
+  position:fixed;
+  z-index:1000;
+  top:10px;
+  left:10px;
+  transform:translateY(-160%);
+  padding:11px 15px;
+  border:2px solid #f39471;
+  border-radius:6px;
+  color:#fff;
+  background:var(--ink-deep);
+  font-size:12px;
+  font-weight:700;
+  text-decoration:none;
+}
+.admin-skip-link:focus {
+  transform:translateY(0);
+  outline:3px solid rgba(243,148,113,.45);
+  outline-offset:3px;
+}
+#admin-workspace-main:focus { outline:none; }
+@media (prefers-reduced-motion:reduce) {
+  .admin-skip-link { transition:none; }
+}
