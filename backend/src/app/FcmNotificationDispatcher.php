@@ -225,6 +225,18 @@ class FcmNotificationDispatcher
         }
     }
 
+    private function logCleanupFailureSafely(int $attemptId, \\Throwable $exception): void
+    {
+        try {
+            Log::warning('FCM invalid-token cleanup failed for attempt.', [
+                'attempt_id' => $attemptId,
+                'exception' => $exception::class,
+            ]);
+        } catch (\\Throwable) {
+            // Logging is best-effort and must not interrupt processing of the batch.
+        }
+    }
+
     private function deleteToken(string $token): void
     {
         // Laravel's delete(url, data) argument is a request body, not PostgREST
