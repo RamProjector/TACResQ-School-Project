@@ -22,7 +22,6 @@ There is no approved, immutable relationship between these two identities. Match
 
 - A privileged transition endpoint that uses the transactional recorder and local Admin guard.
 - A verified local MFA factor or other stronger step-up mechanism; the current guard rechecks the local password and is not MFA.
-- Explicit same-valid-token denial tests for each high-risk incident and assignment route.
 - A full concurrency and integration run on disposable PostgreSQL before enabling transitions.
 
 No local Admin transition UI/API is exposed. No production migration or account change is included in this implementation slice. Do not join Sanctum and Supabase identities by email.
