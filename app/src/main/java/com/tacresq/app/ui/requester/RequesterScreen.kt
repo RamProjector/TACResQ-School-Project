@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -69,6 +70,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.locationbutton.compose.LocationButton
 import androidx.core.locationbutton.compose.LocationButtonTextType
@@ -98,7 +100,6 @@ import com.tacresq.app.ui.common.repositoryCallOrFailure
 import com.tacresq.app.ui.common.ScreenHeader
 import com.tacresq.app.ui.common.SectionHeading
 import com.tacresq.app.ui.common.StatusPill
-import com.tacresq.app.ui.common.pillColor
 import com.tacresq.app.ui.common.SyncStatus
 import com.tacresq.app.ui.common.formatTime
 import kotlinx.coroutines.CancellationException
@@ -856,8 +857,6 @@ fun RequesterScreen(
             )
         }
 
-        if (state.syncError != null) item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
-
         if (state.refreshInProgress) item {
             Card(
                 modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
@@ -877,38 +876,6 @@ fun RequesterScreen(
                         },
                         style = MaterialTheme.typography.bodySmall,
                     )
-                }
-            }
-        }
-
-        if (state.isShowingCachedIncidentStatuses) item {
-            Card(
-                modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Last-confirmed request statuses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "These may have changed. Creating, editing, cancelling, and opening incident messages require a live refresh. A saved-SOS recovery, if present below, uses its original idempotency key.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    if (state.cachedIncidentStatuses.isEmpty()) {
-                        Text("No requests were recorded at the last successful sync.", style = MaterialTheme.typography.bodyMedium)
-                    } else {
-                        state.cachedIncidentStatuses.forEach { cached ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text("Request reference #${cached.incidentId}", style = MaterialTheme.typography.labelMedium)
-                                    Text(cached.type.label, style = MaterialTheme.typography.bodySmall)
-                                }
-                                StatusPill(cached.status.requesterLabel, cached.status.pillColor())
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -1039,7 +1006,7 @@ fun RequesterScreen(
                         }
                         StatusPill(
                             activeIncident.status.requesterLabel,
-                            activeIncident.status.pillColor(),
+                            activeIncident.status,
                         )
                     }
                     Text(
@@ -1106,55 +1073,67 @@ fun RequesterScreen(
                 }
             }
         } else if (state.hasCurrentIncidentStatus && !showRequestForm && !state.pendingSosAvailable &&
-
             !state.pendingSosCheckInProgress && state.pendingSosCheckError == null
         ) item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.inverseSurface,
+                    contentColor = MaterialTheme.colorScheme.inverseOnSurface,
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(15.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(13.dp),
+                    ) {
                         Surface(
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
-                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            shape = CircleShape,
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.LocationOn,
                                 contentDescription = null,
-                                modifier = Modifier.padding(12.dp).size(24.dp),
+                                modifier = Modifier.padding(13.dp).size(25.dp),
                                 tint = MaterialTheme.colorScheme.onPrimary,
                             )
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
+                                "REQUEST ASSISTANCE",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    letterSpacing = 1.2.sp,
+                                    fontWeight = FontWeight.Bold,
+                                ),
+                                color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.72f),
+                            )
+                            Text(
                                 "Need emergency help?",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                "Share what happened and where. Device location is optional.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f),
+                                color = MaterialTheme.colorScheme.inverseOnSurface,
                             )
                         }
                     }
+                    Text(
+                        "Share what happened and where. Device location is optional.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.82f),
+                    )
                     Button(
                         onClick = { showRequestForm = true },
                         enabled = !state.sending && !state.loading && requesterActionsEnabled,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
                         shape = MaterialTheme.shapes.medium,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.primary,
-                            disabledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
-                            disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
                         ),
                     ) {
                         if (state.loading || state.refreshInProgress) {
@@ -1163,9 +1142,45 @@ fun RequesterScreen(
                                 strokeWidth = 2.dp,
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("Checking requests…", fontWeight = FontWeight.Bold)
+                            Text("Checking requests…")
                         } else {
                             Text("Request emergency help", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (state.syncError != null) {
+            item { SyncStatus(state.lastSyncedAtEpochMs, state.syncError) }
+        }
+
+        if (state.isShowingCachedIncidentStatuses) item {
+            Card(
+                modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Last-confirmed request statuses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "These may have changed. Creating, editing, cancelling, and opening incident messages require a live refresh. A saved-SOS recovery, if present below, uses its original idempotency key.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (state.cachedIncidentStatuses.isEmpty()) {
+                        Text("No requests were recorded at the last successful sync.", style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        state.cachedIncidentStatuses.forEach { cached ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text("Request reference #${cached.incidentId}", style = MaterialTheme.typography.labelMedium)
+                                    Text(cached.type.label, style = MaterialTheme.typography.bodySmall)
+                                }
+                                StatusPill(cached.status.requesterLabel, cached.status)
+                            }
                         }
                     }
                 }
