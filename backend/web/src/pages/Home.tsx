@@ -37,9 +37,9 @@ function LoginScreen() {
       <section className="login-story">
         <Brand inverse />
         <div className="login-story__body">
-          <p className="eyebrow eyebrow--light"><span className="login-story__signal-dot" /> TACRESQ · ADMINISTRATION</p>
-          <h1>Clarity for the people who keep the system accountable.</h1>
-          <p className="login-story__copy">A focused workspace for account governance, service reachability and administrative review. Emergency dispatch remains in the TACResQ Android app.</p>
+          <p className="eyebrow eyebrow--light"><span className="login-story__signal-dot" /> TACRESQ · ADMIN PORTAL</p>
+          <h1>A clear view of the accounts and activity behind TACResQ.</h1>
+          <p className="login-story__copy">Manage administrator access, review user accounts, and check service connections. Emergency dispatch remains in the TACResQ Android app.</p>
           <div className="login-story__visual" aria-hidden="true">
             <svg viewBox="0 0 620 270" role="presentation">
               <defs>
@@ -63,26 +63,26 @@ function LoginScreen() {
                 <circle cx="40" cy="208" r="7" /><circle cx="192" cy="90" r="7" /><circle cx="354" cy="155" r="7" /><circle cx="570" cy="62" r="7" />
               </g>
               <g fill="#F3F4ED" fontFamily="IBM Plex Mono, monospace" fontSize="9" letterSpacing="1.2">
-                <text x="30" y="235">IDENTITY</text><text x="165" y="66">ACCESS</text><text x="326" y="184">REVIEW</text><text x="531" y="39">AUDIT</text>
+                <text x="30" y="235">ACCOUNTS</text><text x="165" y="66">PERMISSIONS</text><text x="326" y="184">ACTIVITY</text><text x="531" y="39">HISTORY</text>
               </g>
               <g transform="translate(376 188)">
                 <rect width="214" height="55" rx="9" fill="#F0F1EB" fillOpacity=".96" />
                 <circle cx="20" cy="20" r="5" fill="#28735D" />
-                <text x="34" y="23" fill="#1C3035" fontFamily="IBM Plex Mono, monospace" fontSize="8" letterSpacing="1">CONTROLLED ACCESS</text>
-                <text x="16" y="42" fill="#52666A" fontFamily="DM Sans, sans-serif" fontSize="11">Role-gated · Server-enforced</text>
+                <text x="34" y="23" fill="#1C3035" fontFamily="IBM Plex Mono, monospace" fontSize="8" letterSpacing="1">ADMIN ACCESS</text>
+                <text x="16" y="42" fill="#52666A" fontFamily="DM Sans, sans-serif" fontSize="11">For approved administrators only</text>
               </g>
             </svg>
-            <div className="login-story__visual-caption"><span>THE ADMINISTRATION LAYER</span><strong>Identity <i>·</i> Access <i>·</i> Accountability</strong></div>
+            <div className="login-story__visual-caption"><span>ADMIN TOOLS</span><strong>Accounts <i>·</i> Permissions <i>·</i> Activity</strong></div>
           </div>
         </div>
-        <div className="login-story__footer"><span>SECURE ADMINISTRATION</span><span>ROLE-GATED · SERVER-ENFORCED</span></div>
+        <div className="login-story__footer"><span>ADMINISTRATOR ACCESS</span><span>APPROVED ADMINISTRATORS ONLY</span></div>
       </section>
       <section className="login-form-wrap">
         <div className="login-form-card">
           <div className="login-mobile-brand"><Brand /></div>
           <p className="eyebrow">ADMIN PORTAL ACCESS</p>
           <h2>Administrator sign in</h2>
-          <p className="muted">Use an authorized administrator account connected to the TACResQ Supabase project.</p>
+          <p className="muted">Sign in with the email and password for your TACResQ administrator account.</p>
           <form className="login-form" onSubmit={handleSubmit}>
             <label htmlFor="email">Email address</label>
             <input id="email" name="email" type="email" autoComplete="username" placeholder="admin@example.org" value={email} onChange={(event) => setEmail(event.target.value)} required />
@@ -93,7 +93,7 @@ function LoginScreen() {
               {submitting ? <><LoaderCircle size={17} className="spin" /> Verifying access…</> : <>Open admin portal <ArrowUpRight size={17} /></>}
             </button>
           </form>
-          <div className="login-access-note"><BadgeCheck size={17} /><p>Only administrator accounts can use this portal. Dispatcher accounts cannot access web dispatch controls; use the TACResQ Android app for dispatch operations.</p></div>
+          <div className="login-access-note"><BadgeCheck size={17} /><p>This portal is for administrator accounts. Dispatchers should use the TACResQ Android app to handle emergency requests.</p></div>
         </div>
         <p className="login-footnote">TACRESQ · ADMIN PORTAL</p>
       </section>
