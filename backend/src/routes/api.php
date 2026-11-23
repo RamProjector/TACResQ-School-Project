@@ -69,6 +69,11 @@ Route::post('/login', function (Request $request) use ($userJson) {
     }
 
     RateLimiter::clear($accountKey);
+    if ($user->is_suspended) {
+        return response()->json([
+            'message' => 'This local TACResQ account is suspended. Contact an administrator for assistance.',
+        ], 403)->header('Cache-Control', 'no-store, private');
+    }
     return response()->json(['token' => $user->createToken('android')->plainTextToken, 'user' => $userJson($user)])
         ->header('Cache-Control', 'no-store, private');
 });
