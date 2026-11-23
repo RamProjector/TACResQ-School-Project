@@ -50,13 +50,15 @@ assert "unsignedBigInteger('target_user_id')->nullable()" in audit_migration
 assert "constrained('users')" not in audit_migration, "Audit identifiers must remain immutable after user deletion"
 assert "CREATE TRIGGER local_lifecycle_events_append_only" in append_only_migration
 assert "BEFORE UPDATE OR DELETE" in append_only_migration
-assert "to_jsonb(NEW)" in append_only_migration and "to_jsonb(OLD)" in append_only_migration
+assert "BEFORE TRUNCATE" in append_only_migration
+assert "local_lifecycle_events_no_truncate" in append_only_migration
 assert "RAISE EXCEPTION 'local account lifecycle events are append-only'" in append_only_migration
 assert "OLD.actor_user_id" not in append_only_migration and "OLD.target_user_id" not in append_only_migration
 assert "test_local_lifecycle_audit_schema_retains_original_actor_and_target_ids_after_user_deletion" in feature
 assert "test_local_lifecycle_audit_event_rejects_actor_or_target_reference_mutation_on_postgres" in feature
 assert "test_local_lifecycle_audit_event_rejects_content_updates_on_postgres" in feature
 assert "test_local_lifecycle_audit_event_rejects_deletion_on_postgres" in feature
+assert "test_local_lifecycle_audit_event_rejects_truncate_on_postgres" in feature
 assert "final class LocalAccountLifecycleRecorder" in recorder
 assert "DB::connection()->transactionLevel() < 1" in recorder, "Lifecycle writes must require an active transaction"
 assert "self::TRANSITIONS[$action]" in recorder, "Only explicit lifecycle transitions may be recorded"
