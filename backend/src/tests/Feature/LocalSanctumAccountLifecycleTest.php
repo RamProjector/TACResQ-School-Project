@@ -544,6 +544,31 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         $this->assertStringNotContainsString($secret, $credential->secret_ciphertext);
     }
 
+    public function test_local_admin_totp_enrollment_rechecks_password_after_locking_account(): void
+    {
+        $admin = User::create([
+            'name' => 'Local TOTP Enrollment Password Admin',
+            'email' => 'local-totp-enrollment-password@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+
+        DB::table('users')->where('id', $admin->id)->update([
+            'password' => bcrypt('changed-password-after-authentication'),
+        ]);
+
+        $this->postJson('/api/admin/security/totp/enroll', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertForbidden()->assertExactJson([
+            'message' => 'Administrator re-authentication failed.',
+        ])->assertHeader('Cache-Control', 'no-store, private');
+
+        $this->assertDatabaseMissing('local_admin_totp_credentials', [
+            'user_id' => $admin->id,
+        ]);
+    }
+
     public function test_local_admin_totp_confirmation_requires_current_password(): void
     {
         $admin = User::create([
@@ -615,7 +640,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         DB::table('local_admin_totp_credentials')->where('user_id', $admin->id)
             ->update(['expires_at' => now()->subSecond()]);
 
-        $this->postJson('/api/admin/security/totp/confirm', ['totp_code' => $code])
+        $this->postJson('/api/admin/security/totp/confirm', ['current_password' => 'synthetic-test-password', 'totp_code' => $code])
             ->assertUnprocessable();
         $this->assertDatabaseHas('local_admin_totp_credentials', [
             'user_id' => $admin->id,
