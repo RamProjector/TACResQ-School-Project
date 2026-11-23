@@ -111,3 +111,16 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - Typography uses bounded responsive sizing rather than unrestricted viewport scaling; large displays receive modestly wider content and table spacing, while narrow screens retain legible controls and stacked pagination.
 - Existing navigation, permissions, data queries, account lifecycle boundaries, and page content are unchanged.
 - Static source assertions are added for the shared tokens and breakpoint contract. Actual browser screenshots, keyboard interaction, zoom behavior, and assistive-technology review remain required before declaring visual validation complete.
+
+
+## Admin multi-page resolution and spacing implementation
+
+- Added a dedicated Admin resolution stylesheet loaded after the existing portal foundation, so the Overview, User Management, Security, Reports, and Activity Log views share one bounded typography and spacing system.
+- Defined explicit wide desktop (1920px+), large desktop (1440–1919px), standard desktop (1201–1439px), compact desktop (901–1200px), tablet (761–900px), mobile (up to 760px), and narrow mobile (up to 480px) layout tiers. Sizing remains fluid inside each tier, while structural changes happen at fixed breakpoints.
+- Standardized body/control typography, heading scale, workspace gutters, panel rhythm, table density, and form-control sizing. Large screens gain restrained content width and table spacing instead of unbounded font growth.
+- Reworked the mobile Admin sidebar into a horizontally scrollable navigation strip and reduced secondary chrome on narrow viewports so the active workspace retains usable width.
+- Applied a shared responsive layout to audit coverage, lifecycle history, investigation filters, event cards, analytics metrics, and health panels. Filters and cards reflow into fewer columns as available width decreases; tables retain a readable minimum width inside their scroll region.
+- Added bounded modal height/scroll behavior, consistent keyboard focus visibility, and reduced-motion handling.
+- Added static source-contract assertions for stylesheet loading, each resolution tier, audit/report reflow, table minimum width, modal bounds, and reduced-motion behavior.
+- No application data, queries, role permissions, routes, account lifecycle capabilities, or backend behavior changed.
+- Static source assertions do not establish visual correctness. Browser screenshots at representative fixed widths (1920, 1440, 1280, 1024, 768, 390px), 200% zoom, keyboard-only navigation, and screen-reader review remain outstanding.
