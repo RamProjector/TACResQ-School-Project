@@ -234,6 +234,44 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_postgres_lifecycle_audit_constraints_reject_invalid_records(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('Lifecycle audit CHECK constraints are PostgreSQL-specific.');
+        }
+
+        $base = [
+            'actor_user_id' => 10,
+            'target_user_id' => 20,
+            'action' => 'suspended',
+            'reason' => 'Valid reason',
+            'previous_state' => 'active',
+            'new_state' => 'suspended',
+            'created_at' => now(),
+        ];
+
+        $invalidRecords = [
+            ['actor_user_id' => 20],
+            ['actor_user_id' => -1],
+            ['target_user_id' => -1],
+            ['reason' => '   '],
+            ['action' => 'suspended', 'previous_state' => 'suspended', 'new_state' => 'active'],
+            ['action' => 'unknown', 'previous_state' => 'active', 'new_state' => 'suspended'],
+        ];
+
+        foreach ($invalidRecords as $overrides) {
+            try {
+                DB::transaction(fn () => DB::table('local_account_lifecycle_events')
+                    ->insert(array_merge($base, $overrides)));
+                $this->fail('PostgreSQL must reject invalid lifecycle audit records.');
+            } catch (QueryException $exception) {
+                $this->assertStringContainsString('check constraint', strtolower($exception->getMessage()));
+            }
+        }
+
+        $this->assertDatabaseCount('local_account_lifecycle_events', 0);
+    }
+
     public function test_local_lifecycle_audit_event_rejects_truncate_on_postgres(): void
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {
