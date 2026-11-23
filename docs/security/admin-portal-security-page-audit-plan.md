@@ -74,3 +74,11 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - If records are removed between page requests and the selected page becomes invalid, the UI returns to the last valid page.
 - The ordinary investigation feed retains its existing independent filters and pagination. The lifecycle history remains a separate read-only source until a unified cross-source cursor and ordering contract is validated.
 - The pager is keyboard-focus visible and stacks its controls on narrow screens.
+
+
+## Admin navigation and directory accessibility follow-up
+
+- Added a keyboard skip link that moves focus to the Admin workspace without requiring traversal of every sidebar item.
+- The user-management section now has an explicit heading relationship; the directory table references its live result-status text and uses scoped column headers.
+- User-directory and investigation-feed pagination now use semantic navigation landmarks and identify the result region they control.
+- Existing role permissions, read-only audit behavior, and server-side filtering are unchanged. These are navigation and assistive-technology improvements, not new administrative capabilities.
