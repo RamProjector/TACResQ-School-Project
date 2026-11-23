@@ -189,20 +189,21 @@ def main() -> int:
         )
     print("PASS: authenticated participant download returned exact bytes")
 
-    unrelated_token = os.environ.get("TACRESQ_UNRELATED_ACCESS_TOKEN", "").strip()
-    if unrelated_token:
-        denied_status, _ = request(
-            base_url,
-            unrelated_token,
-            anon_key,
-            "GET",
-            f"/storage/v1/object/{BUCKET}/{encoded_path}",
+    unrelated_token = required("TACRESQ_UNRELATED_ACCESS_TOKEN")
+    denied_status, _ = request(
+        base_url,
+        unrelated_token,
+        anon_key,
+        "GET",
+        f"/storage/v1/object/{BUCKET}/{encoded_path}",
+    )
+    if 200 <= denied_status < 300:
+        raise AcceptanceFailure("Unrelated account unexpectedly downloaded the object")
+    if denied_status not in (401, 403, 404):
+        raise AcceptanceFailure(
+            f"Unrelated-account denial returned an unexpected HTTP status: {denied_status}"
         )
-        if 200 <= denied_status < 300:
-            raise AcceptanceFailure("Unrelated account unexpectedly downloaded the object")
-        print(f"PASS: unrelated account download denied (HTTP {denied_status})")
-    else:
-        print("SKIP: unrelated-account denial (set TACRESQ_UNRELATED_ACCESS_TOKEN)")
+    print(f"PASS: unrelated account download denied (HTTP {denied_status})")
 
     print(
         "NOTE: one synthetic message and one private Storage object were created; "
