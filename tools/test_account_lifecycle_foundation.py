@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261123090000_account_lifecycle_foundation.sql").read_text().lower()
+rls_migration = (ROOT / "supabase/migrations/20261123100000_account_lifecycle_restrictive_rls.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
 design = (ROOT / "docs/security/admin-account-suspension-design.md").read_text().lower()
@@ -47,10 +48,21 @@ assert "create policy" not in migration, (
 )
 
 for required in (
+    "create policy tacresq_active_account_required",
+    "as restrictive for all to authenticated",
+    "using ((select private.tacresq_current_account_active()))",
+    "with check ((select private.tacresq_current_account_active()))",
+    "has_any_column_privilege('authenticated'",
+    "and c.relrowsecurity",
+):
+    assert required in rls_migration, f"Direct-table RLS migration is missing: {required}"
+
+for required in (
     "same valid jwt",
     "private.tacresq_current_account_active()",
     "account_status = 'suspended'",
     "account_status = 'active'",
+    "restrictive rls must hide the suspended caller profile",
     "authenticated client unexpectedly inserted an account audit row",
 ):
     assert required in runtime_test, f"Runtime account lifecycle test is missing: {required}"
