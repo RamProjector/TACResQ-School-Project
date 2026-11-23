@@ -109,6 +109,7 @@ for required in (
     "not private.tacresq_current_account_active()",
     "using errcode = '42501'",
     "create trigger tacresq_active_account_write_guard",
+    "revoke all on function private.tacresq_reject_suspended_account_write()",
 ):
     assert required in write_migration, f"Write-guard migration is missing: {required}"
 
@@ -138,6 +139,7 @@ for required in (
     "suspended admin unexpectedly passed the totp-protected directory rpc",
     "tacresq_active_account_write_guard",
     "authenticated client unexpectedly inserted an account audit row",
+    "active-account restrictive rls must preserve the caller profile read",
 ):
     assert required in runtime_test, f"Runtime account lifecycle test is missing: {required}"
 
