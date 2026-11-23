@@ -10,6 +10,7 @@ write_migration = (ROOT / "supabase/migrations/20261123120000_account_lifecycle_
 admin_mfa_migration = (ROOT / "supabase/migrations/20261123130000_account_lifecycle_admin_mfa_guard.sql").read_text().lower()
 read_rpc_migration = (ROOT / "supabase/migrations/20261123140000_account_lifecycle_read_rpc_guards.sql").read_text().lower()
 assignment_helper_migration = (ROOT / "supabase/migrations/20261123150000_account_lifecycle_assignment_helper_guard.sql").read_text().lower()
+volatility_migration = (ROOT / "supabase/migrations/20261123160000_account_lifecycle_helper_volatility.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
 design = (ROOT / "docs/security/admin-account-suspension-design.md").read_text().lower()
@@ -83,6 +84,17 @@ for required in (
     assert required in read_rpc_migration, f"Read-RPC account-state guard is missing: {required}"
 
 for required in (
+    "create or replace function private.tacresq_auth_can_access_incident_chat(",
+    "language plpgsql\nvolatile",
+    "private.tacresq_auth_profile_id()",
+    "create or replace function public.api_units()",
+    "security invoker",
+    "private.tacresq_actor_role() is distinct from 'dispatcher'",
+    "p.account_status = 'active'",
+):
+    assert required in volatility_migration, f"Account-aware helper volatility guard is missing: {required}"
+
+for required in (
     "create or replace function private.tacresq_is_incident_assignee(p_incident_id bigint)",
     "account_status = 'active'",
     "for share",
@@ -137,6 +149,7 @@ for required in (
     "test_account_lifecycle_definer_write",
     "security definer table write unexpectedly succeeded",
     "suspended admin unexpectedly passed the totp-protected directory rpc",
+    "suspended dispatcher unexpectedly passed api_units",
     "tacresq_active_account_write_guard",
     "authenticated client unexpectedly inserted an account audit row",
     "active-account restrictive rls must preserve the caller profile read",
