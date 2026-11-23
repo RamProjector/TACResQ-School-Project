@@ -35,7 +35,7 @@ final class FcmNotificationDispatcherTest extends TestCase
         try {
             (new FcmNotificationDispatcher($fcm))->dispatch(1);
             self::fail('Expected missing server configuration to fail closed.');
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             self::assertSame('FCM dispatcher requires the server-only Supabase secret key.', $exception->getMessage());
         }
 
