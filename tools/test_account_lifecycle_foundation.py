@@ -11,6 +11,7 @@ admin_mfa_migration = (ROOT / "supabase/migrations/20261123130000_account_lifecy
 read_rpc_migration = (ROOT / "supabase/migrations/20261123140000_account_lifecycle_read_rpc_guards.sql").read_text().lower()
 assignment_helper_migration = (ROOT / "supabase/migrations/20261123150000_account_lifecycle_assignment_helper_guard.sql").read_text().lower()
 volatility_migration = (ROOT / "supabase/migrations/20261123160000_account_lifecycle_helper_volatility.sql").read_text().lower()
+transition_migration = (ROOT / "supabase/migrations/20261123170000_account_lifecycle_admin_transition_rpc.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
 storage_test = (ROOT / "tools/test_incident_chat_storage_policies.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
@@ -84,6 +85,30 @@ for required in (
 ):
     assert required in read_rpc_migration, f"Read-RPC account-state guard is missing: {required}"
 
+role_wrapper = transition_migration.split(
+    "create or replace function public.api_admin_set_user_role(", 1
+)[1].split("$function$;", 1)[0]
+assert role_wrapper.find("pg_advisory_xact_lock") < role_wrapper.find("tacresq_require_admin_mfa"), (
+    "Admin role changes must serialize before locking the actor profile"
+)
+for required in (
+    "create or replace function public.api_admin_set_account_status(",
+    "pg_advisory_xact_lock(hashtext('tacresq-admin-account-lifecycle'))",
+    "private.tacresq_require_admin_mfa()",
+    "p.role = 'admin'",
+    "p.account_status = 'active'",
+    "for share",
+    "for update",
+    "p_target_profile_id = v_actor_id",
+    "the last active administrator cannot be suspended",
+    "length(v_reason) not between 10 and 500",
+    "insert into public.account_lifecycle_audit_logs",
+    "account_suspended",
+    "account_reactivated",
+    "revoke all on function public.api_admin_set_account_status(bigint, text, text)",
+):
+    assert required in transition_migration, f"Admin account transition is missing: {required}"
+
 for required in (
     "create or replace function private.tacresq_auth_can_access_incident_chat(",
     "language plpgsql\nvolatile",
@@ -154,6 +179,12 @@ for required in (
     "tacresq_active_account_write_guard",
     "authenticated client unexpectedly inserted an account audit row",
     "active-account restrictive rls must preserve the caller profile read",
+    "suspension must preserve the target field unit duty status",
+    "repeated suspension must be idempotent",
+    "reactivation must clear current suspension metadata",
+    "synthetic audit failure did not abort the transition",
+    "account state must roll back when its audit insert fails",
+    "an admin must not suspend their own account",
 ):
     assert required in runtime_test, f"Runtime account lifecycle test is missing: {required}"
 
