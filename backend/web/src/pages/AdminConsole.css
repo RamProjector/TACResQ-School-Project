@@ -815,3 +815,14 @@
   .admin-security-status__revocation { break-inside:avoid-page; }
   a { text-decoration:none; }
 }
+
+
+/* Keep explicit loading and unavailable metric labels from overflowing compact cards. */
+.admin-metrics article { overflow-wrap:anywhere; }
+.admin-metrics strong { min-width:0; font-size:clamp(20px,2vw,29px); overflow-wrap:anywhere; }
+.admin-metrics small { overflow-wrap:anywhere; }
+@media (max-width:520px) {
+  .admin-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .admin-metrics article { padding:14px; }
+  .admin-metrics strong { font-size:clamp(19px,6vw,25px); }
+}
