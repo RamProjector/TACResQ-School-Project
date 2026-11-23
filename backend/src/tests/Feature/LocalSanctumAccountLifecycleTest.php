@@ -48,6 +48,23 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             ->assertHeader('Cache-Control', 'no-store, private');
     }
 
+    public function test_suspended_local_account_cannot_obtain_a_new_sanctum_token(): void
+    {
+        $user = $this->createLocalUser();
+        DB::table('users')->where('id', $user->id)->update(['is_suspended' => true]);
+
+        $this->postJson('/api/login', [
+            'email' => $user->email,
+            'password' => 'synthetic-test-password',
+        ])->assertForbidden()
+            ->assertExactJson([
+                'message' => 'This local TACResQ account is suspended. Contact an administrator for assistance.',
+            ])
+            ->assertHeader('Cache-Control', 'no-store, private');
+
+        $this->assertSame(0, $user->tokens()->count());
+    }
+
     public function test_suspended_local_account_can_still_revoke_its_current_token(): void
     {
         $user = $this->createLocalUser();
