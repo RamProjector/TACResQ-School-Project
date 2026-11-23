@@ -1,6 +1,6 @@
 # Admin account suspension: security design and implementation gates
 
-**Status:** design and repository inventory required; no account state, Auth user, session, or production data has been changed.
+**Status:** first database foundation committed on `security/admin-account-suspension-runtime-foundation`; enforcement, Admin RPC/UI, Auth session revocation, and connected-project deployment are NOT implemented. The migration only adds default-active lifecycle fields, an immutable audit ledger, and a current-database-state helper. No account has been suspended and no live Supabase project or user data was changed.
 
 ## Goal
 
@@ -19,13 +19,13 @@ The first implementation must not expose administrator provisioning, promotion/d
 - The repository also contains a separate legacy Laravel Sanctum authentication path backed by Laravel User records and personal-access tokens. Its identity mapping/support status relative to Supabase Auth users and public.profiles is not established by source review. Do not assume a Supabase suspension state automatically blocks those tokens, and do not join identities by email. Before claiming complete account suspension, explicitly decide whether the legacy Sanctum routes remain supported and, if so, define their own server-side account-state/revocation contract.
 - The optional Render Supabase bridge validates the Supabase bearer token and forwards that same caller JWT to allowlisted PostgREST RPCs. It is useful transport defense, but does not itself resolve current profile account state; database enforcement remains mandatory.
 - Storage has independent policies and must receive an explicit active-account check too.
-- The existing audit model supports role-change events, and the investigation feed has a fixed source allowlist. Suspension events need a trusted, append-only audit representation and explicit feed coverage.
+- The existing audit model supports role-change events, and the investigation feed has a fixed source allowlist. The foundation migration adds a private-to-clients, RLS-enabled, append-only `account_lifecycle_audit_logs` ledger. A trusted state-transition RPC and investigation-feed coverage are still outstanding.
 
 ## Security model
 
 ### 1. Separate account access from duty status
 
-Add a constrained account state to public.profiles, independent of duty_status:
+The foundation migration now adds a constrained account state to `public.profiles`, independent of `duty_status`:
 
 - active
 - suspended
@@ -44,7 +44,7 @@ A status column is not an authorization control by itself. Before enabling the U
 - The Laravel Supabase bridge and other backend routes that accept a Supabase bearer token.
 - Admin RPCs, including directory and investigation endpoints.
 
-Use one narrowly scoped private helper for current-caller active-state checks, with a fixed pg_catalog search path, explicit grants, and regression tests. Add restrictive RLS policies where appropriate, but do not assume RLS protects SECURITY DEFINER functions: each definer entry point must explicitly reject suspended callers before doing work. Verify every path rather than assuming the role helper covers them.
+The foundation migration adds `private.tacresq_current_account_active()` with a fixed `pg_catalog` search path and an explicit authenticated-only EXECUTE grant. It reads the current profile row rather than trusting JWT metadata. It is not yet wired into application policies or RPCs. Add restrictive RLS policies where appropriate, but do not assume RLS protects SECURITY DEFINER functions: each definer entry point must explicitly reject suspended callers before doing work. Verify every path rather than assuming the role helper covers them.
 
 ### 3. Treat already-issued JWTs correctly
 
@@ -95,7 +95,7 @@ The audit write and state mutation must be in one database transaction. Clients 
 ## Rollout gates
 
 - First produce an inventory of all public RPCs, direct table policies, Storage policies, and Laravel Supabase bridge calls, with each entry marked guarded/tested.
-- Implement database schema, enforcement, and audit migration before any UI control.
+- The schema/audit foundation exists on this branch. Complete the enforcement migration and tests before any UI control.
 - Run all checks on a clean disposable PostgreSQL database and use synthetic accounts only.
 - Do not apply the migration to either connected Supabase project without explicit approval.
 - Only after the server-side contract is complete, add directory status, confirmation dialog, required reason, stale-target revalidation, and audit feed labels.
