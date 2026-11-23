@@ -10,7 +10,7 @@
 
 | Surface | Observed |
 |---|---:|
-| Authenticated-callable public functions | 72 |
+| Authenticated-callable public functions | 73 |
 | Public `SECURITY DEFINER` functions | 21 |
 | Public `SECURITY INVOKER` functions | 52 |
 | Public ordinary/partitioned tables inventoried | 20 |
