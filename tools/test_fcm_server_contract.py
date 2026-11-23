@@ -106,6 +106,8 @@ assert "typed `google.rpc.BadRequest` field-violation detail" in docs
 assert "SUPABASE_SECRET_KEY" in docs
 assert "Do not expose this command" in docs
 assert "--check-config" in docs
+assert "at-least-once, not exactly-once" in docs
+assert "stable notification identifier" in docs
 # The trusted sender must not expose a public route or use a client-visible key.
 assert "Route::post('/internal/push" not in read("backend/src/routes/api.php")
 assert "supabase_publishable_key" not in dispatcher
