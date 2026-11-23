@@ -22,6 +22,7 @@ DECLARE
     'public.api_my_notification(bigint)',
     'public.api_my_notifications(integer)',
     'public.api_register_fcm_token(text)',
+    'public.api_reserve_incident_image_upload(bigint,text,bigint,uuid)',
     'public.api_send_incident_image_message(bigint,text,text,text,bigint,uuid)',
     'public.api_send_incident_message(bigint,text,uuid)',
     'public.api_set_incident_claimable(bigint,boolean)',
@@ -67,11 +68,11 @@ BEGIN
       unexpected_signature;
   END IF;
 
-  IF cardinality(expected_signatures) <> 20 THEN
-    RAISE EXCEPTION 'Inventory contract must contain exactly 20 reviewed signatures; found %',
+  IF cardinality(expected_signatures) <> 21 THEN
+    RAISE EXCEPTION 'Inventory contract must contain exactly 21 classified signatures; found %',
       cardinality(expected_signatures);
   END IF;
 END;
 $account_suspension_definer_inventory$;
 
-\echo 'PASS: all 20 reviewed public SECURITY DEFINER signatures remain classified; no new callable definer entry point is unreviewed.'
+\echo 'PASS: all 21 classified public SECURITY DEFINER signatures remain inventoried; no new callable definer entry point is unreviewed.'
