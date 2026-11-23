@@ -287,4 +287,34 @@ assert audit_insert > profile_update, (
 )
 assert "trim(p_reason)" in role_body and "user_role_changed" in role_body
 
-print("Admin TOTP, backup-factor enrollment, role-change atomicity, wrapper ordering, grants, and audit RLS contracts passed.")
+# The unified investigation feed is a separate callable Admin endpoint. Keep its
+# trusted MFA check inside the database function and before any source-history reads.
+investigation_migration = (
+    ROOT / "supabase/migrations/20261122160000_admin_investigation_events.sql"
+).read_text().lower()
+investigation_wrapper = re.search(
+    r"create or replace function public[.]api_admin_list_investigation_events[(].*?as [$]function[$](.*?)[$]function[$];",
+    investigation_migration,
+    flags=re.DOTALL,
+)
+assert investigation_wrapper, "Missing unified Admin investigation RPC"
+investigation_body = investigation_wrapper.group(1)
+investigation_mfa = investigation_body.find("perform private.tacresq_require_admin_mfa()")
+first_history_read = investigation_body.find("from public.admin_audit_logs")
+assert investigation_mfa >= 0 and first_history_read > investigation_mfa, (
+    "Investigation RPC must enforce the shared Admin MFA gate before reading audit history"
+)
+investigation_signature = (
+    "public.api_admin_list_investigation_events(integer, integer, text, text, text, "
+    "timestamp with time zone, timestamp with time zone, bigint, bigint, bigint)"
+)
+assert re.search(
+    rf"revoke all on function {re.escape(investigation_signature)}\\s+from public, anon, authenticated",
+    investigation_migration,
+), "Investigation RPC must not inherit PUBLIC or anon execution"
+assert re.search(
+    rf"grant execute on function {re.escape(investigation_signature)}\\s+to authenticated",
+    investigation_migration,
+), "Investigation RPC must remain callable only through its authenticated MFA-checked body"
+
+print("Admin TOTP, investigation-feed MFA ordering, role-change atomicity, wrapper grants, and audit RLS contracts passed.")
