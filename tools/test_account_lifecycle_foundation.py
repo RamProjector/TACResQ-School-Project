@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Static contract for the staged account-lifecycle foundation."""
 from pathlib import Path
-import re
 
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261123090000_account_lifecycle_foundation.sql").read_text().lower()
@@ -22,7 +21,8 @@ for required in (
     "enable row level security",
     "revoke all privileges on table public.account_lifecycle_audit_logs",
     "revoke all privileges on sequence public.account_lifecycle_audit_logs_id_seq",
-    "before update or delete on public.account_lifecycle_audit_logs",\n    "account lifecycle audit history is append-only",
+    "before update or delete on public.account_lifecycle_audit_logs",
+    "account lifecycle audit history is append-only",
     "create or replace function private.tacresq_current_account_active()",
     "security definer",
     "set search_path = pg_catalog",
@@ -51,7 +51,6 @@ for required in (
     "private.tacresq_current_account_active()",
     "account_status = 'suspended'",
     "account_status = 'active'",
-    "account lifecycle audit history is append-only",
     "authenticated client unexpectedly inserted an account audit row",
 ):
     assert required in runtime_test, f"Runtime account lifecycle test is missing: {required}"
@@ -60,6 +59,6 @@ assert "tools/test_account_lifecycle_foundation.sql" in replay, (
     "Clean migration replay must execute the account lifecycle SQL contract"
 )
 assert "status:** design and repository inventory required" not in design
-assert "foundation migration" in design and "not yet enforced" in design
+assert "foundation migration" in design and "not yet wired into application policies or rpcs" in design
 
 print("Account lifecycle foundation source contract passed.")
