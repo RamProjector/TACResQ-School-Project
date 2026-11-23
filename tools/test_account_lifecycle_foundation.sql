@@ -270,6 +270,33 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN
     NULL;
   END;
+  BEGIN
+    PERFORM public.api_send_incident_message(
+      1, 'Suspended idempotent text retry must fail',
+      '00000000-0000-4000-8000-000000000981'::uuid
+    );
+    RAISE EXCEPTION 'Suspended caller unexpectedly replayed a text-message operation';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  BEGIN
+    PERFORM public.api_reserve_incident_image_upload(
+      1, 'image/jpeg', 4,
+      '00000000-0000-4000-8000-000000000982'::uuid
+    );
+    RAISE EXCEPTION 'Suspended caller unexpectedly replayed an image reservation';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  BEGIN
+    PERFORM public.api_send_incident_image_message(
+      1, '', '1/1/00000000-0000-4000-8000-000000000983.jpg',
+      'image/jpeg', 4, '00000000-0000-4000-8000-000000000983'::uuid
+    );
+    RAISE EXCEPTION 'Suspended caller unexpectedly replayed an image-message operation';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
   IF public.api_claimable_incidents() IS DISTINCT FROM '[]'::jsonb THEN
     RAISE EXCEPTION 'Suspended field-unit caller must not receive claimable incident data';
   END IF;
