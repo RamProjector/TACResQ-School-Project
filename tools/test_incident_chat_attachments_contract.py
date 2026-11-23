@@ -59,6 +59,36 @@ for label, passed in {
 }.items():
     assert passed, f"Upload reservation migration contract failed: {label}"
 
+# Both Storage directions must use the shared caller-derived membership
+# predicate. A future account-state guard belongs in this shared helper chain.
+original_insert_policy = migration.split(
+    "CREATE POLICY tacresq_incident_chat_attachment_insert", 1
+)[1].split("$sql$", 1)[0]
+original_read_policy = migration.split(
+    "CREATE POLICY tacresq_incident_chat_attachment_read", 1
+)[1].split("$sql$", 1)[0]
+assert "private.tacresq_auth_profile_id()" in original_insert_policy, (
+    "Storage INSERT must bind the object path to the authenticated profile"
+)
+assert "private.tacresq_auth_can_access_incident_chat(" in original_insert_policy, (
+    "Storage INSERT must require caller-derived incident membership"
+)
+assert "private.tacresq_auth_can_access_incident_chat(" in original_read_policy, (
+    "Storage SELECT must require caller-derived incident membership"
+)
+
+reservation_validator = reservation_migration.split(
+    "CREATE OR REPLACE FUNCTION private.tacresq_upload_reservation_allows_insert(", 1
+)[1].split("$function$;", 1)[0]
+identity_check = reservation_validator.index("actor_profile_id := private.tacresq_auth_profile_id()")
+compatibility_return = reservation_validator.index("IF NOT enforcement_enabled THEN")
+assert identity_check < compatibility_return, (
+    "Storage reservation compatibility mode must not bypass caller identity resolution"
+)
+assert "private.tacresq_can_access_incident_chat(r.incident_id, actor_profile_id)" in reservation_validator, (
+    "Strict reservation mode must preserve caller-derived incident membership"
+)
+
 storage_policy = reservation_migration.split(
     "CREATE POLICY tacresq_incident_chat_attachment_insert", 1
 )[1]
