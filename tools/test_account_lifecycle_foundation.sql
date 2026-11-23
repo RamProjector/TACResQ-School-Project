@@ -41,6 +41,10 @@ BEGIN
      OR has_function_privilege('anon', 'private.tacresq_auth_profile_id()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Account-aware identity helpers must remain authenticated-only';
   END IF;
+  IF has_function_privilege('authenticated', 'private.tacresq_require_admin_mfa()', 'EXECUTE')
+     OR has_function_privilege('anon', 'private.tacresq_require_admin_mfa()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'The shared Admin MFA helper must remain internal to protected wrappers';
+  END IF;
   IF EXISTS (
     SELECT 1
       FROM pg_catalog.pg_proc p
