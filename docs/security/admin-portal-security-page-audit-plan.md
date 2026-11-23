@@ -74,12 +74,12 @@ The current **Security** page (`?adminPage=security`) successfully communicates 
 
 ## 5. Prioritized Implementation Checklist
 
-- [ ] **P0 (Critical):** Remove or conditionally disable the non-functional `Remove` button on the sole verified TOTP factor; add a prominent warning prompt when `verified_factors === 1`.
-- [ ] **P0 (Critical):** Deduplicate the **Verified Authenticator Factors** and **Sign out all devices** blocks into single canonical sections.
+- [x] **P0 (Critical):** The sole verified TOTP factor is visibly locked; the page now shows a prominent backup-authenticator lockout warning whenever fewer than two verified factors are registered. Backup enrollment remains gated by a fresh TOTP-verified AAL2 session.
+- [ ] **P0 (Critical):** Deduplicate the **Verified Authenticator Factors** and **Sign out all devices** blocks into single canonical sections. This still needs a full-page review; the current component contains one factor list and one global sign-out action, but no claim is made that every page-level duplicate has been removed.
 - [ ] **P1 (High):** Surface the access-token expiry window directly in the **Sign out all devices** confirmation modal instead of burying it in footer text.
 - [ ] **P1 (High):** Visually separate **Live Admin Controls** from **Deployment / Migration Verification Status** using clear status badges (`Verified`, `Unverified Migration`, `Planned`).
 - [ ] **P2 (Medium):** Clean up typography (`Security.` -> `Security`) and add `@media print` rules so footer banners do not orphan onto a blank final page.
 
 ## Implementation Boundary
 
-This document records the requested Admin Portal Security page UI/UX work for PR #347. It is a plan, not evidence that the UI changes have been implemented or that production MFA, session revocation, token TTL, or backend enforcement has been verified. Before implementing factor removal or backup enrollment, verify the actual Supabase Auth capabilities and ensure recovery cannot weaken the existing AAL2/TOTP requirement. The session-expiry message must use the configured, verified access-token lifetime rather than a hard-coded estimate. Keep deployment/migration status explicitly environment-scoped.
+This document records the requested Admin Portal Security page UI/UX work for PR #347. The P0 sole-factor lockout warning and contradictory Remove control have now been implemented with a focused regression contract. Remaining checklist items are still plans, not implementation evidence. Production MFA, session revocation, token TTL, or backend enforcement has not been verified. Before implementing factor removal or backup enrollment, verify the actual Supabase Auth capabilities and ensure recovery cannot weaken the existing AAL2/TOTP requirement. The session-expiry message must use the configured, verified access-token lifetime rather than a hard-coded estimate. Keep deployment/migration status explicitly environment-scoped.
