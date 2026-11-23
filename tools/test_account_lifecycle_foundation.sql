@@ -449,6 +449,12 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN
     NULL;
   END;
+  BEGIN
+    PERFORM public.api_admin_list_account_lifecycle_events(5, 0);
+    RAISE EXCEPTION 'Suspended Admin unexpectedly read account lifecycle history';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
 END;
 $suspended_admin_mfa_contract$;
 RESET ROLE;
