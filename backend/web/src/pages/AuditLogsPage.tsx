@@ -131,19 +131,28 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
 
   useEffect(() => {
     let active = true;
-    void getAdminAccountLifecycleEvents(5, 0).then((result) => {
+    setLifecycleLoading(true);
+    setLifecycleError(null);
+    void getAdminAccountLifecycleEvents(lifecyclePageSize, lifecyclePage * lifecyclePageSize).then((result) => {
       if (!active) return;
+      if (lifecyclePage > 0 && lifecyclePage * lifecyclePageSize >= result.total_count) {
+        setLifecycleTotal(result.total_count);
+        setLifecycleEvents([]);
+        setLifecyclePage(Math.max(0, Math.ceil(result.total_count / lifecyclePageSize) - 1));
+        return;
+      }
       setLifecycleEvents(result.events);
       setLifecycleTotal(result.total_count);
-      setLifecycleError(null);
     }).catch((cause: unknown) => {
       if (!active) return;
       setLifecycleEvents([]);
       setLifecycleTotal(0);
       setLifecycleError(cause instanceof Error ? cause.message : "Account lifecycle history is unavailable.");
+    }).finally(() => {
+      if (active) setLifecycleLoading(false);
     });
     return () => { active = false; };
-  }, [refreshVersion]);
+  }, [lifecyclePage, refreshVersion]);
 
   async function copyEventId(eventId: string) {
     setCopyError(null);
@@ -166,6 +175,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     setPage(0);
   }
 
+  const lifecyclePageCount = Math.ceil(lifecycleTotal / lifecyclePageSize);
   const pageCount = Math.ceil(total / PAGE_SIZE);
   const hasFilters = Boolean(query || category !== "all" || source !== "all" || from || to);
   const firstVisiblePage = Math.max(0, Math.min(page - 2, pageCount - 5));
@@ -228,11 +238,13 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           <span>{lifecycleTotal.toLocaleString()} recorded</span>
         </div>
         {lifecycleError ? (
-          <p className="admin-panel__footnote" role="status">{lifecycleError}</p>
+          <p className="admin-panel__footnote" role="alert">{lifecycleError}</p>
+        ) : lifecycleLoading ? (
+          <p className="admin-panel__footnote audit-page__lifecycle-loading" role="status" aria-live="polite"><LoaderCircle size={15} className="admin-spin" /> Loading account lifecycle history…</p>
         ) : lifecycleEvents.length === 0 ? (
           <p className="admin-panel__footnote">No account suspension or reactivation events have been recorded.</p>
         ) : (
-          <div className="audit-page__list">
+          <div className="audit-page__list" aria-busy={lifecycleLoading}>
             {lifecycleEvents.map((event) => (
               <article className="audit-event-card" key={event.id}>
                 <div className="audit-event-card__top">
@@ -251,7 +263,16 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
             ))}
           </div>
         )}
-        {lifecycleTotal > lifecycleEvents.length && <p className="admin-panel__footnote">Showing the latest {lifecycleEvents.length} of {lifecycleTotal.toLocaleString()} lifecycle events. The complete history remains available through the protected database reader.</p>}
+        {lifecyclePageCount > 1 && !lifecycleError && (
+          <nav className="audit-page__lifecycle-pagination" aria-label="Account lifecycle history pagination">
+            <span>Page {lifecyclePage + 1} of {lifecyclePageCount} · {lifecycleTotal.toLocaleString()} events</span>
+            <div>
+              <button type="button" onClick={() => setLifecyclePage((current) => Math.max(0, current - 1))} disabled={lifecycleLoading || lifecyclePage === 0}><ChevronLeft size={14} /> Previous</button>
+              <button type="button" onClick={() => setLifecyclePage((current) => Math.min(lifecyclePageCount - 1, current + 1))} disabled={lifecycleLoading || lifecyclePage + 1 >= lifecyclePageCount}>Next <ChevronRight size={14} /></button>
+            </div>
+          </nav>
+        )}
+        <p className="admin-panel__footnote">This section is independently paginated and reads only trusted account-status transitions through the protected database reader.</p>
       </section>
 
       <div className="audit-page__filters">
