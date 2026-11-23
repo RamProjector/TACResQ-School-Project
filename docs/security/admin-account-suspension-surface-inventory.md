@@ -65,6 +65,10 @@ This inventory is intentionally conservative. A path is not marked covered merel
 
 - [Account-state and operational-continuity contract](admin-account-suspension-state-contract.md) defines the proposed lifecycle fields, transactional audit invariants, service-role checks, and negative-test release gates. It is a design artifact only; the current profile schema has no account-status field, and no migration or runtime enforcement has been introduced.
 
+## Notification Edge Function acceptance contract
+
+- [Notification Edge Function account-state test contract](admin-account-suspension-notification-edge-test-contract.md) records the current service-role actor/recipient gaps and the isolated negative-test requirements. It is intentionally a specification until the profile lifecycle field exists; no nonexistent column is queried and no production behavior is changed.
+
 ## Required completion artifacts
 
 Before the implementation can be called complete, add and review:
