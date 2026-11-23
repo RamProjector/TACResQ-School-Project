@@ -6,6 +6,8 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\DB;
+use App\Models\User;
 use App\Services\LocalAdminTotpService;
 use Symfony\Component\HttpFoundation\Response;
 
