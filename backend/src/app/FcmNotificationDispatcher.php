@@ -3,6 +3,7 @@
 namespace App;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class FcmNotificationDispatcher
@@ -102,7 +103,7 @@ class FcmNotificationDispatcher
                     );
                     $stats['failed']++;
                 } else {
-                    $this->updateAttempt(
+                    $this->persistAttemptSafely(
                         $attemptId,
                         'permanent_failure',
                         null,
