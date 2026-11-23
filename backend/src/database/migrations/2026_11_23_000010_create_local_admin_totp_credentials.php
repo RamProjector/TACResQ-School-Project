@@ -13,6 +13,7 @@ return new class extends Migration {
             // Laravel-encrypted TOTP secret; never store the Base32 secret in plaintext.
             $table->text('secret_ciphertext');
             $table->timestampTz('confirmed_at')->nullable();
+            $table->timestampTz('expires_at')->nullable();
             $table->unsignedBigInteger('last_used_step')->nullable();
             $table->timestampsTz();
         });
