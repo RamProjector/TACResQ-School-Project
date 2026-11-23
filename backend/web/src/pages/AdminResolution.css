@@ -318,3 +318,43 @@
   .audit-event-card__details { padding: 12px; }
   .audit-event-card__details dl { grid-template-columns: minmax(0,1fr); gap: 10px; }
 }
+
+
+/* Directory controls and result context stay aligned without hiding operational metadata. */
+.admin-directory-status {
+  margin: 0;
+  padding: 0 var(--admin-ui-gutter) 12px;
+  color: #6d7d76;
+  font-size: var(--admin-ui-small);
+  line-height: 1.55;
+}
+.admin-toolbar { align-items: end; }
+.admin-search { min-width: 0; }
+.admin-search input { min-width: 0; width: 100%; }
+.admin-role-filter { min-width: 180px; }
+.admin-role-filter select { min-width: 0; }
+.admin-filter-reset, .admin-change-role { min-height: 40px; white-space: nowrap; }
+.admin-table-caption {
+  padding: 10px 16px;
+  color: #718078;
+  text-align: left;
+  font-size: var(--admin-ui-label);
+  line-height: 1.5;
+}
+.admin-table-wrap { border-radius: 0 0 10px 10px; }
+.admin-table td > .admin-empty { min-height: 128px; }
+.admin-pagination > span { min-width: 0; color: #687a72; font-size: var(--admin-ui-small); line-height: 1.5; }
+.admin-pagination button { min-height: 38px; }
+.admin-table-scroll-hint { padding-inline: 14px; }
+@media (max-width: 900px) {
+  .admin-toolbar { align-items: stretch; }
+  .admin-search { flex: 1 1 100%; }
+  .admin-role-filter { flex: 1 1 180px; }
+}
+@media (max-width: 520px) {
+  .admin-directory-status { padding: 0 12px 12px; }
+  .admin-role-filter { min-width: 0; }
+  .admin-filter-reset { width: 100%; }
+  .admin-pagination > span { overflow-wrap: anywhere; }
+  .admin-table-caption { padding-inline: 12px; }
+}
