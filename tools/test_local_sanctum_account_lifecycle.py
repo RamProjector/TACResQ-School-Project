@@ -157,3 +157,11 @@ assert "test_lifecycle_recorder_rejects_reasons_longer_than_database_limit" in f
 assert "A valid, distinct actor and target are required." in recorder
 assert "mb_strlen($reason) > 500" in recorder
 assert "DB::connection()->transactionLevel() < 1" in recorder
+
+# PostgreSQL rejection tests use nested transactions/savepoints so expected trigger
+# exceptions do not poison Laravel's surrounding RefreshDatabase transaction.
+assert "test_local_lifecycle_audit_event_rejects_truncate_on_postgres" in feature
+assert "DB::transaction(fn () => DB::statement('TRUNCATE TABLE local_account_lifecycle_events'))" in feature
+assert "DB::transaction(fn () => DB::table('local_account_lifecycle_events')->where('id', $eventId)->delete())" in feature
+assert "DB::transaction(fn () => DB::table('local_account_lifecycle_events')->where('id', $eventId)->update($changes))" in feature
+assert "local_lifecycle_events_no_truncate" in append_only_migration
