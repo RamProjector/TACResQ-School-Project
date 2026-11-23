@@ -1,6 +1,6 @@
 # Legacy Laravel Sanctum account-lifecycle boundary
 
-**Status:** separate identity domain; local lifecycle-state and request enforcement are implemented in PR #347. PostgreSQL rejects every lifecycle-event UPDATE and DELETE. Actor/target IDs are retained as historical identifiers without foreign keys, so deleting a user cannot rewrite audit history. The privileged transition remains unimplemented. A reusable local Admin password + TOTP step-up middleware and transactional audit recorder are present, but no privileged endpoint consumes them. This does not claim that Supabase account suspension affects Laravel Sanctum users.
+**Status:** separate identity domain; local lifecycle-state and request enforcement are implemented in PR #347. PostgreSQL rejects every lifecycle-event UPDATE, DELETE, and TRUNCATE. Actor/target IDs are retained as historical identifiers without foreign keys, so deleting a user cannot rewrite audit history. The privileged transition remains unimplemented. A reusable local Admin password + TOTP step-up middleware and transactional audit recorder are present, but no privileged endpoint consumes them. This does not claim that Supabase account suspension affects Laravel Sanctum users.
 
 ## Why this is separate
 
@@ -15,8 +15,8 @@ There is no approved, immutable relationship between these two identities. Match
 - Suspended local accounts cannot obtain new tokens or access protected routes. Logout and logout-all remain available for self-service token revocation.
 - Lifecycle state is not mass assignable through the public User model.
 - A separate local_account_lifecycle_events table records actor/target references, action, reason, before/after state, and timestamp. Actor and target IDs are stored as historical identifiers without cascading foreign keys; deleting a user preserves the original IDs and the complete event.
-- PostgreSQL migration 2026_11_23_000009 rejects event UPDATE and DELETE operations. No UPDATE or DELETE is permitted, including changes to actor/target identifiers.
-- Feature tests cover content-update rejection, deletion rejection, reference-mutation rejection, and preservation of actor/target identifiers after user deletion. PostgreSQL-specific trigger tests skip on non-PostgreSQL drivers.
+- PostgreSQL migration 2026_11_23_000009 rejects event UPDATE and DELETE operations. No UPDATE, DELETE, or TRUNCATE is permitted, including changes to actor/target identifiers.
+- Feature tests cover content-update rejection, deletion and truncation rejection, reference-mutation rejection, and preservation of actor/target identifiers after user deletion. Expected PostgreSQL trigger failures run inside nested transactions so the outer test transaction remains usable. PostgreSQL-specific trigger tests skip on non-PostgreSQL drivers.
 
 ## Still missing
 
