@@ -457,13 +457,6 @@ Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge
     }
     RateLimiter::hit($userRateKey, 60);
 
-    $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
-    if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
-        return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
-            ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
-    }
-    RateLimiter::hit($userRateKey, 60);
-
     // Supabase Auth validity alone is not application authorization. Resolve
     // the caller's profile through the user's JWT so active-account RLS is
     // evaluated by Postgres before this bridge returns identity information.
@@ -531,6 +524,13 @@ Route::post('/bridge/rpc/{function}', function (
     } catch (\RuntimeException) {
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
     }
+
+    $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
+    if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
+        return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
+    }
+    RateLimiter::hit($userRateKey, 60);
 
     // Verify current application account state with the original caller JWT.
     // Never infer the TACResQ profile from Auth email or user metadata.
