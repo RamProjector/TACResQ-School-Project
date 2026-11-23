@@ -399,7 +399,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
       <main className="admin-main">
         <header className="admin-topbar">
-          <div className="admin-breadcrumb"><span>TACRESQ</span><b>/</b><strong>ADMIN</strong></div>
+          <div className="admin-breadcrumb" aria-label="Current location"><span>TACRESQ</span><b aria-hidden="true">/</b><span>ADMIN</span><b aria-hidden="true">/</b><strong aria-current="page">{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</strong></div>
           <div className="admin-topbar__right">
             <span className="admin-access-pill"><ShieldCheck size={14} /> ADMIN ACCESS</span>
             <div className="admin-user">
