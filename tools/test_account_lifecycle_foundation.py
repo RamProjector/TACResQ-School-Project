@@ -73,6 +73,6 @@ assert "tools/test_account_lifecycle_foundation.sql" in replay, (
     "Clean migration replay must execute the account lifecycle SQL contract"
 )
 assert "status:** design and repository inventory required" not in design
-assert "foundation migration" in design and "not yet wired into application policies or rpcs" in design
+assert "foundation migration" in design and "not yet wired into rpcs, storage, edge functions, or bridge routes" in design
 
 print("Account lifecycle foundation source contract passed.")
