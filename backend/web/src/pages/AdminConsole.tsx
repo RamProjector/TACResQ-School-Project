@@ -554,7 +554,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                     </section>
                     <section className="admin-analytics-card" aria-labelledby="admin-request-trend-title">
                       <p className="admin-eyebrow">REQUEST VOLUME</p><h3 id="admin-request-trend-title">Daily requests</h3>
-                      {analytics.daily_requests.length === 0 ? <div className="admin-empty">No daily data for this period.</div> : <div className="admin-analytics-bars" role="img" aria-label={analytics.daily_requests.map((point) => point.day + ": " + point.requests + " requests").join("; ")}>
+                      {analytics.daily_requests.length === 0 ? <div className="admin-empty" role="status">No daily buckets were returned for this reporting period.</div> : <div className="admin-analytics-bars" role="img" aria-label={analytics.daily_requests.map((point) => point.day + ": " + point.requests + " requests").join("; ")}>
                         {analytics.daily_requests.map((point) => {
                           const maximum = Math.max(1, ...analytics.daily_requests.map((item) => item.requests));
                           return <div className="admin-analytics-bar-column" key={point.day} title={point.day + ": " + point.requests + " requests"}><span>{point.requests || ""}</span><div><i style={{ height: Math.max(point.requests > 0 ? 4 : 0, point.requests / maximum * 100) + "%" }} /></div><small>{new Date(point.day + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}</small></div>;
