@@ -11,6 +11,7 @@ middleware = (ROOT / "backend/src/app/Http/Middleware/EnsureLocalAccountIsActive
 routes = (ROOT / "backend/src/routes/api.php").read_text()
 bootstrap = (ROOT / "backend/src/bootstrap/app.php").read_text()
 feature = (ROOT / "backend/src/tests/Feature/LocalSanctumAccountLifecycleTest.php").read_text()
+recorder = (ROOT / "backend/src/app/Services/LocalAccountLifecycleRecorder.php").read_text()
 
 assert "boolean('is_suspended')->default(false)" in migration
 assert "timestampTz('suspended_at')->nullable()" in migration
@@ -48,4 +49,12 @@ assert "OLD.target_user_id IS NOT NULL AND NEW.target_user_id IS NULL" in append
 assert "test_local_lifecycle_audit_schema_retains_events_after_user_deletion" in feature
 assert "test_local_lifecycle_audit_event_rejects_content_updates_on_postgres" in feature
 assert "test_local_lifecycle_audit_event_rejects_deletion_on_postgres" in feature
+assert "final class LocalAccountLifecycleRecorder" in recorder
+assert "DB::connection()->transactionLevel() < 1" in recorder, "Lifecycle writes must require an active transaction"
+assert "self::TRANSITIONS[$action]" in recorder, "Only explicit lifecycle transitions may be recorded"
+assert "mb_strlen($reason) > 500" in recorder, "Lifecycle reason must respect the database limit"
+assert "insertGetId" in recorder and "created_at" in recorder
+assert "test_lifecycle_recorder_appends_valid_transition_inside_transaction" in feature
+assert "test_lifecycle_recorder_event_rolls_back_with_account_transaction" in feature
+assert "test_lifecycle_recorder_rejects_invalid_transition_and_empty_reason" in feature
 print("Local Sanctum lifecycle guard and append-only audit contracts passed.")
