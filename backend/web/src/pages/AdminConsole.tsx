@@ -382,6 +382,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   return (
     <div className="admin-shell">
+      <a className="admin-skip-link" href="#admin-workspace-main">Skip to admin content</a>
       <aside className="admin-sidebar">
         <Brand inverse />
         <div className="admin-sidebar__context">
@@ -405,7 +406,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         </div>
       </aside>
 
-      <main className="admin-main">
+      <main className="admin-main" id="admin-workspace-main" tabIndex={-1}>
         <header className="admin-topbar">
           <div className="admin-breadcrumb" aria-label="Current location"><span>TACRESQ</span><b aria-hidden="true">/</b><span>ADMIN</span><b aria-hidden="true">/</b><strong aria-current="page">{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</strong></div>
           <div className="admin-topbar__right">
