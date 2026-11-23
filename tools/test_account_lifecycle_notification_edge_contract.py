@@ -107,10 +107,11 @@ assert 'return json({ error: "Authorization bearer token required" }, 401)' in s
 # Malformed payloads and unsupported events must not reach actor/incident
 # reads, recipient resolution, or any provider network call.
 json_error = source.index('catch { return json({ error: "Invalid JSON body" }, 400); }')
-required_fields = source.index('if (!event || !Number.isSafeInteger(incidentId) || incidentId <= 0)')
+object_shape_guard = source.index('if (!payload || typeof payload !== "object" || Array.isArray(payload))')
+required_fields = source.index('if (typeof event !== "string" || !Number.isSafeInteger(incidentId) || incidentId <= 0)')
 unsupported_event = source.index('if (!["incident_created", "incident_assigned", "incident_status"].includes(event))')
-assert body_parse < json_error < actor_lookup
-assert body_parse < required_fields < unsupported_event < actor_lookup
+assert body_parse < json_error < object_shape_guard < required_fields < unsupported_event < actor_lookup
+assert 'typeof rawIncidentId === "string" && /^\\\\d+$/.test(rawIncidentId)' in source
 assert unsupported_event < recipient_lookup < oauth_call < fcm_send, (
     "Invalid payloads and unsupported event types must be rejected before delivery."
 )
