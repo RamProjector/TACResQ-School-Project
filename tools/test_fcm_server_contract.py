@@ -68,6 +68,10 @@ assert "permanent_failure" in dispatcher
 assert "TRANSPORT_FAILURE" in dispatcher
 assert "tacresq:dispatch-fcm" in command
 assert "--check-config" in command
+assert "FILTER_VALIDATE_INT" in command
+assert "$parsedLimit < 1 || $parsedLimit > 50" in command
+assert "The --limit option must be an integer between 1 and 50." in command
+assert "return self::INVALID;" in command
 assert "checkConfiguration" in dispatcher
 assert dispatcher.index("$this->checkConfiguration();") < dispatcher.index("api_claim_fcm_delivery_batch")
 assert "assertCredentialsAvailable" in transport
