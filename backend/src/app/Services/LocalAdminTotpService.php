@@ -66,6 +66,7 @@ final class LocalAdminTotpService
                             'confirmed_at' => now(),
                             'expires_at' => null,
                             'last_used_step' => $candidateStep,
+                            'last_used_code_hash' => hash('sha256', $code),
                             'updated_at' => now(),
                         ]);
                     return true;
@@ -105,6 +106,10 @@ final class LocalAdminTotpService
 
             $currentStep = intdiv(now()->timestamp, self::PERIOD_SECONDS);
             $lastUsedStep = $credential->last_used_step === null ? -1 : (int) $credential->last_used_step;
+            $codeHash = hash('sha256', $code);
+            if ($credential->last_used_code_hash !== null && hash_equals($credential->last_used_code_hash, $codeHash)) {
+                return false;
+            }
 
             foreach ([$currentStep - 1, $currentStep, $currentStep + 1] as $candidateStep) {
                 if ($candidateStep <= $lastUsedStep || $candidateStep < 0) {
@@ -116,6 +121,7 @@ final class LocalAdminTotpService
                         ->where('id', $credential->id)
                         ->update([
                             'last_used_step' => $candidateStep,
+                            'last_used_code_hash' => $codeHash,
                             'updated_at' => now(),
                         ]);
                     return true;
