@@ -34,4 +34,4 @@
 
 ## Validation boundary
 
-This batch records source behavior and the guard locations required by the next implementation. It adds no account-state column, migration, runtime guard, UI, or live Supabase change. The nine-function SQL inventory gate only ensures the callable surface does not silently drift; it does not prove authorization safety.
+This batch records source behavior and the guard locations required by the next implementation. It adds no account-state column, migration, runtime guard, UI, or live Supabase change. The ten-function SQL inventory gate only ensures the callable surface does not silently drift; it does not prove authorization safety.
