@@ -104,7 +104,7 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () use ($u
     Route::post('/logout', fn (Request $request) => tap(
         response()->noContent()->header('Cache-Control', 'no-store, private'),
         fn () => $request->user()->currentAccessToken()?->delete()
-    ));
+    ))->withoutMiddleware('account.active');
     // Self-service recovery control: invalidate every Sanctum personal access
     // token for this account, including the token used for this request.
     Route::post('/logout-all', function (Request $request) {
