@@ -28,6 +28,53 @@ final class LocalAdminTotpService
         return str_pad((string) ($binary % (10 ** self::DIGITS)), self::DIGITS, '0', STR_PAD_LEFT);
     }
 
+
+    public function confirmEnrollment(User $user, string $code): bool
+    {
+        if (!preg_match('/^\\d{6}$/', $code)) {
+            return false;
+        }
+
+        return DB::transaction(function () use ($user, $code): bool {
+            $credential = DB::table('local_admin_totp_credentials')
+                ->where('user_id', $user->getAuthIdentifier())
+                ->lockForUpdate()
+                ->first();
+
+            if ($credential === null || $credential->confirmed_at !== null) {
+                return false;
+            }
+
+            try {
+                $secret = Crypt::decryptString($credential->secret_ciphertext);
+            } catch (\\Throwable $exception) {
+                report($exception);
+                return false;
+            }
+
+            $currentStep = intdiv(now()->timestamp, self::PERIOD_SECONDS);
+            foreach ([$currentStep - 1, $currentStep, $currentStep + 1] as $candidateStep) {
+                if ($candidateStep < 0) {
+                    continue;
+                }
+
+                if (hash_equals($this->codeForStep($secret, $candidateStep), $code)) {
+                    DB::table('local_admin_totp_credentials')
+                        ->where('id', $credential->id)
+                        ->whereNull('confirmed_at')
+                        ->update([
+                            'confirmed_at' => now(),
+                            'last_used_step' => $candidateStep,
+                            'updated_at' => now(),
+                        ]);
+                    return true;
+                }
+            }
+
+            return false;
+        }, 3);
+    }
+
     /**
      * Verify and atomically consume one time step. Only confirmed credentials
      * are accepted, and a previously accepted time step can never be replayed.
