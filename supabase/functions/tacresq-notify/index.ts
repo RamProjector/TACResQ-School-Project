@@ -109,7 +109,7 @@ Deno.serve(async (request: Request) => {
       if (response.ok) sent++;
       else {
         const errorBody = await response.text();
-        if (response.status === 404 || errorBody.includes("UNREGISTERED")) invalidTokenIds.push(registration.id as number);
+        if (errorBody.includes("UNREGISTERED")) invalidTokenIds.push(registration.id as number);
         console.error(`FCM send failed (${response.status}) for registration ${registration.id}`);
       }
     } catch {
