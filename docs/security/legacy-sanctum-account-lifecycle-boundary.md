@@ -1,6 +1,6 @@
 # Legacy Laravel Sanctum account-lifecycle boundary
 
-**Status:** separate identity domain; inventory and regression guard only. This document does not claim that Supabase account suspension affects Laravel Sanctum users.
+**Status:** separate identity domain; local lifecycle-state foundation and request enforcement are implemented in PR #347. The privileged transition and immutable audit workflow remain unimplemented. This does not claim that Supabase account suspension affects Laravel Sanctum users.
 
 ## Why this is separate
 
@@ -30,7 +30,11 @@ The public `POST /api/login` and `POST /api/register` routes issue local Sanctum
 - Local login uses the Laravel `users` table and password hash; registration creates a local requester.
 - Sanctum-authenticated routes are grouped behind `auth:sanctum`.
 - Logout, logout-all, and password-change token rotation are covered by existing contracts.
-- **Missing:** a local suspension state, an independently authorized local Admin transition workflow, immutable local lifecycle audit, and negative tests proving a suspended local token cannot read or mutate emergency workflows.
+- Added a local `users.is_suspended` flag (default false), nullable `suspended_at`, and bounded `suspension_reason` metadata. The fields are not mass assignable through the public User model.
+- Added `account.active` middleware to the local Sanctum route group. Suspended accounts receive a non-cacheable 403 before profile, incident, unit, assignment, or mutation handlers run.
+- Kept `/api/logout` and `/api/logout-all` available to suspended users so they can revoke tokens and complete local sign-out.
+- Added Laravel feature tests for default-active compatibility, same-token protected-route denial, and suspended-user logout, plus a CI source contract.
+- **Still missing:** independently authorized local Admin transition workflow, immutable local lifecycle audit, login-time rejection, and explicit same-token denial tests for each high-risk incident/assignment route.
 - Consequently, a suspended Supabase profile is not evidence that a corresponding local Sanctum user is suspended. Conversely, local Sanctum status cannot be inferred from Supabase profile status.
 
 ## Safe implementation order
@@ -41,4 +45,4 @@ The public `POST /api/login` and `POST /api/register` routes issue local Sanctum
 4. Enforce local account state on login and every Sanctum-authenticated request; test same-valid-token denial across profile, incident, assignment, unit, and mutation routes.
 5. Only consider cross-provider account linking if an explicit, verified immutable linking flow is designed and approved. Never link by email.
 
-No local lifecycle migration or production account change is included in this inventory-only slice.
+The new migration is committed to the draft PR but has not been applied to any live database. No local Admin transition UI/API, immutable audit ledger, or production account change is included in this slice.
