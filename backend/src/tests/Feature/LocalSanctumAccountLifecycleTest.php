@@ -65,6 +65,38 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         $this->assertSame(0, $user->tokens()->count());
     }
 
+    public function test_local_lifecycle_audit_schema_retains_events_after_user_deletion(): void
+    {
+        $actor = $this->createLocalUser();
+        $target = User::create([
+            'name' => 'Lifecycle Target',
+            'email' => 'lifecycle-target@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'requester',
+        ]);
+
+        $eventId = DB::table('local_account_lifecycle_events')->insertGetId([
+            'actor_user_id' => $actor->id,
+            'target_user_id' => $target->id,
+            'action' => 'suspended',
+            'reason' => 'Synthetic retention test',
+            'previous_state' => 'active',
+            'new_state' => 'suspended',
+            'created_at' => now(),
+        ]);
+
+        $actor->delete();
+        $target->delete();
+
+        $this->assertDatabaseHas('local_account_lifecycle_events', [
+            'id' => $eventId,
+            'actor_user_id' => null,
+            'target_user_id' => null,
+            'action' => 'suspended',
+            'reason' => 'Synthetic retention test',
+        ]);
+    }
+
     public function test_suspended_local_account_can_still_revoke_its_current_token(): void
     {
         $user = $this->createLocalUser();
