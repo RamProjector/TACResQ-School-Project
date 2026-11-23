@@ -1,7 +1,7 @@
 -- Read-only point-in-time inventory for TACResQ incident-chat attachments.
--- Run with a database role that can read storage.objects and public.incident_messages.
--- This report deliberately omits object names, signed URLs, message contents, and coordinates.
--- It never deletes, updates, or changes Storage objects.
+-- Run with a database role that can read storage.objects and the private reservation ledger.
+-- Deliberately omits object paths, reservation IDs, signed URLs, message contents, and coordinates.
+-- This report never deletes, updates, or changes Storage objects or reservation rows.
 
 WITH bucket AS (
   SELECT id, public, file_size_limit, allowed_mime_types,
@@ -35,18 +35,64 @@ objects AS (
           m.incident_id::text <> split_part(o.name, '/', 1)
           OR m.sender_id::text <> split_part(o.name, '/', 2)
         )
-    ) AS has_path_owner_mismatch
+    ) AS has_path_owner_mismatch,
+    EXISTS (
+      SELECT 1
+      FROM public.incident_messages m
+      WHERE m.attachment_path = o.name
+        AND (
+          m.attachment_mime_type IS DISTINCT FROM o.metadata->>'mimetype'
+          OR m.attachment_size_bytes IS DISTINCT FROM CASE
+            WHEN o.metadata->>'size' ~ '^[0-9]+$'
+            THEN (o.metadata->>'size')::bigint
+            ELSE NULL
+          END
+        )
+    ) AS has_message_metadata_mismatch,
+    EXISTS (
+      SELECT 1
+      FROM private.incident_chat_upload_reservations r
+      WHERE r.object_path = o.name
+        AND (
+          r.mime_type IS DISTINCT FROM o.metadata->>'mimetype'
+          OR r.size_bytes IS DISTINCT FROM CASE
+            WHEN o.metadata->>'size' ~ '^[0-9]+$'
+            THEN (o.metadata->>'size')::bigint
+            ELSE NULL
+          END
+        )
+    ) AS has_reservation_metadata_mismatch,
+    EXISTS (
+      SELECT 1
+      FROM private.incident_chat_upload_reservations r
+      WHERE r.object_path = o.name
+        AND r.consumed_at IS NULL
+    ) AS has_unconsumed_reservation,
+    EXISTS (
+      SELECT 1
+      FROM private.incident_chat_upload_reservations r
+      WHERE r.object_path = o.name
+    ) AS has_any_reservation
   FROM storage.objects o
   WHERE o.bucket_id = 'incident-chat-attachments'
 ),
-summary AS (
+object_summary AS (
   SELECT
     count(*) AS object_count,
     count(*) FILTER (WHERE has_message_reference) AS referenced_object_count,
     count(*) FILTER (WHERE NOT has_message_reference) AS unreferenced_object_count,
-    coalesce(sum(size_bytes) FILTER (WHERE NOT has_message_reference), 0)
-      AS unreferenced_bytes,
+    count(*) FILTER (
+      WHERE NOT has_message_reference AND has_unconsumed_reservation
+    ) AS pending_unfinalized_object_count,
+    count(*) FILTER (
+      WHERE NOT has_message_reference AND NOT has_any_reservation
+    ) AS unreserved_orphan_object_count,
+    coalesce(sum(size_bytes) FILTER (
+      WHERE NOT has_message_reference AND NOT has_any_reservation
+    ), 0) AS unreserved_orphan_bytes,
     count(*) FILTER (WHERE has_path_owner_mismatch) AS path_owner_mismatch_count,
+    count(*) FILTER (WHERE has_message_metadata_mismatch) AS message_metadata_mismatch_count,
+    count(*) FILTER (WHERE has_reservation_metadata_mismatch) AS reservation_metadata_mismatch_count,
     count(*) FILTER (WHERE NOT valid_path_shape) AS invalid_path_shape_count,
     count(*) FILTER (WHERE size_bytes IS NULL) AS missing_or_invalid_size_count,
     count(*) FILTER (WHERE size_bytes > 5242880) AS over_limit_size_count,
@@ -54,6 +100,60 @@ summary AS (
     max(created_at) AS newest_object_created_at,
     coalesce(sum(size_bytes), 0) AS total_metadata_bytes
   FROM objects
+),
+message_summary AS (
+  SELECT
+    count(*) AS messages_with_missing_object_count
+  FROM public.incident_messages m
+  WHERE m.attachment_path IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1
+      FROM storage.objects o
+      WHERE o.bucket_id = 'incident-chat-attachments'
+        AND o.name = m.attachment_path
+    )
+),
+reservation_summary AS (
+  SELECT
+    count(*) AS reservation_count,
+    count(*) FILTER (
+      WHERE consumed_at IS NULL AND expires_at > now()
+    ) AS active_reservation_count,
+    count(*) FILTER (
+      WHERE consumed_at IS NULL AND expires_at <= now()
+    ) AS expired_unconsumed_reservation_count,
+    count(*) FILTER (
+      WHERE consumed_at IS NULL
+        AND expires_at > now()
+        AND NOT EXISTS (
+          SELECT 1
+          FROM storage.objects o
+          WHERE o.bucket_id = 'incident-chat-attachments'
+            AND o.name = r.object_path
+        )
+    ) AS active_reservation_without_object_count,
+    count(*) FILTER (
+      WHERE consumed_at IS NULL
+        AND expires_at <= now()
+        AND NOT EXISTS (
+          SELECT 1
+          FROM storage.objects o
+          WHERE o.bucket_id = 'incident-chat-attachments'
+            AND o.name = r.object_path
+        )
+    ) AS expired_reservation_without_object_count,
+    count(*) FILTER (
+      WHERE consumed_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.incident_messages m
+          WHERE m.attachment_path = r.object_path
+        )
+    ) AS consumed_reservation_without_message_count,
+    coalesce(sum(size_bytes) FILTER (
+      WHERE consumed_at IS NULL AND expires_at > now()
+    ), 0) AS active_reserved_declared_bytes
+  FROM private.incident_chat_upload_reservations r
 )
 SELECT
   b.id AS bucket_id,
@@ -62,16 +162,30 @@ SELECT
   b.allowed_mime_types,
   b.versioning_status,
   (b.lifecycle_configuration IS NOT NULL) AS has_lifecycle_configuration,
-  s.object_count,
-  s.referenced_object_count,
-  s.unreferenced_object_count,
-  s.unreferenced_bytes,
-  s.path_owner_mismatch_count,
-  s.invalid_path_shape_count,
-  s.missing_or_invalid_size_count,
-  s.over_limit_size_count,
-  s.total_metadata_bytes,
-  s.oldest_object_created_at,
-  s.newest_object_created_at
+  o.object_count,
+  o.referenced_object_count,
+  o.unreferenced_object_count,
+  o.pending_unfinalized_object_count,
+  o.unreserved_orphan_object_count,
+  o.unreserved_orphan_bytes,
+  o.path_owner_mismatch_count,
+  o.message_metadata_mismatch_count,
+  o.reservation_metadata_mismatch_count,
+  o.invalid_path_shape_count,
+  o.missing_or_invalid_size_count,
+  o.over_limit_size_count,
+  o.total_metadata_bytes,
+  o.oldest_object_created_at,
+  o.newest_object_created_at,
+  m.messages_with_missing_object_count,
+  r.reservation_count,
+  r.active_reservation_count,
+  r.expired_unconsumed_reservation_count,
+  r.active_reservation_without_object_count,
+  r.expired_reservation_without_object_count,
+  r.consumed_reservation_without_message_count,
+  r.active_reserved_declared_bytes
 FROM bucket b
-CROSS JOIN summary s;
+CROSS JOIN object_summary o
+CROSS JOIN message_summary m
+CROSS JOIN reservation_summary r;

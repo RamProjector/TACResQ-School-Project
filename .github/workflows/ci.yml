@@ -54,6 +54,12 @@ jobs:
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
+      - name: Check cross-layer TACResQ app-flow validation inventory
+        run: python3 tools/test_app_flow_coverage.py
+
+      - name: Check Admin investigation and app-action audit contracts
+        run: python3 tools/test_admin_investigation_events_contract.py
+
       - name: Check inline authentication validation
         run: python3 tools/test_auth_inline_validation.py
 
@@ -350,6 +356,9 @@ jobs:
 
       - name: Check Android-only web dispatch boundary
         run: python3 tools/test_web_admin_only_contract.py
+
+      - name: Check TACResQ website visual foundation
+        run: python3 tools/test_web_visual_foundation_contract.py
 
       - name: Install dashboard dependencies
         working-directory: backend/web

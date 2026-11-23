@@ -14,7 +14,7 @@ card = screen[start:end]
 assert "surfaceContainerLow" in card
 assert "StatusPill(" in card
 assert "activeIncident.status.requesterLabel" in card
-assert "activeIncident.status.pillColor()" in card
+assert "activeIncident.status," in card
 assert "activeIncident.status.requesterDescription" in card
 assert "ButtonDefaults.buttonColors(" in card
 assert "containerColor = MaterialTheme.colorScheme.primary" in card
@@ -27,17 +27,23 @@ assert card.count("heightIn(min = 52.dp)") == 3
 assert "defaultElevation = 2.dp" in card
 assert "Current incident status unavailable" in screen
 assert "state.hasCurrentIncidentStatus && !showRequestForm" in screen
+assert "REQUEST ASSISTANCE" in screen
+assert "MaterialTheme.colorScheme.inverseSurface" in screen
+assert "MaterialTheme.colorScheme.inverseOnSurface" in screen
+hero_start = screen.index("if (activeIncident != null) item {")
+routine_status_start = screen.index("if (state.syncError != null)", hero_start)
+assert hero_start < routine_status_start, "Routine sync feedback must not push the primary emergency action down the screen."
 
-status_start = components.index("fun StatusPill(status: IncidentStatus)")
+status_start = components.index("private fun IncidentStatus.statusPalette(isDark: Boolean)")
 status_end = components.index("\n@Composable", status_start)
-status_pill = components[status_start:status_end]
-for token in (
-    "IncidentStatus.PENDING -> colors.tertiaryContainer to colors.onTertiaryContainer",
-    "IncidentStatus.ASSIGNED, IncidentStatus.EN_ROUTE -> colors.primaryContainer to colors.onPrimaryContainer",
-    "colors.secondaryContainer to colors.onSecondaryContainer",
-    "colors.surfaceVariant to colors.onSurfaceVariant",
+status_palette = components[status_start:status_end]
+for status in (
+    "IncidentStatus.PENDING", "IncidentStatus.ASSIGNED", "IncidentStatus.EN_ROUTE",
+    "IncidentStatus.ON_SCENE", "IncidentStatus.TRANSPORTING", "IncidentStatus.RESOLVED",
+    "IncidentStatus.CANCELLED",
 ):
-    assert token in status_pill, f"Missing semantic status color mapping: {token}"
+    assert status in status_palette, f"Missing theme-aware palette for {status}"
+assert "background.luminance() < 0.5f" in components
 
 assert "Banner(message, isError = false, onDismiss = vm::dismissMessages, isSuccess = true)" in screen
 

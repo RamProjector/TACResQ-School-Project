@@ -174,6 +174,44 @@ class NavigationInstrumentedTest {
     }
 
     @Test
+    fun responderDriverAndDispatcherNavigationJourneysRemainRoleScoped() {
+        val roleCases = listOf(
+            Role.RESPONDER to listOf("Call", "History", "GPS Map", "Messages", "Profile"),
+            Role.DRIVER to listOf("Call", "History", "GPS Map", "Messages", "Profile"),
+            Role.DISPATCHER to listOf("Queue", "Units", "GPS Map", "Messages", "Profile"),
+        )
+
+        roleCases.forEach { (role, expectedLabels) ->
+            composeRule.setContent {
+                var selected by remember { mutableStateOf(AppDestination.PRIMARY) }
+                MaterialTheme {
+                    RoleShell(
+                        role = role,
+                        selected = selected,
+                        onDestinationSelected = { selected = it },
+                        content = { Text("${role.name} home destination content") },
+                        mapContent = {
+                            ColumnForMapBack(onBack = { selected = AppDestination.PRIMARY })
+                        },
+                    )
+                }
+            }
+
+            expectedLabels.forEach { label ->
+                composeRule.onNodeWithText(label).assertIsDisplayed()
+            }
+
+            // Verify the full-window map entry and its return path for every
+            // operational role, not only the requester shell.
+            composeRule.onNodeWithText("GPS Map").performClick()
+            composeRule.onNodeWithText("GPS Map destination content").assertIsDisplayed()
+            composeRule.onNodeWithText("Back to app").performClick()
+            composeRule.onNodeWithText("${role.name} home destination content").assertIsDisplayed()
+            composeRule.onNodeWithText(expectedLabels.first()).assertIsDisplayed()
+        }
+    }
+
+    @Test
     fun allFiveTopLevelDestinationsRemainVisible() {
         composeRule.setContent {
             MaterialTheme {

@@ -71,7 +71,8 @@ checks = {
     "no nullable-result Elvis fallback can retry a bridge call against Supabase":
         not re.search(r"bridgeRpc\?\.\w+\([^;\n]*\)\s*\?:\s*rpc\.", api),
     "Supabase Auth continues to use Supabase endpoints":
-        'baseUrl(AppConfig.SUPABASE_URL.trimEnd(\'/\') + "/")' in api
+        'createInternal(tokenProvider, useRenderBridge, AppConfig.SUPABASE_URL)' in api
+        and '.baseUrl(baseUrl.trimEnd(\'/\') + "/")' in api
         and '@POST("auth/v1/token")' in api
         and '@POST("auth/v1/signup")' in api,
     "fresh explicit auth token is preserved over cached session token":

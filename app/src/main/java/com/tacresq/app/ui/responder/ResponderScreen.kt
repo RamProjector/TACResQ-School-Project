@@ -58,7 +58,6 @@ import com.tacresq.app.ui.common.SyncStatus
 import com.tacresq.app.ui.common.SectionHeading
 import com.tacresq.app.ui.common.StatusPill
 import com.tacresq.app.ui.common.actionLabel
-import com.tacresq.app.ui.common.pillColor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -562,7 +561,7 @@ fun ResponderScreen(
                     Text("Team progress", style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val ownStatus = incident.statusFor(user.id)
-                    StatusPill(ownStatus.label, ownStatus.pillColor())
+                    StatusPill(ownStatus.label, ownStatus)
                 }
                 if (incident.requesterName != null || incident.requesterPhone != null) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
