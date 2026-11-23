@@ -304,6 +304,33 @@ first_history_read = investigation_body.find("from public.admin_audit_logs")
 assert investigation_mfa >= 0 and first_history_read > investigation_mfa, (
     "Investigation RPC must enforce the shared Admin MFA gate before reading audit history"
 )
+
+# Keep the investigation feed bounded and allowlisted before it touches source data.
+for requirement in (
+    "p_limit < 1 or p_limit > 100",
+    "p_offset < 0 or p_offset > 1000000",
+    "length(v_query) > 120",
+    "'supabase_auth_audit_logs'",
+    "'incident_status_logs'",
+    "'incident_claimability_logs'",
+    "'incident_request_edit_logs'",
+    "'incident_assignment_events'",
+    "p_category not in (",
+    "p_source not in (",
+):
+    assert requirement in investigation_body, (
+        f"Investigation RPC is missing its bounded/allowlisted contract: {requirement}"
+    )
+auth_projection = investigation_body.split("from auth.audit_log_entries as a", 1)[0].rsplit(
+    "'auth:'", 1
+)[1]
+assert "'provider_action'" in auth_projection
+assert "a.payload" not in auth_projection.split("jsonb_build_object(", 1)[1], (
+    "Auth investigation details must not expose raw provider audit payloads"
+)
+assert "ip_address" not in auth_projection.lower(), (
+    "Auth investigation projection must not expose IP address fields"
+)
 investigation_signature = (
     "public.api_admin_list_investigation_events(integer, integer, text, text, text, "
     "timestamp with time zone, timestamp with time zone, bigint, bigint, bigint)"
