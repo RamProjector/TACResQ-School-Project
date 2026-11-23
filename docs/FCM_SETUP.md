@@ -67,3 +67,6 @@ The Laravel feature suite includes dispatcher-level failure-injection coverage f
 
 
 Additional dispatcher cases verify that missing server configuration and failed queue claims stop processing before any FCM send, configured batch sizes cannot exceed the database cap, and permanent payload errors do not trigger token deletion.
+
+
+The dispatcher regression suite also exercises provider transport exceptions while confirming the next recipient is still processed, invalid-token cleanup failures without batch interruption, missing FCM project configuration, malformed queue-claim payloads, and empty-queue behavior.
