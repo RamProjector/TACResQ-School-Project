@@ -35,6 +35,30 @@ BEGIN
     RAISE EXCEPTION 'Current-account helper must be callable only by authenticated clients';
   END IF;
 
+  IF NOT has_function_privilege('authenticated', 'private.tacresq_actor_role()', 'EXECUTE')
+     OR has_function_privilege('anon', 'private.tacresq_actor_role()', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'private.tacresq_auth_profile_id()', 'EXECUTE')
+     OR has_function_privilege('anon', 'private.tacresq_auth_profile_id()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Account-aware identity helpers must remain authenticated-only';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_proc p
+     WHERE p.oid IN (
+       to_regprocedure('private.tacresq_actor_role()'),
+       to_regprocedure('private.tacresq_auth_profile_id()')
+     )
+       AND (
+         p.prosecdef IS DISTINCT FROM true
+         OR p.provolatile IS DISTINCT FROM 'v'
+         OR NOT (coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+         OR p.prosrc NOT ILIKE '%account_status = ''active''%'
+         OR p.prosrc NOT ILIKE '%FOR SHARE%'
+       )
+  ) THEN
+    RAISE EXCEPTION 'Actor-role and profile-ID helpers must enforce active state with a VOLATILE, pinned, share-locking definer body';
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_class c
     WHERE c.oid = 'public.account_lifecycle_audit_logs'::regclass
@@ -129,8 +153,10 @@ SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000991
 SET ROLE authenticated;
 DO $active_account_contract$
 BEGIN
-  IF private.tacresq_current_account_active() IS DISTINCT FROM true THEN
-    RAISE EXCEPTION 'Newly created profile must be active for its authenticated caller';
+  IF private.tacresq_current_account_active() IS DISTINCT FROM true
+     OR private.tacresq_auth_profile_id() IS NULL
+     OR private.tacresq_actor_role() IS DISTINCT FROM 'requester' THEN
+    RAISE EXCEPTION 'Newly created profile must resolve as active for its authenticated caller';
   END IF;
 END;
 $active_account_contract$;
@@ -150,8 +176,10 @@ DO $still_valid_jwt_denial$
 DECLARE
   visible_profile_count bigint;
 BEGIN
-  IF private.tacresq_current_account_active() IS DISTINCT FROM false THEN
-    RAISE EXCEPTION 'A suspended profile must fail the active-state helper with the same valid JWT';
+  IF private.tacresq_current_account_active() IS DISTINCT FROM false
+     OR private.tacresq_auth_profile_id() IS NOT NULL
+     OR private.tacresq_actor_role() IS NOT NULL THEN
+    RAISE EXCEPTION 'A suspended profile must fail all active identity helpers with the same valid JWT';
   END IF;
   SELECT count(*) INTO visible_profile_count
     FROM public.profiles
