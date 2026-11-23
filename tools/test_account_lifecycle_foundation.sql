@@ -296,6 +296,7 @@ $still_valid_jwt_denial$;
 RESET ROLE;
 
 -- Invalid lifecycle combinations must be rejected by the table constraint.
+SELECT set_config('request.jwt.claim.sub', '', false);
 DO $invalid_state_contract$
 BEGIN
   BEGIN
@@ -309,27 +310,8 @@ BEGIN
 END;
 $invalid_state_contract$;
 
--- Reactivation clears current-state metadata; history remains a separate ledger.
-UPDATE public.profiles
-   SET account_status = 'active',
-       suspended_at = NULL,
-       suspended_by = NULL,
-       suspension_reason = NULL
- WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
-
-SET ROLE authenticated;
-DO $reactivation_contract$
-BEGIN
-  IF private.tacresq_current_account_active() IS DISTINCT FROM true THEN
-    RAISE EXCEPTION 'Reactivated profile must pass the current-state helper';
-  END IF;
-END;
-$reactivation_contract$;
-RESET ROLE;
-
 -- Reactivation is also a trusted fixture write; restore the same subject for
 -- the post-commit active-state assertion.
-SELECT set_config('request.jwt.claim.sub', '', false);
 UPDATE public.profiles
    SET account_status = 'active',
        suspended_at = NULL,
