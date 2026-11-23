@@ -22,7 +22,7 @@ All existing profiles receive the default `active` state. Role, duty status, ide
 
 ## Remaining before suspension can be enabled
 
-- Review every remaining read/idempotent RPC path and every callable public/private function; a write trigger does not prevent a read-only or idempotent replay response.
+- Review every remaining read/idempotent RPC path and every callable public/private function; some less common operations may still have pre-write/idempotent response branches that need an explicit early active-state guard.
 - Inventory every Storage bucket and prove upload/download denial for each account-owned bucket.
 - Run isolated Supabase Edge Function tests for actor denial, suspended-recipient filtering, and zero FCM/Google OAuth calls on denied paths.
 - Verify every Laravel/Sanctum bridge route and establish immutable Auth-user mapping before claiming account-state enforcement there.
