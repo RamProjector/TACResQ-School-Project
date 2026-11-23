@@ -80,16 +80,16 @@ class FcmNotificationDispatcher
                 );
 
                 if ($result['sent']) {
-                    $this->updateAttempt($attemptId, 'sent', $result['provider_message_name'], null);
+                    $this->persistAttemptSafely($attemptId, 'sent', $result['provider_message_name'], null);
                     $stats['sent']++;
                 } elseif ($result['invalid_token']) {
                     // FCM UNREGISTERED is the definitive signal that this token is
                     // no longer registered. Do not delete tokens for INVALID_ARGUMENT.
                     $this->deleteToken($token);
-                    $this->updateAttempt($attemptId, 'invalid_token', null, $result['error_code']);
+                    $this->persistAttemptSafely($attemptId, 'invalid_token', null, $result['error_code']);
                     $stats['invalid_tokens']++;
                 } elseif ($result['retryable']) {
-                    $this->updateAttempt(
+                    $this->persistAttemptSafely(
                         $attemptId,
                         'failed',
                         null,
@@ -113,7 +113,7 @@ class FcmNotificationDispatcher
             } catch (\Throwable) {
                 // Transport or ledger-update failures retain the attempt for a
                 // bounded retry. A worker crash leaves the claim leased for 10 min.
-                $this->updateAttempt(
+                $this->persistAttemptSafely(
                     $attemptId,
                     'failed',
                     null,
@@ -143,6 +143,30 @@ class FcmNotificationDispatcher
         }
         if (trim((string) config('tacru.fcm_project_id')) === '') {
             throw new RuntimeException('FCM dispatcher requires FCM_PROJECT_ID.');
+        }
+    }
+
+    /**
+     * A failed ledger write must not abort delivery attempts for other recipients.
+     * Leave the row claimed; the bounded lease allows a later worker to recover it.
+     */
+    private function persistAttemptSafely(
+        int $id,
+        string $status,
+        ?string $providerName,
+        ?string $errorCode,
+        ?string $nextAttemptAt = null,
+    ): bool {
+        try {
+            $this->updateAttempt($id, $status, $providerName, $errorCode, $nextAttemptAt);
+            return true;
+        } catch (\\Throwable $exception) {
+            // Do not log provider payloads, tokens, or exception messages.
+            Log::warning('FCM delivery ledger update failed for attempt.', [
+                'attempt_id' => $id,
+                'exception' => $exception::class,
+            ]);
+            return false;
         }
     }
 
