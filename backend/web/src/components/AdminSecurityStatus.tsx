@@ -276,11 +276,6 @@ export default function AdminSecurityStatus() {
               <p>{verifiedFactors.length === 0
                 ? "A verified TOTP factor is required for administrator access. Complete authenticator setup before relying on this account for incident operations."
                 : "Only one verified device is protecting this administrator account. If it is lost or unavailable, you may be locked out of privileged controls. Register and verify a second authenticator on a separate device before removing the current one."}</p>
-              {!enrollment && (
-                <button className="admin-refresh" type="button" onClick={() => { void addBackupAuthenticator(); }} disabled={busy || !snapshot || snapshot.factors.length >= 10 || snapshot.currentLevel !== "aal2" || !snapshot.usedTotp}>
-                  Add backup authenticator
-                </button>
-              )}
             </div>
           )}
           <div className="admin-security-status__factor-list">
