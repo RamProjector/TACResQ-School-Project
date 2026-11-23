@@ -229,13 +229,13 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         </div>
       </details>
 
-      <section className="audit-page__lifecycle" aria-labelledby="account-lifecycle-history-title">
+      <section className="audit-page__lifecycle" aria-labelledby="account-lifecycle-history-title" aria-busy={lifecycleLoading}>
         <div className="audit-page__heading">
           <div>
             <h3 id="account-lifecycle-history-title">Account suspension and reactivation</h3>
             <p>Trusted account-status transitions recorded by the database. This history is separate from ordinary role changes.</p>
           </div>
-          <span>{lifecycleTotal.toLocaleString()} recorded</span>
+          <span>{lifecycleError ? "Unavailable" : lifecycleTotal.toLocaleString() + " recorded"}</span>
         </div>
         {lifecycleError ? (
           <p className="admin-panel__footnote" role="alert">{lifecycleError}</p>
