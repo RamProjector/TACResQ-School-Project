@@ -1124,6 +1124,7 @@ Route::middleware(['auth:sanctum', 'account.active'])->prefix('admin/security/to
                     'confirmed_at' => null,
                     'expires_at' => now()->addMinutes(10),
                     'last_used_step' => null,
+                    'last_used_code_hash' => null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ],
