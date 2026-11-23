@@ -60,4 +60,19 @@ assert "'phone'" not in privacy_migration and "p.phone" not in privacy_migration
 assert "api_admin_list_users_page(" not in privacy_migration, "Keep the public TOTP/AAL2 wrapper intact."
 assert "revoke all on function public.api_admin_list_users_page_internal" in privacy_migration
 
+# Mobile Admin navigation must remain reachable instead of disappearing with the desktop sidebar.
+admin_css = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text()
+assert "@media (max-width: 760px)" in admin_css
+assert ".admin-navigation {" in admin_css
+assert "overflow-x: auto" in admin_css
+assert ".admin-sidebar .admin-nav-item" in admin_css
+assert ".admin-nav-item:focus-visible" in admin_css
+assert "@media (max-width: 520px)" in admin_css
+assert ".admin-topbar__right" in admin_css
+assert ".admin-user strong" in admin_css
+# Printed security reports should preserve the page heading and avoid forced blank pages.
+assert ".admin-heading__identity { break-after:avoid; }" in admin_css
+assert ".admin-security-status__coverage { break-before:auto !important; }" in admin_css
+assert "break-inside:avoid-page" in admin_css
+
 print("Web admin-only contract passed.")
