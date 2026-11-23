@@ -80,3 +80,48 @@ for required in (
     "has_function_privilege('authenticated', routine_oid, 'execute')",
 ):
     assert required in runtime_contract, f"Dispatcher progress replay contract is missing: {required}"
+
+
+# Guard the dispatcher team-assignment, release, and GPS location write paths.
+# These checks prevent accidental restoration of direct client EXECUTE on the
+# preserved internal implementations or removal of the active-profile locks.
+assignment_migration = (ROOT / "supabase/migrations/20261124080000_account_lifecycle_team_assignment_guard.sql").read_text(encoding="utf-8").lower()
+release_migration = (ROOT / "supabase/migrations/20261124090000_account_lifecycle_assignment_release_guard.sql").read_text(encoding="utf-8").lower()
+location_migration = (ROOT / "supabase/migrations/20261124100000_account_lifecycle_location_writer_guard.sql").read_text(encoding="utf-8").lower()
+for source, required in (
+    (assignment_migration, (
+        "alter function public.api_assign_incident_team(bigint, bigint[]) set schema private",
+        "tacresq_assign_incident_team_internal",
+        "account_status = 'active'",
+        "for share",
+        "only active dispatchers can assign incident teams",
+        "create or replace function public.api_assign_incident",
+    )),
+    (release_migration, (
+        "tacresq_release_incident_assignment_internal",
+        "account_status = 'active'",
+        "for share",
+        "only active dispatchers can release incident assignments",
+        "revoke all on function private.tacresq_release_incident_assignment_internal",
+    )),
+    (location_migration, (
+        "tacresq_record_location_v2_internal",
+        "account_status = 'active'",
+        "for share",
+        "only active responders and drivers can share incident locations",
+        "revoke all on function private.tacresq_record_location_v2_internal",
+    )),
+):
+    for item in required:
+        assert item in source, f"Assignment/location lifecycle guard is missing: {item}"
+
+for item in (
+    "active_assignment_location_entry_contract",
+    "public.api_assign_incident_team(bigint,bigint[])",
+    "private.tacresq_release_incident_assignment(bigint,bigint)",
+    "private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)",
+    "tacresq_assign_incident_team_internal",
+    "tacresq_release_incident_assignment_internal",
+    "tacresq_record_location_v2_internal",
+):
+    assert item in runtime_contract, f"Assignment/location replay contract is missing: {item}"
