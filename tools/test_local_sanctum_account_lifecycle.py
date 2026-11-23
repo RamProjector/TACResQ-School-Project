@@ -76,16 +76,17 @@ assert "LocalAdminTotpService::class" in admin_reauth
 assert "verifyAndConsume($user, $credentials['totp_code'])" in admin_reauth
 assert "local_admin_totp_credentials" in totp_migration
 assert "secret_ciphertext" in totp_migration and "last_used_step" in totp_migration
-assert "confirmed_at" in totp_migration and "unique()->constrained('users')" in totp_migration
+assert "confirmed_at" in totp_migration and "expires_at" in totp_migration and "unique()->constrained('users')" in totp_migration
 assert "Crypt::encryptString" in totp_service and "Crypt::decryptString" in totp_service
 assert "hash_hmac('sha1'" in totp_service and "PERIOD_SECONDS = 30" in totp_service
 assert "lockForUpdate()" in totp_service and "$candidateStep <= $lastUsedStep" in totp_service
 assert "confirmEnrollment" in totp_service and "verifyAndConsume" in totp_service
-assert "admin/security/totp/enroll" in routes and "admin/security/totp/confirm" in routes
+assert "prefix('admin/security/totp')" in routes and "Route::post('/enroll'" in routes and "Route::post('/confirm'" in routes
 assert "secret_ciphertext" in routes and "Cache-Control', 'no-store, private'" in routes
 assert "test_local_admin_totp_implementation_matches_rfc_6238_sha1_vector" in feature
 assert "test_local_admin_can_enroll_and_confirm_authenticator_factor" in feature
 assert "test_local_admin_cannot_silently_replace_a_confirmed_authenticator" in feature
+assert "test_local_admin_totp_enrollment_expires_after_ten_minutes" in feature
 assert "test_local_admin_sensitive_action_rejects_incorrect_totp_code" in feature
 assert "test_local_admin_totp_code_cannot_be_replayed" in feature
 print("Local Sanctum lifecycle guard and append-only audit contracts passed.")
