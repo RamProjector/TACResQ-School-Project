@@ -202,7 +202,9 @@ ORDER BY c.relname;
 SELECT
   schema_name,
   has_schema_privilege('anon', schema_name, 'USAGE') AS anon_usage,
-  has_schema_privilege('authenticated', schema_name, 'USAGE') AS authenticated_usage
+  has_schema_privilege('anon', schema_name, 'CREATE') AS anon_create,
+  has_schema_privilege('authenticated', schema_name, 'USAGE') AS authenticated_usage,
+  has_schema_privilege('authenticated', schema_name, 'CREATE') AS authenticated_create
 FROM (VALUES ('public'), ('private'), ('storage'), ('auth')) AS schemas(schema_name)
 ORDER BY schema_name;
 
@@ -240,3 +242,34 @@ WHERE client_role.rolname IN ('anon', 'authenticated')
   AND (elevated_role.rolsuper OR elevated_role.rolbypassrls)
   AND pg_catalog.pg_has_role(client_role.oid, elevated_role.oid, 'MEMBER')
 ORDER BY client_role.rolname, elevated_role.rolname;
+
+
+\echo '=== Global and schema-scoped default privileges ==='
+-- Default ACLs determine privileges inherited by objects created in the
+-- future. Current-object grants alone cannot reveal these future exposure
+-- paths. Include global defaults and schema-specific overrides for all
+-- object types, and retain PUBLIC/role grantees explicitly.
+SELECT
+  owner_role.rolname AS object_owner,
+  coalesce(schema_name.nspname, '<global>') AS schema_scope,
+  CASE defaults.defaclobjtype
+    WHEN 'r' THEN 'TABLES'
+    WHEN 'S' THEN 'SEQUENCES'
+    WHEN 'f' THEN 'FUNCTIONS'
+    WHEN 'T' THEN 'TYPES'
+    WHEN 'n' THEN 'SCHEMAS'
+    ELSE defaults.defaclobjtype::text
+  END AS object_type,
+  CASE WHEN expanded.grantee = 0 THEN 'PUBLIC'
+       ELSE grantee_role.rolname END AS grantee,
+  expanded.privilege_type,
+  expanded.is_grantable
+FROM pg_catalog.pg_default_acl AS defaults
+JOIN pg_catalog.pg_roles AS owner_role
+  ON owner_role.oid = defaults.defaclrole
+LEFT JOIN pg_catalog.pg_namespace AS schema_name
+  ON schema_name.oid = defaults.defaclnamespace
+CROSS JOIN LATERAL pg_catalog.aclexplode(defaults.defaclacl) AS expanded
+LEFT JOIN pg_catalog.pg_roles AS grantee_role
+  ON grantee_role.oid = expanded.grantee
+ORDER BY owner_role.rolname, schema_scope, object_type, grantee, expanded.privilege_type;
