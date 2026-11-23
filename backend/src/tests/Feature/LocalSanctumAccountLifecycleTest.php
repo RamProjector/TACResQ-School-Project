@@ -530,8 +530,10 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
         $step = intdiv(now()->timestamp, 30);
         $code = app(\App\Services\LocalAdminTotpService::class)->codeForStep($secret, $step);
-        $this->postJson('/api/admin/security/totp/confirm', ['totp_code' => $code])
-            ->assertOk()->assertJsonPath('enabled', true)
+        $this->postJson('/api/admin/security/totp/confirm', [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => $code,
+        ])->assertOk()->assertJsonPath('enabled', true)
             ->assertHeader('Cache-Control', 'no-store, private');
 
         $credential = DB::table('local_admin_totp_credentials')->where('user_id', $admin->id)->first();
@@ -540,6 +542,38 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         $this->assertSame($step, (int) $credential->last_used_step);
         $this->assertSame(hash('sha256', $code), $credential->last_used_code_hash);
         $this->assertStringNotContainsString($secret, $credential->secret_ciphertext);
+    }
+
+    public function test_local_admin_totp_confirmation_requires_current_password(): void
+    {
+        $admin = User::create([
+            'name' => 'Local TOTP Password Admin',
+            'email' => 'local-totp-password@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+
+        $enrollment = $this->postJson('/api/admin/security/totp/enroll', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertOk();
+        $secret = $enrollment->json('secret');
+        $code = app(\App\Services\LocalAdminTotpService::class)->codeForStep(
+            $secret,
+            intdiv(now()->timestamp, 30),
+        );
+
+        $this->postJson('/api/admin/security/totp/confirm', [
+            'current_password' => 'incorrect-password',
+            'totp_code' => $code,
+        ])->assertForbidden()->assertExactJson([
+            'message' => 'Administrator re-authentication failed.',
+        ])->assertHeader('Cache-Control', 'no-store, private');
+
+        $this->assertDatabaseHas('local_admin_totp_credentials', [
+            'user_id' => $admin->id,
+            'confirmed_at' => null,
+        ]);
     }
 
     public function test_local_admin_cannot_silently_replace_a_confirmed_authenticator(): void
