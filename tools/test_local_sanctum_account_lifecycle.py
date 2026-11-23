@@ -243,3 +243,37 @@ for constraint in (
 ):
     assert constraint in feature, f"PostgreSQL rejection tests must identify the exact failing constraint: {constraint}"
 assert "The expected named CHECK constraint must reject this record." in feature
+
+
+# Route-boundary regression: only the two self-service token-revocation routes
+# bypass account.active. Every other Sanctum route remains inside the guarded
+# group, and the Supabase bridge remains a separate bearer-token domain.
+group_start = routes.index("Route::middleware(['auth:sanctum', 'account.active'])->group")
+group_end = routes.index("\\n});", group_start)
+sanctum_group = routes[group_start:group_end]
+assert sanctum_group.count("->withoutMiddleware('account.active')") == 2
+assert "Route::post('/logout'," in sanctum_group
+assert "Route::post('/logout-all'," in sanctum_group
+assert "Route::post('/change-password'" in sanctum_group
+assert "Route::get('/incidents/mine'" in sanctum_group
+assert "Route::post('/incidents/{incident}/assign'" in sanctum_group
+assert "Route::get('/bridge/me'" not in sanctum_group
+assert "Route::post('/bridge/rpc/{function}'" not in sanctum_group
+
+# The login denial must occur after credential verification but before token
+# issuance; public registration must always force requester role and must not
+# accept caller-controlled lifecycle fields.
+login_block = routes[routes.index("Route::post('/login'"):routes.index("Route::post('/register'")]
+assert login_block.index("Hash::check") < login_block.index("if ($user->is_suspended)") < login_block.index("createToken")
+register_block = routes[routes.index("Route::post('/register'"):routes.index("Route::middleware(['auth:sanctum'")]
+assert "'role' => 'requester'" in register_block
+assert "'is_suspended'" not in register_block
+assert "'suspended_at'" not in register_block
+assert "'suspension_reason'" not in register_block
+
+# The local Admin step-up middleware is only a prerequisite, not a public
+# transition API. Keep lifecycle transitions unavailable until their audited
+# transactional endpoint and disposable-PostgreSQL concurrency tests exist.
+assert "local.admin.reauthenticated" in bootstrap
+assert "Route::post('/admin/accounts/{user}/suspend'" not in routes
+assert "Route::post('/admin/accounts/{user}/reactivate'" not in routes
