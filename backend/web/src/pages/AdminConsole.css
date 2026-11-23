@@ -797,3 +797,21 @@
 @media (prefers-reduced-motion: reduce) {
   .admin-navigation { scroll-behavior:auto; }
 }
+
+
+/* Keep printed reports self-identifying and avoid forcing security content onto a blank page. */
+@media print {
+  .admin-heading { display:block !important; margin:0 0 14pt !important; }
+  .admin-heading__identity { break-after:avoid; }
+  .admin-heading h1 { color:#142a31 !important; font-size:22pt !important; }
+  .admin-heading p { color:#34494d !important; }
+  .admin-security-status__coverage { break-before:auto !important; }
+  .admin-security-status__coverage-heading,
+  .admin-panel__heading,
+  .audit-page__intro { break-after:avoid; }
+  .admin-panel,
+  .admin-roadmap-content,
+  .admin-security-status__backup,
+  .admin-security-status__revocation { break-inside:avoid-page; }
+  a { text-decoration:none; }
+}
