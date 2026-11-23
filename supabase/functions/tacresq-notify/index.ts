@@ -45,8 +45,8 @@ Deno.serve(async (request: Request) => {
   const incidentId = Number(payload.incident_id);
   if (!event || !Number.isSafeInteger(incidentId) || incidentId <= 0) return json({ error: "event and positive incident_id are required" }, 400);
   if (!["incident_created", "incident_assigned", "incident_status"].includes(event)) return json({ error: "Unsupported incident event" }, 400);
-  const { data: actor, error: actorError } = await admin.from("profiles").select("id,role").eq("auth_user_id", userResult.user.id).single();
-  if (actorError || !actor) return json({ error: "TACRU profile not found" }, 403);
+  const { data: actor, error: actorError } = await admin.from("profiles").select("id,role,account_status").eq("auth_user_id", userResult.user.id).single();
+  if (actorError || !actor || actor.account_status !== "active") return json({ error: "Active TACResQ account required" }, 403);
   const { data: incident, error: incidentError } = await admin.from("incidents").select("id,requester_id,assigned_to,status").eq("id", incidentId).single();
   if (incidentError || !incident) return json({ error: "Incident not found" }, 404);
   let targetProfileIds: number[] = [];
@@ -54,7 +54,7 @@ Deno.serve(async (request: Request) => {
   let body = `Incident #${incidentId} was updated.`;
   if (event === "incident_created") {
     if (actor.role !== "requester" || actor.id !== incident.requester_id) return json({ error: "Not allowed to notify for this incident" }, 403);
-    const { data: dispatchers } = await admin.from("profiles").select("id").eq("role", "dispatcher");
+    const { data: dispatchers } = await admin.from("profiles").select("id").eq("role", "dispatcher").eq("account_status", "active");
     targetProfileIds = (dispatchers ?? []).map((profile) => profile.id as number);
     title = "New emergency request";
     body = `Incident #${incidentId} is waiting in the dispatch queue.`;
@@ -70,6 +70,18 @@ Deno.serve(async (request: Request) => {
     body = `Incident #${incidentId} status: ${incident.status}.`;
   }
   if (targetProfileIds.length === 0) return json({ sent: 0, reason: "No target accounts are provisioned" });
+
+  // Resolve every recipient against current account state before loading any
+  // FCM registration. A stale assignment must not notify a suspended account.
+  const { data: activeRecipients, error: recipientError } = await admin
+    .from("profiles")
+    .select("id")
+    .in("id", targetProfileIds)
+    .eq("account_status", "active");
+  if (recipientError) return json({ error: "Could not verify notification recipients" }, 500);
+  targetProfileIds = (activeRecipients ?? []).map((profile) => profile.id as number);
+  if (targetProfileIds.length === 0) return json({ sent: 0, reason: "No active target accounts are provisioned" });
+
   const { data: registrations, error: tokenError } = await admin.from("fcm_tokens").select("id,profile_id,token").in("profile_id", targetProfileIds);
   if (tokenError) return json({ error: "Could not load notification registrations" }, 500);
   if (!registrations?.length) return json({ sent: 0, reason: "Recipients have not registered an FCM token" });
