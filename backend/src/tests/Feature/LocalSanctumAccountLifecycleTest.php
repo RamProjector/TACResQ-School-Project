@@ -256,14 +256,26 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         }
 
         DB::statement('ALTER TABLE local_account_lifecycle_events ALTER COLUMN actor_user_id DROP NOT NULL');
+        DB::statement('ALTER TABLE local_account_lifecycle_events ALTER COLUMN target_user_id DROP NOT NULL');
         DB::table('local_account_lifecycle_events')->insert([
-            'actor_user_id' => null,
-            'target_user_id' => 20,
-            'action' => 'suspended',
-            'reason' => 'Legacy unattributed event',
-            'previous_state' => 'active',
-            'new_state' => 'suspended',
-            'created_at' => now(),
+            [
+                'actor_user_id' => null,
+                'target_user_id' => 20,
+                'action' => 'suspended',
+                'reason' => 'Legacy event missing actor',
+                'previous_state' => 'active',
+                'new_state' => 'suspended',
+                'created_at' => now(),
+            ],
+            [
+                'actor_user_id' => 10,
+                'target_user_id' => null,
+                'action' => 'suspended',
+                'reason' => 'Legacy event missing target',
+                'previous_state' => 'active',
+                'new_state' => 'suspended',
+                'created_at' => now(),
+            ],
         ]);
 
         $migration = require database_path('migrations/2026_11_23_000012_require_local_lifecycle_audit_identities.php');
@@ -276,6 +288,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         }
 
         $this->assertSame(1, DB::table('local_account_lifecycle_events')->whereNull('actor_user_id')->count());
+        $this->assertSame(1, DB::table('local_account_lifecycle_events')->whereNull('target_user_id')->count());
         $column = DB::selectOne(
             "SELECT is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?",
             ['local_account_lifecycle_events', 'actor_user_id'],
