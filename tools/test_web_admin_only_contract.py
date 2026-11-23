@@ -93,6 +93,15 @@ assert 'disabled={page === 0 || refreshing || directoryFilterPending || Boolean(
 assert 'disabled={refreshing || directoryFilterPending || Boolean(directoryError) || (page + 1) * pageSize >= totalUsers}>Next' in admin_console
 assert 'aria-busy={loading || refreshing || directoryFilterPending}' in admin_console
 
+# Overview metrics must expose their scope and avoid presenting loading or failed data as zero.
+assert 'aria-describedby="admin-overview-metrics-context"' in admin_console
+assert 'id="admin-overview-metrics-context"' in admin_console
+assert 'directoryError ? "Unavailable" : loading && users.length === 0 ? "Loading" : totalUsers.toLocaleString()' in admin_console
+assert 'directoryError ? "Unavailable" : refreshing || directoryFilterPending ? "Updating"' in admin_console
+assert 'role="status" aria-live="polite"><LoaderCircle' in admin_console
+assert ".admin-metrics strong { min-width:0; font-size:clamp(20px,2vw,29px); overflow-wrap:anywhere; }" in admin_css
+assert ".admin-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }" in admin_css
+
 # Analytics announcements and labels must communicate only the changed state and its scope.
 assert 'className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title">' in admin_console
 assert '<div className="admin-empty" role="status" aria-live="polite"><LoaderCircle' in admin_console
