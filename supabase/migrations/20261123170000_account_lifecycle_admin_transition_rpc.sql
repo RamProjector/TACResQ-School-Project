@@ -37,7 +37,6 @@ DECLARE
   v_actor_email text;
   v_target public.profiles%ROWTYPE;
   v_reason text := btrim(coalesce(p_reason, ''));
-  v_active_admin_count bigint;
   v_audit_id bigint;
   v_audit_created_at timestamptz;
   v_action text;
@@ -86,25 +85,19 @@ BEGIN
       USING ERRCODE = 'P0002';
   END IF;
 
+  -- This workflow manages ordinary TACResQ accounts only. Administrator
+  -- provisioning/recovery remains a separate trusted-operator boundary.
+  IF v_target.role = 'admin' THEN
+    RAISE EXCEPTION 'Administrator accounts cannot be changed through this workflow'
+      USING ERRCODE = '42501';
+  END IF;
+
   IF v_target.account_status = p_account_status THEN
     RETURN jsonb_build_object(
       'status', 'unchanged',
       'target_profile_id', v_target.id,
       'account_status', v_target.account_status
     );
-  END IF;
-
-  IF p_account_status = 'suspended' AND v_target.role = 'admin' THEN
-    SELECT count(*)
-      INTO v_active_admin_count
-      FROM public.profiles p
-     WHERE p.role = 'admin'
-       AND p.account_status = 'active';
-
-    IF v_active_admin_count <= 1 THEN
-      RAISE EXCEPTION 'The last active administrator cannot be suspended'
-        USING ERRCODE = '42501';
-    END IF;
   END IF;
 
   IF p_account_status = 'suspended' THEN
