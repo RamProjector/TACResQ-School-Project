@@ -115,4 +115,14 @@ assert unsupported_event < recipient_lookup < oauth_call < fcm_send, (
     "Invalid payloads and unsupported event types must be rejected before delivery."
 )
 
+# Stale-token cleanup is best-effort after delivery. Surface cleanup failure
+# without converting already-attempted sends into a retryable delivery error.
+cleanup_block = source.index('let cleanupPending = false;')
+cleanup_delete = source.index('.from("fcm_tokens").delete()', cleanup_block)
+cleanup_failure = source.index('cleanupPending = true;', cleanup_delete)
+cleanup_response = source.index('cleanup_pending: true', cleanup_failure)
+assert fcm_loop < cleanup_block < cleanup_delete < cleanup_failure < cleanup_response
+assert 'console.error("Invalid FCM registration cleanup failed.");' in source
+assert 'return json({ sent, attempted: registrations.length, ...(cleanupPending ? { cleanup_pending: true } : {}) });' in source
+
 print("Notification Edge Function authorization-order source contract passed.")
