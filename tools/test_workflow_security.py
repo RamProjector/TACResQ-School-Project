@@ -17,6 +17,11 @@ def main() -> None:
         source = path.read_text(encoding="utf-8")
         relative = path.relative_to(ROOT)
 
+        # A literal escaped newline between YAML list items is text, not a line break.
+        assert r"\n      - name:" not in source and r"\n        run:" not in source, (
+            f"{relative}: workflow contains an escaped newline where YAML structure requires a real newline"
+        )
+
         permission_block = re.search(r"(?m)^permissions:\n((?:  [^\n]+\n)+)", source)
         assert permission_block, (
             f"{relative}: every workflow must declare explicit top-level token permissions"
