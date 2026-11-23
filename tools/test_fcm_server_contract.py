@@ -60,6 +60,12 @@ assert "permanent_failure" in dispatcher
 assert "persistAttemptSafely" in dispatcher
 assert "Delivery ledger update failed for attempt" in dispatcher
 assert "continue;" in dispatcher
+assert "catch (\\Throwable $exception)" in dispatcher
+assert "Log::warning(" in dispatcher
+assert "$exception->getMessage()" not in dispatcher
+assert "persistAttemptSafely(" in dispatcher
+assert "permanent_failure" in dispatcher
+assert "TRANSPORT_FAILURE" in dispatcher
 assert "tacresq:dispatch-fcm" in command
 assert "--check-config" in command
 assert "checkConfiguration" in dispatcher
