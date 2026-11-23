@@ -6,19 +6,19 @@
 
 Give an authorized administrator a reversible way to suspend and reactivate a non-admin TACResQ account. Suspension must stop the account from using the Android app, direct Supabase APIs, Storage, and any Laravel bridge path. It must not be confused with responder/driver duty status.
 
-The first implementation must not expose administrator provisioning, promotion/demotion, account deletion, password changes, or arbitrary Auth metadata editing.
+The first implementation must not expose administrator provisioning, promotion/demotion, account deletion, password changes, or arbitrary Auth metadata editing. The Admin transition RPC is implemented but its EXECUTE grant remains revoked from client roles until remaining access surfaces are covered.
 
 ## Repository facts confirmed
 
 - The Admin web directory currently returns id, name, email, role, duty status, and creation time. It does not return account-enabled/suspended state.
-- The existing role-change RPC is a SECURITY DEFINER function. It locks the target profile, blocks Admin targets, blocks role changes while a field unit has an active incident, and writes an append-only admin_audit_logs record.
+- The existing role-change RPC is a SECURITY DEFINER function. It locks the target profile, blocks Admin targets, blocks role changes while a field unit has an active incident, writes an append-only admin_audit_logs record, and now shares an advisory serialization lock with the staged account lifecycle transition.
 - private.tacresq_actor_role() currently resolves the role directly from public.profiles and does not check account status.
 - Some RLS policies use that helper, but several RPCs and policies query public.profiles directly. Therefore changing only the helper or adding a UI toggle would not establish complete suspension enforcement.
 - Android and the web portal call Supabase directly for important operations. Laravel is not a universal API gateway and cannot be treated as the only enforcement point.
 - The Web Admin initializes a browser Supabase client and directly calls Admin RPCs; its MFA gate is not the authorization boundary. Preserve the database-enforced AAL2/TOTP wrapper and restrictive audit-log policy when adding active-account checks.
 - The repository also contains a separate legacy Laravel Sanctum authentication path backed by Laravel User records and personal-access tokens. Its identity mapping/support status relative to Supabase Auth users and public.profiles is not established by source review. Do not assume a Supabase suspension state automatically blocks those tokens, and do not join identities by email. Before claiming complete account suspension, explicitly decide whether the legacy Sanctum routes remain supported and, if so, define their own server-side account-state/revocation contract.
 - The optional Render Supabase bridge validates the Supabase bearer token and forwards that same caller JWT to allowlisted PostgREST RPCs. It is useful transport defense, but does not itself resolve current profile account state; database enforcement remains mandatory.
-- Storage has independent policies and must receive an explicit active-account check too.
+- Incident-chat Storage policies now use the account-aware profile/chat helpers and have same-valid-JWT upload/download denial coverage. Other Storage buckets still require inventory and tests.
 - The existing audit model supports role-change events, and the investigation feed has a fixed source allowlist. The foundation migration adds a private-to-clients, RLS-enabled, append-only `account_lifecycle_audit_logs` ledger. The trusted state-transition RPC is implemented but not exposed to clients; investigation-feed coverage is still outstanding.
 
 ## Security model
@@ -32,7 +32,7 @@ The foundation migration now adds a constrained account state to `public.profile
 
 New profiles default to active. A suspension record includes suspended_at, suspended_by, and a required reason. Reactivation records the actor, timestamp, and reason in the immutable administrative audit history. Do not reuse off_duty or change the person's role to simulate suspension.
 
-Only non-admin profiles can be suspended or reactivated through the portal. Administrator accounts remain trusted-operator-only, consistent with the existing provisioning boundary.
+Only non-admin profiles can be suspended or reactivated through the portal. The internal transition RPC rejects Admin targets entirely; administrator provisioning/recovery remains trusted-operator-only, consistent with the existing provisioning boundary.
 
 ### 2. Enforce at every authorization boundary
 
