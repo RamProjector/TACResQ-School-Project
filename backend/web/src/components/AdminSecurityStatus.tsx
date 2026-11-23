@@ -278,8 +278,8 @@ export default function AdminSecurityStatus() {
                 : "Only one verified device is protecting this administrator account. If it is lost or unavailable, you may be locked out of privileged controls. Register and verify a second authenticator on a separate device before removing the current one."}</p>
             </div>
           )}
-          <div className="admin-security-status__factor-list">
-            <h3>Registered authenticator factors</h3>
+          <section className="admin-security-status__factor-list" aria-labelledby="admin-security-factor-list-title">
+            <h3 id="admin-security-factor-list-title">Registered authenticator factors</h3>
             {snapshot.factors.length === 0 ? (
               <p>No TOTP factors are registered for this account.</p>
             ) : (
@@ -301,10 +301,10 @@ export default function AdminSecurityStatus() {
               </ul>
             )}
             {pendingFactors.length > 0 && <p className="admin-security-status__note">{pendingFactors.length} pending factor(s) are not accepted for privileged operations.</p>}
-          </div>
-          <div className="admin-security-status__revocation">
+          </section>
+          <section className="admin-security-status__revocation" aria-labelledby="admin-security-revocation-title">
             <div>
-              <h3>Sign out all devices</h3>
+              <h3 id="admin-security-revocation-title">Sign out all devices</h3>
               <p>Revoke refreshable Supabase sessions for this account across TACResQ browsers and devices, including the Android app. This action requires a current TOTP-verified AAL2 session.</p>
             </div>
             {!confirmGlobalSignOut ? (
@@ -320,10 +320,10 @@ export default function AdminSecurityStatus() {
                 </div>
               </div>
             )}
-          </div>
-          <div className="admin-security-status__backup">
+          </section>
+          <section className="admin-security-status__backup" aria-labelledby="admin-security-backup-title">
             <div>
-              <h3>Backup authenticator</h3>
+              <h3 id="admin-security-backup-title">Backup authenticator</h3>
               <p>Add a second authenticator on a separate device so access does not depend on one phone. TACResQ uses Supabase's supported TOTP factor flow; recovery codes are not assumed to be enabled for project users.</p>
             </div>
             {!enrollment && (
@@ -332,7 +332,7 @@ export default function AdminSecurityStatus() {
               </button>
             )}
             {snapshot.factors.length >= 10 && <p className="admin-security-status__note">Supabase's per-user MFA factor limit has been reached.</p>}
-          </div>
+          </section>
           {enrollment && (
             <form className="admin-security-status__enrollment" onSubmit={verifyBackupAuthenticator}>
               <h3>Register the backup device</h3>
