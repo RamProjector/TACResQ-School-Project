@@ -472,6 +472,7 @@ DO $atomic_account_transition_contract$
 DECLARE
   actor_id bigint;
   target_id bigint;
+  admin_target_id bigint;
   response jsonb;
   current_status text;
   current_duty_status text;
@@ -482,6 +483,8 @@ BEGIN
    WHERE auth_user_id = '00000000-0000-4000-8000-000000000995';
   SELECT id INTO target_id FROM public.profiles
    WHERE auth_user_id = '00000000-0000-4000-8000-000000000993';
+  SELECT id INTO admin_target_id FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000992';
 
   response := public.api_admin_set_account_status(
     target_id, 'suspended', 'Synthetic account suspension reason'
@@ -548,6 +551,18 @@ BEGIN
   END;
   IF NOT denied THEN
     RAISE EXCEPTION 'An Admin must not suspend their own account';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_set_account_status(
+      admin_target_id, 'active', 'Synthetic Admin reactivation reason'
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Administrator accounts must remain outside ordinary account suspension management';
   END IF;
 END;
 $atomic_account_transition_contract$;
