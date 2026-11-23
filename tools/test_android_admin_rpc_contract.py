@@ -17,7 +17,6 @@ server_pagination_migration = (
     ROOT / "supabase/migrations/20261112215712_admin_server_side_user_pagination.sql"
 ).read_text().lower()
 server_contract = server_admin_migration + "\n" + server_pagination_migration
-mobile_client = "\n".join((api, supabase, repository))
 
 checks = {
     "Android has no privileged Admin API interface or DTOs": all(
@@ -74,9 +73,9 @@ checks = {
                 'activeSection === "audit" && <AuditLogsPage profile={profile} />',
                 'label: "Overview"',
                 'label: "User management"',
-                'label: "Security & countermeasures"',
-                'label: "Analytics & reports"',
-                'label: "Audit Logs"',
+                'label: "Security"',
+                'label: "Reports"',
+                'label: "Activity log"',
             )
         )
     ),
