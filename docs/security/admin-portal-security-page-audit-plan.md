@@ -82,3 +82,13 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - The user-management section now has an explicit heading relationship; the directory table references its live result-status text and uses scoped column headers.
 - User-directory and investigation-feed pagination now use semantic navigation landmarks and identify the result region they control.
 - Existing role permissions, read-only audit behavior, and server-side filtering are unchanged. These are navigation and assistive-technology improvements, not new administrative capabilities.
+
+
+## Admin account-directory responsive usability follow-up
+
+- Search and role-filter controls now programmatically identify the account table they affect and reference its live result-status description.
+- The filter toolbar wraps on narrow screens; the search field, role selector, and reset action remain usable without squeezing into one row.
+- The account table keeps a readable minimum column width inside its existing horizontal-scroll region. Long account names and email addresses wrap within the account cell.
+- A short mobile-only hint explains horizontal table navigation, and the scroll region has a visible keyboard-focus indicator.
+- These changes preserve server-side filtering, the existing 25-row page size, current role-management permissions, and the existing read-only lifecycle boundary. No account status or suspension action was introduced.
+- Static source-contract assertions cover the filter relationships, mobile guidance, table width, wrapping, and keyboard focus. Browser layout and assistive-technology testing remain outstanding.
