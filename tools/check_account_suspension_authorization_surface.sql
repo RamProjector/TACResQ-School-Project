@@ -16,7 +16,10 @@ ORDER BY p.proname, p.oid::regprocedure::text;
 \echo '=== Public tables, RLS, client privileges, and policies ==='
 SELECT
   c.oid::regclass AS relation,
+  table_owner.rolname AS relation_owner,
   c.relrowsecurity AS row_level_security_enabled,
+  c.relforcerowsecurity AS row_level_security_forced,
+  (table_owner.rolname IN ('postgres', 'supabase_admin', 'service_role')) AS owner_is_privileged_service_role,
   has_table_privilege('authenticated', c.oid, 'SELECT') AS authenticated_select,
   has_table_privilege('authenticated', c.oid, 'INSERT') AS authenticated_insert,
   has_table_privilege('authenticated', c.oid, 'UPDATE') AS authenticated_update,
@@ -37,6 +40,7 @@ SELECT
   ), '(no policies)') AS policies
 FROM pg_catalog.pg_class AS c
 JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+JOIN pg_catalog.pg_roles AS table_owner ON table_owner.oid = c.relowner
 WHERE n.nspname = 'public'
   AND c.relkind IN ('r', 'p')
 ORDER BY c.relname;
