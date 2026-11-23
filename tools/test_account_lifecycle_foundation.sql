@@ -229,6 +229,27 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN
     NULL;
   END;
+  BEGIN
+    PERFORM public.api_my_notifications(10);
+    RAISE EXCEPTION 'Suspended caller unexpectedly read notification history';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  BEGIN
+    PERFORM public.api_my_notification(1);
+    RAISE EXCEPTION 'Suspended caller unexpectedly read a notification detail';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  BEGIN
+    PERFORM public.api_my_incident_messages(1, 10, NULL);
+    RAISE EXCEPTION 'Suspended caller unexpectedly read incident chat history';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  IF public.api_claimable_incidents() IS DISTINCT FROM '[]'::jsonb THEN
+    RAISE EXCEPTION 'Suspended field-unit caller must not receive claimable incident data';
+  END IF;
   SELECT count(*) INTO visible_profile_count
     FROM public.profiles
    WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
