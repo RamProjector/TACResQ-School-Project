@@ -36,13 +36,18 @@ class FcmNotificationDispatcher
             'p_limit' => $limit,
             'p_lease_seconds' => self::CLAIM_LEASE_SECONDS,
         ]);
-        if (!$response->successful() || !is_array($response->json())) {
+        $claimedAttempts = $response->json();
+        if (!$response->successful() || !is_array($claimedAttempts) || !array_is_list($claimedAttempts)) {
             throw new RuntimeException('Supabase FCM delivery queue claim failed.');
         }
 
-        $attempts = array_values(array_filter($response->json(), 'is_array'));
+        // Preserve every claimed row in the batch count. A malformed row is
+        // observable as skipped work rather than silently disappearing.
         $notificationIds = [];
-        foreach ($attempts as $attempt) {
+        foreach ($claimedAttempts as $attempt) {
+            if (!is_array($attempt)) {
+                continue;
+            }
             $id = (int) ($attempt['notification_id'] ?? 0);
             if ($id > 0) {
                 $notificationIds[$id] = true;
@@ -51,14 +56,18 @@ class FcmNotificationDispatcher
 
         $stats = [
             'notifications' => count($notificationIds),
-            'tokens' => count($attempts),
+            'tokens' => count($claimedAttempts),
             'sent' => 0,
             'invalid_tokens' => 0,
             'failed' => 0,
             'skipped' => 0,
         ];
 
-        foreach ($attempts as $attempt) {
+        foreach ($claimedAttempts as $attempt) {
+            if (!is_array($attempt)) {
+                $stats['skipped']++;
+                continue;
+            }
             $attemptId = (int) ($attempt['attempt_id'] ?? 0);
             $notificationId = (int) ($attempt['notification_id'] ?? 0);
             $profileId = (int) ($attempt['profile_id'] ?? 0);
