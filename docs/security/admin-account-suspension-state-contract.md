@@ -16,7 +16,7 @@ Migrations `20261123090000` through `20261123170000` currently:
 - Guard notification list/detail, incident-chat history, and claimable-incident discovery read RPCs; the field-unit directory now rejects suspended dispatchers and excludes suspended units.
 - Make incident-chat Storage policy identity checks fail closed for suspended callers. The Storage replay contract now tests prior-object download denial, new upload denial, chat-history denial, and chat-message denial with the same still-valid JWT.
 - Update the notification Edge Function to reject suspended actors and filter recipients to active profiles before FCM token lookup.
-- Implement an internal Admin account-status transition RPC with AAL2/TOTP, a shared advisory lock coordinated with Admin role changes, actor/target row locking, self-suspension and last-Admin checks, idempotent transitions, and atomic immutable audit insertion. The RPC is not yet executable by client roles.
+- Implement an internal Admin account-status transition RPC with AAL2/TOTP, a shared advisory lock coordinated with Admin role changes, actor/target row locking, self-suspension and Admin-target exclusion, idempotent transitions, and atomic immutable audit insertion. The RPC is not yet executable by client roles.
 
 All existing profiles receive the default `active` state. Role, duty status, identity, incident assignments, and account status remain separate concepts.
 
