@@ -102,7 +102,7 @@ for required in (
     "for share",
     "for update",
     "p_target_profile_id = v_actor_id",
-    "the last active administrator cannot be suspended",
+    "administrator accounts cannot be changed through this workflow",
     "length(v_reason) not between 10 and 500",
     "insert into public.account_lifecycle_audit_logs",
     "account_suspended",
@@ -187,6 +187,7 @@ for required in (
     "synthetic audit failure did not abort the transition",
     "account state must roll back when its audit insert fails",
     "an admin must not suspend their own account",
+    "administrator accounts must remain outside ordinary account suspension management",
 ):
     assert required in runtime_test, f"Runtime account lifecycle test is missing: {required}"
 
