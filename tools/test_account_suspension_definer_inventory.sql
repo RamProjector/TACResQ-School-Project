@@ -99,6 +99,7 @@ BEGIN
   FROM pg_catalog.pg_proc AS p
   JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public'
+    AND p.prokind = 'f'
     AND has_function_privilege('authenticated', p.oid, 'EXECUTE');
 
   IF public_callable_count <> 73
