@@ -407,6 +407,32 @@ END;
 $suspended_admin_mfa_contract$;
 RESET ROLE;
 
+-- A suspended dispatcher must not receive the field-unit directory through
+-- the SECURITY INVOKER RPC or its active-aware role helper.
+SELECT set_config('request.jwt.claim.sub', '', false);
+SELECT set_config('request.jwt.claims', '', false);
+UPDATE public.profiles
+   SET role = 'dispatcher',
+       duty_status = NULL,
+       account_status = 'suspended',
+       suspended_at = clock_timestamp(),
+       suspended_by = id,
+       suspension_reason = 'Synthetic suspended dispatcher fixture'
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000991', false);
+SET ROLE authenticated;
+DO $suspended_dispatcher_directory_contract$
+BEGIN
+  BEGIN
+    PERFORM public.api_units();
+    RAISE EXCEPTION 'Suspended dispatcher unexpectedly passed api_units';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+END;
+$suspended_dispatcher_directory_contract$;
+RESET ROLE;
+
 SELECT set_config('request.jwt.claim.sub', '', false);
 SELECT set_config('request.jwt.claims', '', false);
 DELETE FROM auth.users
