@@ -1,6 +1,6 @@
 # Legacy Laravel Sanctum account-lifecycle boundary
 
-**Status:** separate identity domain; local lifecycle-state and request enforcement are implemented in PR #347. PostgreSQL now enforces append-only lifecycle-event content, with a narrowly scoped foreign-key nulling exception. The privileged transition and trusted audit writer remain unimplemented. This does not claim that Supabase account suspension affects Laravel Sanctum users.
+**Status:** separate identity domain; local lifecycle-state and request enforcement are implemented in PR #347. PostgreSQL now enforces append-only lifecycle-event content, with a narrowly scoped foreign-key nulling exception. The privileged transition remains unimplemented. A reusable local Admin password re-authentication middleware and transactional audit recorder are present, but no privileged endpoint consumes them. This does not claim that Supabase account suspension affects Laravel Sanctum users.
 
 ## Why this is separate
 
@@ -20,9 +20,13 @@ There is no approved, immutable relationship between these two identities. Match
 
 ## Still missing
 
-- A trusted transactional audit writer tied to a privileged transition.
-- A verified local Admin authorization and MFA/re-authentication boundary.
+- A privileged transition endpoint that uses the transactional recorder and local Admin guard.
+- A verified local MFA factor or other stronger step-up mechanism; the current guard rechecks the local password and is not MFA.
 - Explicit same-valid-token denial tests for each high-risk incident and assignment route.
 - A full concurrency and integration run on disposable PostgreSQL before enabling transitions.
 
 No local Admin transition UI/API is exposed. No production migration or account change is included in this implementation slice. Do not join Sanctum and Supabase identities by email.
+
+## Local Admin step-up guard (not an endpoint)
+
+The local Laravel middleware alias `local.admin.reauthenticated` requires a local `users.role = admin` identity and a fresh `current_password` check against that same Laravel user record. Failed attempts are rate-limited per local Admin and source for 15 minutes after five failures. The middleware does not accept Supabase identity claims, does not infer Admin status from email, and does not provide MFA. No production route currently consumes this alias; it is a reusable guard with isolated feature coverage only. Do not describe this as MFA or expose suspension controls until a local second factor/re-authentication policy and a reviewed transition endpoint are implemented.
