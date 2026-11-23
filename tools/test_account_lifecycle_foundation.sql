@@ -4,6 +4,8 @@ DO $schema_contract$
 DECLARE
   helper_oid oid := to_regprocedure('private.tacresq_current_account_active()');
   helper_settings text[];
+  helper_source text;
+  helper_volatility "char";
   helper_is_definer boolean;
 BEGIN
   IF NOT EXISTS (
@@ -18,13 +20,15 @@ BEGIN
     RAISE EXCEPTION 'Current-account active-state helper is missing';
   END IF;
 
-  SELECT p.prosecdef, p.proconfig
-    INTO helper_is_definer, helper_settings
+  SELECT p.prosecdef, p.proconfig, p.prosrc, p.provolatile
+    INTO helper_is_definer, helper_settings, helper_source, helper_volatility
     FROM pg_catalog.pg_proc p
    WHERE p.oid = to_regprocedure('private.tacresq_current_account_active()');
   IF helper_is_definer IS DISTINCT FROM true
-     OR NOT (coalesce(helper_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
-    RAISE EXCEPTION 'Current-account helper must be SECURITY DEFINER with a pinned search_path';
+     OR helper_volatility IS DISTINCT FROM 'v'
+     OR NOT (coalesce(helper_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR helper_source NOT ILIKE '%FOR KEY SHARE%' THEN
+    RAISE EXCEPTION 'Current-account helper must be VOLATILE SECURITY DEFINER, pin search_path, and lock the caller profile FOR KEY SHARE';
   END IF;
   IF NOT has_function_privilege('authenticated', helper_oid, 'EXECUTE')
      OR has_function_privilege('anon', helper_oid, 'EXECUTE') THEN
