@@ -436,3 +436,12 @@
   .admin-footer { margin-top: 14pt; color: #52635b !important; border-top: 1px solid #b8c4bc; }
   a { color: #172b27 !important; text-decoration: none !important; }
 }
+
+
+/* Keep administrative table evidence legible across printed page breaks. */
+@media print {
+  .admin-table thead { display: table-header-group; }
+  .admin-table tfoot { display: table-footer-group; }
+  .admin-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .admin-table th { background: #eef2ee !important; }
+}
