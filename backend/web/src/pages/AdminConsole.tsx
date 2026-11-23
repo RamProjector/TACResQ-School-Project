@@ -524,7 +524,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
           {activeSection === "audit" && <AuditLogsPage profile={profile} />}
           {activeSection === "analytics" && (
-            <section className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title" aria-live="polite">
+            <section className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div>
                 <div className="admin-analytics-controls">
