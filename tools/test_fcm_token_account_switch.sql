@@ -75,5 +75,71 @@ BEGIN
 END;
 $token_owner_assertion$;
 
+-- Suspend the second account and exercise the same still-valid JWT. Registration,
+-- direct reads, and direct writes must fail/return no rows, while self-cleanup
+-- remains available so sign-out can remove this installation's token.
+UPDATE public.profiles
+   SET account_status = 'suspended',
+       suspended_at = statement_timestamp(),
+       suspension_reason = 'Synthetic FCM lifecycle test'
+ WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202';
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'f2000000-1111-4111-8111-000000000202', true);
+
+DO $suspended_registration_denied$
+BEGIN
+  BEGIN
+    PERFORM public.api_register_fcm_token('fcm-suspended-registration-token-000000000202');
+    RAISE EXCEPTION 'Suspended account unexpectedly registered an FCM token';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+END;
+$suspended_registration_denied$;
+
+DO $suspended_direct_write_denied$
+BEGIN
+  BEGIN
+    INSERT INTO public.fcm_tokens(profile_id, token)
+    VALUES (
+      (SELECT id FROM public.profiles
+        WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202'),
+      'fcm-suspended-direct-insert-token-000000000202'
+    );
+    RAISE EXCEPTION 'Suspended account unexpectedly inserted an FCM token directly';
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN
+    NULL;
+  END;
+END;
+$suspended_direct_write_denied$;
+
+DO $suspended_self_cleanup$
+BEGIN
+  PERFORM public.api_unregister_fcm_token('fcm-installation-token-account-switch-000000000201');
+END;
+$suspended_self_cleanup$;
+RESET ROLE;
+
+DO $suspended_token_cleanup_assertion$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.fcm_tokens
+     WHERE token = 'fcm-installation-token-account-switch-000000000201'
+  ) THEN
+    RAISE EXCEPTION 'Suspended account must be able to remove its own FCM token';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.fcm_tokens
+     WHERE token IN (
+       'fcm-suspended-registration-token-000000000202',
+       'fcm-suspended-direct-insert-token-000000000202'
+     )
+  ) THEN
+    RAISE EXCEPTION 'Suspended account must not create or rotate FCM tokens';
+  END IF;
+END;
+$suspended_token_cleanup_assertion$;
+
 ROLLBACK;
 SELECT 'PASS: FCM installation token ownership follows the authenticated account without exposing client table access.' AS result;
