@@ -955,3 +955,25 @@
     flex:1 1 100%;
   }
 }
+
+
+/* Preserve table column rhythm instead of compressing account data into unreadable cells. */
+.admin-table {
+  min-width:720px;
+}
+.admin-account {
+  min-width:210px;
+}
+.admin-account > span:last-child {
+  min-width:0;
+}
+.admin-account strong,
+.admin-account small {
+  overflow-wrap:anywhere;
+}
+.admin-date {
+  white-space:nowrap;
+}
+.admin-table td {
+  overflow-wrap:anywhere;
+}
