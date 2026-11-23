@@ -1,12 +1,13 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\\Feature;
 
-use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
-use Laravel\Sanctum\Sanctum;
-use Tests\TestCase;
+use App\\Models\\User;
+use Illuminate\\Database\\QueryException;
+use Illuminate\\Foundation\\Testing\\RefreshDatabase;
+use Illuminate\\Support\\Facades\\DB;
+use Laravel\\Sanctum\\Sanctum;
+use Tests\\TestCase;
 
 class LocalSanctumAccountLifecycleTest extends TestCase
 {
@@ -95,6 +96,58 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             'action' => 'suspended',
             'reason' => 'Synthetic retention test',
         ]);
+    }
+
+    public function test_local_lifecycle_audit_event_rejects_content_updates_on_postgres(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('The append-only trigger is PostgreSQL-specific.');
+        }
+
+        $eventId = DB::table('local_account_lifecycle_events')->insertGetId([
+            'action' => 'suspended',
+            'reason' => 'Original reason',
+            'previous_state' => 'active',
+            'new_state' => 'suspended',
+            'created_at' => now(),
+        ]);
+
+        try {
+            DB::table('local_account_lifecycle_events')->where('id', $eventId)
+                ->update(['reason' => 'Tampered reason']);
+            $this->fail('PostgreSQL must reject lifecycle-event content updates.');
+        } catch (QueryException $exception) {
+            $this->assertStringContainsString('append-only', $exception->getMessage());
+        }
+
+        $this->assertDatabaseHas('local_account_lifecycle_events', [
+            'id' => $eventId,
+            'reason' => 'Original reason',
+        ]);
+    }
+
+    public function test_local_lifecycle_audit_event_rejects_deletion_on_postgres(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('The append-only trigger is PostgreSQL-specific.');
+        }
+
+        $eventId = DB::table('local_account_lifecycle_events')->insertGetId([
+            'action' => 'suspended',
+            'reason' => 'Retention reason',
+            'previous_state' => 'active',
+            'new_state' => 'suspended',
+            'created_at' => now(),
+        ]);
+
+        try {
+            DB::table('local_account_lifecycle_events')->where('id', $eventId)->delete();
+            $this->fail('PostgreSQL must reject lifecycle-event deletion.');
+        } catch (QueryException $exception) {
+            $this->assertStringContainsString('append-only', $exception->getMessage());
+        }
+
+        $this->assertDatabaseHas('local_account_lifecycle_events', ['id' => $eventId]);
     }
 
     public function test_suspended_local_account_can_still_revoke_its_current_token(): void
