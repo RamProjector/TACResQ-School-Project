@@ -12,6 +12,7 @@ routes = (ROOT / "backend/src/routes/api.php").read_text()
 bootstrap = (ROOT / "backend/src/bootstrap/app.php").read_text()
 feature = (ROOT / "backend/src/tests/Feature/LocalSanctumAccountLifecycleTest.php").read_text()
 recorder = (ROOT / "backend/src/app/Services/LocalAccountLifecycleRecorder.php").read_text()
+admin_reauth = (ROOT / "backend/src/app/Http/Middleware/EnsureLocalAdminReauthenticated.php").read_text()
 
 assert "boolean('is_suspended')->default(false)" in migration
 assert "timestampTz('suspended_at')->nullable()" in migration
@@ -19,6 +20,8 @@ assert "string('suspension_reason', 500)->nullable()" in migration
 assert "'is_suspended' => 'boolean'" in model
 assert "'is_suspended'" not in model.split("protected $fillable", 1)[1].split(";", 1)[0], "Public mass assignment must not control suspension"
 assert "EnsureLocalAccountIsActive::class" in bootstrap
+assert "EnsureLocalAdminReauthenticated::class" in bootstrap
+assert "'local.admin.reauthenticated'" in bootstrap
 assert "Route::middleware(['auth:sanctum', 'account.active'])->group" in routes
 login = routes[routes.index("Route::post('/login'"):routes.index("Route::post('/register'")]
 assert "if ($user->is_suspended)" in login, "Suspended local accounts must not receive new tokens"
@@ -57,4 +60,13 @@ assert "insertGetId" in recorder and "created_at" in recorder
 assert "test_lifecycle_recorder_appends_valid_transition_inside_transaction" in feature
 assert "test_lifecycle_recorder_event_rolls_back_with_account_transaction" in feature
 assert "test_lifecycle_recorder_rejects_invalid_transition_and_empty_reason" in feature
+assert "final class EnsureLocalAdminReauthenticated" in admin_reauth
+assert "$user->role !== 'admin'" in admin_reauth, "Only local Laravel Admins may pass the privileged guard"
+assert "Hash::check($credentials['current_password'], $user->password)" in admin_reauth
+assert "RateLimiter::tooManyAttempts($key, 5)" in admin_reauth
+assert "RateLimiter::hit($key, 900)" in admin_reauth
+assert "test_local_admin_sensitive_action_requires_admin_role_and_current_password" in feature
+assert "test_local_admin_sensitive_action_rejects_non_admin_even_with_correct_password" in feature
+assert "test_local_admin_sensitive_action_rejects_incorrect_password" in feature
+assert "test_local_admin_reauthentication_is_rate_limited_after_repeated_failures" in feature
 print("Local Sanctum lifecycle guard and append-only audit contracts passed.")
