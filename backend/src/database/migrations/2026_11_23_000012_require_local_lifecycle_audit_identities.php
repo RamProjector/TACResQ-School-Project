@@ -10,6 +10,10 @@ return new class extends Migration {
             return;
         }
 
+        // Prevent concurrent writes from introducing unattributed rows between
+        // the preflight count and the NOT NULL constraint change.
+        DB::statement('LOCK TABLE local_account_lifecycle_events IN ACCESS EXCLUSIVE MODE');
+
         $unattributedEvents = DB::table('local_account_lifecycle_events')
             ->whereNull('actor_user_id')
             ->orWhereNull('target_user_id')
