@@ -401,6 +401,29 @@ final class FcmNotificationDispatcherTest extends TestCase
         }
     }
 
+    public function test_object_claim_payload_is_rejected_as_not_a_delivery_list(): void
+    {
+        Http::fake([
+            'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response([
+                'attempt_id' => 801,
+                'notification_id' => 701,
+                'profile_id' => 91,
+                'token' => 'device-token-a',
+            ], 200),
+        ]);
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldReceive('assertCredentialsAvailable')->once();
+        $fcm->shouldNotReceive('send');
+
+        try {
+            (new FcmNotificationDispatcher($fcm))->dispatch(1);
+            self::fail('Expected an object-shaped claim payload to be rejected.');
+        } catch (\\RuntimeException $exception) {
+            self::assertSame('Supabase FCM delivery queue claim failed.', $exception->getMessage());
+        }
+    }
+
     public function test_empty_queue_returns_zero_counts_without_sending(): void
     {
         Http::fake([
