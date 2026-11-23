@@ -93,7 +93,7 @@ class FcmNotificationDispatcher
                     // no longer registered. Do not delete tokens for INVALID_ARGUMENT.
                     try {
                         $this->deleteToken($token);
-                    } catch (\\Throwable $cleanupException) {
+                    } catch (\Throwable $cleanupException) {
                         // Keep this delivery retryable until token cleanup succeeds.
                         // Do not misclassify a PostgREST cleanup failure as an FCM transport failure.
                         $this->logCleanupFailureSafely($attemptId, $cleanupException);
@@ -225,14 +225,14 @@ class FcmNotificationDispatcher
         }
     }
 
-    private function logCleanupFailureSafely(int $attemptId, \\Throwable $exception): void
+    private function logCleanupFailureSafely(int $attemptId, \Throwable $exception): void
     {
         try {
             Log::warning('FCM invalid-token cleanup failed for attempt.', [
                 'attempt_id' => $attemptId,
                 'exception' => $exception::class,
             ]);
-        } catch (\\Throwable) {
+        } catch (\Throwable) {
             // Logging is best-effort and must not interrupt processing of the batch.
         }
     }
