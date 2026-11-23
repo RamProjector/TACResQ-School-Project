@@ -23,7 +23,11 @@ final class DispatchFcmNotifications extends Command
             $stats = $dispatcher->dispatch($limit);
         } catch (\Throwable $exception) {
             // Never print configuration values, provider response bodies, or tokens.
-            $this->error($exception->getMessage());
+            // Provider and transport exceptions may contain sensitive response details.
+            // Keep CLI output generic; retain the exception for the worker's normal
+            // runtime logging/monitoring without echoing it to the terminal.
+            report($exception);
+            $this->error('FCM dispatch failed. Check server logs for the diagnostic.');
             return self::FAILURE;
         }
 
