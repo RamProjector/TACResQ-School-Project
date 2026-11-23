@@ -1,12 +1,11 @@
 <?php
 
-namespace App\\Services;
+namespace App\Services;
 
-use App\\Models\\User;
-use Illuminate\\Support\\Facades\\Crypt;
-use Illuminate\\Support\\Facades\\DB;
+use App\Models\User;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use RuntimeException;
 
 final class LocalAdminTotpService
 {
@@ -35,7 +34,7 @@ final class LocalAdminTotpService
      */
     public function verifyAndConsume(User $user, string $code): bool
     {
-        if (!preg_match('/^\\d{6}$/', $code)) {
+        if (!preg_match('/^\d{6}$/', $code)) {
             return false;
         }
 
@@ -51,7 +50,7 @@ final class LocalAdminTotpService
 
             try {
                 $secret = Crypt::decryptString($credential->secret_ciphertext);
-            } catch (\\Throwable $exception) {
+            } catch (\Throwable $exception) {
                 report($exception);
                 return false;
             }
