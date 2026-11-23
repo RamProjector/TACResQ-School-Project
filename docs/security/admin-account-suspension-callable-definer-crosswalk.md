@@ -1,7 +1,7 @@
 # Account suspension — callable definer entry-point crosswalk
 
 **Branch:** `security/admin-account-suspension`  
-**Review status:** source-traced crosswalk; not an implementation or proof of runtime denial.  
+**Review status:** source-traced crosswalk plus a staged lifecycle helper; not proof of runtime denial.  
 **Catalog baseline:** 20 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The exact signature list below is taken from that replay snapshot. The referenced batches document the source-level checks and missing account-state guards.
 
 ## Public SECURITY DEFINER entry points
@@ -35,7 +35,7 @@ The private-function inventory is a separate callable surface. A private functio
 
 - `private.tacresq_auth_profile_id()` and `private.tacresq_auth_can_access_incident_chat(bigint)` — Batch 1.
 - `private.tacresq_assign_incident_team(bigint,bigint[])`, `private.tacresq_is_incident_assignee(bigint)`, `private.tacresq_record_location_v2(...)`, `private.tacresq_active_responder_locations()`, and `private.tacresq_dispatch_update_incident_status(bigint,text)` — Batch 3.
-- `private.tacresq_require_admin_mfa()` is intentionally not directly executable by client roles; it is a trusted internal authorization helper used by Admin wrappers — Batch 2.
+- `private.tacresq_require_admin_mfa()` is intentionally not directly executable by client roles; it is a trusted internal authorization helper used by Admin wrappers — Batch 2.\n- `private.tacresq_current_account_active()` is now directly executable by `authenticated`; it reads the current profile lifecycle state and is intended for later restrictive policies/RPC guards. It is not yet called by existing entry points and must be included in the private callable inventory.
 
 The full exact private signature list and function bodies are emitted by `tools/check_account_suspension_authorization_surface.sql` during clean replay. Do not treat this short list as the complete private catalog. Every function with client EXECUTE must be checked directly; every internal definer helper must be traced from its caller and checked for authorization assumptions.
 
