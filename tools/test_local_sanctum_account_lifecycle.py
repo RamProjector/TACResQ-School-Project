@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "backend/src/database/migrations/2026_11_23_000007_add_local_sanctum_account_lifecycle_state.php").read_text()
 audit_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000008_create_local_account_lifecycle_events.php").read_text()
 append_only_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000009_enforce_local_lifecycle_event_append_only.php").read_text()
+audit_constraints_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000011_constrain_local_account_lifecycle_events.php").read_text()
 model = (ROOT / "backend/src/app/Models/User.php").read_text()
 middleware = (ROOT / "backend/src/app/Http/Middleware/EnsureLocalAccountIsActive.php").read_text()
 routes = (ROOT / "backend/src/routes/api.php").read_text()
@@ -165,3 +166,18 @@ assert "DB::transaction(fn () => DB::statement('TRUNCATE TABLE local_account_lif
 assert "DB::transaction(fn () => DB::table('local_account_lifecycle_events')->where('id', $eventId)->delete())" in feature
 assert "DB::transaction(fn () => DB::table('local_account_lifecycle_events')->where('id', $eventId)->update($changes))" in feature
 assert "local_lifecycle_events_no_truncate" in append_only_migration
+
+# PostgreSQL independently enforces audit event shape, identity, and transition invariants.
+for constraint in (
+    "local_lifecycle_actor_positive_check",
+    "local_lifecycle_target_positive_check",
+    "local_lifecycle_distinct_parties_check",
+    "local_lifecycle_reason_nonblank_check",
+    "local_lifecycle_transition_check",
+):
+    assert constraint in audit_constraints_migration
+assert "actor_user_id <> target_user_id" in audit_constraints_migration
+assert "length(btrim(reason)) BETWEEN 1 AND 500" in audit_constraints_migration
+assert "action = 'suspended' AND previous_state = 'active' AND new_state = 'suspended'" in audit_constraints_migration
+assert "action = 'reactivated' AND previous_state = 'suspended' AND new_state = 'active'" in audit_constraints_migration
+assert "test_postgres_lifecycle_audit_constraints_reject_invalid_records" in feature
