@@ -1,6 +1,6 @@
 # Account suspension — account-state and operational-continuity contract
 
-**Status:** schema and partial server-side enforcement are committed on `security/admin-account-suspension-runtime-foundation`. No suspension/reactivation RPC or Admin control is exposed, and full enforcement is not yet complete. No account has been suspended in a connected environment; no live Supabase migration has been applied.
+**Status:** schema and partial server-side enforcement are committed on `security/admin-account-suspension-runtime-foundation`. An atomic Admin suspend/reactivate RPC is implemented but its EXECUTE grant is deliberately revoked from all client roles; no Admin control is exposed, and full enforcement is not yet complete. No account has been suspended in a connected environment; no live Supabase migration has been applied.
 
 ## Implemented database foundation
 
@@ -15,7 +15,7 @@ Migrations `20261123090000` through `20261123160000` currently:
 - Make actor-role, chat profile-ID, incident-assignee, and Admin MFA helpers account-aware. Admin MFA still requires AAL2 and a TOTP AMR entry.
 - Guard notification list/detail, incident-chat history, and claimable-incident discovery read RPCs; the field-unit directory now rejects suspended dispatchers and excludes suspended units.
 - Make incident-chat Storage policy identity checks fail closed for suspended callers. The Storage replay contract now tests prior-object download denial, new upload denial, chat-history denial, and chat-message denial with the same still-valid JWT.
-- Update the notification Edge Function to reject suspended actors and filter recipients to active profiles before FCM token lookup.
+- Update the notification Edge Function to reject suspended actors and filter recipients to active profiles before FCM token lookup.\n- Implement an internal Admin account-status transition RPC with AAL2/TOTP, a shared advisory lock coordinated with Admin role changes, actor/target row locking, self-suspension and last-Admin checks, idempotent transitions, and atomic immutable audit insertion. The RPC is not yet executable by client roles.
 
 All existing profiles receive the default `active` state. Role, duty status, identity, incident assignments, and account status remain separate concepts.
 
@@ -25,7 +25,7 @@ All existing profiles receive the default `active` state. Role, duty status, ide
 - Inventory every Storage bucket and prove upload/download denial for each account-owned bucket.
 - Run isolated Supabase Edge Function tests for actor denial, suspended-recipient filtering, and zero FCM/Google OAuth calls on denied paths.
 - Verify every Laravel/Sanctum bridge route and establish immutable Auth-user mapping before claiming account-state enforcement there.
-- Implement Admin suspend/reactivate RPCs with actor/target row locks, self-suspension and last-Admin protection, bounded reason validation, idempotent transitions, and atomic audit insertion.
+- Complete remaining read/idempotent RPC and server-bridge coverage, then grant EXECUTE on the already-implemented Admin transition RPC only after the full same-valid-JWT release matrix passes.
 - Add investigation-feed rendering for lifecycle audit events.
 - Add disposable Supabase concurrency tests proving that operations either complete before the suspension lock wins or observe the suspended state afterward.
 - Add the Admin directory state, confirmation/reason UI, and suspended-account UX only after backend coverage is complete.
@@ -39,7 +39,7 @@ The implemented columns are:
 - `suspended_by`: nullable profile-ID snapshot of the administrator who applied the current suspension; cleared on reactivation.
 - `suspension_reason`: nullable bounded text (10–500 characters); cleared on reactivation while the immutable audit ledger retains the historical reason.
 
-Only a future trusted Admin transition transaction may change lifecycle fields. Authenticated clients have no direct update privilege for them.
+Only the trusted Admin transition transaction may change lifecycle fields. Authenticated clients have no direct update privilege for them, and the transition RPC itself currently has no client EXECUTE grant.
 
 ## Suspension transaction and operational continuity
 
