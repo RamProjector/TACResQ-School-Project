@@ -62,6 +62,7 @@ assert "revoke all on function public.api_admin_list_users_page_internal" in pri
 
 # Mobile Admin navigation must remain reachable instead of disappearing with the desktop sidebar.
 admin_css = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text()
+admin_security = (ROOT / "backend/web/src/components/AdminSecurityStatus.tsx").read_text()
 assert "@media (max-width: 760px)" in admin_css
 assert ".admin-navigation {" in admin_css
 assert "overflow-x: auto" in admin_css
@@ -111,6 +112,16 @@ assert '{dependencyProbes.map(([label, result]) => (' in admin_console
 assert 'Last checked " + formatManilaDateTime(dependencyHealth.checked_at) + " (Asia/Manila)"' in admin_console
 assert 'className={"admin-health-status admin-health-status--" + result.status} role="status"' not in admin_console
 assert '.admin-health-grid { grid-template-columns:minmax(0,1fr); }' in admin_css
+
+# MFA status changes must not turn the entire Security panel into a live region.
+assert 'className="admin-panel admin-security-status" aria-labelledby="admin-security-status-title" aria-busy={loading || busy}' in admin_security
+assert 'className="admin-security-status__message" role="status" aria-live="polite"><Clock3' in admin_security
+assert 'Refreshing Supabase Auth status…' in admin_security
+assert 'aria-labelledby="admin-security-enrollment-title"' in admin_security
+assert 'id="admin-security-enrollment-title"' in admin_security
+assert 'aria-describedby="admin-backup-enrollment-guidance"' in admin_security
+assert 'id="admin-backup-enrollment-guidance"' in admin_security
+assert '.admin-security-status__enrollment { display:none !important; }' in admin_css
 
 # Analytics announcements and labels must communicate only the changed state and its scope.
 assert 'className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title">' in admin_console
