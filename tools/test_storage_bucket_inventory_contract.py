@@ -53,3 +53,11 @@ assert "metadata-only report" in inventory
 assert "signed urls" in inventory
 assert "object paths" in inventory
 print("Supabase Storage bucket inventory contract passed.")
+
+
+# Policy names alone are insufficient: pin the exact SQL operation and role
+# audience so a permissive anon/PUBLIC policy cannot silently widen access.
+assert "pol.polcmd = 'a'" in inventory
+assert "pol.polcmd = 'r'" in inventory
+assert "pol.polpermissive is true" in inventory
+assert "pol.polroles = array['authenticated'::regrole::oid]" in inventory
