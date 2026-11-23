@@ -319,9 +319,6 @@ BEGIN
   IF public.api_claim_incident(1)->>'code' IS DISTINCT FROM 'UNAUTHORIZED' THEN
     RAISE EXCEPTION 'Suspended caller must not enter the incident claim workflow';
   END IF;
-  IF public.api_claimable_incidents() IS DISTINCT FROM '[]'::jsonb THEN
-    RAISE EXCEPTION 'Suspended field-unit caller must not receive claimable incident data';
-  END IF;
   SELECT count(*) INTO visible_profile_count
     FROM public.profiles
    WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
@@ -342,6 +339,39 @@ BEGIN
   END;
 END;
 $still_valid_jwt_denial$;
+RESET ROLE;
+
+-- Use a real field-unit role for the claim-path negative test. A requester
+-- would receive an empty claim queue even while active, which could mask a
+-- broken suspended-account guard.
+SELECT set_config('request.jwt.claim.sub', '', false);
+SELECT set_config('request.jwt.claims', '', false);
+INSERT INTO auth.users (id, email, raw_user_meta_data)
+VALUES (
+  '00000000-0000-4000-8000-000000000996',
+  'account-lifecycle-responder-996@example.test',
+  '{"name":"Suspended Responder Contract","phone":"+63917000996","role":"responder"}'::jsonb
+);
+UPDATE public.profiles
+   SET role = 'responder',
+       duty_status = 'available',
+       account_status = 'suspended',
+       suspended_at = clock_timestamp(),
+       suspended_by = id,
+       suspension_reason = 'Synthetic suspended responder fixture'
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000996';
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000996', false);
+SET ROLE authenticated;
+DO $suspended_responder_claim_contract$
+BEGIN
+  IF public.api_claimable_incidents() IS DISTINCT FROM '[]'::jsonb THEN
+    RAISE EXCEPTION 'Suspended responder unexpectedly received claimable incident data';
+  END IF;
+  IF public.api_claim_incident(1)->>'code' IS DISTINCT FROM 'UNAUTHORIZED' THEN
+    RAISE EXCEPTION 'Suspended responder unexpectedly entered the incident claim workflow';
+  END IF;
+END;
+$suspended_responder_claim_contract$;
 RESET ROLE;
 
 -- Invalid lifecycle combinations must be rejected by the table constraint.
@@ -680,5 +710,6 @@ DELETE FROM auth.users
    '00000000-0000-4000-8000-000000000992',
    '00000000-0000-4000-8000-000000000993',
    '00000000-0000-4000-8000-000000000994',
-   '00000000-0000-4000-8000-000000000995'
+   '00000000-0000-4000-8000-000000000995',
+   '00000000-0000-4000-8000-000000000996'
  );
