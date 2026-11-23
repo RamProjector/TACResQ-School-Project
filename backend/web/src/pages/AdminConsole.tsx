@@ -577,7 +577,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <section className="admin-panel admin-roadmap-panel">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><ShieldCheck size={19} /> Security overview</h2></div>
-                <span className="admin-count">TOTP enforced</span>
+                <span className="admin-count">Branch policy · deployment unverified</span>
               </div>
               <div className="admin-roadmap-content">
                 <strong>Administrator access requires Google Authenticator TOTP.</strong>
