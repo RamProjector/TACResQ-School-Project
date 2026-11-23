@@ -39,6 +39,8 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000162', true);
   PERFORM public.api_assign_incident_team(incident_id, ARRAY[responder_id]);
   PERFORM set_config('test.incident_id', incident_id::text, false);
+  PERFORM set_config('test.requester_profile_id', requester_id::text, false);
+  PERFORM set_config('test.responder_profile_id', responder_id::text, false);
 END;
 $image_chat_fixture$;
 
@@ -602,8 +604,7 @@ VALUES (
   format(
     '%s/%s/00000000-0000-4000-8000-000000000222.jpg',
     current_setting('test.incident_id')::bigint,
-    (SELECT id FROM public.profiles
-      WHERE auth_user_id = '00000000-0000-4000-8000-000000000161')
+    current_setting('test.responder_profile_id')::bigint
   ),
   '{"mimetype":"image/jpeg","size":"5"}'::jsonb
 );
@@ -700,8 +701,7 @@ BEGIN
   new_image_path := format(
     '%s/%s/00000000-0000-4000-8000-000000000223.jpg',
     incident_id,
-    (SELECT id FROM public.profiles
-      WHERE auth_user_id = '00000000-0000-4000-8000-000000000160')
+    current_setting('test.requester_profile_id')::bigint
   );
   denied := false;
   BEGIN
