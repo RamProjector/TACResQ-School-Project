@@ -160,6 +160,9 @@ assert "test_local_admin_sensitive_action_rechecks_suspension_from_database" in 
 # Recorder input boundaries: transaction required, distinct actor/target, bounded reason.
 assert "test_lifecycle_recorder_rejects_calls_outside_a_transaction" in feature
 assert "test_lifecycle_recorder_rejects_same_actor_and_target" in feature
+assert "test_lifecycle_recorder_rejects_non_positive_actor_and_target_ids" in feature
+assert "Lifecycle actor and target IDs must both be positive." in feature
+assert "[0, 20]" in feature and "[-1, 20]" in feature and "[10, 0]" in feature and "[10, -1]" in feature
 assert "test_lifecycle_recorder_rejects_reasons_longer_than_database_limit" in feature
 assert "A valid, distinct actor and target are required." in recorder
 assert "mb_strlen($reason) > 500" in recorder
