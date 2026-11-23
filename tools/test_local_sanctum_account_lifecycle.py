@@ -176,14 +176,23 @@ assert "DROP CONSTRAINT IF EXISTS local_lifecycle_actor_positive_check" in audit
 assert audit_constraints_migration.rstrip().endswith("};")
 
 # PostgreSQL independently enforces audit event shape, identity, and transition invariants.
-for constraint in (
+constraint_names = (
     "local_lifecycle_actor_positive_check",
     "local_lifecycle_target_positive_check",
     "local_lifecycle_distinct_parties_check",
     "local_lifecycle_reason_nonblank_check",
     "local_lifecycle_transition_check",
-):
+)
+for constraint in constraint_names:
     assert constraint in audit_constraints_migration
+    assert f"DROP CONSTRAINT IF EXISTS {constraint}" in audit_constraints_migration, (
+        f"Rollback must remove the exact constraint it creates: {constraint}"
+    )
+up_sql, down_sql = audit_constraints_migration.split("public function down(): void", 1)
+assert up_sql.count("ADD CONSTRAINT") == len(constraint_names), "Migration must add each named invariant exactly once"
+assert down_sql.count("DROP CONSTRAINT IF EXISTS") == len(constraint_names), "Rollback must drop every named invariant exactly once"
+assert "DB::connection()->getDriverName() !== 'pgsql'" in up_sql
+assert "DB::connection()->getDriverName() !== 'pgsql'" in down_sql
 assert "actor_user_id <> target_user_id" in audit_constraints_migration
 assert "length(btrim(reason)) BETWEEN 1 AND 500" in audit_constraints_migration
 assert "action = 'suspended' AND previous_state = 'active' AND new_state = 'suspended'" in audit_constraints_migration
