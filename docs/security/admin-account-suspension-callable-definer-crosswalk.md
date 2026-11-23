@@ -32,7 +32,7 @@
 
 ## Private callable definer functions
 
-The private-function inventory is a separate callable surface. The clean-replay contract now separately locks the nine authenticated-callable private SECURITY DEFINER helpers in `tools/test_account_suspension_private_definer_inventory.sql`; additions or grant changes fail replay until explicitly reviewed. A private function with authenticated EXECUTE is directly callable even if it is also used by a public wrapper. The source reviews explicitly identify these examples:
+The private-function inventory is a separate callable surface. The clean-replay contract separately locks the nine authenticated-callable private SECURITY DEFINER helpers in `tools/test_account_suspension_private_definer_inventory.sql`; additions or grant changes fail replay until explicitly reviewed. Both public and private inventory contracts also reject `anon` or `PUBLIC` EXECUTE on every classified callable definer. Batch 23 records the source-level authorization assumptions and guard locations for all nine private helpers. A private function with authenticated EXECUTE is directly callable even if it is also used by a public wrapper. The source reviews explicitly identify these examples:
 
 - `private.tacresq_auth_profile_id()` and `private.tacresq_auth_can_access_incident_chat(bigint)` — Batch 1.
 - `private.tacresq_assign_incident_team(bigint,bigint[])`, `private.tacresq_is_incident_assignee(bigint)`, `private.tacresq_record_location_v2(...)`, `private.tacresq_active_responder_locations()`, and `private.tacresq_dispatch_update_incident_status(bigint,text)` — Batch 3.
@@ -54,7 +54,7 @@ Before adding the account-state migration:
 1. Finish exact coverage for all 52 invoker functions and all authenticated-callable private functions.
 2. Trace each public and private entry point to nested helpers and trigger-mediated effects; document the actual lock order and transaction boundary.
 3. Map every Android, web, and Laravel direct operation to its effective grant, RLS policy, view, RPC, or Storage enforcement point.
-4. Add a clean-replay contract that fails when a new authenticated-callable definer entry point is introduced without an explicit active-account guard or reviewed exemption.
+4. Extend the clean-replay contract beyond signature drift to validate the explicit `anon`/`PUBLIC` EXECUTE boundary; keep active-account enforcement as a separate runtime test requirement.
 5. Add disposable PostgreSQL tests using the same still-valid JWT before and after suspension, including direct private RPC invocation, direct RLS, Storage, and concurrent incident operations.
 
 No connected Supabase project was queried or modified. No account-state migration or UI is introduced by this review.
