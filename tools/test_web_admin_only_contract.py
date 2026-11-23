@@ -190,3 +190,18 @@ assert ".admin-table-wrap:focus-visible {" in admin_css
 assert "@media (max-width:760px) {\n  .admin-table-scroll-hint {" in admin_css
 
 print("Web admin-only contract passed.")
+
+
+# Shared Admin design-system contract: stable type scale and explicit resolution tiers.
+assert "--admin-space-1:4px;" in admin_css
+assert "--admin-font-base:clamp(" in admin_css
+assert "--admin-content-max:1680px;" in admin_css
+assert "@media (min-width:1600px)" in admin_css
+assert "@media (max-width:1200px)" in admin_css
+assert "@media (max-width:900px)" in admin_css
+assert "@media (max-width:760px)" in admin_css
+assert "@media (max-width:480px)" in admin_css
+assert "@media (min-width:1920px)" in admin_css
+assert ".admin-table td { padding-block:15px; }" in admin_css
+assert ".admin-pagination { min-height:54px;" in admin_css
+assert '.admin-shell :where(button,input,select,textarea) { font-family:inherit; }' in admin_css
