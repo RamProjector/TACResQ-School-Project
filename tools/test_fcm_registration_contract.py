@@ -19,6 +19,8 @@ notifications_screen = read("app/src/main/java/com/tacresq/app/ui/notifications/
 service = read("app/src/main/java/com/tacresq/app/notifications/TacResqFirebaseMessagingService.kt")
 recipient_policy = read("app/src/main/java/com/tacresq/app/notifications/PushNotificationRecipientPolicy.kt")
 app_root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
+lifecycle_fcm = read("supabase/migrations/20261123210000_account_lifecycle_fcm_token_guards.sql")
+token_sql_test = read("tools/test_fcm_token_account_switch.sql")
 
 assert 'com.google.firebase:firebase-messaging:' in build
 assert "interface TacPushApi" in api
@@ -69,4 +71,25 @@ assert "SessionState.LoggedOut" not in recipient_policy  # non-LoggedIn states a
 # Alert content must remain generic; incident details are fetched after authentication.
 assert '"Open TACResQ to review a new incident update."' in service
 assert 'message.data["description"]' not in service
-print("FCM registration contract passed.")
+# Suspension blocks registration, reads, inserts and updates while preserving
+# only the exact caller-owned token deletion needed by sign-out.
+for required in (
+    "p.account_status = 'active'",
+    "FOR SHARE",
+    "tacresq_fcm_select_requires_active",
+    "tacresq_fcm_insert_requires_active",
+    "tacresq_fcm_update_requires_active",
+    "tacresq_fcm_delete_self_cleanup",
+    "tacresq_auth_profile_id_for_token_cleanup",
+    "api_unregister_fcm_token",
+    "SECURITY INVOKER",
+):
+    assert required.lower() in lifecycle_fcm.lower(), f"Missing suspended FCM lifecycle guard: {required}"
+for required in (
+    "suspended account unexpectedly registered an fcm token",
+    "suspended account unexpectedly inserted an fcm token directly",
+    "api_unregister_fcm_token",
+    "suspended account must be able to remove its own fcm token",
+):
+    assert required.lower() in token_sql_test.lower(), f"Missing suspended FCM SQL regression: {required}"
+print("FCM registration and suspended-account token lifecycle contract passed.")
