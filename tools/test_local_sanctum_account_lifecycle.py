@@ -211,6 +211,9 @@ assert "action = 'suspended' AND previous_state = 'active' AND new_state = 'susp
 assert "action = 'reactivated' AND previous_state = 'suspended' AND new_state = 'active'" in audit_constraints_migration
 assert "test_postgres_lifecycle_audit_constraints_reject_invalid_records" in feature
 assert "test_postgres_lifecycle_audit_requires_actor_and_target_ids" in feature
+assert "assertSame('55000'" in feature, "Append-only trigger tests must assert PostgreSQL SQLSTATE 55000"
+assert "assertSame('23502'" in feature, "Required audit identity tests must assert PostgreSQL SQLSTATE 23502"
+assert "assertSame('23514'" in feature, "Audit CHECK constraint tests must assert PostgreSQL SQLSTATE 23514"
 assert "ALTER COLUMN actor_user_id SET NOT NULL" in audit_identity_migration
 assert "ALTER COLUMN target_user_id SET NOT NULL" in audit_identity_migration
 assert "ALTER COLUMN actor_user_id DROP NOT NULL" in audit_identity_migration
