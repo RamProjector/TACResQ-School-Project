@@ -558,6 +558,35 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         );
     }
 
+    public function test_lifecycle_recorder_rejects_non_positive_actor_and_target_ids(): void
+    {
+        $recorder = app(\\App\\Services\\LocalAccountLifecycleRecorder::class);
+        $invalidPairs = [
+            [0, 20],
+            [-1, 20],
+            [10, 0],
+            [10, -1],
+        ];
+
+        foreach ($invalidPairs as [$actorId, $targetId]) {
+            try {
+                DB::transaction(fn () => $recorder->record(
+                    $actorId,
+                    $targetId,
+                    'suspended',
+                    'Valid reason',
+                    'active',
+                    'suspended',
+                ));
+                $this->fail('Lifecycle actor and target IDs must both be positive.');
+            } catch (\\InvalidArgumentException $exception) {
+                $this->assertStringContainsString('valid, distinct actor and target', $exception->getMessage());
+            }
+        }
+
+        $this->assertDatabaseCount('local_account_lifecycle_events', 0);
+    }
+
     public function test_lifecycle_recorder_rejects_same_actor_and_target(): void
     {
         $user = $this->createLocalUser();
