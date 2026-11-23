@@ -16,7 +16,7 @@
 | Public ordinary/partitioned tables inventoried | 20 |
 | Authenticated Storage object policies | 2 |
 
-The earlier preliminary review referenced 18 public authenticated-callable definer functions. The original replay snapshot below reported 20; the later incident-chat upload-reservation migration adds `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, bringing the current reviewed baseline to **21**. The current branch's executable contract locks all 21 signatures and separately locks nine authenticated-callable private SECURITY DEFINER helpers. Re-run clean replay after every migration change.
+The earlier preliminary review referenced 18 public authenticated-callable definer functions. The original replay snapshot below reported 20; the later incident-chat upload-reservation migration adds `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, bringing the current reviewed baseline to **21**. The current branch's executable contract locks all 21 signatures and separately locks ten authenticated-callable private SECURITY DEFINER helpers. Re-run clean replay after every migration change.
 
 ## Public authenticated-callable SECURITY DEFINER functions
 
