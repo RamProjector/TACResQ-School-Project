@@ -1,7 +1,8 @@
 # Account suspension: clean-replay authorization snapshot
 
 **Branch:** `security/admin-account-suspension`  
-**Observed PR merge commit:** `4f16baf73b38c295baec6d72698233a73a74cac8`  
+**Original replay source commit:** `4f16baf73b38c295baec6d72698233a73a74cac8`  
+**Current reviewed baseline:** 21 public and 9 authenticated-callable private SECURITY DEFINER functions, including the later incident-image reservation RPC.  
 **Source:** CI job `Replay Supabase migrations on clean PostgreSQL` (run `45072734414`)  
 **Purpose:** Record the effective catalog discovered after replaying the repository migrations. This is a point-in-time inventory, not a statement that any endpoint is suspension-safe.
 
@@ -10,16 +11,16 @@
 | Surface | Observed |
 |---|---:|
 | Authenticated-callable public functions | 72 |
-| Public `SECURITY DEFINER` functions | 20 |
+| Public `SECURITY DEFINER` functions | 21 |
 | Public `SECURITY INVOKER` functions | 52 |
 | Public ordinary/partitioned tables inventoried | 20 |
 | Authenticated Storage object policies | 2 |
 
-The earlier preliminary review referenced 18 public authenticated-callable definer functions. The clean replay now reports **20**. Use the replayed catalog as the current baseline and re-run it after every migration change; do not carry the older count forward.
+The earlier preliminary review referenced 18 public authenticated-callable definer functions. The original replay snapshot below reported 20; the later incident-chat upload-reservation migration adds `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, bringing the current reviewed baseline to **21**. The current branch's executable contract locks all 21 signatures and separately locks nine authenticated-callable private SECURITY DEFINER helpers. Re-run clean replay after every migration change.
 
 ## Public authenticated-callable SECURITY DEFINER functions
 
-These 20 effective signatures were reported by the replay:
+These 20 effective signatures were reported by the original replay. The current baseline adds `api_reserve_incident_image_upload(bigint,text,bigint,uuid)` as signature 16; the current 21-signature exact list is enforced by `tools/test_account_suspension_definer_inventory.sql`.
 
 1. `api_admin_analytics_summary(timestamptz,timestamptz)`
 2. `api_admin_list_audit_logs(integer)`
