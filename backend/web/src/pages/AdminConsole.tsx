@@ -47,9 +47,9 @@ type AdminSection = "overview" | "users" | "security" | "analytics" | "audit";
 const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "users", label: "User management", icon: Users },
-  { id: "security", label: "Security & countermeasures", icon: ShieldAlert },
-  { id: "analytics", label: "Analytics & reports", icon: BarChart3 },
-  { id: "audit", label: "Audit Logs", icon: History },
+  { id: "security", label: "Security", icon: ShieldAlert },
+  { id: "analytics", label: "Reports", icon: BarChart3 },
+  { id: "audit", label: "Activity log", icon: History },
 ];
 const roleOptions: AdminManagedRole[] = ["requester", "responder", "driver", "dispatcher"];
 
@@ -368,8 +368,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       <aside className="admin-sidebar">
         <Brand inverse />
         <div className="admin-sidebar__context">
-          <span>GOVERNANCE CONSOLE</span>
-          <p>Identity, access and accountability.</p>
+          <span>ADMIN WORKSPACE</span>
+          <p>Manage accounts, security, and activity.</p>
         </div>
         <nav className="admin-navigation" aria-label="Admin sections">
           {adminSections.map(({ id, label, icon: Icon }, index) => (
@@ -406,7 +406,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-heading__identity">
               <span className="admin-heading__icon"><ActiveSectionIcon size={22} aria-hidden="true" /></span>
               <div>
-                <p className="admin-eyebrow">ACCESS CONTROL <span>·</span> AUDITABLE OPERATIONS</p>
+                <p className="admin-eyebrow">ADMINISTRATION</p>
                 <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}<span>.</span></h1>
                 <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
               </div>
@@ -577,7 +577,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <AdminSecurityStatus />
             </>
           )}
-          <footer className="admin-footer"><span>TACRESQ · PRIVILEGED ACCESS</span><span>Server-enforced authorization · No client-side role grants</span></footer>
+          <footer className="admin-footer"><span>TACRESQ · ADMINISTRATION</span><span>Administrator permissions are checked before each action</span></footer>
         </div>
       </main>
 
