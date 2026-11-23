@@ -91,16 +91,26 @@ Deno.serve(async (request: Request) => {
     googleAccount = JSON.parse(serviceAccountSecret);
     if (!googleAccount.client_email || !googleAccount.private_key || !googleAccount.project_id || !googleAccount.token_uri) throw new Error("missing service-account fields");
   } catch { return json({ error: "FCM service-account secret is not valid JSON or lacks required fields" }, 503); }
-  const accessToken = await getGoogleAccessToken(googleAccount);
+  let accessToken: string;
+  try {
+    accessToken = await getGoogleAccessToken(googleAccount);
+  } catch {
+    console.error("Google OAuth token request failed.");
+    return json({ error: "Notification provider authentication failed" }, 502);
+  }
   let sent = 0;
   const invalidTokenIds: number[] = [];
   for (const registration of registrations) {
-    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${googleAccount.project_id}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token: registration.token, notification: { title, body }, data: { event, incident_id: String(incidentId) }, android: { priority: "HIGH" } } }) });
-    if (response.ok) sent++;
-    else {
-      const errorBody = await response.text();
-      if (response.status === 404 || errorBody.includes("UNREGISTERED")) invalidTokenIds.push(registration.id as number);
-      console.error(`FCM send failed (${response.status}) for registration ${registration.id}`);
+    try {
+      const response = await fetch(`https://fcm.googleapis.com/v1/projects/${googleAccount.project_id}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token: registration.token, notification: { title, body }, data: { event, incident_id: String(incidentId) }, android: { priority: "HIGH" } } }) });
+      if (response.ok) sent++;
+      else {
+        const errorBody = await response.text();
+        if (response.status === 404 || errorBody.includes("UNREGISTERED")) invalidTokenIds.push(registration.id as number);
+        console.error(`FCM send failed (${response.status}) for registration ${registration.id}`);
+      }
+    } catch {
+      console.error(`FCM network request failed for registration ${registration.id}`);
     }
   }
   if (invalidTokenIds.length) await admin.from("fcm_tokens").delete().in("id", invalidTokenIds);
