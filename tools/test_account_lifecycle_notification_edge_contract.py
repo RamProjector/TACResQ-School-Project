@@ -32,6 +32,7 @@ assert "actorError || !actor || actor.account_status !== \"active\"" in source, 
     "Missing/failed actor profile lookup must fail closed."
 )
 assert 'if (recipientError) return json({ error: "Could not verify notification recipients" }, 500);' in source
+assert 'if (dispatcherError) return json({ error: "Could not resolve notification recipients" }, 500);' in source
 assert 'if (targetProfileIds.length === 0) return json({ sent: 0, reason: "No active target accounts are provisioned" });' in source
 assert 'if (!registrations?.length) return json({ sent: 0, reason: "Recipients have not registered an FCM token" });' in source
 
