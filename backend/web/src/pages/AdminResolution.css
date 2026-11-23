@@ -460,3 +460,19 @@
   }
   .audit-event-card__details dl { gap: 7pt 12pt; }
 }
+
+
+/* Narrow viewport guardrails also help users who zoom without rotating a device. */
+@media (max-width: 360px) {
+  .admin-workspace { padding-inline: 10px; }
+  .admin-topbar { gap: 8px; }
+  .admin-topbar__right { gap: 8px; }
+  .admin-user { max-width: 100%; }
+  .admin-user strong { max-width: min(42vw, 132px); }
+  .admin-metrics { grid-template-columns: minmax(0,1fr); }
+  .admin-metrics article { min-width: 0; }
+  .audit-event-card__details,
+  .audit-page__lifecycle { padding: 10px; }
+  .admin-pagination > div { flex-direction: column; }
+  .admin-pagination button { width: 100%; }
+}
