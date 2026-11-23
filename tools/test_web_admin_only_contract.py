@@ -233,3 +233,20 @@ assert '.admin-analytics-detail-grid { grid-template-columns: minmax(0,1fr); }' 
 assert '.admin-table { min-width: 760px; }' in admin_resolution_css
 assert 'max-height: min(88dvh, 760px);' in admin_resolution_css
 assert '@media (prefers-reduced-motion: reduce)' in admin_resolution_css
+
+
+# Admin page usability contract: header reflow, audit detail hierarchy, directory controls, and print.
+assert ".admin-breadcrumb strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }" in admin_resolution_css
+assert "@media (min-width: 761px) and (max-width: 1100px)" in admin_resolution_css
+assert ".admin-topbar__right { width: 100%; justify-content: flex-end; }" in admin_resolution_css
+assert ".audit-event-card__details dl {" in admin_resolution_css
+assert "grid-template-columns: minmax(0,1fr);" in admin_resolution_css
+assert ".audit-page__coverage-details > summary { min-height: 44px;" in admin_resolution_css
+assert ".admin-directory-status {" in admin_resolution_css
+assert ".admin-table-caption {" in admin_resolution_css
+assert ".admin-skip-link:focus { transform: translateY(0); }" in admin_resolution_css
+assert "min-height: 44px;" in admin_resolution_css
+assert "@media (prefers-contrast: more)" in admin_resolution_css
+assert "@media (forced-colors: active)" in admin_resolution_css
+assert "@media print {" in admin_resolution_css
+assert ".audit-event-card__details, .audit-event-card__references { display: block !important; }" in admin_resolution_css
