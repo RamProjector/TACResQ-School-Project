@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "backend/src/database/migrations/2026_11_23_000007_add_local_sanctum_account_lifecycle_state.php").read_text()
+audit_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000008_create_local_account_lifecycle_events.php").read_text()
 model = (ROOT / "backend/src/app/Models/User.php").read_text()
 middleware = (ROOT / "backend/src/app/Http/Middleware/EnsureLocalAccountIsActive.php").read_text()
 routes = (ROOT / "backend/src/routes/api.php").read_text()
@@ -27,4 +28,9 @@ assert "test_suspended_local_account_cannot_access_protected_sanctum_routes" in 
 assert "test_suspended_local_account_can_still_revoke_its_current_token" in feature
 assert "test_suspended_local_account_cannot_obtain_a_new_sanctum_token" in feature
 assert "email" not in migration.lower(), "Do not add cross-provider identity mapping"
+assert "local_account_lifecycle_events" in audit_migration
+for column in ("actor_user_id", "target_user_id", "action", "reason", "previous_state", "new_state", "created_at"):
+    assert column in audit_migration, f"Missing local lifecycle audit field: {column}"
+assert "nullOnDelete()" in audit_migration, "Lifecycle history must survive user deletion"
+assert "test_local_lifecycle_audit_schema_retains_events_after_user_deletion" in feature
 print("Local Sanctum lifecycle guard contract passed.")
