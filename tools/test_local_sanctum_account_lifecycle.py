@@ -28,6 +28,10 @@ assert "test_existing_local_accounts_remain_active_by_default" in feature
 assert "test_suspended_local_account_cannot_access_protected_sanctum_routes" in feature
 assert "test_suspended_local_account_can_still_revoke_its_current_token" in feature
 assert "test_suspended_local_account_cannot_obtain_a_new_sanctum_token" in feature
+assert "test_existing_sanctum_token_is_denied_across_protected_incident_and_account_routes_after_suspension" in feature
+for protected_path in ("/api/me", "/api/incidents/mine", "/api/incidents", "/api/units", "/api/change-password"):
+    assert protected_path in feature, f"Missing same-token suspension coverage for {protected_path}"
+assert "withToken($plainTextToken)->json($method, $uri)" in feature
 assert "email" not in migration.lower(), "Do not add cross-provider identity mapping"
 assert "local_account_lifecycle_events" in audit_migration
 for column in ("actor_user_id", "target_user_id", "action", "reason", "previous_state", "new_state", "created_at"):
