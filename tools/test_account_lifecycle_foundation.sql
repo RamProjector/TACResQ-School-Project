@@ -160,6 +160,17 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'A public table is missing the enabled suspended-account write guard trigger';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc p
+    WHERE p.oid = to_regprocedure('private.tacresq_reject_suspended_account_write()')
+      AND p.prosecdef
+      AND p.provolatile = 'v'
+      AND coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']
+      AND p.prosrc ILIKE '%private.tacresq_current_account_active()%'
+  ) OR has_function_privilege('authenticated', 'private.tacresq_reject_suspended_account_write()', 'EXECUTE')
+    OR has_function_privilege('anon', 'private.tacresq_reject_suspended_account_write()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Suspended-account write trigger function must be pinned, privileged, and non-callable by clients';
+  END IF;
 END;
 $schema_contract$;
 
@@ -194,12 +205,21 @@ GRANT EXECUTE ON FUNCTION public.test_account_lifecycle_definer_write()
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000991', false);
 SET ROLE authenticated;
 DO $active_account_contract$
+DECLARE
+  visible_profile_count bigint;
 BEGIN
   IF private.tacresq_current_account_active() IS DISTINCT FROM true
      OR private.tacresq_auth_profile_id() IS NULL
      OR private.tacresq_actor_role() IS DISTINCT FROM 'requester' THEN
     RAISE EXCEPTION 'Newly created profile must resolve as active for its authenticated caller';
   END IF;
+  SELECT count(*) INTO visible_profile_count
+    FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
+  IF visible_profile_count <> 1 THEN
+    RAISE EXCEPTION 'Active-account restrictive RLS must preserve the caller profile read';
+  END IF;
+  PERFORM public.test_account_lifecycle_definer_write();
 END;
 $active_account_contract$;
 RESET ROLE;
