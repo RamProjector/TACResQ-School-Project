@@ -544,6 +544,50 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         $this->assertStringNotContainsString($secret, $credential->secret_ciphertext);
     }
 
+    public function test_suspended_local_admin_cannot_start_totp_enrollment(): void
+    {
+        $admin = User::create([
+            'name' => 'Suspended TOTP Admin',
+            'email' => 'suspended-totp-admin@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        DB::table('users')->where('id', $admin->id)->update([
+            'is_suspended' => true,
+            'suspended_at' => now(),
+            'suspension_reason' => 'Synthetic security test',
+        ]);
+        Sanctum::actingAs($admin->fresh());
+
+        $this->postJson('/api/admin/security/totp/enroll', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertForbidden();
+
+        $this->assertDatabaseMissing('local_admin_totp_credentials', [
+            'user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_demoted_local_account_cannot_start_totp_enrollment(): void
+    {
+        $admin = User::create([
+            'name' => 'Demoted TOTP Admin',
+            'email' => 'demoted-totp-admin@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        DB::table('users')->where('id', $admin->id)->update(['role' => 'requester']);
+        Sanctum::actingAs($admin->fresh());
+
+        $this->postJson('/api/admin/security/totp/enroll', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertForbidden();
+
+        $this->assertDatabaseMissing('local_admin_totp_credentials', [
+            'user_id' => $admin->id,
+        ]);
+    }
+
     public function test_local_admin_totp_enrollment_rechecks_password_after_locking_account(): void
     {
         $admin = User::create([
