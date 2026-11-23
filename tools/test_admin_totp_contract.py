@@ -331,10 +331,36 @@ assert "a.payload" not in auth_projection.split("jsonb_build_object(", 1)[1], (
 assert "ip_address" not in auth_projection.lower(), (
     "Auth investigation projection must not expose IP address fields"
 )
-investigation_signature = (
-    "public.api_admin_list_investigation_events(integer, integer, text, text, text, "
-    "timestamp with time zone, timestamp with time zone, bigint, bigint, bigint)"
-)
+
+# Preserve half-open date ranges and stable ordering so adjacent pages do not
+# duplicate boundary events or reshuffle records with equal timestamps.
+for requirement in (
+    "p_from is null or e.occurred_at >= p_from",
+    "p_to is null or e.occurred_at < p_to",
+    "order by occurred_at desc, event_id desc",
+    "order by page_row.occurred_at desc, page_row.event_id desc",
+    "'total_count', (select count(*) from filtered)",
+):
+    assert requirement in investigation_body, (
+        f"Investigation feed pagination is missing its date/order contract: {requirement}"
+    )
+for searchable_field in (
+    "e.event_id",
+    "e.source",
+    "e.category",
+    "e.event_type",
+    "e.actor_label",
+    "e.target_label",
+    "e.summary",
+    "e.actor_user_id::text",
+    "e.target_user_id::text",
+    "e.incident_id::text",
+    "e.details::text",
+):
+    assert searchable_field in investigation_body, (
+        f"Investigation search no longer covers {searchable_field}"
+    )
+
 assert "revoke all on function public.api_admin_list_investigation_events(" in investigation_migration
 assert "from public, anon, authenticated" in investigation_migration.split(
     "revoke all on function public.api_admin_list_investigation_events(", 1
