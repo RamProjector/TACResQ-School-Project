@@ -1,6 +1,6 @@
 # Account suspension — account-state and operational-continuity contract
 
-**Status:** design contract only; no schema or runtime behavior is changed by this document.  
+**Status:** schema foundation committed on `security/admin-account-suspension-runtime-foundation`; no suspension transition RPC or runtime access enforcement is enabled.  
 **Branch:** `security/admin-account-suspension`
 
 ## Existing schema constraint
@@ -15,7 +15,7 @@ When implementation is authorized by complete authorization coverage, add an exp
 
 - `account_status`: `active` or `suspended`, NOT NULL, default `active`.
 - `suspended_at`: nullable timestamp.
-- `suspended_by`: nullable profile foreign key.
+- `suspended_by`: nullable profile-ID snapshot of the administrator who applied the current suspension.
 - `suspension_reason`: nullable bounded text; never store secrets or unnecessary sensitive details.
 
 Constraint invariants:
@@ -26,7 +26,7 @@ Constraint invariants:
 4. Role, duty status, profile identity, incident assignment, and account status remain separate concepts.
 5. A suspended account must not regain access merely by refreshing or retaining a previously issued, otherwise-valid JWT.
 
-The exact reason-retention policy, maximum reason length, and whether system-initiated suspensions are supported must be decided before migration authoring.
+The current reason bound is 10–500 characters. Reactivation clears current-state suspension metadata; the immutable audit ledger retains the transition reason. System-initiated suspensions are not in scope for this first implementation.
 
 ## Suspension transaction and continuity
 
@@ -52,7 +52,7 @@ Reactivation changes only account lifecycle state. It must not silently restore 
 - Legacy Sanctum sessions remain a separate access domain until an immutable identity mapping and its lifecycle semantics are proven.
 - Narrow self-service cleanup operations (for example, unregistering one's own obsolete FCM token) may be considered explicit suspended-account exceptions, but only with dedicated tests and no access to another account's data.
 
-## Required tests before migration or UI
+## Required tests before enforcement or UI
 
 1. Active account: all currently permitted paths retain their existing behavior.
 2. Suspended account with a still-valid JWT: protected RPC reads and writes are denied.
@@ -69,4 +69,4 @@ Reactivation changes only account lifecycle state. It must not silently restore 
 
 ## Release gate
 
-Do not add the account-state migration, Admin controls, or connected-project changes until the callable/direct-access matrix is complete and the disposable PostgreSQL, Storage HTTP, Edge Function, and bridge tests pass. Keep this PR draft until those gates are evidenced on one exact commit.
+The foundation migration is committed but must not be applied to a connected project until reviewed. Do not add Admin controls or claim suspension is active until the callable/direct-access matrix is complete and the disposable PostgreSQL, Storage HTTP, Edge Function, and bridge tests pass. Keep this PR draft until those gates are evidenced on one exact commit.
