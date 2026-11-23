@@ -489,7 +489,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ]);
         $reason = str_repeat('R', 500);
 
-        $eventId = DB::transaction(fn () => app(\\App\\Services\\LocalAccountLifecycleRecorder::class)->record(
+        $eventId = DB::transaction(fn () => app(\App\Services\LocalAccountLifecycleRecorder::class)->record(
             $actor->id,
             $target->id,
             'reactivated',
