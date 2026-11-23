@@ -95,6 +95,9 @@ done
 # The same read-only check can be run manually against a deployed test project.
 psql -v ON_ERROR_STOP=1 -f tools/check_incident_chat_upload_schema.sql
 
+# Verify account lifecycle schema, immutable audit, and same-valid-JWT state lookup.
+psql -v ON_ERROR_STOP=1 -f tools/test_account_lifecycle_foundation.sql
+
 psql -v ON_ERROR_STOP=1 <<'SQL'
 -- The Auth -> profile trigger is a privileged account-lifecycle boundary.
 -- Fail replay if it disappears, is disabled, or loses its expected definer mode.
