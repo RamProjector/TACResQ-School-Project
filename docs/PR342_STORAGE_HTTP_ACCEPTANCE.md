@@ -20,6 +20,18 @@ The guarded harness `tools/test_incident_chat_storage_http_acceptance.py` exerci
 4. Keep `reservation_enforcement_enabled` in the intended staged rollout state; this harness tests the reservation-capable Android flow, so strict enforcement must be enabled only after the separate rollout decision and legacy-client compatibility checks.
 5. Use a dedicated synthetic incident with no real people, messages, coordinates, or attachments.
 
+## Verify the enforcement mode before the run
+
+The harness exercises the reservation-capable client sequence, but a successful upload alone does not prove that the Storage policy enforced the reservation: the migration intentionally defaults the private switch to compatibility mode (`false`). Before using this as strict-enforcement acceptance, an authorized operator must confirm the test project is in strict mode through the Supabase SQL Editor:
+
+```sql
+SELECT reservation_enforcement_enabled
+FROM private.incident_chat_upload_policy
+WHERE singleton = true;
+```
+
+Proceed with strict-enforcement acceptance only when the query returns exactly `true`. If it returns `false` or no row, stop; do not change the setting as part of this test. The separate legacy-client compatibility acceptance must already have passed before an operator enables strict mode. Record the project release and result with the test evidence. This query is read-only; the harness does not toggle the setting.
+
 ## Run
 
 Set values locally in the shell; never commit them or paste tokens into issues/chat:
