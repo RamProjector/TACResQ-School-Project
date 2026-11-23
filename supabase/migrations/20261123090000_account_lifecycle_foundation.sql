@@ -102,17 +102,29 @@ CREATE TRIGGER tacresq_account_lifecycle_audit_immutable
 -- it does not trust app_metadata, user_metadata, or a stale JWT account claim.
 CREATE OR REPLACE FUNCTION private.tacresq_current_account_active()
 RETURNS boolean
-LANGUAGE sql
-STABLE
+LANGUAGE plpgsql
+VOLATILE
 SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
-  SELECT EXISTS (
-    SELECT 1
-      FROM public.profiles p
-     WHERE p.auth_user_id = auth.uid()
-       AND p.account_status = 'active'
-  )
+DECLARE
+  v_is_active boolean;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN false;
+  END IF;
+
+  -- Serialize each protected request with account suspension/reactivation.
+  -- A suspension transaction must lock this same profile row FOR UPDATE;
+  -- operations that acquire this key-share lock finish before suspension wins.
+  SELECT p.account_status = 'active'
+    INTO v_is_active
+    FROM public.profiles p
+   WHERE p.auth_user_id = auth.uid()
+   FOR KEY SHARE;
+
+  RETURN coalesce(v_is_active, false);
+END;
 $function$;
 
 REVOKE ALL ON FUNCTION private.tacresq_current_account_active()
