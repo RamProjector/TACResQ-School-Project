@@ -339,8 +339,15 @@ auth_projection = investigation_body.split("from auth.audit_log_entries as a", 1
     "'auth:'", 1
 )[1]
 assert "'provider_action'" in auth_projection
-assert "a.payload" not in auth_projection.split("jsonb_build_object(", 1)[1], (
-    "Auth investigation details must not expose raw provider audit payloads"
+auth_details = auth_projection.split("jsonb_build_object(", 1)[1].split(
+    ") AS details", 1
+)[0]
+assert "'provider_action'" in auth_details
+assert "a.payload ->> 'action'" in auth_details, (
+    "Auth investigation details must retain only the normalized provider action"
+)
+assert re.search(r"\\ba[.]payload\\b(?!\\s*->>)", auth_details) is None, (
+    "Auth investigation details must not expose the raw provider audit payload object"
 )
 assert "ip_address" not in auth_projection.lower(), (
     "Auth investigation projection must not expose IP address fields"
