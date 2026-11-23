@@ -395,7 +395,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <span className="admin-access-pill"><ShieldCheck size={14} /> ADMIN ACCESS</span>
             <div className="admin-user">
               <span className="admin-avatar">{initials(profile.name)}</span>
-              <span><strong>{profile.name}</strong><small>Administrator</small></span>
+              <span><strong aria-label={profile.name} title={profile.name}>{profile.name}</strong><small>Administrator</small></span>
             </div>
             <button className="admin-signout" type="button" onClick={onSignOut}><LogOut size={16} /><span>Sign out</span></button>
           </div>
@@ -407,7 +407,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <span className="admin-heading__icon"><ActiveSectionIcon size={22} aria-hidden="true" /></span>
               <div>
                 <p className="admin-eyebrow">ADMINISTRATION</p>
-                <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}<span>.</span></h1>
+                <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</h1>
                 <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
               </div>
             </div>
