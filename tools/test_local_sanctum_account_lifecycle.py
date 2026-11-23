@@ -143,3 +143,12 @@ assert "User::whereKey($user->getAuthIdentifier())->lockForUpdate()->first()" in
 assert "DB::transaction(function () use ($user, $credentials)" in admin_reauth
 assert "test_local_admin_sensitive_action_rechecks_demoted_role_from_database" in feature
 assert "test_local_admin_sensitive_action_rechecks_suspension_from_database" in feature
+
+
+# Recorder input boundaries: transaction required, distinct actor/target, bounded reason.
+assert "test_lifecycle_recorder_rejects_calls_outside_a_transaction" in feature
+assert "test_lifecycle_recorder_rejects_same_actor_and_target" in feature
+assert "test_lifecycle_recorder_rejects_reasons_longer_than_database_limit" in feature
+assert "A valid, distinct actor and target are required." in recorder
+assert "mb_strlen($reason) > 500" in recorder
+assert "DB::connection()->transactionLevel() < 1" in recorder
