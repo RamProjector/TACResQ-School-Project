@@ -476,11 +476,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <span>This summary covers only the three probes listed below, not complete emergency-service readiness.</span>
                 </div>
                 <div className="admin-health-grid">
-                {([
-                  ["Laravel backend", dependencyHealth.laravel_backend],
-                  ["Supabase Auth", dependencyHealth.supabase_auth],
-                  ["Supabase database", dependencyHealth.supabase_database],
-                ] as const).map(([label, result]) => (
+                {dependencyProbes.map(([label, result]) => (
                   <article className="admin-health-item" key={label}>
                     <div><strong>{label}</strong><span className={"admin-health-status admin-health-status--" + result.status} role="status" aria-label={label + " reachability: " + result.status}>{result.status === "healthy" ? "reachable" : result.status === "slow" ? "timed out" : "unavailable"}</span></div>
                     <small>{result.duration_ms === null ? "Response time unavailable" : result.duration_ms + " ms response time"}</small>
