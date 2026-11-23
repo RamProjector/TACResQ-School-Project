@@ -38,7 +38,8 @@ for source_name, source in (("User model", user_model), ("initial users migratio
     for forbidden in ("auth_user_id", "supabase_user_id", "supabase_auth_id"):
         assert forbidden not in lowered, f"{source_name} unexpectedly introduced {forbidden}; require an explicit identity-linking review"
 assert "LOWER(email)" in routes  # local email normalization is allowed for local login/registration
-assert "email" not in user_model.lower() or "auth_user_id" not in user_model.lower()
+assert "protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'duty_status'];" in user_model
+assert "'role' => 'requester'" in routes
 assert "do not" in inventory.lower() and "email" in inventory.lower()
 assert "Missing:" in inventory and "local suspension state" in inventory
 print("Laravel Sanctum identity-boundary contract passed.")
