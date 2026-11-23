@@ -95,6 +95,7 @@ PENDING = {
     "20261123170000_account_lifecycle_admin_transition_rpc.sql",
     "20261123180000_account_lifecycle_chat_idempotency_guards.sql",
     "20261123190000_account_lifecycle_write_rpc_entry_guards.sql",
+    "20261123200000_admin_account_lifecycle_audit_reader.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
