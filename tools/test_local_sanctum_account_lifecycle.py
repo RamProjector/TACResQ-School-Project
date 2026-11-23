@@ -249,7 +249,7 @@ assert "The expected named CHECK constraint must reject this record." in feature
 # bypass account.active. Every other Sanctum route remains inside the guarded
 # group, and the Supabase bridge remains a separate bearer-token domain.
 group_start = routes.index("Route::middleware(['auth:sanctum', 'account.active'])->group")
-group_end = routes.index("\\n});", group_start)
+group_end = routes.index("\n});", group_start)
 sanctum_group = routes[group_start:group_end]
 assert sanctum_group.count("->withoutMiddleware('account.active')") == 2
 assert "Route::post('/logout'," in sanctum_group
