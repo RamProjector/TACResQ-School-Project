@@ -370,6 +370,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     }
   }
 
+  const dependencyProbes = dependencyHealth
+    ? [
+        ["Laravel backend", dependencyHealth.laravel_backend],
+        ["Supabase Auth", dependencyHealth.supabase_auth],
+        ["Supabase database", dependencyHealth.supabase_database],
+      ] as const
+    : [];
+  const reachableDependencyCount = dependencyProbes.filter(([, probe]) => probe.status === "healthy").length;
   const ActiveSectionIcon = adminSections.find((section) => section.id === activeSection)?.icon ?? LayoutDashboard;
 
   return (
