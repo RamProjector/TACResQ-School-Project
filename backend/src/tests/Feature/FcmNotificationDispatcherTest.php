@@ -313,9 +313,9 @@ final class FcmNotificationDispatcherTest extends TestCase
 
         $fcm = Mockery::mock(FcmHttpV1Client::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
-        $fcm->shouldReceive('send')->twice()
-            ->andThrow(new \\RuntimeException('provider details must not be logged'))
-            ->andReturn($this->sentResult());
+        $fcm->shouldReceive('send')->once()->ordered()
+            ->andThrow(new \\RuntimeException('provider details must not be logged'));
+        $fcm->shouldReceive('send')->once()->ordered()->andReturn($this->sentResult());
 
         $stats = (new FcmNotificationDispatcher($fcm))->dispatch(2);
 
@@ -385,7 +385,7 @@ final class FcmNotificationDispatcherTest extends TestCase
     public function test_non_array_claim_response_is_rejected_before_send(): void
     {
         Http::fake([
-            'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response(['unexpected' => 'shape'], 200),
+            'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response('unexpected', 200),
         ]);
 
         $fcm = Mockery::mock(FcmHttpV1Client::class);
