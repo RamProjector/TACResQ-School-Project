@@ -1103,11 +1103,15 @@ Route::middleware(['auth:sanctum', 'account.active'])->prefix('admin/security/to
         $data = $request->validate([
             'current_password' => ['required', 'string', 'max:72'],
         ]);
-        abort_unless(Hash::check($data['current_password'], $user->password), 403, 'Administrator re-authentication failed.');
-
-        $result = DB::transaction(function () use ($user) {
+        $result = DB::transaction(function () use ($user, $data) {
             $lockedUser = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedUser->role === 'admin' && !$lockedUser->is_suspended, 403, 'Administrator access is required.');
+            abort_unless(
+                $lockedUser->role === 'admin'
+                    && !$lockedUser->is_suspended
+                    && Hash::check($data['current_password'], $lockedUser->password),
+                403,
+                'Administrator re-authentication failed.',
+            );
 
             $existing = DB::table('local_admin_totp_credentials')
                 ->where('user_id', $lockedUser->id)
