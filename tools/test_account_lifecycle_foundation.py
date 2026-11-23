@@ -88,7 +88,9 @@ for required in (
 role_wrapper = transition_migration.split(
     "create or replace function public.api_admin_set_user_role(", 1
 )[1].split("$function$;", 1)[0]
-assert role_wrapper.find("pg_advisory_xact_lock") < role_wrapper.find("tacresq_require_admin_mfa"), (
+role_lock_position = role_wrapper.find("pg_advisory_xact_lock")
+role_mfa_position = role_wrapper.find("tacresq_require_admin_mfa")
+assert role_lock_position >= 0 and role_mfa_position > role_lock_position, (
     "Admin role changes must serialize before locking the actor profile"
 )
 for required in (
