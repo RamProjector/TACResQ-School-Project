@@ -116,12 +116,12 @@ BEGIN
 
   -- Serialize each protected request with account suspension/reactivation.
   -- A suspension transaction must lock this same profile row FOR UPDATE;
-  -- operations that acquire this key-share lock finish before suspension wins.
+  -- operations that acquire this share lock finish before suspension wins.
   SELECT p.account_status = 'active'
     INTO v_is_active
     FROM public.profiles p
    WHERE p.auth_user_id = auth.uid()
-   FOR KEY SHARE;
+   FOR SHARE;
 
   RETURN coalesce(v_is_active, false);
 END;
