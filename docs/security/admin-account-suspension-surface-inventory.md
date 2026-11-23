@@ -61,7 +61,7 @@ This inventory is intentionally conservative. A path is not marked covered merel
 - [Batch 22: Admin web, notification Edge Function, and Laravel/Sanctum boundaries](admin-account-suspension-web-edge-laravel-review-batch-22.md) records the Admin web RPC surface and the service-role notification function's missing future active-account predicates.
 - [Batch 21: Android, Render bridge, and direct Supabase operation map](admin-account-suspension-client-operation-map-batch-21.md) separates the debug-only 14-RPC bridge from direct RPC, PostgREST, Storage, notification, and chat paths.
 - [Batch 20: application invoker entry points and authenticated-callable private SECURITY DEFINER functions](admin-account-suspension-rpc-review-batch-20-invoker-and-private-callables.md) extends the crosswalk to the application invoker paths and the ten authenticated-callable private definer functions.
-- [Callable SECURITY DEFINER crosswalk](admin-account-suspension-callable-definer-crosswalk.md) maps all 20 public authenticated-callable definer signatures to the existing source-review batches and identifies the remaining 52 invoker/private-function call-graph work. This is a crosswalk, not an automated proof of complete call coverage.
+- [Callable SECURITY DEFINER crosswalk](admin-account-suspension-callable-definer-crosswalk.md) maps all 21 public authenticated-callable definer signatures to the existing source-review batches and identifies the remaining 52 public invoker functions and private-function call-graph work. This is a crosswalk, not an automated proof of complete call coverage.
 
 ## Account-state design contract
 
