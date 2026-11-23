@@ -82,6 +82,9 @@ jobs:
       - name: Check privacy-safe bridge rate-limit keys
         run: python3 tools/test_bridge_rate_limit_key_privacy.py
 
+      - name: Check Laravel bridge account lifecycle enforcement
+        run: python3 tools/test_laravel_bridge_account_lifecycle_contract.py
+
       - name: Check Laravel assignment duty-state visibility
         run: python3 tools/test_laravel_assignment_duty_state.py
 
