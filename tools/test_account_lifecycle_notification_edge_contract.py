@@ -125,6 +125,7 @@ assert 'tokenUri.protocol !== "https:"' in source
 assert 'tokenUri.hostname !== "oauth2.googleapis.com"' in source
 assert 'tokenUri.pathname !== "/token"' in source
 assert 'tokenUri.search || tokenUri.hash' in source
+assert 'tokenUri.port || tokenUri.username || tokenUri.password' in source
 
 # Stale-token cleanup is best-effort after delivery. Surface cleanup failure
 # without converting already-attempted sends into a retryable delivery error.
