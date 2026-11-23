@@ -52,7 +52,8 @@ Deno.serve(async (request: Request) => {
   let body = `Incident #${incidentId} was updated.`;
   if (event === "incident_created") {
     if (actor.role !== "requester" || actor.id !== incident.requester_id) return json({ error: "Not allowed to notify for this incident" }, 403);
-    const { data: dispatchers } = await admin.from("profiles").select("id").eq("role", "dispatcher").eq("account_status", "active");
+    const { data: dispatchers, error: dispatcherError } = await admin.from("profiles").select("id").eq("role", "dispatcher").eq("account_status", "active");
+    if (dispatcherError) return json({ error: "Could not resolve notification recipients" }, 500);
     targetProfileIds = (dispatchers ?? []).map((profile) => profile.id as number);
     title = "New emergency request";
     body = `Incident #${incidentId} is waiting in the dispatch queue.`;
