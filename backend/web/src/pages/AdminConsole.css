@@ -702,3 +702,28 @@
 @media (prefers-reduced-motion: reduce) {
   .admin-table tbody tr { transition: none; }
 }
+
+
+/* Keep account range context and pagination controls usable on narrow screens. */
+@media (max-width: 520px) {
+  .admin-pagination {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .admin-pagination > span {
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .admin-pagination > div {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+  .admin-pagination button {
+    min-height: 40px;
+  }
+  .admin-table-wrap {
+    border-bottom: 1px solid #e4e8e0;
+    scrollbar-width: thin;
+  }
+}
