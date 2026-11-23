@@ -1845,6 +1845,57 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Global/schema default ACLs must not grant future object privileges to PUBLIC or Supabase client roles';
   END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS schema_name ON schema_name.oid = relation.relnamespace
+    WHERE schema_name.nspname = 'public'
+      AND relation.relkind IN ('r', 'p')
+      AND (
+        has_table_privilege('anon', relation.oid, 'TRUNCATE')
+        OR has_table_privilege('authenticated', relation.oid, 'TRUNCATE')
+        OR has_table_privilege('anon', relation.oid, 'REFERENCES')
+        OR has_table_privilege('authenticated', relation.oid, 'REFERENCES')
+        OR has_table_privilege('anon', relation.oid, 'TRIGGER')
+        OR has_table_privilege('authenticated', relation.oid, 'TRIGGER')
+      )
+  ) THEN
+    RAISE EXCEPTION 'Supabase client roles must not gain public-table TRUNCATE, REFERENCES, or TRIGGER privileges';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class AS sequence
+    JOIN pg_catalog.pg_namespace AS schema_name ON schema_name.oid = sequence.relnamespace
+    WHERE schema_name.nspname = 'public'
+      AND sequence.relkind = 'S'
+      AND (
+        has_sequence_privilege('anon', sequence.oid, 'USAGE')
+        OR has_sequence_privilege('anon', sequence.oid, 'SELECT')
+        OR has_sequence_privilege('anon', sequence.oid, 'UPDATE')
+        OR has_sequence_privilege('authenticated', sequence.oid, 'UPDATE')
+      )
+  ) THEN
+    RAISE EXCEPTION 'Public sequence grants must not expose anon access or authenticated UPDATE/setval capability';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS schema_name ON schema_name.oid = relation.relnamespace
+    JOIN pg_catalog.pg_attribute AS column_info ON column_info.attrelid = relation.oid
+    WHERE schema_name.nspname = 'public'
+      AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')
+      AND column_info.attnum > 0
+      AND NOT column_info.attisdropped
+      AND (
+        has_column_privilege('anon', relation.oid, column_info.attnum, 'REFERENCES')
+        OR has_column_privilege('authenticated', relation.oid, column_info.attnum, 'REFERENCES')
+      )
+  ) THEN
+    RAISE EXCEPTION 'Supabase client roles must not gain public column REFERENCES privileges';
+  END IF;
 END;
 $account_suspension_privilege_baseline$;
 SQL
