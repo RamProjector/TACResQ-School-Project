@@ -337,12 +337,12 @@ export default function AdminSecurityStatus() {
           {enrollment && (
             <form className="admin-security-status__enrollment" aria-labelledby="admin-security-enrollment-title" onSubmit={verifyBackupAuthenticator}>
               <h3 id="admin-security-enrollment-title">Register the backup device</h3>
-              <p>Scan this QR code with an authenticator app on a different device. Keep the setup key private and do not send it to anyone.</p>
+              <p id="admin-backup-enrollment-guidance">Scan this QR code with an authenticator app on a different device. Keep the setup key private and do not send it to anyone.</p>
               <img src={enrollment.qrCode} alt="QR code for the backup authenticator" />
               <label htmlFor="admin-backup-secret">Manual setup key</label>
               <input id="admin-backup-secret" type="text" readOnly value={enrollment.secret} autoComplete="off" />
               <label htmlFor="admin-backup-code">Six-digit code</label>
-              <input id="admin-backup-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} placeholder="000000" value={verificationCode} onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required />
+              <input id="admin-backup-code" type="text" aria-describedby="admin-backup-enrollment-guidance" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} placeholder="000000" value={verificationCode} onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required />
               <div className="admin-security-status__actions">
                 <button className="admin-refresh" type="button" onClick={() => { void cancelBackupEnrollment(); }} disabled={busy}>Cancel</button>
                 <button className="admin-refresh" type="submit" disabled={busy || verificationCode.length !== 6}>{busy ? "Verifying…" : "Verify backup device"}</button>
