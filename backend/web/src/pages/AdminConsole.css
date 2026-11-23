@@ -917,3 +917,41 @@
 @media (prefers-reduced-motion:reduce) {
   .admin-skip-link { transition:none; }
 }
+
+
+/* Keep directory filters aligned and usable when the Admin workspace narrows. */
+.admin-toolbar {
+  flex-wrap:wrap;
+}
+.admin-search {
+  flex:1 1 260px;
+}
+.admin-role-filter {
+  flex:0 1 auto;
+}
+.admin-filter-reset {
+  min-height:39px;
+}
+@media (max-width:520px) {
+  .admin-toolbar {
+    align-items:stretch;
+    gap:9px;
+    padding-right:14px;
+    padding-left:14px;
+  }
+  .admin-search {
+    flex:1 1 100%;
+    min-width:0;
+  }
+  .admin-role-filter {
+    flex:1 1 100%;
+    justify-content:space-between;
+  }
+  .admin-role-filter select {
+    flex:1;
+    min-width:0;
+  }
+  .admin-filter-reset {
+    flex:1 1 100%;
+  }
+}
