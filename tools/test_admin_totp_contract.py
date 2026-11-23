@@ -79,6 +79,12 @@ assert "Actor profile ID" not in audit_page and "Target profile ID" not in audit
 assert "This interface is read-only." in audit_page
 assert "Authentication events depend on Supabase Auth Audit Logs Postgres storage" in audit_page
 assert "Denied privileged RPC attempts are not yet durably represented in this feed." in audit_page
+assert "getAdminAccountLifecycleEvents(5, 0)" in audit_page, "Audit history must load the separate trusted account lifecycle source."
+assert "Account suspension and reactivation" in audit_page
+assert "No account suspension or reactivation events have been recorded." in audit_page
+assert "Account lifecycle history will appear after the reviewed database migration is applied." in supabase_client
+assert "api_admin_list_account_lifecycle_events" in supabase_client
+
 assert (ROOT / "docs/security/admin-session-revocation-and-auth-audit-boundaries.md").exists()
 
 # The Security page reports live Supabase Auth state without exposing factor secrets.
