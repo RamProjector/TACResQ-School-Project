@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Copy, LoaderCircle, RefreshCw, Search } from "lucide-react";
-import { getAdminInvestigationEventsPage } from "@/lib/supabase";
-import type { AdminInvestigationCategory, AdminInvestigationEvent, AdminInvestigationSource, TacruProfile } from "@/lib/supabase";
+import { getAdminAccountLifecycleEvents, getAdminInvestigationEventsPage } from "@/lib/supabase";
+import type { AdminAccountLifecycleEvent, AdminInvestigationCategory, AdminInvestigationEvent, AdminInvestigationSource, TacruProfile } from "@/lib/supabase";
 
 type AuditLogsPageProps = { profile: TacruProfile };
 
@@ -69,7 +69,7 @@ function actorDisplay(event: AdminInvestigationEvent, profile: TacruProfile) {
 }
 
 export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
-  const [events, setEvents] = useState<AdminInvestigationEvent[]>([]);
+  const [events, setEvents] = useState<AdminInvestigationEvent[]>([]);\n  const [lifecycleEvents, setLifecycleEvents] = useState<AdminAccountLifecycleEvent[]>([]);\n  const [lifecycleTotal, setLifecycleTotal] = useState(0);\n  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<AdminInvestigationCategory>("all");
@@ -128,6 +128,22 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       window.clearTimeout(timer);
     };
   }, [page, query, category, source, from, to, refreshVersion]);
+
+  useEffect(() => {
+    let active = true;
+    void getAdminAccountLifecycleEvents(5, 0).then((result) => {
+      if (!active) return;
+      setLifecycleEvents(result.events);
+      setLifecycleTotal(result.total_count);
+      setLifecycleError(null);
+    }).catch((cause: unknown) => {
+      if (!active) return;
+      setLifecycleEvents([]);
+      setLifecycleTotal(0);
+      setLifecycleError(cause instanceof Error ? cause.message : "Account lifecycle history is unavailable.");
+    });
+    return () => { active = false; };
+  }, [refreshVersion]);
 
   async function copyEventId(eventId: string) {
     setCopyError(null);
@@ -202,6 +218,41 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           </section>
         </div>
       </details>
+
+      <section className="audit-page__lifecycle" aria-labelledby="account-lifecycle-history-title">
+        <div className="audit-page__heading">
+          <div>
+            <h3 id="account-lifecycle-history-title">Account suspension and reactivation</h3>
+            <p>Trusted account-status transitions recorded by the database. This history is separate from ordinary role changes.</p>
+          </div>
+          <span>{lifecycleTotal.toLocaleString()} recorded</span>
+        </div>
+        {lifecycleError ? (
+          <p className="admin-panel__footnote" role="status">{lifecycleError}</p>
+        ) : lifecycleEvents.length === 0 ? (
+          <p className="admin-panel__footnote">No account suspension or reactivation events have been recorded.</p>
+        ) : (
+          <div className="audit-page__list">
+            {lifecycleEvents.map((event) => (
+              <article className="audit-event-card" key={event.id}>
+                <div className="audit-event-card__top">
+                  <span className={"audit-page__category audit-page__category--" + (event.action === "account_suspended" ? "administrative" : "assignment")}>{event.action === "account_suspended" ? "Account suspended" : "Account reactivated"}</span>
+                  <time dateTime={event.created_at}>{formatDate(event.created_at)}</time>
+                </div>
+                <div className="audit-event-card__heading">
+                  <div><p>{event.actor_identity}</p><h3>{event.target_name}</h3></div>
+                </div>
+                <div className="audit-event-card__meta">
+                  <span><small>Status transition</small><strong>{formatDetailLabel(event.previous_status)} → {formatDetailLabel(event.new_status)}</strong></span>
+                  <span><small>Recorded by</small><strong>{event.actor_identity}</strong></span>
+                </div>
+                <div className="audit-event-card__details"><p>{event.reason}</p></div>
+              </article>
+            ))}
+          </div>
+        )}
+        {lifecycleTotal > lifecycleEvents.length && <p className="admin-panel__footnote">Showing the latest {lifecycleEvents.length} of {lifecycleTotal.toLocaleString()} lifecycle events. The complete history remains available through the protected database reader.</p>}
+      </section>
 
       <div className="audit-page__filters">
         <label className="admin-search audit-page__search">
