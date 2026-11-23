@@ -117,6 +117,12 @@ assert "at-least-once, not exactly-once" in docs
 assert "stable notification identifier" in docs
 
 dispatcher_tests = read("backend/src/tests/Feature/FcmNotificationDispatcherTest.php")
+assert "array_is_list($claimedAttempts)" in dispatcher
+assert "foreach ($claimedAttempts as $attempt)" in dispatcher
+assert "if (!is_array($attempt))" in dispatcher
+assert "'tokens' => count($claimedAttempts)" in dispatcher
+assert "test_object_claim_payload_is_rejected_as_not_a_delivery_list" in dispatcher_tests
+assert "test_non_array_claim_row_is_counted_as_skipped_without_blocking_valid_rows" in dispatcher_tests
 assert "test_invalid_explicit_limit_is_rejected_before_queue_claim" in dispatcher_tests
 assert "test_successful_send_is_written_to_delivery_ledger" in dispatcher_tests
 assert "test_ledger_failure_for_one_attempt_does_not_stop_later_recipients" in dispatcher_tests
