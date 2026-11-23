@@ -5,11 +5,13 @@ home = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
 admin = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
 styles = (ROOT / "backend/web/src/pages/PortalVisualFoundation.css").read_text()
 
-# The sign-in surface has authored visual structure, not a placeholder hero.
+# The sign-in surface has authored visual structure and clear administrator scope.
 assert "login-story__visual" in home
-assert "Identity" in home and "Accountability" in home
-assert "ROLE-GATED · SERVER-ENFORCED" in home
-assert 'import "./PortalVisualFoundation.css";' in admin
+assert "A clear view of the accounts and activity behind TACResQ." in home
+assert "This portal is for administrator accounts." in home
+assert 'profile.role === "admin"' in home
+assert "AdminMfaGate" in home
+assert 'profile.role === "dispatcher"' in home
 
 # The admin workspace has clear navigation groups and a section identity marker.
 assert "admin-sidebar__context" in admin
@@ -20,7 +22,7 @@ assert "ActiveSectionIcon" in admin
 # Responsive navigation and narrow-screen table handling are deliberate.
 for breakpoint in ("max-width: 1120px", "max-width: 900px", "max-width: 640px", "max-width: 390px"):
     assert breakpoint in styles
-assert ".admin-navigation {\n    flex-direction: row;" in styles
+assert ".admin-navigation {\\n    flex-direction: row;" in styles
 assert ".admin-table { min-width: 690px; }" in styles
 assert "min-width: max-content;" in styles
 assert "prefers-reduced-motion: reduce" in styles
