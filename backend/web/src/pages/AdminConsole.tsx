@@ -441,7 +441,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           )}
 
           <section className="admin-metrics" aria-label="Account summary" aria-describedby="admin-overview-metrics-context" hidden={activeSection !== "overview"}>
-            <article><span>PROFILES MATCHING FILTERS</span><strong>{totalUsers}</strong><small>Across all directory pages</small></article>
+            <article><span>MATCHING ACCOUNTS</span><strong>{directoryError ? "Unavailable" : loading && users.length === 0 ? "Loading" : totalUsers.toLocaleString()}</strong><small>Across all directory pages; follows the active search and role filters</small></article>
             <article><span>REQUESTERS · CURRENT PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Only the profiles on this page</small></article>
             <article><span>FIELD UNITS · CURRENT PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responders and drivers on this page only</small></article>
             <article><span>AUDIT HISTORY</span><strong>Activity feed</strong><small>Searchable read-only history across seven event sources</small></article>
