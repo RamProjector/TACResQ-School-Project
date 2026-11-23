@@ -22,7 +22,7 @@ for required in (
     "enable row level security",
     "revoke all privileges on table public.account_lifecycle_audit_logs",
     "revoke all privileges on sequence public.account_lifecycle_audit_logs_id_seq",
-    "before update or delete on public.account_lifecycle_audit_logs",
+    "before update or delete on public.account_lifecycle_audit_logs",\n    "account lifecycle audit history is append-only",
     "create or replace function private.tacresq_current_account_active()",
     "security definer",
     "set search_path = pg_catalog",
