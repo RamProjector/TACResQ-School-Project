@@ -204,7 +204,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             'password' => 'synthetic-test-password',
             'role' => 'dispatcher',
         ]);
-        $incident = \\App\\Models\\Incident::create([
+        $incident = \App\Models\Incident::create([
             'requester_id' => $requester->id,
             'type' => 'medical',
             'description' => 'Synthetic lifecycle route-guard test',
@@ -259,5 +259,4 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         $this->assertNull($user->suspended_at);
         $this->assertNull($user->suspension_reason);
     }
-
 }
