@@ -1,13 +1,13 @@
 <?php
 
-namespace Tests\\Feature;
+namespace Tests\Feature;
 
-use App\\Models\\User;
-use Illuminate\\Database\\QueryException;
-use Illuminate\\Foundation\\Testing\\RefreshDatabase;
-use Illuminate\\Support\\Facades\\DB;
-use Laravel\\Sanctum\\Sanctum;
-use Tests\\TestCase;
+use App\Models\User;
+use Illuminate\Database\QueryException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
 
 class LocalSanctumAccountLifecycleTest extends TestCase
 {
