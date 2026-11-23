@@ -353,24 +353,24 @@ export default function AdminSecurityStatus() {
           <section className="admin-security-status__coverage" aria-labelledby="admin-security-coverage-title">
             <div className="admin-security-status__coverage-heading">
               <div>
-                <p className="admin-eyebrow">CONTROL COVERAGE</p>
-                <h3 id="admin-security-coverage-title">What the Admin security layer covers</h3>
-                <p>These are implementation facts, not a live security certification. Database enforcement below is defined in this branch's migration; production application has not been verified here.</p>
+                <p className="admin-eyebrow">BRANCH IMPLEMENTATION INVENTORY</p>
+                <h3 id="admin-security-coverage-title">Database controls defined in this branch</h3>
+                <p>This inventory describes code and migrations in the current branch only. It is separate from the live MFA and session controls above and does not confirm that any database migration has been applied to a deployed environment.</p>
               </div>
             </div>
             <div className="admin-security-status__coverage-grid">
               <div className="admin-security-status__coverage-group">
-                <h4><ShieldCheck size={15} /> Defined privileged-access controls</h4>
+                <h4><ShieldCheck size={15} /> Implemented in branch · deployment unverified</h4>
                 <ul>
                   <li><strong>TOTP + AAL2 gate</strong><span>Admin RPCs require an authenticated user, a TOTP method in the session claims, AAL2, and an Admin profile role.</span></li>
                   <li><strong>Protected Admin operations</strong><span>User listing, role changes, audit retrieval, and analytics summary are wrapped by the MFA gate.</span></li>
                   <li><strong>Audit-table read protection</strong><span>Direct reads of Admin audit records also require TOTP-verified AAL2 claims.</span></li>
                   <li><strong>Role-change accountability</strong><span>Role changes require a reason and are recorded through the protected Admin operation.</span></li>
                 </ul>
-                <p className="admin-security-status__coverage-caveat">Deployment status: not verified. These protections take effect only after the corresponding database migration is applied to the target Supabase project.</p>
+                <p className="admin-security-status__coverage-caveat">Environment verification: unavailable. Do not treat these controls as active in production until the target project's migration history and deployed database behavior have been independently checked.</p>
               </div>
               <div className="admin-security-status__coverage-group admin-security-status__coverage-group--gaps">
-                <h4><ShieldX size={15} /> Not currently verified or implemented</h4>
+                <h4><ShieldX size={15} /> Not verified by this Admin console</h4>
                 <ul>
                   <li><strong>Account suspension</strong><span>No verified Admin suspend/disable-account control is available in this console.</span></li>
                   <li><strong>Denied-action audit trail</strong><span>Rejected privileged requests are not yet recorded in a trusted, durable Admin event stream.</span></li>
