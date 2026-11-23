@@ -51,6 +51,12 @@ jobs:
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
+      - name: Check cross-layer TACResQ app-flow validation inventory
+        run: python3 tools/test_app_flow_coverage.py
+
+      - name: Check Admin investigation and app-action audit contracts
+        run: python3 tools/test_admin_investigation_events_contract.py
+
       - name: Check inline authentication validation
         run: python3 tools/test_auth_inline_validation.py
 

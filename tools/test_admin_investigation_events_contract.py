@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "supabase/migrations/20261122160000_admin_investigation_events.sql").read_text()
+action_migration = (ROOT / "supabase/migrations/20261122230000_app_action_audit_coverage.sql").read_text()
 page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 
@@ -36,6 +37,54 @@ required_sql = (
 )
 for marker in required_sql:
     assert marker in migration, f"Missing investigation SQL contract: {marker}"
+
+# New committed app-action sources must be server-written and metadata-only.
+for marker in (
+    "CREATE TABLE public.app_action_audit_logs",
+    "correlation_id uuid NOT NULL DEFAULT gen_random_uuid()",
+    "actor_profile_id bigint",
+    "actor_role text",
+    "outcome text NOT NULL DEFAULT 'success'",
+    "metadata jsonb NOT NULL DEFAULT '{}'::jsonb",
+    "octet_length(metadata::text) <= 1024",
+    "REVOKE ALL PRIVILEGES ON TABLE public.app_action_audit_logs",
+    "private.tacresq_record_app_action_audit()",
+    "tacresq_app_action_audit_immutable",
+    "BEFORE UPDATE OR DELETE ON public.app_action_audit_logs",
+    "AFTER INSERT ON public.incident_messages",
+    "AFTER UPDATE OF read_at ON public.user_notifications",
+    "AFTER UPDATE OF duty_status ON public.profiles",
+    "'incident_message_sent'",
+    "'notification_marked_read'",
+    "'duty_status_changed'",
+    "FROM public.app_action_audit_logs AS a",
+    "'correlation_id', a.correlation_id",
+    "'actor_role', a.actor_role",
+    "'target_type', a.target_type",
+    "'target_id', a.target_id",
+    "'app_action_audit_logs'",
+    "PERFORM private.tacresq_require_admin_mfa()",
+):
+    assert marker in action_migration, f"Missing app-action audit contract: {marker}"
+
+audit_trigger = action_migration.split(
+    "CREATE OR REPLACE FUNCTION private.tacresq_record_app_action_audit()", 1
+)[1].split("$function$;", 1)[0]
+for forbidden in (
+    "NEW.message",
+    "NEW.latitude",
+    "NEW.longitude",
+    "jsonb_build_object('attachment_path'",
+    "NEW.token",
+    "access_token",
+    "refresh_token",
+):
+    assert forbidden not in audit_trigger, (
+        f"Sensitive content must not be copied into app-action audit: {forbidden}"
+    )
+
+assert "app_action_audit_logs" in client
+assert 'app_action_audit_logs: "App actions"' in page
 
 # Auth rows are projected through allowlisted fields only. Do not expose raw
 # provider payloads, IP addresses, or user-agent metadata in the Admin feed.

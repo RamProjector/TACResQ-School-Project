@@ -12,6 +12,12 @@ CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
 CREATE ROLE service_role NOLOGIN BYPASSRLS;
 CREATE SCHEMA auth;
+-- Supabase Auth's investigation feed reads only these allowlisted audit fields.
+CREATE TABLE auth.audit_log_entries (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE auth.users (
   id uuid PRIMARY KEY,
   email text,
@@ -51,12 +57,17 @@ CREATE TABLE storage.buckets (
   name text NOT NULL,
   public boolean NOT NULL DEFAULT false,
   file_size_limit bigint,
-  allowed_mime_types text[]
+  allowed_mime_types text[],
+  versioning_status text,
+  lifecycle_configuration jsonb
 );
 CREATE TABLE storage.objects (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   bucket_id text NOT NULL,
   name text NOT NULL,
-  metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (bucket_id, name),
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 CREATE FUNCTION storage.foldername(object_name text)
@@ -79,6 +90,10 @@ for migration in supabase/migrations/*.sql; do
   echo "Applying ${migration}"
   psql -v ON_ERROR_STOP=1 -f "${migration}"
 done
+
+# Fail early if the replayed schema does not satisfy the incident-chat upload contract.
+# The same read-only check can be run manually against a deployed test project.
+psql -v ON_ERROR_STOP=1 -f tools/check_incident_chat_upload_schema.sql
 
 psql -v ON_ERROR_STOP=1 <<'SQL'
 DO $$
@@ -1641,7 +1656,15 @@ psql -v ON_ERROR_STOP=1 -f tools/test_dependency_health_rpc.sql
 # Verify incident-image Storage RLS and the authenticated image-message RPC
 # against the minimal Storage schema created above.
 psql -v ON_ERROR_STOP=1 -f tools/test_incident_chat_storage_policies.sql
+
+# Execute the read-only attachment inventory against the replayed schema.
+# This catches SQL syntax, metadata comparison, CTE alias, and projection errors
+# that source-string assertions cannot detect.
+psql -v ON_ERROR_STOP=1 -f tools/report_incident_chat_attachment_inventory.sql
+
 psql -v ON_ERROR_STOP=1 -f tools/test_notification_rpc_security.sql
+# Verify committed app actions are recorded without sensitive content and appear in the Admin feed.
+psql -v ON_ERROR_STOP=1 -f tools/test_app_action_audit.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_delivery_queue.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_fcm_token_account_switch.sql
 psql -v ON_ERROR_STOP=1 -f tools/test_responder_incident_claiming.sql

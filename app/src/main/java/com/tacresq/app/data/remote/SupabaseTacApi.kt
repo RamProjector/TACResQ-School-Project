@@ -214,18 +214,33 @@ class SupabaseTacApi private constructor(
             "image/png" -> "png"
             else -> "webp"
         }
-        val path = "$incidentId/$senderId/$messageId.$extension"
-        try {
-            storage.upload(
-                bucket = "incident-chat-attachments",
-                path = path,
-                contentType = mimeType,
-                body = imageBytes.toRequestBody(mimeType.toMediaType()),
-            ).close()
-        } catch (failure: retrofit2.HttpException) {
-            // A retry after an ambiguous response reuses the deterministic object path.
-            // HTTP 409 means the first upload already stored it; the idempotent RPC decides.
-            if (failure.code() != 409) throw failure
+        // The server derives the profile identity and deterministic object path.
+        // The client-supplied senderId is retained only as a consistency check.
+        val expectedPath = "$incidentId/$senderId/$messageId.$extension"
+        val reservation = rpc.reserveIncidentImageUpload(
+            ReserveIncidentImageUploadRpc(
+                incidentId = incidentId,
+                mimeType = mimeType,
+                sizeBytes = imageBytes.size.toLong(),
+                clientMessageId = messageId,
+            )
+        )
+        val path = reservation.objectPath
+        require(path == expectedPath) { "Server returned an unexpected incident attachment path." }
+
+        if (!reservation.consumed) {
+            try {
+                storage.upload(
+                    bucket = "incident-chat-attachments",
+                    path = path,
+                    contentType = mimeType,
+                    body = imageBytes.toRequestBody(mimeType.toMediaType()),
+                ).close()
+            } catch (failure: retrofit2.HttpException) {
+                // A retry after an ambiguous upload response reuses the same reservation/path.
+                // HTTP 409 is not proof that the stored bytes match; finalization verifies metadata.
+                if (failure.code() != 409) throw failure
+            }
         }
         return rpc.sendIncidentImageMessage(
             SendIncidentImageMessageRpc(incidentId, normalized, path, mimeType, imageBytes.size.toLong(), messageId)
@@ -240,7 +255,17 @@ class SupabaseTacApi private constructor(
     }
 
     companion object {
-        fun create(tokenProvider: () -> String?, useRenderBridge: Boolean = false): TacApi {
+        fun create(tokenProvider: () -> String?, useRenderBridge: Boolean = false): TacApi =
+            createInternal(tokenProvider, useRenderBridge, AppConfig.SUPABASE_URL)
+
+        internal fun createForTesting(tokenProvider: () -> String?, baseUrl: String): TacApi =
+            createInternal(tokenProvider, useRenderBridge = false, baseUrl = baseUrl)
+
+        private fun createInternal(
+            tokenProvider: () -> String?,
+            useRenderBridge: Boolean,
+            baseUrl: String,
+        ): TacApi {
             val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
             val common = OkHttpClient.Builder()
                 .addInterceptor { chain ->
@@ -255,7 +280,7 @@ class SupabaseTacApi private constructor(
                 .build()
             val gson = GsonBuilder().serializeNulls().create()
             val retrofit = Retrofit.Builder()
-                .baseUrl(AppConfig.SUPABASE_URL.trimEnd('/') + "/")
+                .baseUrl(baseUrl.trimEnd('/') + "/")
                 .client(common)
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
@@ -444,6 +469,9 @@ private interface SupabaseRpcWire {
     @POST("rest/v1/rpc/api_send_incident_message")
     suspend fun sendIncidentMessage(@Body body: SendIncidentMessageRpc): IncidentMessage
 
+    @POST("rest/v1/rpc/api_reserve_incident_image_upload")
+    suspend fun reserveIncidentImageUpload(@Body body: ReserveIncidentImageUploadRpc): IncidentImageUploadReservation
+
     @POST("rest/v1/rpc/api_send_incident_image_message")
     suspend fun sendIncidentImageMessage(@Body body: SendIncidentImageMessageRpc): IncidentMessage
 }
@@ -507,6 +535,18 @@ private data class SendIncidentMessageRpc(
     @SerializedName("p_incident_id") val incidentId: Long,
     @SerializedName("p_message") val message: String,
     @SerializedName("p_client_message_id") val clientMessageId: String,
+)
+private data class ReserveIncidentImageUploadRpc(
+    @SerializedName("p_incident_id") val incidentId: Long,
+    @SerializedName("p_mime_type") val mimeType: String,
+    @SerializedName("p_size_bytes") val sizeBytes: Long,
+    @SerializedName("p_client_message_id") val clientMessageId: String,
+)
+private data class IncidentImageUploadReservation(
+    @SerializedName("reservation_id") val reservationId: String,
+    @SerializedName("object_path") val objectPath: String,
+    @SerializedName("expires_at") val expiresAt: String,
+    val consumed: Boolean,
 )
 private data class SendIncidentImageMessageRpc(
     @SerializedName("p_incident_id") val incidentId: Long,

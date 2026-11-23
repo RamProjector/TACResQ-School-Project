@@ -19,6 +19,7 @@ const sourceLabels: Record<Exclude<AdminInvestigationSource, "all">, string> = {
   incident_claimability_logs: "Incident claiming",
   incident_request_edit_logs: "Requester edits",
   incident_assignment_events: "Responder assignments",
+  app_action_audit_logs: "App actions",
 };
 
 function formatDate(value: string | null | undefined) {
