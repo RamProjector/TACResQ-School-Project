@@ -64,6 +64,11 @@ assert "catch (\\Throwable $exception)" in dispatcher
 assert "Log::warning(" in dispatcher
 assert "$exception->getMessage()" not in dispatcher
 assert "persistAttemptSafely(" in dispatcher
+assert "use InvalidArgumentException;" in dispatcher
+assert "FCM dispatch limit must be between 1 and 50." in dispatcher
+assert "if ($limit !== null && ($limit < 1 || $limit > 50))" in dispatcher
+assert "catch (\\Throwable)" in dispatcher
+assert "Logging must not turn a recoverable ledger failure into a batch abort." in dispatcher
 assert "permanent_failure" in dispatcher
 assert "TRANSPORT_FAILURE" in dispatcher
 assert "tacresq:dispatch-fcm" in command
