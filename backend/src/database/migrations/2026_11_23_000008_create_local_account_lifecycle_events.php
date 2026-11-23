@@ -9,8 +9,8 @@ return new class extends Migration {
     {
         Schema::create('local_account_lifecycle_events', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('actor_user_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('target_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->unsignedBigInteger('actor_user_id')->nullable();
+            $table->unsignedBigInteger('target_user_id')->nullable();
             $table->string('action', 24);
             $table->string('reason', 500);
             $table->string('previous_state', 16);
