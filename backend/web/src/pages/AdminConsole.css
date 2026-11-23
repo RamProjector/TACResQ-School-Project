@@ -759,3 +759,26 @@
   }
   .admin-sidebar__bottom { display: none; }
 }
+
+
+/* Preserve identity and sign-out access on narrow and zoomed Admin viewports. */
+@media (max-width: 520px) {
+  .admin-topbar { align-items:flex-start; }
+  .admin-breadcrumb { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+  .admin-topbar__right {
+    width:100%;
+    min-width:0;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+    gap:9px;
+  }
+  .admin-access-pill { font-size:8px; }
+  .admin-user { min-width:0; max-width:min(55vw,240px); }
+  .admin-user > span:last-child { min-width:0; }
+  .admin-user strong { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .admin-signout { min-width:40px; min-height:40px; justify-content:center; }
+}
+@media (max-width: 360px) {
+  .admin-topbar__right { justify-content:space-between; }
+  .admin-user { max-width:48vw; }
+}
