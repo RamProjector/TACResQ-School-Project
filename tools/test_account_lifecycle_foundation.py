@@ -7,6 +7,7 @@ migration = (ROOT / "supabase/migrations/20261123090000_account_lifecycle_founda
 rls_migration = (ROOT / "supabase/migrations/20261123100000_account_lifecycle_restrictive_rls.sql").read_text().lower()
 identity_migration = (ROOT / "supabase/migrations/20261123110000_account_lifecycle_identity_helpers.sql").read_text().lower()
 write_migration = (ROOT / "supabase/migrations/20261123120000_account_lifecycle_write_guard_triggers.sql").read_text().lower()
+admin_mfa_migration = (ROOT / "supabase/migrations/20261123130000_account_lifecycle_admin_mfa_guard.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
 design = (ROOT / "docs/security/admin-account-suspension-design.md").read_text().lower()
@@ -64,6 +65,16 @@ for required in (
     assert required in identity_migration, f"Identity helper migration is missing: {required}"
 
 for required in (
+    "create or replace function private.tacresq_require_admin_mfa()",
+    "account_status = 'active'",
+    "for share",
+    "volatile",
+    "auth.jwt() ->> 'aal'",
+    "method ->> 'method'",
+):
+    assert required in admin_mfa_migration, f"Admin MFA account-state guard is missing: {required}"
+
+for required in (
     "create or replace function private.tacresq_reject_suspended_account_write()",
     "before insert or update or delete on %i.%i",
     "auth.uid() is not null",
@@ -92,6 +103,7 @@ for required in (
     "a suspended profile must fail all active identity helpers",
     "test_account_lifecycle_definer_write",
     "security definer table write unexpectedly succeeded",
+    "suspended admin unexpectedly passed the totp-protected directory rpc",
     "tacresq_active_account_write_guard",
     "authenticated client unexpectedly inserted an account audit row",
 ):
