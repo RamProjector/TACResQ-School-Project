@@ -41,11 +41,13 @@ for required in (
     "select p.account_status = 'active'",
     "for share",
     "volatile",
-    "grant execute on function private.tacresq_current_account_active()",
     "to authenticated",
     "revoke update (account_status, suspended_at, suspended_by, suspension_reason)",
 ):
     assert required in migration, f"Account lifecycle migration is missing: {required}"
+
+assert "grant execute on function private.tacresq_current_account_active()" in migration
+assert "to authenticated" in migration
 
 helper = migration.split(
     "create or replace function private.tacresq_current_account_active()", 1
