@@ -60,6 +60,29 @@ final class FcmNotificationDispatcherTest extends TestCase
         }
     }
 
+    public function test_configured_batch_limit_is_clamped_to_database_cap(): void
+    {
+        $claimedLimit = null;
+        config(['tacru.fcm_batch_limit' => 500]);
+        Http::fake(function ($request) use (&$claimedLimit) {
+            if (str_contains($request->url(), '/rpc/api_claim_fcm_delivery_batch')) {
+                $claimedLimit = $request->data()['p_limit'] ?? null;
+                return Http::response([], 200);
+            }
+
+            return Http::response([], 204);
+        });
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldReceive('assertCredentialsAvailable')->once();
+        $fcm->shouldNotReceive('send');
+
+        $stats = (new FcmNotificationDispatcher($fcm))->dispatch();
+
+        self::assertSame(50, $claimedLimit);
+        self::assertSame(0, $stats['tokens']);
+    }
+
     public function test_invalid_explicit_limit_is_rejected_before_queue_claim(): void
     {
         Http::fake();
