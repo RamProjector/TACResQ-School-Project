@@ -50,7 +50,7 @@ def contrast(first: str, second: str) -> float:
 
 for status, expected_colors in expected.items():
     branch = re.search(
-        rf"IncidentStatus\\.{status} -> if \\(isDark\\) \\{{(.*?)\\n    \\}} else \\{{(.*?)\\n    \\}}",
+        rf"IncidentStatus\.{status} -> if \(isDark\) \{{(.*?)\n    \}} else \{{(.*?)\n    \}}",
         palette,
         re.DOTALL,
     )
@@ -58,8 +58,8 @@ for status, expected_colors in expected.items():
 
     def extract_pair(source: str, theme: str) -> tuple[str, str]:
         match = re.search(
-            r"IncidentStatusPalette\\(Color\\(0xFF([0-9A-Fa-f]{6})\\), "
-            r"Color\\(0xFF([0-9A-Fa-f]{6})\\)\\)",
+            r"IncidentStatusPalette\(Color\(0xFF([0-9A-Fa-f]{6})\), "
+            r"Color\(0xFF([0-9A-Fa-f]{6})\)\)",
             source,
         )
         assert match, f"{status} {theme} branch must define one ordered container/content pair"
