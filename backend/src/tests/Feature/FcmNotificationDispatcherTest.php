@@ -42,6 +42,24 @@ final class FcmNotificationDispatcherTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_claim_service_failure_aborts_before_any_send(): void
+    {
+        Http::fake([
+            'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response(['message' => 'unavailable'], 503),
+        ]);
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldReceive('assertCredentialsAvailable')->once();
+        $fcm->shouldNotReceive('send');
+
+        try {
+            (new FcmNotificationDispatcher($fcm))->dispatch(1);
+            self::fail('Expected queue claim failure to abort dispatch.');
+        } catch (\\RuntimeException $exception) {
+            self::assertSame('Supabase FCM delivery queue claim failed.', $exception->getMessage());
+        }
+    }
+
     public function test_invalid_explicit_limit_is_rejected_before_queue_claim(): void
     {
         Http::fake();
