@@ -110,6 +110,11 @@ assert "onSignOut()" in gate_cancel, "Cancelling initial MFA setup must sign out
 assert "auth.mfa.unenroll(" not in gate.split("async function prepareAdminMfa()", 1)[1].split("export default function AdminMfaGate", 1)[0], "Sign-in preparation must not delete pending factors from other devices."
 assert "snapshot.factors.length >= 10" in security_status
 assert "Backup authenticator" in security_status and "separate device" in security_status
+assert "{verifiedFactors.length < 2 && (" in security_status, "The Security page must prominently warn when fewer than two verified factors are enrolled."
+assert "Add a backup authenticator to prevent lockout" in security_status
+assert '"Primary factor locked" : "Remove"' in security_status, "The sole verified factor must be visibly locked rather than presenting a contradictory Remove action."
+assert "A verified factor can be removed only when another verified factor remains" in security_status, "Security guidance must match the supported secondary-factor removal flow."
+assert "This page cannot remove verified factors" not in security_status
 assert "availableFactors" in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 assert "Authenticator device" in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 # Global session revocation is limited to the current Admin account and requires
