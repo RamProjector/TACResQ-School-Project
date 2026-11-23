@@ -590,4 +590,52 @@ class LocalSanctumAccountLifecycleTest extends TestCase
     }
 
 
+
+    public function test_unconfirmed_local_admin_totp_factor_cannot_authorize_sensitive_action(): void
+    {
+        $admin = User::create([
+            'name' => 'Local Pending TOTP Admin',
+            'email' => 'local-pending-totp@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        DB::table('local_admin_totp_credentials')->where('user_id', $admin->id)
+            ->update(['confirmed_at' => null]);
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => $this->adminTotpCode,
+        ])->assertForbidden()->assertExactJson([
+            'message' => 'Administrator re-authentication failed.',
+        ]);
+    }
+
+    public function test_previously_used_totp_value_is_rejected_even_if_a_later_step_collides(): void
+    {
+        $admin = User::create([
+            'name' => 'Local TOTP Collision Admin',
+            'email' => 'local-totp-collision@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        DB::table('local_admin_totp_credentials')->where('user_id', $admin->id)->update([
+            'last_used_step' => intdiv(now()->timestamp, 30) - 1,
+            'last_used_code_hash' => hash('sha256', $this->adminTotpCode),
+        ]);
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => $this->adminTotpCode,
+        ])->assertForbidden()->assertExactJson([
+            'message' => 'Administrator re-authentication failed.',
+        ]);
+    }
+
+
 }
