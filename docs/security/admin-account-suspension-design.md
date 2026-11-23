@@ -44,7 +44,7 @@ A status column is not an authorization control by itself. Before enabling the U
 - The Laravel Supabase bridge and other backend routes that accept a Supabase bearer token.
 - Admin RPCs, including directory and investigation endpoints.
 
-The foundation migration adds `private.tacresq_current_account_active()` with a fixed `pg_catalog` search path and an explicit authenticated-only EXECUTE grant. It reads the current profile row rather than trusting JWT metadata. It is not yet wired into application policies or RPCs. Add restrictive RLS policies where appropriate, but do not assume RLS protects SECURITY DEFINER functions: each definer entry point must explicitly reject suspended callers before doing work. Verify every path rather than assuming the role helper covers them.
+The foundation migration adds `private.tacresq_current_account_active()` with a fixed `pg_catalog` search path and an explicit authenticated-only EXECUTE grant. It reads the current profile row rather than trusting JWT metadata. It is now used by restrictive policies on public tables with direct authenticated privileges, but is not yet wired into RPCs, Storage, Edge Functions, or bridge routes. Add restrictive RLS policies where appropriate, but do not assume RLS protects SECURITY DEFINER functions: each definer entry point must explicitly reject suspended callers before doing work. Verify every path rather than assuming the role helper covers them.
 
 ### 3. Treat already-issued JWTs correctly
 
