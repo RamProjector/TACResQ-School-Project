@@ -9,6 +9,7 @@ identity_migration = (ROOT / "supabase/migrations/20261123110000_account_lifecyc
 write_migration = (ROOT / "supabase/migrations/20261123120000_account_lifecycle_write_guard_triggers.sql").read_text().lower()
 admin_mfa_migration = (ROOT / "supabase/migrations/20261123130000_account_lifecycle_admin_mfa_guard.sql").read_text().lower()
 read_rpc_migration = (ROOT / "supabase/migrations/20261123140000_account_lifecycle_read_rpc_guards.sql").read_text().lower()
+assignment_helper_migration = (ROOT / "supabase/migrations/20261123150000_account_lifecycle_assignment_helper_guard.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
 design = (ROOT / "docs/security/admin-account-suspension-design.md").read_text().lower()
@@ -80,6 +81,16 @@ for required in (
     "grant execute on function public.api_claimable_incidents() to authenticated",
 ):
     assert required in read_rpc_migration, f"Read-RPC account-state guard is missing: {required}"
+
+for required in (
+    "create or replace function private.tacresq_is_incident_assignee(p_incident_id bigint)",
+    "account_status = 'active'",
+    "for share",
+    "volatile",
+    "set search_path = pg_catalog",
+    "grant execute on function private.tacresq_is_incident_assignee(bigint)",
+):
+    assert required in assignment_helper_migration, f"Assignment helper account-state guard is missing: {required}"
 
 for required in (
     "create or replace function private.tacresq_require_admin_mfa()",
