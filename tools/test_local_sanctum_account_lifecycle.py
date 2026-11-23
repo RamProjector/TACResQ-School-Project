@@ -90,4 +90,6 @@ assert "test_local_admin_cannot_silently_replace_a_confirmed_authenticator" in f
 assert "test_local_admin_totp_enrollment_expires_after_ten_minutes" in feature
 assert "test_local_admin_sensitive_action_rejects_incorrect_totp_code" in feature
 assert "test_local_admin_totp_code_cannot_be_replayed" in feature
+assert "test_unconfirmed_local_admin_totp_factor_cannot_authorize_sensitive_action" in feature
+assert "test_previously_used_totp_value_is_rejected_even_if_a_later_step_collides" in feature
 print("Local Sanctum lifecycle guard and append-only audit contracts passed.")
