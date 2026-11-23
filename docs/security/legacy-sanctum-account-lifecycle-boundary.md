@@ -21,11 +21,14 @@ There is no approved, immutable relationship between these two identities. Match
 ## Still missing
 
 - A privileged transition endpoint that uses the transactional recorder and local Admin guard.
-- A verified local MFA factor or other stronger step-up mechanism; the current guard rechecks the local password and is not MFA.
+- A reviewed, auditable Admin authenticator recovery process; no self-service factor reset is exposed.
+- A production route that consumes the local Admin step-up middleware, plus device/recovery procedures and disposable-PostgreSQL integration validation.
 - A full concurrency and integration run on disposable PostgreSQL before enabling transitions.
 
 No local Admin transition UI/API is exposed. No production migration or account change is included in this implementation slice. Do not join Sanctum and Supabase identities by email.
 
-## Local Admin step-up guard (not an endpoint)
+## Local Admin TOTP factor and step-up guard
 
-The local Laravel middleware alias `local.admin.reauthenticated` requires a local `users.role = admin` identity and a fresh `current_password` check against that same Laravel user record. Failed attempts are rate-limited per local Admin and source for 15 minutes after five failures. The middleware does not accept Supabase identity claims, does not infer Admin status from email, and does not provide MFA. No production route currently consumes this alias; it is a reusable guard with isolated feature coverage only. Do not describe this as MFA or expose suspension controls until a local second factor/re-authentication policy and a reviewed transition endpoint are implemented.
+The local Laravel Admin domain now has a separate TOTP enrollment flow. `POST /api/admin/security/totp/enroll` requires a local Admin role and current password, creates a 160-bit random Base32 secret, stores it using Laravel authenticated encryption, and returns the secret plus an `otpauth://` URI once with `Cache-Control: no-store`. `POST /api/admin/security/totp/confirm` requires a valid six-digit code before marking the factor confirmed. Confirmed factors cannot be silently replaced through enrollment. The TOTP verifier uses RFC 6238 SHA-1, six digits, 30-second steps, a narrow ±1-step clock-skew window, row locking, and a monotonic `last_used_step` to reject replay. The local Admin step-up middleware now requires both the current local password and a fresh TOTP code; failed attempts are rate-limited. Secrets are encrypted at rest and never joined to Supabase identities.
+
+The `local.admin.reauthenticated` alias is registered and has isolated test-route coverage, but no production route consumes it yet. Enrollment is not a recovery mechanism: if an Admin loses their authenticator, an independently reviewed recovery process is still required. Do not add a self-service disable/reset endpoint or expose suspension controls until recovery, operational lockout handling, and the privileged transition endpoint are reviewed and tested.
