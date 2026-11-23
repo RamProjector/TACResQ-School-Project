@@ -115,6 +115,13 @@ assert "Do not expose this command" in docs
 assert "--check-config" in docs
 assert "at-least-once, not exactly-once" in docs
 assert "stable notification identifier" in docs
+
+dispatcher_tests = read("backend/src/tests/Feature/FcmNotificationDispatcherTest.php")
+assert "test_invalid_explicit_limit_is_rejected_before_queue_claim" in dispatcher_tests
+assert "test_successful_send_is_written_to_delivery_ledger" in dispatcher_tests
+assert "test_ledger_failure_for_one_attempt_does_not_stop_later_recipients" in dispatcher_tests
+assert "test_invalid_token_cleanup_failure_is_recorded_as_retryable_cleanup_error" in dispatcher_tests
+assert "test_malformed_claimed_attempt_is_skipped_without_sending" in dispatcher_tests
 # The trusted sender must not expose a public route or use a client-visible key.
 assert "Route::post('/internal/push" not in read("backend/src/routes/api.php")
 assert "supabase_publishable_key" not in dispatcher
