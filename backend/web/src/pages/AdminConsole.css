@@ -727,3 +727,35 @@
     scrollbar-width: thin;
   }
 }
+
+
+/* Mobile Admin navigation: keep every workspace section reachable without a hidden sidebar. */
+@media (max-width: 760px) {
+  .admin-sidebar { gap: 12px; }
+  .admin-navigation {
+    display: flex;
+    min-width: 0;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 2px 0 5px;
+    scrollbar-width: thin;
+    overscroll-behavior-x: contain;
+  }
+  .admin-nav-entry { flex: 0 0 auto; }
+  .admin-navigation__group-label { display: none; }
+  .admin-nav-item,
+  .admin-sidebar .admin-nav-item {
+    display: inline-flex;
+    min-height: 40px;
+    white-space: nowrap;
+    padding: 0 12px;
+    border: 1px solid rgba(145,183,162,.18);
+    border-radius: 7px;
+    background: rgba(255,255,255,.045);
+  }
+  .admin-nav-item--active {
+    border-color: rgba(243,106,67,.48);
+    background: rgba(243,106,67,.13);
+  }
+  .admin-sidebar__bottom { display: none; }
+}
