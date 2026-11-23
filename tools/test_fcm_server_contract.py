@@ -57,6 +57,9 @@ assert "PHP_QUERY_RFC3986" in dispatcher
 assert "$this->tableUrl('fcm_tokens').'?'.$query" in dispatcher
 assert "$this->client()->delete($this->tableUrl('fcm_tokens'), [" not in dispatcher
 assert "permanent_failure" in dispatcher
+assert "persistAttemptSafely" in dispatcher
+assert "Delivery ledger update failed for attempt" in dispatcher
+assert "continue;" in dispatcher
 assert "tacresq:dispatch-fcm" in command
 assert "--check-config" in command
 assert "checkConfiguration" in dispatcher
