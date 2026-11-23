@@ -811,3 +811,52 @@ BEGIN
   END IF;
 END;
 $active_assignment_location_entry_contract$;
+
+
+-- Dispatcher directory and queue reads must not disclose operational roster
+-- data to a suspended dispatcher using an otherwise-valid JWT.
+DO $active_dispatcher_read_contract$
+DECLARE
+  v_oid oid;
+  v_source text;
+  v_config text[];
+  v_volatility "char";
+  v_definer boolean;
+BEGIN
+  v_oid := to_regprocedure('public.api_units()');
+  IF v_oid IS NULL THEN RAISE EXCEPTION 'Guarded field-unit directory RPC is missing'; END IF;
+  SELECT prosrc, proconfig, provolatile, prosecdef
+    INTO v_source, v_config, v_volatility, v_definer
+    FROM pg_catalog.pg_proc WHERE oid = v_oid;
+  IF v_definer IS DISTINCT FROM true
+     OR v_volatility IS DISTINCT FROM 'v'
+     OR NOT (coalesce(v_config, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR v_source NOT ILIKE '%account_status = ''active''%'
+     OR v_source NOT ILIKE '%FOR SHARE%'
+     OR v_source NOT ILIKE '%tacresq_api_units_internal%' THEN
+    RAISE EXCEPTION 'Field-unit directory must be a VOLATILE pinned definer with active dispatcher lock and private delegation';
+  END IF;
+  IF NOT has_function_privilege('authenticated', v_oid, 'EXECUTE')
+     OR has_function_privilege('anon', v_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', to_regprocedure('private.tacresq_api_units_internal()'), 'EXECUTE')
+     OR has_function_privilege('anon', to_regprocedure('private.tacresq_api_units_internal()'), 'EXECUTE') THEN
+    RAISE EXCEPTION 'Directory RPC grants must expose only the guarded wrapper to authenticated users';
+  END IF;
+
+  v_oid := to_regprocedure('public.api_all_incidents()');
+  IF v_oid IS NULL THEN RAISE EXCEPTION 'Dispatcher queue RPC is missing'; END IF;
+  SELECT prosrc, proconfig, provolatile, prosecdef
+    INTO v_source, v_config, v_volatility, v_definer
+    FROM pg_catalog.pg_proc WHERE oid = v_oid;
+  IF v_definer IS DISTINCT FROM false
+     OR v_volatility IS DISTINCT FROM 's'
+     OR v_source NOT ILIKE '%tacresq_actor_role()%'
+     OR v_source NOT ILIKE '%only active dispatchers can view the queue%' THEN
+    RAISE EXCEPTION 'Dispatcher queue must use the active-aware role helper as a stable invoker';
+  END IF;
+  IF NOT has_function_privilege('authenticated', v_oid, 'EXECUTE')
+     OR has_function_privilege('anon', v_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Dispatcher queue RPC must be authenticated-only';
+  END IF;
+END;
+$active_dispatcher_read_contract$;
