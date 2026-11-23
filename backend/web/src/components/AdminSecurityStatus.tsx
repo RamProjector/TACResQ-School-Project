@@ -270,6 +270,19 @@ export default function AdminSecurityStatus() {
               <small>{verifiedFactors.length > 0 ? verifiedFactors.map((factor) => factor.name).join(", ") : "No verified TOTP factor found"}</small>
             </div>
           </div>
+          {verifiedFactors.length < 2 && (
+            <div className="admin-security-status__recovery-warning" role="status">
+              <strong>{verifiedFactors.length === 0 ? "No verified authenticator is available" : "Add a backup authenticator to prevent lockout"}</strong>
+              <p>{verifiedFactors.length === 0
+                ? "A verified TOTP factor is required for administrator access. Complete authenticator setup before relying on this account for incident operations."
+                : "Only one verified device is protecting this administrator account. If it is lost or unavailable, you may be locked out of privileged controls. Register and verify a second authenticator on a separate device before removing the current one."}</p>
+              {!enrollment && (
+                <button className="admin-refresh" type="button" onClick={() => { void addBackupAuthenticator(); }} disabled={busy || !snapshot || snapshot.factors.length >= 10 || snapshot.currentLevel !== "aal2" || !snapshot.usedTotp}>
+                  Add backup authenticator
+                </button>
+              )}
+            </div>
+          )}
           <div className="admin-security-status__factor-list">
             <h3>Registered authenticator factors</h3>
             {snapshot.factors.length === 0 ? (
@@ -286,7 +299,7 @@ export default function AdminSecurityStatus() {
                         <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { void removeAuthenticatorFactor(factor); }} disabled={busy || (factor.status === "verified" && verifiedFactors.length <= 1)}>{busy ? "Removing…" : "Confirm remove"}</button>
                       </span>
                     ) : (
-                      <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { setActionError(null); setConfirmRemoveFactorId(factor.id); }} disabled={busy || (factor.status === "verified" && verifiedFactors.length <= 1)} title={factor.status === "verified" && verifiedFactors.length <= 1 ? "Keep at least one verified authenticator" : "Remove this authenticator"}>Remove</button>
+                      <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { setActionError(null); setConfirmRemoveFactorId(factor.id); }} disabled={busy || (factor.status === "verified" && verifiedFactors.length <= 1)} title={factor.status === "verified" && verifiedFactors.length <= 1 ? "Add and verify a backup authenticator before removing this factor" : "Remove this authenticator"}>{factor.status === "verified" && verifiedFactors.length <= 1 ? "Primary factor locked" : "Remove"}</button>
                     )}
                   </li>
                 ))}
@@ -373,7 +386,7 @@ export default function AdminSecurityStatus() {
               </div>
             </div>
           </section>
-          <p className="admin-security-status__footnote">Authenticator setup keys and QR codes are shown only while registering a factor. This page cannot remove verified factors or disable MFA. Cancel only removes the unverified factor created by the active setup flow. Global sign-out revokes refreshable sessions; existing access tokens remain valid until expiry.</p>
+          <p className="admin-security-status__footnote">Authenticator setup keys and QR codes are shown only while registering a factor. A verified factor can be removed only when another verified factor remains, and removal requires fresh TOTP verification. Cancel only removes the unverified factor created by the active setup flow. Global sign-out revokes refreshable sessions; existing access tokens remain valid until expiry.</p>
         </>
       ) : null}
     </section>
