@@ -397,3 +397,42 @@
   .admin-shell :where(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid Highlight; }
   .admin-nav-item--active { outline: 1px solid Highlight; }
 }
+
+
+/* Printer-friendly administrative evidence: preserve content, suppress app chrome. */
+@media print {
+  @page { size: auto; margin: 14mm; }
+  .admin-shell {
+    display: block !important;
+    color: #172b27 !important;
+    background: #fff !important;
+    font-size: 10pt;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .admin-sidebar, .admin-topbar, .admin-skip-link, .admin-refresh,
+  .admin-signout, .admin-modal-scrim, .admin-pagination,
+  .admin-toolbar, .audit-page__filters, .audit-page__copy-error,
+  .admin-table-scroll-hint { display: none !important; }
+  .admin-main, .admin-workspace { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+  .admin-heading { margin: 0 0 14pt !important; padding: 0 0 10pt !important; border-bottom: 1px solid #aebbb4; }
+  .admin-heading h1 { color: #172b27 !important; font-size: 20pt !important; }
+  .admin-panel, .admin-metrics article, .audit-page__lifecycle, .audit-event-card,
+  .audit-page__coverage, .audit-page__coverage-details {
+    break-inside: avoid-page;
+    box-shadow: none !important;
+    border-color: #b8c4bc !important;
+    background: #fff !important;
+  }
+  .admin-metrics { display: grid !important; grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+  .admin-table-wrap { overflow: visible !important; }
+  .admin-table { width: 100% !important; min-width: 0 !important; table-layout: auto; }
+  .admin-table th, .admin-table td { padding: 5pt !important; color: #172b27 !important; font-size: 8pt !important; overflow-wrap: anywhere; }
+  .admin-table th { white-space: normal !important; }
+  .audit-page, .audit-page__list { display: block !important; overflow: visible !important; }
+  .audit-event-card { margin: 0 0 10pt !important; }
+  .audit-event-card__details, .audit-event-card__references { display: block !important; }
+  .audit-event-card__details dl { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-footer { margin-top: 14pt; color: #52635b !important; border-top: 1px solid #b8c4bc; }
+  a { color: #172b27 !important; text-decoration: none !important; }
+}
