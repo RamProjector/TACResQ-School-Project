@@ -87,3 +87,18 @@ Before the implementation can be called complete, add and review:
 ## Decision
 
 Do not add the Suspend/Reactivate button yet. A UI control before complete server-side enforcement would create a false security promise. Continue with exact migration/catalog inventory and a testable enforcement design first.
+
+
+## PR #347 implementation reconciliation — 2026-11-24
+
+This section supersedes the preliminary status labels above where later PR #347 migrations and tests provide newer evidence. It does not convert source checks into runtime proof.
+
+- **Profile and direct-table access:** the current branch adds default-active profile state, the current-profile resolver, restrictive RLS policies, and write guards. The clean-replay/static contracts are the evidence to review; a live project has not been inspected or migrated.
+- **Read/write callable paths:** later migrations add active-profile checks to the reviewed notification, chat-history, claimability, incident create/cancel/claim, assignment-helper, and chat idempotency entry points. The callable inventory remains incomplete: the catalog query is a discovery report, not an automated assertion that every callable has a safe guard. Continue reconciling every effective signature and nested private helper against the source crosswalk before enabling transitions.
+- **Storage:** the current inventory contract expects only the private `incident-chat-attachments` bucket, fails on any additional bucket, checks both object policies and the reviewed private/MIME/size configuration, and reports metadata only. SQL replay tests cover suspended same-valid-JWT upload/download denial. This is not an HTTP-level Storage integration test.
+- **Notification Edge Function:** an offline source contract checks actor denial and active-recipient filtering before FCM token lookup, Google OAuth, and FCM delivery. It does not emulate Deno networking or prove provider calls are absent in an isolated deployed function test.
+- **Laravel Supabase bridge:** source and HTTP-fake tests require a valid Supabase bearer identity followed by an active `api_me` profile preflight before forwarding allowlisted RPC calls. The bridge remains separate from direct Android/web Supabase calls.
+- **Legacy Laravel Sanctum:** this is a separate local identity domain. Default-active local suspension state, `account.active` route middleware, login token-issuance denial, self-service logout exceptions, and an append-only local lifecycle ledger are implemented in source. A privileged local Admin transition endpoint is still absent. No email-based identity join is permitted.
+- **Admin transition:** the Supabase transition RPC remains unavailable to client roles. No Suspend/Reactivate UI is exposed. Keep PR #347 draft until the remaining callable crosswalk, isolated Edge Function tests, HTTP Storage tests, disposable PostgreSQL concurrency matrix, and full same-valid-JWT regression suite are executed and reviewed.
+
+**Validation boundary:** No connected Supabase project was queried or changed, no production migration or Edge Function was deployed, and no production account was suspended. Static source contracts are not substitutes for running the clean migration replay and isolated integration suites.
