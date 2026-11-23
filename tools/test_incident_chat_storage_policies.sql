@@ -677,8 +677,7 @@ BEGIN
   existing_image_path := format(
     '%s/%s/00000000-0000-4000-8000-000000000204.jpg',
     incident_id,
-    (SELECT id FROM public.profiles
-      WHERE auth_user_id = '00000000-0000-4000-8000-000000000161')
+    current_setting('test.responder_profile_id')::bigint
   );
   SELECT count(*) INTO visible_count
     FROM storage.objects
