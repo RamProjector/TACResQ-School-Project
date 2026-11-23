@@ -70,7 +70,7 @@ assert "console.error" in source and "private_key" not in source.split("console.
 )
 
 
-// Request/authentication preflight must reject malformed callers before any
+# Request/authentication preflight must reject malformed callers before any
 // profile, incident, recipient-token, OAuth, or FCM work can occur.
 method_guard = source.index('if (request.method !== "POST")');
 bearer_guard = source.index('if (!userToken)', method_guard);
@@ -88,7 +88,7 @@ assert 'return json({ error: "Invalid or expired session" }, 401)' in source
 assert 'return json({ error: "POST required" }, 405)' in source
 assert 'return json({ error: "Authorization bearer token required" }, 401)' in source
 
-// Malformed payloads and unsupported events must not reach actor/incident
+# Malformed payloads and unsupported events must not reach actor/incident
 // reads, recipient resolution, or any provider network call.
 json_error = source.index('catch { return json({ error: "Invalid JSON body" }, 400); }')
 required_fields = source.index('if (!event || !Number.isSafeInteger(incidentId) || incidentId <= 0)')
