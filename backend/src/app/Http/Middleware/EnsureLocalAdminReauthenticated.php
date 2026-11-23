@@ -32,8 +32,22 @@ final class EnsureLocalAdminReauthenticated
             'totp_code' => ['required', 'string', 'regex:/^\d{6}$/'],
         ]);
 
-        if (!Hash::check($credentials['current_password'], $user->password)
-            || !app(LocalAdminTotpService::class)->verifyAndConsume($user, $credentials['totp_code'])) {
+        $authorized = DB::transaction(function () use ($user, $credentials): bool {
+            // Re-read and lock the current account state so a role change or
+            // suspension racing this request cannot pass using a stale model.
+            $lockedUser = User::whereKey($user->getAuthIdentifier())->lockForUpdate()->first();
+            if ($lockedUser === null || $lockedUser->role !== 'admin' || $lockedUser->is_suspended) {
+                return false;
+            }
+
+            if (!Hash::check($credentials['current_password'], $lockedUser->password)) {
+                return false;
+            }
+
+            return app(LocalAdminTotpService::class)->verifyAndConsume($lockedUser, $credentials['totp_code']);
+        }, 3);
+
+        if (!$authorized) {
             RateLimiter::hit($key, 900);
             return response()->json(['message' => 'Administrator re-authentication failed.'], 403)
                 ->header('Cache-Control', 'no-store, private');
