@@ -469,11 +469,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <>
                 <div className="admin-health-summary" role="status" aria-live="polite">
                   <strong>
-                    {[dependencyHealth.laravel_backend, dependencyHealth.supabase_auth, dependencyHealth.supabase_database].every((probe) => probe.status === "healthy")
-                      ? "All three reachability probes responded"
-                      : [dependencyHealth.laravel_backend, dependencyHealth.supabase_auth, dependencyHealth.supabase_database].some((probe) => probe.status === "unavailable")
-                        ? "At least one reachability probe did not respond"
-                        : "At least one reachability probe exceeded five seconds"}
+                    {reachableDependencyCount === dependencyProbes.length
+                      ? "All three dependencies responded within the probe threshold"
+                      : reachableDependencyCount + " of " + dependencyProbes.length + " dependencies responded within the probe threshold"}
                   </strong>
                   <span>This summary covers only the three probes listed below, not complete emergency-service readiness.</span>
                 </div>
