@@ -249,6 +249,73 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_postgres_identity_migration_fails_closed_when_legacy_events_are_unattributed(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('The lifecycle identity migration is PostgreSQL-specific.');
+        }
+
+        DB::statement('ALTER TABLE local_account_lifecycle_events ALTER COLUMN actor_user_id DROP NOT NULL');
+        DB::table('local_account_lifecycle_events')->insert([
+            'actor_user_id' => null,
+            'target_user_id' => 20,
+            'action' => 'suspended',
+            'reason' => 'Legacy unattributed event',
+            'previous_state' => 'active',
+            'new_state' => 'suspended',
+            'created_at' => now(),
+        ]);
+
+        $migration = require database_path('migrations/2026_11_23_000012_require_local_lifecycle_audit_identities.php');
+
+        try {
+            $migration->up();
+            $this->fail('The identity migration must refuse to invent or accept a missing actor.');
+        } catch (\\RuntimeException $exception) {
+            $this->assertStringContainsString('existing events have missing actor or target IDs', $exception->getMessage());
+        }
+
+        $this->assertSame(1, DB::table('local_account_lifecycle_events')->whereNull('actor_user_id')->count());
+        $column = DB::selectOne(
+            "SELECT is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?",
+            ['local_account_lifecycle_events', 'actor_user_id'],
+        );
+        $this->assertSame('YES', $column->is_nullable, 'A failed preflight must not partially enforce NOT NULL.');
+    }
+
+    public function test_postgres_identity_migration_enforces_and_rolls_back_both_required_columns(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('The lifecycle identity migration is PostgreSQL-specific.');
+        }
+
+        DB::statement('ALTER TABLE local_account_lifecycle_events ALTER COLUMN actor_user_id DROP NOT NULL');
+        DB::statement('ALTER TABLE local_account_lifecycle_events ALTER COLUMN target_user_id DROP NOT NULL');
+
+        $migration = require database_path('migrations/2026_11_23_000012_require_local_lifecycle_audit_identities.php');
+        $migration->up();
+
+        $columns = DB::select(
+            "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name IN (?, ?) ORDER BY column_name",
+            ['local_account_lifecycle_events', 'actor_user_id', 'target_user_id'],
+        );
+        $this->assertCount(2, $columns);
+        foreach ($columns as $column) {
+            $this->assertSame('NO', $column->is_nullable, $column->column_name.' must be NOT NULL after migration.');
+        }
+
+        $migration->down();
+
+        $rolledBack = DB::select(
+            "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name IN (?, ?) ORDER BY column_name",
+            ['local_account_lifecycle_events', 'actor_user_id', 'target_user_id'],
+        );
+        $this->assertCount(2, $rolledBack);
+        foreach ($rolledBack as $column) {
+            $this->assertSame('YES', $column->is_nullable, $column->column_name.' must be nullable after rollback.');
+        }
+    }
+
     public function test_postgres_lifecycle_audit_requires_actor_and_target_ids(): void
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {
