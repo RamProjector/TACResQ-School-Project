@@ -167,4 +167,16 @@ assert '<span>Period (Manila time)</span>' in admin_console
 assert 'No daily buckets were returned for this reporting period.' in admin_console
 assert 'No daily data for this period.' not in admin_console
 
+# Directory filters identify their result table, and mobile users can discover and operate horizontal scrolling.
+assert 'id="admin-directory-search"' in admin_console
+assert 'id="admin-directory-role-filter"' in admin_console
+assert 'aria-controls="admin-account-directory-table" aria-describedby="admin-directory-status"' in admin_console
+assert 'className="admin-table-scroll-hint"' in admin_console
+assert ".admin-toolbar {\n  flex-wrap:wrap;" in admin_css
+assert ".admin-search {\n  flex:1 1 260px;" in admin_css
+assert ".admin-table {\n  min-width:720px;" in admin_css
+assert ".admin-account strong,\n.admin-account small {\n  overflow-wrap:anywhere;" in admin_css
+assert ".admin-table-wrap:focus-visible {" in admin_css
+assert "@media (max-width:760px) {\n  .admin-table-scroll-hint {" in admin_css
+
 print("Web admin-only contract passed.")
