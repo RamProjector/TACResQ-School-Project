@@ -607,3 +607,35 @@
   .audit-event-card { transition:none; }
   .admin-metrics article:hover { transform:none; }
 }
+
+/* Make the single-factor recovery risk visible before factor-management actions. */
+.admin-security-status__recovery-warning {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:8px;
+  margin:0 0 16px;
+  padding:14px 16px;
+  border:1px solid #ead4a8;
+  border-left:4px solid #c18b35;
+  border-radius:8px;
+  background:#fff9ec;
+}
+.admin-security-status__recovery-warning strong {
+  color:#76521e;
+  font-size:12px;
+  line-height:1.4;
+}
+.admin-security-status__recovery-warning p {
+  margin:0;
+  color:#79694d;
+  font-size:11px;
+  line-height:1.6;
+}
+.admin-security-status__recovery-warning .admin-refresh {
+  min-height:34px;
+}
+.admin-security-status__factor-list li > button:disabled {
+  cursor:not-allowed;
+  opacity:.72;
+}
