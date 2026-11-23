@@ -754,7 +754,12 @@ $dispatcher_progress_contract$;
 -- internal routines; only active-profile-locking wrappers retain client grants.
 DO $active_assignment_location_entry_contract$
 DECLARE
-  routine record;
+  v_signature text;
+  v_oid oid;
+  v_source text;
+  v_config text[];
+  v_volatility "char";
+  v_definer boolean;
   required_routines text[] := ARRAY[
     'public.api_assign_incident_team(bigint,bigint[])',
     'private.tacresq_release_incident_assignment(bigint,bigint)',
@@ -766,32 +771,34 @@ DECLARE
     'private.tacresq_record_location_v2_internal(bigint,double precision,double precision,real,timestamp with time zone)'
   ];
 BEGIN
-  FOREACH routine IN ARRAY required_routines LOOP
-    IF to_regprocedure(routine::text) IS NULL THEN
-      RAISE EXCEPTION 'Expected guarded callable is missing: %', routine;
+  FOREACH v_signature IN ARRAY required_routines LOOP
+    v_oid := to_regprocedure(v_signature);
+    IF v_oid IS NULL THEN
+      RAISE EXCEPTION 'Expected guarded callable is missing: %', v_signature;
     END IF;
     SELECT p.prosrc, p.proconfig, p.provolatile, p.prosecdef
-      INTO STRICT routine
+      INTO v_source, v_config, v_volatility, v_definer
       FROM pg_catalog.pg_proc p
-     WHERE p.oid = to_regprocedure(routine::text);
-    IF routine.prosecdef IS DISTINCT FROM true
-       OR routine.provolatile IS DISTINCT FROM 'v'
-       OR NOT (coalesce(routine.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
-       OR routine.prosrc NOT ILIKE '%account_status = ''active''%'
-       OR routine.prosrc NOT ILIKE '%FOR SHARE%' THEN
-      RAISE EXCEPTION 'Callable % must be VOLATILE, pinned SECURITY DEFINER with an active-profile share lock', routine;
+     WHERE p.oid = v_oid;
+    IF v_definer IS DISTINCT FROM true
+       OR v_volatility IS DISTINCT FROM 'v'
+       OR NOT (coalesce(v_config, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+       OR v_source NOT ILIKE '%account_status = ''active''%'
+       OR v_source NOT ILIKE '%FOR SHARE%' THEN
+      RAISE EXCEPTION 'Callable % must be VOLATILE, pinned SECURITY DEFINER with an active-profile share lock', v_signature;
     END IF;
-    IF NOT has_function_privilege('authenticated', to_regprocedure(routine::text), 'EXECUTE')
-       OR has_function_privilege('anon', to_regprocedure(routine::text), 'EXECUTE') THEN
-      RAISE EXCEPTION 'Guarded callable % must be authenticated-only', routine;
+    IF NOT has_function_privilege('authenticated', v_oid, 'EXECUTE')
+       OR has_function_privilege('anon', v_oid, 'EXECUTE') THEN
+      RAISE EXCEPTION 'Guarded callable % must be authenticated-only', v_signature;
     END IF;
   END LOOP;
 
-  FOREACH routine IN ARRAY internal_routines LOOP
-    IF to_regprocedure(routine::text) IS NULL
-       OR has_function_privilege('authenticated', to_regprocedure(routine::text), 'EXECUTE')
-       OR has_function_privilege('anon', to_regprocedure(routine::text), 'EXECUTE') THEN
-      RAISE EXCEPTION 'Internal implementation must exist and be inaccessible to client roles: %', routine;
+  FOREACH v_signature IN ARRAY internal_routines LOOP
+    v_oid := to_regprocedure(v_signature);
+    IF v_oid IS NULL
+       OR has_function_privilege('authenticated', v_oid, 'EXECUTE')
+       OR has_function_privilege('anon', v_oid, 'EXECUTE') THEN
+      RAISE EXCEPTION 'Internal implementation must exist and be inaccessible to client roles: %', v_signature;
     END IF;
   END LOOP;
 
