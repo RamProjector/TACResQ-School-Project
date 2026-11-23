@@ -103,8 +103,7 @@ BEGIN
   BEGIN
     INSERT INTO public.fcm_tokens(profile_id, token)
     VALUES (
-      (SELECT id FROM public.profiles
-        WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202'),
+      (SELECT private.tacresq_auth_profile_id_for_token_cleanup()),
       'fcm-suspended-direct-insert-token-000000000202'
     );
     RAISE EXCEPTION 'Suspended account unexpectedly inserted an FCM token directly';
