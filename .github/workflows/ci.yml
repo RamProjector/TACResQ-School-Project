@@ -51,6 +51,9 @@ jobs:
       - name: Check notification account-state rollout boundary
         run: python3 tools/test_notification_account_state_rollout.py
 
+      - name: Check notification Edge Function account-state authorization order
+        run: python3 tools/test_account_lifecycle_notification_edge_contract.py
+
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
