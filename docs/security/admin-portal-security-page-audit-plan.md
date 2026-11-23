@@ -136,3 +136,13 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - Added static source assertions for intermediate-width header reflow, audit details, directory context, keyboard/touch affordances, high-contrast modes, and print output.
 - No new Admin powers, API calls, database changes, or production configuration changes were introduced.
 - Browser testing remains necessary for the real header/sidebar at 761–1100px, narrow phones, keyboard and forced-colors modes, and printed audit pages. Static assertions do not replace those checks.
+
+
+## Admin print and narrow-screen follow-up
+
+- Printed account tables now repeat their header row and avoid splitting a data row across pages, improving the readability of multi-page evidence.
+- Long audit identifiers, account metadata, and table values are constrained to the printable page width without changing stored values or on-screen data.
+- Added a narrow-viewport tier for 360px and below: compact workspace gutters, single-column metrics, stacked pagination controls, and tighter audit detail padding. The account table retains its intentional horizontal-scroll behavior rather than compressing columns into unreadable text.
+- Extended the static source-contract test to lock these layout rules.
+- These are presentation-only changes. No data access, account permissions, lifecycle transitions, API calls, or database behavior changed.
+- Still required: execute the Python contract test and verify browser rendering at 320px, 360px, 200% zoom, and multi-page print output. These checks have not been run in this remote-only commit workflow.
