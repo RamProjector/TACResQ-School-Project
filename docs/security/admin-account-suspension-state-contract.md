@@ -4,18 +4,19 @@
 
 ## Implemented database foundation
 
-Migrations `20261123090000` through `20261123160000` currently:
+Migrations `20261123090000` through `20261123170000` currently:
 
 - Add `profiles.account_status` (`active` or `suspended`, NOT NULL, default `active`), plus current suspension timestamp, actor profile-ID snapshot, and bounded reason.
 - Enforce state/metadata invariants: active profiles have no current suspension metadata; suspended profiles require timestamp, actor snapshot, and a 10–500 character reason.
-- Add an RLS-enabled, client/service-role-inaccessible, append-only `account_lifecycle_audit_logs` ledger for future atomic state transitions.
+- Add an RLS-enabled, client/service-role-inaccessible, append-only `account_lifecycle_audit_logs` ledger used by the atomic Admin transition RPC.
 - Add `private.tacresq_current_account_active()`, which reads the current profile row, does not trust JWT metadata, and takes a profile `FOR SHARE` lock.
 - Add restrictive `FOR ALL` policies to RLS-enabled public tables with direct authenticated table/column privileges.
 - Add a row-level write guard to every public table. Writes carrying a suspended end-user JWT are rejected, including writes inside SECURITY DEFINER functions that bypass RLS.
 - Make actor-role, chat profile-ID, incident-assignee, and Admin MFA helpers account-aware. Admin MFA still requires AAL2 and a TOTP AMR entry.
 - Guard notification list/detail, incident-chat history, and claimable-incident discovery read RPCs; the field-unit directory now rejects suspended dispatchers and excludes suspended units.
 - Make incident-chat Storage policy identity checks fail closed for suspended callers. The Storage replay contract now tests prior-object download denial, new upload denial, chat-history denial, and chat-message denial with the same still-valid JWT.
-- Update the notification Edge Function to reject suspended actors and filter recipients to active profiles before FCM token lookup.\n- Implement an internal Admin account-status transition RPC with AAL2/TOTP, a shared advisory lock coordinated with Admin role changes, actor/target row locking, self-suspension and last-Admin checks, idempotent transitions, and atomic immutable audit insertion. The RPC is not yet executable by client roles.
+- Update the notification Edge Function to reject suspended actors and filter recipients to active profiles before FCM token lookup.
+- Implement an internal Admin account-status transition RPC with AAL2/TOTP, a shared advisory lock coordinated with Admin role changes, actor/target row locking, self-suspension and last-Admin checks, idempotent transitions, and atomic immutable audit insertion. The RPC is not yet executable by client roles.
 
 All existing profiles receive the default `active` state. Role, duty status, identity, incident assignments, and account status remain separate concepts.
 
