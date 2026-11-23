@@ -32,7 +32,7 @@
 
 ## Private callable definer functions
 
-The private-function inventory is a separate callable surface. A private function with authenticated EXECUTE is directly callable even if it is also used by a public wrapper. The source reviews explicitly identify these examples:
+The private-function inventory is a separate callable surface. The clean-replay contract now separately locks the nine authenticated-callable private SECURITY DEFINER helpers in `tools/test_account_suspension_private_definer_inventory.sql`; additions or grant changes fail replay until explicitly reviewed. A private function with authenticated EXECUTE is directly callable even if it is also used by a public wrapper. The source reviews explicitly identify these examples:
 
 - `private.tacresq_auth_profile_id()` and `private.tacresq_auth_can_access_incident_chat(bigint)` — Batch 1.
 - `private.tacresq_assign_incident_team(bigint,bigint[])`, `private.tacresq_is_incident_assignee(bigint)`, `private.tacresq_record_location_v2(...)`, `private.tacresq_active_responder_locations()`, and `private.tacresq_dispatch_update_incident_status(bigint,text)` — Batch 3.
@@ -44,11 +44,11 @@ The full exact private signature list and function bodies are emitted by `tools/
 
 The clean replay also reports 52 authenticated-callable public SECURITY INVOKER functions. Their access can still expose or mutate data through RLS, views, or helper calls. Examples documented in Batch 3 include `api_assign_incident_team`, `api_assign_incident`, `api_update_incident_status`, `api_all_incidents`, `api_my_incidents`, `api_set_duty_status`, `api_record_location_v2`, and `api_active_responder_locations`.
 
-A complete release matrix must therefore include all 72 public callable functions, not only the 20 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
+A complete release matrix must therefore include all 72 public callable functions, not only the 21 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
 
 ## Current coverage and remaining gap
 
-This crosswalk connects the 20 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
+This crosswalk connects the 21 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
 
 Before adding the account-state migration:
 1. Finish exact coverage for all 52 invoker functions and all authenticated-callable private functions.
