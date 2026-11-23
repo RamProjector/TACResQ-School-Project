@@ -13,7 +13,7 @@ source = (ROOT / "supabase/functions/tacresq-notify/index.ts").read_text(encodin
 actor_lookup = source.index('.from("profiles").select("id,role,account_status")')
 actor_denial = source.index('actor.account_status !== "active"', actor_lookup)
 incident_lookup = source.index('.from("incidents")', actor_denial)
-recipient_lookup = source.index('.from("profiles")', source.index("let targetProfileIds"))
+recipient_lookup = source.index("const { data: activeRecipients", source.index("let targetProfileIds"))
 recipient_active_filter = source.index('.eq("account_status", "active")', recipient_lookup)
 token_lookup = source.index('.from("fcm_tokens")', recipient_active_filter)
 oauth_call = source.index("getGoogleAccessToken(googleAccount)", token_lookup)
