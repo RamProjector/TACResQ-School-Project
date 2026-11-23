@@ -207,6 +207,6 @@ assert "tools/test_incident_chat_storage_policies.sql" in replay, (
     "Clean migration replay must execute the Storage same-valid-JWT denial test"
 )
 assert "status:** design and repository inventory required" not in design
-assert "foundation migration" in design and "other read-only security definer rpcs still require explicit guards" in design
+assert "foundation migration" in design and "other storage buckets, remaining idempotent/read rpcs" in design
 
 print("Account lifecycle foundation source contract passed.")
