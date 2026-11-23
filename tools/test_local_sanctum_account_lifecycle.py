@@ -209,6 +209,11 @@ assert "ALTER COLUMN actor_user_id SET NOT NULL" in audit_identity_migration
 assert "ALTER COLUMN target_user_id SET NOT NULL" in audit_identity_migration
 assert "ALTER COLUMN actor_user_id DROP NOT NULL" in audit_identity_migration
 assert "ALTER COLUMN target_user_id DROP NOT NULL" in audit_identity_migration
+assert "whereNull('actor_user_id')" in audit_identity_migration
+assert "orWhereNull('target_user_id')" in audit_identity_migration
+assert "$unattributedEvents > 0" in audit_identity_migration
+assert "separately approved audit-preserving process" in audit_identity_migration
+assert audit_identity_migration.index("$unattributedEvents > 0") < audit_identity_migration.index("ALTER COLUMN actor_user_id SET NOT NULL")
 assert audit_identity_migration.count("DB::connection()->getDriverName() !== 'pgsql'") == 2
 assert "use Illuminate\\Database\\Migrations\\Migration;" in audit_identity_migration
 assert "use Illuminate\\Support\\Facades\\DB;" in audit_identity_migration
