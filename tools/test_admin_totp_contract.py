@@ -304,6 +304,20 @@ first_history_read = investigation_body.find("from public.admin_audit_logs")
 assert investigation_mfa >= 0 and first_history_read > investigation_mfa, (
     "Investigation RPC must enforce the shared Admin MFA gate before reading audit history"
 )
+source_cte = investigation_body.find("with source_events as (")
+assert source_cte > investigation_mfa, "Investigation source CTE must follow Admin MFA enforcement"
+for validation in (
+    "if p_limit is null or p_limit < 1 or p_limit > 100",
+    "if length(v_query) > 120",
+    "if p_category is null or p_category not in (",
+    "if p_source is null or p_source not in (",
+    "if p_from is not null and p_to is not null and p_from >= p_to",
+    "if (p_actor_user_id is not null and p_actor_user_id < 1)",
+):
+    position = investigation_body.find(validation)
+    assert investigation_mfa < position < source_cte, (
+        f"Investigation input validation must run after MFA and before source reads: {validation}"
+    )
 
 # Keep the investigation feed bounded and allowlisted before it touches source data.
 for requirement in (
