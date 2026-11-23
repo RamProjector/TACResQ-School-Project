@@ -318,7 +318,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     };
   }, [onSignOut]);
 
-  const filteredUsers = users;
+  // Do not present results for the previous query while a new server-side search is pending.
+  const filteredUsers = directoryFilterPending ? [] : users;
   const hasDirectoryFilters = query.trim().length > 0 || roleFilter !== "all";
   const directoryFilterPending = query.trim() !== debouncedQuery;
 
@@ -505,7 +506,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <caption className="admin-table-caption">Account details and available role-management actions for the current directory page.</caption>
                 <thead><tr><th scope="col">Account</th><th scope="col">Role</th><th scope="col">Duty status</th><th scope="col">Created</th><th scope="col">Action</th></tr></thead>
                 <tbody>
-                  {loading && users.length === 0 ? (
+                  {directoryFilterPending ? (
+                    <tr><td colSpan={5}><div className="admin-empty" role="status" aria-live="polite"><LoaderCircle size={19} className="admin-spin" /> Applying search…</div></td></tr>
+                  ) : loading && users.length === 0 ? (
                     <tr><td colSpan={5}><div className="admin-empty" role="status" aria-live="polite"><LoaderCircle size={19} className="admin-spin" /> Loading accounts from Supabase…</div></td></tr>
                   ) : filteredUsers.length === 0 ? (
                     <tr><td colSpan={5}><div className="admin-empty"><Users size={20} /><strong>{directoryError ? "User data is unavailable" : "No accounts match this filter"}</strong><span>{directoryError ? "The page does not substitute demo accounts for live data." : "Try another search or role filter."}</span></div></td></tr>
