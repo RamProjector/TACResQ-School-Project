@@ -70,6 +70,15 @@ assert ".admin-sidebar .admin-nav-item" in admin_css
 assert ".admin-nav-item:focus-visible" in admin_css
 assert "@media (max-width: 520px)" in admin_css
 assert ".admin-topbar__right" in admin_css
+assert 'className="admin-skip-link" href="#admin-workspace-main"' in admin_console
+assert 'id="admin-workspace-main" tabIndex={-1}' in admin_console
+assert ".admin-skip-link:focus" in admin_css
+assert 'id="admin-user-management" aria-labelledby="admin-user-management-title"' in admin_console
+assert 'id="admin-account-directory-table" aria-label="Administrator account directory" aria-describedby="admin-directory-status"' in admin_console
+assert '<nav className="admin-pagination" aria-label="User directory pagination" aria-controls="admin-account-directory-table">' in admin_console
+assert '<th scope="col">Account</th>' in admin_console
+assert 'id="audit-event-list" aria-busy={loading}' in audit_page
+assert '<nav className="admin-pagination audit-page__pagination" aria-label="Investigation history pagination" aria-controls="audit-event-list">' in audit_page
 assert ".admin-user strong" in admin_css
 # Printed security reports should preserve the page heading and avoid forced blank pages.
 assert ".admin-heading__identity { break-after:avoid; }" in admin_css
