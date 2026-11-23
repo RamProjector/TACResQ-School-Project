@@ -91,7 +91,22 @@ class FcmNotificationDispatcher
                 } elseif ($result['invalid_token']) {
                     // FCM UNREGISTERED is the definitive signal that this token is
                     // no longer registered. Do not delete tokens for INVALID_ARGUMENT.
-                    $this->deleteToken($token);
+                    try {
+                        $this->deleteToken($token);
+                    } catch (\\Throwable $cleanupException) {
+                        // Keep this delivery retryable until token cleanup succeeds.
+                        // Do not misclassify a PostgREST cleanup failure as an FCM transport failure.
+                        $this->logCleanupFailureSafely($attemptId, $cleanupException);
+                        $this->persistAttemptSafely(
+                            $attemptId,
+                            'failed',
+                            null,
+                            'TOKEN_CLEANUP_FAILURE',
+                            $this->nextAttemptAt($attemptCount, 0, null),
+                        );
+                        $stats['failed']++;
+                        continue;
+                    }
                     $this->persistAttemptSafely($attemptId, 'invalid_token', null, $result['error_code']);
                     $stats['invalid_tokens']++;
                 } elseif ($result['retryable']) {
