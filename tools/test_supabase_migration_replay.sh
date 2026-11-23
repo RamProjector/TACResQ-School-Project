@@ -96,6 +96,101 @@ done
 psql -v ON_ERROR_STOP=1 -f tools/check_incident_chat_upload_schema.sql
 
 psql -v ON_ERROR_STOP=1 <<'SQL'
+-- The Auth -> profile trigger is a privileged account-lifecycle boundary.
+-- Fail replay if it disappears, is disabled, or loses its expected definer mode.
+DO $auth_profile_trigger_contract$
+DECLARE
+  trigger_enabled "char";
+  function_is_definer boolean;
+  function_settings text[];
+  function_source text;
+  signup_function oid;
+BEGIN
+  SELECT t.tgenabled, p.prosecdef, p.oid
+    INTO trigger_enabled, function_is_definer, signup_function
+    FROM pg_catalog.pg_trigger AS t
+    JOIN pg_catalog.pg_proc AS p ON p.oid = t.tgfoid
+   WHERE t.tgrelid = 'auth.users'::regclass
+     AND t.tgname = 'tacresq_auth_user_created'
+     AND NOT t.tgisinternal;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Expected Auth signup trigger tacresq_auth_user_created is missing';
+  END IF;
+  IF trigger_enabled <> 'O' THEN
+    RAISE EXCEPTION 'Auth signup trigger must be enabled for normal origin writes; found mode %', trigger_enabled;
+  END IF;
+  IF function_is_definer IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Auth signup trigger function must retain its SECURITY DEFINER execution mode';
+  END IF;
+  IF signup_function IS DISTINCT FROM to_regprocedure('public.tacresq_profile_on_signup()') THEN
+    RAISE EXCEPTION 'Auth signup trigger must call public.tacresq_profile_on_signup()';
+  END IF;
+
+  SELECT p.proconfig, p.prosrc
+    INTO function_settings, function_source
+    FROM pg_catalog.pg_proc AS p
+   WHERE p.oid = signup_function;
+
+  IF NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'Auth signup SECURITY DEFINER function must pin search_path to pg_catalog';
+  END IF;
+  IF function_source NOT LIKE '%ON CONFLICT (auth_user_id) DO NOTHING%'
+     OR function_source NOT LIKE '%''requester''%'
+     OR function_source NOT LIKE '%pg_catalog.regexp_replace%'
+     OR function_source NOT LIKE '%pg_catalog.lower%' THEN
+    RAISE EXCEPTION 'Final Auth signup function lost its conflict-safe requester role or qualified normalization contract';
+  END IF;
+  IF has_function_privilege('authenticated', signup_function, 'EXECUTE')
+     OR has_function_privilege('anon', signup_function, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Auth signup trigger function must not be directly executable by client roles';
+  END IF;
+END;
+$auth_profile_trigger_contract$;
+
+-- Exercise the final Auth signup trigger's server-side contact validation.
+-- A rejected signup must roll back the Auth row as well as profile creation.
+DO $auth_signup_validation_test$
+DECLARE
+  rejected boolean;
+  test_user_id uuid;
+BEGIN
+  test_user_id := '00000000-0000-4000-8000-000000000198';
+  rejected := false;
+  BEGIN
+    INSERT INTO auth.users (id, email, raw_user_meta_data)
+    VALUES (test_user_id, 'invalid-phone-signup@example.test',
+      '{"name":"Invalid Phone","phone":"abc"}'::jsonb);
+  EXCEPTION WHEN invalid_parameter_value THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Auth signup trigger must reject a phone number without 7-15 digits';
+  END IF;
+  IF EXISTS (SELECT 1 FROM auth.users WHERE id = test_user_id)
+     OR EXISTS (SELECT 1 FROM public.profiles WHERE auth_user_id = test_user_id) THEN
+    RAISE EXCEPTION 'Rejected invalid-phone signup must leave neither Auth nor profile row';
+  END IF;
+
+  test_user_id := '00000000-0000-4000-8000-000000000199';
+  rejected := false;
+  BEGIN
+    INSERT INTO auth.users (id, email, raw_user_meta_data)
+    VALUES (test_user_id, 'long-name-signup@example.test',
+      jsonb_build_object('name', repeat('N', 121), 'phone', '+63917000099'));
+  EXCEPTION WHEN invalid_parameter_value THEN
+    rejected := true;
+  END;
+  IF NOT rejected THEN
+    RAISE EXCEPTION 'Auth signup trigger must reject names longer than 120 characters';
+  END IF;
+  IF EXISTS (SELECT 1 FROM auth.users WHERE id = test_user_id)
+     OR EXISTS (SELECT 1 FROM public.profiles WHERE auth_user_id = test_user_id) THEN
+    RAISE EXCEPTION 'Rejected overlength-name signup must leave neither Auth nor profile row';
+  END IF;
+END;
+$auth_signup_validation_test$;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -1690,3 +1785,186 @@ psql -v ON_ERROR_STOP=1 -f tools/test_authenticated_admin_user_list_boundary.sql
 
 # Exercise dispatcher release, primary handoff, duty reservation, and audit events.
 psql -v ON_ERROR_STOP=1 -f tools/test_dispatcher_release_assignment.sql
+
+# Keep the Admin audit-log MFA policy restrictive. PostgreSQL ORs permissive
+# policies, so a second permissive AAL2 policy would not enforce MFA.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $audit_mfa_policy$
+DECLARE
+  mfa_policy_permissive text;
+  admin_policy_permissive text;
+BEGIN
+  SELECT permissive INTO mfa_policy_permissive
+    FROM pg_catalog.pg_policies
+   WHERE schemaname = 'public'
+     AND tablename = 'admin_audit_logs'
+     AND policyname = 'admin_audit_logs_require_aal2'
+     AND cmd = 'SELECT'
+     AND 'authenticated' = ANY(roles);
+
+  SELECT permissive INTO admin_policy_permissive
+    FROM pg_catalog.pg_policies
+   WHERE schemaname = 'public'
+     AND tablename = 'admin_audit_logs'
+     AND policyname = 'admin_audit_logs_read_admin'
+     AND cmd = 'SELECT'
+     AND 'authenticated' = ANY(roles);
+
+  IF mfa_policy_permissive IS DISTINCT FROM 'RESTRICTIVE' THEN
+    RAISE EXCEPTION 'Admin audit-log AAL2 policy must remain RESTRICTIVE';
+  END IF;
+  IF admin_policy_permissive IS DISTINCT FROM 'PERMISSIVE' THEN
+    RAISE EXCEPTION 'Admin audit-log role policy must remain PERMISSIVE';
+  END IF;
+END;
+$audit_mfa_policy$;
+SQL
+
+# Print the effective authenticated API, RLS, and Storage authorization surface.
+# This inventory is read-only and does not mark any path as suspension-safe.
+psql -v ON_ERROR_STOP=1 -f tools/check_account_suspension_authorization_surface.sql
+
+
+# Guard client schema creation, RLS-bypass membership, and future-object ACLs.
+# These checks turn the newly inventoried catalog facts into regression gates.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $account_suspension_privilege_baseline$
+DECLARE
+  anon_oid oid;
+  authenticated_oid oid;
+BEGIN
+  SELECT oid INTO anon_oid FROM pg_catalog.pg_roles WHERE rolname = 'anon';
+  SELECT oid INTO authenticated_oid FROM pg_catalog.pg_roles WHERE rolname = 'authenticated';
+
+  IF anon_oid IS NULL OR authenticated_oid IS NULL THEN
+    RAISE EXCEPTION 'Expected Supabase anon and authenticated roles in clean replay';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM (VALUES ('public'), ('private'), ('storage'), ('auth')) AS schemas(schema_name)
+    WHERE has_schema_privilege('anon', schema_name, 'CREATE')
+       OR has_schema_privilege('authenticated', schema_name, 'CREATE')
+  ) THEN
+    RAISE EXCEPTION 'Supabase client roles must not have CREATE on application/Auth/Storage schemas';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_roles AS client_role
+    CROSS JOIN pg_catalog.pg_roles AS elevated_role
+    WHERE client_role.rolname IN ('anon', 'authenticated')
+      AND (elevated_role.rolsuper OR elevated_role.rolbypassrls)
+      AND pg_catalog.pg_has_role(client_role.oid, elevated_role.oid, 'MEMBER')
+  ) THEN
+    RAISE EXCEPTION 'Supabase client roles must not inherit SUPERUSER or BYPASSRLS membership';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_default_acl AS defaults
+    CROSS JOIN LATERAL pg_catalog.aclexplode(defaults.defaclacl) AS expanded
+    WHERE expanded.grantee IN (0::oid, anon_oid, authenticated_oid)
+  ) THEN
+    RAISE EXCEPTION 'Global/schema default ACLs must not grant future object privileges to PUBLIC or Supabase client roles';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS schema_name ON schema_name.oid = relation.relnamespace
+    WHERE schema_name.nspname = 'public'
+      AND relation.relkind IN ('r', 'p')
+      AND (
+        has_table_privilege('anon', relation.oid, 'TRUNCATE')
+        OR has_table_privilege('authenticated', relation.oid, 'TRUNCATE')
+        OR has_table_privilege('anon', relation.oid, 'REFERENCES')
+        OR has_table_privilege('authenticated', relation.oid, 'REFERENCES')
+        OR has_table_privilege('anon', relation.oid, 'TRIGGER')
+        OR has_table_privilege('authenticated', relation.oid, 'TRIGGER')
+      )
+  ) THEN
+    RAISE EXCEPTION 'Supabase client roles must not gain public-table TRUNCATE, REFERENCES, or TRIGGER privileges';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class AS sequence
+    JOIN pg_catalog.pg_namespace AS schema_name ON schema_name.oid = sequence.relnamespace
+    WHERE schema_name.nspname = 'public'
+      AND sequence.relkind = 'S'
+      AND (
+        has_sequence_privilege('anon', sequence.oid, 'USAGE')
+        OR has_sequence_privilege('anon', sequence.oid, 'SELECT')
+        OR has_sequence_privilege('anon', sequence.oid, 'UPDATE')
+        OR has_sequence_privilege('authenticated', sequence.oid, 'UPDATE')
+      )
+  ) THEN
+    RAISE EXCEPTION 'Public sequence grants must not expose anon access or authenticated UPDATE/setval capability';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS schema_name ON schema_name.oid = relation.relnamespace
+    JOIN pg_catalog.pg_attribute AS column_info ON column_info.attrelid = relation.oid
+    WHERE schema_name.nspname = 'public'
+      AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')
+      AND column_info.attnum > 0
+      AND NOT column_info.attisdropped
+      AND (
+        has_column_privilege('anon', relation.oid, column_info.attnum, 'REFERENCES')
+        OR has_column_privilege('authenticated', relation.oid, column_info.attnum, 'REFERENCES')
+      )
+  ) THEN
+    RAISE EXCEPTION 'Supabase client roles must not gain public column REFERENCES privileges';
+  END IF;
+END;
+$account_suspension_privilege_baseline$;
+SQL
+
+# Preserve the audit-log MFA gate as a RESTRICTIVE policy. A second
+# PERMISSIVE policy would be OR-combined with the Admin-role policy and
+# silently let role membership bypass the AAL2/TOTP requirement.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $admin_audit_policy_contract$
+DECLARE
+  policy_mode text;
+  policy_command text;
+  policy_roles text[];
+  policy_qual text;
+BEGIN
+  SELECT permissive, cmd, roles, qual
+    INTO policy_mode, policy_command, policy_roles, policy_qual
+    FROM pg_catalog.pg_policies
+   WHERE schemaname = 'public'
+     AND tablename = 'admin_audit_logs'
+     AND policyname = 'admin_audit_logs_require_aal2';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Required admin audit AAL2 policy is missing';
+  END IF;
+  IF policy_mode IS DISTINCT FROM 'RESTRICTIVE' THEN
+    RAISE EXCEPTION 'Admin audit AAL2 policy must remain RESTRICTIVE; found %', policy_mode;
+  END IF;
+  IF policy_command IS DISTINCT FROM 'SELECT' OR NOT ('authenticated' = ANY(policy_roles)) THEN
+    RAISE EXCEPTION 'Admin audit AAL2 policy must apply to authenticated SELECT';
+  END IF;
+  IF policy_qual IS NULL
+     OR policy_qual NOT LIKE '%aal2%'
+     OR policy_qual NOT LIKE '%totp%' THEN
+    RAISE EXCEPTION 'Admin audit AAL2 policy must require both aal2 and TOTP';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'admin_audit_logs'
+       AND policyname = 'admin_audit_logs_read_admin'
+       AND permissive = 'PERMISSIVE'
+       AND cmd = 'SELECT'
+  ) THEN
+    RAISE EXCEPTION 'Admin audit role policy must remain a separate PERMISSIVE SELECT policy';
+  END IF;
+END;
+$admin_audit_policy_contract$;
+SQL
