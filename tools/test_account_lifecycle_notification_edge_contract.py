@@ -69,4 +69,34 @@ assert "console.error" in source and "private_key" not in source.split("console.
     "Provider failures must not log service-account private-key material."
 )
 
+
+// Request/authentication preflight must reject malformed callers before any
+// profile, incident, recipient-token, OAuth, or FCM work can occur.
+method_guard = source.index('if (request.method !== "POST")');
+bearer_guard = source.index('if (!userToken)', method_guard);
+auth_lookup = source.index("admin.auth.getUser(userToken)");
+invalid_auth_guard = source.index("if (authError || !userResult.user)", auth_lookup);
+body_parse = source.index("payload = await request.json()", invalid_auth_guard);
+event_validation = source.index('if (!["incident_created", "incident_assigned", "incident_status"].includes(event))', body_parse);
+assert method_guard < bearer_guard < auth_lookup < invalid_auth_guard < body_parse < event_validation < actor_lookup, (
+    "HTTP method, bearer authentication, and event validation must precede account and incident lookups."
+);
+assert invalid_auth_guard < actor_lookup < incident_lookup < recipient_lookup < token_lookup < oauth_call < fcm_send, (
+    "Unauthenticated requests must not reach profile/incident/token reads or provider side effects."
+)
+assert 'return json({ error: "Invalid or expired session" }, 401)' in source
+assert 'return json({ error: "POST required" }, 405)' in source
+assert 'return json({ error: "Authorization bearer token required" }, 401)' in source
+
+// Malformed payloads and unsupported events must not reach actor/incident
+// reads, recipient resolution, or any provider network call.
+json_error = source.index('catch { return json({ error: "Invalid JSON body" }, 400); }')
+required_fields = source.index('if (!event || !Number.isSafeInteger(incidentId) || incidentId <= 0)')
+unsupported_event = source.index('if (!["incident_created", "incident_assigned", "incident_status"].includes(event))')
+assert body_parse < json_error < actor_lookup
+assert body_parse < required_fields < unsupported_event < actor_lookup
+assert unsupported_event < recipient_lookup < oauth_call < fcm_send, (
+    "Invalid payloads and unsupported event types must be rejected before delivery."
+)
+
 print("Notification Edge Function authorization-order source contract passed.")
