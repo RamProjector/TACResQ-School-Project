@@ -271,7 +271,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         try {
             $migration->up();
             $this->fail('The identity migration must refuse to invent or accept a missing actor.');
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             $this->assertStringContainsString('existing events have missing actor or target IDs', $exception->getMessage());
         }
 
