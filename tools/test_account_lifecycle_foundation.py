@@ -166,7 +166,7 @@ for required in (
     "suspended requester must not download previously uploaded incident images",
     "suspended requester must not upload new incident images",
     "suspended requester must not read incident chat history",
-    "suspended requester must not send incident chat messages",
+    "suspended dispatcher must not send incident chat messages",
 ):
     assert required in storage_test, f"Suspended Storage/chat runtime test is missing: {required}"
 assert "tools/test_incident_chat_storage_policies.sql" in replay, (
