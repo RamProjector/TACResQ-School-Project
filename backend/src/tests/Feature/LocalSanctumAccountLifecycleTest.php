@@ -194,4 +194,70 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
         $this->postJson('/api/logout')->assertNoContent();
     }
+
+    public function test_existing_dispatcher_token_is_denied_for_incident_assignment_and_status_after_suspension(): void
+    {
+        $requester = $this->createLocalUser();
+        $dispatcher = User::create([
+            'name' => 'Lifecycle Dispatcher',
+            'email' => 'lifecycle-dispatcher@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'dispatcher',
+        ]);
+        $incident = \\App\\Models\\Incident::create([
+            'requester_id' => $requester->id,
+            'type' => 'medical',
+            'description' => 'Synthetic lifecycle route-guard test',
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+            'status' => 'pending',
+        ]);
+        $plainTextToken = $dispatcher->createToken('dispatcher-lifecycle-regression')->plainTextToken;
+
+        DB::table('users')->where('id', $dispatcher->id)->update([
+            'is_suspended' => true,
+            'suspended_at' => now(),
+            'suspension_reason' => 'Synthetic dispatcher route regression',
+        ]);
+
+        foreach ([
+            ['PATCH', '/api/incidents/'.$incident->id.'/status', ['status' => 'en_route']],
+            ['POST', '/api/incidents/'.$incident->id.'/assign', ['user_id' => $requester->id]],
+        ] as [$method, $uri, $payload]) {
+            $this->withToken($plainTextToken)->json($method, $uri, $payload)
+                ->assertForbidden()
+                ->assertExactJson([
+                    'message' => 'This local TACResQ account is suspended. Contact an administrator for assistance.',
+                ])
+                ->assertHeader('Cache-Control', 'no-store, private');
+        }
+
+        $this->assertSame(1, $dispatcher->tokens()->count());
+        $this->assertDatabaseHas('incidents', [
+            'id' => $incident->id,
+            'status' => 'pending',
+            'assigned_to' => null,
+        ]);
+    }
+
+    public function test_public_registration_ignores_privileged_and_lifecycle_fields(): void
+    {
+        $response = $this->postJson('/api/register', [
+            'name' => 'Public Signup',
+            'email' => 'public-signup@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+            'is_suspended' => true,
+            'suspended_at' => now()->toISOString(),
+            'suspension_reason' => 'Injected public value',
+        ]);
+
+        $response->assertCreated()->assertJsonPath('user.role', 'requester');
+        $user = User::where('email', 'public-signup@example.test')->firstOrFail();
+        $this->assertSame('requester', $user->role);
+        $this->assertFalse($user->is_suspended);
+        $this->assertNull($user->suspended_at);
+        $this->assertNull($user->suspension_reason);
+    }
+
 }
