@@ -1,7 +1,7 @@
 # Notification Edge Function: account-state enforcement test contract
 
 **Scope:** `supabase/functions/tacresq-notify/index.ts`  
-**Status:** actor and recipient account-state checks are implemented in the current PR branch. Isolated Supabase Edge Function tests and deployment verification are still required; no live function was deployed.
+**Status:** actor and recipient account-state checks are implemented in the current PR branch. A CI source-order contract now verifies the authorization gates precede incident/token reads and OAuth/FCM calls. Isolated Supabase Edge Function tests and deployment verification are still required; no live function was deployed.
 
 ## Current source behavior
 
@@ -20,6 +20,10 @@ Consequently, this Edge Function is an explicit future enforcement boundary; it 
 7. Preserve current no-recipient and no-token responses; do not leak whether a suspended target has a token.
 8. Do not delete historical FCM registrations or incident records as a side effect of suspension.
 9. Do not put service-role credentials in client code or return them in error messages.
+
+## Automated source-level coverage
+
+`tools/test_account_lifecycle_notification_edge_contract.py` runs in CI and checks that the actor account-state lookup and fail-closed decision precede incident lookup; recipient active-state filtering precedes token lookup; and token lookup precedes Google OAuth and FCM send calls. This is a source-order regression check only. It does not execute Deno, mock network calls, or prove provider behavior.
 
 ## Remaining Edge Function negative-test matrix
 
