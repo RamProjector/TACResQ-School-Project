@@ -259,4 +259,93 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         $this->assertNull($user->suspended_at);
         $this->assertNull($user->suspension_reason);
     }
+
+    public function test_lifecycle_recorder_appends_valid_transition_inside_transaction(): void
+    {
+        $actor = $this->createLocalUser();
+        $target = User::create([
+            'name' => 'Lifecycle Recorder Target',
+            'email' => 'lifecycle-recorder-target@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'requester',
+        ]);
+
+        $eventId = DB::transaction(fn () => app(\\App\\Services\\LocalAccountLifecycleRecorder::class)->record(
+            $actor->id,
+            $target->id,
+            'suspended',
+            '  Verified policy violation  ',
+            'active',
+            'suspended',
+        ));
+
+        $this->assertDatabaseHas('local_account_lifecycle_events', [
+            'id' => $eventId,
+            'actor_user_id' => $actor->id,
+            'target_user_id' => $target->id,
+            'action' => 'suspended',
+            'reason' => 'Verified policy violation',
+            'previous_state' => 'active',
+            'new_state' => 'suspended',
+        ]);
+    }
+
+    public function test_lifecycle_recorder_event_rolls_back_with_account_transaction(): void
+    {
+        $actor = $this->createLocalUser();
+        $target = User::create([
+            'name' => 'Lifecycle Rollback Target',
+            'email' => 'lifecycle-rollback-target@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'requester',
+        ]);
+
+        try {
+            DB::transaction(function () use ($actor, $target): void {
+                app(\\App\\Services\\LocalAccountLifecycleRecorder::class)->record(
+                    $actor->id,
+                    $target->id,
+                    'suspended',
+                    'Synthetic rollback test',
+                    'active',
+                    'suspended',
+                );
+                throw new \\RuntimeException('Force transaction rollback');
+            });
+            $this->fail('The synthetic transaction must roll back.');
+        } catch (\\RuntimeException $exception) {
+            $this->assertSame('Force transaction rollback', $exception->getMessage());
+        }
+
+        $this->assertDatabaseMissing('local_account_lifecycle_events', [
+            'actor_user_id' => $actor->id,
+            'target_user_id' => $target->id,
+            'reason' => 'Synthetic rollback test',
+        ]);
+    }
+
+    public function test_lifecycle_recorder_rejects_invalid_transition_and_empty_reason(): void
+    {
+        $actor = $this->createLocalUser();
+        $target = User::create([
+            'name' => 'Lifecycle Invalid Target',
+            'email' => 'lifecycle-invalid-target@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'requester',
+        ]);
+        $recorder = app(\\App\\Services\\LocalAccountLifecycleRecorder::class);
+
+        try {
+            DB::transaction(fn () => $recorder->record(
+                $actor->id, $target->id, 'suspended', '   ', 'active', 'active'
+            ));
+            $this->fail('Invalid transitions and blank reasons must be rejected.');
+        } catch (\\InvalidArgumentException) {
+            $this->assertDatabaseMissing('local_account_lifecycle_events', [
+                'actor_user_id' => $actor->id,
+                'target_user_id' => $target->id,
+            ]);
+        }
+    }
+
 }
