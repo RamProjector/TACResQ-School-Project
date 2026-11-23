@@ -29,8 +29,8 @@ for start, end in (
     assert "app(\\App\\ApiOperationAuditLogger::class)->record(" in block
 
 assert routes.count("$bridge->callRpc($token, 'api_me', [])") == 2
-assert "->header('Authorization', 'Bearer '.$token)" in (ROOT / "backend/src/app/SupabaseBridge.php").read_text(encoding="utf-8")
-assert "'bridge.active_profile'" in audit or "'bridge.active_profile'" in routes
+assert "'Authorization' => 'Bearer '.$accessToken" in (ROOT / "backend/src/app/SupabaseBridge.php").read_text(encoding="utf-8")
+assert "'bridge.active_profile'" in routes
 assert "actor_auth_user_id" in audit
 assert "test_suspended_or_unprovisioned_profile_is_denied_before_bridge_rpc" in tests
 assert "test_bridge_me_does_not_return_auth_identity_without_active_profile" in tests
