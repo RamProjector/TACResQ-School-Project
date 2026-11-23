@@ -574,7 +574,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           )}
           {activeSection === "security" && (
             <>
-            <section className="admin-panel admin-roadmap-panel" aria-live="polite">
+            <section className="admin-panel admin-roadmap-panel">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><ShieldCheck size={19} /> Security &amp; countermeasures</h2></div>
                 <span className="admin-count">TOTP enforced</span>
