@@ -85,6 +85,9 @@ jobs:
       - name: Check Laravel bridge account lifecycle enforcement
         run: python3 tools/test_laravel_bridge_account_lifecycle_contract.py
 
+      - name: Check separate Laravel Sanctum identity boundary
+        run: python3 tools/test_sanctum_identity_boundary.py
+
       - name: Check Laravel assignment duty-state visibility
         run: python3 tools/test_laravel_assignment_duty_state.py
 
