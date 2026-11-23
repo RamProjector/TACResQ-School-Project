@@ -100,7 +100,7 @@ Route::post('/register', function (Request $request) use ($userJson) {
         ->header('Cache-Control', 'no-store, private');
 });
 
-Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJson, $onlyRoles) {
+Route::middleware(['auth:sanctum', 'account.active'])->group(function () use ($userJson, $incidentJson, $onlyRoles) {
     Route::post('/logout', fn (Request $request) => tap(
         response()->noContent()->header('Cache-Control', 'no-store, private'),
         fn () => $request->user()->currentAccessToken()?->delete()
@@ -111,7 +111,7 @@ Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJs
         $request->user()->tokens()->delete();
         return response()->json(['message' => 'All Laravel API tokens have been revoked.'], 200)
             ->header('Cache-Control', 'no-store, private');
-    })->middleware('throttle:10,1');
+    })->middleware('throttle:10,1')->withoutMiddleware('account.active');
     Route::post('/change-password', function (Request $request) use ($userJson) {
         $data = $request->validate([
             'current_password' => ['required', 'string', 'max:72'],
