@@ -45,13 +45,16 @@ assert "email" not in migration.lower(), "Do not add cross-provider identity map
 assert "local_account_lifecycle_events" in audit_migration
 for column in ("actor_user_id", "target_user_id", "action", "reason", "previous_state", "new_state", "created_at"):
     assert column in audit_migration, f"Missing local lifecycle audit field: {column}"
-assert "nullOnDelete()" in audit_migration, "Lifecycle history must survive user deletion"
+assert "unsignedBigInteger('actor_user_id')->nullable()" in audit_migration
+assert "unsignedBigInteger('target_user_id')->nullable()" in audit_migration
+assert "constrained('users')" not in audit_migration, "Audit identifiers must remain immutable after user deletion"
 assert "CREATE TRIGGER local_lifecycle_events_append_only" in append_only_migration
 assert "BEFORE UPDATE OR DELETE" in append_only_migration
 assert "to_jsonb(NEW)" in append_only_migration and "to_jsonb(OLD)" in append_only_migration
-assert "OLD.actor_user_id IS NOT NULL AND NEW.actor_user_id IS NULL" in append_only_migration
-assert "OLD.target_user_id IS NOT NULL AND NEW.target_user_id IS NULL" in append_only_migration
-assert "test_local_lifecycle_audit_schema_retains_events_after_user_deletion" in feature
+assert "RAISE EXCEPTION 'local account lifecycle events are append-only'" in append_only_migration
+assert "OLD.actor_user_id" not in append_only_migration and "OLD.target_user_id" not in append_only_migration
+assert "test_local_lifecycle_audit_schema_retains_original_actor_and_target_ids_after_user_deletion" in feature
+assert "test_local_lifecycle_audit_event_rejects_actor_or_target_reference_mutation_on_postgres" in feature
 assert "test_local_lifecycle_audit_event_rejects_content_updates_on_postgres" in feature
 assert "test_local_lifecycle_audit_event_rejects_deletion_on_postgres" in feature
 assert "final class LocalAccountLifecycleRecorder" in recorder
