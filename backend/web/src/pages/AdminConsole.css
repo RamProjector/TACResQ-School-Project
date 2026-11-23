@@ -493,7 +493,15 @@
 .admin-metrics small { max-width:250px; line-height:1.5; }
 .admin-panel { border-radius:11px; box-shadow:0 7px 22px rgba(20,42,49,.035); }
 .admin-health-grid { gap:14px; }
-.admin-health-item { padding:16px; border-radius:9px; background:#fcfdf9; }
+.admin-health-item { min-width:0; padding:16px; border-radius:9px; background:#fcfdf9; }
+.admin-health-item > div { display:flex; min-width:0; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.admin-health-item > div > strong { min-width:0; overflow-wrap:anywhere; }
+.admin-health-status { flex:0 0 auto; }
+.admin-health-item small { display:block; margin-top:8px; overflow-wrap:anywhere; }
+@media (max-width:520px) {
+  .admin-health-grid { grid-template-columns:minmax(0,1fr); }
+  .admin-health-item { padding:14px; }
+}
 
 /* Compact, readable audit activity cards replace the dense six-column table. */
 .audit-page__list {
