@@ -173,7 +173,7 @@ class FcmNotificationDispatcher
                     'attempt_id' => $id,
                     'exception' => $exception::class,
                 ]);
-            } catch (\\Throwable) {
+            } catch (\Throwable) {
                 // Logging must not turn a recoverable ledger failure into a batch abort.
             }
             return false;
