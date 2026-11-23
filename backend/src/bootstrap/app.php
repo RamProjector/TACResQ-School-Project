@@ -12,7 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(RequestCorrelationId::class);
         $middleware->append(ApiSecurityHeaders::class);
-        $middleware->alias(['account.active' => EnsureLocalAccountIsActive::class]);\n        $middleware->alias(['account.active' => EnsureLocalAccountIsActive::class]);
+        $middleware->alias(['account.active' => EnsureLocalAccountIsActive::class]);
         // Only the signed internal Cron hook bypasses browser CSRF; HMAC auth is mandatory.
         $middleware->validateCsrfTokens(except: ['internal/fcm/dispatch']);
     })
