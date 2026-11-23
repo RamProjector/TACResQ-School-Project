@@ -21,6 +21,12 @@ SELECT
   has_table_privilege('authenticated', c.oid, 'INSERT') AS authenticated_insert,
   has_table_privilege('authenticated', c.oid, 'UPDATE') AS authenticated_update,
   has_table_privilege('authenticated', c.oid, 'DELETE') AS authenticated_delete,
+  has_table_privilege('anon', c.oid, 'TRUNCATE') AS anon_truncate,
+  has_table_privilege('authenticated', c.oid, 'TRUNCATE') AS authenticated_truncate,
+  has_table_privilege('anon', c.oid, 'REFERENCES') AS anon_references,
+  has_table_privilege('authenticated', c.oid, 'REFERENCES') AS authenticated_references,
+  has_table_privilege('anon', c.oid, 'TRIGGER') AS anon_trigger,
+  has_table_privilege('authenticated', c.oid, 'TRIGGER') AS authenticated_trigger,
   coalesce((
     SELECT string_agg(
       format('%s [%s %s] USING=%s CHECK=%s', pol.policyname, pol.permissive, pol.cmd, coalesce(pol.qual, '—'), coalesce(pol.with_check, '—')),
@@ -143,7 +149,9 @@ SELECT
   has_column_privilege('anon', c.oid, a.attnum, 'UPDATE') AS anon_update,
   has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT') AS authenticated_select,
   has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT') AS authenticated_insert,
-  has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE') AS authenticated_update
+  has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE') AS authenticated_update,
+  has_column_privilege('anon', c.oid, a.attnum, 'REFERENCES') AS anon_references,
+  has_column_privilege('authenticated', c.oid, a.attnum, 'REFERENCES') AS authenticated_references
 FROM pg_catalog.pg_class AS c
 JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
 JOIN pg_catalog.pg_attribute AS a ON a.attrelid = c.oid
@@ -158,6 +166,8 @@ WHERE n.nspname = 'public'
     OR has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')
     OR has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')
     OR has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')
+    OR has_column_privilege('anon', c.oid, a.attnum, 'REFERENCES')
+    OR has_column_privilege('authenticated', c.oid, a.attnum, 'REFERENCES')
   )
 ORDER BY c.relname, a.attnum;
 
@@ -213,3 +223,20 @@ WHERE n.nspname = 'private'
   AND p.prokind = 'f'
   AND p.prosecdef
 ORDER BY p.proname, p.oid::regprocedure::text;
+
+
+\\echo '=== Client membership in superuser or BYPASSRLS roles ==='
+-- RLS guarantees are invalidated if a client role inherits a role with
+-- BYPASSRLS or superuser capability. Report indirect membership as well.
+SELECT
+  client_role.rolname AS client_role,
+  elevated_role.rolname AS elevated_role,
+  elevated_role.rolsuper AS elevated_role_is_superuser,
+  elevated_role.rolbypassrls AS elevated_role_bypasses_rls,
+  pg_catalog.pg_has_role(client_role.oid, elevated_role.oid, 'MEMBER') AS is_member
+FROM pg_catalog.pg_roles AS client_role
+CROSS JOIN pg_catalog.pg_roles AS elevated_role
+WHERE client_role.rolname IN ('anon', 'authenticated')
+  AND (elevated_role.rolsuper OR elevated_role.rolbypassrls)
+  AND pg_catalog.pg_has_role(client_role.oid, elevated_role.oid, 'MEMBER')
+ORDER BY client_role.rolname, elevated_role.rolname;
