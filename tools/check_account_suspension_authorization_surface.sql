@@ -225,7 +225,7 @@ WHERE n.nspname = 'private'
 ORDER BY p.proname, p.oid::regprocedure::text;
 
 
-\\echo '=== Client membership in superuser or BYPASSRLS roles ==='
+\echo '=== Client membership in superuser or BYPASSRLS roles ==='
 -- RLS guarantees are invalidated if a client role inherits a role with
 -- BYPASSRLS or superuser capability. Report indirect membership as well.
 SELECT
