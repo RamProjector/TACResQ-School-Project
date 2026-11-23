@@ -93,3 +93,15 @@ assert "test_local_admin_totp_code_cannot_be_replayed" in feature
 assert "test_unconfirmed_local_admin_totp_factor_cannot_authorize_sensitive_action" in feature
 assert "test_previously_used_totp_value_is_rejected_even_if_a_later_step_collides" in feature
 print("Local Sanctum lifecycle guard and append-only audit contracts passed.")
+
+
+# TOTP confirmation is a sensitive factor-binding operation: require password re-auth,
+# lock and re-check the local Admin row, and never confirm for suspended/demoted users.
+confirm_start = routes.index("Route::post('/confirm'")
+confirm_end = routes.index("})->middleware('throttle:5,1');", confirm_start)
+confirm_route = routes[confirm_start:confirm_end]
+assert "current_password" in confirm_route
+assert "Hash::check($data['current_password'], $lockedUser->password)" in confirm_route
+assert "User::whereKey($user->id)->lockForUpdate()" in confirm_route
+assert "!$lockedUser->is_suspended" in confirm_route
+assert "test_local_admin_totp_confirmation_requires_current_password" in feature
