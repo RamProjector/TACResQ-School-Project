@@ -129,3 +129,69 @@ JOIN pg_catalog.pg_proc AS p ON p.oid = t.tgfoid
 WHERE n.nspname = 'auth'
   AND NOT t.tgisinternal
 ORDER BY c.relname, t.tgname;
+
+
+\echo '=== Effective column-level privileges (including grants hidden by table-only checks) ==='
+-- PostgreSQL permits column grants independently of table grants. Report
+-- both client roles so a future table-level revocation cannot overlook a
+-- surviving column-level path.
+SELECT
+  c.oid::regclass AS relation,
+  a.attname AS column_name,
+  has_column_privilege('anon', c.oid, a.attnum, 'SELECT') AS anon_select,
+  has_column_privilege('anon', c.oid, a.attnum, 'INSERT') AS anon_insert,
+  has_column_privilege('anon', c.oid, a.attnum, 'UPDATE') AS anon_update,
+  has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT') AS authenticated_select,
+  has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT') AS authenticated_insert,
+  has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE') AS authenticated_update
+FROM pg_catalog.pg_class AS c
+JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+JOIN pg_catalog.pg_attribute AS a ON a.attrelid = c.oid
+WHERE n.nspname = 'public'
+  AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+  AND a.attnum > 0
+  AND NOT a.attisdropped
+  AND (
+    has_column_privilege('anon', c.oid, a.attnum, 'SELECT')
+    OR has_column_privilege('anon', c.oid, a.attnum, 'INSERT')
+    OR has_column_privilege('anon', c.oid, a.attnum, 'UPDATE')
+    OR has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')
+    OR has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')
+    OR has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')
+  )
+ORDER BY c.relname, a.attnum;
+
+\echo '=== Effective client privileges on public sequences ==='
+-- Sequence USAGE/UPDATE can survive table privilege changes and can expose
+-- identifier-generation operations. Record current effective grants.
+SELECT
+  c.oid::regclass AS sequence_name,
+  has_sequence_privilege('anon', c.oid, 'USAGE') AS anon_usage,
+  has_sequence_privilege('anon', c.oid, 'SELECT') AS anon_select,
+  has_sequence_privilege('anon', c.oid, 'UPDATE') AS anon_update,
+  has_sequence_privilege('authenticated', c.oid, 'USAGE') AS authenticated_usage,
+  has_sequence_privilege('authenticated', c.oid, 'SELECT') AS authenticated_select,
+  has_sequence_privilege('authenticated', c.oid, 'UPDATE') AS authenticated_update
+FROM pg_catalog.pg_class AS c
+JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relkind = 'S'
+  AND (
+    has_sequence_privilege('anon', c.oid, 'USAGE')
+    OR has_sequence_privilege('anon', c.oid, 'SELECT')
+    OR has_sequence_privilege('anon', c.oid, 'UPDATE')
+    OR has_sequence_privilege('authenticated', c.oid, 'USAGE')
+    OR has_sequence_privilege('authenticated', c.oid, 'SELECT')
+    OR has_sequence_privilege('authenticated', c.oid, 'UPDATE')
+  )
+ORDER BY c.relname;
+
+\echo '=== Client schema USAGE privileges ==='
+-- Schema USAGE is a prerequisite for resolving objects through PostgREST.
+-- Keep it visible alongside object-level grants.
+SELECT
+  schema_name,
+  has_schema_privilege('anon', schema_name, 'USAGE') AS anon_usage,
+  has_schema_privilege('authenticated', schema_name, 'USAGE') AS authenticated_usage
+FROM (VALUES ('public'), ('private'), ('storage'), ('auth')) AS schemas(schema_name)
+ORDER BY schema_name;
