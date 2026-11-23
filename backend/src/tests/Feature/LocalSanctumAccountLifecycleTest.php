@@ -407,6 +407,58 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ])->assertHeader('Cache-Control', 'no-store, private');
     }
 
+    public function test_local_admin_sensitive_action_rechecks_demoted_role_from_database(): void
+    {
+        $admin = User::create([
+            'name' => 'Demoted Step-up Admin',
+            'email' => 'demoted-step-up@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        DB::table('users')->where('id', $admin->id)->update(['role' => 'requester']);
+        Sanctum::actingAs($admin->fresh());
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => $this->adminTotpCode,
+        ])->assertForbidden()->assertExactJson([
+            'message' => 'Administrator access is required.',
+        ])->assertHeader('Cache-Control', 'no-store, private');
+
+        $credential = DB::table('local_admin_totp_credentials')->where('user_id', $admin->id)->first();
+        $this->assertNull($credential->last_used_step);
+    }
+
+    public function test_local_admin_sensitive_action_rechecks_suspension_from_database(): void
+    {
+        $admin = User::create([
+            'name' => 'Suspended Step-up Admin',
+            'email' => 'suspended-step-up@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        DB::table('users')->where('id', $admin->id)->update([
+            'is_suspended' => true,
+            'suspended_at' => now(),
+            'suspension_reason' => 'Synthetic security test',
+        ]);
+        Sanctum::actingAs($admin->fresh());
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => $this->adminTotpCode,
+        ])->assertForbidden();
+
+        $credential = DB::table('local_admin_totp_credentials')->where('user_id', $admin->id)->first();
+        $this->assertNull($credential->last_used_step);
+    }
+
     public function test_local_admin_sensitive_action_rejects_incorrect_password(): void
     {
         $admin = User::create([
