@@ -93,8 +93,21 @@ SELECT
   b.file_size_limit,
   b.allowed_mime_types,
   count(o.id) AS object_count,
-  coalesce(sum((o.metadata->>'size')::bigint)
-    FILTER (WHERE o.metadata->>'size' ~ '^[0-9]+$'), 0) AS declared_object_bytes,
+  coalesce(sum(CASE
+    WHEN o.metadata->>'size' ~ '^[0-9]+
+  ARRAY(
+    SELECT pol.polname
+      FROM pg_catalog.pg_policy pol
+     WHERE pol.polrelid = 'storage.objects'::regclass
+     ORDER BY pol.polname
+  ) AS storage_object_policies
+FROM storage.buckets b
+LEFT JOIN storage.objects o ON o.bucket_id = b.id
+GROUP BY b.id, b.public, b.file_size_limit, b.allowed_mime_types
+ORDER BY b.id;
+ THEN (o.metadata->>'size')::bigint
+    ELSE 0
+  END), 0) AS declared_object_bytes,
   ARRAY(
     SELECT pol.polname
       FROM pg_catalog.pg_policy pol
