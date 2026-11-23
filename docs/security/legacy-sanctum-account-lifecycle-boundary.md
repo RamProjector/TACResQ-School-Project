@@ -34,15 +34,16 @@ The public `POST /api/login` and `POST /api/register` routes issue local Sanctum
 - Added `account.active` middleware to the local Sanctum route group. Suspended accounts receive a non-cacheable 403 before profile, incident, unit, assignment, or mutation handlers run.
 - Kept `/api/logout` and `/api/logout-all` available to suspended users so they can revoke tokens and complete local sign-out.
 - Added Laravel feature tests for default-active compatibility, same-token protected-route denial, and suspended-user logout, plus a CI source contract.
-- **Still missing:** independently authorized local Admin transition workflow, immutable local lifecycle audit, login-time rejection, and explicit same-token denial tests for each high-risk incident/assignment route.
+- Added a dedicated local lifecycle event table with actor/target references, action, reason, before/after state, and timestamp. User deletion nulls actor/target references rather than deleting the event; a Laravel feature test verifies retention.
+- **Still missing:** an append-only database enforcement mechanism, authorized local Admin transition workflow, trusted MFA/re-authentication proof, transactional audit writer, and explicit same-token denial tests for each high-risk incident/assignment route.
 - Consequently, a suspended Supabase profile is not evidence that a corresponding local Sanctum user is suspended. Conversely, local Sanctum status cannot be inferred from Supabase profile status.
 
 ## Safe implementation order
 
 1. Confirm whether the Laravel Sanctum backend is still a supported production identity path and identify its current Admin authentication/MFA boundary.
-2. If retained, design a separate local lifecycle state and append-only audit ledger for the local `users` identity domain.
-3. Provide a privileged local Admin transition path with strong re-authentication/MFA, target restrictions, transactional audit, and token/session revocation.
+2. Add database-enforced append-only protections and a transactional audit writer for the local `users` identity domain.
+3. Confirm a trusted local Admin MFA/re-authentication mechanism, then provide a privileged transition path with target restrictions and token/session revocation.
 4. Enforce local account state on login and every Sanctum-authenticated request; test same-valid-token denial across profile, incident, assignment, unit, and mutation routes.
 5. Only consider cross-provider account linking if an explicit, verified immutable linking flow is designed and approved. Never link by email.
 
-The new migration is committed to the draft PR but has not been applied to any live database. No local Admin transition UI/API, immutable audit ledger, or production account change is included in this slice.
+Both local lifecycle migrations are committed to the draft PR but have not been applied to any live database. The audit table preserves event rows when referenced users are deleted, but database-enforced append-only protection and a trusted audit writer are not yet implemented. No local Admin transition UI/API or production account change is included in this slice.
