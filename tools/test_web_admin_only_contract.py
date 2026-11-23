@@ -167,6 +167,11 @@ assert '<span>Period (Manila time)</span>' in admin_console
 assert 'No daily buckets were returned for this reporting period.' in admin_console
 assert 'No daily data for this period.' not in admin_console
 
+# Pending server-side directory searches must not display rows from the previous query.
+assert "const filteredUsers = directoryFilterPending ? [] : users;" in admin_console
+assert "Applying search…" in admin_console
+assert "setDebouncedQuery(query.trim());" in admin_console
+
 # Directory filters identify their result table, and mobile users can discover and operate horizontal scrolling.
 assert 'id="admin-directory-search"' in admin_console
 assert 'id="admin-directory-role-filter"' in admin_console
