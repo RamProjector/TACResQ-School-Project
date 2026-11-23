@@ -105,3 +105,13 @@ assert "Hash::check($data['current_password'], $lockedUser->password)" in confir
 assert "User::whereKey($user->id)->lockForUpdate()" in confirm_route
 assert "!$lockedUser->is_suspended" in confirm_route
 assert "test_local_admin_totp_confirmation_requires_current_password" in feature
+
+
+# Enrollment rechecks the local password under the locked user row to close
+# the password-change race between initial request validation and factor creation.
+enroll_start = routes.index("Route::post('/enroll'")
+enroll_end = routes.index("})->middleware('throttle:3,1');", enroll_start)
+enroll_route = routes[enroll_start:enroll_end]
+assert "DB::transaction(function () use ($user, $data)" in enroll_route
+assert "Hash::check($data['current_password'], $lockedUser->password)" in enroll_route
+assert "test_local_admin_totp_enrollment_rechecks_password_after_locking_account" in feature
