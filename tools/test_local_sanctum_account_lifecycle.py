@@ -68,6 +68,9 @@ assert "self::TRANSITIONS[$action]" in recorder, "Only explicit lifecycle transi
 assert "mb_strlen($reason) > 500" in recorder, "Lifecycle reason must respect the database limit"
 assert "insertGetId" in recorder and "created_at" in recorder
 assert "test_lifecycle_recorder_appends_valid_transition_inside_transaction" in feature
+assert "test_lifecycle_recorder_accepts_reactivation_and_maximum_reason_length" in feature
+assert "'reactivated'" in feature and "'suspended'" in feature and "'active'" in feature
+assert "str_repeat('R', 500)" in feature
 assert "test_lifecycle_recorder_event_rolls_back_with_account_transaction" in feature
 assert "test_lifecycle_recorder_rejects_invalid_transition_and_empty_reason" in feature
 assert "final class EnsureLocalAdminReauthenticated" in admin_reauth
