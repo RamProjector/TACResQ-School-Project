@@ -1,8 +1,33 @@
 BEGIN;
 
+-- Narrow identity lookup used only by the self-delete cleanup policy. Unlike
+-- the active profile resolver, it deliberately returns the caller's profile
+-- while suspended; it exposes no profile fields and cannot mutate state.
+CREATE OR REPLACE FUNCTION private.tacresq_auth_profile_id_for_token_cleanup()
+RETURNS bigint
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+  SELECT p.id
+    FROM public.profiles p
+   WHERE p.auth_user_id = auth.uid()
+$function$;
+
+REVOKE ALL ON FUNCTION private.tacresq_auth_profile_id_for_token_cleanup()
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.tacresq_auth_profile_id_for_token_cleanup()
+  TO authenticated;
+
 -- A suspended user may remove this installation's own token during sign-out,
 -- but cannot register/rotate, enumerate, or mutate FCM registrations.
 DROP POLICY IF EXISTS tacresq_active_account_required ON public.fcm_tokens;
+DROP POLICY IF EXISTS fcm_tokens_delete_self ON public.fcm_tokens;
+
+CREATE POLICY fcm_tokens_delete_self
+  ON public.fcm_tokens FOR DELETE TO authenticated
+  USING (profile_id = (SELECT private.tacresq_auth_profile_id_for_token_cleanup()));
 
 CREATE POLICY tacresq_fcm_select_requires_active
   ON public.fcm_tokens AS RESTRICTIVE FOR SELECT TO authenticated
@@ -23,10 +48,7 @@ CREATE POLICY tacresq_fcm_update_requires_active
 CREATE POLICY tacresq_fcm_delete_self_cleanup
   ON public.fcm_tokens AS RESTRICTIVE FOR DELETE TO authenticated
   USING (
-    profile_id = (
-      SELECT p.id FROM public.profiles p
-       WHERE p.auth_user_id = (SELECT auth.uid())
-    )
+    profile_id = (SELECT private.tacresq_auth_profile_id_for_token_cleanup())
   );
 
 CREATE OR REPLACE FUNCTION public.api_register_fcm_token(p_token text)
