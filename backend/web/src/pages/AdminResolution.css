@@ -358,3 +358,42 @@
   .admin-pagination > span { overflow-wrap: anywhere; }
   .admin-table-caption { padding-inline: 12px; }
 }
+
+
+/* Shared interaction affordances across all Admin sections and nested controls. */
+.admin-shell :where(button, [role="button"], input, select, textarea, summary) { accent-color: #397a63; }
+.admin-shell :where(button, select, input, textarea) { min-height: 40px; }
+.admin-shell :where(button:disabled, select:disabled, input:disabled, textarea:disabled) { cursor: not-allowed; }
+.admin-shell :where(button:not(:disabled), summary) { touch-action: manipulation; }
+.admin-shell :where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #e66f4c;
+  outline-offset: 3px;
+}
+.admin-nav-item:focus-visible { position: relative; z-index: 2; }
+.admin-skip-link {
+  position: fixed;
+  z-index: 1000;
+  top: 10px;
+  left: 10px;
+  width: auto;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  color: #fff;
+  background: #263f3c;
+  font-size: 13px;
+  font-weight: 700;
+  transform: translateY(-160%);
+}
+.admin-skip-link:focus { transform: translateY(0); }
+.admin-main:focus { outline: none; }
+@media (prefers-contrast: more) {
+  .admin-shell :where(button, input, select, textarea, .admin-panel, .admin-table-wrap) { border-color: currentColor; }
+  .admin-shell :where(.admin-eyebrow, .admin-panel__footnote, .admin-directory-status) { color: #344d45; }
+}
+@media (forced-colors: active) {
+  .admin-shell :where(button, input, select, textarea, summary) { border: 1px solid ButtonText; }
+  .admin-shell :where(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid Highlight; }
+  .admin-nav-item--active { outline: 1px solid Highlight; }
+}
