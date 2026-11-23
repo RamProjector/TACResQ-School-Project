@@ -62,6 +62,27 @@ BEGIN
     RAISE EXCEPTION 'Authenticated clients must not directly update account lifecycle fields';
   END IF;
 
+  -- No directly granted public table may bypass RLS entirely.
+  IF EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relkind IN ('r', 'p')
+       AND NOT c.relrowsecurity
+       AND (
+         has_table_privilege('authenticated', c.oid, 'SELECT')
+         OR has_table_privilege('authenticated', c.oid, 'INSERT')
+         OR has_table_privilege('authenticated', c.oid, 'UPDATE')
+         OR has_table_privilege('authenticated', c.oid, 'DELETE')
+         OR has_any_column_privilege('authenticated', c.oid, 'SELECT')
+         OR has_any_column_privilege('authenticated', c.oid, 'INSERT')
+         OR has_any_column_privilege('authenticated', c.oid, 'UPDATE')
+       )
+  ) THEN
+    RAISE EXCEPTION 'A public table with authenticated privileges has RLS disabled';
+  END IF;
+
   -- Every public table with a direct authenticated grant must have the
   -- restrictive account-state predicate, not merely its original role policy.
   IF EXISTS (
