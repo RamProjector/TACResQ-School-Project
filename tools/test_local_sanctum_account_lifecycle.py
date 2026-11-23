@@ -167,6 +167,14 @@ assert "DB::transaction(fn () => DB::table('local_account_lifecycle_events')->wh
 assert "DB::transaction(fn () => DB::table('local_account_lifecycle_events')->where('id', $eventId)->update($changes))" in feature
 assert "local_lifecycle_events_no_truncate" in append_only_migration
 
+# The PostgreSQL constraint migration must remain valid PHP and reversible.
+assert "use Illuminate\\Database\\Migrations\\Migration;" in audit_constraints_migration
+assert "use Illuminate\\Support\\Facades\\DB;" in audit_constraints_migration
+assert "use Illuminate\\\\Database" not in audit_constraints_migration
+assert "DB::connection()->getDriverName() !== 'pgsql'" in audit_constraints_migration
+assert "DROP CONSTRAINT IF EXISTS local_lifecycle_actor_positive_check" in audit_constraints_migration
+assert audit_constraints_migration.rstrip().endswith("};")
+
 # PostgreSQL independently enforces audit event shape, identity, and transition invariants.
 for constraint in (
     "local_lifecycle_actor_positive_check",
