@@ -44,7 +44,9 @@ for marker in (
 
 # Active-aware chat helpers are part of the effective Storage policy boundary.
 assert "tacresq_auth_profile_id" in policy_migration
-assert "account_status = 'active'" in policy_migration or "tacresq_current_account_active" in policy_migration
+assert policy_migration.count("tacresq_auth_profile_id") >= 2, (
+    "Chat idempotency paths must resolve the caller through the active-profile identity helper."
+)
 
 # Inventory output must not disclose object paths or signed URLs.
 assert "metadata-only report" in inventory
