@@ -205,7 +205,8 @@ class LocalSanctumAccountLifecycleTest extends TestCase
                 DB::transaction(fn () => DB::table('local_account_lifecycle_events')->where('id', $eventId)->update($changes));
                 $this->fail('PostgreSQL must reject every lifecycle-event reference mutation.');
             } catch (QueryException $exception) {
-                $this->assertStringContainsString('append-only', $exception->getMessage());
+                $this->assertSame('55000', (string) ($exception->errorInfo[0] ?? $exception->getCode()));
+            $this->assertStringContainsString('append-only', $exception->getMessage());
             }
         }
 
@@ -238,6 +239,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
                 ->update(['reason' => 'Tampered reason']));
             $this->fail('PostgreSQL must reject lifecycle-event content updates.');
         } catch (QueryException $exception) {
+            $this->assertSame('55000', (string) ($exception->errorInfo[0] ?? $exception->getCode()));
             $this->assertStringContainsString('append-only', $exception->getMessage());
         }
 
@@ -271,7 +273,9 @@ class LocalSanctumAccountLifecycleTest extends TestCase
                 DB::transaction(fn () => DB::table('local_account_lifecycle_events')->insert($record));
                 $this->fail("PostgreSQL must reject a lifecycle event without {$requiredIdentity}.");
             } catch (QueryException $exception) {
+                $this->assertSame('23502', (string) ($exception->errorInfo[0] ?? $exception->getCode()));
                 $this->assertStringContainsString('not-null constraint', strtolower($exception->getMessage()));
+                $this->assertStringContainsString($requiredIdentity, strtolower($exception->getMessage()));
             }
         }
 
@@ -309,6 +313,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
                     ->insert(array_merge($base, $overrides)));
                 $this->fail('PostgreSQL must reject invalid lifecycle audit records.');
             } catch (QueryException $exception) {
+                $this->assertSame('23514', (string) ($exception->errorInfo[0] ?? $exception->getCode()));
                 $this->assertStringContainsString(
                     $expectedConstraint,
                     $exception->getMessage(),
@@ -340,6 +345,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             DB::transaction(fn () => DB::statement('TRUNCATE TABLE local_account_lifecycle_events'));
             $this->fail('PostgreSQL must reject lifecycle-event truncation.');
         } catch (QueryException $exception) {
+            $this->assertSame('55000', (string) ($exception->errorInfo[0] ?? $exception->getCode()));
             $this->assertStringContainsString('append-only', $exception->getMessage());
         }
 
@@ -368,6 +374,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             DB::transaction(fn () => DB::table('local_account_lifecycle_events')->where('id', $eventId)->delete());
             $this->fail('PostgreSQL must reject lifecycle-event deletion.');
         } catch (QueryException $exception) {
+            $this->assertSame('55000', (string) ($exception->errorInfo[0] ?? $exception->getCode()));
             $this->assertStringContainsString('append-only', $exception->getMessage());
         }
 
