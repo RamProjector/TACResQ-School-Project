@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->timestampTz('confirmed_at')->nullable();
             $table->timestampTz('expires_at')->nullable();
             $table->unsignedBigInteger('last_used_step')->nullable();
+            $table->string('last_used_code_hash', 64)->nullable();
             $table->timestampsTz();
         });
     }
