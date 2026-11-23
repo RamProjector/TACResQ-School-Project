@@ -678,3 +678,27 @@
   .admin-security-status__coverage { break-before:page; }
   .admin-footer { break-inside:avoid; }
 }
+
+
+/* Improve scanability without hiding the account data behind decorative cards. */
+.admin-table tbody tr {
+  transition: background-color .14s ease;
+}
+.admin-table tbody tr:nth-child(even) {
+  background: #fbfcf8;
+}
+.admin-table tbody tr:hover,
+.admin-table tbody tr:focus-within {
+  background: #f1f6ef;
+}
+.admin-table td {
+  line-height: 1.5;
+}
+.admin-table .admin-change-role:focus-visible,
+.admin-pagination button:focus-visible {
+  outline: 3px solid rgba(243,106,67,.38);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-table tbody tr { transition: none; }
+}
