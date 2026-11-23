@@ -309,7 +309,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
                 <p>{event.summary}</p>
                 <dl>
                   <div><dt>Event source</dt><dd>{sourceDisplay(event.source)}</dd></div>
-                  <div><dt>Performed by</dt><dd>{event.actor_label || "Unknown actor"}</dd></div>
+                  <div><dt>Performed by</dt><dd>{actorDisplay(event, profile)}</dd></div>
                   <div><dt>Related record</dt><dd>{event.target_label || (event.incident_id !== null ? "Incident activity" : "Not applicable")}</dd></div>
                   {Object.entries(event.details).filter(([key]) => key !== "edit_number").map(([key, value]) => (
                     <div key={key}><dt>{formatDetailLabel(key)}</dt><dd>{formatDetailValue(value)}</dd></div>
