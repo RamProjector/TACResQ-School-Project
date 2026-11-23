@@ -31,7 +31,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
     {
         $secret = app(\App\Services\LocalAdminTotpService::class)->generateSecret();
         DB::table('local_admin_totp_credentials')->insert([
-            'user_id' => auth()->id(),
+            'user_id' => auth('sanctum')->id(),
             'secret_ciphertext' => app(\App\Services\LocalAdminTotpService::class)->encryptSecret($secret),
             'confirmed_at' => now(),
             'last_used_step' => null,
@@ -375,7 +375,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
     }
 
 
-    public function test_local_admin_sensitive_action_requires_admin_role_and_current_password(): void
+    public function test_local_admin_sensitive_action_requires_admin_password_and_totp(): void
     {
         $admin = User::create([
             'name' => 'Local Lifecycle Admin',
@@ -438,6 +438,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $this->postJson('/_test/local-admin-sensitive-action', [
                 'current_password' => 'incorrect-password',
+                'totp_code' => $this->adminTotpCode,
             ])->assertForbidden();
         }
 
