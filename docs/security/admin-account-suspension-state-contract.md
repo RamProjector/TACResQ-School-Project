@@ -1,66 +1,80 @@
 # Account suspension — account-state and operational-continuity contract
 
-**Status:** schema foundation committed on `security/admin-account-suspension-runtime-foundation`; no suspension transition RPC is enabled. Restrictive RLS now blocks direct authenticated access to public tables with client grants when the current profile is suspended; callable RPC, Storage, Edge Function, and bridge enforcement remain outstanding.  
-**Branch:** `security/admin-account-suspension`
+**Status:** schema and partial server-side enforcement are committed on `security/admin-account-suspension-runtime-foundation`. No suspension/reactivation RPC or Admin control is exposed, and full enforcement is not yet complete. No account has been suspended in a connected environment; no live Supabase migration has been applied.
 
-## Existing schema constraint
+## Implemented database foundation
 
-The current `public.profiles` definition has identity/contact fields, role, duty status, and timestamps, but no account lifecycle/status column. Role and duty status are operational attributes, not account-access state. Do not overload either field to represent suspension.
+Migrations `20261123090000` through `20261123160000` currently:
 
-The current legacy Laravel Sanctum identity is also not proven to map immutably to Supabase `auth.users`; matching email addresses is not an acceptable identity link.
+- Add `profiles.account_status` (`active` or `suspended`, NOT NULL, default `active`), plus current suspension timestamp, actor profile-ID snapshot, and bounded reason.
+- Enforce state/metadata invariants: active profiles have no current suspension metadata; suspended profiles require timestamp, actor snapshot, and a 10–500 character reason.
+- Add an RLS-enabled, client/service-role-inaccessible, append-only `account_lifecycle_audit_logs` ledger for future atomic state transitions.
+- Add `private.tacresq_current_account_active()`, which reads the current profile row, does not trust JWT metadata, and takes a profile `FOR SHARE` lock.
+- Add restrictive `FOR ALL` policies to RLS-enabled public tables with direct authenticated table/column privileges.
+- Add a row-level write guard to every public table. Writes carrying a suspended end-user JWT are rejected, including writes inside SECURITY DEFINER functions that bypass RLS.
+- Make actor-role, chat profile-ID, incident-assignee, and Admin MFA helpers account-aware. Admin MFA still requires AAL2 and a TOTP AMR entry.
+- Guard notification list/detail, incident-chat history, and claimable-incident discovery read RPCs; the field-unit directory now rejects suspended dispatchers and excludes suspended units.
+- Make incident-chat Storage policy identity checks fail closed for suspended callers. The Storage replay contract now tests prior-object download denial, new upload denial, chat-history denial, and chat-message denial with the same still-valid JWT.
+- Update the notification Edge Function to reject suspended actors and filter recipients to active profiles before FCM token lookup.
 
-## Proposed profile state
+All existing profiles receive the default `active` state. Role, duty status, identity, incident assignments, and account status remain separate concepts.
 
-When implementation is authorized by complete authorization coverage, add an explicit constrained lifecycle field:
+## Remaining before suspension can be enabled
+
+- Review every remaining read/idempotent RPC path and every callable public/private function; a write trigger does not prevent a read-only or idempotent replay response.
+- Inventory every Storage bucket and prove upload/download denial for each account-owned bucket.
+- Run isolated Supabase Edge Function tests for actor denial, suspended-recipient filtering, and zero FCM/Google OAuth calls on denied paths.
+- Verify every Laravel/Sanctum bridge route and establish immutable Auth-user mapping before claiming account-state enforcement there.
+- Implement Admin suspend/reactivate RPCs with actor/target row locks, self-suspension and last-Admin protection, bounded reason validation, idempotent transitions, and atomic audit insertion.
+- Add investigation-feed rendering for lifecycle audit events.
+- Add disposable Supabase concurrency tests proving that operations either complete before the suspension lock wins or observe the suspended state afterward.
+- Add the Admin directory state, confirmation/reason UI, and suspended-account UX only after backend coverage is complete.
+
+## Lifecycle state contract
+
+The implemented columns are:
 
 - `account_status`: `active` or `suspended`, NOT NULL, default `active`.
-- `suspended_at`: nullable timestamp.
-- `suspended_by`: nullable profile-ID snapshot of the administrator who applied the current suspension.
-- `suspension_reason`: nullable bounded text; never store secrets or unnecessary sensitive details.
+- `suspended_at`: nullable timestamp; set for the current suspension and cleared on reactivation.
+- `suspended_by`: nullable profile-ID snapshot of the administrator who applied the current suspension; cleared on reactivation.
+- `suspension_reason`: nullable bounded text (10–500 characters); cleared on reactivation while the immutable audit ledger retains the historical reason.
 
-Constraint invariants:
+Only a future trusted Admin transition transaction may change lifecycle fields. Authenticated clients have no direct update privilege for them.
 
-1. Active accounts have all suspension metadata cleared.
-2. Suspended accounts have `suspended_at` and `suspended_by` set.
-3. Only the trusted Admin suspension/reactivation transaction may change lifecycle fields.
-4. Role, duty status, profile identity, incident assignment, and account status remain separate concepts.
-5. A suspended account must not regain access merely by refreshing or retaining a previously issued, otherwise-valid JWT.
+## Suspension transaction and operational continuity
 
-The current reason bound is 10–500 characters. Reactivation clears current-state suspension metadata; the immutable audit ledger retains the transition reason. System-initiated suspensions are not in scope for this first implementation.
-
-## Suspension transaction and continuity
-
-A future Admin RPC must perform, in one transaction:
+The future Admin RPC must perform, in one transaction:
 
 1. Authenticate the actor through the existing Admin authorization helper, preserving AAL2 and TOTP.
-2. Lock and re-read the actor and target profile rows.
-3. Reject self-suspension and protect the last eligible Admin from suspension.
-4. Verify the target's current state and apply an idempotent state transition.
+2. Lock and re-read the actor and target profile rows in a deterministic order.
+3. Reject self-suspension and protect the last eligible active Admin from suspension.
+4. Verify the target's current state and apply an idempotent transition.
 5. Insert an immutable audit event containing actor, target, action, timestamp, and bounded reason.
 6. Commit both state and audit event together; any audit failure rolls back the state change.
 
-Suspension must not silently cancel incidents, clear assignments, rewrite duty status, or transfer operational ownership. Existing active incidents remain visible to authorized active participants and dispatchers according to the incident continuity policy. A suspended assignee must not perform new protected writes; dispatchers must explicitly resolve reassignment through the normal audited workflow.
+Suspension must not silently cancel incidents, clear assignments, rewrite duty status, or transfer operational ownership. Existing active incidents remain visible to authorized active participants and dispatchers according to the incident continuity policy. A suspended assignee cannot perform protected writes; dispatchers must explicitly resolve reassignment through the normal audited workflow.
 
 Reactivation changes only account lifecycle state. It must not silently restore duty availability, assignment eligibility, sessions, or device trust.
 
 ## Authorization semantics
 
-- Database authorization must read current account state on every protected request; JWT claims alone are not the source of truth.
-- All public and authenticated-callable private RPCs, direct table/RLS paths, views, triggers, and Storage policies must be covered.
-- The service-role notification Edge Function must validate the actor's current state and filter recipients by current state because service-role queries bypass RLS.
+- Database authorization reads current account state; JWT claims alone are not the source of truth.
+- Direct public-table RLS and public-table write triggers are implemented, but read-only/idempotent RPCs still require a complete final inventory.
+- Supabase Storage incident-chat attachment checks use the active-aware profile/chat helpers; other buckets still require inventory and tests.
+- The notification Edge Function now checks actor and recipient account state because service-role queries bypass RLS; isolated runtime tests and deployment verification remain outstanding.
 - Any privileged server bridge must validate the original Supabase caller and current account state; it must not replace caller identity with service-role identity.
-- Legacy Sanctum sessions remain a separate access domain until an immutable identity mapping and its lifecycle semantics are proven.
+- Legacy Sanctum sessions remain a separate access domain until an immutable identity mapping and lifecycle semantics are proven.
 - Narrow self-service cleanup operations (for example, unregistering one's own obsolete FCM token) may be considered explicit suspended-account exceptions, but only with dedicated tests and no access to another account's data.
 
-## Required tests before enforcement or UI
+## Required tests before release
 
-1. Active account: all currently permitted paths retain their existing behavior.
-2. Suspended account with a still-valid JWT: protected RPC reads and writes are denied.
-3. Suspended account: direct table reads/writes are denied by effective RLS/grants.
+1. Active account: all currently permitted paths retain existing behavior.
+2. Suspended account with a still-valid JWT: protected RPC reads and writes are denied, including idempotent retries.
+3. Suspended account: direct table reads/writes are denied by effective RLS/grants and row triggers.
 4. Suspended account: incident-chat Storage upload and download are denied.
-5. Suspended account: service-role Edge Function actor invocation is denied.
+5. Suspended account: notification Edge Function actor invocation is denied.
 6. Suspended recipient: no FCM registration is selected for delivery.
-7. Concurrent suspend and incident mutation: row-lock order is deterministic; no protected mutation commits after suspension wins the authorization boundary.
+7. Concurrent suspension and incident mutation: row-lock order is deterministic; no protected mutation commits after suspension wins the authorization boundary.
 8. Audit insertion failure: suspension/reactivation rolls back.
 9. Last-Admin and self-suspension protections hold under concurrent Admin requests.
 10. Active incident assignments remain intact; reactivation does not auto-assign or set a field unit on duty.
@@ -69,4 +83,4 @@ Reactivation changes only account lifecycle state. It must not silently restore 
 
 ## Release gate
 
-The foundation migration is committed but must not be applied to a connected project until reviewed. Do not add Admin controls or claim suspension is active until the callable/direct-access matrix is complete and the disposable PostgreSQL, Storage HTTP, Edge Function, and bridge tests pass. Keep this PR draft until those gates are evidenced on one exact commit.
+Keep this PR draft until the remaining RPC, Storage, Edge Function, bridge, Admin transition, and concurrency boundaries are implemented and tested on one exact commit. Do not apply the migrations to a connected project or expose Admin controls before that gate is met.
