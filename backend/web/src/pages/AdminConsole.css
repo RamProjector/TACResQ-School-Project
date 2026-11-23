@@ -821,6 +821,10 @@
   .admin-roadmap-content,
   .admin-security-status__backup,
   .admin-security-status__revocation { break-inside:avoid-page; }
+  .admin-security-status { break-inside:auto !important; }
+  .admin-security-status__factor-list li,
+  .admin-security-status__coverage-group li { break-inside:avoid; }
+  .admin-security-status__confirm { display:none !important; }
   a { text-decoration:none; }
 }
 
