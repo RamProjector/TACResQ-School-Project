@@ -297,6 +297,25 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN
     NULL;
   END;
+  BEGIN
+    PERFORM public.api_create_incident_v4(
+      'medical', 'Suspended SOS must fail', 14.0, 121.0, 5.0,
+      'test location', clock_timestamp(), 'gps',
+      '00000000-0000-4000-8000-000000000984'::uuid
+    );
+    RAISE EXCEPTION 'Suspended requester unexpectedly replayed or created an SOS';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  BEGIN
+    PERFORM public.api_cancel_my_incident(1);
+    RAISE EXCEPTION 'Suspended requester unexpectedly accessed incident cancellation';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+  IF public.api_claim_incident(1)->>'code' IS DISTINCT FROM 'UNAUTHORIZED' THEN
+    RAISE EXCEPTION 'Suspended caller must not enter the incident claim workflow';
+  END IF;
   IF public.api_claimable_incidents() IS DISTINCT FROM '[]'::jsonb THEN
     RAISE EXCEPTION 'Suspended field-unit caller must not receive claimable incident data';
   END IF;
