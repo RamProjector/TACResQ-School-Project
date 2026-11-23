@@ -62,6 +62,7 @@ assert "revoke all on function public.api_admin_list_users_page_internal" in pri
 
 # Mobile Admin navigation must remain reachable instead of disappearing with the desktop sidebar.
 admin_css = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text()
+admin_resolution_css = (ROOT / "backend/web/src/pages/AdminResolution.css").read_text()
 admin_security = (ROOT / "backend/web/src/components/AdminSecurityStatus.tsx").read_text()
 assert "@media (max-width: 760px)" in admin_css
 assert ".admin-navigation {" in admin_css
@@ -205,3 +206,30 @@ assert "@media (min-width:1920px)" in admin_css
 assert ".admin-table td { padding-block:15px; }" in admin_css
 assert ".admin-pagination { min-height:54px;" in admin_css
 assert '.admin-shell :where(button,input,select,textarea) { font-family:inherit; }' in admin_css
+
+
+# Resolution-aware Admin design contract: typography, layout tiers, and page-level reflow.
+assert 'import "./AdminResolution.css";' in admin_console
+assert '--admin-ui-font:' in admin_resolution_css
+assert '--admin-ui-gutter: 36px;' in admin_resolution_css
+assert 'font-size: var(--admin-ui-title);' in admin_resolution_css
+for breakpoint in (
+    '@media (min-width: 1920px)',
+    '@media (min-width: 1440px) and (max-width: 1919px)',
+    '@media (min-width: 1201px) and (max-width: 1439px)',
+    '@media (min-width: 901px) and (max-width: 1200px)',
+    '@media (min-width: 761px) and (max-width: 900px)',
+    '@media (max-width: 760px)',
+    '@media (max-width: 480px)',
+    '@media (max-width: 520px)',
+):
+    assert breakpoint in admin_resolution_css, f"Missing Admin resolution tier: {breakpoint}"
+assert '.admin-navigation {\n    min-width: 0;' in admin_resolution_css
+assert 'overflow-x: auto;' in admin_resolution_css
+assert '.audit-page__filters {' in admin_resolution_css
+assert 'grid-template-columns: repeat(3,minmax(0,1fr));' in admin_resolution_css
+assert '.audit-event-card__meta { grid-template-columns: minmax(0,1fr); }' in admin_resolution_css
+assert '.admin-analytics-detail-grid { grid-template-columns: minmax(0,1fr); }' in admin_resolution_css
+assert '.admin-table { min-width: 760px; }' in admin_resolution_css
+assert 'max-height: min(88dvh, 760px);' in admin_resolution_css
+assert '@media (prefers-reduced-motion: reduce)' in admin_resolution_css
