@@ -655,3 +655,26 @@
   .audit-page__lifecycle { padding:15px 14px; }
   .audit-page__heading { flex-direction:column; }
 }
+
+
+/* Keep the full administrator identity discoverable despite compact top-bar truncation. */
+.admin-user strong { overflow-wrap:anywhere; }
+
+/* Print-friendly Admin pages: remove navigation chrome and preserve readable content. */
+@media print {
+  .admin-sidebar,
+  .admin-topbar,
+  .admin-heading > button,
+  .admin-refresh,
+  .admin-signout,
+  .admin-modal-scrim { display:none !important; }
+  .admin-shell { display:block !important; min-height:0 !important; background:#fff !important; }
+  .admin-main,
+  .admin-workspace { min-width:0 !important; padding:0 !important; overflow:visible !important; }
+  .admin-panel,
+  .audit-page,
+  .admin-security-status__coverage-group,
+  .admin-analytics-card { break-inside:avoid; box-shadow:none !important; }
+  .admin-security-status__coverage { break-before:page; }
+  .admin-footer { break-inside:avoid; }
+}
