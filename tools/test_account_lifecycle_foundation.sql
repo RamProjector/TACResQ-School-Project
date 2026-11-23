@@ -358,3 +358,8 @@ RESET ROLE;
 
 SELECT set_config('request.jwt.claim.sub', '', false);
 SELECT set_config('request.jwt.claims', '', false);
+DELETE FROM auth.users
+ WHERE id IN (
+   '00000000-0000-4000-8000-000000000991',
+   '00000000-0000-4000-8000-000000000992'
+ );
