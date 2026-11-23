@@ -615,6 +615,13 @@ jobs:
           docker compose exec -T api php artisan migrate --force
           docker compose exec -T api php artisan migrate:status --database=pgsql
 
+      - name: Require PostgreSQL-backed local Sanctum lifecycle tests
+        working-directory: backend
+        run: >-
+          docker compose exec -T api sh -ec
+          'DB_CONNECTION=pgsql TACRESQ_REQUIRE_POSTGRES_LIFECYCLE=1
+          php artisan test --filter=LocalSanctumAccountLifecycleTest'
+
       - name: Run Laravel feature tests
         working-directory: backend
         run: docker compose exec -T api php artisan test
