@@ -64,6 +64,7 @@ final class LocalAdminTotpService
                         ->whereNull('confirmed_at')
                         ->update([
                             'confirmed_at' => now(),
+                            'expires_at' => null,
                             'last_used_step' => $candidateStep,
                             'updated_at' => now(),
                         ]);
