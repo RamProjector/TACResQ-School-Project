@@ -10,6 +10,18 @@ return new class extends Migration {
             return;
         }
 
+        $unattributedEvents = DB::table('local_account_lifecycle_events')
+            ->whereNull('actor_user_id')
+            ->orWhereNull('target_user_id')
+            ->count();
+
+        if ($unattributedEvents > 0) {
+            throw new RuntimeException(
+                'Cannot require lifecycle audit identities: existing events have missing actor or target IDs. '
+                .'Review and repair those records through a separately approved audit-preserving process, then retry the migration.'
+            );
+        }
+
         DB::statement(<<<'SQL'
             ALTER TABLE local_account_lifecycle_events
                 ALTER COLUMN actor_user_id SET NOT NULL,
