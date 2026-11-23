@@ -69,7 +69,13 @@ function actorDisplay(event: AdminInvestigationEvent, profile: TacruProfile) {
 }
 
 export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
-  const [events, setEvents] = useState<AdminInvestigationEvent[]>([]);\n  const [lifecycleEvents, setLifecycleEvents] = useState<AdminAccountLifecycleEvent[]>([]);\n  const [lifecycleTotal, setLifecycleTotal] = useState(0);\n  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+  const [events, setEvents] = useState<AdminInvestigationEvent[]>([]);
+  const [lifecycleEvents, setLifecycleEvents] = useState<AdminAccountLifecycleEvent[]>([]);
+  const [lifecycleTotal, setLifecycleTotal] = useState(0);
+  const [lifecyclePage, setLifecyclePage] = useState(0);
+  const [lifecycleLoading, setLifecycleLoading] = useState(true);
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+  const lifecyclePageSize = 5;
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<AdminInvestigationCategory>("all");
