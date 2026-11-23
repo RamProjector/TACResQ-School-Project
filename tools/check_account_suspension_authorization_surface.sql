@@ -195,3 +195,21 @@ SELECT
   has_schema_privilege('authenticated', schema_name, 'USAGE') AS authenticated_usage
 FROM (VALUES ('public'), ('private'), ('storage'), ('auth')) AS schemas(schema_name)
 ORDER BY schema_name;
+
+
+\echo '=== All private SECURITY DEFINER functions (including non-client-callable helpers) ==='
+-- A private helper may be reached from a SECURITY DEFINER wrapper even when
+-- authenticated has no EXECUTE grant on the helper itself. Inventory every
+-- private definer body, not only helpers directly executable by client roles.
+SELECT
+  p.oid::regprocedure AS signature,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_execute,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_execute,
+  coalesce(array_to_string(p.proconfig, ', '), '(default search_path)') AS function_settings,
+  p.prosrc AS implementation_source
+FROM pg_catalog.pg_proc AS p
+JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+WHERE n.nspname = 'private'
+  AND p.prokind = 'f'
+  AND p.prosecdef
+ORDER BY p.proname, p.oid::regprocedure::text;
