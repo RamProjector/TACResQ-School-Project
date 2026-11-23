@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\FcmHttpV1Client;
 use App\FcmNotificationDispatcher;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Mockery;
 use Tests\TestCase;
