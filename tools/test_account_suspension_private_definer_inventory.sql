@@ -16,7 +16,8 @@ DECLARE
     'private.tacresq_dispatch_update_incident_status(bigint,text)',
     'private.tacresq_is_incident_assignee(bigint)',
     'private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)',
-    'private.tacresq_release_incident_assignment(bigint,bigint)'
+    'private.tacresq_release_incident_assignment(bigint,bigint)',
+    'private.tacresq_upload_reservation_allows_insert(text,text,bigint)'
   ];
 BEGIN
   FOREACH expected_signature IN ARRAY expected_signatures LOOP
@@ -73,11 +74,11 @@ BEGIN
       unexpected_signature;
   END IF;
 
-  IF cardinality(expected_signatures) <> 9 THEN
-    RAISE EXCEPTION 'Private callable-definer inventory must contain exactly 9 signatures; found %',
+  IF cardinality(expected_signatures) <> 10 THEN
+    RAISE EXCEPTION 'Private callable-definer inventory must contain exactly 10 signatures; found %',
       cardinality(expected_signatures);
   END IF;
 END;
 $account_suspension_private_definer_inventory$;
 
-\echo 'PASS: all 9 authenticated-callable private SECURITY DEFINER helpers remain inventoried; no new callable helper is unreviewed.'
+\echo 'PASS: all 10 authenticated-callable private SECURITY DEFINER helpers remain inventoried; no new callable helper is unreviewed.'
