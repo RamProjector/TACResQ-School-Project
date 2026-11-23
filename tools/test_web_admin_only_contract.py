@@ -250,3 +250,19 @@ assert "@media (prefers-contrast: more)" in admin_resolution_css
 assert "@media (forced-colors: active)" in admin_resolution_css
 assert "@media print {" in admin_resolution_css
 assert ".audit-event-card__details, .audit-event-card__references { display: block !important; }" in admin_resolution_css
+
+
+# Printed tables repeat their headings and avoid splitting individual account rows.
+assert ".admin-table thead { display: table-header-group; }" in admin_resolution_css
+assert ".admin-table tr { break-inside: avoid; page-break-inside: avoid; }" in admin_resolution_css
+assert ".admin-table tfoot { display: table-footer-group; }" in admin_resolution_css
+
+# Dense identifiers remain inside the printable page box.
+assert ".audit-event-card__details dd," in admin_resolution_css
+assert "overflow-wrap: anywhere;" in admin_resolution_css
+assert ".audit-event-card__details dl { gap: 7pt 12pt; }" in admin_resolution_css
+
+# Very narrow viewports and zoomed layouts retain usable controls without shrinking tables.
+assert "@media (max-width: 360px)" in admin_resolution_css
+assert ".admin-pagination > div { flex-direction: column; }" in admin_resolution_css
+assert ".admin-metrics { grid-template-columns: minmax(0,1fr); }" in admin_resolution_css
