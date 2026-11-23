@@ -12,6 +12,7 @@ read_rpc_migration = (ROOT / "supabase/migrations/20261123140000_account_lifecyc
 assignment_helper_migration = (ROOT / "supabase/migrations/20261123150000_account_lifecycle_assignment_helper_guard.sql").read_text().lower()
 volatility_migration = (ROOT / "supabase/migrations/20261123160000_account_lifecycle_helper_volatility.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
+storage_test = (ROOT / "tools/test_incident_chat_storage_policies.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
 design = (ROOT / "docs/security/admin-account-suspension-design.md").read_text().lower()
 
@@ -158,6 +159,18 @@ for required in (
 
 assert "tools/test_account_lifecycle_foundation.sql" in replay, (
     "Clean migration replay must execute the account lifecycle SQL contract"
+)
+
+for required in (
+    "a requester with the same still-valid jwt",
+    "suspended requester must not download previously uploaded incident images",
+    "suspended requester must not upload new incident images",
+    "suspended requester must not read incident chat history",
+    "suspended requester must not send incident chat messages",
+):
+    assert required in storage_test, f"Suspended Storage/chat runtime test is missing: {required}"
+assert "tools/test_incident_chat_storage_policies.sql" in replay, (
+    "Clean migration replay must execute the Storage same-valid-JWT denial test"
 )
 assert "status:** design and repository inventory required" not in design
 assert "foundation migration" in design and "other read-only security definer rpcs still require explicit guards" in design
