@@ -125,3 +125,14 @@ enroll_end = routes.index("})->middleware('throttle:3,1');", enroll_start)
 enroll_route = routes[enroll_start:enroll_end]
 assert "$lockedUser->role !== 'admin'" in enroll_route
 assert "$lockedUser->is_suspended" in enroll_route
+
+
+# Pending local Admin TOTP enrollment cannot be confirmed after suspension or demotion.
+assert "test_suspended_admin_cannot_confirm_pending_totp_enrollment" in feature
+assert "test_demoted_account_cannot_confirm_pending_totp_enrollment" in feature
+confirm_start = routes.index("Route::post('/confirm'")
+confirm_end = routes.index("})->middleware('throttle:5,1');", confirm_start)
+confirm_route = routes[confirm_start:confirm_end]
+assert "$lockedUser->role !== 'admin'" in confirm_route
+assert "$lockedUser->is_suspended" in confirm_route
+assert "User::whereKey($user->id)->lockForUpdate()" in confirm_route
