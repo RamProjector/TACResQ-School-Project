@@ -12,6 +12,7 @@ middleware = (ROOT / "backend/src/app/Http/Middleware/EnsureLocalAccountIsActive
 routes = (ROOT / "backend/src/routes/api.php").read_text()
 bootstrap = (ROOT / "backend/src/bootstrap/app.php").read_text()
 feature = (ROOT / "backend/src/tests/Feature/LocalSanctumAccountLifecycleTest.php").read_text()
+workflow = (ROOT / ".github/workflows/ci.yml").read_text()
 recorder = (ROOT / "backend/src/app/Services/LocalAccountLifecycleRecorder.php").read_text()
 admin_reauth = (ROOT / "backend/src/app/Http/Middleware/EnsureLocalAdminReauthenticated.php").read_text()
 totp_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000010_create_local_admin_totp_credentials.php").read_text()
@@ -98,6 +99,10 @@ assert "test_local_admin_sensitive_action_rejects_incorrect_totp_code" in featur
 assert "test_local_admin_totp_code_cannot_be_replayed" in feature
 assert "test_unconfirmed_local_admin_totp_factor_cannot_authorize_sensitive_action" in feature
 assert "test_previously_used_totp_value_is_rejected_even_if_a_later_step_collides" in feature
+assert "test_ci_can_require_the_lifecycle_suite_to_use_postgresql" in feature
+assert "TACRESQ_REQUIRE_POSTGRES_LIFECYCLE=1" in workflow
+assert "php artisan test --filter=LocalSanctumAccountLifecycleTest" in workflow
+
 print("Local Sanctum lifecycle guard and append-only audit contracts passed.")
 
 
