@@ -4,6 +4,7 @@ namespace App;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use RuntimeException;
 
 class FcmNotificationDispatcher
