@@ -38,7 +38,7 @@ if has_account_state:
         "Recipient selection must explicitly filter active accounts before FCM token lookup."
     )
 else:
-    assert "does not currently establish account lifecycle state" in CONTRACT.read_text()
+    assert "does not establish account lifecycle state" in CONTRACT.read_text()
     assert "no account lifecycle column" in CONTRACT.read_text()
     assert "account_status" not in source, (
         "Do not query a lifecycle column before its migration is present."
