@@ -592,3 +592,56 @@ $same_client_uuid_reservations$;
 RESET ROLE;
 
 SELECT 'PASS: private incident image storage permits authorized uploads, requires reservations, and supports delayed finalization.' AS result;
+
+
+-- Finalization must reject an object whose stored byte size differs from
+-- the matching reservation, even if the object exists in Storage.
+INSERT INTO storage.objects (bucket_id, name, metadata)
+VALUES (
+  'incident-chat-attachments',
+  format(
+    '%s/%s/00000000-0000-4000-8000-000000000222.jpg',
+    current_setting('test.incident_id')::bigint,
+    (SELECT id FROM public.profiles
+      WHERE auth_user_id = '00000000-0000-4000-8000-000000000161')
+  ),
+  '{"mimetype":"image/jpeg","size":"5"}'::jsonb
+);
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000161', false);
+SET ROLE authenticated;
+DO $stored_size_mismatch_test$
+DECLARE
+  denied boolean := false;
+  incident_id bigint := current_setting('test.incident_id')::bigint;
+  responder_profile_id bigint := private.tacresq_auth_profile_id();
+BEGIN
+  PERFORM public.api_reserve_incident_image_upload(
+    incident_id,
+    'image/jpeg',
+    4,
+    '00000000-0000-4000-8000-000000000222'::uuid
+  );
+  BEGIN
+    PERFORM public.api_send_incident_image_message(
+      incident_id,
+      'Stored-size mismatch must fail',
+      format(
+        '%s/%s/00000000-0000-4000-8000-000000000222.jpg',
+        incident_id,
+        responder_profile_id
+      ),
+      'image/jpeg',
+      4,
+      '00000000-0000-4000-8000-000000000222'::uuid
+    );
+  EXCEPTION WHEN invalid_parameter_value THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Finalization must reject stored object metadata with a mismatched byte size';
+  END IF;
+END;
+$stored_size_mismatch_test$;
+RESET ROLE;
+
+SELECT 'PASS: stored object size mismatch is rejected during image-message finalization.' AS result;
