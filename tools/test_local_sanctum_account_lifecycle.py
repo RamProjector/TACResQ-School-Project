@@ -75,11 +75,12 @@ assert "'totp_code'" in admin_reauth and "verifyAndConsume" in admin_reauth
 assert "LocalAdminTotpService::class" in admin_reauth
 assert "verifyAndConsume($user, $credentials['totp_code'])" in admin_reauth
 assert "local_admin_totp_credentials" in totp_migration
-assert "secret_ciphertext" in totp_migration and "last_used_step" in totp_migration
+assert "secret_ciphertext" in totp_migration and "last_used_step" in totp_migration and "last_used_code_hash" in totp_migration
 assert "confirmed_at" in totp_migration and "expires_at" in totp_migration and "unique()->constrained('users')" in totp_migration
 assert "Crypt::encryptString" in totp_service and "Crypt::decryptString" in totp_service
 assert "hash_hmac('sha1'" in totp_service and "PERIOD_SECONDS = 30" in totp_service
 assert "lockForUpdate()" in totp_service and "$candidateStep <= $lastUsedStep" in totp_service
+assert "last_used_code_hash" in totp_service and "hash('sha256', $code)" in totp_service
 assert "confirmEnrollment" in totp_service and "verifyAndConsume" in totp_service
 assert "prefix('admin/security/totp')" in routes and "Route::post('/enroll'" in routes and "Route::post('/confirm'" in routes
 assert "secret_ciphertext" in routes and "Cache-Control', 'no-store, private'" in routes
