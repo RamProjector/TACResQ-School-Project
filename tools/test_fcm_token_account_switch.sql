@@ -98,6 +98,33 @@ BEGIN
 END;
 $suspended_registration_denied$;
 
+DO $suspended_direct_read_denied$
+DECLARE
+  visible_count bigint;
+BEGIN
+  SELECT count(*) INTO visible_count
+    FROM public.fcm_tokens
+   WHERE token = 'fcm-installation-token-account-switch-000000000201';
+  IF visible_count <> 0 THEN
+    RAISE EXCEPTION 'Suspended account unexpectedly read its FCM token row';
+  END IF;
+END;
+$suspended_direct_read_denied$;
+
+DO $suspended_direct_update_denied$
+DECLARE
+  changed_count bigint;
+BEGIN
+  UPDATE public.fcm_tokens
+     SET updated_at = statement_timestamp()
+   WHERE token = 'fcm-installation-token-account-switch-000000000201';
+  GET DIAGNOSTICS changed_count = ROW_COUNT;
+  IF changed_count <> 0 THEN
+    RAISE EXCEPTION 'Suspended account unexpectedly updated an FCM token row';
+  END IF;
+END;
+$suspended_direct_update_denied$;
+
 DO $suspended_direct_write_denied$
 BEGIN
   BEGIN
