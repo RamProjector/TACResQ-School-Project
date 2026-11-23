@@ -33,9 +33,7 @@ Deno.serve(async (request: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleEnvName = ["SUPABASE", "SERVICE_ROLE", "KEY"].join("_");
   const serviceKey = Deno.env.get(serviceRoleEnvName);
-  const serviceAccountSecret = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON");
   if (!supabaseUrl || !serviceKey) return json({ error: "Supabase server configuration is missing" }, 503);
-  if (!serviceAccountSecret) return json({ error: "FCM is not configured; add the FCM service-account secret" }, 503);
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: userResult, error: authError } = await admin.auth.getUser(userToken);
   if (authError || !userResult.user) return json({ error: "Invalid or expired session" }, 401);
@@ -85,6 +83,8 @@ Deno.serve(async (request: Request) => {
   const { data: registrations, error: tokenError } = await admin.from("fcm_tokens").select("id,profile_id,token").in("profile_id", targetProfileIds);
   if (tokenError) return json({ error: "Could not load notification registrations" }, 500);
   if (!registrations?.length) return json({ sent: 0, reason: "Recipients have not registered an FCM token" });
+  const serviceAccountSecret = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON");
+  if (!serviceAccountSecret) return json({ error: "FCM is not configured; add the FCM service-account secret" }, 503);
   let googleAccount: Record<string, string>;
   try {
     googleAccount = JSON.parse(serviceAccountSecret);
