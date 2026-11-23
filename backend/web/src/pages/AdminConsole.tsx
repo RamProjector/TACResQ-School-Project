@@ -117,7 +117,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setPage(0);
-      setDebouncedQuery(query);
+      setDebouncedQuery(query.trim());
     }, 250);
     return () => window.clearTimeout(timer);
   }, [query]);
