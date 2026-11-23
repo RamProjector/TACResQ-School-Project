@@ -54,4 +54,16 @@ final class DispatchFcmCommandTest extends TestCase
             ->assertExitCode(2);
     }
 
+    public function test_check_config_validates_credentials_without_dispatching(): void
+    {
+        $dispatcher = Mockery::mock(FcmNotificationDispatcher::class);
+        $dispatcher->shouldReceive('checkConfiguration')->once();
+        $dispatcher->shouldNotReceive('dispatch');
+        $this->app->instance(FcmNotificationDispatcher::class, $dispatcher);
+
+        $this->artisan('tacresq:dispatch-fcm', ['--check-config' => true])
+            ->expectsOutput('FCM configuration and ADC credentials are available; no notification was sent.')
+            ->assertExitCode(0);
+    }
+
 }
