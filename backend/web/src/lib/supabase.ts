@@ -21,6 +21,8 @@ export interface AdminInvestigationEvent {
   details: Record<string, unknown>;
 }
 export interface AdminInvestigationPage { events: AdminInvestigationEvent[]; total_count: number; }
+export interface AdminAccountLifecycleEvent { id: number; actor_profile_id: number; actor_identity: string; target_profile_id: number; target_name: string; action: "account_suspended" | "account_reactivated"; previous_status: "active" | "suspended"; new_status: "active" | "suspended"; reason: string; created_at: string; }
+export interface AdminAccountLifecyclePage { events: AdminAccountLifecycleEvent[]; total_count: number; }
 export interface AdminRoleChangeResult { id: number; name: string; email: string; old_role: AdminManagedRole; role: AdminManagedRole; duty_status: DutyStatus | null; }
 export type DutyStatus = "off_duty" | "available" | "en_route" | "on_scene" | "transporting";
 export type IncidentType = "medical" | "fire" | "vehicular" | "disaster" | "other";
@@ -74,6 +76,7 @@ type TacruDatabase = {
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
       api_admin_list_audit_logs_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_action: string; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null }; Returns: { events: AdminAuditEvent[]; total_count: number } };
+      api_admin_list_account_lifecycle_events: { Args: { p_limit: number; p_offset: number }; Returns: AdminAccountLifecyclePage };
       api_admin_list_investigation_events: { Args: { p_limit: number; p_offset: number; p_query: string; p_category: AdminInvestigationCategory; p_source: AdminInvestigationSource; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null; p_incident_id: number | null }; Returns: AdminInvestigationPage };
       api_admin_analytics_summary: { Args: { p_from: string; p_to: string }; Returns: AdminAnalyticsSummary };
       api_dependency_health: { Args: Record<string, never>; Returns: string };
@@ -363,6 +366,39 @@ export async function getAdminInvestigationEventsPage(
       throw new Error("The investigation service returned duplicate event identifiers.");
     }
     eventIds.add(event.event_id);
+  }
+  return page;
+}
+
+export async function getAdminAccountLifecycleEvents(limit = 5, offset = 0): Promise<AdminAccountLifecyclePage> {
+  const { data, error } = await getSupabase().rpc("api_admin_list_account_lifecycle_events", {
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error?.code === "PGRST202") {
+    throw new Error("Account lifecycle history will appear after the reviewed database migration is applied.");
+  }
+  throwAdminError(error);
+  if (!data || typeof data !== "object") throw new Error("The account lifecycle service returned an invalid page.");
+  const page = data as unknown as AdminAccountLifecyclePage;
+  if (!Array.isArray(page.events) || !Number.isSafeInteger(page.total_count) || page.total_count < 0 || page.events.length > limit || page.total_count < offset + page.events.length) {
+    throw new Error("The account lifecycle service returned an invalid page.");
+  }
+  const ids = new Set<number>();
+  for (const event of page.events) {
+    if (!event || !Number.isSafeInteger(event.id) || event.id < 1 || ids.has(event.id)
+      || !Number.isSafeInteger(event.actor_profile_id) || event.actor_profile_id < 1
+      || !Number.isSafeInteger(event.target_profile_id) || event.target_profile_id < 1
+      || typeof event.actor_identity !== "string" || !event.actor_identity.trim()
+      || typeof event.target_name !== "string" || !event.target_name.trim()
+      || !["account_suspended", "account_reactivated"].includes(event.action)
+      || !["active", "suspended"].includes(event.previous_status)
+      || !["active", "suspended"].includes(event.new_status)
+      || typeof event.reason !== "string" || event.reason.length < 10 || event.reason.length > 500
+      || typeof event.created_at !== "string" || !Number.isFinite(Date.parse(event.created_at))) {
+      throw new Error("The account lifecycle service returned an invalid event.");
+    }
+    ids.add(event.id);
   }
   return page;
 }
