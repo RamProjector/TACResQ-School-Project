@@ -9,6 +9,7 @@ DECLARE
   );
   function_definer boolean;
   function_settings text[];
+  function_source text;
 BEGIN
   IF claim_oid IS NULL THEN
     RAISE EXCEPTION 'FCM delivery claim RPC is missing';
@@ -30,6 +31,10 @@ BEGIN
   END IF;
   IF NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
     RAISE EXCEPTION 'FCM delivery claim RPC must pin search_path to pg_catalog';
+  END IF;
+  SELECT pg_get_functiondef(claim_oid) INTO function_source;
+  IF position('recipient_profile.account_status = ''active''' IN function_source) = 0 THEN
+    RAISE EXCEPTION 'FCM delivery claim RPC must exclude suspended recipients before creating delivery attempts';
   END IF;
   IF has_table_privilege('authenticated', 'public.fcm_delivery_attempts', 'SELECT')
      OR has_table_privilege('authenticated', 'public.fcm_delivery_attempts', 'INSERT')
