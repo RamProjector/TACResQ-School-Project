@@ -124,6 +124,10 @@ assert "test_invalid_token_cleanup_failure_is_recorded_as_retryable_cleanup_erro
 assert "test_malformed_claimed_attempt_is_skipped_without_sending" in dispatcher_tests
 assert "test_invalid_token_is_marked_only_after_successful_cleanup" in dispatcher_tests
 assert "test_retryable_provider_result_is_persisted_as_failed_with_backoff" in dispatcher_tests
+assert "test_missing_server_configuration_fails_before_queue_claim" in dispatcher_tests
+assert "test_claim_service_failure_aborts_before_any_send" in dispatcher_tests
+assert "test_configured_batch_limit_is_clamped_to_database_cap" in dispatcher_tests
+assert "test_permanent_provider_failure_is_not_treated_as_invalid_token" in dispatcher_tests
 # The trusted sender must not expose a public route or use a client-visible key.
 assert "Route::post('/internal/push" not in read("backend/src/routes/api.php")
 assert "supabase_publishable_key" not in dispatcher
