@@ -143,7 +143,10 @@ cleanup_delete = source.index('.from("fcm_tokens").delete()', cleanup_block)
 cleanup_failure = source.index('cleanupPending = true;', cleanup_delete)
 cleanup_response = source.index('cleanup_pending: true', cleanup_failure)
 assert fcm_loop < cleanup_block < cleanup_delete < cleanup_failure < cleanup_response
-assert 'console.error("Invalid FCM registration cleanup failed.");' in source
+assert 'try {\n      const { error: cleanupError } = await admin.from("fcm_tokens").delete().in("id", invalidTokenIds);' in source
+assert 'if (cleanupError) cleanupPending = true;' in source
+assert '    } catch {\n      cleanupPending = true;\n    }' in source
+assert 'if (cleanupPending) console.error("Invalid FCM registration cleanup failed.");' in source
 assert 'return json({ sent, attempted: registrations.length, ...(cleanupPending ? { cleanup_pending: true } : {}) });' in source
 
 print("Notification Edge Function authorization-order source contract passed.")
