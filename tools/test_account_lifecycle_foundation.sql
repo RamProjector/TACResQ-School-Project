@@ -27,8 +27,8 @@ BEGIN
   IF helper_is_definer IS DISTINCT FROM true
      OR helper_volatility IS DISTINCT FROM 'v'
      OR NOT (coalesce(helper_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
-     OR helper_source NOT ILIKE '%FOR KEY SHARE%' THEN
-    RAISE EXCEPTION 'Current-account helper must be VOLATILE SECURITY DEFINER, pin search_path, and lock the caller profile FOR KEY SHARE';
+     OR helper_source NOT ILIKE '%FOR SHARE%' THEN
+    RAISE EXCEPTION 'Current-account helper must be VOLATILE SECURITY DEFINER, pin search_path, and lock the caller profile FOR SHARE';
   END IF;
   IF NOT has_function_privilege('authenticated', helper_oid, 'EXECUTE')
      OR has_function_privilege('anon', helper_oid, 'EXECUTE') THEN
