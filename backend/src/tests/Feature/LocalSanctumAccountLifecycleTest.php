@@ -49,6 +49,42 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             ->assertHeader('Cache-Control', 'no-store, private');
     }
 
+    public function test_existing_sanctum_token_is_denied_across_protected_incident_and_account_routes_after_suspension(): void
+    {
+        $user = $this->createLocalUser();
+        $plainTextToken = $user->createToken('lifecycle-regression')->plainTextToken;
+
+        // Suspend after token issuance to prove that an already-issued credential
+        // is checked against current account state on every protected request.
+        DB::table('users')->where('id', $user->id)->update([
+            'is_suspended' => true,
+            'suspended_at' => now(),
+            'suspension_reason' => 'Synthetic same-token regression',
+        ]);
+
+        $requests = [
+            ['GET', '/api/me'],
+            ['GET', '/api/incidents/mine'],
+            ['GET', '/api/incidents'],
+            ['GET', '/api/units'],
+            ['POST', '/api/incidents'],
+            ['PATCH', '/api/me/duty-status'],
+            ['POST', '/api/change-password'],
+        ];
+
+        foreach ($requests as [$method, $uri]) {
+            $response = $this->withToken($plainTextToken)->json($method, $uri);
+            $response->assertForbidden()
+                ->assertExactJson([
+                    'message' => 'This local TACResQ account is suspended. Contact an administrator for assistance.',
+                ])
+                ->assertHeader('Cache-Control', 'no-store, private');
+        }
+
+        // Denial must not depend on revoking the token as a side effect.
+        $this->assertSame(1, $user->tokens()->count());
+    }
+
     public function test_suspended_local_account_cannot_obtain_a_new_sanctum_token(): void
     {
         $user = $this->createLocalUser();
