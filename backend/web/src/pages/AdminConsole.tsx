@@ -503,7 +503,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <thead><tr><th>Account</th><th>Role</th><th>Duty status</th><th>Created</th><th>Action</th></tr></thead>
                 <tbody>
                   {loading && users.length === 0 ? (
-                    <tr><td colSpan={5}><div className="admin-empty"><LoaderCircle size={19} className="admin-spin" /> Loading accounts from Supabase…</div></td></tr>
+                    <tr><td colSpan={5}><div className="admin-empty" role="status" aria-live="polite"><LoaderCircle size={19} className="admin-spin" /> Loading accounts from Supabase…</div></td></tr>
                   ) : filteredUsers.length === 0 ? (
                     <tr><td colSpan={5}><div className="admin-empty"><Users size={20} /><strong>{directoryError ? "User data is unavailable" : "No accounts match this filter"}</strong><span>{directoryError ? "The page does not substitute demo accounts for live data." : "Try another search or role filter."}</span></div></td></tr>
                   ) : filteredUsers.map((user) => (
