@@ -581,7 +581,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </div>
               <div className="admin-roadmap-content">
                 <strong>Administrator access requires Google Authenticator TOTP.</strong>
-                <p>After password sign-in, administrators must enroll or verify a six-digit time-based code from Google Authenticator. Supabase Auth verifies the factor and issues an AAL2 session; the Admin RPCs and audit-log table independently require an AAL2 token with a TOTP authentication method. No SMS or email OTP is used. Supabase Auth does not currently provide app-generated recovery codes, so keep your authenticator available and do not remove your only verified factor.</p>
+                <p>In this branch, the Supabase Auth flow supports a six-digit Google Authenticator TOTP factor, and protected Admin RPCs and audit-log reads check for an AAL2 session with a TOTP authentication method. This describes the repository implementation only; deployment and live-project enforcement have not been independently verified. No SMS or email OTP is configured by this flow. Supabase Auth does not currently provide app-generated recovery codes, so keep your authenticator available and do not remove your only verified factor.</p>
                 <span className="admin-roadmap-status"><ShieldCheck size={14} /> Password + Google Authenticator TOTP · enforced server-side</span>
               </div>
             </section>
