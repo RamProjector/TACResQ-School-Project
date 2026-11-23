@@ -14,14 +14,9 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Profiles must default new accounts to active';
   END IF;
-  FOREACH helper_oid IN ARRAY ARRAY[
-    to_regprocedure('private.tacresq_current_account_active()')
-  ]::oid[]
-  LOOP
-    IF helper_oid IS NULL THEN
-      RAISE EXCEPTION 'Current-account active-state helper is missing';
-    END IF;
-  END LOOP;
+  IF helper_oid IS NULL THEN
+    RAISE EXCEPTION 'Current-account active-state helper is missing';
+  END IF;
 
   SELECT p.prosecdef, p.proconfig
     INTO helper_is_definer, helper_settings
