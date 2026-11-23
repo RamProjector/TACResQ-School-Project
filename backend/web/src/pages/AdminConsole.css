@@ -1090,3 +1090,26 @@
   .admin-pagination > div { width:100%; }
   .admin-pagination button { flex:1; }
 }
+
+
+/* Resolution-aware type hierarchy: readable at 1280px and scaled conservatively on 2K+. */
+.admin-heading h1 { font-size:clamp(28px,2.35vw,40px); line-height:1.12; }
+.admin-heading p:last-child { max-width:72ch; font-size:var(--admin-font-base); }
+.admin-panel__heading h2 { font-size:var(--admin-font-lg); }
+.admin-metrics article > span,.admin-table th { font-size:var(--admin-font-xs); }
+.admin-metrics small,.admin-panel__footnote,.admin-empty { font-size:var(--admin-font-xs); }
+.admin-table td,.admin-search input,.admin-role-filter select { font-size:var(--admin-font-sm); }
+.admin-account strong { font-size:var(--admin-font-sm); }
+.admin-account small,.admin-date,.admin-duty { font-size:var(--admin-font-xs) !important; }
+.admin-user strong { font-size:var(--admin-font-sm); }
+.admin-user small { font-size:var(--admin-font-xs); }
+@media (min-width:1920px) {
+  .admin-shell { --admin-content-max:1760px; --admin-gutter:40px; }
+  .admin-table th,.admin-table td { padding-inline:18px; }
+}
+@media (max-width:480px) {
+  .admin-heading p:last-child { font-size:var(--admin-font-sm); }
+  .admin-table { min-width:720px; }
+  .admin-table td { padding-block:13px; }
+  .admin-footer { font-size:8px; }
+}
