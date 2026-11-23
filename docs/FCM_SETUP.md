@@ -64,3 +64,6 @@ The free-tier design remains best-effort: Render may take about a minute to wake
 
 
 The Laravel feature suite includes dispatcher-level failure-injection coverage for invalid limits, successful ledger writes, continuation after an attempt-ledger failure, failed invalid-token cleanup, and malformed claimed rows. These tests use a mocked FCM transport and Laravel's HTTP fake for Supabase; they do not contact Firebase or a live Supabase project.
+
+
+Additional dispatcher cases verify that missing server configuration and failed queue claims stop processing before any FCM send, configured batch sizes cannot exceed the database cap, and permanent payload errors do not trigger token deletion.
