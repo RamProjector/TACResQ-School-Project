@@ -241,6 +241,9 @@ DO $still_valid_jwt_denial$
 DECLARE
   visible_profile_count bigint;
 BEGIN
+  IF public.api_me() IS NOT NULL THEN
+    RAISE EXCEPTION 'Suspended caller must not resolve an active profile through api_me';
+  END IF;
   IF private.tacresq_current_account_active() IS DISTINCT FROM false
      OR private.tacresq_auth_profile_id() IS NOT NULL
      OR private.tacresq_actor_role() IS NOT NULL THEN
