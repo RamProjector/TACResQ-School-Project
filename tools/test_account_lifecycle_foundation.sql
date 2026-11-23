@@ -318,4 +318,43 @@ $immutable_audit_contract$;
 
 DROP FUNCTION public.test_account_lifecycle_definer_write();
 
+-- A suspended Admin with a still-valid AAL2/TOTP JWT must fail the shared
+-- database MFA gate; the UI gate alone is not the authorization boundary.
 SELECT set_config('request.jwt.claim.sub', '', false);
+SELECT set_config('request.jwt.claims', '', false);
+INSERT INTO auth.users (id, email, raw_user_meta_data)
+VALUES (
+  '00000000-0000-4000-8000-000000000992',
+  'account-lifecycle-admin-992@example.test',
+  '{"name":"Suspended Admin Contract","phone":"+63917000992","role":"requester"}'::jsonb
+);
+UPDATE public.profiles
+   SET role = 'admin',
+       duty_status = NULL,
+       account_status = 'suspended',
+       suspended_at = clock_timestamp(),
+       suspended_by = id,
+       suspension_reason = 'Synthetic suspended Admin fixture'
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000992';
+
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000992', false);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000992","aal":"aal2","amr":[{"method":"totp"}]}',
+  false
+);
+SET ROLE authenticated;
+DO $suspended_admin_mfa_contract$
+BEGIN
+  BEGIN
+    PERFORM public.api_admin_list_users_page(25, 0, '', 'all');
+    RAISE EXCEPTION 'Suspended Admin unexpectedly passed the TOTP-protected directory RPC';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+END;
+$suspended_admin_mfa_contract$;
+RESET ROLE;
+
+SELECT set_config('request.jwt.claim.sub', '', false);
+SELECT set_config('request.jwt.claims', '', false);
