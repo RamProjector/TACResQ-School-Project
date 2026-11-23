@@ -122,6 +122,8 @@ assert "test_successful_send_is_written_to_delivery_ledger" in dispatcher_tests
 assert "test_ledger_failure_for_one_attempt_does_not_stop_later_recipients" in dispatcher_tests
 assert "test_invalid_token_cleanup_failure_is_recorded_as_retryable_cleanup_error" in dispatcher_tests
 assert "test_malformed_claimed_attempt_is_skipped_without_sending" in dispatcher_tests
+assert "test_invalid_token_is_marked_only_after_successful_cleanup" in dispatcher_tests
+assert "test_retryable_provider_result_is_persisted_as_failed_with_backoff" in dispatcher_tests
 # The trusted sender must not expose a public route or use a client-visible key.
 assert "Route::post('/internal/push" not in read("backend/src/routes/api.php")
 assert "supabase_publishable_key" not in dispatcher
