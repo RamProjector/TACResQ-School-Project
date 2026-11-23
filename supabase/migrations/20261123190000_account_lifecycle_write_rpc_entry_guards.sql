@@ -107,6 +107,7 @@ BEGIN
   SELECT * INTO profile_row
     FROM public.profiles
    WHERE auth_user_id = auth.uid()
+     AND account_status = 'active'
    FOR UPDATE;
 
   IF profile_row.id IS NULL OR profile_row.role <> 'requester' THEN
