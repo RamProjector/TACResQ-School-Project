@@ -61,3 +61,6 @@ The existing sender can be invoked through the signed, payload-free Render endpo
 This is not yet enabled in the connected production project. The current live Supabase project did not have pg_cron or pg_net installed at review time, and no HMAC secret or scheduled job was created. Follow [FCM Supabase Cron trigger setup](FCM_SUPABASE_CRON_TRIGGER.md) only after the matching Render code is deployed and the operator approves the one-time secret/extension/job configuration.
 
 The free-tier design remains best-effort: Render may take about a minute to wake after idle, and Supabase Free projects may pause after extended inactivity. FCM remains supplemental; the persistent in-app inbox is authoritative.
+
+
+The Laravel feature suite includes dispatcher-level failure-injection coverage for invalid limits, successful ledger writes, continuation after an attempt-ledger failure, failed invalid-token cleanup, and malformed claimed rows. These tests use a mocked FCM transport and Laravel's HTTP fake for Supabase; they do not contact Firebase or a live Supabase project.
