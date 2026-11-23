@@ -136,3 +136,10 @@ confirm_route = routes[confirm_start:confirm_end]
 assert "$lockedUser->role !== 'admin'" in confirm_route
 assert "$lockedUser->is_suspended" in confirm_route
 assert "User::whereKey($user->id)->lockForUpdate()" in confirm_route
+
+
+# Step-up authorization re-reads and locks the local account before consuming TOTP.
+assert "User::whereKey($user->getAuthIdentifier())->lockForUpdate()->first()" in admin_reauth
+assert "DB::transaction(function () use ($user, $credentials)" in admin_reauth
+assert "test_local_admin_sensitive_action_rechecks_demoted_role_from_database" in feature
+assert "test_local_admin_sensitive_action_rechecks_suspension_from_database" in feature
