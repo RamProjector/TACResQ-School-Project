@@ -101,3 +101,13 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - The regression contract now checks the pending-search presentation and the existing last-valid-page recovery when the account count shrinks.
 - The server remains authoritative for search, role filtering, and pagination. No client-side filtering, new account data exposure, or account lifecycle controls were added.
 - Static source assertions are present; run the repository's Python contract and browser tests in CI before treating the change as validated.
+
+
+## Admin portal design-system and responsive-layout follow-up
+
+- Added a shared spacing and typography scale for the Admin portal, with consistent DM Sans body typography and constrained heading hierarchy.
+- Standardized workspace width, page gutters, panel spacing, control heights, table cell rhythm, and modal padding so the Overview, User Management, Security, Reports, and Activity Log sections share the same visual system.
+- Defined explicit layout tiers for wide desktop, standard desktop, compact desktop/tablet, mobile, and narrow mobile. The layout remains fluid within each tier but changes structure at predictable breakpoints.
+- Typography uses bounded responsive sizing rather than unrestricted viewport scaling; large displays receive modestly wider content and table spacing, while narrow screens retain legible controls and stacked pagination.
+- Existing navigation, permissions, data queries, account lifecycle boundaries, and page content are unchanged.
+- Static source assertions are added for the shared tokens and breakpoint contract. Actual browser screenshots, keyboard interaction, zoom behavior, and assistive-technology review remain required before declaring visual validation complete.
