@@ -115,6 +115,17 @@ assert unsupported_event < recipient_lookup < oauth_call < fcm_send, (
     "Invalid payloads and unsupported event types must be rejected before delivery."
 )
 
+# Never let secret-provided OAuth endpoints become arbitrary outbound URLs,
+# and reject malformed Firebase project identifiers before constructing FCM URLs.
+token_uri_validation = source.index('const tokenUri = new URL(googleAccount.token_uri);')
+project_id_validation = source.index('if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(googleAccount.project_id))')
+oauth_invocation = source.index('getGoogleAccessToken(googleAccount)', token_uri_validation)
+assert token_uri_validation < project_id_validation < oauth_invocation
+assert 'tokenUri.protocol !== "https:"' in source
+assert 'tokenUri.hostname !== "oauth2.googleapis.com"' in source
+assert 'tokenUri.pathname !== "/token"' in source
+assert 'tokenUri.search || tokenUri.hash' in source
+
 # Stale-token cleanup is best-effort after delivery. Surface cleanup failure
 # without converting already-attempted sends into a retryable delivery error.
 cleanup_block = source.index('let cleanupPending = false;')
