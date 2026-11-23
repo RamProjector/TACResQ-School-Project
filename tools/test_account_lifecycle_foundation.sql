@@ -472,7 +472,6 @@ DO $atomic_account_transition_contract$
 DECLARE
   actor_id bigint;
   target_id bigint;
-  rollback_target_id bigint;
   response jsonb;
   current_status text;
   current_duty_status text;
@@ -483,8 +482,6 @@ BEGIN
    WHERE auth_user_id = '00000000-0000-4000-8000-000000000995';
   SELECT id INTO target_id FROM public.profiles
    WHERE auth_user_id = '00000000-0000-4000-8000-000000000993';
-  SELECT id INTO rollback_target_id FROM public.profiles
-   WHERE auth_user_id = '00000000-0000-4000-8000-000000000994';
 
   response := public.api_admin_set_account_status(
     target_id, 'suspended', 'Synthetic account suspension reason'
@@ -552,22 +549,31 @@ BEGIN
   IF NOT denied THEN
     RAISE EXCEPTION 'An Admin must not suspend their own account';
   END IF;
+END;
+$atomic_account_transition_contract$;
 
-  -- If audit insertion fails, the preceding profile state update must roll back.
-  CREATE OR REPLACE FUNCTION public.test_reject_account_lifecycle_audit_insert()
-  RETURNS trigger
-  LANGUAGE plpgsql
-  AS $test$
-  BEGIN
-    RAISE EXCEPTION 'Synthetic lifecycle audit insertion failure'
-      USING ERRCODE = 'P0001';
-  END;
-  $test$;
-  CREATE TRIGGER test_reject_account_lifecycle_audit_insert
-    BEFORE INSERT ON public.account_lifecycle_audit_logs
-    FOR EACH ROW EXECUTE FUNCTION public.test_reject_account_lifecycle_audit_insert();
+CREATE OR REPLACE FUNCTION public.test_reject_account_lifecycle_audit_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog
+AS $test$
+BEGIN
+  RAISE EXCEPTION 'Synthetic lifecycle audit insertion failure'
+    USING ERRCODE = 'P0001';
+END;
+$test$;
+CREATE TRIGGER test_reject_account_lifecycle_audit_insert
+  BEFORE INSERT ON public.account_lifecycle_audit_logs
+  FOR EACH ROW EXECUTE FUNCTION public.test_reject_account_lifecycle_audit_insert();
 
-  denied := false;
+DO $audit_failure_rollback_contract$
+DECLARE
+  rollback_target_id bigint;
+  current_status text;
+  denied boolean := false;
+BEGIN
+  SELECT id INTO rollback_target_id FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000994';
   BEGIN
     PERFORM public.api_admin_set_account_status(
       rollback_target_id, 'suspended', 'Synthetic rollback contract reason'
@@ -578,6 +584,7 @@ BEGIN
   IF NOT denied THEN
     RAISE EXCEPTION 'Synthetic audit failure did not abort the transition';
   END IF;
+
   SELECT account_status INTO current_status
     FROM public.profiles WHERE id = rollback_target_id;
   IF current_status IS DISTINCT FROM 'active'
@@ -587,12 +594,13 @@ BEGIN
      ) THEN
     RAISE EXCEPTION 'Account state must roll back when its audit insert fails';
   END IF;
-
-  DROP TRIGGER test_reject_account_lifecycle_audit_insert
-    ON public.account_lifecycle_audit_logs;
-  DROP FUNCTION public.test_reject_account_lifecycle_audit_insert();
 END;
-$atomic_account_transition_contract$;
+$audit_failure_rollback_contract$;
+
+DROP TRIGGER test_reject_account_lifecycle_audit_insert
+  ON public.account_lifecycle_audit_logs;
+DROP FUNCTION public.test_reject_account_lifecycle_audit_insert();
+
 
 SELECT set_config('request.jwt.claim.sub', '', false);
 SELECT set_config('request.jwt.claims', '', false);
