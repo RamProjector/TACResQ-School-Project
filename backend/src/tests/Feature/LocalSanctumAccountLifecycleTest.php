@@ -16,6 +16,17 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
     private string $adminTotpCode;
 
+    public function test_ci_can_require_the_lifecycle_suite_to_use_postgresql(): void
+    {
+        if (getenv('TACRESQ_REQUIRE_POSTGRES_LIFECYCLE') === '1') {
+            $this->assertSame(
+                'pgsql',
+                DB::connection()->getDriverName(),
+                'The required lifecycle audit CI run must execute against PostgreSQL, not silently skip PostgreSQL-only guards.',
+            );
+        }
+    }
+
     private function createLocalUser(): User
     {
         return User::create([
