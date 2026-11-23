@@ -133,6 +133,7 @@ assert "test_invalid_token_cleanup_failure_does_not_stop_next_recipient" in disp
 assert "test_missing_fcm_project_id_fails_before_queue_claim" in dispatcher_tests
 assert "test_non_array_claim_response_is_rejected_before_send" in dispatcher_tests
 assert "test_empty_queue_returns_zero_counts_without_sending" in dispatcher_tests
+assert "test_cleanup_failure_log_contains_only_attempt_and_exception_class" in dispatcher_tests
 # The trusted sender must not expose a public route or use a client-visible key.
 assert "Route::post('/internal/push" not in read("backend/src/routes/api.php")
 assert "supabase_publishable_key" not in dispatcher
