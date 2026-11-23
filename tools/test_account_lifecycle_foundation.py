@@ -14,6 +14,7 @@ volatility_migration = (ROOT / "supabase/migrations/20261123160000_account_lifec
 transition_migration = (ROOT / "supabase/migrations/20261123170000_account_lifecycle_admin_transition_rpc.sql").read_text().lower()
 chat_idempotency_migration = (ROOT / "supabase/migrations/20261123180000_account_lifecycle_chat_idempotency_guards.sql").read_text().lower()
 write_rpc_migration = (ROOT / "supabase/migrations/20261123190000_account_lifecycle_write_rpc_entry_guards.sql").read_text().lower()
+audit_reader_migration = (ROOT / "supabase/migrations/20261123200000_admin_account_lifecycle_audit_reader.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
 storage_test = (ROOT / "tools/test_incident_chat_storage_policies.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
@@ -150,7 +151,18 @@ for required in (
     assert required in transition_migration, f"Admin account transition is missing: {required}"
 
 for required in (
-    "create or replace function private.tacresq_auth_can_access_incident_chat(",
+    "create or replace function public.api_admin_list_account_lifecycle_events(integer, integer)",
+    "private.tacresq_require_admin_mfa()",
+    "p_limit > 100",
+    "p_offset > 1000000",
+    "from public.account_lifecycle_audit_logs",
+    "revoke all on function public.api_admin_list_account_lifecycle_events(integer, integer)",
+    "grant execute on function public.api_admin_list_account_lifecycle_events(integer, integer)",
+):
+    assert required in audit_reader_migration, f"Protected lifecycle audit reader is missing: {required}"
+
+for required in (
+    "create or replace function private.tacresq_auth_can_access_incident_chat("
     "language plpgsql\nvolatile",
     "private.tacresq_auth_profile_id()",
     "create or replace function public.api_units()",
