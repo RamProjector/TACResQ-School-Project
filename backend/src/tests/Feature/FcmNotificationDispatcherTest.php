@@ -422,6 +422,43 @@ final class FcmNotificationDispatcherTest extends TestCase
         ], $stats);
     }
 
+    public function test_cleanup_failure_log_contains_only_attempt_and_exception_class(): void
+    {
+        Http::fake(function ($request) {
+            if (str_contains($request->url(), '/rpc/api_claim_fcm_delivery_batch')) {
+                return Http::response([$this->attempt()], 200);
+            }
+            if (str_contains($request->url(), '/fcm_tokens')) {
+                return Http::response(['message' => 'private token-bearing provider detail'], 500);
+            }
+
+            return Http::response([], 204);
+        });
+
+        Log::shouldReceive('warning')->once()
+            ->with('FCM invalid-token cleanup failed for attempt.', [
+                'attempt_id' => 801,
+                'exception' => \\RuntimeException::class,
+            ]);
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldReceive('assertCredentialsAvailable')->once();
+        $fcm->shouldReceive('send')->once()->andReturn([
+            'sent' => false,
+            'invalid_token' => true,
+            'retryable' => false,
+            'status' => 404,
+            'retry_after_seconds' => null,
+            'provider_message_name' => null,
+            'error_code' => 'UNREGISTERED',
+        ]);
+
+        $stats = (new FcmNotificationDispatcher($fcm))->dispatch(1);
+
+        self::assertSame(1, $stats['failed']);
+        self::assertSame(0, $stats['invalid_tokens']);
+    }
+
     private function attempt(int $attemptId = 801, string $token = 'device-token-a'): array
     {
         return [
