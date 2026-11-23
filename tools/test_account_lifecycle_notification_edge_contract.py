@@ -70,6 +70,17 @@ assert token_lookup < secret_validation < oauth_call < fcm_send, (
 )
 assert "json({ error: serviceKey" not in source
 assert "json({ error: serviceAccountSecret" not in source
+# Provider network failures must be converted into sanitized failures; a
+# single FCM transport failure must not abort delivery to later recipients.
+oauth_failure_guard = source.index('return json({ error: "Notification provider authentication failed" }, 502)')
+fcm_network_guard = source.index('console.error(`FCM network request failed for registration ${registration.id}`)')
+fcm_loop = source.index('for (const registration of registrations)')
+assert oauth_call < oauth_failure_guard < fcm_loop < fcm_network_guard, (
+    "OAuth and per-recipient FCM transport failures must be handled without exposing provider details."
+)
+assert 'catch {\n    console.error("Google OAuth token request failed.");' in source
+assert 'catch {\n      console.error(`FCM network request failed for registration ${registration.id}`);' in source
+
 assert "console.error" in source and "private_key" not in source.split("console.error", 1)[1], (
     "Provider failures must not log service-account private-key material."
 )
