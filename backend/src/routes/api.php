@@ -1155,19 +1155,22 @@ Route::middleware(['auth:sanctum', 'account.active'])->prefix('admin/security/to
             'totp_code' => ['required', 'string', 'regex:/^\d{6}$/'],
         ]);
 
-        $confirmed = DB::transaction(function () use ($user, $data): bool {
+        $confirmed = DB::transaction(function () use ($user, $data) {
             $lockedUser = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
-            abort_unless(
-                $lockedUser->role === 'admin'
-                    && !$lockedUser->is_suspended
-                    && Hash::check($data['current_password'], $lockedUser->password),
-                403,
-                'Administrator re-authentication failed.',
-            );
+            if ($lockedUser->role !== 'admin'
+                || $lockedUser->is_suspended
+                || !Hash::check($data['current_password'], $lockedUser->password)) {
+                return null;
+            }
 
             return app(\App\Services\LocalAdminTotpService::class)
                 ->confirmEnrollment($lockedUser, $data['totp_code']);
         }, 3);
+
+        if ($confirmed === null) {
+            return response()->json(['message' => 'Administrator re-authentication failed.'], 403)
+                ->header('Cache-Control', 'no-store, private');
+        }
 
         if (!$confirmed) {
             return response()->json(['message' => 'The authenticator code is invalid or the enrollment has expired.'], 422)
