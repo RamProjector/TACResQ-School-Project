@@ -123,6 +123,17 @@ assert 'aria-describedby="admin-backup-enrollment-guidance"' in admin_security
 assert 'id="admin-backup-enrollment-guidance"' in admin_security
 assert '.admin-security-status__enrollment { display:none !important; }' in admin_css
 
+# Security overview copy must not imply unverified production enforcement, and long panels must paginate.
+assert '<section className="admin-panel admin-roadmap-panel">' in admin_console
+assert 'Security overview</h2>' in admin_console
+assert 'Branch policy · deployment unverified' in admin_console
+assert 'This describes the repository implementation only; deployment and live-project enforcement have not been independently verified.' in admin_console
+assert 'TOTP enforced</span>' not in admin_console
+assert 'aria-label={profile.name} title={profile.name}' in admin_console
+assert '.admin-security-status { break-inside:auto !important; }' in admin_css
+assert '.admin-security-status__factor-list li,' in admin_css
+assert '.admin-security-status__confirm { display:none !important; }' in admin_css
+
 # Analytics announcements and labels must communicate only the changed state and its scope.
 assert 'className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title">' in admin_console
 assert '<div className="admin-empty" role="status" aria-live="polite"><LoaderCircle' in admin_console
