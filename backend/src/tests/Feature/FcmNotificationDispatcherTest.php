@@ -314,7 +314,7 @@ final class FcmNotificationDispatcherTest extends TestCase
         $fcm = Mockery::mock(FcmHttpV1Client::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->once()->ordered()
-            ->andThrow(new \\RuntimeException('provider details must not be logged'));
+            ->andThrow(new \RuntimeException('provider details must not be logged'));
         $fcm->shouldReceive('send')->once()->ordered()->andReturn($this->sentResult());
 
         $stats = (new FcmNotificationDispatcher($fcm))->dispatch(2);
@@ -375,7 +375,7 @@ final class FcmNotificationDispatcherTest extends TestCase
         try {
             (new FcmNotificationDispatcher($fcm))->dispatch(1);
             self::fail('Expected missing FCM project configuration to fail closed.');
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             self::assertSame('FCM dispatcher requires FCM_PROJECT_ID.', $exception->getMessage());
         }
 
@@ -395,7 +395,7 @@ final class FcmNotificationDispatcherTest extends TestCase
         try {
             (new FcmNotificationDispatcher($fcm))->dispatch(1);
             self::fail('Expected malformed queue response to abort dispatch.');
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             self::assertSame('Supabase FCM delivery queue claim failed.', $exception->getMessage());
         }
     }
@@ -438,7 +438,7 @@ final class FcmNotificationDispatcherTest extends TestCase
         Log::shouldReceive('warning')->once()
             ->with('FCM invalid-token cleanup failed for attempt.', [
                 'attempt_id' => 801,
-                'exception' => \\RuntimeException::class,
+                'exception' => \RuntimeException::class,
             ]);
 
         $fcm = Mockery::mock(FcmHttpV1Client::class);
