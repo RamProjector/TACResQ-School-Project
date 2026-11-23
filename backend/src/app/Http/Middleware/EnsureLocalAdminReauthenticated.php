@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class EnsureLocalAdminReauthenticated
 {
-    public function handle(Request $request, Closure $next, LocalAdminTotpService $totp): Response
+    public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
 
@@ -32,7 +32,7 @@ final class EnsureLocalAdminReauthenticated
         ]);
 
         if (!Hash::check($credentials['current_password'], $user->password)
-            || !$totp->verifyAndConsume($user, $credentials['totp_code'])) {
+            || !app(LocalAdminTotpService::class)->verifyAndConsume($user, $credentials['totp_code'])) {
             RateLimiter::hit($key, 900);
             return response()->json(['message' => 'Administrator re-authentication failed.'], 403)
                 ->header('Cache-Control', 'no-store, private');
