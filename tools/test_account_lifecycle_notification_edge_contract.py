@@ -129,8 +129,12 @@ assert 'tokenUri.port || tokenUri.username || tokenUri.password' in source
 
 # Do not delete a registration merely because the FCM endpoint returned
 # HTTP 404: project/configuration errors can also produce 404 responses.
-assert 'if (errorBody.includes("UNREGISTERED")) invalidTokenIds.push(registration.id as number);' in source
-assert 'response.status === 404 || errorBody.includes("UNREGISTERED")' not in source
+assert 'function isUnregisteredFcmError(payload: unknown): boolean {' in source
+assert 'item["@type"] === "type.googleapis.com/google.firebase.fcm.v1.FcmError"' in source
+assert 'item.errorCode === "UNREGISTERED"' in source
+assert 'if (isUnregisteredFcmError(errorPayload)) invalidTokenIds.push(registration.id as number);' in source
+assert 'errorBody.includes("UNREGISTERED")' not in source
+assert 'response.status === 404' not in source
 
 # Stale-token cleanup is best-effort after delivery. Surface cleanup failure
 # without converting already-attempted sends into a retryable delivery error.
