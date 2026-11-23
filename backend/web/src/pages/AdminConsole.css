@@ -782,3 +782,18 @@
   .admin-topbar__right { justify-content:space-between; }
   .admin-user { max-width:48vw; }
 }
+
+
+/* Make the horizontally scrolling mobile navigation keyboard-friendly. */
+.admin-navigation { scroll-behavior:smooth; }
+.admin-nav-item { min-width:0; }
+.admin-nav-item:focus-visible {
+  position:relative;
+  z-index:1;
+  outline:3px solid rgba(243,106,67,.55);
+  outline-offset:2px;
+}
+.admin-nav-item--active { font-weight:700; }
+@media (prefers-reduced-motion: reduce) {
+  .admin-navigation { scroll-behavior:auto; }
+}
