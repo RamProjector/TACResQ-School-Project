@@ -1,6 +1,6 @@
 # Account suspension — account-state and operational-continuity contract
 
-**Status:** schema foundation committed on `security/admin-account-suspension-runtime-foundation`; no suspension transition RPC or runtime access enforcement is enabled.  
+**Status:** schema foundation committed on `security/admin-account-suspension-runtime-foundation`; no suspension transition RPC is enabled. Restrictive RLS now blocks direct authenticated access to public tables with client grants when the current profile is suspended; callable RPC, Storage, Edge Function, and bridge enforcement remain outstanding.  
 **Branch:** `security/admin-account-suspension`
 
 ## Existing schema constraint
