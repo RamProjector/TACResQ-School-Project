@@ -32,6 +32,9 @@ assert "test_existing_sanctum_token_is_denied_across_protected_incident_and_acco
 for protected_path in ("/api/me", "/api/incidents/mine", "/api/incidents", "/api/units", "/api/change-password"):
     assert protected_path in feature, f"Missing same-token suspension coverage for {protected_path}"
 assert "withToken($plainTextToken)->json($method, $uri)" in feature
+assert "test_existing_dispatcher_token_is_denied_for_incident_assignment_and_status_after_suspension" in feature
+assert "'/status'" in feature and "'/assign'" in feature
+assert "test_public_registration_ignores_privileged_and_lifecycle_fields" in feature
 assert "email" not in migration.lower(), "Do not add cross-provider identity mapping"
 assert "local_account_lifecycle_events" in audit_migration
 for column in ("actor_user_id", "target_user_id", "action", "reason", "previous_state", "new_state", "created_at"):
