@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Review status:** source-traced crosswalk; not an implementation or proof of runtime denial.  
-**Catalog baseline:** 20 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The exact signature list below is taken from that replay snapshot. The referenced batches document the source-level checks and missing account-state guards.
+**Catalog baseline:** 21 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The exact signature list below is taken from the clean replay baseline. The upload-reservation RPC added in the recent chat-storage migration is now explicitly inventoried; source review confirms it still lacks an independent account-state guard. The referenced batches document the source-level checks and missing account-state guards.
 
 ## Public SECURITY DEFINER entry points
 
@@ -23,15 +23,16 @@
 | 13 | `api_my_notification(bigint)` | Batch 4 — profile/notifications/FCM | Check active recipient before exposing notification data |
 | 14 | `api_my_notifications(integer)` | Batch 4 — profile/notifications/FCM | Check active recipient before exposing notification list |
 | 15 | `api_register_fcm_token(text)` | Batches 1 and 4 — FCM | Reject suspended caller before token registration/reassignment |
-| 16 | `api_send_incident_image_message(bigint,text,text,text,bigint,uuid)` | Batch 1 and Batch 5 — chat/Storage | Check active sender at finalization; independently guard Storage INSERT/SELECT |
-| 17 | `api_send_incident_message(bigint,text,uuid)` | Batch 1 — chat | Check active sender before idempotency lookup and message insertion |
-| 18 | `api_set_incident_claimable(bigint,boolean)` | Batch 3 — dispatch | Check active dispatcher after locked actor re-read, before mutation |
-| 19 | `api_units()` | Batch 3 — dispatch | Check active dispatcher and exclude suspended field-unit targets from eligibility |
-| 20 | `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)` | Batch 1 and Batch 13 — requester edit/validation | Check active requester before protected reads/mutations; preserve validation, edit cooldown, and audit/notification atomicity |
+| 16 | `api_reserve_incident_image_upload(bigint,text,bigint,uuid)` | Batch 5 — chat image upload reservation | Reject suspended caller before creating or replaying a reservation; current implementation checks profile existence and chat membership but has no independent account-state predicate |
+| 17 | `api_send_incident_image_message(bigint,text,text,text,bigint,uuid)` | Batch 1 and Batch 5 — chat/Storage | Check active sender at finalization; independently guard Storage INSERT/SELECT |
+| 18 | `api_send_incident_message(bigint,text,uuid)` | Batch 1 — chat | Check active sender before idempotency lookup and message insertion |
+| 19 | `api_set_incident_claimable(bigint,boolean)` | Batch 3 — dispatch | Check active dispatcher after locked actor re-read, before mutation |
+| 20 | `api_units()` | Batch 3 — dispatch | Check active dispatcher and exclude suspended field-unit targets from eligibility |
+| 21 | `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)` | Batch 1 and Batch 13 — requester edit/validation | Check active requester before protected reads/mutations; preserve validation, edit cooldown, and audit/notification atomicity |
 
 ## Private callable definer functions
 
-The private-function inventory is a separate callable surface. A private function with authenticated EXECUTE is directly callable even if it is also used by a public wrapper. The source reviews explicitly identify these examples:
+The private-function inventory is a separate callable surface. The clean-replay contract separately locks the ten authenticated-callable private SECURITY DEFINER helpers in `tools/test_account_suspension_private_definer_inventory.sql`; additions or grant changes fail replay until explicitly reviewed. Both public and private inventory contracts also reject `anon` or `PUBLIC` EXECUTE on every classified callable definer. Batch 23 records the source-level authorization assumptions and guard locations for all ten private helpers, including the Storage upload reservation validator `private.tacresq_upload_reservation_allows_insert(text,text,bigint)`. Its compatibility-mode return path still needs an active-account guard. A private function with authenticated EXECUTE is directly callable even if it is also used by a public wrapper. The source reviews explicitly identify these examples:
 
 - `private.tacresq_auth_profile_id()` and `private.tacresq_auth_can_access_incident_chat(bigint)` — Batch 1.
 - `private.tacresq_assign_incident_team(bigint,bigint[])`, `private.tacresq_is_incident_assignee(bigint)`, `private.tacresq_record_location_v2(...)`, `private.tacresq_active_responder_locations()`, and `private.tacresq_dispatch_update_incident_status(bigint,text)` — Batch 3.
@@ -43,17 +44,21 @@ The full exact private signature list and function bodies are emitted by `tools/
 
 The clean replay also reports 52 authenticated-callable public SECURITY INVOKER functions. Their access can still expose or mutate data through RLS, views, or helper calls. Examples documented in Batch 3 include `api_assign_incident_team`, `api_assign_incident`, `api_update_incident_status`, `api_all_incidents`, `api_my_incidents`, `api_set_duty_status`, `api_record_location_v2`, and `api_active_responder_locations`.
 
-A complete release matrix must therefore include all 72 public callable functions, not only the 20 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
+A complete release matrix must therefore include all 73 public callable functions, not only the 21 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
+
+## Chat and Storage shared authorization chain
+
+[Batch 24: chat and Storage authentication chain](admin-account-suspension-rpc-review-batch-24-chat-storage-authentication-chain.md) traces the profile identity helper, chat-membership helper, both Storage policies, and the staged reservation compatibility return. It identifies the active-account guard placement and same-valid-JWT Storage HTTP tests required; no runtime guard is claimed.
 
 ## Current coverage and remaining gap
 
-This crosswalk connects the 20 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
+This crosswalk connects the 21 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
 
 Before adding the account-state migration:
 1. Finish exact coverage for all 52 invoker functions and all authenticated-callable private functions.
 2. Trace each public and private entry point to nested helpers and trigger-mediated effects; document the actual lock order and transaction boundary.
 3. Map every Android, web, and Laravel direct operation to its effective grant, RLS policy, view, RPC, or Storage enforcement point.
-4. Add a clean-replay contract that fails when a new authenticated-callable definer entry point is introduced without an explicit active-account guard or reviewed exemption.
+4. Extend the clean-replay contract beyond signature drift to validate the explicit `anon`/`PUBLIC` EXECUTE boundary; keep active-account enforcement as a separate runtime test requirement.
 5. Add disposable PostgreSQL tests using the same still-valid JWT before and after suspension, including direct private RPC invocation, direct RLS, Storage, and concurrent incident operations.
 
 No connected Supabase project was queried or modified. No account-state migration or UI is introduced by this review.
