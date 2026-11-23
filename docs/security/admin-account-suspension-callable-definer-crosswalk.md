@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Review status:** source-traced crosswalk; not an implementation or proof of runtime denial.  
-**Catalog baseline:** 20 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The exact signature list below is taken from that replay snapshot. The referenced batches document the source-level checks and missing account-state guards.
+**Catalog baseline:** 21 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The exact signature list below is taken from the clean replay baseline. The upload-reservation RPC added in the recent chat-storage migration is now explicitly inventoried; source review confirms it still lacks an independent account-state guard. The referenced batches document the source-level checks and missing account-state guards.
 
 ## Public SECURITY DEFINER entry points
 
@@ -23,11 +23,12 @@
 | 13 | `api_my_notification(bigint)` | Batch 4 — profile/notifications/FCM | Check active recipient before exposing notification data |
 | 14 | `api_my_notifications(integer)` | Batch 4 — profile/notifications/FCM | Check active recipient before exposing notification list |
 | 15 | `api_register_fcm_token(text)` | Batches 1 and 4 — FCM | Reject suspended caller before token registration/reassignment |
-| 16 | `api_send_incident_image_message(bigint,text,text,text,bigint,uuid)` | Batch 1 and Batch 5 — chat/Storage | Check active sender at finalization; independently guard Storage INSERT/SELECT |
-| 17 | `api_send_incident_message(bigint,text,uuid)` | Batch 1 — chat | Check active sender before idempotency lookup and message insertion |
-| 18 | `api_set_incident_claimable(bigint,boolean)` | Batch 3 — dispatch | Check active dispatcher after locked actor re-read, before mutation |
-| 19 | `api_units()` | Batch 3 — dispatch | Check active dispatcher and exclude suspended field-unit targets from eligibility |
-| 20 | `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)` | Batch 1 and Batch 13 — requester edit/validation | Check active requester before protected reads/mutations; preserve validation, edit cooldown, and audit/notification atomicity |
+| 16 | `api_reserve_incident_image_upload(bigint,text,bigint,uuid)` | Batch 5 — chat image upload reservation | Reject suspended caller before creating or replaying a reservation; current implementation checks profile existence and chat membership but has no independent account-state predicate |
+| 17 | `api_send_incident_image_message(bigint,text,text,text,bigint,uuid)` | Batch 1 and Batch 5 — chat/Storage | Check active sender at finalization; independently guard Storage INSERT/SELECT |
+| 18 | `api_send_incident_message(bigint,text,uuid)` | Batch 1 — chat | Check active sender before idempotency lookup and message insertion |
+| 19 | `api_set_incident_claimable(bigint,boolean)` | Batch 3 — dispatch | Check active dispatcher after locked actor re-read, before mutation |
+| 20 | `api_units()` | Batch 3 — dispatch | Check active dispatcher and exclude suspended field-unit targets from eligibility |
+| 21 | `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)` | Batch 1 and Batch 13 — requester edit/validation | Check active requester before protected reads/mutations; preserve validation, edit cooldown, and audit/notification atomicity |
 
 ## Private callable definer functions
 
