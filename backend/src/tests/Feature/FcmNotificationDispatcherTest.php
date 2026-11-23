@@ -401,6 +401,32 @@ final class FcmNotificationDispatcherTest extends TestCase
         }
     }
 
+    public function test_non_array_claim_row_is_counted_as_skipped_without_blocking_valid_rows(): void
+    {
+        Http::fake([
+            'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response([
+                'malformed-row',
+                $this->attempt(802, 'device-token-b'),
+            ], 200),
+            'https://project.supabase.co/rest/v1/fcm_delivery_attempts*' => Http::response([], 204),
+        ]);
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldReceive('assertCredentialsAvailable')->once();
+        $fcm->shouldReceive('send')->once()->with('tacresq-test', 'device-token-b', [
+            'notification_id' => '701',
+            'recipient_profile_id' => '91',
+            'event_type' => 'incident_status_changed',
+            'incident_id' => '44',
+        ])->andReturn($this->sentResult());
+
+        $stats = (new FcmNotificationDispatcher($fcm))->dispatch(2);
+
+        self::assertSame(2, $stats['tokens']);
+        self::assertSame(1, $stats['skipped']);
+        self::assertSame(1, $stats['sent']);
+    }
+
     public function test_object_claim_payload_is_rejected_as_not_a_delivery_list(): void
     {
         Http::fake([
