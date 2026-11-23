@@ -335,8 +335,8 @@ export default function AdminSecurityStatus() {
             {snapshot.factors.length >= 10 && <p className="admin-security-status__note">Supabase's per-user MFA factor limit has been reached.</p>}
           </section>
           {enrollment && (
-            <form className="admin-security-status__enrollment" onSubmit={verifyBackupAuthenticator}>
-              <h3>Register the backup device</h3>
+            <form className="admin-security-status__enrollment" aria-labelledby="admin-security-enrollment-title" onSubmit={verifyBackupAuthenticator}>
+              <h3 id="admin-security-enrollment-title">Register the backup device</h3>
               <p>Scan this QR code with an authenticator app on a different device. Keep the setup key private and do not send it to anyone.</p>
               <img src={enrollment.qrCode} alt="QR code for the backup authenticator" />
               <label htmlFor="admin-backup-secret">Manual setup key</label>
