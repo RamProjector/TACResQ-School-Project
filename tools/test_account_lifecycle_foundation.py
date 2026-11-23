@@ -12,6 +12,7 @@ read_rpc_migration = (ROOT / "supabase/migrations/20261123140000_account_lifecyc
 assignment_helper_migration = (ROOT / "supabase/migrations/20261123150000_account_lifecycle_assignment_helper_guard.sql").read_text().lower()
 volatility_migration = (ROOT / "supabase/migrations/20261123160000_account_lifecycle_helper_volatility.sql").read_text().lower()
 transition_migration = (ROOT / "supabase/migrations/20261123170000_account_lifecycle_admin_transition_rpc.sql").read_text().lower()
+chat_idempotency_migration = (ROOT / "supabase/migrations/20261123180000_account_lifecycle_chat_idempotency_guards.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
 storage_test = (ROOT / "tools/test_incident_chat_storage_policies.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
@@ -84,6 +85,20 @@ for required in (
     "grant execute on function public.api_claimable_incidents() to authenticated",
 ):
     assert required in read_rpc_migration, f"Read-RPC account-state guard is missing: {required}"
+
+for function_name, replay_marker in (
+    ("api_reserve_incident_image_upload", "existing_reservation"),
+    ("api_send_incident_message", "existing_message"),
+    ("api_send_incident_image_message", "existing_message"),
+):
+    function_body = chat_idempotency_migration.split(
+        f"create or replace function public.{function_name}", 1
+    )[1].split("$function$;", 1)[0]
+    identity_position = function_body.find("actor_profile_id := private.tacresq_auth_profile_id()")
+    replay_position = function_body.find(replay_marker)
+    assert identity_position >= 0 and replay_position > identity_position, (
+        f"{function_name} must resolve active identity before idempotency/replay lookup"
+    )
 
 role_wrapper = transition_migration.split(
     "create or replace function public.api_admin_set_user_role(", 1
@@ -173,6 +188,9 @@ for required in (
     "suspended caller unexpectedly read notification history",
     "suspended caller unexpectedly read a notification detail",
     "suspended caller unexpectedly read incident chat history",
+    "suspended caller unexpectedly replayed a text-message operation",
+    "suspended caller unexpectedly replayed an image reservation",
+    "suspended caller unexpectedly replayed an image-message operation",
     "suspended field-unit caller must not receive claimable incident data",
     "test_account_lifecycle_definer_write",
     "security definer table write unexpectedly succeeded",
