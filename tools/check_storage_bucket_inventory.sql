@@ -65,6 +65,9 @@ BEGIN
       FROM pg_catalog.pg_policy pol
      WHERE pol.polrelid = 'storage.objects'::regclass
        AND pol.polname = 'tacresq_incident_chat_attachment_insert'
+       AND pol.polcmd = 'a'
+       AND pol.polpermissive IS TRUE
+       AND pol.polroles = ARRAY['authenticated'::regrole::oid]
        AND pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid)
            LIKE '%tacresq_auth_profile_id%'
        AND pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid)
@@ -78,6 +81,9 @@ BEGIN
       FROM pg_catalog.pg_policy pol
      WHERE pol.polrelid = 'storage.objects'::regclass
        AND pol.polname = 'tacresq_incident_chat_attachment_read'
+       AND pol.polcmd = 'r'
+       AND pol.polpermissive IS TRUE
+       AND pol.polroles = ARRAY['authenticated'::regrole::oid]
        AND pg_catalog.pg_get_expr(pol.polqual, pol.polrelid)
            LIKE '%tacresq_auth_can_access_incident_chat%'
   ) THEN
