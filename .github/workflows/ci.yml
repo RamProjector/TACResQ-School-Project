@@ -47,7 +47,10 @@ jobs:
 
       - name: Check GitHub Actions workflow security
         run: python3 tools/test_workflow_security.py
-\n      - name: Check notification account-state rollout boundary\n        run: python3 tools/test_notification_account_state_rollout.py\n
+
+      - name: Check notification account-state rollout boundary
+        run: python3 tools/test_notification_account_state_rollout.py
+
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
