@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Original replay source commit:** `4f16baf73b38c295baec6d72698233a73a74cac8`  
-**Current reviewed baseline:** 21 public and 9 authenticated-callable private SECURITY DEFINER functions, including the later incident-image reservation RPC.  
+**Current reviewed baseline:** 21 public and 10 authenticated-callable private SECURITY DEFINER functions, including the later incident-image reservation RPC.  
 **Source:** CI job `Replay Supabase migrations on clean PostgreSQL` (run `45072734414`)  
 **Purpose:** Record the effective catalog discovered after replaying the repository migrations. This is a point-in-time inventory, not a statement that any endpoint is suspension-safe.
 
@@ -37,11 +37,12 @@ These 20 effective signatures were reported by the original replay. The current 
 13. `api_my_notification(bigint)`
 14. `api_my_notifications(integer)`
 15. `api_register_fcm_token(text)`
-16. `api_send_incident_image_message(bigint,text,text,text,bigint,uuid)`
-17. `api_send_incident_message(bigint,text,uuid)`
-18. `api_set_incident_claimable(bigint,boolean)`
-19. `api_units()`
-20. `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)`
+16. `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`
+17. `api_send_incident_image_message(bigint,text,text,text,bigint,uuid)`
+18. `api_send_incident_message(bigint,text,uuid)`
+19. `api_set_incident_claimable(bigint,boolean)`
+20. `api_units()`
+21. `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)`
 
 Every callable definer entry point remains an independent review target. A wrapper's role check, MFA check, or ownership check does not automatically establish a current account-state check. The private implementation called by a wrapper must also be inspected, and direct authenticated grants to private functions must be treated as callable entry points.
 
@@ -92,7 +93,7 @@ PostgreSQL combines permissive policies with OR and restrictive policies with AN
 
 ## Next implementation gates
 
-1. Build an explicit per-signature review matrix for all 20 public definer functions and every authenticated-callable private definer function.
+1. Build an explicit per-signature review matrix for all 21 public definer functions and every authenticated-callable private definer function.
 2. Trace each public wrapper into private functions and triggers; record the exact current authorization checks and whether they are sufficient for suspension.
 3. Inventory all direct authenticated table operations in Android, web, and Laravel, mapping each to its effective RLS/grant enforcement.
 4. Add account-state enforcement only after the matrix covers every direct and indirect path, including Storage.
