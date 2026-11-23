@@ -717,19 +717,6 @@ BEGIN
     RAISE EXCEPTION 'Suspended requester must not upload new incident images';
   END IF;
 
-  denied := false;
-  BEGIN
-    PERFORM public.api_send_incident_message(
-      incident_id,
-      'Suspended requester message must fail',
-      '00000000-0000-4000-8000-000000000223'::uuid
-    );
-  EXCEPTION WHEN insufficient_privilege THEN
-    denied := true;
-  END;
-  IF NOT denied THEN
-    RAISE EXCEPTION 'Suspended requester must not send incident chat messages';
-  END IF;
 END;
 $suspended_storage_and_chat_denial$;
 RESET ROLE;
@@ -744,3 +731,44 @@ UPDATE public.profiles
  WHERE auth_user_id = '00000000-0000-4000-8000-000000000160';
 
 SELECT 'PASS: suspended requester with an unexpired JWT is denied chat and Storage access.' AS result;
+
+-- A dispatcher is also an incident-chat participant. Use its independent,
+-- unsaturated message budget to prove suspended message writes hit the row
+-- trigger rather than a rate-limit/idempotency branch.
+SELECT set_config('request.jwt.claim.sub', '', false);
+UPDATE public.profiles
+   SET account_status = 'suspended',
+       suspended_at = clock_timestamp(),
+       suspended_by = id,
+       suspension_reason = 'Synthetic suspended dispatcher chat contract'
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000162';
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000162', false);
+SET ROLE authenticated;
+DO $suspended_dispatcher_chat_write$
+DECLARE
+  denied boolean := false;
+BEGIN
+  BEGIN
+    PERFORM public.api_send_incident_message(
+      current_setting('test.incident_id')::bigint,
+      'Suspended dispatcher message must fail',
+      '00000000-0000-4000-8000-000000000224'::uuid
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Suspended dispatcher must not send incident chat messages';
+  END IF;
+END;
+$suspended_dispatcher_chat_write$;
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', '', false);
+UPDATE public.profiles
+   SET account_status = 'active',
+       suspended_at = NULL,
+       suspended_by = NULL,
+       suspension_reason = NULL
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000162';
+
+SELECT 'PASS: suspended dispatcher chat write is denied.' AS result;
