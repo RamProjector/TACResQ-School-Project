@@ -51,11 +51,22 @@ Deno.serve(async (request: Request) => {
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: userResult, error: authError } = await admin.auth.getUser(userToken);
   if (authError || !userResult.user) return json({ error: "Invalid or expired session" }, 401);
-  let payload: { event?: string; incident_id?: number };
+  let payload: unknown;
   try { payload = await request.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
-  const event = payload.event;
-  const incidentId = Number(payload.incident_id);
-  if (!event || !Number.isSafeInteger(incidentId) || incidentId <= 0) return json({ error: "event and positive incident_id are required" }, 400);
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return json({ error: "JSON body must be an object" }, 400);
+  }
+  const requestData = payload as { event?: unknown; incident_id?: unknown };
+  const event = requestData.event;
+  const rawIncidentId = requestData.incident_id;
+  const incidentId = typeof rawIncidentId === "number"
+    ? rawIncidentId
+    : typeof rawIncidentId === "string" && /^\\d+$/.test(rawIncidentId)
+      ? Number(rawIncidentId)
+      : Number.NaN;
+  if (typeof event !== "string" || !Number.isSafeInteger(incidentId) || incidentId <= 0) {
+    return json({ error: "event and positive incident_id are required" }, 400);
+  }
   if (!["incident_created", "incident_assigned", "incident_status"].includes(event)) return json({ error: "Unsupported incident event" }, 400);
   const { data: actor, error: actorError } = await admin.from("profiles").select("id,role,account_status").eq("auth_user_id", userResult.user.id).single();
   if (actorError || !actor || actor.account_status !== "active") return json({ error: "Active TACResQ account required" }, 403);
