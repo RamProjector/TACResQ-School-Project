@@ -71,6 +71,12 @@ assert "catch (\\Throwable)" in dispatcher
 assert "Logging must not turn a recoverable ledger failure into a batch abort." in dispatcher
 assert "permanent_failure" in dispatcher
 assert "TRANSPORT_FAILURE" in dispatcher
+assert "'TOKEN_CLEANUP_FAILURE'" in dispatcher
+assert "logCleanupFailureSafely" in dispatcher
+assert "FCM invalid-token cleanup failed for attempt." in dispatcher
+assert "Do not misclassify a PostgREST cleanup failure as an FCM transport failure." in dispatcher
+assert "catch (\\Throwable $cleanupException)" in dispatcher
+assert "catch (\\Throwable)" in dispatcher
 assert "tacresq:dispatch-fcm" in command
 assert "--check-config" in command
 assert "FILTER_VALIDATE_INT" in command
