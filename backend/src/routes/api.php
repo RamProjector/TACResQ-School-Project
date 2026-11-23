@@ -450,6 +450,20 @@ Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge
     }
     abort_if (!$user, 401, 'The Supabase session is invalid or expired.');
 
+    $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
+    if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
+        return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
+    }
+    RateLimiter::hit($userRateKey, 60);
+
+    $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
+    if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
+        return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
+            ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
+    }
+    RateLimiter::hit($userRateKey, 60);
+
     // Supabase Auth validity alone is not application authorization. Resolve
     // the caller's profile through the user's JWT so active-account RLS is
     // evaluated by Postgres before this bridge returns identity information.
@@ -471,12 +485,6 @@ Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge
         return response()->json(['message' => 'An active TACResQ profile is required.'], 403);
     }
 
-    $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
-    if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
-        return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
-            ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
-    }
-    RateLimiter::hit($userRateKey, 60);
 
     return response()->json([
         'id' => $user['id'],
@@ -544,12 +552,6 @@ Route::post('/bridge/rpc/{function}', function (
         return response()->json(['message' => 'An active TACResQ profile is required.'], 403);
     }
 
-    $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
-    if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
-        return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
-            ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
-    }
-    RateLimiter::hit($userRateKey, 60);
 
     $result = $bridge->callRpc($token, $function, $arguments);
     if ($result['status'] >= 500) {
