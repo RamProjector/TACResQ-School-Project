@@ -132,6 +132,7 @@ assert 'tokenUri.port || tokenUri.username || tokenUri.password' in source
 assert 'function isUnregisteredFcmError(payload: unknown): boolean {' in source
 assert 'item["@type"] === "type.googleapis.com/google.firebase.fcm.v1.FcmError"' in source
 assert 'item.errorCode === "UNREGISTERED"' in source
+assert 'if (errorObject.status === "UNREGISTERED") return true;' in source
 assert 'if (isUnregisteredFcmError(errorPayload)) invalidTokenIds.push(registration.id as number);' in source
 assert 'errorBody.includes("UNREGISTERED")' not in source
 assert 'response.status === 404' not in source
