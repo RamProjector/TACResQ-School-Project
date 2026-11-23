@@ -450,6 +450,17 @@ Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge
     }
     abort_if (!$user, 401, 'The Supabase session is invalid or expired.');
 
+    // Supabase Auth validity alone is not application authorization. Resolve
+    // the caller's profile through the user's JWT so active-account RLS is
+    // evaluated by Postgres before this bridge returns identity information.
+    $profile = $bridge->callRpc($token, 'api_me', []);
+    if ($profile['status'] >= 500) {
+        return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+    if ($profile['status'] >= 400 || !is_array($profile['body']) || !isset($profile['body']['id'])) {
+        return response()->json(['message' => 'An active TACResQ profile is required.'], 403);
+    }
+
     $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
     if (RateLimiter::tooManyAttempts($userRateKey, 120)) {
         return response()->json(['message' => 'Too many requests. Please retry shortly.'], 429)
@@ -501,6 +512,16 @@ Route::post('/bridge/rpc/{function}', function (
         }
     } catch (\RuntimeException) {
         return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+
+    // Verify current application account state with the original caller JWT.
+    // Never infer the TACResQ profile from Auth email or user metadata.
+    $profile = $bridge->callRpc($token, 'api_me', []);
+    if ($profile['status'] >= 500) {
+        return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+    if ($profile['status'] >= 400 || !is_array($profile['body']) || !isset($profile['body']['id'])) {
+        return response()->json(['message' => 'An active TACResQ profile is required.'], 403);
     }
 
     $userRateKey = 'bridge-user:'.hash('sha256', (string) $user['id']);
