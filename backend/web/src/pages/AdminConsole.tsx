@@ -440,7 +440,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </div>
           )}
 
-          <section className="admin-metrics" aria-label="Account summary" hidden={activeSection !== "overview"}>
+          <section className="admin-metrics" aria-label="Account summary" aria-describedby="admin-overview-metrics-context" hidden={activeSection !== "overview"}>
             <article><span>PROFILES MATCHING FILTERS</span><strong>{totalUsers}</strong><small>Across all directory pages</small></article>
             <article><span>REQUESTERS · CURRENT PAGE</span><strong>{users.filter((user) => user.role === "requester").length}</strong><small>Only the profiles on this page</small></article>
             <article><span>FIELD UNITS · CURRENT PAGE</span><strong>{users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responders and drivers on this page only</small></article>
