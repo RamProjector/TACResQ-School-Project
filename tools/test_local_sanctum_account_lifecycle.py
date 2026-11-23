@@ -8,6 +8,7 @@ audit_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000008_cre
 append_only_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000009_enforce_local_lifecycle_event_append_only.php").read_text()
 audit_constraints_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000011_constrain_local_account_lifecycle_events.php").read_text()
 audit_identity_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000012_require_local_lifecycle_audit_identities.php").read_text()
+
 model = (ROOT / "backend/src/app/Models/User.php").read_text()
 middleware = (ROOT / "backend/src/app/Http/Middleware/EnsureLocalAccountIsActive.php").read_text()
 routes = (ROOT / "backend/src/routes/api.php").read_text()
@@ -211,6 +212,10 @@ assert "action = 'suspended' AND previous_state = 'active' AND new_state = 'susp
 assert "action = 'reactivated' AND previous_state = 'suspended' AND new_state = 'active'" in audit_constraints_migration
 assert "test_postgres_lifecycle_audit_constraints_reject_invalid_records" in feature
 assert "test_postgres_lifecycle_audit_requires_actor_and_target_ids" in feature
+assert "test_postgres_identity_migration_fails_closed_when_legacy_events_are_unattributed" in feature, "PostgreSQL migration preflight must have an executable fail-closed test"
+assert "test_postgres_identity_migration_enforces_and_rolls_back_both_required_columns" in feature, "PostgreSQL migration must have executable up/down coverage"
+assert "migration->up()" in feature and "migration->down()" in feature, "Migration integration tests must execute both directions"
+assert "ACCESS EXCLUSIVE" in migration, "Identity migration must serialize its preflight with concurrent writes"
 assert "assertSame('55000'" in feature, "Append-only trigger tests must assert PostgreSQL SQLSTATE 55000"
 assert "assertSame('23502'" in feature, "Required audit identity tests must assert PostgreSQL SQLSTATE 23502"
 assert "assertSame('23514'" in feature, "Audit CHECK constraint tests must assert PostgreSQL SQLSTATE 23514"
