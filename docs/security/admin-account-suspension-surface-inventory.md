@@ -49,14 +49,15 @@ This inventory is intentionally conservative. A path is not marked covered merel
 - [Batch 9: adversarial regression and transaction test plan](admin-account-suspension-regression-test-plan.md) converts the gaps into a role/surface matrix, same-still-valid-JWT checks, concurrency cases, and release gates. These are specifications, not executed suspended-account tests.
 - [Batch 10: authenticated views and derived reads](admin-account-suspension-rpc-review-batch-10-views.md) closes an inventory blind spot by adding authenticated-readable public views/materialized views to the clean-replay catalog output.
 - [Batch 11: trigger-mediated authorization paths](admin-account-suspension-rpc-review-batch-11-triggers.md) maps implicit database side effects and adds trigger/function source to the clean-replay inventory.
-- Remaining work: classify the actual view rows returned by clean replay; classify every authenticated-callable private function and trigger-mediated execution path; map each direct client read/write to its effective grant/RLS/view boundary; then implement disposable PostgreSQL same-valid-JWT negative tests and concurrency tests. No account-state migration should begin until those items are closed.
+- [Batch 14: column-level, sequence, and schema privileges](admin-account-suspension-rpc-review-batch-14-column-sequence-grants.md) closes another catalog blind spot: relation-level grants alone do not expose column-specific permissions or sequence access. The clean-replay inventory now reports effective anon/authenticated column and sequence privileges plus client schema USAGE; exact-head replay confirmation is still pending.
+- Remaining work: classify actual view rows and every returned column/sequence grant; classify authenticated-callable private functions and trigger-mediated execution paths; inspect default privileges and exposed schemas; map direct client operations to effective grant/RLS/view boundaries; then implement disposable PostgreSQL same-valid-JWT negative tests and concurrency tests. No account-state migration should begin until those items are closed.
 
 ## Required completion artifacts
 
 Before the implementation can be called complete, add and review:
 
 1. An exact effective-RPC inventory from the full migration replay/catalog, including signature, execution mode, authenticated EXECUTE grant, current role/ownership guard, and account-state guard.
-2. An exact RLS table/policy inventory showing every policy that grants a row to authenticated callers and the restrictive active-account condition.
+2. An exact RLS table/policy inventory showing every policy that grants a row to authenticated callers and the restrictive active-account condition, reconciled with table-, column-, and sequence-level grants.
 3. An exact Storage policy inventory for every bucket/path used by the app.
 4. A client call inventory from Android, web, and Laravel identifying every direct Supabase operation and its database enforcement point.
 5. A machine-checked contract test that fails if a newly introduced authenticated SECURITY DEFINER entry point lacks the active-account check.
