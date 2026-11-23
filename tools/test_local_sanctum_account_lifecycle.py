@@ -115,3 +115,13 @@ enroll_route = routes[enroll_start:enroll_end]
 assert "DB::transaction(function () use ($user, $data)" in enroll_route
 assert "Hash::check($data['current_password'], $lockedUser->password)" in enroll_route
 assert "test_local_admin_totp_enrollment_rechecks_password_after_locking_account" in feature
+
+
+# Local Admin TOTP enrollment must not be available to suspended or demoted users.
+assert "test_suspended_local_admin_cannot_start_totp_enrollment" in feature
+assert "test_demoted_local_account_cannot_start_totp_enrollment" in feature
+enroll_start = routes.index("Route::post('/enroll'")
+enroll_end = routes.index("})->middleware('throttle:3,1');", enroll_start)
+enroll_route = routes[enroll_start:enroll_end]
+assert "$lockedUser->role === 'admin'" in enroll_route
+assert "!$lockedUser->is_suspended" in enroll_route
