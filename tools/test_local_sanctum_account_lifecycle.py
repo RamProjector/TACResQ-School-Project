@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Lock the local Sanctum account-state migration and request guard boundary."""
+"""Lock the local Sanctum account-state and append-only audit boundaries."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 migration = (ROOT / "backend/src/database/migrations/2026_11_23_000007_add_local_sanctum_account_lifecycle_state.php").read_text()
 audit_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000008_create_local_account_lifecycle_events.php").read_text()
+append_only_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000009_enforce_local_lifecycle_event_append_only.php").read_text()
 model = (ROOT / "backend/src/app/Models/User.php").read_text()
 middleware = (ROOT / "backend/src/app/Http/Middleware/EnsureLocalAccountIsActive.php").read_text()
 routes = (ROOT / "backend/src/routes/api.php").read_text()
@@ -32,5 +33,12 @@ assert "local_account_lifecycle_events" in audit_migration
 for column in ("actor_user_id", "target_user_id", "action", "reason", "previous_state", "new_state", "created_at"):
     assert column in audit_migration, f"Missing local lifecycle audit field: {column}"
 assert "nullOnDelete()" in audit_migration, "Lifecycle history must survive user deletion"
+assert "CREATE TRIGGER local_lifecycle_events_append_only" in append_only_migration
+assert "BEFORE UPDATE OR DELETE" in append_only_migration
+assert "to_jsonb(NEW)" in append_only_migration and "to_jsonb(OLD)" in append_only_migration
+assert "OLD.actor_user_id IS NOT NULL AND NEW.actor_user_id IS NULL" in append_only_migration
+assert "OLD.target_user_id IS NOT NULL AND NEW.target_user_id IS NULL" in append_only_migration
 assert "test_local_lifecycle_audit_schema_retains_events_after_user_deletion" in feature
-print("Local Sanctum lifecycle guard contract passed.")
+assert "test_local_lifecycle_audit_event_rejects_content_updates_on_postgres" in feature
+assert "test_local_lifecycle_audit_event_rejects_deletion_on_postgres" in feature
+print("Local Sanctum lifecycle guard and append-only audit contracts passed.")
