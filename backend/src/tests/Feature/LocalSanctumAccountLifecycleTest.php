@@ -251,21 +251,25 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ];
 
         $invalidRecords = [
-            ['actor_user_id' => 20],
-            ['actor_user_id' => -1],
-            ['target_user_id' => -1],
-            ['reason' => '   '],
-            ['action' => 'suspended', 'previous_state' => 'suspended', 'new_state' => 'active'],
-            ['action' => 'unknown', 'previous_state' => 'active', 'new_state' => 'suspended'],
+            [['actor_user_id' => 20], 'local_lifecycle_distinct_parties_check'],
+            [['actor_user_id' => -1], 'local_lifecycle_actor_positive_check'],
+            [['target_user_id' => -1], 'local_lifecycle_target_positive_check'],
+            [['reason' => '   '], 'local_lifecycle_reason_nonblank_check'],
+            [['action' => 'suspended', 'previous_state' => 'suspended', 'new_state' => 'active'], 'local_lifecycle_transition_check'],
+            [['action' => 'unknown', 'previous_state' => 'active', 'new_state' => 'suspended'], 'local_lifecycle_transition_check'],
         ];
 
-        foreach ($invalidRecords as $overrides) {
+        foreach ($invalidRecords as [$overrides, $expectedConstraint]) {
             try {
                 DB::transaction(fn () => DB::table('local_account_lifecycle_events')
                     ->insert(array_merge($base, $overrides)));
                 $this->fail('PostgreSQL must reject invalid lifecycle audit records.');
             } catch (QueryException $exception) {
-                $this->assertStringContainsString('check constraint', strtolower($exception->getMessage()));
+                $this->assertStringContainsString(
+                    $expectedConstraint,
+                    $exception->getMessage(),
+                    'The expected named CHECK constraint must reject this record.',
+                );
             }
         }
 
