@@ -155,6 +155,11 @@ class SupabaseBridgeTest extends TestCase
             ->assertJsonPath('id', 42);
 
         Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/rest/v1/rpc/api_me')
+                && $request->hasHeader('Authorization', 'Bearer valid-supabase-access-token')
+                && $request->hasHeader('apikey', 'sb_publishable_test_only');
+        });
+        Http::assertSent(function ($request) {
             return str_contains($request->url(), '/rest/v1/rpc/api_create_incident_v4')
                 && $request->hasHeader('Authorization', 'Bearer valid-supabase-access-token')
                 && $request->hasHeader('apikey', 'sb_publishable_test_only')
