@@ -1001,3 +1001,28 @@
     scroll-behavior:auto;
   }
 }
+
+
+/* Admin design tokens: one rhythm and type scale across every portal section. */
+.admin-shell {
+  --admin-space-1:4px;
+  --admin-space-2:8px;
+  --admin-space-3:12px;
+  --admin-space-4:16px;
+  --admin-space-5:20px;
+  --admin-space-6:24px;
+  --admin-space-8:32px;
+  --admin-space-10:40px;
+  --admin-font-xs:clamp(0.6875rem,0.66rem + 0.04vw,0.75rem);
+  --admin-font-sm:clamp(0.75rem,0.71rem + 0.08vw,0.8125rem);
+  --admin-font-base:clamp(0.8125rem,0.77rem + 0.10vw,0.875rem);
+  --admin-font-lg:clamp(1rem,0.94rem + 0.14vw,1.125rem);
+  --admin-content-max:1680px;
+  --admin-gutter:clamp(16px,2.4vw,36px);
+  font-family:"DM Sans",Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:var(--admin-font-base);
+  line-height:1.5;
+}
+.admin-shell :where(button,input,select,textarea) { font-family:inherit; }
+.admin-shell :where(p,small,td,dd) { line-height:1.5; }
+.admin-shell :where(h1,h2,h3) { text-wrap:balance; }
