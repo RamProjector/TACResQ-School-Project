@@ -102,6 +102,16 @@ assert 'role="status" aria-live="polite"><LoaderCircle' in admin_console
 assert ".admin-metrics strong { min-width:0; font-size:clamp(20px,2vw,29px); overflow-wrap:anywhere; }" in admin_css
 assert ".admin-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }" in admin_css
 
+# Dependency diagnostics count the same three probes, expose loading limits, and avoid noisy live announcements.
+assert 'aria-describedby="admin-health-limitations" aria-busy={dependencyHealthLoading}' in admin_console
+assert 'id="admin-health-limitations"' in admin_console
+assert 'reachableDependencyCount === dependencyProbes.length' in admin_console
+assert 'reachableDependencyCount + " of " + dependencyProbes.length + " dependencies responded within the probe threshold"' in admin_console
+assert '{dependencyProbes.map(([label, result]) => (' in admin_console
+assert 'Last checked " + formatManilaDateTime(dependencyHealth.checked_at) + " (Asia/Manila)"' in admin_console
+assert 'className={"admin-health-status admin-health-status--" + result.status} role="status"' not in admin_console
+assert '.admin-health-grid { grid-template-columns:minmax(0,1fr); }' in admin_css
+
 # Analytics announcements and labels must communicate only the changed state and its scope.
 assert 'className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title">' in admin_console
 assert '<div className="admin-empty" role="status" aria-live="polite"><LoaderCircle' in admin_console
