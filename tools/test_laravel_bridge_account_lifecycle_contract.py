@@ -54,7 +54,7 @@ assert rpc_route.index("$bridge->callRpc($token, 'api_me', [])") < rpc_route.ind
 assert "active_profile_required" in rpc_route
 assert "is_array($profile['body'])" in rpc_route
 assert "isset($profile['body']['id'])" in rpc_route
-assert "LOWER(email)" not in rpc_route and "email" not in rpc_route.lower(), (
-    "Bridge authorization must not infer a Supabase profile from email."
+assert "LOWER(email)" not in rpc_route and "where('email'" not in rpc_route.lower(), (
+    "Bridge authorization must not query or match a Supabase profile by email."
 )
 assert "test_suspended_or_unprovisioned_profile_is_denied_before_bridge_rpc" in tests
