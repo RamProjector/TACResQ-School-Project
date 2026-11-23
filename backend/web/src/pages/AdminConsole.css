@@ -834,3 +834,9 @@
   .admin-metrics article { padding:14px; }
   .admin-metrics strong { font-size:clamp(19px,6vw,25px); }
 }
+
+
+/* Authenticator QR codes and manual TOTP setup keys must never enter printed reports. */
+@media print {
+  .admin-security-status__enrollment { display:none !important; }
+}
