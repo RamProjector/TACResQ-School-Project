@@ -14,6 +14,8 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 {
     use RefreshDatabase;
 
+    private string $adminTotpCode;
+
     private function createLocalUser(): User
     {
         return User::create([
@@ -27,6 +29,18 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
     private function registerLocalAdminReauthenticationTestRoute(): void
     {
+        $secret = app(\App\Services\LocalAdminTotpService::class)->generateSecret();
+        DB::table('local_admin_totp_credentials')->insert([
+            'user_id' => auth()->id(),
+            'secret_ciphertext' => app(\App\Services\LocalAdminTotpService::class)->encryptSecret($secret),
+            'confirmed_at' => now(),
+            'last_used_step' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $step = intdiv(now()->timestamp, 30);
+        $this->adminTotpCode = app(\App\Services\LocalAdminTotpService::class)->codeForStep($secret, $step);
+
         Route::post('/_test/local-admin-sensitive-action', fn () => response()->json(['ok' => true]))
             ->middleware([
                 'auth:sanctum',
@@ -374,6 +388,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
         $this->postJson('/_test/local-admin-sensitive-action', [
             'current_password' => 'synthetic-test-password',
+            'totp_code' => $this->adminTotpCode,
         ])->assertOk()->assertExactJson(['ok' => true]);
     }
 
@@ -403,6 +418,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
         $this->postJson('/_test/local-admin-sensitive-action', [
             'current_password' => 'incorrect-password',
+            'totp_code' => $this->adminTotpCode,
         ])->assertForbidden()->assertExactJson([
             'message' => 'Administrator re-authentication failed.',
         ])->assertHeader('Cache-Control', 'no-store, private');
@@ -427,8 +443,53 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
         $this->postJson('/_test/local-admin-sensitive-action', [
             'current_password' => 'synthetic-test-password',
+            'totp_code' => $this->adminTotpCode,
         ])->assertTooManyRequests()
             ->assertHeader('Cache-Control', 'no-store, private');
+    }
+
+
+
+    public function test_local_admin_sensitive_action_rejects_incorrect_totp_code(): void
+    {
+        $admin = User::create([
+            'name' => 'Local Lifecycle Admin',
+            'email' => 'local-lifecycle-admin@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => '000000',
+        ])->assertForbidden()->assertExactJson([
+            'message' => 'Administrator re-authentication failed.',
+        ]);
+    }
+
+    public function test_local_admin_totp_code_cannot_be_replayed(): void
+    {
+        $admin = User::create([
+            'name' => 'Local Lifecycle Admin',
+            'email' => 'local-lifecycle-admin@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        $payload = [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => $this->adminTotpCode,
+        ];
+
+        $this->postJson('/_test/local-admin-sensitive-action', $payload)->assertOk();
+        $this->postJson('/_test/local-admin-sensitive-action', $payload)
+            ->assertForbidden()->assertExactJson([
+                'message' => 'Administrator re-authentication failed.',
+            ]);
     }
 
 
