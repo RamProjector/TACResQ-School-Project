@@ -57,6 +57,37 @@ BEGIN
      OR has_column_privilege('authenticated', 'public.profiles', 'suspension_reason', 'UPDATE') THEN
     RAISE EXCEPTION 'Authenticated clients must not directly update account lifecycle fields';
   END IF;
+
+  -- Every public table with a direct authenticated grant must have the
+  -- restrictive account-state predicate, not merely its original role policy.
+  IF EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relkind IN ('r', 'p')
+       AND c.relrowsecurity
+       AND (
+         has_table_privilege('authenticated', c.oid, 'SELECT')
+         OR has_table_privilege('authenticated', c.oid, 'INSERT')
+         OR has_table_privilege('authenticated', c.oid, 'UPDATE')
+         OR has_table_privilege('authenticated', c.oid, 'DELETE')
+         OR has_any_column_privilege('authenticated', c.oid, 'SELECT')
+         OR has_any_column_privilege('authenticated', c.oid, 'INSERT')
+         OR has_any_column_privilege('authenticated', c.oid, 'UPDATE')
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM pg_catalog.pg_policies p
+          WHERE p.schemaname = 'public'
+            AND p.tablename = c.relname
+            AND p.policyname = 'tacresq_active_account_required'
+            AND p.permissive = 'RESTRICTIVE'
+            AND p.cmd = 'ALL'
+            AND 'authenticated' = ANY(p.roles)
+       )
+  ) THEN
+    RAISE EXCEPTION 'A public table with authenticated privileges is missing the restrictive active-account RLS policy';
+  END IF;
 END;
 $schema_contract$;
 
@@ -91,9 +122,17 @@ UPDATE public.profiles
 
 SET ROLE authenticated;
 DO $still_valid_jwt_denial$
+DECLARE
+  visible_profile_count bigint;
 BEGIN
   IF private.tacresq_current_account_active() IS DISTINCT FROM false THEN
     RAISE EXCEPTION 'A suspended profile must fail the active-state helper with the same valid JWT';
+  END IF;
+  SELECT count(*) INTO visible_profile_count
+    FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000991';
+  IF visible_profile_count <> 0 THEN
+    RAISE EXCEPTION 'Restrictive RLS must hide the suspended caller profile while the same JWT remains valid';
   END IF;
   BEGIN
     INSERT INTO public.account_lifecycle_audit_logs (
