@@ -168,3 +168,78 @@
   outline: 3px solid rgba(243,106,67,.45);
   outline-offset: 2px;
 }
+
+
+/* Predictable reflow for reports, metrics, audit cards, and data-heavy tables. */
+.admin-analytics-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.admin-analytics-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.admin-analytics-detail-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.admin-analytics-card, .admin-analytics-detail-grid > * { min-width: 0; }
+.admin-analytics-bars { min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; }
+.admin-analytics-bar-column { min-width: 0; }
+.admin-analytics-status-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.admin-health-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
+.admin-health-item { min-width: 0; overflow-wrap: anywhere; }
+.admin-roadmap-content { min-width: 0; }
+.admin-roadmap-content :where(p,li) { overflow-wrap: anywhere; }
+.admin-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-gutter: stable; }
+.admin-table { min-width: 760px; }
+.admin-table th, .admin-table td { white-space: normal; }
+.admin-table th { white-space: nowrap; }
+.admin-table td { overflow-wrap: anywhere; }
+.admin-account { min-width: 190px; }
+.admin-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.admin-pagination > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.admin-modal { width: min(100%, 540px); max-height: min(88dvh, 760px); overflow-y: auto; overscroll-behavior: contain; }
+.admin-banner { overflow-wrap: anywhere; }
+.admin-metrics strong { font-size: clamp(22px,1.9vw,32px); }
+.admin-shell :where(input,select,textarea,button) { max-width: 100%; }
+@media (max-width: 1200px) {
+  .admin-health-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-analytics-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .audit-page__filters { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .audit-page__filters .audit-page__search { grid-column: 1 / -1; }
+}
+@media (max-width: 900px) {
+  .admin-analytics-detail-grid { grid-template-columns: minmax(0,1fr); }
+  .admin-analytics-status-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .audit-page__filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .audit-page__filters .audit-page__search { grid-column: 1 / -1; }
+  .audit-page__reset { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .admin-health-grid, .admin-analytics-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-analytics-controls { align-items: stretch; }
+  .admin-analytics-controls > * { min-width: min(100%,180px); }
+  .admin-pagination { align-items: stretch; flex-direction: column; }
+  .admin-pagination > div { width: 100%; }
+  .admin-pagination button { flex: 1 1 auto; }
+  .admin-modal { max-height: 92dvh; }
+  .audit-page { gap: 14px; }
+  .audit-page__intro { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .audit-page__intro > button { align-self: flex-start; }
+  .audit-page__coverage-grid { grid-template-columns: minmax(0,1fr); }
+  .audit-page__lifecycle { padding: 14px; }
+  .audit-event-card { padding: 14px; }
+}
+@media (max-width: 520px) {
+  .admin-health-grid, .admin-analytics-metrics, .admin-analytics-status-grid { grid-template-columns: minmax(0,1fr); }
+  .admin-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-metrics article { min-height: 112px; }
+  .admin-metrics strong { font-size: clamp(20px,6vw,26px); }
+  .audit-page__filters { grid-template-columns: minmax(0,1fr); padding: 12px; }
+  .audit-page__filters .audit-page__search, .audit-page__reset { grid-column: auto; }
+  .audit-page__heading { flex-direction: column; }
+  .audit-event-card__meta { grid-template-columns: minmax(0,1fr); }
+  .audit-event-card__top { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .admin-analytics-controls > * { width: 100%; }
+  .admin-table { min-width: 760px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *, .admin-shell *::before, .admin-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
