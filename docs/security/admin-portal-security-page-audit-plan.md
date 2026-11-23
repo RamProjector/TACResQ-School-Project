@@ -124,3 +124,15 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - Added static source-contract assertions for stylesheet loading, each resolution tier, audit/report reflow, table minimum width, modal bounds, and reduced-motion behavior.
 - No application data, queries, role permissions, routes, account lifecycle capabilities, or backend behavior changed.
 - Static source assertions do not establish visual correctness. Browser screenshots at representative fixed widths (1920, 1440, 1280, 1024, 768, 390px), 200% zoom, keyboard-only navigation, and screen-reader review remain outstanding.
+
+
+## Admin layout and interaction refinement follow-up
+
+- Refined the Admin header and navigation at intermediate desktop/tablet widths so breadcrumb labels and administrator names truncate safely instead of forcing horizontal page overflow. Mobile header content can wrap without hiding the active section or sign-out action.
+- Expanded audit event details into a readable definition-list grid, with long technical references wrapping safely and the included-source limitations remaining available through a keyboard-operable disclosure.
+- Standardized account-directory control alignment, result-status spacing, table captions, and pagination sizing. The underlying server-side filtering and page data are unchanged.
+- Unified minimum interaction sizing and visible focus indicators across navigation, forms, disclosures, and buttons. Added high-contrast and forced-colors fallbacks while preserving the existing skip link.
+- Added print styles for administrative evidence: app chrome and interactive controls are suppressed, while visible report panels, account tables, and expanded audit details are formatted for paper.
+- Added static source assertions for intermediate-width header reflow, audit details, directory context, keyboard/touch affordances, high-contrast modes, and print output.
+- No new Admin powers, API calls, database changes, or production configuration changes were introduced.
+- Browser testing remains necessary for the real header/sidebar at 761–1100px, narrow phones, keyboard and forced-colors modes, and printed audit pages. Static assertions do not replace those checks.
