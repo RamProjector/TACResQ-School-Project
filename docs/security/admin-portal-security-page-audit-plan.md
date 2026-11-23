@@ -52,8 +52,13 @@ Separate live operational controls from deployment/migration diagnostics. Show o
 - [ ] P0: Implement an independently verifiable, two-person local Admin recovery workflow with immutable audit and disposable-PostgreSQL concurrency tests.
 - [ ] P0: Deduplicate the verified-factor and global-session blocks after a full-page review.
 - [ ] P1: Surface the verified access-token expiry window in the global sign-out confirmation.
-- [ ] P1: Separate live Admin controls from deployment/migration verification status.
+- [x] P1: Separate live Admin MFA/session controls from the branch-only database implementation inventory and explicit environment-verification caveat.
 - [x] P2: Remove the redundant Security-page heading punctuation, expose the full administrator name through an accessible label/title despite compact truncation, and add print rules that suppress navigation chrome and avoid splitting key Admin panels.
+
+## Follow-up findings
+
+- The Security page now labels the live MFA/session area separately from the branch implementation inventory. The latter explicitly states that migration presence in this branch does not establish deployment or production enforcement; environment verification remains unavailable from this repository-only change.
+- The global sign-out confirmation continues to warn that already-issued access tokens can remain valid until expiry. No numeric expiry window is displayed because the effective Supabase JWT lifetime for the target project has not been independently verified; do not infer it from a local default or assume the project configuration.
 
 ## Implementation Boundary
 
