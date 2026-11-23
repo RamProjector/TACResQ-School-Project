@@ -1057,3 +1057,36 @@
   .admin-heading h1 { font-size:clamp(25px,7vw,30px); }
   .admin-panel { margin-bottom:16px; border-radius:8px; }
 }
+
+
+/* Consistent density and alignment for section panels, controls, and data tables. */
+.admin-metrics { gap:var(--admin-space-3); margin-bottom:var(--admin-space-6); }
+.admin-metrics article { padding:var(--admin-space-5); border-radius:8px; }
+.admin-panel { margin-bottom:var(--admin-space-5); border-radius:8px; }
+.admin-panel__heading { min-height:76px; padding:var(--admin-space-5) var(--admin-space-6); }
+.admin-toolbar { gap:var(--admin-space-3); padding-inline:var(--admin-space-6); }
+.admin-search,.admin-role-filter select { min-height:42px; }
+.admin-table th { padding-block:13px; }
+.admin-table td { padding-block:15px; }
+.admin-pagination { min-height:54px; padding-inline:var(--admin-space-6); }
+.admin-health-grid { gap:var(--admin-space-3); }
+.admin-health-item { padding:var(--admin-space-4); }
+.admin-modal { padding:clamp(22px,3vw,32px); }
+@media (max-width:760px) {
+  .admin-panel__heading { padding:16px; }
+  .admin-toolbar { padding-inline:16px; }
+  .admin-table th:first-child,.admin-table td:first-child { padding-left:16px; }
+  .admin-table th:last-child,.admin-table td:last-child { padding-right:16px; }
+  .admin-pagination { padding-inline:16px; }
+}
+@media (max-width:480px) {
+  .admin-metrics { gap:8px; }
+  .admin-metrics article { padding:12px; }
+  .admin-metrics strong { margin-top:9px; font-size:clamp(20px,6vw,25px); }
+  .admin-panel__heading { align-items:flex-start; gap:8px; }
+  .admin-panel__heading h2 { font-size:16px; }
+  .admin-toolbar { gap:10px; }
+  .admin-pagination { align-items:flex-start; flex-direction:column; }
+  .admin-pagination > div { width:100%; }
+  .admin-pagination button { flex:1; }
+}
