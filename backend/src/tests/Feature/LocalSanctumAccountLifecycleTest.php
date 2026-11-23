@@ -130,7 +130,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         $this->assertSame(0, $user->tokens()->count());
     }
 
-    public function test_local_lifecycle_audit_schema_retains_events_after_user_deletion(): void
+    public function test_local_lifecycle_audit_schema_retains_original_actor_and_target_ids_after_user_deletion(): void
     {
         $actor = $this->createLocalUser();
         $target = User::create([
@@ -155,10 +155,54 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
         $this->assertDatabaseHas('local_account_lifecycle_events', [
             'id' => $eventId,
-            'actor_user_id' => null,
-            'target_user_id' => null,
+            'actor_user_id' => $actor->id,
+            'target_user_id' => $target->id,
             'action' => 'suspended',
             'reason' => 'Synthetic retention test',
+        ]);
+    }
+
+    public function test_local_lifecycle_audit_event_rejects_actor_or_target_reference_mutation_on_postgres(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('The append-only trigger is PostgreSQL-specific.');
+        }
+
+        $actor = $this->createLocalUser();
+        $target = User::create([
+            'name' => 'Lifecycle Reference Target',
+            'email' => 'lifecycle-reference-target@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'requester',
+        ]);
+        $eventId = DB::table('local_account_lifecycle_events')->insertGetId([
+            'actor_user_id' => $actor->id,
+            'target_user_id' => $target->id,
+            'action' => 'suspended',
+            'reason' => 'Immutable references',
+            'previous_state' => 'active',
+            'new_state' => 'suspended',
+            'created_at' => now(),
+        ]);
+
+        foreach ([
+            ['actor_user_id' => null],
+            ['target_user_id' => null],
+            ['actor_user_id' => null, 'reason' => 'Tampered during reference cleanup'],
+        ] as $changes) {
+            try {
+                DB::table('local_account_lifecycle_events')->where('id', $eventId)->update($changes);
+                $this->fail('PostgreSQL must reject every lifecycle-event reference mutation.');
+            } catch (QueryException $exception) {
+                $this->assertStringContainsString('append-only', $exception->getMessage());
+            }
+        }
+
+        $this->assertDatabaseHas('local_account_lifecycle_events', [
+            'id' => $eventId,
+            'actor_user_id' => $actor->id,
+            'target_user_id' => $target->id,
+            'reason' => 'Immutable references',
         ]);
     }
 
