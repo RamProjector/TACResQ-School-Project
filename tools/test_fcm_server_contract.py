@@ -128,6 +128,11 @@ assert "test_missing_server_configuration_fails_before_queue_claim" in dispatche
 assert "test_claim_service_failure_aborts_before_any_send" in dispatcher_tests
 assert "test_configured_batch_limit_is_clamped_to_database_cap" in dispatcher_tests
 assert "test_permanent_provider_failure_is_not_treated_as_invalid_token" in dispatcher_tests
+assert "test_send_exception_is_recorded_and_later_recipient_is_processed" in dispatcher_tests
+assert "test_invalid_token_cleanup_failure_does_not_stop_next_recipient" in dispatcher_tests
+assert "test_missing_fcm_project_id_fails_before_queue_claim" in dispatcher_tests
+assert "test_non_array_claim_response_is_rejected_before_send" in dispatcher_tests
+assert "test_empty_queue_returns_zero_counts_without_sending" in dispatcher_tests
 # The trusted sender must not expose a public route or use a client-visible key.
 assert "Route::post('/internal/push" not in read("backend/src/routes/api.php")
 assert "supabase_publishable_key" not in dispatcher
