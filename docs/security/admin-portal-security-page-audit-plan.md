@@ -53,7 +53,7 @@ Separate live operational controls from deployment/migration diagnostics. Show o
 - [ ] P0: Deduplicate the verified-factor and global-session blocks after a full-page review.
 - [ ] P1: Surface the verified access-token expiry window in the global sign-out confirmation.
 - [ ] P1: Separate live Admin controls from deployment/migration verification status.
-- [ ] P2: Finish typography and print pagination cleanup.
+- [x] P2: Remove the redundant Security-page heading punctuation, expose the full administrator name through an accessible label/title despite compact truncation, and add print rules that suppress navigation chrome and avoid splitting key Admin panels.
 
 ## Implementation Boundary
 
