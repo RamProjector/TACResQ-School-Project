@@ -23,6 +23,17 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ]);
     }
 
+
+    private function registerLocalAdminReauthenticationTestRoute(): void
+    {
+        Route::post('/_test/local-admin-sensitive-action', fn () => response()->json(['ok' => true]))
+            ->middleware([
+                'auth:sanctum',
+                'account.active',
+                'local.admin.reauthenticated',
+            ]);
+    }
+
     public function test_existing_local_accounts_remain_active_by_default(): void
     {
         $user = $this->createLocalUser();
@@ -347,5 +358,77 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             ]);
         }
     }
+
+
+    public function test_local_admin_sensitive_action_requires_admin_role_and_current_password(): void
+    {
+        $admin = User::create([
+            'name' => 'Local Lifecycle Admin',
+            'email' => 'local-lifecycle-admin@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertOk()->assertExactJson(['ok' => true]);
+    }
+
+    public function test_local_admin_sensitive_action_rejects_non_admin_even_with_correct_password(): void
+    {
+        $requester = $this->createLocalUser();
+        Sanctum::actingAs($requester);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertForbidden()->assertExactJson([
+            'message' => 'Administrator access is required.',
+        ])->assertHeader('Cache-Control', 'no-store, private');
+    }
+
+    public function test_local_admin_sensitive_action_rejects_incorrect_password(): void
+    {
+        $admin = User::create([
+            'name' => 'Local Lifecycle Admin',
+            'email' => 'local-lifecycle-admin@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'incorrect-password',
+        ])->assertForbidden()->assertExactJson([
+            'message' => 'Administrator re-authentication failed.',
+        ])->assertHeader('Cache-Control', 'no-store, private');
+    }
+
+    public function test_local_admin_reauthentication_is_rate_limited_after_repeated_failures(): void
+    {
+        $admin = User::create([
+            'name' => 'Local Lifecycle Admin',
+            'email' => 'local-lifecycle-admin@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/_test/local-admin-sensitive-action', [
+                'current_password' => 'incorrect-password',
+            ])->assertForbidden();
+        }
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertTooManyRequests()
+            ->assertHeader('Cache-Control', 'no-store, private');
+    }
+
 
 }
