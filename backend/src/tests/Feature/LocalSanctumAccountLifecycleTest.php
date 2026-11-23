@@ -34,6 +34,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             'user_id' => auth('sanctum')->id(),
             'secret_ciphertext' => app(\App\Services\LocalAdminTotpService::class)->encryptSecret($secret),
             'confirmed_at' => now(),
+            'expires_at' => null,
             'last_used_step' => null,
             'created_at' => now(),
             'updated_at' => now(),
@@ -523,6 +524,8 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             'user_id' => $admin->id,
             'confirmed_at' => null,
         ]);
+        $pendingCredential = DB::table('local_admin_totp_credentials')->where('user_id', $admin->id)->first();
+        $this->assertNotNull($pendingCredential->expires_at);
 
         $step = intdiv(now()->timestamp, 30);
         $code = app(\App\Services\LocalAdminTotpService::class)->codeForStep($secret, $step);
@@ -532,6 +535,7 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
         $credential = DB::table('local_admin_totp_credentials')->where('user_id', $admin->id)->first();
         $this->assertNotNull($credential->confirmed_at);
+        $this->assertNull($credential->expires_at);
         $this->assertSame($step, (int) $credential->last_used_step);
         $this->assertStringNotContainsString($secret, $credential->secret_ciphertext);
     }
@@ -550,6 +554,37 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         $this->postJson('/api/admin/security/totp/enroll', [
             'current_password' => 'synthetic-test-password',
         ])->assertConflict();
+    }
+
+
+
+    public function test_local_admin_totp_enrollment_expires_after_ten_minutes(): void
+    {
+        $admin = User::create([
+            'name' => 'Local TOTP Expiry Admin',
+            'email' => 'local-totp-expiry@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+
+        $enrollment = $this->postJson('/api/admin/security/totp/enroll', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertOk();
+
+        $secret = $enrollment->json('secret');
+        $step = intdiv(now()->timestamp, 30);
+        $code = app(\App\Services\LocalAdminTotpService::class)->codeForStep($secret, $step);
+
+        DB::table('local_admin_totp_credentials')->where('user_id', $admin->id)
+            ->update(['expires_at' => now()->subSecond()]);
+
+        $this->postJson('/api/admin/security/totp/confirm', ['totp_code' => $code])
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('local_admin_totp_credentials', [
+            'user_id' => $admin->id,
+            'confirmed_at' => null,
+        ]);
     }
 
 
