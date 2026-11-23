@@ -91,7 +91,7 @@ Deno.serve(async (request: Request) => {
     googleAccount = JSON.parse(serviceAccountSecret);
     if (!googleAccount.client_email || !googleAccount.private_key || !googleAccount.project_id || !googleAccount.token_uri) throw new Error("missing service-account fields");
     const tokenUri = new URL(googleAccount.token_uri);
-    if (tokenUri.protocol !== "https:" || tokenUri.hostname !== "oauth2.googleapis.com" || tokenUri.pathname !== "/token" || tokenUri.search || tokenUri.hash) throw new Error("unsupported OAuth token endpoint");
+    if (tokenUri.protocol !== "https:" || tokenUri.hostname !== "oauth2.googleapis.com" || tokenUri.pathname !== "/token" || tokenUri.port || tokenUri.username || tokenUri.password || tokenUri.search || tokenUri.hash) throw new Error("unsupported OAuth token endpoint");
     if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(googleAccount.project_id)) throw new Error("invalid Firebase project identifier");
   } catch { return json({ error: "FCM service-account secret is not valid JSON or lacks required fields" }, 503); }
   let accessToken: string;
