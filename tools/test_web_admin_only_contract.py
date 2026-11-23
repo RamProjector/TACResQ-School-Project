@@ -93,4 +93,12 @@ assert 'disabled={page === 0 || refreshing || directoryFilterPending || Boolean(
 assert 'disabled={refreshing || directoryFilterPending || Boolean(directoryError) || (page + 1) * pageSize >= totalUsers}>Next' in admin_console
 assert 'aria-busy={loading || refreshing || directoryFilterPending}' in admin_console
 
+# Analytics announcements and labels must communicate only the changed state and its scope.
+assert 'className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title">' in admin_console
+assert '<div className="admin-empty" role="status" aria-live="polite"><LoaderCircle' in admin_console
+assert 'role="group" aria-label="Current status of requests created during the selected reporting period"' in admin_console
+assert '<span>Period (Manila time)</span>' in admin_console
+assert 'No daily buckets were returned for this reporting period.' in admin_console
+assert 'No daily data for this period.' not in admin_console
+
 print("Web admin-only contract passed.")
