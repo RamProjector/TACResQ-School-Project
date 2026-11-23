@@ -44,7 +44,7 @@ The full exact private signature list and function bodies are emitted by `tools/
 
 The clean replay also reports 52 authenticated-callable public SECURITY INVOKER functions. Their access can still expose or mutate data through RLS, views, or helper calls. Examples documented in Batch 3 include `api_assign_incident_team`, `api_assign_incident`, `api_update_incident_status`, `api_all_incidents`, `api_my_incidents`, `api_set_duty_status`, `api_record_location_v2`, and `api_active_responder_locations`.
 
-A complete release matrix must therefore include all 72 public callable functions, not only the 21 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
+A complete release matrix must therefore include all 73 public callable functions, not only the 21 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
 
 ## Chat and Storage shared authorization chain
 
