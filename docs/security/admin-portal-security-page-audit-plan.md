@@ -92,3 +92,12 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - A short mobile-only hint explains horizontal table navigation, and the scroll region has a visible keyboard-focus indicator.
 - These changes preserve server-side filtering, the existing 25-row page size, current role-management permissions, and the existing read-only lifecycle boundary. No account status or suspension action was introduced.
 - Static source-contract assertions cover the filter relationships, mobile guidance, table width, wrapping, and keyboard focus. Browser layout and assistive-technology testing remain outstanding.
+
+
+## Account-directory search consistency follow-up
+
+- Search input is normalized with trim() before the server-side request, avoiding separate queries for leading/trailing whitespace.
+- While a debounced search is pending, the directory suppresses rows from the previous query and displays an explicit in-table progress state. Role-change actions remain unavailable during this interval.
+- The regression contract now checks the pending-search presentation and the existing last-valid-page recovery when the account count shrinks.
+- The server remains authoritative for search, role filtering, and pagination. No client-side filtering, new account data exposure, or account lifecycle controls were added.
+- Static source assertions are present; run the repository's Python contract and browser tests in CI before treating the change as validated.
