@@ -10,7 +10,9 @@ function isUnregisteredFcmError(payload: unknown): boolean {
   if (!payload || typeof payload !== "object") return false;
   const error = (payload as { error?: unknown }).error;
   if (!error || typeof error !== "object") return false;
-  const details = (error as { details?: unknown }).details;
+  const errorObject = error as { status?: unknown; details?: unknown };
+  if (errorObject.status === "UNREGISTERED") return true;
+  const details = errorObject.details;
   if (!Array.isArray(details)) return false;
   return details.some((detail) => {
     if (!detail || typeof detail !== "object") return false;
