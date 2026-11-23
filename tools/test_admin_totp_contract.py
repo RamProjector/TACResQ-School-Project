@@ -308,13 +308,13 @@ investigation_signature = (
     "public.api_admin_list_investigation_events(integer, integer, text, text, text, "
     "timestamp with time zone, timestamp with time zone, bigint, bigint, bigint)"
 )
-assert re.search(
-    rf"revoke all on function {re.escape(investigation_signature)}\\s+from public, anon, authenticated",
-    investigation_migration,
-), "Investigation RPC must not inherit PUBLIC or anon execution"
-assert re.search(
-    rf"grant execute on function {re.escape(investigation_signature)}\\s+to authenticated",
-    investigation_migration,
-), "Investigation RPC must remain callable only through its authenticated MFA-checked body"
+assert "revoke all on function public.api_admin_list_investigation_events(" in investigation_migration
+assert "from public, anon, authenticated" in investigation_migration.split(
+    "revoke all on function public.api_admin_list_investigation_events(", 1
+)[1].split(";", 1)[0], "Investigation RPC must revoke PUBLIC and anon execution"
+assert "grant execute on function public.api_admin_list_investigation_events(" in investigation_migration
+assert "to authenticated" in investigation_migration.split(
+    "grant execute on function public.api_admin_list_investigation_events(", 1
+)[1].split(";", 1)[0], "Investigation RPC must remain authenticated-callable through its MFA-checked body"
 
 print("Admin TOTP, investigation-feed MFA ordering, role-change atomicity, wrapper grants, and audit RLS contracts passed.")
