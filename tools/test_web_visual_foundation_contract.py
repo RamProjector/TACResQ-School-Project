@@ -22,7 +22,7 @@ assert "ActiveSectionIcon" in admin
 # Responsive navigation and narrow-screen table handling are deliberate.
 for breakpoint in ("max-width: 1120px", "max-width: 900px", "max-width: 640px", "max-width: 390px"):
     assert breakpoint in styles
-assert ".admin-navigation {\\n    flex-direction: row;" in styles
+assert ".admin-navigation {\n    flex-direction: row;" in styles
 assert ".admin-table { min-width: 690px; }" in styles
 assert "min-width: max-content;" in styles
 assert "prefers-reduced-motion: reduce" in styles
