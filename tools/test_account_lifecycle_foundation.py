@@ -41,7 +41,8 @@ for required in (
     "select p.account_status = 'active'",
     "for share",
     "volatile",
-    "grant execute on function private.tacresq_current_account_active() to authenticated",
+    "grant execute on function private.tacresq_current_account_active()",
+    "to authenticated",
     "revoke update (account_status, suspended_at, suspended_by, suspension_reason)",
 ):
     assert required in migration, f"Account lifecycle migration is missing: {required}"
