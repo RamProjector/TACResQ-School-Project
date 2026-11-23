@@ -377,6 +377,75 @@ class LocalSanctumAccountLifecycleTest extends TestCase
     }
 
 
+    public function test_lifecycle_recorder_rejects_calls_outside_a_transaction(): void
+    {
+        $actor = $this->createLocalUser();
+        $target = User::create([
+            'name' => 'Lifecycle No Transaction Target',
+            'email' => 'lifecycle-no-transaction@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'requester',
+        ]);
+
+        $this->expectException(\LogicException::class);
+        app(\App\Services\LocalAccountLifecycleRecorder::class)->record(
+            $actor->id,
+            $target->id,
+            'suspended',
+            'Valid reason',
+            'active',
+            'suspended',
+        );
+    }
+
+    public function test_lifecycle_recorder_rejects_same_actor_and_target(): void
+    {
+        $user = $this->createLocalUser();
+
+        try {
+            DB::transaction(fn () => app(\App\Services\LocalAccountLifecycleRecorder::class)->record(
+                $user->id,
+                $user->id,
+                'suspended',
+                'Valid reason',
+                'active',
+                'suspended',
+            ));
+            $this->fail('The actor must not be the lifecycle target.');
+        } catch (\InvalidArgumentException $exception) {
+            $this->assertStringContainsString('distinct actor and target', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('local_account_lifecycle_events', 0);
+    }
+
+    public function test_lifecycle_recorder_rejects_reasons_longer_than_database_limit(): void
+    {
+        $actor = $this->createLocalUser();
+        $target = User::create([
+            'name' => 'Lifecycle Long Reason Target',
+            'email' => 'lifecycle-long-reason@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'requester',
+        ]);
+
+        try {
+            DB::transaction(fn () => app(\App\Services\LocalAccountLifecycleRecorder::class)->record(
+                $actor->id,
+                $target->id,
+                'suspended',
+                str_repeat('x', 501),
+                'active',
+                'suspended',
+            ));
+            $this->fail('Reasons longer than the database limit must be rejected.');
+        } catch (\InvalidArgumentException $exception) {
+            $this->assertStringContainsString('between 1 and 500', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('local_account_lifecycle_events', 0);
+    }
+
     public function test_local_admin_sensitive_action_requires_admin_password_and_totp(): void
     {
         $admin = User::create([
