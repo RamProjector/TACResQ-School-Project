@@ -713,3 +713,37 @@ DELETE FROM auth.users
    '00000000-0000-4000-8000-000000000995',
    '00000000-0000-4000-8000-000000000996'
  );
+
+
+-- The dispatcher progress helper is a directly callable private definer
+-- implementation behind public.api_update_incident_status. Locking an active
+-- dispatcher profile is part of its runtime authorization contract.
+DO $dispatcher_progress_contract$
+DECLARE
+  routine_oid oid := to_regprocedure('private.tacresq_dispatch_update_incident_status(bigint,text)');
+  routine_source text;
+  routine_settings text[];
+  routine_volatility "char";
+  routine_is_definer boolean;
+BEGIN
+  IF routine_oid IS NULL THEN
+    RAISE EXCEPTION 'Private dispatcher progress implementation is missing';
+  END IF;
+  SELECT p.prosrc, p.proconfig, p.provolatile, p.prosecdef
+    INTO routine_source, routine_settings, routine_volatility, routine_is_definer
+    FROM pg_catalog.pg_proc p
+   WHERE p.oid = routine_oid;
+  IF routine_is_definer IS DISTINCT FROM true
+     OR routine_volatility IS DISTINCT FROM 'v'
+     OR NOT (coalesce(routine_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR routine_source NOT ILIKE '%account_status = ''active''%'
+     OR routine_source NOT ILIKE '%FOR SHARE%'
+     OR routine_source NOT ILIKE '%Only active dispatchers can update incident progress%' THEN
+    RAISE EXCEPTION 'Dispatcher progress helper must lock an active dispatcher under a VOLATILE, pinned SECURITY DEFINER body';
+  END IF;
+  IF NOT has_function_privilege('authenticated', routine_oid, 'EXECUTE')
+     OR has_function_privilege('anon', routine_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Dispatcher progress helper must remain authenticated-only';
+  END IF;
+END;
+$dispatcher_progress_contract$;
