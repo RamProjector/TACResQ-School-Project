@@ -45,3 +45,11 @@ assert "52 authenticated-callable public security invoker functions" in crosswal
 assert "not an automated proof" in crosswalk or "not proof" in crosswalk
 assert "call-graph" in review
 print("Account-lifecycle callable inventory contract passed.")
+
+
+# RLS inventory must show who owns each relation and whether FORCE ROW LEVEL
+# SECURITY is active. Ordinary RLS status alone does not constrain table owners.
+assert "relation_owner" in inventory
+assert "relforcerowsecurity" in inventory
+assert "owner_is_privileged_service_role" in inventory
+assert "join pg_catalog.pg_roles as table_owner" in inventory
