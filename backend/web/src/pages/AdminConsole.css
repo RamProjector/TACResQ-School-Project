@@ -977,3 +977,27 @@
 .admin-table td {
   overflow-wrap:anywhere;
 }
+
+
+/* Make horizontal table navigation discoverable and keyboard-operable. */
+.admin-table-wrap:focus-visible {
+  outline:3px solid rgba(243,106,67,.42);
+  outline-offset:3px;
+}
+.admin-table-scroll-hint {
+  display:none;
+}
+@media (max-width:760px) {
+  .admin-table-scroll-hint {
+    display:block;
+    margin:8px 14px 0;
+    color:#718081;
+    font-size:10px;
+    line-height:1.5;
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  .admin-table-wrap {
+    scroll-behavior:auto;
+  }
+}
