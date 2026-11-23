@@ -23,6 +23,25 @@ final class FcmNotificationDispatcherTest extends TestCase
         ]);
     }
 
+    public function test_missing_server_configuration_fails_before_queue_claim(): void
+    {
+        Http::fake();
+        config(['tacru.supabase_secret_key' => '']);
+
+        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm->shouldNotReceive('assertCredentialsAvailable');
+        $fcm->shouldNotReceive('send');
+
+        try {
+            (new FcmNotificationDispatcher($fcm))->dispatch(1);
+            self::fail('Expected missing server configuration to fail closed.');
+        } catch (\\RuntimeException $exception) {
+            self::assertSame('FCM dispatcher requires the server-only Supabase secret key.', $exception->getMessage());
+        }
+
+        Http::assertNothingSent();
+    }
+
     public function test_invalid_explicit_limit_is_rejected_before_queue_claim(): void
     {
         Http::fake();
