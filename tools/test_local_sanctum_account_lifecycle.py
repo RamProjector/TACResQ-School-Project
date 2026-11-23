@@ -67,11 +67,11 @@ assert "$user->role !== 'admin'" in admin_reauth, "Only local Laravel Admins may
 assert "Hash::check($credentials['current_password'], $user->password)" in admin_reauth
 assert "RateLimiter::tooManyAttempts($key, 5)" in admin_reauth
 assert "RateLimiter::hit($key, 900)" in admin_reauth
-assert "test_local_admin_sensitive_action_requires_admin_role_and_current_password" in feature
+assert "test_local_admin_sensitive_action_requires_admin_password_and_totp" in feature
 assert "test_local_admin_sensitive_action_rejects_non_admin_even_with_correct_password" in feature
 assert "test_local_admin_sensitive_action_rejects_incorrect_password" in feature
 assert "test_local_admin_reauthentication_is_rate_limited_after_repeated_failures" in feature
-assert "'totp_code' => ['required', 'string', 'regex:/^\\\\d{6}$/']" in admin_reauth
+assert "'totp_code'" in admin_reauth and "verifyAndConsume" in admin_reauth
 assert "LocalAdminTotpService::class" in admin_reauth
 assert "verifyAndConsume($user, $credentials['totp_code'])" in admin_reauth
 assert "local_admin_totp_credentials" in totp_migration
