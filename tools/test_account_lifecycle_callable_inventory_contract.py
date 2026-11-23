@@ -125,3 +125,30 @@ for item in (
     "tacresq_record_location_v2_internal",
 ):
     assert item in runtime_contract, f"Assignment/location replay contract is missing: {item}"
+
+
+# Dispatcher roster and incident-queue reads must use the active lifecycle
+# boundary. The roster SECURITY DEFINER body is preserved privately, while its
+# public wrapper owns the active-profile share lock.
+dispatcher_read_migration = (ROOT / "supabase/migrations/20261124110000_account_lifecycle_dispatcher_directory_guard.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "alter function public.api_units() set schema private",
+    "tacresq_api_units_internal",
+    "account_status = 'active'",
+    "for share",
+    "only active dispatchers can view field units",
+    "revoke all on function private.tacresq_api_units_internal()",
+    "private.tacresq_actor_role() is distinct from 'dispatcher'",
+    "only active dispatchers can view the queue",
+    "security invoker",
+):
+    assert required in dispatcher_read_migration, f"Dispatcher read guard is missing: {required}"
+
+for required in (
+    "active_dispatcher_read_contract",
+    "public.api_units()",
+    "private.tacresq_api_units_internal()",
+    "public.api_all_incidents()",
+    "tacresq_actor_role()",
+):
+    assert required in runtime_contract, f"Dispatcher read replay contract is missing: {required}"
