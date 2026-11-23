@@ -53,3 +53,30 @@ assert "relation_owner" in inventory
 assert "relforcerowsecurity" in inventory
 assert "owner_is_privileged_service_role" in inventory
 assert "join pg_catalog.pg_roles as table_owner" in inventory
+
+
+# The directly callable private dispatcher implementation is an authorization
+# boundary in its own right, even though the REST-facing wrapper is SECURITY
+# INVOKER. Keep its active-profile lock contract tied to the replayed migration.
+dispatch_migration = (ROOT / "supabase/migrations/20261124070000_account_lifecycle_dispatch_progress_guard.sql").read_text(encoding="utf-8").lower()
+runtime_contract = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "create or replace function private.tacresq_dispatch_update_incident_status",
+    "account_status = 'active'",
+    "for share",
+    "only active dispatchers can update incident progress",
+    "language plpgsql",
+    "volatile",
+    "security definer",
+    "set search_path = pg_catalog",
+    "grant execute on function private.tacresq_dispatch_update_incident_status",
+):
+    assert required in dispatch_migration, f"Dispatcher progress guard is missing: {required}"
+for required in (
+    "dispatcher_progress_contract",
+    "routine_volatility is distinct from 'v'",
+    "routine_source not ilike '%account_status = ''active''%'",
+    "routine_source not ilike '%for share%'",
+    "has_function_privilege('authenticated', routine_oid, 'execute')",
+):
+    assert required in runtime_contract, f"Dispatcher progress replay contract is missing: {required}"
