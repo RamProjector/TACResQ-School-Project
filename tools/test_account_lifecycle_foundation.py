@@ -233,6 +233,7 @@ for required in (
     "test_account_lifecycle_definer_write",
     "security definer table write unexpectedly succeeded",
     "suspended admin unexpectedly passed the totp-protected directory rpc",
+    "suspended admin unexpectedly read account lifecycle history",
     "suspended dispatcher unexpectedly passed api_units",
     "tacresq_active_account_write_guard",
     "authenticated client unexpectedly inserted an account audit row",
