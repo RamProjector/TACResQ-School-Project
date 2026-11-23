@@ -46,6 +46,10 @@ The clean replay also reports 52 authenticated-callable public SECURITY INVOKER 
 
 A complete release matrix must therefore include all 72 public callable functions, not only the 21 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
 
+## Chat and Storage shared authorization chain
+
+[Batch 24: chat and Storage authentication chain](admin-account-suspension-rpc-review-batch-24-chat-storage-authentication-chain.md) traces the profile identity helper, chat-membership helper, both Storage policies, and the staged reservation compatibility return. It identifies the active-account guard placement and same-valid-JWT Storage HTTP tests required; no runtime guard is claimed.
+
 ## Current coverage and remaining gap
 
 This crosswalk connects the 21 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
