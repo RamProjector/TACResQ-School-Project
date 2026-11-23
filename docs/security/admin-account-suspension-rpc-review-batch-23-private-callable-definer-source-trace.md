@@ -1,6 +1,6 @@
 # Account-suspension private callable-definer source trace — batch 23
 
-**Scope:** the nine private `SECURITY DEFINER` functions that the clean replay reports as directly executable by `authenticated`. This is a source-level trace of current authorization assumptions, not a claim that suspension is enforced.
+**Scope:** the ten private `SECURITY DEFINER` functions that the clean replay reports as directly executable by `authenticated`. This is a source-level trace of current authorization assumptions, not a claim that suspension is enforced.
 
 ## Function-by-function findings
 
