@@ -224,6 +224,8 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         }
 
         $eventId = DB::table('local_account_lifecycle_events')->insertGetId([
+            'actor_user_id' => 10,
+            'target_user_id' => 20,
             'action' => 'suspended',
             'reason' => 'Original reason',
             'previous_state' => 'active',
@@ -243,6 +245,37 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             'id' => $eventId,
             'reason' => 'Original reason',
         ]);
+    }
+
+    public function test_postgres_lifecycle_audit_requires_actor_and_target_ids(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('Lifecycle audit identity requirements are PostgreSQL-specific.');
+        }
+
+        $base = [
+            'actor_user_id' => 10,
+            'target_user_id' => 20,
+            'action' => 'suspended',
+            'reason' => 'Required audit identities',
+            'previous_state' => 'active',
+            'new_state' => 'suspended',
+            'created_at' => now(),
+        ];
+
+        foreach (['actor_user_id', 'target_user_id'] as $requiredIdentity) {
+            $record = $base;
+            $record[$requiredIdentity] = null;
+
+            try {
+                DB::transaction(fn () => DB::table('local_account_lifecycle_events')->insert($record));
+                $this->fail("PostgreSQL must reject a lifecycle event without {$requiredIdentity}.");
+            } catch (QueryException $exception) {
+                $this->assertStringContainsString('not-null constraint', strtolower($exception->getMessage()));
+            }
+        }
+
+        $this->assertDatabaseCount('local_account_lifecycle_events', 0);
     }
 
     public function test_postgres_lifecycle_audit_constraints_reject_invalid_records(): void
@@ -294,6 +327,8 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         }
 
         DB::table('local_account_lifecycle_events')->insert([
+            'actor_user_id' => 10,
+            'target_user_id' => 20,
             'action' => 'suspended',
             'reason' => 'Truncate protection',
             'previous_state' => 'active',
@@ -320,6 +355,8 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         }
 
         $eventId = DB::table('local_account_lifecycle_events')->insertGetId([
+            'actor_user_id' => 10,
+            'target_user_id' => 20,
             'action' => 'suspended',
             'reason' => 'Retention reason',
             'previous_state' => 'active',
