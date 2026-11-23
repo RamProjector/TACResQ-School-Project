@@ -123,6 +123,15 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
 
+  // Keep the selected admin view in sync with browser Back/Forward navigation.
+  useEffect(() => {
+    const syncSectionFromLocation = () => {
+      setActiveSection(resolveAdminSection(window.location.search));
+    };
+    window.addEventListener("popstate", syncSectionFromLocation);
+    return () => window.removeEventListener("popstate", syncSectionFromLocation);
+  }, []);
+
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
