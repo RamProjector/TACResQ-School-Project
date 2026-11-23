@@ -279,3 +279,42 @@
   .admin-topbar__right { width: 100%; justify-content: flex-end; }
   .admin-user strong { max-width: 160px; }
 }
+
+
+/* Audit detail panels use a stable definition-list grid and safe long-value wrapping. */
+.audit-event-card__details {
+  min-width: 0;
+  margin-top: 14px;
+  padding: 15px;
+  border: 1px solid #e4eae2;
+  border-radius: 9px;
+  background: #f8faf6;
+}
+.audit-event-card__details > p { margin: 0 0 12px; color: #536b63; font-size: var(--admin-ui-small); }
+.audit-event-card__details dl {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 12px 18px;
+  margin: 0;
+}
+.audit-event-card__details dl > div { display: grid; min-width: 0; gap: 4px; }
+.audit-event-card__details dt { color: #78877f; font-size: var(--admin-ui-label); font-weight: 650; }
+.audit-event-card__details dd { min-width: 0; margin: 0; color: #405954; font-size: var(--admin-ui-small); overflow-wrap: anywhere; }
+.audit-event-card__details code { white-space: normal; overflow-wrap: anywhere; }
+.audit-event-card__details button { min-height: 32px; margin-left: 8px; }
+.audit-event-card__references {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e9e1;
+}
+.audit-event-card__references > summary { color: #506a60; font-size: var(--admin-ui-small); font-weight: 700; cursor: pointer; }
+.audit-event-card__references dl { margin-top: 12px; }
+.audit-page__coverage-details > summary { min-height: 44px; display: flex; align-items: center; }
+.audit-page__coverage-grid li strong { color: #435c53; }
+.audit-page__coverage-grid li span { max-width: 66ch; line-height: 1.55; }
+.audit-page__lifecycle-loading { display: flex; align-items: center; gap: 8px; }
+.audit-page__copy-error { min-height: 1.5em; color: #a34d3a; font-size: var(--admin-ui-small); }
+@media (max-width: 760px) {
+  .audit-event-card__details { padding: 12px; }
+  .audit-event-card__details dl { grid-template-columns: minmax(0,1fr); gap: 10px; }
+}
