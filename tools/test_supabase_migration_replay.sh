@@ -1800,3 +1800,51 @@ SQL
 # Print the effective authenticated API, RLS, and Storage authorization surface.
 # This inventory is read-only and does not mark any path as suspension-safe.
 psql -v ON_ERROR_STOP=1 -f tools/check_account_suspension_authorization_surface.sql
+
+
+# Guard client schema creation, RLS-bypass membership, and future-object ACLs.
+# These checks turn the newly inventoried catalog facts into regression gates.
+psql -v ON_ERROR_STOP=1 <<'SQL'
+DO $account_suspension_privilege_baseline$
+DECLARE
+  anon_oid oid;
+  authenticated_oid oid;
+BEGIN
+  SELECT oid INTO anon_oid FROM pg_catalog.pg_roles WHERE rolname = 'anon';
+  SELECT oid INTO authenticated_oid FROM pg_catalog.pg_roles WHERE rolname = 'authenticated';
+
+  IF anon_oid IS NULL OR authenticated_oid IS NULL THEN
+    RAISE EXCEPTION 'Expected Supabase anon and authenticated roles in clean replay';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM (VALUES ('public'), ('private'), ('storage'), ('auth')) AS schemas(schema_name)
+    WHERE has_schema_privilege('anon', schema_name, 'CREATE')
+       OR has_schema_privilege('authenticated', schema_name, 'CREATE')
+  ) THEN
+    RAISE EXCEPTION 'Supabase client roles must not have CREATE on application/Auth/Storage schemas';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_roles AS client_role
+    CROSS JOIN pg_catalog.pg_roles AS elevated_role
+    WHERE client_role.rolname IN ('anon', 'authenticated')
+      AND (elevated_role.rolsuper OR elevated_role.rolbypassrls)
+      AND pg_catalog.pg_has_role(client_role.oid, elevated_role.oid, 'MEMBER')
+  ) THEN
+    RAISE EXCEPTION 'Supabase client roles must not inherit SUPERUSER or BYPASSRLS membership';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_default_acl AS defaults
+    CROSS JOIN LATERAL pg_catalog.aclexplode(defaults.defaclacl) AS expanded
+    WHERE expanded.grantee IN (0, anon_oid, authenticated_oid)
+  ) THEN
+    RAISE EXCEPTION 'Global/schema default ACLs must not grant future object privileges to PUBLIC or Supabase client roles';
+  END IF;
+END;
+$account_suspension_privilege_baseline$;
+SQL
