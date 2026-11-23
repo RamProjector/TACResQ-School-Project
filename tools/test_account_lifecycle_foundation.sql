@@ -433,10 +433,174 @@ END;
 $suspended_dispatcher_directory_contract$;
 RESET ROLE;
 
+-- The transition function is implemented but remains unavailable to client roles
+-- until the complete callable/Storage/bridge release gate is closed.
+DO $transition_rpc_exposure$
+BEGIN
+  IF has_function_privilege('authenticated', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Account lifecycle transition RPC must remain unexposed before the release gate';
+  END IF;
+END;
+$transition_rpc_exposure$;
+
+-- Synthetic active Admin and target profiles exercise atomic transition logic.
+SELECT set_config('request.jwt.claim.sub', '', false);
+SELECT set_config('request.jwt.claims', '', false);
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('00000000-0000-4000-8000-000000000993', 'account-lifecycle-target-993@example.test',
+   '{"name":"Lifecycle Target","phone":"+63917000993","role":"requester"}'::jsonb),
+  ('00000000-0000-4000-8000-000000000994', 'account-lifecycle-rollback-994@example.test',
+   '{"name":"Lifecycle Rollback Target","phone":"+63917000994","role":"requester"}'::jsonb),
+  ('00000000-0000-4000-8000-000000000995', 'account-lifecycle-admin-995@example.test',
+   '{"name":"Lifecycle Active Admin","phone":"+63917000995","role":"requester"}'::jsonb);
+UPDATE public.profiles
+   SET role = 'responder', duty_status = 'available'
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000993';
+UPDATE public.profiles
+   SET role = 'admin', duty_status = NULL
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000995';
+
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000995', false);
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000995","aal":"aal2","amr":[{"method":"totp"}]}',
+  false
+);
+
+DO $atomic_account_transition_contract$
+DECLARE
+  actor_id bigint;
+  target_id bigint;
+  rollback_target_id bigint;
+  response jsonb;
+  current_status text;
+  current_duty_status text;
+  audit_count bigint;
+  denied boolean;
+BEGIN
+  SELECT id INTO actor_id FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000995';
+  SELECT id INTO target_id FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000993';
+  SELECT id INTO rollback_target_id FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000994';
+
+  response := public.api_admin_set_account_status(
+    target_id, 'suspended', 'Synthetic account suspension reason'
+  );
+  IF response->>'status' IS DISTINCT FROM 'changed'
+     OR response->>'account_status' IS DISTINCT FROM 'suspended'
+     OR response->>'audit_id' IS NULL THEN
+    RAISE EXCEPTION 'Admin suspension transition returned an unexpected result: %', response;
+  END IF;
+
+  SELECT account_status, duty_status
+    INTO current_status, current_duty_status
+    FROM public.profiles WHERE id = target_id;
+  IF current_status IS DISTINCT FROM 'suspended'
+     OR current_duty_status IS DISTINCT FROM 'available' THEN
+    RAISE EXCEPTION 'Suspension must preserve the target field unit duty status';
+  END IF;
+
+  SELECT count(*) INTO audit_count
+    FROM public.account_lifecycle_audit_logs
+   WHERE target_profile_id = target_id;
+  IF audit_count <> 1 THEN
+    RAISE EXCEPTION 'Suspension and audit insertion must commit exactly one event';
+  END IF;
+
+  response := public.api_admin_set_account_status(
+    target_id, 'suspended', 'Synthetic account suspension reason'
+  );
+  SELECT count(*) INTO audit_count
+    FROM public.account_lifecycle_audit_logs
+   WHERE target_profile_id = target_id;
+  IF response->>'status' IS DISTINCT FROM 'unchanged' OR audit_count <> 1 THEN
+    RAISE EXCEPTION 'Repeated suspension must be idempotent and must not duplicate audit events';
+  END IF;
+
+  response := public.api_admin_set_account_status(
+    target_id, 'active', 'Synthetic account reactivation reason'
+  );
+  SELECT account_status, duty_status
+    INTO current_status, current_duty_status
+    FROM public.profiles WHERE id = target_id;
+  SELECT count(*) INTO audit_count
+    FROM public.account_lifecycle_audit_logs
+   WHERE target_profile_id = target_id;
+  IF response->>'status' IS DISTINCT FROM 'changed'
+     OR current_status IS DISTINCT FROM 'active'
+     OR current_duty_status IS DISTINCT FROM 'available'
+     OR audit_count <> 2
+     OR EXISTS (
+       SELECT 1 FROM public.profiles
+        WHERE id = target_id
+          AND (suspended_at IS NOT NULL OR suspended_by IS NOT NULL OR suspension_reason IS NOT NULL)
+     ) THEN
+    RAISE EXCEPTION 'Reactivation must clear current suspension metadata and preserve duty state';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_set_account_status(
+      actor_id, 'suspended', 'Synthetic self-suspension reason'
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'An Admin must not suspend their own account';
+  END IF;
+
+  -- If audit insertion fails, the preceding profile state update must roll back.
+  CREATE OR REPLACE FUNCTION public.test_reject_account_lifecycle_audit_insert()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  AS $test$
+  BEGIN
+    RAISE EXCEPTION 'Synthetic lifecycle audit insertion failure'
+      USING ERRCODE = 'P0001';
+  END;
+  $test$;
+  CREATE TRIGGER test_reject_account_lifecycle_audit_insert
+    BEFORE INSERT ON public.account_lifecycle_audit_logs
+    FOR EACH ROW EXECUTE FUNCTION public.test_reject_account_lifecycle_audit_insert();
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_admin_set_account_status(
+      rollback_target_id, 'suspended', 'Synthetic rollback contract reason'
+    );
+  EXCEPTION WHEN raise_exception THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Synthetic audit failure did not abort the transition';
+  END IF;
+  SELECT account_status INTO current_status
+    FROM public.profiles WHERE id = rollback_target_id;
+  IF current_status IS DISTINCT FROM 'active'
+     OR EXISTS (
+       SELECT 1 FROM public.account_lifecycle_audit_logs
+        WHERE target_profile_id = rollback_target_id
+     ) THEN
+    RAISE EXCEPTION 'Account state must roll back when its audit insert fails';
+  END IF;
+
+  DROP TRIGGER test_reject_account_lifecycle_audit_insert
+    ON public.account_lifecycle_audit_logs;
+  DROP FUNCTION public.test_reject_account_lifecycle_audit_insert();
+END;
+$atomic_account_transition_contract$;
+
 SELECT set_config('request.jwt.claim.sub', '', false);
 SELECT set_config('request.jwt.claims', '', false);
 DELETE FROM auth.users
  WHERE id IN (
    '00000000-0000-4000-8000-000000000991',
-   '00000000-0000-4000-8000-000000000992'
+   '00000000-0000-4000-8000-000000000992',
+   '00000000-0000-4000-8000-000000000993',
+   '00000000-0000-4000-8000-000000000994',
+   '00000000-0000-4000-8000-000000000995'
  );
