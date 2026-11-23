@@ -76,6 +76,20 @@ assert ".admin-heading__identity { break-after:avoid; }" in admin_css
 assert ".admin-security-status__coverage { break-before:auto !important; }" in admin_css
 assert "break-inside:avoid-page" in admin_css
 
+# Account lifecycle events have their own bounded server-side pagination and honest loading/error states.
+assert "const lifecyclePageSize = 5" in audit_page
+assert "getAdminAccountLifecycleEvents(lifecyclePageSize, lifecyclePage * lifecyclePageSize)" in audit_page
+assert "const lifecyclePageCount = Math.ceil(lifecycleTotal / lifecyclePageSize)" in audit_page
+assert 'aria-label="Account lifecycle history pagination"' in audit_page
+assert 'disabled={lifecycleLoading || lifecyclePage === 0}' in audit_page
+assert 'disabled={lifecycleLoading || lifecyclePage + 1 >= lifecyclePageCount}' in audit_page
+assert 'role="status" aria-live="polite"><LoaderCircle' in audit_page
+assert 'role="alert">{lifecycleError}' in audit_page
+assert "setLifecyclePage(Math.max(0, Math.ceil(result.total_count / lifecyclePageSize) - 1))" in audit_page
+assert ".audit-page__lifecycle-pagination" in admin_css
+assert ".audit-page__lifecycle-pagination button:focus-visible" in admin_css
+assert "@media (max-width:520px)" in admin_css
+
 # Audit history labels its actual seven queried sources and exposes accessible detail controls.
 assert "Seven recorded event sources are queried." in audit_page
 assert "Six recorded event sources are queried." not in audit_page
