@@ -588,6 +588,66 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_suspended_admin_cannot_confirm_pending_totp_enrollment(): void
+    {
+        $admin = User::create([
+            'name' => 'Suspended Confirmation Admin',
+            'email' => 'suspended-confirmation@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $enrollment = $this->postJson('/api/admin/security/totp/enroll', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertOk();
+        $secret = $enrollment->json('secret');
+        $code = app(\App\Services\LocalAdminTotpService::class)->codeForStep($secret, intdiv(now()->timestamp, 30));
+
+        DB::table('users')->where('id', $admin->id)->update([
+            'is_suspended' => true,
+            'suspended_at' => now(),
+            'suspension_reason' => 'Synthetic security test',
+        ]);
+
+        $this->postJson('/api/admin/security/totp/confirm', [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => $code,
+        ])->assertForbidden()->assertHeader('Cache-Control', 'no-store, private');
+
+        $this->assertDatabaseHas('local_admin_totp_credentials', [
+            'user_id' => $admin->id,
+            'confirmed_at' => null,
+        ]);
+    }
+
+    public function test_demoted_account_cannot_confirm_pending_totp_enrollment(): void
+    {
+        $admin = User::create([
+            'name' => 'Demoted Confirmation Admin',
+            'email' => 'demoted-confirmation@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $enrollment = $this->postJson('/api/admin/security/totp/enroll', [
+            'current_password' => 'synthetic-test-password',
+        ])->assertOk();
+        $secret = $enrollment->json('secret');
+        $code = app(\App\Services\LocalAdminTotpService::class)->codeForStep($secret, intdiv(now()->timestamp, 30));
+
+        DB::table('users')->where('id', $admin->id)->update(['role' => 'requester']);
+
+        $this->postJson('/api/admin/security/totp/confirm', [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => $code,
+        ])->assertForbidden()->assertHeader('Cache-Control', 'no-store, private');
+
+        $this->assertDatabaseHas('local_admin_totp_credentials', [
+            'user_id' => $admin->id,
+            'confirmed_at' => null,
+        ]);
+    }
+
     public function test_local_admin_totp_enrollment_rechecks_password_after_locking_account(): void
     {
         $admin = User::create([
