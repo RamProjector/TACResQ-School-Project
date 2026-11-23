@@ -66,4 +66,36 @@ final class DispatchFcmCommandTest extends TestCase
             ->assertExitCode(0);
     }
 
+    public function test_minimum_batch_limit_is_forwarded_to_dispatcher(): void
+    {
+        $dispatcher = Mockery::mock(FcmNotificationDispatcher::class);
+        $dispatcher->shouldReceive('dispatch')->once()->with(1)->andReturn($this->emptyStats());
+        $this->app->instance(FcmNotificationDispatcher::class, $dispatcher);
+
+        $this->artisan('tacresq:dispatch-fcm', ['--limit' => '1'])
+            ->assertExitCode(0);
+    }
+
+    public function test_maximum_batch_limit_is_forwarded_to_dispatcher(): void
+    {
+        $dispatcher = Mockery::mock(FcmNotificationDispatcher::class);
+        $dispatcher->shouldReceive('dispatch')->once()->with(50)->andReturn($this->emptyStats());
+        $this->app->instance(FcmNotificationDispatcher::class, $dispatcher);
+
+        $this->artisan('tacresq:dispatch-fcm', ['--limit' => '50'])
+            ->assertExitCode(0);
+    }
+
+    private function emptyStats(): array
+    {
+        return [
+            'notifications' => 0,
+            'tokens' => 0,
+            'sent' => 0,
+            'invalid_tokens' => 0,
+            'failed' => 0,
+            'skipped' => 0,
+        ];
+    }
+
 }
