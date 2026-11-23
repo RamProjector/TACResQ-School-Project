@@ -252,6 +252,7 @@ export default function AdminSecurityStatus() {
           <RefreshCw size={15} className={loading ? "admin-spin" : ""} /> Refresh status
         </button>
       </div>
+      {loading && snapshot && <p className="admin-security-status__message" role="status" aria-live="polite"><Clock3 size={16} /> Refreshing Supabase Auth status…</p>}
       {loading && !snapshot ? (
         <p className="admin-security-status__message" role="status" aria-live="polite"><Clock3 size={16} /> Checking Supabase Auth…</p>
       ) : error ? (
