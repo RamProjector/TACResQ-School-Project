@@ -445,3 +445,18 @@
   .admin-table tr { break-inside: avoid; page-break-inside: avoid; }
   .admin-table th { background: #eef2ee !important; }
 }
+
+
+/* Long identifiers and audit metadata must not escape the printable page box. */
+@media print {
+  .audit-event-card__details dd,
+  .audit-event-card__details code,
+  .audit-event-card__references dd,
+  .admin-account small,
+  .admin-table td {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+  .audit-event-card__details dl { gap: 7pt 12pt; }
+}
