@@ -131,11 +131,13 @@ Deno.serve(async (request: Request) => {
   }
   let cleanupPending = false;
   if (invalidTokenIds.length) {
-    const { error: cleanupError } = await admin.from("fcm_tokens").delete().in("id", invalidTokenIds);
-    if (cleanupError) {
+    try {
+      const { error: cleanupError } = await admin.from("fcm_tokens").delete().in("id", invalidTokenIds);
+      if (cleanupError) cleanupPending = true;
+    } catch {
       cleanupPending = true;
-      console.error("Invalid FCM registration cleanup failed.");
     }
+    if (cleanupPending) console.error("Invalid FCM registration cleanup failed.");
   }
   return json({ sent, attempted: registrations.length, ...(cleanupPending ? { cleanup_pending: true } : {}) });
 });
