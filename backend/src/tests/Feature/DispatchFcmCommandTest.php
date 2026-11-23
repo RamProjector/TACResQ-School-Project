@@ -21,4 +21,37 @@ final class DispatchFcmCommandTest extends TestCase
             ->doesntExpectOutput('synthetic secret-bearing provider response')
             ->assertExitCode(1);
     }
+    public function test_zero_batch_limit_is_rejected_without_dispatching(): void
+    {
+        $dispatcher = Mockery::mock(FcmNotificationDispatcher::class);
+        $dispatcher->shouldNotReceive('dispatch');
+        $this->app->instance(FcmNotificationDispatcher::class, $dispatcher);
+
+        $this->artisan('tacresq:dispatch-fcm', ['--limit' => '0'])
+            ->expectsOutput('The --limit option must be an integer between 1 and 50.')
+            ->assertExitCode(2);
+    }
+
+    public function test_batch_limit_above_database_cap_is_rejected(): void
+    {
+        $dispatcher = Mockery::mock(FcmNotificationDispatcher::class);
+        $dispatcher->shouldNotReceive('dispatch');
+        $this->app->instance(FcmNotificationDispatcher::class, $dispatcher);
+
+        $this->artisan('tacresq:dispatch-fcm', ['--limit' => '51'])
+            ->expectsOutput('The --limit option must be an integer between 1 and 50.')
+            ->assertExitCode(2);
+    }
+
+    public function test_non_integer_batch_limit_is_rejected(): void
+    {
+        $dispatcher = Mockery::mock(FcmNotificationDispatcher::class);
+        $dispatcher->shouldNotReceive('dispatch');
+        $this->app->instance(FcmNotificationDispatcher::class, $dispatcher);
+
+        $this->artisan('tacresq:dispatch-fcm', ['--limit' => '3abc'])
+            ->expectsOutput('The --limit option must be an integer between 1 and 50.')
+            ->assertExitCode(2);
+    }
+
 }
