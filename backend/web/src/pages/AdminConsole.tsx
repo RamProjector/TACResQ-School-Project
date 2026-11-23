@@ -456,7 +456,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           </section>
           <p id="admin-overview-metrics-context" className="admin-panel__footnote" hidden={activeSection !== "overview"}>Counts follow the current directory search and role filters. Requester and field-unit breakdowns describe only the currently loaded page of up to 25 profiles; they are not system-wide role totals. Directory page retrieved: {directoryLoadedAt ? formatManilaDateTime(directoryLoadedAt) : "not yet retrieved"} (Asia/Manila). This is the retrieval time, not each profile’s last-updated time.</p>
 
-          <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" hidden={activeSection !== "overview"}>
+          <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" aria-describedby="admin-health-limitations" aria-busy={dependencyHealthLoading} hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
               <div><p className="admin-eyebrow">SERVICE REACHABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency reachability</h2></div>
               <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatManilaDateTime(dependencyHealth.checked_at) + " (Asia/Manila)" : "No verified result"}</span>
@@ -485,7 +485,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 </div>
               </>
             )}
-            <p className="admin-panel__footnote">Reachability only — not service readiness or emergency-operational status. Laravel /up confirms application liveness; Supabase Auth checks its health endpoint; the database probe executes a fixed, data-free RPC using the current Admin session. These checks do not verify incident creation, responder assignment, location accuracy, routing, push delivery, or end-to-end sign-in. “Timed out” means the probe exceeded five seconds; startup delay or network latency may contribute and does not by itself prove an outage. Refresh to retry.</p>
+            <p id="admin-health-limitations" className="admin-panel__footnote">Reachability only — not service readiness or emergency-operational status. Laravel /up confirms application liveness; Supabase Auth checks its health endpoint; the database probe executes a fixed, data-free RPC using the current Admin session. These checks do not verify incident creation, responder assignment, location accuracy, routing, push delivery, or end-to-end sign-in. “Timed out” means the probe exceeded five seconds; startup delay or network latency may contribute and does not by itself prove an outage. Refresh to retry.</p>
           </section>
 
           <section className="admin-panel" hidden={activeSection !== "users"}>
