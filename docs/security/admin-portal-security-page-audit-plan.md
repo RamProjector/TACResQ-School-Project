@@ -65,3 +65,12 @@ Separate live operational controls from deployment/migration diagnostics. Show o
 ## Implementation Boundary
 
 The sole-factor warning and contradictory Remove control are implemented. The local Sanctum recovery runbook is documentation only and deliberately leaves recovery unavailable. No recovery endpoint, recovery codes, production factor reset, or privileged Sanctum suspension endpoint is implemented. Production MFA, session revocation, token TTL, and backend enforcement must not be claimed without environment-specific verification. Keep PR #347 draft until the recovery design, callable/Storage/bridge coverage, disposable-PostgreSQL concurrency tests, and exact-head CI validation are complete.
+
+
+## Admin audit-history usability follow-up
+
+- Account suspension/reactivation history now uses bounded server-side pages of five records instead of silently showing only the newest five.
+- The lifecycle section exposes independent loading and error states and a compact Previous/Next pager; it does not imply that an unavailable reader contains zero events.
+- If records are removed between page requests and the selected page becomes invalid, the UI returns to the last valid page.
+- The ordinary investigation feed retains its existing independent filters and pagination. The lifecycle history remains a separate read-only source until a unified cross-source cursor and ordering contract is validated.
+- The pager is keyboard-focus visible and stacks its controls on narrow screens.
