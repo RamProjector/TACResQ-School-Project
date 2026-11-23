@@ -84,4 +84,13 @@ assert 'aria-label={(expanded === event.event_id ? "Hide details for " : "View d
 assert 'role="status" aria-live="polite">{copyError || (copiedEventId ? "Technical reference copied." : "")}' in audit_page
 assert '<dd>{actorDisplay(event, profile)}</dd>' in audit_page
 
+# Overview and directory states remain accurate while server-side filters are pending.
+assert "Searchable read-only history across seven event sources" in admin_console
+assert "Searchable read-only history across six event sources" not in admin_console
+assert '{directoryError ? "User data is unavailable" : "No accounts match this filter"}' in admin_console
+assert '{directoryError ? "The page does not substitute demo accounts for live data." : "Try another search or role filter."}' in admin_console
+assert 'disabled={page === 0 || refreshing || directoryFilterPending || Boolean(directoryError)}>Previous' in admin_console
+assert 'disabled={refreshing || directoryFilterPending || Boolean(directoryError) || (page + 1) * pageSize >= totalUsers}>Next' in admin_console
+assert 'aria-busy={loading || refreshing || directoryFilterPending}' in admin_console
+
 print("Web admin-only contract passed.")
