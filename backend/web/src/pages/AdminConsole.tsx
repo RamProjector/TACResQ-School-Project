@@ -562,7 +562,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                       </div>}
                     </section>
                   </div>
-                  <div className="admin-analytics-status-grid" aria-label="Current request status breakdown">
+                  <div className="admin-analytics-status-grid" role="group" aria-label="Current status of requests created during the selected reporting period">
                     {[["Pending", analytics.pending], ["Active", analytics.active], ["Resolved", analytics.resolved], ["Cancelled", analytics.cancelled]].map(([label, value]) => <div key={label}><span>{label}</span><strong>{value.toLocaleString()}</strong></div>)}
                   </div>
                   <p className="admin-panel__footnote">Aggregates include requests created within the selected timestamp range. Status counts reflect each request’s current status at query time, not historical status totals. All timestamps are evaluated by the database; daily buckets use {analytics.reporting_timezone}. No requester names, contact details, descriptions or coordinates are returned.</p>
