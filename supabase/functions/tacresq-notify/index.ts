@@ -6,6 +6,18 @@ function base64Url(value: string | Uint8Array): string {
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
+function isUnregisteredFcmError(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  const error = (payload as { error?: unknown }).error;
+  if (!error || typeof error !== "object") return false;
+  const details = (error as { details?: unknown }).details;
+  if (!Array.isArray(details)) return false;
+  return details.some((detail) => {
+    if (!detail || typeof detail !== "object") return false;
+    const item = detail as { "@type"?: unknown; errorCode?: unknown };
+    return item["@type"] === "type.googleapis.com/google.firebase.fcm.v1.FcmError" && item.errorCode === "UNREGISTERED";
+  });
+}
 async function getGoogleAccessToken(account: Record<string, string>): Promise<string> {
   const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const issuedAt = Math.floor(Date.now() / 1000);
@@ -108,8 +120,9 @@ Deno.serve(async (request: Request) => {
       const response = await fetch(`https://fcm.googleapis.com/v1/projects/${googleAccount.project_id}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token: registration.token, notification: { title, body }, data: { event, incident_id: String(incidentId) }, android: { priority: "HIGH" } } }) });
       if (response.ok) sent++;
       else {
-        const errorBody = await response.text();
-        if (errorBody.includes("UNREGISTERED")) invalidTokenIds.push(registration.id as number);
+        let errorPayload: unknown = null;
+        try { errorPayload = await response.json(); } catch { /* Ignore malformed provider bodies. */ }
+        if (isUnregisteredFcmError(errorPayload)) invalidTokenIds.push(registration.id as number);
         console.error(`FCM send failed (${response.status}) for registration ${registration.id}`);
       }
     } catch {
