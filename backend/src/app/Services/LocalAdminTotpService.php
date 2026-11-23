@@ -41,13 +41,13 @@ final class LocalAdminTotpService
                 ->lockForUpdate()
                 ->first();
 
-            if ($credential === null || $credential->confirmed_at !== null) {
+            if ($credential === null || $credential->confirmed_at !== null || $credential->expires_at === null || now()->greaterThan($credential->expires_at)) {
                 return false;
             }
 
             try {
                 $secret = Crypt::decryptString($credential->secret_ciphertext);
-            } catch (\\Throwable $exception) {
+            } catch (\Throwable $exception) {
                 report($exception);
                 return false;
             }
