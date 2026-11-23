@@ -54,6 +54,12 @@ jobs:
       - name: Check notification Edge Function account-state authorization order
         run: python3 tools/test_account_lifecycle_notification_edge_contract.py
 
+      - name: Check Storage bucket inventory and suspended-session contract
+        run: python3 tools/test_storage_bucket_inventory_contract.py
+
+      - name: Check callable authorization catalog completeness
+        run: python3 tools/test_account_lifecycle_callable_inventory_contract.py
+
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
