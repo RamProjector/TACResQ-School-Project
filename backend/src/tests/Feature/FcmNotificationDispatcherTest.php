@@ -234,6 +234,9 @@ final class FcmNotificationDispatcherTest extends TestCase
 
         self::assertSame(1, $stats['invalid_tokens']);
         self::assertSame(0, $stats['failed']);
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/rpc/api_unregister_fcm_token')
+            && $request->method() === 'POST'
+            && ($request->data()['p_token'] ?? null) === 'device-token-a');
         Http::assertSent(fn ($request) => str_contains($request->url(), '/fcm_delivery_attempts')
             && $request->method() === 'PATCH'
             && ($request->data()['status'] ?? null) === 'invalid_token');
