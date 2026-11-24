@@ -328,7 +328,7 @@ export default function AdminSecurityStatus() {
                     <span className="admin-security-status__factor-icon">{factor.status === "verified" ? <CheckCircle2 size={16} /> : <ShieldX size={16} />}</span>
                     <span><strong>{factor.name}</strong><small>{factor.status === "verified" ? "Verified" : "Pending verification"}</small></span>
                     {confirmRemoveFactorId === factor.id ? (
-                      <span className="admin-security-status__actions" role="group" aria-label={`Confirm removal of ${factor.name}`}>
+                      <span className="admin-security-status__actions" role="group" aria-label={`Confirm removal of ${factor.name}`} aria-live="polite" aria-atomic="true">
                         <button className="admin-refresh" type="button" onClick={() => setConfirmRemoveFactorId(null)} disabled={busy}>Keep</button>
                         <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { void removeAuthenticatorFactor(factor); }} disabled={busy || !canManageFactors || (factor.status === "verified" && verifiedFactors.length <= 1)}>{busy ? "Removing…" : "Confirm remove"}</button>
                       </span>
@@ -352,7 +352,7 @@ export default function AdminSecurityStatus() {
                 <LogOut size={15} /> Sign out all devices
               </button>
             ) : (
-              <div className="admin-security-status__confirm" role="group" aria-label="Confirm global sign-out">
+              <div className="admin-security-status__confirm" role="group" aria-label="Confirm global sign-out" aria-live="polite" aria-atomic="true">
                 <p><strong>Confirm global sign-out?</strong> All devices will need to sign in again. Already-issued access tokens may remain valid until they expire.</p>
                 <div className="admin-security-status__actions">
                   <button className="admin-refresh" type="button" onClick={() => setConfirmGlobalSignOut(false)} disabled={busy}>Cancel</button>
