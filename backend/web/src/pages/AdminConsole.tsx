@@ -773,7 +773,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           {activeSection === "settings" && (
             <section className="admin-panel admin-settings-panel" aria-labelledby="admin-settings-title">
               <div className="admin-panel__heading">
-                <div><p className="admin-eyebrow">YOUR WORKSPACE</p><h2 id="admin-settings-title"><Settings size={19} /> Display & accessibility</h2></div>
+                <div><p className="admin-eyebrow">YOUR WORKSPACE</p><h2 id="admin-settings-title"><Settings size={19} /> {settingsPage === "general" ? "General & appearance" : settingsPage === "accessibility" ? "Accessibility" : settingsPage === "notifications" ? "Notifications" : settingsPage === "security" ? "Security & sessions" : "Privacy & data"}</h2></div>
                 <span className="admin-count">{preferencesDirty ? "Unsaved changes" : "Saved on this device"}</span>
               </div>
               <p className="admin-settings-intro">These settings are separated by purpose. Personal display preferences affect only this browser; notification, security, and privacy controls remain read-only until their backend and governance requirements are verified.</p>
@@ -796,7 +796,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </div>}
               {(settingsPage === "general" || settingsPage === "accessibility") && preferences.contextualHelp && <div className="admin-help-note"><CircleHelp size={17} /><p><strong>About these preferences</strong> Changes preview immediately. Select Save preferences to keep them in this browser. Reset restores the default display without changing your account or server data.</p></div>}
               {(settingsPage === "general" || settingsPage === "accessibility") && preferencesError && <p className="admin-settings-error" role="alert">{preferencesError}</p>}
-              {(settingsPage === "general" || settingsPage === "accessibility") && <div className="admin-settings-actions">
+              {(settingsPage === "general" || settingsPage === "accessibility" || preferencesDirty) && <div className="admin-settings-actions">
                 <button className="admin-refresh" type="button" onClick={resetPreferences} disabled={!preferencesDirty}><RotateCcw size={15} /> Reset defaults</button>
                 <button className="admin-settings-save" type="button" onClick={savePreferences} disabled={!preferencesDirty}><Save size={15} /> Save preferences</button>
               </div>}
