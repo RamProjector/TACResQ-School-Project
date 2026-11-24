@@ -190,6 +190,16 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
 
+  function navigateToSection(section: AdminSection) {
+    setActiveSection(section);
+    const url = new URL(window.location.href);
+    const route = section === "audit" ? "audit-logs" : section;
+    if (url.searchParams.get("adminPage") !== route) {
+      url.searchParams.set("adminPage", route);
+      window.history.pushState({}, "", url.toString());
+    }
+  }
+
   // Keep the selected admin view in sync with browser Back/Forward navigation.
   useEffect(() => {
     const syncSectionFromLocation = () => {
@@ -468,7 +478,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-nav-entry" key={id}>
               {index === 0 && <div className="admin-navigation__group-label">WORKSPACE</div>}
               {index === 1 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">GOVERNANCE</div>}
-              <button type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => { setActiveSection(id); const url = new URL(window.location.href); const route = id === "audit" ? "audit-logs" : id; if (url.searchParams.get("adminPage") !== route) { url.searchParams.set("adminPage", route); window.history.pushState({}, "", url.toString()); } }}>
+              <button type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigateToSection(id)}>
                 <Icon size={17} aria-hidden="true" /><span>{label}</span>
               </button>
             </div>
@@ -530,6 +540,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <article><span>AUDIT HISTORY</span><strong>Activity feed</strong><small>Searchable read-only history across seven event sources</small></article>
           </section>
           <p id="admin-overview-metrics-context" className="admin-panel__footnote" hidden={activeSection !== "overview"}>Counts follow the current directory search and role filters. Requester and field-unit breakdowns describe only the currently loaded page of up to {pageSize} profiles; they are not system-wide role totals. Current directory page: {totalUsers === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(totalUsers / pageSize))}. Last successful directory retrieval: {directoryLoadedAt ? formatManilaDateTime(directoryLoadedAt) : "not yet retrieved"} (Asia/Manila). This is the retrieval time, not each profile’s last-updated time.</p>
+
+          <section className="admin-panel admin-overview-shortcuts" aria-labelledby="admin-overview-shortcuts-title" hidden={activeSection !== "overview"}>
+            <div className="admin-panel__heading">
+              <div><p className="admin-eyebrow">WORKSPACE SHORTCUTS</p><h2 id="admin-overview-shortcuts-title">Go to a workspace</h2></div>
+              <span className="admin-count">Quick access</span>
+            </div>
+            <div className="admin-overview-shortcuts__grid">
+              <button type="button" onClick={() => navigateToSection("users")}><Users size={18} /><span><strong>User management</strong><small>Search accounts and review operational roles</small></span><span aria-hidden="true">→</span></button>
+              <button type="button" onClick={() => navigateToSection("analytics")}><BarChart3 size={18} /><span><strong>Request reports</strong><small>Review incident volume and assignment timing</small></span><span aria-hidden="true">→</span></button>
+              <button type="button" onClick={() => navigateToSection("audit")}><History size={18} /><span><strong>Activity log</strong><small>Inspect recorded administrative and operational events</small></span><span aria-hidden="true">→</span></button>
+            </div>
+          </section>
 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" aria-describedby="admin-health-limitations" aria-busy={dependencyHealthLoading} hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
