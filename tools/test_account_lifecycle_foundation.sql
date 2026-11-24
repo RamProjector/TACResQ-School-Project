@@ -235,6 +235,21 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Legacy and current incident creation paths must be covered by the active-account INSERT trigger';
   END IF;
+  -- Admin suspension must reject active field-unit work in both assignment models.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc p
+     WHERE p.oid = to_regprocedure('public.api_admin_set_account_status(bigint,text,text)')
+       AND p.prosrc ILIKE '%i.assigned_to = v_target.id%'
+       AND p.prosrc ILIKE '%ia.user_id = v_target.id%'
+       AND p.prosrc ILIKE '%assigned%'
+       AND p.prosrc ILIKE '%en_route%'
+       AND p.prosrc ILIKE '%on_scene%'
+       AND p.prosrc ILIKE '%transporting%'
+       AND p.prosrc ILIKE '%FOR UPDATE%'
+       AND p.prosrc ILIKE '%55006%'
+  ) THEN
+    RAISE EXCEPTION 'Admin suspension must reject active legacy and normalized field-unit assignments while holding the target profile lock';
+  END IF;
 END;
 $schema_contract$;
 
