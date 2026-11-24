@@ -663,10 +663,11 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         // guard rather than accidentally inheriting the test harness transaction.
         $connection = \Mockery::mock();
         $connection->shouldReceive('transactionLevel')->once()->andReturn(0);
-        DB::shouldReceive('connection')->once()->andReturn($connection);
+        $resolver = \Mockery::mock(\Illuminate\Database\ConnectionResolverInterface::class);
+        $resolver->shouldReceive('connection')->once()->andReturn($connection);
 
         $this->expectException(\LogicException::class);
-        app(\App\Services\LocalAccountLifecycleRecorder::class)->record(
+        (new \App\Services\LocalAccountLifecycleRecorder($resolver))->record(
             10,
             20,
             'suspended',
