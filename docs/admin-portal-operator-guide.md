@@ -86,3 +86,8 @@ The Settings page also explains current capability boundaries:
 The Help & About section explains the purpose and limitations of Overview, User Management, Security, Reports, and Activity Log, with direct links to each workspace. It identifies the Admin portal as a privileged administration interface rather than a dispatch console and does not claim an unconfigured support contact or release version.
 
 Contextual question-mark disclosures in Settings work with pointer, keyboard, and touch interaction through native disclosure controls. Their explanatory content is optional and can be hidden using the contextual-help preference. Important capability limitations remain visible in the page content and are not tooltip-only.
+
+
+### Settings subpages
+
+Settings is divided into URL-backed subpages: **General**, **Accessibility**, **Notifications**, **Security & sessions**, and **Privacy & data**. The selected subpage is represented by the `adminSettings` query parameter and is restored by browser Back/Forward navigation. General and Accessibility expose the working local display preferences. Notifications, Security & sessions, and Privacy & data explain the currently unavailable controls and link to existing verified capabilities where applicable; they do not present inert toggles or promise unsupported data-rights operations.
