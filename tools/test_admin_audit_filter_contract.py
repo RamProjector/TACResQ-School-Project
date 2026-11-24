@@ -26,3 +26,14 @@ assert ":focus-visible" in ADMIN_CSS
 assert "prefers-reduced-motion: reduce" in ADMIN_CSS
 
 print("Admin audit filter and accessibility source contract passed.")
+
+
+# Quick ranges use the fixed Manila calendar and remain accessible as a button group.
+assert 'function manilaDateOffset(daysAgo: number)' in AUDIT_PAGE
+assert 'timeZone: "Asia/Manila"' in AUDIT_PAGE
+assert 'function isDatePresetSelected(days: number, from: string, to: string)' in AUDIT_PAGE
+assert 'role="group" aria-label="Quick date range"' in AUDIT_PAGE
+assert 'aria-pressed={isDatePresetSelected(days, from, to)}' in AUDIT_PAGE
+assert 'setFrom(manilaDateOffset(days - 1)); setTo(manilaDateOffset(0));' in AUDIT_PAGE
+assert ".audit-page__date-presets button[aria-pressed=\"true\"]" in ADMIN_CSS
+assert ".audit-page__date-presets button:focus-visible" in ADMIN_CSS
