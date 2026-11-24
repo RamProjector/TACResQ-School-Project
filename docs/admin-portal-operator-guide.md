@@ -145,3 +145,8 @@ When the account directory starts loading a new page or applies a new search/rol
 ## Account lifecycle history retry
 
 The Activity Log's account suspension/reactivation history is loaded independently from the main investigation feed. If that source fails, use **Retry lifecycle history** in the lifecycle section to request that history again without resetting the main feed's search, date range, category, source, or page. The retry does not create or modify account-status records; it only re-reads the existing protected history endpoint.
+
+
+## Account lifecycle history freshness
+
+The suspension/reactivation history displays its own last-successful-retrieval time in Asia/Manila. That timestamp is cleared whenever a new lifecycle page load or retry starts, and is restored only after the requested page succeeds. It is independent of the main investigation feed's retrieval timestamp. If the requested page becomes invalid because records were removed, the interface moves to the last valid page and retrieves that page before showing a fresh timestamp.
