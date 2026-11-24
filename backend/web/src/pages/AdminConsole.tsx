@@ -379,6 +379,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   useEffect(() => {
     if (!target) return;
     const root = modalRoot.current;
+    // Keep the page behind the privileged dialog from scrolling on touch or
+    // wheel input; restore the exact prior body style when the dialog closes.
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const getFocusable = () => Array.from(root?.querySelectorAll<HTMLElement>("button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1'])") ?? []);
     getFocusable()[0]?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
@@ -407,7 +411,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       }
     };
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+    };
   }, [target, saving]);
 
   const refresh = useCallback(async () => {
