@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Original replay source commit:** `4f16baf73b38c295baec6d72698233a73a74cac8`  
-**Current reviewed baseline:** 21 public and 11 authenticated-callable private SECURITY DEFINER functions, including the later incident-image reservation RPC.  
+**Current reviewed baseline:** 23 public and 11 authenticated-callable private SECURITY DEFINER functions, including the later incident-image reservation RPC.  
 **Source:** CI job `Replay Supabase migrations on clean PostgreSQL` (run `45072734414`)  
 **Purpose:** Record the effective catalog discovered after replaying the repository migrations. This is a point-in-time inventory, not a statement that any endpoint is suspension-safe.
 
@@ -10,17 +10,17 @@
 
 | Surface | Observed |
 |---|---:|
-| Authenticated-callable public functions | 73 |
-| Public `SECURITY DEFINER` functions | 21 |
+| Authenticated-callable public functions | 75 |
+| Public `SECURITY DEFINER` functions | 23 |
 | Public `SECURITY INVOKER` functions | 52 |
 | Public ordinary/partitioned tables inventoried | 20 |
 | Authenticated Storage object policies | 2 |
 
-The earlier preliminary review referenced 18 public authenticated-callable definer functions. The original replay snapshot below reported 20; the later incident-chat upload-reservation migration adds `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, bringing the current reviewed baseline to **21**. The current branch's executable contract locks all 21 signatures and separately locks eleven authenticated-callable private SECURITY DEFINER helpers. Re-run clean replay after every migration change.
+The earlier preliminary review referenced 18 public authenticated-callable definer functions. The original replay snapshot reported 20; the incident-chat upload-reservation migration added `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, and the account-lifecycle foundation added `api_admin_set_account_status(bigint,text,text)` plus `api_admin_list_account_lifecycle_events(integer,integer)`, bringing the current reviewed baseline to **23**. The current branch's executable contract locks all 23 signatures and separately locks eleven authenticated-callable private SECURITY DEFINER helpers. Re-run clean replay after every migration change.
 
 ## Public authenticated-callable SECURITY DEFINER functions
 
-These 20 effective signatures were reported by the original replay. The current baseline adds `api_reserve_incident_image_upload(bigint,text,bigint,uuid)` as signature 16; the current 21-signature exact list is enforced by `tools/test_account_suspension_definer_inventory.sql`.
+The original replay reported 20 effective signatures. The current baseline adds the upload-reservation RPC and two Admin lifecycle RPCs; the current 23-signature exact list is enforced by `tools/test_account_suspension_definer_inventory.sql`.
 
 1. `api_admin_analytics_summary(timestamptz,timestamptz)`
 2. `api_admin_list_audit_logs(integer)`
@@ -43,6 +43,8 @@ These 20 effective signatures were reported by the original replay. The current 
 19. `api_set_incident_claimable(bigint,boolean)`
 20. `api_units()`
 21. `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)`
+22. `api_admin_set_account_status(bigint,text,text)`
+23. `api_admin_list_account_lifecycle_events(integer,integer)`
 
 ## Private authenticated-callable SECURITY DEFINER functions
 
@@ -97,7 +99,7 @@ PostgreSQL combines permissive policies with OR and restrictive policies with AN
 
 ## Next implementation gates
 
-1. Build an explicit per-signature review matrix for all 21 public definer functions and all eleven authenticated-callable private definer functions.
+1. Build an explicit per-signature review matrix for all 23 public definer functions and all eleven authenticated-callable private definer functions.
 2. Trace each public wrapper into private functions and triggers; record the exact current authorization checks and whether they are sufficient for suspension.
 3. Inventory all direct authenticated table operations in Android, web, and Laravel, mapping each to its effective RLS/grant enforcement.
 4. Add account-state enforcement only after the matrix covers every direct and indirect path, including Storage.
