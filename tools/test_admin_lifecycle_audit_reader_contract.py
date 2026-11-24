@@ -31,7 +31,9 @@ assert 'Recent suspension activity' in admin_page
 assert 'p.account_status = \'active\'' in website_migration
 assert 'grant execute on function public.api_admin_set_account_status(bigint, text, text, text)' in website_migration
 assert 'from public, anon' in website_migration
-assert "'account_status', p.account_status" in website_migration
+assert "set account_status = 'suspended'" in website_migration
+assert "set account_status = 'active'" in website_migration
+assert "v_target.account_status is distinct from p_expected_account_status" in website_migration
 
 
 # The RPC must authorize every call and reject unbounded/invalid pagination.
