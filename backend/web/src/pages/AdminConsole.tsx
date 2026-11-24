@@ -1365,14 +1365,15 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       {(target || lifecycleTarget) && (
         <div className="admin-modal-scrim" ref={modalRoot} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) { setTarget(null); setLifecycleTarget(null); setReason(""); } }}>
           {target ? (
-            <section className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-role-dialog-title">
+            <section className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-role-dialog-title" aria-describedby="admin-role-dialog-description admin-role-dialog-guidance">
               <button className="admin-modal__close" type="button" aria-label="Close role change" onClick={() => setTarget(null)} disabled={saving}><X size={18} /></button>
               <div className="admin-modal__icon"><ShieldCheck size={22} /></div><p className="admin-eyebrow">PRIVILEGED ACTION</p><h2 id="admin-role-dialog-title">Change account role</h2>
-              <p className="admin-modal__description">You are changing access for <strong>{target.name}</strong> ({target.email}).</p>
+              <p className="admin-modal__description" id="admin-role-dialog-description">You are changing access for <strong>{target.name}</strong> ({target.email}).</p>
+              <p className="admin-form-hint" id="admin-role-dialog-guidance">Role changes affect the account permissions available to this user and are recorded for administrative review.</p>
               <div className="admin-role-transition"><div><span>Current role</span><strong>{displayRole(target.role)}</strong></div><span>→</span><div><span>New role</span><strong>{displayRole(nextRole)}</strong></div></div>
               <label className="admin-form-label" htmlFor="admin-new-role">New role</label><select id="admin-new-role" value={nextRole} onChange={(event) => setNextRole(event.target.value as AdminManagedRole)} disabled={saving}>{roleOptions.map((role) => <option key={role} value={role}>{displayRole(role)}</option>)}</select>
-              <label className="admin-form-label" htmlFor="admin-change-reason">Reason <span>Required</span></label><textarea id="admin-change-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={10} maxLength={500} rows={4} disabled={saving} />
-              <div className="admin-reason-count">{reason.trim().length}/500 · minimum 10</div>
+              <label className="admin-form-label" htmlFor="admin-change-reason">Reason <span>Required</span></label><p className="admin-form-hint" id="admin-change-reason-guidance">Enter 10–500 characters explaining the administrative reason for this role change.</p><textarea id="admin-change-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={10} maxLength={500} rows={4} disabled={saving} aria-describedby="admin-change-reason-guidance admin-reason-count" />
+              <div className="admin-reason-count" id="admin-reason-count">{reason.trim().length}/500 · minimum 10</div>
               <div className="admin-modal__actions"><button className="admin-modal-cancel" type="button" onClick={() => setTarget(null)} disabled={saving}>Cancel</button><button className="admin-modal-confirm" type="button" onClick={() => { void confirmRoleChange(); }} disabled={saving || nextRole === target.role || reason.trim().length < 10 || reason.trim().length > 500}>Confirm role change</button></div>
             </section>
           ) : lifecycleTarget ? (
