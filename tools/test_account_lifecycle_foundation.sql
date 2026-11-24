@@ -860,3 +860,38 @@ BEGIN
   END IF;
 END;
 $active_dispatcher_read_contract$;
+
+
+-- Dispatcher team assignment must expose only the active-state wrapper.
+DO $team_assignment_catalog_contract$
+DECLARE
+  wrapper_oid oid := to_regprocedure('public.api_assign_incident_team(bigint,bigint[])');
+  legacy_oid oid := to_regprocedure('public.api_assign_incident(bigint,bigint)');
+  internal_oid oid := to_regprocedure('private.tacresq_assign_incident_team_internal(bigint,bigint[])');
+  wrapper_source text;
+  wrapper_settings text[];
+BEGIN
+  IF wrapper_oid IS NULL OR legacy_oid IS NULL OR internal_oid IS NULL THEN
+    RAISE EXCEPTION 'Team assignment lifecycle wrapper, alias, or internal routine is missing';
+  END IF;
+  SELECT p.prosrc, p.proconfig INTO wrapper_source, wrapper_settings
+    FROM pg_catalog.pg_proc p WHERE p.oid = wrapper_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = wrapper_oid)
+     OR NOT (coalesce(wrapper_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR wrapper_source NOT ILIKE '%account_status = ''active''%'
+     OR wrapper_source NOT ILIKE '%FOR SHARE%'
+     OR wrapper_source NOT ILIKE '%tacresq_assign_incident_team_internal%' THEN
+    RAISE EXCEPTION 'Team assignment wrapper must be a pinned VOLATILE definer with active-profile share lock';
+  END IF;
+  IF NOT has_function_privilege('authenticated', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('anon', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', internal_oid, 'EXECUTE')
+     OR has_function_privilege('anon', internal_oid, 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', legacy_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Team assignment wrapper grants or internal implementation grants are unsafe';
+  END IF;
+  IF (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid = legacy_oid) THEN
+    RAISE EXCEPTION 'Legacy single-member assignment alias must remain SECURITY INVOKER';
+  END IF;
+END;
+$team_assignment_catalog_contract$;
