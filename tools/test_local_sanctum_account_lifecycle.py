@@ -346,7 +346,7 @@ assert "withoutMiddleware('account.active')" in routes
 
 # Malformed Admin step-up payloads are also counted toward the same bounded
 # failure window and return non-cacheable validation/lockout responses.
-assert "use Illuminate\\\\Validation\\\\ValidationException;" in admin_reauth
+assert "use Illuminate\\Validation\\ValidationException;" in admin_reauth
 assert "catch (ValidationException $exception)" in admin_reauth
 validation_catch = admin_reauth[admin_reauth.index("catch (ValidationException $exception)"):admin_reauth.index("$authorized =")]
 assert "RateLimiter::hit($key, 900)" in validation_catch
@@ -355,3 +355,7 @@ assert "Cache-Control', 'no-store, private'" in validation_catch
 assert "Retry-After" in validation_catch
 assert "test_malformed_local_admin_step_up_attempts_are_non_cacheable_and_rate_limited" in feature
 assert "test_successful_local_admin_step_up_clears_malformed_attempt_throttle" in feature
+
+assert "use Illuminate\\Support\\Facades\\RateLimiter;" in feature
+assert "RateLimiter::hit($key, 900)" in feature
+assert "->assertTooManyRequests()" in feature
