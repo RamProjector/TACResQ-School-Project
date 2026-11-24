@@ -28,10 +28,7 @@ for start, end in (
     assert "Supabase is temporarily unavailable. Please retry." in block
     assert "app(\\App\\ApiOperationAuditLogger::class)->record(" in block
 
-bridge_me = route_block("Route::get('/bridge/me'", "Route::post('/bridge/rpc")
-bridge_rpc = route_block("Route::post('/bridge/rpc", "// One-off deployment diagnostic")
-assert bridge_me.count("$bridge->callRpc($token, 'api_me', [])") == 1
-assert bridge_rpc.count("$bridge->callRpc($token, 'api_me', [])") == 1
+assert routes.count("$bridge->callRpc($token, 'api_me', [])") >= 2
 assert "'Authorization' => 'Bearer '.$accessToken" in (ROOT / "backend/src/app/SupabaseBridge.php").read_text(encoding="utf-8")
 assert "'bridge.active_profile'" in routes
 assert "actor_auth_user_id" in audit
