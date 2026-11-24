@@ -1383,3 +1383,7 @@
 .admin-settings-nav__item--active { border-color:#dce8dc; color:#345f4e; background:#f1f7f0; box-shadow:inset 0 -2px 0 var(--ember); }
 .admin-settings-nav__item:focus-visible { outline:3px solid rgba(243,106,67,.55); outline-offset:2px; }
 @media (max-width:900px) { .admin-settings-nav { margin-inline:14px; } }
+
+.admin-panel__title-with-help { display:flex; align-items:flex-start; gap:12px; min-width:0; }
+.admin-panel__title-with-help > div { min-width:0; }
+.admin-panel__title-with-help .admin-context-help { margin-top:2px; }
