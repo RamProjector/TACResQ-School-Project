@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\FcmHttpV1Client;
+use App\Contracts\FcmClientContract;
 use App\FcmNotificationDispatcher;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -29,7 +29,7 @@ final class FcmNotificationDispatcherTest extends TestCase
         Http::fake();
         config(['tacru.supabase_secret_key' => '']);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldNotReceive('assertCredentialsAvailable');
         $fcm->shouldNotReceive('send');
 
@@ -49,7 +49,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response(['message' => 'unavailable'], 503),
         ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldNotReceive('send');
 
@@ -74,7 +74,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             return Http::response([], 204);
         });
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldNotReceive('send');
 
@@ -88,7 +88,7 @@ final class FcmNotificationDispatcherTest extends TestCase
     {
         Http::fake();
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldNotReceive('send');
 
@@ -111,7 +111,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             'https://project.supabase.co/rest/v1/fcm_delivery_attempts*' => Http::response([], 204),
         ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->once()->with('tacresq-test', 'device-token-a', [
             'notification_id' => '701',
@@ -144,7 +144,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             return Http::response([], 500);
         });
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->twice()->andReturn($this->sentResult());
 
@@ -170,7 +170,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             return Http::response([], 500);
         });
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->once()->andReturn([
             'sent' => false,
@@ -200,7 +200,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             ], 200),
         ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldNotReceive('send');
 
@@ -218,7 +218,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             'https://project.supabase.co/rest/v1/fcm_delivery_attempts*' => Http::response([], 204),
         ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->once()->andReturn([
             'sent' => false,
@@ -246,7 +246,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             'https://project.supabase.co/rest/v1/fcm_delivery_attempts*' => Http::response([], 204),
         ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->once()->andReturn([
             'sent' => false,
@@ -275,7 +275,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             'https://project.supabase.co/rest/v1/fcm_delivery_attempts*' => Http::response([], 204),
         ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->once()->andReturn([
             'sent' => false,
@@ -312,7 +312,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             return Http::response([], 500);
         });
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->once()->ordered()
             ->andThrow(new \RuntimeException('provider details must not be logged'));
@@ -353,7 +353,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             'provider_message_name' => null,
             'error_code' => 'UNREGISTERED',
         ];
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->twice()->andReturn($invalid, $this->sentResult());
 
@@ -369,7 +369,7 @@ final class FcmNotificationDispatcherTest extends TestCase
         Http::fake();
         config(['tacru.fcm_project_id' => '']);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldNotReceive('assertCredentialsAvailable');
         $fcm->shouldNotReceive('send');
 
@@ -389,7 +389,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response('unexpected', 200),
         ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldNotReceive('send');
 
@@ -411,7 +411,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             'https://project.supabase.co/rest/v1/fcm_delivery_attempts*' => Http::response([], 204),
         ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->once()->with('tacresq-test', 'device-token-b', [
             'notification_id' => '701',
@@ -438,7 +438,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             ], 200),
         ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldNotReceive('send');
 
@@ -456,7 +456,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response([], 200),
         ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldNotReceive('send');
 
@@ -491,7 +491,7 @@ final class FcmNotificationDispatcherTest extends TestCase
                 'exception' => \RuntimeException::class,
             ]);
 
-        $fcm = Mockery::mock(FcmHttpV1Client::class);
+        $fcm = Mockery::mock(FcmClientContract::class);
         $fcm->shouldReceive('assertCredentialsAvailable')->once();
         $fcm->shouldReceive('send')->once()->andReturn([
             'sent' => false,
