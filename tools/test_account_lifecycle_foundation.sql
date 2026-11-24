@@ -770,6 +770,59 @@ BEGIN
 END;
 $atomic_account_transition_contract$;
 
+-- Prove the website's actual authenticated role can invoke both transitions
+-- using one still-valid AAL2/TOTP JWT, rather than relying on owner execution.
+SELECT set_config(
+  'test.account_lifecycle_target_id',
+  (SELECT id::text FROM public.profiles
+    WHERE auth_user_id = '00000000-0000-4000-8000-000000000993'),
+  false
+);
+SET ROLE authenticated;
+DO $same_valid_jwt_admin_transition$
+DECLARE
+  target_id bigint := current_setting('test.account_lifecycle_target_id')::bigint;
+  response jsonb;
+BEGIN
+  response := public.api_admin_set_account_status(
+    target_id, 'suspended', 'Authenticated same-valid-JWT suspension test'
+  );
+  IF response->>'status' IS DISTINCT FROM 'changed'
+     OR response->>'account_status' IS DISTINCT FROM 'suspended'
+     OR response->>'audit_id' IS NULL THEN
+    RAISE EXCEPTION 'Authenticated website suspension RPC failed: %', response;
+  END IF;
+
+  response := public.api_admin_set_account_status(
+    target_id, 'active', 'Authenticated same-valid-JWT reactivation test'
+  );
+  IF response->>'status' IS DISTINCT FROM 'changed'
+     OR response->>'account_status' IS DISTINCT FROM 'active'
+     OR response->>'audit_id' IS NULL THEN
+    RAISE EXCEPTION 'Authenticated website reactivation RPC failed: %', response;
+  END IF;
+END;
+$same_valid_jwt_admin_transition$;
+RESET ROLE;
+
+DO $same_valid_jwt_transition_persistence$
+DECLARE
+  target_id bigint;
+  audit_count bigint;
+  current_status text;
+BEGIN
+  SELECT id INTO target_id FROM public.profiles
+   WHERE auth_user_id = '00000000-0000-4000-8000-000000000993';
+  SELECT account_status INTO current_status
+    FROM public.profiles WHERE id = target_id;
+  SELECT count(*) INTO audit_count
+    FROM public.account_lifecycle_audit_logs WHERE target_profile_id = target_id;
+  IF current_status IS DISTINCT FROM 'active' OR audit_count <> 4 THEN
+    RAISE EXCEPTION 'Authenticated suspend/reactivate calls did not persist exactly two additional audit events';
+  END IF;
+END;
+$same_valid_jwt_transition_persistence$;
+
 CREATE OR REPLACE FUNCTION public.test_reject_account_lifecycle_audit_insert()
 RETURNS trigger
 LANGUAGE plpgsql
