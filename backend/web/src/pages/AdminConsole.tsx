@@ -150,7 +150,7 @@ function initials(name: string) {
 }
 
 function matchesAdminHelp(query: string, terms: string[]) {
-  const tokens = query.trim().toLocaleLowerCase().split(/\\s+/).filter((token) => token.length > 1);
+  const tokens = query.trim().toLocaleLowerCase().split(/\s+/).filter((token) => token.length > 1);
   return tokens.length === 0 || tokens.some((token) => terms.some((term) => term.includes(token)));
 }
 
@@ -922,14 +922,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           )}
           {activeSection === "help" && (
             <section className="admin-panel admin-help-panel" aria-labelledby="admin-help-title">
+              <div className="admin-panel__heading">
+                <div><p className="admin-eyebrow">SUPPORT & GUIDANCE</p><h2 id="admin-help-title"><BookOpen size={19} /> Admin help centre</h2></div>
+                <span className="admin-count">Operator guidance</span>
+              </div>
               <div className="admin-help-search">
                 <label htmlFor="admin-help-search">Search Admin guidance</label>
                 <input id="admin-help-search" type="search" value={helpQuery} onChange={(event) => setHelpQuery(event.target.value)} placeholder="Search workspaces, roles, security, reports…" autoComplete="off" />
                 <p id="admin-help-search-status" role="status" aria-live="polite">{normalizedHelpQuery ? "Showing guidance matching “" + helpQuery.trim() + "”." : "Browse the available Admin workspace guidance."}</p>
-              </div>
-              <div className="admin-panel__heading">
-                <div><p className="admin-eyebrow">SUPPORT & GUIDANCE</p><h2 id="admin-help-title"><BookOpen size={19} /> Admin help centre</h2></div>
-                <span className="admin-count">Operator guidance</span>
               </div>
               <div className="admin-help-grid">
                 <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["overview", "service reachability", "dependencies", "health", "incident workflow", "laravel", "supabase"])}><h3>Overview & service reachability</h3><p>The Overview probes Laravel, Supabase Auth, and the database. A reachable dependency does not prove that incident creation, assignment, mapping, push delivery, or the full emergency workflow works.</p><button type="button" onClick={() => navigateToSection("overview")}>Open Overview <span aria-hidden="true">→</span></button></article>
