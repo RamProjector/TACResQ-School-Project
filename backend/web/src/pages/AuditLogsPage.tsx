@@ -266,7 +266,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
 
       <div className="audit-page__coverage" role="note">
         <strong>Coverage boundaries</strong>
-        <span>Seven recorded event sources are queried. Supabase Auth events appear only when Auth Audit Log storage is enabled. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.</span>
+        <span>Seven source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.</span>
       </div>
 
       <details className="audit-page__coverage-details">
@@ -275,13 +275,13 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           <section aria-labelledby="audit-sources-included">
             <h3 id="audit-sources-included">Included sources</h3>
             <ul>
-              <li><strong>Admin role changes</strong><span>Role-change records and recorded reasons.</span></li>
-              <li><strong>Supabase Auth</strong><span>Provider events when Auth Audit Logs Postgres storage is enabled and populated.</span></li>
-              <li><strong>Incident status</strong><span>Recorded status outcomes; not necessarily a complete before-and-after transition.</span></li>
-              <li><strong>Incident claiming</strong><span>Claimability history.</span></li>
-              <li><strong>Requester edits</strong><span>Changed-field names only; private snapshots are excluded.</span></li>
-              <li><strong>Responder assignments</strong><span>Assignment, release, and team-closure events.</span></li>
-              <li><strong>App actions</strong><span>Server-recorded chat-message sends, notification reads, and field-unit duty-status changes. Only bounded metadata is exposed; message content and credentials are excluded.</span></li>
+              <li><strong>Admin role changes</strong><span>Feed reader: integrated. Shows role-change records and recorded reasons; an empty result is not a health check for the writer.</span></li>
+              <li><strong>Supabase Auth</strong><span>Feed reader: integrated. Capture is conditional on the Supabase project’s optional Auth Audit Logs Postgres storage setting; this setting is not verified by the page. Empty results cannot establish that authentication activity did not occur.</span></li>
+              <li><strong>Incident status</strong><span>Feed reader: integrated. Shows recorded resulting-status outcomes; not necessarily a complete before-and-after transition. No rows means no matching records were returned.</span></li>
+              <li><strong>Incident claiming</strong><span>Feed reader: integrated. Shows recorded claimability history; an empty result does not verify trigger health or prove no claimability changes occurred.</span></li>
+              <li><strong>Requester edits</strong><span>Feed reader: integrated. Shows allowlisted changed-field names only; private before/after snapshots are excluded. Empty results are not a writer-health check.</span></li>
+              <li><strong>Responder assignments</strong><span>Feed reader: integrated. Shows recorded assignment, release, and team-closure events; an empty result may simply mean none were recorded in the selected range.</span></li>
+              <li><strong>App actions</strong><span>Feed reader and database event writers: integrated for chat-message sends, notification-read changes, and field-unit duty-status changes. Only bounded metadata is exposed; message content and credentials are excluded. This is a selected-action subset, not comprehensive activity monitoring.</span></li>
             </ul>
           </section>
           <section aria-labelledby="audit-sources-gaps">
