@@ -14,7 +14,7 @@ admin_page = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text(encodin
 assert 'account_status: "active" | "suspended"' in client
 assert 'setadminaccountstatus' in client.lower()
 assert 'api_admin_set_account_status' in client
-assert 'account_status', in admin_page
+assert 'account_status' in admin_page
 assert 'changeaccountstatus(user)' in admin_page.lower()
 assert 'suspend' in admin_page.lower() and 'reactivate' in admin_page.lower()
 assert 'window.prompt' in admin_page and 'window.confirm' in admin_page
