@@ -10,6 +10,8 @@ def read(path: str) -> str:
 
 
 transport = read("backend/src/app/FcmHttpV1Client.php")
+client_contract = read("backend/src/app/Contracts/FcmClientContract.php")
+service_provider = read("backend/src/app/Providers/AppServiceProvider.php")
 error_classifier = read("backend/src/app/FcmHttpV1ErrorClassifier.php")
 dispatcher = read("backend/src/app/FcmNotificationDispatcher.php")
 command = read("backend/src/app/Console/Commands/DispatchFcmNotifications.php")
@@ -21,6 +23,9 @@ queue_migration = read("supabase/migrations/20261114153546_fcm_delivery_queue_ha
 queue_test = read("tools/test_fcm_delivery_queue.sql")
 docs = read("docs/FCM_SETUP.md")
 
+assert "interface FcmClientContract" in client_contract
+assert "implements FcmClientContract" in transport
+assert "FcmClientContract::class, FcmHttpV1Client::class" in service_provider
 assert "ApplicationDefaultCredentials::getCredentials" in transport
 assert "->timeout(10)" in transport
 assert "->timeout(10)" in dispatcher
