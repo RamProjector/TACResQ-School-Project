@@ -148,11 +148,11 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - Still required: execute the Python contract test and verify browser rendering at 320px, 360px, 200% zoom, and multi-page print output. These checks have not been run in this remote-only commit workflow.
 
 
-## Role-change dialog accessibility and feedback follow-up
+## Role-change dialog accessibility and toast-feedback follow-up
 
-- Role-change validation errors are now rendered inside the open dialog with an alert role, so an operator does not need to look behind the modal overlay for failed validation or request feedback.
-- Added a programmatic dialog description covering the target account and the access-change warning.
-- Added explicit reason-length guidance and associated it with the textarea and character counter for assistive technology.
-- Styled the inline error and helper text for readable contrast, wrapping, and narrow-screen spacing.
-- Added static source-contract assertions for the dialog description, alert placement, and reason-field relationships.
-- No role-transition authorization, server RPC, database, or lifecycle behavior changed. Browser and screen-reader verification remains outstanding; the static assertions only confirm source wiring.
+- Role-change validation, stale-account, and mutation failures now use a dismissible toast outside the modal rather than an inline modal error. This keeps the dialog layout stable and makes the feedback visible without requiring the operator to search behind the scrim.
+- Successful role changes use the same toast surface with a status announcement; errors use an alert announcement. Toasts dismiss automatically after five seconds and can be dismissed immediately.
+- The toast region is positioned above the Admin workspace, remains within narrow viewport bounds, respects device safe-area insets, and is excluded from printed reports.
+- Added static source-contract assertions for the toast lifecycle, announcement semantics, dismissal control, responsive styling, and print behavior.
+- Kept the programmatic dialog description, access-change warning, reason-length guidance, and textarea/character-counter associations.
+- No role-transition authorization, server RPC, database, or lifecycle behavior changed. Browser, keyboard, and screen-reader verification remains outstanding; static assertions only confirm source wiring.
