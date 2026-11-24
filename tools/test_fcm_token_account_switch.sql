@@ -8,8 +8,6 @@ DECLARE
   unregister_oid regprocedure := to_regprocedure('public.api_unregister_fcm_token(text)');
   function_settings text[];
   unregister_settings text[];
-  unregister_oid regprocedure := to_regprocedure('public.api_unregister_fcm_token(text)');
-  unregister_settings text[];
   delivery_cleanup_oid regprocedure := to_regprocedure('public.api_unregister_fcm_token_for_delivery(bigint,text)');
   delivery_cleanup_settings text[];
   delivery_cleanup_source text;
@@ -63,19 +61,6 @@ BEGIN
   SELECT proconfig INTO function_settings FROM pg_proc WHERE oid = register_oid;
   IF NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
     RAISE EXCEPTION 'FCM registration RPC must pin search_path to pg_catalog';
-  END IF;
-  IF unregister_oid IS NULL
-     OR NOT has_function_privilege('authenticated', unregister_oid, 'EXECUTE')
-     OR has_function_privilege('anon', unregister_oid, 'EXECUTE')
-     OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid = unregister_oid) IS DISTINCT FROM true THEN
-    RAISE EXCEPTION 'FCM self-unregister RPC must be an authenticated-only SECURITY DEFINER boundary';
-  END IF;
-  SELECT proconfig INTO unregister_settings FROM pg_catalog.pg_proc WHERE oid = unregister_oid;
-  IF NOT (coalesce(unregister_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
-    RAISE EXCEPTION 'FCM self-unregister RPC must pin search_path to pg_catalog';
-  END IF;
-  IF has_table_privilege('authenticated', 'public.fcm_tokens', 'DELETE') THEN
-    RAISE EXCEPTION 'Authenticated clients must not receive direct FCM token DELETE privilege';
   END IF;
 END;
 $token_rpc_privileges$;
