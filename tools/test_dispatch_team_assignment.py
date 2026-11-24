@@ -39,8 +39,8 @@ for required in (
     "SECURITY DEFINER",
     "account_status = 'active'",
     "FOR SHARE",
-    "tacresq_assign_incident_team_internal",
-    "REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team_internal",
+    "private.tacresq_assign_incident_team_guarded",
+    "REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team(bigint, bigint[])",
 ):
     assert required in lifecycle_guard, f"Guarded assignment boundary missing: {required}"
 
