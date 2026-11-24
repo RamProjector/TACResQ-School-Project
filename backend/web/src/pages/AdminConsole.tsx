@@ -6,6 +6,7 @@ import {
   Download,
   History,
   HardDrive,
+  Images,
   LayoutDashboard,
   ShieldAlert,
   ArrowDownUp,
@@ -50,7 +51,7 @@ type AdminConsoleProps = {
 };
 
 type RoleFilter = "all" | AdminManagedRole | "admin";
-type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "settings" | "help";
+type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "attachments" | "settings" | "help";
 
 type AdminSettingsPage = "general" | "accessibility" | "notifications" | "security" | "privacy";
 
@@ -100,6 +101,7 @@ const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashb
   { id: "analytics", label: "Reports", icon: BarChart3 },
   { id: "audit", label: "Activity log", icon: History },
   { id: "recovery", label: "Recovery & continuity", icon: HardDrive },
+  { id: "attachments", label: "Attachment storage", icon: Images },
   { id: "settings", label: "Settings", icon: Settings },
   { id: "help", label: "Help & about", icon: BookOpen },
 ];
@@ -113,7 +115,7 @@ function resolveSettingsPage(search: string): AdminSettingsPage {
 function resolveAdminSection(search: string): AdminSection {
   const route = new URLSearchParams(search).get("adminPage") ?? "overview";
   if (route === "audit-logs") return "audit";
-  return ["overview", "users", "security", "analytics", "recovery", "settings", "help"].includes(route) ? route as AdminSection : "overview";
+  return ["overview", "users", "security", "analytics", "recovery", "attachments", "settings", "help"].includes(route) ? route as AdminSection : "overview";
 }
 
 function displayRole(role: string) {
@@ -678,7 +680,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               {index === 0 && <div className="admin-navigation__group-label">WORKSPACE</div>}
               {index === 1 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">GOVERNANCE</div>}
               {index === 5 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">RESILIENCE</div>}
-              {index === 6 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">PREFERENCES &amp; SUPPORT</div>}
+              {index === 6 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">STORAGE &amp; MEDIA</div>}
+              {index === 7 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">PREFERENCES &amp; SUPPORT</div>}
               <button type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigateToSection(id)}>
                 <Icon size={17} aria-hidden="true" /><span>{label}</span>
               </button>
@@ -711,7 +714,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <div>
                 <p className="admin-eyebrow">ADMINISTRATION</p>
                 <h1 ref={adminHeadingRef} tabIndex={-1}>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</h1>
-                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : activeSection === "recovery" ? "Review documented backup and restore procedures, evidence requirements, and recovery capabilities that remain unverified." : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed."  : activeSection === "recovery" ? "Review documented backup and restore procedures, evidence requirements, and recovery capabilities that remain unverified." : activeSection === "attachments" ? "Review private incident-chat attachment safeguards, lifecycle controls, and storage evidence that is not connected to this portal." : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
               </div>
             </div>
             {(activeSection === "overview" || activeSection === "users") && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
@@ -1136,6 +1139,68 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div><span>Achieved RPO / RTO</span><strong>Not measured</strong></div>
               </div>
               <p className="admin-panel__footnote">The research plan contains provisional RPO/RTO planning targets, not measured service objectives or guarantees. This workspace is read-only guidance; it does not start exports, schedule jobs, alter provider settings, create recovery projects, or restore production. See the <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/backup-disaster-recovery-research-and-implementation-plan.md" target="_blank" rel="noreferrer">backup and disaster-recovery research plan</a> for the complete architecture and approval gates.</p>
+            </section>
+          )}
+
+          {activeSection === "attachments" && (
+            <section className="admin-panel admin-attachment-panel" aria-labelledby="admin-attachment-title">
+              <div className="admin-panel__heading">
+                <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">PRIVATE INCIDENT MEDIA</p><h2 id="admin-attachment-title"><Images size={19} /> Attachment storage safeguards</h2></div><AdminHelpTip label="About attachment storage" message="This view summarizes source and dated inspection evidence. It does not query the live bucket, list files, download media, or change Storage policy." /></div>
+                <span className="admin-count">Live inventory not connected</span>
+              </div>
+              <p className="admin-attachment-intro">Incident-chat images are stored in a private Supabase Storage bucket and are intended to remain accessible only to authorized incident-chat participants. This Admin workspace is not a media browser. The latest repository-recorded live bucket inspection is dated 22 November 2026; current provider settings and object integrity are not checked here.</p>
+              <div className="admin-attachment-callout" role="status">
+                <AlertCircle size={17} aria-hidden="true" />
+                <div><strong>Storage health is not currently monitored in this portal.</strong><span>No live object inventory, upload/download success telemetry, byte-integrity scan, retention status, or provider-policy check is connected to this page.</span></div>
+              </div>
+              <div className="admin-attachment-grid">
+                <article className="admin-attachment-card">
+                  <p className="admin-eyebrow">BUCKET PRIVACY</p><h3>Private, incident-scoped access</h3>
+                  <span className="admin-attachment-state">Last inspected 22 Nov 2026</span>
+                  <p>The recorded inspection found the <code>incident-chat-attachments</code> bucket private. Reads are checked against current incident-chat access. Admin role alone does not grant access to participant media.</p>
+                </article>
+                <article className="admin-attachment-card">
+                  <p className="admin-eyebrow">UPLOAD POLICY</p><h3>Type and size restrictions</h3>
+                  <span className="admin-attachment-state">Source + dated live inspection</span>
+                  <p>JPEG, PNG, and WebP are supported, with a 5 MiB per-object maximum. The bucket policy and Android client enforce the documented limits; current live bucket settings are not queried by this page.</p>
+                </article>
+                <article className="admin-attachment-card">
+                  <p className="admin-eyebrow">ACCESS POLICIES</p><h3>Insert and read only</h3>
+                  <span className="admin-attachment-state">Last inspected 22 Nov 2026</span>
+                  <p>The recorded policy inventory showed authenticated INSERT and SELECT only, with no authenticated UPDATE or DELETE policy. Upload and read access are incident-scoped; do not add broad client deletion.</p>
+                </article>
+                <article className="admin-attachment-card">
+                  <p className="admin-eyebrow">UPLOAD RESERVATIONS</p><h3>Staged enforcement</h3>
+                  <span className="admin-attachment-state">Live switch not verified</span>
+                  <p>The repository contains a private one-operation reservation ledger and a reservation-aware Storage policy. Its migration default keeps strict reservation enforcement disabled for legacy-client compatibility; this page does not read the live switch or prove rollout completion.</p>
+                </article>
+                <article className="admin-attachment-card">
+                  <p className="admin-eyebrow">LIFECYCLE</p><h3>Orphans and retention</h3>
+                  <span className="admin-attachment-state">No cleanup schedule</span>
+                  <p>Uploads can exist before their message is finalized. A read-only SQL inventory can classify referenced objects, pending uploads, and orphan candidates, but no approved retention period or automated cleanup worker is in place.</p>
+                </article>
+                <article className="admin-attachment-card">
+                  <p className="admin-eyebrow">INTEGRITY</p><h3>Object bytes not verified</h3>
+                  <span className="admin-attachment-state">Not tested here</span>
+                  <p>Metadata and message references can be compared by the inventory query. That does not download or hash object bytes, prove successful authenticated retrieval, or establish backup/restore integrity.</p>
+                </article>
+              </div>
+              <section className="admin-attachment-operations" aria-labelledby="admin-attachment-operations-title">
+                <h3 id="admin-attachment-operations-title">Operator evidence and release gates</h3>
+                <ul>
+                  <li><strong>Aggregate inventory:</strong> use the read-only attachment inventory SQL under a restricted operator role. It omits object paths, reservation IDs, signed URLs, message content, and coordinates; it performs no writes or cleanup.</li>
+                  <li><strong>Real Storage acceptance:</strong> test upload, duplicate-path rejection, authorized download, unrelated-account denial, removed-member denial, and the 5 MiB/MIME limits in an isolated non-production project.</li>
+                  <li><strong>Retention decision:</strong> the owner must approve a grace period, data-retention basis, and storage budget before any orphan cleanup. Keep cleanup disabled until then.</li>
+                  <li><strong>Backup coverage:</strong> object bytes require a separate encrypted off-site copy and restore drill; a database backup or object metadata count is not sufficient.</li>
+                </ul>
+              </section>
+              <div className="admin-attachment-metrics" aria-label="Attachment evidence status">
+                <div><span>Current bucket configuration</span><strong>Not checked live</strong></div>
+                <div><span>Object inventory</span><strong>Not queried</strong></div>
+                <div><span>Byte integrity</span><strong>Not tested</strong></div>
+                <div><span>Retention / cleanup</span><strong>Not configured</strong></div>
+              </div>
+              <p className="admin-panel__footnote">Source procedures: <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/incident-chat-attachment-lifecycle-review.md" target="_blank" rel="noreferrer">attachment lifecycle review</a>, <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/incident-chat-upload-reservation-design.md" target="_blank" rel="noreferrer">upload reservation design</a>, <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/tools/report_incident_chat_attachment_inventory.sql" target="_blank" rel="noreferrer">read-only inventory query</a>, and <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/storage-object-backup-procedure.md" target="_blank" rel="noreferrer">Storage backup procedure</a>. This page does not list, expose, or modify user attachments.</p>
             </section>
           )}
           <footer className="admin-footer"><span>TACRESQ · ADMINISTRATION</span><span>Administrator permissions are checked before each action</span></footer>
