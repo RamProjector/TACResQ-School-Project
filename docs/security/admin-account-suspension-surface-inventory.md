@@ -102,3 +102,8 @@ This section supersedes the preliminary status labels above where later PR #347 
 - **Admin transition:** the Supabase transition RPC remains unavailable to client roles. No Suspend/Reactivate UI is exposed. Keep PR #347 draft until the remaining callable crosswalk, isolated Edge Function tests, HTTP Storage tests, disposable PostgreSQL concurrency matrix, and full same-valid-JWT regression suite are executed and reviewed.
 
 **Validation boundary:** No connected Supabase project was queried or changed, no production migration or Edge Function was deployed, and no production account was suspended. Static source contracts are not substitutes for running the clean migration replay and isolated integration suites.
+## Anonymous routine exposure inventory
+
+The read-only PostgreSQL catalog now reports effective anon EXECUTE access separately for routines in both public and private schemas. This is necessary because the authenticated-callable list does not by itself describe the anonymous role's effective grants. Results include routine owner, execution mode, configured search path, and whether authenticated also has EXECUTE.
+
+Do not assume that an anon-callable routine is automatically a vulnerability: classify its intended unauthenticated use and trace its body and nested calls. Conversely, do not treat an empty source assertion as evidence that the replayed database has no anon-callable routines. Run the catalog against the clean replay and review every returned signature before enabling account transitions.
