@@ -751,6 +751,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <button type="button" onClick={() => navigateToSection("users")}><Users size={18} /><span><strong>User management</strong><small>Search accounts and review operational roles</small></span><span aria-hidden="true">→</span></button>
               <button type="button" onClick={() => navigateToSection("analytics")}><BarChart3 size={18} /><span><strong>Request reports</strong><small>Review incident volume and assignment timing</small></span><span aria-hidden="true">→</span></button>
               <button type="button" onClick={() => navigateToSection("audit")}><History size={18} /><span><strong>Activity log</strong><small>Inspect recorded administrative and operational events</small></span><span aria-hidden="true">→</span></button>
+              <button type="button" onClick={() => navigateToSection("recovery")}><HardDrive size={18} /><span><strong>Recovery &amp; continuity</strong><small>Review backup procedures and restore evidence gaps</small></span><span aria-hidden="true">→</span></button>
             </div>
           </section>
 
@@ -1054,6 +1055,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <thead><tr><th scope="col">Capability</th><th scope="col">Current authorization</th><th scope="col">Boundary / limitation</th></tr></thead>
                   <tbody>
                     <tr><th scope="row">Overview and dependency reachability</th><td>Admin portal</td><td>Fixed reachability probes only; not emergency-service readiness.</td></tr>
+                    <tr><th scope="row">Recovery &amp; continuity</th><td>Admin portal · read-only guidance</td><td>Links operator procedures and states evidence gaps; no backup, restore, or provider configuration actions are connected.</td></tr>
                     <tr><th scope="row">Account directory</th><td>Admin + AAL2 + TOTP</td><td>Bounded, read-only account listing. It does not expose a complete authentication history or suspension state.</td></tr>
                     <tr><th scope="row">Change an ordinary account role</th><td>Admin + AAL2 + TOTP; reason required</td><td>Only requester, responder, driver, and dispatcher roles. Admin promotion/demotion is trusted-operator-only; active incident assignments block changes.</td></tr>
                     <tr><th scope="row">Activity and investigation history</th><td>Admin + AAL2 + TOTP</td><td>Read-only, source-bounded history. Denied privileged RPC attempts and some direct-client operations are not comprehensively recorded.</td></tr>
