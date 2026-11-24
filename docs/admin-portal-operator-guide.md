@@ -315,3 +315,19 @@ Important recovery boundaries shown in the workspace:
 - A restore drill must use an approved isolated target, contain external side effects, validate database and Storage integrity plus application authorization, and receive reviewer acceptance. Never test restore against production.
 
 The page performs no exports, copies, restores, provider probes, scheduling, or configuration changes. Before any live backup/restore integration is added, approve ownership, target and destination, encryption/key recovery, access controls, retention, evidence storage, and production-change boundaries. Use the [backup and disaster-recovery research plan](security/backup-disaster-recovery-research-and-implementation-plan.md) and [isolated restore-drill checklist](security/isolated-restore-drill-checklist.md) as the source procedures.
+
+## Attachment storage workspace
+
+The Admin sidebar includes a read-only **Attachment storage** workspace for incident-chat image safeguards and known evidence gaps. It is not a media browser and must never expose attachment bytes, object paths, signed URLs, message contents, or coordinates to an administrator solely because of the Admin role.
+
+The page presents the last repository-recorded live bucket inspection date (22 November 2026) as historical evidence, not a current provider check. That inspection recorded a private `incident-chat-attachments` bucket, a 5 MiB limit, JPEG/PNG/WebP allowlist, and authenticated INSERT/SELECT policies without authenticated UPDATE/DELETE. Re-check the provider before relying on those values for an operational decision.
+
+Important implementation limits:
+
+- The repository contains a private upload-reservation ledger and a reservation-aware Storage policy. The migration default leaves strict reservation enforcement disabled for staged compatibility with older clients. The Admin page does not query the live policy switch; do not claim strict enforcement is active until an authorized operator verifies it.
+- Upload reservations do not establish a daily byte budget, approved retention period, or cleanup schedule. No automated orphan-cleanup worker is approved. Do not enable client DELETE or delete objects based only on an unreferenced row.
+- The report-only SQL inventory classifies object/message/reservation metadata and aggregate counts. It deliberately omits paths and payloads and performs no writes. It does not download or hash object bytes.
+- Real HTTP Storage upload/download acceptance and Android device acceptance remain separate release gates. SQL policy replay alone is not an end-to-end Storage API test.
+- Object bytes require a separate encrypted backup and isolated restore test; database metadata alone cannot recover attachments.
+
+Before any cleanup or retention feature is implemented, the project owner must approve the retention basis, grace period, storage budget, deletion authority, and a bounded/audited service-side process. Keep cleanup disabled until those decisions and tests are complete.
