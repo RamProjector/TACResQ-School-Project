@@ -53,7 +53,7 @@ final class LocalAccountLifecycleRecorder
             throw new InvalidArgumentException('The lifecycle action and state transition are not supported.');
         }
 
-        return (int) $this->database->table('local_account_lifecycle_events')->insertGetId([
+        return (int) $this->database->connection()->table('local_account_lifecycle_events')->insertGetId([
             'actor_user_id' => $actorUserId,
             'target_user_id' => $targetUserId,
             'action' => $action,
