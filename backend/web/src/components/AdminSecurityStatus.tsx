@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertCircle, CheckCircle2, Clock3, LogOut, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3, Eye, EyeOff, LogOut, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 
 type SecurityFactor = { id: string; name: string; status: string };
@@ -32,6 +32,7 @@ export default function AdminSecurityStatus() {
   const [error, setError] = useState<string | null>(null);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
+  const [showEnrollmentSecret, setShowEnrollmentSecret] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -126,6 +127,7 @@ export default function AdminSecurityStatus() {
       pendingEnrollmentId.current = data.id;
       setEnrollment({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
       setVerificationCode("");
+      setShowEnrollmentSecret(false);
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "A backup authenticator could not be started.");
     } finally {
@@ -154,6 +156,7 @@ export default function AdminSecurityStatus() {
       pendingEnrollmentId.current = null;
       setEnrollment(null);
       setVerificationCode("");
+      setShowEnrollmentSecret(false);
       setNotice("Backup authenticator verified and added.");
       await refresh();
     } catch (cause) {
@@ -254,6 +257,7 @@ export default function AdminSecurityStatus() {
       pendingEnrollmentId.current = null;
       setEnrollment(null);
       setVerificationCode("");
+      setShowEnrollmentSecret(false);
       setNotice("Unverified backup enrollment cancelled.");
       await refresh();
     } catch (cause) {
@@ -363,7 +367,13 @@ export default function AdminSecurityStatus() {
               <p id="admin-backup-enrollment-guidance">Scan this QR code with an authenticator app on a different device. Keep the setup key private and do not send it to anyone.</p>
               <img src={enrollment.qrCode} alt="QR code for the backup authenticator" />
               <label htmlFor="admin-backup-secret">Manual setup key</label>
-              <input id="admin-backup-secret" type="text" readOnly value={enrollment.secret} autoComplete="off" />
+              <div className="admin-security-status__secret-field">
+                <input id="admin-backup-secret" type={showEnrollmentSecret ? "text" : "password"} readOnly value={enrollment.secret} autoComplete="off" spellCheck={false} aria-describedby="admin-backup-secret-guidance" />
+                <button className="admin-refresh" type="button" onClick={() => setShowEnrollmentSecret((visible) => !visible)} aria-label={showEnrollmentSecret ? "Hide manual setup key" : "Show manual setup key"} aria-pressed={showEnrollmentSecret}>
+                  {showEnrollmentSecret ? <EyeOff size={15} /> : <Eye size={15} />}{showEnrollmentSecret ? "Hide key" : "Show key"}
+                </button>
+              </div>
+              <small id="admin-backup-secret-guidance">The key is hidden until you choose to reveal it. Treat it like a password and do not share it.</small>
               <label htmlFor="admin-backup-code">Six-digit code</label>
               <input id="admin-backup-code" type="text" aria-describedby="admin-backup-enrollment-guidance" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} placeholder="000000" value={verificationCode} onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required />
               <div className="admin-security-status__actions">
