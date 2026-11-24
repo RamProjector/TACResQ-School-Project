@@ -249,7 +249,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const rangeEnd = Math.min((page + 1) * PAGE_SIZE, total);
 
   return (
-    <section className="audit-page" aria-labelledby="audit-page-title">
+    <section className="audit-page" aria-labelledby="audit-page-title" aria-busy={loading}>
       <div className="audit-page__intro">
         <div>
           <p className="admin-eyebrow">ACCOUNTABILITY · READ-ONLY INVESTIGATION</p>
