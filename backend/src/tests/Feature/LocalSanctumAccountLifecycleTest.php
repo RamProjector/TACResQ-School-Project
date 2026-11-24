@@ -1229,4 +1229,31 @@ class LocalSanctumAccountLifecycleTest extends TestCase
     }
 
 
+    public function test_malformed_local_admin_step_up_attempts_are_non_cacheable_and_rate_limited(): void
+    {
+        $admin = User::create([
+            'name' => 'Malformed Step-up Admin',
+            'email' => 'malformed-step-up@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        for ($attempt = 1; $attempt <= 4; $attempt++) {
+            $this->postJson('/_test/local-admin-sensitive-action', [
+                'current_password' => 'synthetic-test-password',
+                'totp_code' => 'not-a-code',
+            ])->assertUnprocessable()
+                ->assertHeader('Cache-Control', 'no-store, private');
+        }
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => 'not-a-code',
+        ])->assertTooManyRequests()
+            ->assertHeader('Retry-After')
+            ->assertHeader('Cache-Control', 'no-store, private');
+    }
+
 }
