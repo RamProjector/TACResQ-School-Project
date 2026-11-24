@@ -10,6 +10,9 @@ DECLARE
   unregister_settings text[];
   delivery_cleanup_oid regprocedure := to_regprocedure('public.api_unregister_fcm_token_for_delivery(bigint,text)');
   delivery_cleanup_settings text[];
+  delivery_cleanup_source text;
+  delivery_cleanup_definer boolean;
+  delivery_cleanup_volatility "char";
 BEGIN
   IF register_oid IS NULL THEN
     RAISE EXCEPTION 'FCM registration RPC is missing';
@@ -27,9 +30,15 @@ BEGIN
      OR has_function_privilege('anon', delivery_cleanup_oid, 'EXECUTE') THEN
     RAISE EXCEPTION 'FCM delivery-token cleanup must be executable only by service_role';
   END IF;
-  SELECT proconfig INTO delivery_cleanup_settings FROM pg_proc WHERE oid = delivery_cleanup_oid;
-  IF NOT (coalesce(delivery_cleanup_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
-    RAISE EXCEPTION 'FCM delivery-token cleanup must pin search_path to pg_catalog';
+  SELECT proconfig, prosrc, prosecdef, provolatile
+    INTO delivery_cleanup_settings, delivery_cleanup_source, delivery_cleanup_definer, delivery_cleanup_volatility
+    FROM pg_proc WHERE oid = delivery_cleanup_oid;
+  IF NOT (coalesce(delivery_cleanup_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR delivery_cleanup_definer IS DISTINCT FROM true
+     OR delivery_cleanup_volatility IS DISTINCT FROM 'v'
+     OR delivery_cleanup_source NOT ILIKE '%token_row.profile_id = p_profile_id%'
+     OR delivery_cleanup_source NOT ILIKE '%token_row.token = p_token%' THEN
+    RAISE EXCEPTION 'FCM delivery-token cleanup must be a pinned VOLATILE definer deleting only the claimed profile/token pair';
   END IF;
   IF has_table_privilege('authenticated', 'public.fcm_tokens', 'DELETE')
      OR has_table_privilege('anon', 'public.fcm_tokens', 'DELETE') THEN
