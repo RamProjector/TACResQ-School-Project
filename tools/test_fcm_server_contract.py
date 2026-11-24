@@ -18,6 +18,7 @@ dockerfile = read("backend/Dockerfile")
 env = read("backend/.env.example")
 base_migration = read("supabase/migrations/20261105235016_fcm_delivery_attempts.sql")
 queue_migration = read("supabase/migrations/20261114153546_fcm_delivery_queue_hardening.sql")
+claim_migration = read("supabase/migrations/20261123220000_fcm_delivery_claim_active_recipient_guard.sql")
 queue_test = read("tools/test_fcm_delivery_queue.sql")
 docs = read("docs/FCM_SETUP.md")
 fcm_lifecycle = read("supabase/migrations/20261123210000_account_lifecycle_fcm_token_guards.sql")
@@ -99,8 +100,11 @@ assert "p_limit > 50" in queue_migration
 assert "existing.attempt_count < 8" in queue_migration
 assert "existing.next_attempt_at <= statement_timestamp()" in queue_migration
 assert "WHERE n.read_at IS NULL" in queue_migration
-assert "SELECT candidates.notification_id, candidates.profile_id, candidates.token" in queue_migration
-assert "FROM candidates" in queue_migration
+assert "SELECT candidates.notification_id, candidates.profile_id, candidates.token" in claim_migration
+assert "FROM candidates" in claim_migration
+assert "api_claim_fcm_delivery_batch" in claim_migration
+assert "SECURITY DEFINER" in claim_migration
+assert "SET search_path = pg_catalog" in claim_migration
 assert "GRANT EXECUTE ON FUNCTION public.api_claim_fcm_delivery_batch(integer, integer)" in queue_migration
 assert "TO service_role" in queue_migration
 assert "FROM PUBLIC, anon, authenticated" in queue_migration
