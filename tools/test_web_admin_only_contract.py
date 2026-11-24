@@ -104,8 +104,22 @@ assert ".audit-page__lifecycle-pagination" in admin_css
 assert ".audit-page__lifecycle-pagination button:focus-visible" in admin_css
 assert "@media (max-width:520px)" in admin_css
 
-# Audit history labels its actual seven queried sources and exposes accessible detail controls.
-assert "Seven recorded event sources are queried." in audit_page
+# Audit history documents each integrated source, not a fragile copy string.
+# Keep this inventory aligned with the source-specific coverage explanations rendered to Admins.
+for source_label in (
+    "Admin role changes",
+    "Supabase Auth",
+    "Incident status",
+    "Incident claiming",
+    "Requester edits",
+    "Responder assignments",
+    "App actions",
+):
+    assert f"<strong>{source_label}</strong>" in audit_page, f"Audit coverage is missing {source_label}."
+assert "Feed reader: integrated." in audit_page
+assert "not proof that every source writer or provider setting is active" in audit_page
+assert "A zero-row result means no matching records were returned" in audit_page
+assert "selected-action subset, not comprehensive activity monitoring" in audit_page
 assert "Six recorded event sources are queried." not in audit_page
 assert 'aria-controls={"audit-event-details-" + event.event_id}' in audit_page
 assert 'id={"audit-event-details-" + event.event_id}' in audit_page
