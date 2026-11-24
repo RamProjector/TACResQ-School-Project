@@ -1444,7 +1444,14 @@ BEGIN
   IF NOT has_function_privilege('service_role', cleanup_oid, 'EXECUTE')
      OR has_function_privilege('authenticated', cleanup_oid, 'EXECUTE')
      OR has_function_privilege('anon', cleanup_oid, 'EXECUTE')
-     OR has_function_privilege('PUBLIC', cleanup_oid, 'EXECUTE') THEN
+     OR EXISTS (
+       SELECT 1
+         FROM pg_catalog.pg_proc AS routine,
+              LATERAL pg_catalog.aclexplode(coalesce(routine.proacl, pg_catalog.acldefault('f', routine.proowner))) AS grant_entry
+        WHERE routine.oid = cleanup_oid
+          AND grant_entry.grantee = 0
+          AND grant_entry.privilege_type = 'EXECUTE'
+     ) THEN
     RAISE EXCEPTION 'Delivery cleanup RPC must be executable only by service_role';
   END IF;
 END;
