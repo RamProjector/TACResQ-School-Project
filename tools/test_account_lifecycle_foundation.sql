@@ -1272,11 +1272,13 @@ BEGIN
      OR register_source NOT ILIKE '%FOR SHARE%' THEN
     RAISE EXCEPTION 'FCM registration must require and lock an active profile';
   END IF;
-  IF (SELECT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = unregister_oid)
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = unregister_oid)
      OR NOT (coalesce(unregister_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
      OR unregister_source NOT ILIKE '%tacresq_auth_profile_id_for_token_cleanup()%'
-     OR unregister_source NOT ILIKE '%DELETE FROM public.fcm_tokens%' THEN
-    RAISE EXCEPTION 'FCM unregister must remain an invoker self-cleanup operation';
+     OR unregister_source NOT ILIKE '%DELETE FROM public.fcm_tokens%'
+     OR strpos(unregister_source, 'tacresq.allow_suspended_fcm_self_cleanup') = 0
+     OR strpos(unregister_source, 'set_config(''tacresq.allow_suspended_fcm_self_cleanup'', NULL, true)') = 0 THEN
+    RAISE EXCEPTION 'FCM unregister must be a pinned definer self-cleanup operation with a reset transaction-local marker';
   END IF;
   IF (SELECT NOT prosecdef OR provolatile <> 's' FROM pg_catalog.pg_proc WHERE oid = cleanup_oid)
      OR cleanup_source NOT ILIKE '%auth.uid()%' THEN
