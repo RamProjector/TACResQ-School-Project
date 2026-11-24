@@ -304,3 +304,15 @@ assert "@media (max-width: 480px)" in admin_resolution_css
 assert "@media print {" in admin_resolution_css and ".admin-toast-region { display: none !important; }" in admin_resolution_css
 assert ".admin-form-hint {" in admin_resolution_css
 assert ".admin-reason-count {" in admin_resolution_css
+
+# MFA factor management stays unavailable without a TOTP-verified AAL2 session.
+assert 'const canManageFactors = snapshot?.currentLevel === "aal2" && snapshot.usedTotp === true;' in admin_security
+assert 'disabled={busy || !canManageFactors || (factor.status === "verified" && verifiedFactors.length <= 1)}' in admin_security
+assert 'disabled={busy || !canManageFactors || snapshot.factors.length >= 10}' in admin_security
+assert 'Verify a registered authenticator in this session to add or remove factors.' in admin_security
+assert 'aria-label={`Confirm removal of ${factor.name}`}' in admin_security
+assert 'role="group" aria-label="Confirm global sign-out"' in admin_security
+assert 'aria-describedby="admin-backup-enrollment-guidance" onSubmit={verifyBackupAuthenticator}' in admin_security
+assert '.admin-security-status__factor-list li { flex-wrap:wrap; }' in admin_css
+assert '.admin-security-status :where(button,input):focus-visible {' in admin_css
+assert '.admin-security-status__factor-list li > .admin-security-status__actions { width:100%;' in admin_css
