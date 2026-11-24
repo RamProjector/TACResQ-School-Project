@@ -31,8 +31,16 @@ for required in (
     assert required in sql, f"Backend team assignment safety rule missing: {required}"
 
 print("PASS: dispatcher can select a bounded response team and submit one atomic assignment.")
-for required in ("SET SCHEMA private", "SECURITY INVOKER", "REVOKE ALL ON FUNCTION public.api_assign_incident_team"):
-    assert required in hardening, f"Public assignment RPC hardening missing: {required}"
+for required in (
+    "SET SCHEMA private",
+    "SECURITY DEFINER",
+    "account_status = 'active'",
+    "FOR SHARE",
+    "tacresq_assign_incident_team_internal",
+    "REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team_internal",
+    "SECURITY INVOKER",
+):
+    assert required in hardening, f"Guarded assignment boundary missing: {required}"
 
 print("PASS: backend persists team membership, rechecks availability under locks, and returns team IDs.")
-print("PASS: exposed assignment RPCs are invoker wrappers; privileged implementation is private.")
+print("PASS: public assignment wrapper enforces active-dispatcher authorization; private implementation is not client-callable; legacy alias remains invoker.")
