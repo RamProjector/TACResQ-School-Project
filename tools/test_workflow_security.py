@@ -64,11 +64,11 @@ def main() -> None:
     assert re.search(r"(?m)^permissions:\n  contents: read\s*$", security), (
         "Security workflow must default to contents: read only"
     )
-    guardrails = security.split("  codeql-web-actions:", 1)[0]
+    guardrails = security.split("  codeql-android:", 1)[0]
     assert "security-events: write" not in guardrails, (
         "Repository guardrails and dependency review must not receive CodeQL write permissions"
     )
-    for job_name in ("codeql-web-actions",):
+    for job_name in ("codeql-android", "codeql-web-actions"):
         job_match = re.search(
             rf"(?ms)^  {re.escape(job_name)}:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
             security,
@@ -82,21 +82,29 @@ def main() -> None:
             r"(?m)^      security-events: write$", permissions_match.group(1)
         ), f"{job_name} must declare security-events: write in its own permissions block"
 
-    quality = (WORKFLOWS / "quality-assurance.yml").read_text(encoding="utf-8")
     android_codeql = re.search(
-        r"(?ms)^  security:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\\Z)",
+        r"(?ms)^  codeql-android:\\n(.*?)(?=^  [A-Za-z0-9_-]+:\\n|\\Z)",
+        security,
+    )
+    assert android_codeql and "persist-credentials: false" in android_codeql.group(1), (
+        "Android CodeQL build must not retain the token with security-events: write"
+    )
+
+    quality = (WORKFLOWS / "quality-assurance.yml").read_text(encoding="utf-8")
+    android_baseline = re.search(
+        r"(?ms)^  security:\\n(.*?)(?=^  [A-Za-z0-9_-]+:\\n|\\Z)",
         quality,
     )
-    assert android_codeql, "Android CodeQL baseline job must exist as quality-assurance.yml:security"
-    permissions_match = re.search(
-        r"(?ms)^    permissions:\n((?:      [^\n]+\n)+)",
-        android_codeql.group(1),
+    assert android_baseline, "Android CodeQL baseline job must exist as quality-assurance.yml:security"
+    baseline_permissions = re.search(
+        r"(?ms)^    permissions:\\n((?:      [^\\n]+\\n)+)",
+        android_baseline.group(1),
     )
-    assert permissions_match and re.search(
-        r"(?m)^      security-events: write$", permissions_match.group(1)
+    assert baseline_permissions and re.search(
+        r"(?m)^      security-events: write$", baseline_permissions.group(1)
     ), "Android CodeQL baseline job must declare security-events: write in its own permissions block"
-    assert "persist-credentials: false" in android_codeql.group(1), (
-        "Android CodeQL build must not retain the token with security-events: write"
+    assert "persist-credentials: false" in android_baseline.group(1), (
+        "Android CodeQL baseline build must not retain the token"
     )
 
     assert "vars.DEPENDENCY_GRAPH_ENABLED == 'true'" in security, (
