@@ -40,10 +40,16 @@ assert "pg_default_acl" in inventory
 
 # The crosswalk is deliberately honest about the difference between listing
 # known SECURITY DEFINER signatures and reviewing every nested call path.
-assert "20 public" in crosswalk
+assert "21 public" in crosswalk
+assert "73 public callable functions" in crosswalk
+assert "eleven authenticated-callable private security definer helpers" in crosswalk
 assert "52 authenticated-callable public security invoker functions" in crosswalk
 assert "not an automated proof" in crosswalk or "not proof" in crosswalk
 assert "call-graph" in review
+assert (ROOT / "docs/security/admin-account-suspension-rpc-review-batch-23-private-callable-definer-source-trace.md").is_file()
+assert (ROOT / "docs/security/admin-account-suspension-rpc-review-batch-24-chat-storage-authentication-chain.md").is_file()
+assert (ROOT / "tools/test_account_suspension_definer_inventory.sql").is_file()
+assert (ROOT / "tools/test_account_suspension_private_definer_inventory.sql").is_file()
 print("Account-lifecycle callable inventory contract passed.")
 
 
@@ -90,10 +96,8 @@ release_migration = (ROOT / "supabase/migrations/20261124090000_account_lifecycl
 location_migration = (ROOT / "supabase/migrations/20261124100000_account_lifecycle_location_writer_guard.sql").read_text(encoding="utf-8").lower()
 for source, required in (
     (assignment_migration, (
-        "create or replace function private.tacresq_assign_incident_team_guarded",
-        "revoke all on function private.tacresq_assign_incident_team(bigint, bigint[])",
-        "create or replace function public.api_assign_incident_team",
-        "security invoker",
+        "alter function public.api_assign_incident_team(bigint, bigint[]) set schema private",
+        "tacresq_assign_incident_team_internal",
         "account_status = 'active'",
         "for share",
         "only active dispatchers can assign incident teams",
@@ -122,7 +126,7 @@ for item in (
     "public.api_assign_incident_team(bigint,bigint[])",
     "private.tacresq_release_incident_assignment(bigint,bigint)",
     "private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)",
-    "tacresq_assign_incident_team_guarded",
+    "tacresq_assign_incident_team_internal",
     "tacresq_release_incident_assignment_internal",
     "tacresq_record_location_v2_internal",
 ):
