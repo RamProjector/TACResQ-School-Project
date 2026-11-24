@@ -238,7 +238,7 @@ BEGIN
   -- Admin suspension must reject active field-unit work in both assignment models.
   IF NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_proc p
-     WHERE p.oid = to_regprocedure('public.api_admin_set_account_status(bigint,text,text)')
+     WHERE p.oid = to_regprocedure('public.api_admin_set_account_status(bigint,text,text,text)')
        AND p.prosrc ILIKE '%i.assigned_to = v_target.id%'
        AND p.prosrc ILIKE '%ia.user_id = v_target.id%'
        AND p.prosrc ILIKE '%assigned%'
@@ -639,7 +639,7 @@ RESET ROLE;
 -- body enforces AAL2/TOTP and current active-Admin state on every invocation.
 DO $transition_rpc_exposure$
 BEGIN
-  IF NOT has_function_privilege('authenticated', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE')
+  IF NOT has_function_privilege('authenticated', 'public.api_admin_set_account_status(bigint, text, text, text)', 'EXECUTE')
      OR has_function_privilege('anon', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE')
      OR has_function_privilege('public', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Website account lifecycle RPC must be authenticated-only, never anonymous or PUBLIC';
@@ -690,7 +690,7 @@ BEGIN
    WHERE auth_user_id = '00000000-0000-4000-8000-000000000992';
 
   response := public.api_admin_set_account_status(
-    target_id, 'suspended', 'Synthetic account suspension reason'
+    target_id, 'active', 'suspended', 'Synthetic account suspension reason'
   );
   IF response->>'status' IS DISTINCT FROM 'changed'
      OR response->>'account_status' IS DISTINCT FROM 'suspended'
@@ -714,7 +714,7 @@ BEGIN
   END IF;
 
   response := public.api_admin_set_account_status(
-    target_id, 'suspended', 'Synthetic account suspension reason'
+    target_id, 'active', 'suspended', 'Synthetic account suspension reason'
   );
   SELECT count(*) INTO audit_count
     FROM public.account_lifecycle_audit_logs
@@ -724,7 +724,7 @@ BEGIN
   END IF;
 
   response := public.api_admin_set_account_status(
-    target_id, 'active', 'Synthetic account reactivation reason'
+    target_id, 'suspended', 'active', 'Synthetic account reactivation reason'
   );
   SELECT account_status, duty_status
     INTO current_status, current_duty_status
