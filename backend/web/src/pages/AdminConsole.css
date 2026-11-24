@@ -1499,3 +1499,23 @@
 .admin-shell--high-contrast select:focus-visible,
 .admin-shell--high-contrast textarea:focus-visible { outline:3px solid #8a321c; outline-offset:2px; }
 .admin-shell--high-contrast .admin-settings-nav__item--active { color:#173c2e; background:#e4f0e5; border-color:#526c5d; }
+
+/* Respect the operating-system motion preference even when the optional
+   browser-local Admin preference has not been changed. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *, .admin-shell *::before, .admin-shell *::after {
+    scroll-behavior:auto !important;
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+}
+
+/* Keep the accessibility toggles themselves legible and keyboard-visible. */
+.admin-shell--high-contrast .admin-settings-toggle strong { color:#172d27; }
+.admin-shell--high-contrast .admin-settings-toggle small { color:#344b43; }
+.admin-shell--high-contrast .admin-settings-toggle input[type="checkbox"] { accent-color:#174d38; }
+.admin-shell--high-contrast .admin-settings-toggle input[type="checkbox"]:focus-visible {
+  outline:3px solid #8a321c;
+  outline-offset:3px;
+}
