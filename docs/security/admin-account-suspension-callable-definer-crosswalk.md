@@ -166,3 +166,7 @@ Incident-assignee RLS helper: pinned SECURITY DEFINER, current auth.uid(), activ
 ## Callable replay addition — chat idempotency
 
 Chat idempotency/upload reservation: exact signatures, active-aware profile resolver, incident-chat authorization, pinned definer attributes, and authenticated-only grants. Runtime order/race checks remain release gates.
+
+## Callable replay addition — sos write
+
+Requester SOS create/retry and cancellation: exact signatures, pinned VOLATILE SECURITY DEFINER attributes, active requester predicate, FOR UPDATE lock, and authenticated-only grants. Field-claim runtime denial and transaction races remain separate gates.
