@@ -92,6 +92,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [lifecyclePage, setLifecyclePage] = useState(0);
   const [lifecycleLoading, setLifecycleLoading] = useState(true);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+  const [lifecycleLastCheckedAt, setLifecycleLastCheckedAt] = useState<string | null>(null);
   const [lifecycleRefreshVersion, setLifecycleRefreshVersion] = useState(0);
   const lifecyclePageSize = 5;
   const [total, setTotal] = useState(0);
@@ -170,6 +171,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     let active = true;
     setLifecycleLoading(true);
     setLifecycleError(null);
+    setLifecycleLastCheckedAt(null);
     void getAdminAccountLifecycleEvents(lifecyclePageSize, lifecyclePage * lifecyclePageSize).then((result) => {
       if (!active) return;
       if (lifecyclePage > 0 && lifecyclePage * lifecyclePageSize >= result.total_count) {
@@ -180,10 +182,12 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       }
       setLifecycleEvents(result.events);
       setLifecycleTotal(result.total_count);
+      setLifecycleLastCheckedAt(new Date().toISOString());
     }).catch((cause: unknown) => {
       if (!active) return;
       setLifecycleEvents([]);
       setLifecycleTotal(0);
+      setLifecycleLastCheckedAt(null);
       setLifecycleError(cause instanceof Error ? cause.message : "Account lifecycle history is unavailable.");
     }).finally(() => {
       if (active) setLifecycleLoading(false);
@@ -272,7 +276,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
             <h3 id="account-lifecycle-history-title">Account suspension and reactivation</h3>
             <p>Trusted account-status transitions recorded by the database. This history is separate from ordinary role changes.</p>
           </div>
-          <span>{lifecycleError ? "Unavailable" : lifecycleTotal.toLocaleString() + " recorded"}</span>
+          <span>{lifecycleError ? "Unavailable" : lifecycleTotal.toLocaleString() + " recorded"}{lifecycleLastCheckedAt && !lifecycleError ? " · Updated " + formatDate(lifecycleLastCheckedAt) + " (Asia/Manila)" : ""}</span>
         </div>
         {lifecycleError ? (
           <div className="audit-page__lifecycle-error"><p className="admin-panel__footnote" role="alert">{lifecycleError}</p><button className="admin-refresh" type="button" onClick={() => setLifecycleRefreshVersion((current) => current + 1)} disabled={lifecycleLoading}><RefreshCw size={15} className={lifecycleLoading ? "admin-spin" : undefined} /> Retry lifecycle history</button></div>
