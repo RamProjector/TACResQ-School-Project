@@ -102,3 +102,10 @@ assert "confirmDiscardPreferenceChanges" in ADMIN.split("window.addEventListener
 # assistive technology when their controls appear.
 assert 'aria-label={`Confirm removal of ${factor.name}`} aria-live="polite" aria-atomic="true"' in SECURITY
 assert 'aria-label="Confirm global sign-out" aria-live="polite" aria-atomic="true"' in SECURITY
+
+# Staged account suspension must remain explicitly unavailable until the
+# transition RPC grant, same-token coverage, deployment, and session behavior
+# have been independently verified.
+assert "The database transition function is staged but EXECUTE remains revoked from client roles." in SECURITY
+assert "Remaining same-JWT authorization coverage, migration/deployment verification, session-revocation behavior, and the Admin workflow are not complete." in SECURITY
+assert "No suspend/reactivate action is exposed here." in SECURITY
