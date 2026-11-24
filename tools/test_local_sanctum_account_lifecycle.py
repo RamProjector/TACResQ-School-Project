@@ -333,3 +333,13 @@ assert "RateLimiter::hit($key, 900)" in reauth_source
 assert "Cache-Control', 'no-store, private'" in reauth_source
 assert "Retry-After" in reauth_source
 
+
+
+# Suspended local Sanctum requests must fail closed without caching a
+# potentially sensitive account-state response.
+middleware_source = middleware
+assert middleware_source.index("if ($user !== null && (bool) $user->is_suspended)") < middleware_source.index("return $next($request)")
+assert "], 403)->header('Cache-Control', 'no-store, private')" in middleware_source
+assert "contact an administrator" in middleware_source.lower()
+assert "withoutMiddleware('account.active')" in routes
+
