@@ -926,3 +926,36 @@ BEGIN
   END IF;
 END;
 $assignment_release_catalog_contract$;
+
+
+-- GPS writes must retain the validated implementation behind the active
+-- responder/driver lifecycle wrapper.
+DO $location_writer_catalog_contract$
+DECLARE
+  wrapper_oid oid := to_regprocedure('private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamptz)');
+  internal_oid oid := to_regprocedure('private.tacresq_record_location_v2_internal(bigint,double precision,double precision,real,timestamptz)');
+  wrapper_source text;
+  wrapper_settings text[];
+BEGIN
+  IF wrapper_oid IS NULL OR internal_oid IS NULL THEN
+    RAISE EXCEPTION 'GPS writer wrapper or internal routine is missing';
+  END IF;
+  SELECT p.prosrc, p.proconfig INTO wrapper_source, wrapper_settings
+    FROM pg_catalog.pg_proc p WHERE p.oid = wrapper_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = wrapper_oid)
+     OR NOT (coalesce(wrapper_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR wrapper_source NOT ILIKE '%account_status = ''active''%'
+     OR wrapper_source NOT ILIKE '%FOR SHARE%'
+     OR wrapper_source NOT ILIKE '%responder%'
+     OR wrapper_source NOT ILIKE '%driver%'
+     OR wrapper_source NOT ILIKE '%tacresq_record_location_v2_internal%' THEN
+    RAISE EXCEPTION 'GPS writer must require an active responder/driver and lock the profile';
+  END IF;
+  IF NOT has_function_privilege('authenticated', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('anon', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', internal_oid, 'EXECUTE')
+     OR has_function_privilege('anon', internal_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'GPS writer wrapper/internal grants are unsafe';
+  END IF;
+END;
+$location_writer_catalog_contract$;
