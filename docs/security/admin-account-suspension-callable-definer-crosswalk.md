@@ -162,3 +162,7 @@ Notification and claimable-incident reads: exact signatures, pinned VOLATILE def
 ## Callable replay addition — assignment helper
 
 Incident-assignee RLS helper: pinned SECURITY DEFINER, current auth.uid(), active predicate, FOR SHARE lock, and no anon/PUBLIC EXECUTE. Disposable-database RLS tests remain required.
+
+## Callable replay addition — chat idempotency
+
+Chat idempotency/upload reservation: exact signatures, active-aware profile resolver, incident-chat authorization, pinned definer attributes, and authenticated-only grants. Runtime order/race checks remain release gates.
