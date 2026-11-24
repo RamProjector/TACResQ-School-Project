@@ -68,3 +68,15 @@ remove_action = SECURITY.split("async function removeAuthenticatorFactor", 1)[1]
 assert remove_action.index("await refresh();") < remove_action.index('setNotice(factor.name + " was removed.");')
 cancel_action = SECURITY.split("async function cancelBackupEnrollment", 1)[1].split("\n  return (", 1)[0]
 assert cancel_action.index("await refresh();") < cancel_action.index('setNotice("Unverified backup enrollment cancelled.");')
+
+
+# Unsaved browser-local preferences are protected from accidental navigation
+# and page unload. Explicitly saving clears the dirty state.
+assert "function confirmDiscardPreferenceChanges()" in ADMIN
+assert "if (!preferencesDirty) return true;" in ADMIN
+assert "window.confirm(" in ADMIN
+assert "window.addEventListener(\"beforeunload\", warnBeforeUnload);" in ADMIN
+assert "window.removeEventListener(\"beforeunload\", warnBeforeUnload)" in ADMIN
+assert "if (section !== activeSection && !confirmDiscardPreferenceChanges()) return;" in ADMIN
+assert "if (page !== settingsPage && !confirmDiscardPreferenceChanges()) return;" in ADMIN
+assert "setSavedPreferences(preferences);" in ADMIN
