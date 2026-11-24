@@ -658,18 +658,17 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
     public function test_lifecycle_recorder_rejects_calls_outside_a_transaction(): void
     {
-        $actor = $this->createLocalUser();
-        $target = User::create([
-            'name' => 'Lifecycle No Transaction Target',
-            'email' => 'lifecycle-no-transaction@example.test',
-            'password' => 'synthetic-test-password',
-            'role' => 'requester',
-        ]);
+        // RefreshDatabase wraps every feature test in a transaction, so use a
+        // focused connection double to exercise the recorder's no-transaction
+        // guard rather than accidentally inheriting the test harness transaction.
+        $connection = \Mockery::mock();
+        $connection->shouldReceive('transactionLevel')->once()->andReturn(0);
+        DB::shouldReceive('connection')->once()->andReturn($connection);
 
         $this->expectException(\LogicException::class);
         app(\App\Services\LocalAccountLifecycleRecorder::class)->record(
-            $actor->id,
-            $target->id,
+            10,
+            20,
             'suspended',
             'Valid reason',
             'active',
