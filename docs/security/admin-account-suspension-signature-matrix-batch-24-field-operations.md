@@ -13,7 +13,7 @@
 | `api_units()` | Field-unit directory | Public wrapper uses active dispatcher lock and delegates to a private implementation. | Test no roster/contact disclosure to suspended dispatcher; verify internal grant revocation. |
 | `api_all_incidents()` | Dispatcher queue | Invoker path uses shared active-aware actor-role helper. | Test RLS/policy composition with suspended valid JWT and confirm no queue rows leak. |
 | `private.tacresq_active_responder_locations()` | Active responder coordinates | Historical review identifies this private callable as dispatcher-only; no current guard proof is established in this matrix. | **Verify** direct grants, active dispatcher check, profile lock, and same-JWT read denial. |
-| `api_duty_status` / duty mutation RPC | Duty state | Client operation map lists duty-status mutation as a distinct path. | Resolve exact deployed signature from fresh replay; require active field unit without silently clearing duty during suspension. |
+| Duty-status mutation RPC (exact signature intentionally unresolved) | Duty state | Client operation map lists duty-status mutation as a distinct path, but the reviewed callable snapshot in this matrix does not establish its exact signature. | Resolve the exact signature from a fresh replay and trace its caller before classifying it; require active field-unit authorization without silently clearing duty during suspension. |
 
 ## Required test cases
 
