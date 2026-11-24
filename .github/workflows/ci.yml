@@ -248,6 +248,43 @@ jobs:
       - name: Check administrator dependency health visibility contract
         run: python3 tools/test_admin_dependency_health_contract.py
 
+      - name: Check Admin analytics loading and stale-state contract
+        run: python3 tools/test_admin_analytics_busy_state_contract.py
+      - name: Check Admin analytics CSV export safety contract
+        run: python3 tools/test_admin_analytics_export_contract.py
+      - name: Check Admin attachment storage workspace contract
+        run: python3 tools/test_admin_attachment_storage_workspace_contract.py
+      - name: Check Admin audit loading state contract
+        run: python3 tools/test_admin_audit_busy_state_contract.py
+      - name: Check Admin audit date filter contract
+        run: python3 tools/test_admin_audit_filter_contract.py
+      - name: Check Admin audit high-contrast accessibility contract
+        run: python3 tools/test_admin_audit_high_contrast_contract.py
+      - name: Check Admin audit pagination announcement contract
+        run: python3 tools/test_admin_audit_pagination_announcement_contract.py
+      - name: Check Admin directory pagination contract
+        run: python3 tools/test_admin_directory_pagination_contract.py
+      - name: Check Admin help search contract
+        run: python3 tools/test_admin_help_search_contract.py
+      - name: Check Admin mobile navigation contract
+        run: python3 tools/test_admin_mobile_navigation_contract.py
+      - name: Check Admin navigation focus contract
+        run: python3 tools/test_admin_navigation_focus_contract.py
+      - name: Check Admin overview health contract
+        run: python3 tools/test_admin_overview_health_contract.py
+      - name: Check Admin pending MFA cleanup contract
+        run: python3 tools/test_admin_pending_mfa_cleanup_contract.py
+      - name: Check Admin preferences accessibility contract
+        run: python3 tools/test_admin_preferences_accessibility_contract.py
+      - name: Check Admin privacy workspace contract
+        run: python3 tools/test_admin_privacy_workspace_contract.py
+      - name: Check Admin recovery workspace contract
+        run: python3 tools/test_admin_recovery_workspace_contract.py
+      - name: Check Admin role dialog scroll-lock contract
+        run: python3 tools/test_admin_role_dialog_scroll_lock_contract.py
+      - name: Check Admin security analytics UI contract
+        run: python3 tools/test_admin_security_analytics_ui_contract.py
+
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
 
