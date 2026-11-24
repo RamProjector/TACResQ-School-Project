@@ -81,7 +81,7 @@ assert query_effect.index("setCopyError(null);") < query_effect.index("if (dateR
 # An asynchronous clipboard result must not restore feedback for an event that
 # disappeared from the active investigation result set while copying.
 assert "const visibleEventIds = useRef<Set<string>>(new Set());" in AUDIT_PAGE
-assert "visibleEventIds.current = new Set(events.map((event) => String(event.id)));" in AUDIT_PAGE
+assert "visibleEventIds.current = new Set(events.map((event) => String(event.event_id)));" in AUDIT_PAGE
 copy_handler = AUDIT_PAGE.split("async function copyEventId(eventId: string)", 1)[1].split("\n  }", 1)[0]
 assert "if (visibleEventIds.current.has(eventId)) setCopiedEventId(eventId);" in copy_handler
 assert "if (!visibleEventIds.current.has(eventId)) return;" in copy_handler
