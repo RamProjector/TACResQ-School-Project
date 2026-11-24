@@ -248,7 +248,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function confirmDiscardPreferenceChanges() {
     if (!preferencesDirty) return true;
-    return window.confirm("You have unsaved Admin display preferences. Leave this page and discard those changes?");
+    const discard = window.confirm("You have unsaved Admin display preferences. Leave this page and discard those changes?");
+    if (!discard) return false;
+    // Restore the last saved browser-local values immediately. Otherwise the
+    // warning would say "discard" while the unsaved preview remained in state
+    // and reappeared when the operator returned to Settings.
+    setPreferences(savedPreferences);
+    setPreferencesError(null);
+    return true;
   }
 
   useEffect(() => {
