@@ -336,7 +336,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         )}
         {lifecyclePageCount > 1 && !lifecycleError && (
           <nav className="audit-page__lifecycle-pagination" aria-label="Account lifecycle history pagination">
-            <span>Page {lifecyclePage + 1} of {lifecyclePageCount} · {lifecycleTotal.toLocaleString()} events</span>
+            <span aria-live="polite" aria-atomic="true">Page {lifecyclePage + 1} of {lifecyclePageCount} · {lifecycleTotal.toLocaleString()} events</span>
             <div>
               <button type="button" onClick={() => setLifecyclePage((current) => Math.max(0, current - 1))} disabled={lifecycleLoading || lifecyclePage === 0}><ChevronLeft size={14} /> Previous</button>
               <button type="button" onClick={() => setLifecyclePage((current) => Math.min(lifecyclePageCount - 1, current + 1))} disabled={lifecycleLoading || lifecyclePage + 1 >= lifecyclePageCount}>Next <ChevronRight size={14} /></button>
@@ -429,7 +429,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       </div>
 
       <nav className="admin-pagination audit-page__pagination" aria-label="Investigation history pagination" aria-controls="audit-event-list">
-        <span>Showing {rangeStart}–{rangeEnd} of {total.toLocaleString()} <small>{pageCount ? "· Page " + (page + 1) + " of " + pageCount : ""}</small></span>
+        <span aria-live="polite" aria-atomic="true">Showing {rangeStart}–{rangeEnd} of {total.toLocaleString()} <small>{pageCount ? "· Page " + (page + 1) + " of " + pageCount : ""}</small></span>
         <div>
           <button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading}><ChevronLeft size={14} /> Previous</button>
           <div className="audit-page__page-numbers" aria-label="Page numbers">
