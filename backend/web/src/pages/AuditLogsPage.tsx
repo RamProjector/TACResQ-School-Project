@@ -276,6 +276,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
               <li><strong>Incident claiming</strong><span>Claimability history.</span></li>
               <li><strong>Requester edits</strong><span>Changed-field names only; private snapshots are excluded.</span></li>
               <li><strong>Responder assignments</strong><span>Assignment, release, and team-closure events.</span></li>
+              <li><strong>App actions</strong><span>Server-recorded chat-message sends, notification reads, and field-unit duty-status changes. Only bounded metadata is exposed; message content and credentials are excluded.</span></li>
             </ul>
           </section>
           <section aria-labelledby="audit-sources-gaps">
@@ -432,7 +433,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           <button type="button" onClick={() => setPage((current) => current + 1)} disabled={loading || page + 1 >= pageCount}>Next <ChevronRight size={14} /></button>
         </div>
       </nav>
-      <p className="admin-panel__footnote">This feed reads existing administrative role-change, Supabase Auth, incident-status, claimability, sanitized requester-edit, and responder-assignment records through a TOTP/AAL2-protected, server-side query. Authentication events depend on Supabase Auth Audit Logs Postgres storage; an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events expose changed-field names only; raw snapshots are never shown. Denied privileged RPC attempts are not yet durably represented in this feed. API transport telemetry, device-security events, and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
+      <p className="admin-panel__footnote">This feed reads existing administrative role-change, Supabase Auth, incident-status, claimability, sanitized requester-edit, responder-assignment, and metadata-only app-action records through a TOTP/AAL2-protected, server-side query. App-action events represent server-recorded message sends, notification reads, and field-unit duty-status changes; they do not expose message content. Authentication events depend on Supabase Auth Audit Logs Postgres storage; an empty table does not prove no sign-in activity occurred. Incident status records show the resulting status, not a guaranteed before/after pair. Requester edit events expose changed-field names only; raw snapshots are never shown. Denied privileged RPC attempts are not yet durably represented in this feed. API transport telemetry, device-security events, and FCM delivery attempts are not included. Raw Auth payloads, IP addresses, precise coordinates, incident narratives, messages, attachments, and credentials are not exposed. Filters and pagination run server-side; date boundaries and displayed times use Asia/Manila (UTC+08:00). This interface is read-only.</p>
     </section>
   );
 }
