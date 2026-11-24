@@ -38,3 +38,12 @@ assert "setLastCheckedAt(null);" in SECURITY
 assert "Do not present the previous session/factor inventory as current" in SECURITY
 assert "Last checked " in SECURITY and "Asia/Manila" in SECURITY
 assert ".admin-security-status__checked" in CSS
+
+
+# A security refresh clears stale action feedback and confirmation prompts
+# before the new Supabase Auth snapshot is requested.
+security_refresh = SECURITY_STATUS.split("const refresh = useCallback(async () => {", 1)[1].split("}, []);", 1)[0]
+assert security_refresh.index("setActionError(null);") < security_refresh.index("setSnapshot(null);")
+assert security_refresh.index("setNotice(null);") < security_refresh.index("setSnapshot(null);")
+assert security_refresh.index("setConfirmRemoveFactorId(null);") < security_refresh.index("setSnapshot(null);")
+assert security_refresh.index("setConfirmGlobalSignOut(false);") < security_refresh.index("setSnapshot(null);")
