@@ -54,9 +54,9 @@ assert ".audit-page__lifecycle-error .admin-refresh:focus-visible" in ADMIN_CSS
 
 # Account lifecycle history freshness is scoped to its own successful retrieval.
 assert "lifecycleLastCheckedAt" in AUDIT_PAGE
-assert "setLifecycleEvents([]);" in AUDIT
-assert "setLifecycleTotal(0);" in AUDIT
-assert "stale lifecycle data is not shown" in AUDIT
+assert "setLifecycleEvents([]);" in AUDIT_PAGE
+assert "setLifecycleTotal(0);" in AUDIT_PAGE
+assert "stale lifecycle data is not shown" in AUDIT_PAGE
 assert "setLifecycleLastCheckedAt(null);" in AUDIT_PAGE
 assert "setLifecycleLastCheckedAt(new Date().toISOString());" in AUDIT_PAGE
 assert 'Updated " + formatDate(lifecycleLastCheckedAt) + " (Asia/Manila)' in AUDIT_PAGE
