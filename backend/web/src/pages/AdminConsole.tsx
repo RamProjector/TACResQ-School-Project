@@ -539,6 +539,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-nav-entry" key={id}>
               {index === 0 && <div className="admin-navigation__group-label">WORKSPACE</div>}
               {index === 1 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">GOVERNANCE</div>}
+              {index === 5 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">PREFERENCES &amp; SUPPORT</div>}
               <button type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigateToSection(id)}>
                 <Icon size={17} aria-hidden="true" /><span>{label}</span>
               </button>
@@ -758,11 +759,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <p className="admin-settings-intro">These preferences affect only how the Admin portal appears in this browser. They do not change emergency notifications, user permissions, security policy, or other users’ settings.</p>
               <div className="admin-settings-grid">
                 <article className="admin-settings-card">
-                  <div><h3>Interface density</h3><p>Choose how much information appears in tables and workspace panels.</p></div>
+                  <div className="admin-settings-card__heading"><div><h3>Interface density</h3><p>Choose how much information appears in tables and workspace panels.</p></div><details className="admin-context-help"><summary aria-label="About interface density"><CircleHelp size={16} /></summary><div>Compact mode reduces row and panel spacing. It does not hide fields or change which records are loaded.</div></details></div>
                   <label className="admin-settings-field"><span>Layout density</span><select value={preferences.density} onChange={(event) => setPreferences((current) => ({ ...current, density: event.target.value === "compact" ? "compact" : "comfortable" }))}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
                 </article>
                 <article className="admin-settings-card">
-                  <div><h3>Accessibility</h3><p>Adjust motion and contrast to make the interface easier to use.</p></div>
+                  <div className="admin-settings-card__heading"><div><h3>Accessibility</h3><p>Adjust motion and contrast to make the interface easier to use.</p></div><details className="admin-context-help"><summary aria-label="About accessibility preferences"><CircleHelp size={16} /></summary><div>These preferences change this portal’s presentation only. They do not replace operating-system accessibility settings or a full accessibility review.</div></details></div>
                   <label className="admin-settings-toggle"><span><strong>Reduce motion</strong><small>Limit decorative transitions and animations.</small></span><input type="checkbox" checked={preferences.reducedMotion} onChange={(event) => setPreferences((current) => ({ ...current, reducedMotion: event.target.checked }))} /></label>
                   <label className="admin-settings-toggle"><span><strong>High contrast</strong><small>Strengthen borders and text contrast across Admin panels.</small></span><input type="checkbox" checked={preferences.highContrast} onChange={(event) => setPreferences((current) => ({ ...current, highContrast: event.target.checked }))} /></label>
                   <label className="admin-settings-toggle"><span><strong>Contextual help</strong><small>Show short explanations beside settings and complex controls.</small></span><input type="checkbox" checked={preferences.contextualHelp} onChange={(event) => setPreferences((current) => ({ ...current, contextualHelp: event.target.checked }))} /></label>
