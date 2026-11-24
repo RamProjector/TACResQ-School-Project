@@ -24,3 +24,9 @@ assert "disabled={analyticsLoading || !analytics || Boolean(analyticsError)}" in
 assert "if (analytics) exportAnalyticsCsv(analytics)" in SOURCE
 
 print("Admin analytics CSV export source contract passed.")
+
+assert "setAnalyticsLoadedAt(new Date().toISOString())" in SOURCE
+assert "Report retrieved " in SOURCE
+assert "role=\"status\" aria-live=\"polite\"" in SOURCE
+assert "setAnalyticsExportNotice(\"Export prepared: \" + filename)" in SOURCE
+assert "window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)" in exporter
