@@ -1219,3 +1219,50 @@ BEGIN
 END;
 $fcm_token_lifecycle_catalog_contract$;
 
+-- Requester edit is a SECURITY DEFINER write path. The public wrapper must
+-- lock and verify the active requester before delegating to the preserved
+-- validation/cooldown/edit-history implementation.
+DO $active_requester_edit_entry_contract$
+DECLARE
+  wrapper_oid oid := to_regprocedure('public.api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamp with time zone,text,boolean)');
+  internal_oid oid := to_regprocedure('private.tacresq_update_my_incident_internal(bigint,text,text,double precision,double precision,real,text,timestamp with time zone,text,boolean)');
+  wrapper_source text;
+  wrapper_config text[];
+  wrapper_volatility "char";
+  wrapper_definer boolean;
+  internal_source text;
+BEGIN
+  IF wrapper_oid IS NULL OR internal_oid IS NULL THEN
+    RAISE EXCEPTION 'Requester edit lifecycle wrapper or private implementation is missing';
+  END IF;
+
+  SELECT p.prosrc, p.proconfig, p.provolatile, p.prosecdef
+    INTO wrapper_source, wrapper_config, wrapper_volatility, wrapper_definer
+    FROM pg_catalog.pg_proc p WHERE p.oid = wrapper_oid;
+
+  IF wrapper_definer IS DISTINCT FROM true
+     OR wrapper_volatility IS DISTINCT FROM 'v'
+     OR NOT (coalesce(wrapper_config, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR wrapper_source NOT ILIKE '%account_status = ''active''%'
+     OR wrapper_source NOT ILIKE '%actor_role IS DISTINCT FROM ''requester''%'
+     OR wrapper_source NOT ILIKE '%FOR SHARE%'
+     OR wrapper_source NOT ILIKE '%tacresq_update_my_incident_internal%' THEN
+    RAISE EXCEPTION 'Requester edit wrapper must be a pinned VOLATILE definer with active requester lock and private delegation';
+  END IF;
+
+  SELECT p.prosrc INTO internal_source
+    FROM pg_catalog.pg_proc p WHERE p.oid = internal_oid;
+  IF internal_source NOT ILIKE '%requester_edit_count%'
+     OR internal_source NOT ILIKE '%incident_request_edit_logs%'
+     OR internal_source NOT ILIKE '%requester_last_edited_at%' THEN
+    RAISE EXCEPTION 'Requester edit internal implementation lost its cooldown or edit-history behavior';
+  END IF;
+
+  IF NOT has_function_privilege('authenticated', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('anon', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', internal_oid, 'EXECUTE')
+     OR has_function_privilege('anon', internal_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Requester edit must expose only its guarded wrapper to authenticated clients';
+  END IF;
+END;
+$active_requester_edit_entry_contract$;
