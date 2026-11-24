@@ -91,77 +91,36 @@ export default function AdminMfaGate({ children, onSignOut }: {
 
   async function handleSignOut() {
     if (busy) return;
+
     if (state === "enroll" && factorId) {
       await cancelEnrollment();
       return;
     }
+
     if (state === "checking" && preparation.current) {
       setBusy(true);
       setError(null);
       try {
         const prepared = await preparation.current;
         if (prepared.state === "enroll") {
-          // Cleanup is best-effort. An Auth outage must never trap an
-          // administrator in an authenticated session or block sign-out.
+          // Cleanup is best-effort. Sign-out must remain possible even when Auth is unavailable.
           try {
             const { error: unenrollError } = await getSupabase().auth.mfa.unenroll({
               factorId: prepared.factorId,
             });
             if (unenrollError) throw unenrollError;
           } catch {
-            // The pending factor can be cleaned up on a later authenticated visit.
+            // A later authenticated visit can clean up a pending factor.
           }
         }
       } catch {
-        // MFA preparation may fail because Auth is unavailable. Sign-out must
-        // remain possible even when the security setup service is unavailable.
+        // Sign-out must remain possible when MFA preparation fails.
+      } finally {
+        onSignOut();
       }
-      onSignOut();
-      return;
-    }
-    onSignOut();
-  }
-
-  async function handleSignOut() {
-    if (busy) return;
-
-    // If enrollment has already completed, remove only the pending factor
-    // created by this gate before ending the session.
-    if (state === "enroll" && factorId) {
-      await cancelEnrollment();
       return;
     }
 
-    // Sign-out can be clicked while preparation is still creating a factor.
-    // Await the cached preparation operation so a newly-created pending factor
-    // is not orphaned after the component unmounts.
-    if (state === "checking" && preparation.current) {
-      setBusy(true);
-      setError(null);
-      try {
-        const prepared = await preparation.current;
-        if (prepared.state === "enroll") {
-          // Cleanup is best-effort. An Auth outage must never trap an
-          // administrator in an authenticated session or block sign-out.
-          try {
-            const { error: unenrollError } = await getSupabase().auth.mfa.unenroll({
-              factorId: prepared.factorId,
-            });
-            if (unenrollError) throw unenrollError;
-          } catch {
-            // The pending factor can be cleaned up on a later authenticated visit.
-          }
-        }
-      } catch {
-        // MFA preparation may fail because Auth is unavailable. Sign-out must
-        // remain possible even when the security setup service is unavailable.
-      }
-      onSignOut();
-      return;
-    }
-
-    // A verified-factor challenge or an existing AAL2 session owns no new
-    // pending factor, so normal sign-out is safe.
     onSignOut();
   }
 
@@ -174,9 +133,6 @@ export default function AdminMfaGate({ children, onSignOut }: {
       // Never enumerate and remove other pending factors from another device.
       const { error: unenrollError } = await getSupabase().auth.mfa.unenroll({ factorId });
       if (unenrollError) throw unenrollError;
-      setSecret("");
-      setQrCode("");
-      setCode("");
     } catch {
       // Cancellation includes signing out. Do not keep the administrator
       // authenticated merely because Supabase could not remove this factor.
@@ -185,10 +141,6 @@ export default function AdminMfaGate({ children, onSignOut }: {
       setQrCode("");
       setShowSecret(false);
       setCode("");
-    } catch {
-      // Cancellation includes signing out. Do not keep the administrator
-      // authenticated merely because Supabase could not remove this factor.
-    } finally {
       onSignOut();
     }
   }
