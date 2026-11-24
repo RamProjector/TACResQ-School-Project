@@ -88,3 +88,12 @@ assert "const discard = window.confirm(" in discard_helper
 assert "if (!discard) return false;" in discard_helper
 assert discard_helper.index("setPreferences(savedPreferences);") < discard_helper.index("return true;")
 assert "setPreferencesError(null);" in discard_helper
+
+
+# Browser Back/Forward also protects unsaved settings and restores the current URL
+# when the operator declines to discard.
+popstate_guard = ADMIN.split("const syncSectionFromLocation = () => {", 1)[1].split("\n    };", 1)[0]
+assert "if (preferencesDirty && !confirmDiscardPreferenceChanges())" in popstate_guard
+assert "window.history.pushState({}, \"\", currentUrl.toString());" in popstate_guard
+assert "setActiveSection(resolveAdminSection(window.location.search));" in popstate_guard
+assert "confirmDiscardPreferenceChanges" in ADMIN.split("window.addEventListener(\"popstate\", syncSectionFromLocation);", 1)[0].split("}, [activeSection, settingsPage, preferencesDirty,", 1)[1]
