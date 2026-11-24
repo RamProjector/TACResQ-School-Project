@@ -233,3 +233,67 @@ for required in (
 
 assert inventory.count("has_function_privilege('anon', p.oid, 'execute')") >= 2
 print("Anonymous callable inventory source contract passed.")
+
+# Keep the per-signature review register complete and honest about evidence.
+# The matrix separates known catalog signatures from unresolved signatures and
+# distinguishes source guard evidence from runtime test execution.
+matrix_files = {
+    "index": ROOT / "docs/security/admin-account-suspension-signature-matrix-index.md",
+    "requester": ROOT / "docs/security/admin-account-suspension-signature-matrix-batch-23-requester.md",
+    "field": ROOT / "docs/security/admin-account-suspension-signature-matrix-batch-24-field-operations.md",
+    "messaging": ROOT / "docs/security/admin-account-suspension-signature-matrix-batch-25-messaging-notifications.md",
+    "admin": ROOT / "docs/security/admin-account-suspension-signature-matrix-batch-26-admin-legacy.md",
+}
+for name, path in matrix_files.items():
+    assert path.is_file(), f"Per-signature authorization matrix is missing: {name}"
+
+matrix_index = matrix_files["index"].read_text(encoding="utf-8").lower()
+requester_matrix = matrix_files["requester"].read_text(encoding="utf-8").lower()
+field_matrix = matrix_files["field"].read_text(encoding="utf-8").lower()
+messaging_matrix = matrix_files["messaging"].read_text(encoding="utf-8").lower()
+admin_matrix = matrix_files["admin"].read_text(encoding="utf-8").lower()
+
+for required in (
+    "batch 23", "batch 24", "batch 25", "batch 26",
+    "a signature is a separate review unit",
+    "source contract does not prove runtime denial",
+    "no live supabase project is modified",
+):
+    assert required in matrix_index, f"Matrix index is missing review rule: {required}"
+
+for required in (
+    "api_create_incident_v4(text,text,double precision,double precision,real,text,timestamp with time zone,text,uuid)",
+    "api_cancel_my_incident(bigint)",
+    "api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamp with time zone,text,boolean)",
+    "same still-valid jwt",
+):
+    assert required in requester_matrix, f"Requester matrix is missing callable/test: {required}"
+
+for required in (
+    "api_assign_incident_team(bigint,bigint[])",
+    "api_assign_incident(bigint,bigint)",
+    "api_units()",
+    "api_all_incidents()",
+    "api_update_incident_status(bigint,text)",
+    "exact signature intentionally unresolved",
+):
+    assert required in field_matrix, f"Field operations matrix is missing callable/review caveat: {required}"
+
+for required in (
+    "api_my_incident_messages(bigint,integer,bigint)",
+    "api_send_incident_message(bigint,text,uuid)",
+    "api_register_fcm_token(text)",
+    "incident-chat-attachments",
+    "zero provider calls",
+):
+    assert required in messaging_matrix, f"Messaging matrix is missing callable/test: {required}"
+
+for required in (
+    "api_admin_list_users_page(integer,integer,text,text)",
+    "api_admin_set_user_role(bigint,text,text)",
+    "api_admin_list_audit_logs_page(integer,integer,text,text,timestamp with time zone,timestamp with time zone,bigint,bigint)",
+    "never join by email",
+):
+    assert required in admin_matrix, f"Admin/legacy matrix is missing callable/boundary: {required}"
+
+print("Per-signature account-lifecycle authorization matrix source contract passed.")
