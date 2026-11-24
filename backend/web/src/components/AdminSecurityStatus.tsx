@@ -28,6 +28,7 @@ function formatLevel(level: string | null) {
 
 export default function AdminSecurityStatus() {
   const [snapshot, setSnapshot] = useState<SecuritySnapshot | null>(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
@@ -64,10 +65,12 @@ export default function AdminSecurityStatus() {
           status: factor.status,
         })),
       });
+      setLastCheckedAt(new Date().toISOString());
     } catch (cause) {
       if (requestId !== refreshVersion.current) return;
       setError(cause instanceof Error ? cause.message : "Could not retrieve the current MFA status.");
       setSnapshot(null);
+      setLastCheckedAt(null);
     } finally {
       if (requestId === refreshVersion.current) setLoading(false);
     }
@@ -278,6 +281,7 @@ export default function AdminSecurityStatus() {
           <RefreshCw size={15} className={loading ? "admin-spin" : ""} /> Refresh status
         </button>
       </div>
+      {lastCheckedAt && snapshot && <p className="admin-security-status__checked">Last checked {new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(lastCheckedAt))} (Asia/Manila). Refresh to retrieve the latest session and factor state.</p>}
       {loading && snapshot && <p className="admin-security-status__message" role="status" aria-live="polite"><Clock3 size={16} /> Refreshing Supabase Auth status…</p>}
       {loading && !snapshot ? (
         <p className="admin-security-status__message" role="status" aria-live="polite"><Clock3 size={16} /> Checking Supabase Auth…</p>
