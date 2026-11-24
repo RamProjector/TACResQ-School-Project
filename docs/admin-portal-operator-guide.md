@@ -262,3 +262,7 @@ If an administrator leaves the Security workspace while a backup TOTP factor is 
 ## Searchable Admin Help Centre
 
 The Help & About workspace includes a browser-local search across its four operator-guidance cards: Overview and dependency reachability, User Management, Security and authenticator protection, and Reports/Activity Log. Search matches topic keywords and multi-word queries, hides nonmatching cards, and presents a no-results explanation when nothing matches. Search does not query account data, audit events, or backend services; it only filters the static guidance already displayed in the Admin portal. The search field and result feedback are keyboard accessible and use a polite status announcement.
+
+## Admin workspace navigation focus
+
+When an administrator changes workspace through the Admin navigation or browser Back/Forward, keyboard focus moves to the new workspace heading after the view updates. Moving between Settings subpages also focuses the Settings heading so the changed context is announced without forcing keyboard users to tab through the sidebar again. The heading is programmatically focusable but does not add another normal Tab stop. Initial page load does not steal focus.
