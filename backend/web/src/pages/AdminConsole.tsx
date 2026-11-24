@@ -337,7 +337,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     };
     window.addEventListener("popstate", syncSectionFromLocation);
     return () => window.removeEventListener("popstate", syncSectionFromLocation);
-  }, [activeSection, settingsPage, preferencesDirty]);
+  }, [activeSection, settingsPage, preferencesDirty, confirmDiscardPreferenceChanges]);
 
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
