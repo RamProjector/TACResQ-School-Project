@@ -57,6 +57,9 @@
 .admin-search input { width:100%; min-width:0; border:0; outline:0; color:var(--ink); background:transparent; font-size:11px; }
 .admin-role-filter { display:flex; align-items:center; gap:9px; color:#758582; font-size:10px; }
 .admin-role-filter select { min-height:39px; padding:0 29px 0 10px; border:1px solid #dfe4dc; border-radius:6px; color:#43595c; background:#fff; font-size:11px; }
+.admin-page-size { display:flex; align-items:center; gap:9px; color:#758582; font-size:10px; }
+.admin-page-size select { min-height:39px; min-width:68px; padding:0 24px 0 10px; border:1px solid #dfe4dc; border-radius:6px; color:#43595c; background:#fff; font-size:11px; }
+.admin-page-size select:focus-visible { outline:2px solid #f39471; outline-offset:2px; }
 .admin-table-wrap { width:100%; overflow-x:auto; }
 .admin-table { width:100%; border-collapse:collapse; text-align:left; }
 .admin-table th { padding:11px 15px; border-top:1px solid #e9ece5; border-bottom:1px solid #e4e8e0; color:#7b8985; background:#f8f9f4; font:600 8px var(--mono); letter-spacing:.1em; white-space:nowrap; }
