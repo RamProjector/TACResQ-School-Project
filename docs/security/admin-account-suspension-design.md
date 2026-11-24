@@ -112,3 +112,7 @@ The audit write and state mutation must be in one database transaction. Clients 
 ### Regression gate — audit identity preflight
 
 Added a source regression gate for the local audit-identity migration: it must take an ACCESS EXCLUSIVE lock before checking unattributed rows, fail with an explicit audit-preserving remediation message, and only then enforce NOT NULL. Rollback only relaxes nullability; it does not rewrite audit history.
+
+### Regression gate — append only trigger
+
+Added explicit regression assertions for the append-only audit trigger's UPDATE/DELETE and TRUNCATE coverage, SQLSTATE, and ordinary invoker execution. This checks source structure only; database-owner and privileged-role bypass behavior still needs a disposable PostgreSQL test.
