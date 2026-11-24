@@ -97,3 +97,8 @@ assert "if (preferencesDirty && !confirmDiscardPreferenceChanges())" in popstate
 assert "window.history.pushState({}, \"\", currentUrl.toString());" in popstate_guard
 assert "setActiveSection(resolveAdminSection(window.location.search));" in popstate_guard
 assert "confirmDiscardPreferenceChanges" in ADMIN.split("window.addEventListener(\"popstate\", syncSectionFromLocation);", 1)[0].split("}, [activeSection, settingsPage, preferencesDirty,", 1)[1]
+
+# Dynamic confirmations for destructive security actions are announced to
+# assistive technology when their controls appear.
+assert 'aria-label={`Confirm removal of ${factor.name}`} aria-live="polite" aria-atomic="true"' in SECURITY
+assert 'aria-label="Confirm global sign-out" aria-live="polite" aria-atomic="true"' in SECURITY
