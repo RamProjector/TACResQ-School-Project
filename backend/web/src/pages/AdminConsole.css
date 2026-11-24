@@ -137,7 +137,8 @@
   .admin-shell { grid-template-columns:minmax(0,1fr); }
   .admin-sidebar { position:static; height:auto; min-height:0; padding:15px 18px; }
   .admin-sidebar > .brand { padding:0; }
-  .admin-sidebar__label,.admin-nav-item,.admin-sidebar__bottom { display:none; }
+  .admin-sidebar__label,.admin-sidebar__bottom { display:none; }
+  .admin-nav-item { display:inline-flex; align-items:center; justify-content:flex-start; gap:8px; }
   .admin-topbar { position:static; min-height:58px; flex-wrap:wrap; padding:10px 16px; }
   .admin-topbar__right { margin-left:auto; }
   .admin-user { padding-left:10px; }
