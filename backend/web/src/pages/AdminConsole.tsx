@@ -919,13 +919,48 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <button className="admin-refresh" type="button" onClick={resetPreferences} disabled={!preferencesDirty}><RotateCcw size={15} /> Reset defaults</button>
                 <button className="admin-settings-save" type="button" onClick={savePreferences} disabled={!preferencesDirty}><Save size={15} /> Save preferences</button>
               </div>}
-              {settingsPage === "privacy" && <div className="admin-settings-subsection">
-                <p className="admin-eyebrow">PRIVACY & DATA</p>
-                <h3>Privacy information</h3>
-                <p>The Admin portal handles account and operational information. The approved TACResQ privacy notice, controller contact, and retention schedule must be maintained by the project owner before this page can publish legal commitments or offer data-rights actions.</p>
-                <div className="admin-settings-status"><span>Privacy notice</span><strong>Not published in this Admin workspace</strong></div>
-                <div className="admin-settings-status"><span>Data requests</span><strong>Not available as an online workflow</strong></div>
-                <p className="admin-panel__footnote">No deletion, export-of-personal-data, or retention controls are provided here. Do not treat the aggregate Reports CSV as a personal-data request response.</p>
+              {settingsPage === "privacy" && <div className="admin-settings-subsection admin-privacy-workspace">
+                <p className="admin-eyebrow">PRIVACY & DATA GOVERNANCE</p>
+                <h3>Data subject rights and request handling</h3>
+                <p>TACResQ processes account and emergency-response information. The project owner must approve and publish the privacy notice, identify the responsible personal information controller and privacy contact, and approve a retention schedule before this workspace can accept or decide formal requests.</p>
+                <div className="admin-settings-status"><span>Approved privacy notice and contact</span><strong>Not verified in this release</strong></div>
+                <div className="admin-settings-status"><span>Formal request intake and case register</span><strong>Not connected — no online submission or case tracking</strong></div>
+                <div className="admin-settings-status"><span>Retention schedule and disposal evidence</span><strong>Not verified — no retention controls exposed</strong></div>
+                <div className="admin-settings-status"><span>Personal-data export, correction, and erasure</span><strong>Not available as Admin actions</strong></div>
+                <div className="admin-settings-card">
+                  <h4>Rights to recognize</h4>
+                  <ul>
+                    <li><strong>Be informed and access:</strong> explain whether personal data is processed and provide the information the law makes accessible to the data subject.</li>
+                    <li><strong>Rectification:</strong> assess requests to correct inaccurate or incomplete personal data.</li>
+                    <li><strong>Erasure or blocking:</strong> assess the legal grounds and any applicable retention, legal-claim, or emergency-record obligations before action.</li>
+                    <li><strong>Object and data portability:</strong> assess the processing basis and statutory conditions; portability is not an unrestricted dump of every system record.</li>
+                    <li><strong>Complaint and damages:</strong> explain the available complaint route and applicable rights without discouraging escalation.</li>
+                  </ul>
+                  <p className="admin-panel__footnote">These are rights to assess under the Data Privacy Act and its rules, not automatic promises that every request must be granted in full.</p>
+                </div>
+                <div className="admin-settings-card">
+                  <h4>Interim handling procedure — manual, not an online workflow</h4>
+                  <ol>
+                    <li>Direct the requester to the project owner’s currently approved privacy contact or channel. Do not invent or publish an unverified email address.</li>
+                    <li>Record only the minimum details needed in an owner-approved, access-restricted register. Do not paste identity documents, precise incident locations, narratives, or attachments into general Admin notes or chat.</li>
+                    <li>Have the designated privacy lead verify the requester’s identity and, where relevant, authority to act for another person using proportionate evidence.</li>
+                    <li>Classify the right requested, identify the systems and processors involved, and check whether emergency, legal, security, or records-preservation obligations affect the request.</li>
+                    <li>Refer the case to the authorized privacy decision-maker. Record the decision, rationale, actions, recipients notified where applicable, and response date in the approved register.</li>
+                    <li>Provide the requester with the outcome and any applicable explanation or complaint route. Follow the organization’s approved legal deadlines; this page does not calculate or promise a response period.</li>
+                  </ol>
+                </div>
+                <div className="admin-settings-card">
+                  <h4>Release gates for an online request centre</h4>
+                  <ul>
+                    <li>Approve the controller identity, privacy notice, contact channel, request categories, identity-verification procedure, and response-time policy.</li>
+                    <li>Define a restricted case model with actor attribution, status history, reasoned decisions, access controls, and retention/disposal rules.</li>
+                    <li>Map each data category to its source and processor, including Supabase records, Storage objects, Laravel services, notifications, and backups.</li>
+                    <li>Implement and test per-request authorization, secure evidence handling, export redaction, deletion/retention exceptions, and append-only case audit.</li>
+                    <li>Obtain privacy and security review before enabling requester submission or administrative fulfillment controls.</li>
+                  </ul>
+                </div>
+                <p className="admin-panel__footnote">The aggregate Reports CSV is not a personal-data access or portability response. No personal-data export, correction, deletion, blocking, or retention operation is performed from this page.</p>
+                <p className="admin-panel__footnote">Reference: <a href="https://privacy.gov.ph/data-subject-rights/" target="_blank" rel="noreferrer">National Privacy Commission — Rights of Data Subjects</a> · <a href="https://privacy.gov.ph/implementing-rules-regulations-data-privacy-act-%202012/" target="_blank" rel="noreferrer">Implementing Rules and Regulations</a>.</p>
               </div>}
               {settingsPage === "notifications" && <div className="admin-settings-subsection">
                 <p className="admin-eyebrow">NOTIFICATIONS</p>
