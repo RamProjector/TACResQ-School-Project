@@ -168,7 +168,9 @@ for required in (
     assert required in transition_migration, f"Admin account transition is missing: {required}"
 
 for required in (
-    "create or replace function public.api_admin_list_account_lifecycle_events(integer, integer)",
+    "create or replace function public.api_admin_list_account_lifecycle_events(",
+    "p_limit integer default 25",
+    "p_offset integer default 0",
     "private.tacresq_require_admin_mfa()",
     "p_limit > 100",
     "p_offset > 1000000",
