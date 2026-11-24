@@ -171,6 +171,11 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     let active = true;
     setLifecycleLoading(true);
     setLifecycleError(null);
+    // A new page or retry starts a new read. Remove the prior page's rows and
+    // count until this response succeeds so stale lifecycle data is not shown
+    // as though it belongs to the requested page.
+    setLifecycleEvents([]);
+    setLifecycleTotal(0);
     setLifecycleLastCheckedAt(null);
     void getAdminAccountLifecycleEvents(lifecyclePageSize, lifecyclePage * lifecyclePageSize).then((result) => {
       if (!active) return;
