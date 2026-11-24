@@ -1266,3 +1266,29 @@
 @media (max-width:760px) {
   .admin-analytics-data { margin-inline:14px; }
 }
+
+
+/* Keep long authenticator labels readable in narrow Admin workspaces. */
+.admin-security-status__factor-list li > span:last-child {
+  overflow-wrap:anywhere;
+}
+.admin-security-status__factor-list li > span:last-child strong {
+  overflow-wrap:anywhere;
+}
+.admin-security-status__factor-list li > .admin-security-status__actions,
+.admin-security-status__factor-list li > button {
+  flex:0 0 auto;
+}
+@media (max-width:560px) {
+  .admin-security-status__factor-list li {
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+  .admin-security-status__factor-list li > span:last-child {
+    flex:1 1 calc(100% - 44px);
+  }
+  .admin-security-status__factor-list li > .admin-security-status__actions,
+  .admin-security-status__factor-list li > button {
+    margin-left:40px;
+  }
+}
