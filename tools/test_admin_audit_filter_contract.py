@@ -58,3 +58,6 @@ assert "setLifecycleLastCheckedAt(null);" in AUDIT_PAGE
 assert "setLifecycleLastCheckedAt(new Date().toISOString());" in AUDIT_PAGE
 assert 'Updated " + formatDate(lifecycleLastCheckedAt) + " (Asia/Manila)' in AUDIT_PAGE
 assert "setLifecycleRefreshVersion((current) => current + 1)" in AUDIT_PAGE
+
+assert ".audit-page__lifecycle .audit-page__heading > span" in ADMIN_CSS
+assert "text-align:left;" in ADMIN_CSS
