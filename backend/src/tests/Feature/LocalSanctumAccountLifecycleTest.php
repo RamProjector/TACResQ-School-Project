@@ -658,32 +658,23 @@ class LocalSanctumAccountLifecycleTest extends TestCase
 
     public function test_lifecycle_recorder_rejects_calls_outside_a_transaction(): void
     {
-        $actor = $this->createLocalUser();
-        $target = User::create([
-            'name' => 'Lifecycle No Transaction Target',
-            'email' => 'lifecycle-no-transaction@example.test',
-            'password' => 'synthetic-test-password',
-            'role' => 'requester',
-        ]);
+        // RefreshDatabase wraps every feature test in a transaction, so use a
+        // focused connection double to exercise the recorder's no-transaction
+        // guard rather than accidentally inheriting the test harness transaction.
+        $connection = \Mockery::mock();
+        $connection->shouldReceive('transactionLevel')->once()->andReturn(0);
+        $resolver = \Mockery::mock(\Illuminate\Database\ConnectionResolverInterface::class);
+        $resolver->shouldReceive('connection')->once()->andReturn($connection);
 
-        // RefreshDatabase wraps each test in a transaction. Temporarily end
-        // that wrapper so this contract exercises the recorder's real
-        // out-of-transaction guard, then restore it for trait teardown.
-        $connection = DB::connection();
-        $connection->rollBack();
-        try {
-            $this->expectException(\LogicException::class);
-            app(\App\Services\LocalAccountLifecycleRecorder::class)->record(
-                $actor->id,
-                $target->id,
-                'suspended',
-                'Valid reason',
-                'active',
-                'suspended',
-            );
-        } finally {
-            $connection->beginTransaction();
-        }
+        $this->expectException(\LogicException::class);
+        (new \App\Services\LocalAccountLifecycleRecorder($resolver))->record(
+            10,
+            20,
+            'suspended',
+            'Valid reason',
+            'active',
+            'suspended',
+        );
     }
 
     public function test_lifecycle_recorder_rejects_non_positive_actor_and_target_ids(): void
