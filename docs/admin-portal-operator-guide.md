@@ -130,3 +130,8 @@ The Activity Log refresh timestamp is cleared when a new filter query begins, wh
 ## Overview dependency-check freshness
 
 When an Overview dependency check starts, the previous three-probe snapshot and any prior diagnostic error are cleared. The page shows a checking state until the current probe completes; a failed probe shows an unavailable message instead of retaining an older reachable/unavailable result as though it were current. The timestamp shown beside the dependency summary belongs to the successful probe response. This remains a reachability check only and does not establish emergency-service readiness.
+
+
+## Mobile Admin navigation
+
+The section navigation remains available on narrow screens as a horizontally scrollable row beneath the Admin brand. Swipe or horizontally scroll the navigation row to reach sections that do not fit on screen, then select the section. The active section is identified visually and with `aria-current="page"`. The mobile layout hides the desktop-only sidebar footer, not the section controls.
