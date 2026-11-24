@@ -29,6 +29,7 @@ import AuditLogsPage from "@/pages/AuditLogsPage";
 import AdminSecurityStatus from "@/components/AdminSecurityStatus";
 import {
   getAdminAnalyticsSummary,
+  getAdminAccountLifecycleEvents,
   getAdminDependencyHealth,
   getAdminUsersPage,
   getMyProfile,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/supabase";
 import type {
   AdminAnalyticsSummary,
+  AdminAccountLifecycleEvent,
   AdminDependencyHealth,
   AdminManagedRole,
   AdminUser,
@@ -225,6 +227,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [roleToast, setRoleToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [lifecycleEvents, setLifecycleEvents] = useState<AdminAccountLifecycleEvent[]>([]);
+  const [lifecycleHistoryError, setLifecycleHistoryError] = useState<string | null>(null);
   const roleToastTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -477,6 +481,15 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     }
     // Run dependency probes independently from the account-directory RPC.
     // A user-list failure must not suppress system-health diagnostics.
+    if (activeSection === "users") {
+      setLifecycleEvents([]);
+      setLifecycleHistoryError(null);
+      void getAdminAccountLifecycleEvents(10, 0)
+        .then((history) => { if (requestId === requestVersion.current) setLifecycleEvents(history.events); })
+        .catch((cause: unknown) => {
+          if (requestId === requestVersion.current) setLifecycleHistoryError(cause instanceof Error ? cause.message : "Account lifecycle history is unavailable.");
+        });
+    }
     if (activeSection === "overview") {
       setDependencyHealth(null);
       setDependencyHealthError(null);
@@ -935,7 +948,35 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </div>
             <p className="admin-table-scroll-hint">On smaller screens, scroll the account table horizontally to view every column.</p>
             <nav className="admin-pagination" aria-label="User directory pagination" aria-controls="admin-account-directory-table"><span role="status" aria-live="polite">{totalUsers === 0 ? "Showing 0 accounts" : `Showing ${page * pageSize + 1}–${Math.min((page + 1) * pageSize, totalUsers)} of ${totalUsers.toLocaleString()} accounts`} <span aria-hidden="true">·</span> Page {totalUsers === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(totalUsers / pageSize))}</span><div><button type="button" aria-label="Previous page of accounts" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || refreshing || directoryFilterPending || Boolean(directoryError)}>Previous</button><button type="button" aria-label="Next page of accounts" onClick={() => setPage((current) => current + 1)} disabled={refreshing || directoryFilterPending || Boolean(directoryError) || (page + 1) * pageSize >= totalUsers}>Next</button></div></nav>
-            <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident. Duty status describes a responder or driver’s operational availability; it is not an account-enabled, suspended, or sign-in status. This directory does not currently expose account suspension state.</p>
+            <section className="admin-panel admin-lifecycle-history" aria-labelledby="admin-lifecycle-history-title">
+              <div className="admin-panel__heading">
+                <div><p className="admin-eyebrow">ACCOUNT GOVERNANCE</p><h2 id="admin-lifecycle-history-title">Recent suspension activity</h2></div>
+                <span className="admin-count">Latest 10 events</span>
+              </div>
+              {lifecycleHistoryError ? (
+                <p className="admin-panel__footnote" role="status">{lifecycleHistoryError}</p>
+              ) : lifecycleEvents.length === 0 ? (
+                <p className="admin-panel__footnote">No suspension or reactivation events have been recorded yet.</p>
+              ) : (
+                <div className="admin-table-wrap">
+                  <table className="admin-table" aria-label="Recent account suspension and reactivation history">
+                    <thead><tr><th scope="col">Action</th><th scope="col">Account</th><th scope="col">Administrator</th><th scope="col">Reason</th><th scope="col">Recorded</th></tr></thead>
+                    <tbody>
+                      {lifecycleEvents.map((event) => (
+                        <tr key={event.id}>
+                          <td><span className={"admin-account-status admin-account-status--" + (event.action === "account_suspended" ? "suspended" : "active")}>{event.action === "account_suspended" ? "Suspended" : "Reactivated"}</span></td>
+                          <td>{event.target_name} <small>#{event.target_profile_id}</small></td>
+                          <td>{event.actor_identity}</td>
+                          <td className="admin-audit-reason">{event.reason}</td>
+                          <td className="admin-date">{formatDate(event.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+            <p className="admin-panel__footnote">Admin accounts cannot be created, promoted, demoted, or edited here. Initial administrator provisioning is a trusted-operator task. Role changes for field units are blocked while they are assigned to an active incident. Account status is separate from responder or driver duty status. Suspend and Reactivate actions require an auditable reason and are enforced by the protected database transition. Recent account lifecycle changes are listed below.</p>
           </section>
 
           {activeSection === "audit" && <AuditLogsPage profile={profile} />}
