@@ -205,9 +205,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [analyticsDays, setAnalyticsDays] = useState<7 | 30 | 90>(30);
   const [analyticsRefreshVersion, setAnalyticsRefreshVersion] = useState(0);
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<10 | 25 | 50 | 100>(25);
   const [totalUsers, setTotalUsers] = useState(0);
   const [directoryLoadedAt, setDirectoryLoadedAt] = useState<string | null>(null);
-  const pageSize = 25;
   const [target, setTarget] = useState<AdminUser | null>(null);
   const [nextRole, setNextRole] = useState<AdminManagedRole>("requester");
   const [reason, setReason] = useState("");
@@ -571,6 +571,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-toolbar">
               <label className="admin-search"><Search size={16} aria-hidden="true" /><input id="admin-directory-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder="Search name, email or profile ID" aria-label="Search users" aria-controls="admin-account-directory-table" aria-describedby="admin-directory-status" /></label>
               <label className="admin-role-filter"><span>Role</span><select id="admin-directory-role-filter" value={roleFilter} onChange={(event) => { setPage(0); setRoleFilter(event.target.value as RoleFilter); }} aria-label="Filter users by role" aria-controls="admin-account-directory-table" aria-describedby="admin-directory-status"><option value="all">All roles</option><option value="requester">Requester</option><option value="responder">Responder</option><option value="driver">Driver</option><option value="dispatcher">Dispatcher</option><option value="admin">Admin</option></select></label>
+              <label className="admin-page-size"><span>Rows</span><select id="admin-directory-page-size" value={pageSize} onChange={(event) => { setPage(0); setPageSize(Number(event.target.value) as 10 | 25 | 50 | 100); }} aria-label="Accounts per page" aria-controls="admin-account-directory-table"><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
               {hasDirectoryFilters && <button className="admin-filter-reset" type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setRoleFilter("all"); setPage(0); }} disabled={refreshing}>Clear filters</button>}
             </div>
             <p className="admin-directory-status" id="admin-directory-status" role="status" aria-live="polite">{directoryFilterPending ? "Applying search…" : refreshing ? "Updating account results…" : directoryError ? "Account results could not be retrieved. Use Refresh data to try again." : hasDirectoryFilters ? "Showing " + totalUsers.toLocaleString() + " matching accounts. Search and role filters are applied on the server." : "Showing all accounts. Search and role filters are applied on the server."}{directoryLoadedAt && !directoryError ? " Last successful retrieval: " + formatManilaDateTime(directoryLoadedAt) + " (Asia/Manila)." : ""}</p>
