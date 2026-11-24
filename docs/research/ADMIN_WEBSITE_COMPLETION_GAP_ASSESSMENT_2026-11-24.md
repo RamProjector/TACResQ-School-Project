@@ -358,3 +358,9 @@ Added a first-class Admin **Attachment storage** section that summarizes private
 The workspace identifies the absence of live bucket monitoring, current object inventory, byte-integrity verification, approved retention policy, and automated cleanup. It links the report-only aggregate inventory SQL and the existing lifecycle/reservation/backup procedures. The SQL inventory does not expose object paths or contents and does not verify object bytes. Real HTTP Storage upload/download and Android acceptance remain outstanding.
 
 Added responsive styling, a Help Centre entry, access-review boundary, source-contract test, CI step, and operator-guide documentation. The workspace performs no Storage API calls, object listing, media download, deletion, retention change, or provider configuration. No production Storage policy, object, or bucket was modified.
+
+## 15. Follow-up implementation — Account suspension release-gate clarity (2026-11-24)
+
+The Security workspace now states the exact account-suspension boundary: the database transition function exists in the stacked foundation branch, but EXECUTE remains revoked from client roles. Same-valid-JWT authorization coverage, migration/deployment verification, session-revocation behavior, and the Admin UI workflow remain incomplete. The portal continues to expose no suspend/reactivate action.
+
+This is intentional. The security design explicitly prohibits enabling the transition until the remaining authorization surfaces and regression matrix are closed. Adding a UI button or assuming the existence of a SECURITY DEFINER function makes no account safer and could falsely imply that suspension is enforced. Updated the source-contract test and operator guide to preserve this release gate. No RPC grant, schema, production account, or session was changed.
