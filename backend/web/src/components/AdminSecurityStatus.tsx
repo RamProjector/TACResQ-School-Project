@@ -84,6 +84,7 @@ export default function AdminSecurityStatus() {
 
   const verifiedFactors = snapshot?.factors.filter((factor) => factor.status === "verified") ?? [];
   const pendingFactors = snapshot?.factors.filter((factor) => factor.status !== "verified") ?? [];
+  const canManageFactors = snapshot?.currentLevel === "aal2" && snapshot.usedTotp === true;
 
   async function addBackupAuthenticator() {
     if (busy || enrollment || !snapshot || snapshot.factors.length >= 10) return;
@@ -292,16 +293,17 @@ export default function AdminSecurityStatus() {
                     {confirmRemoveFactorId === factor.id ? (
                       <span className="admin-security-status__actions">
                         <button className="admin-refresh" type="button" onClick={() => setConfirmRemoveFactorId(null)} disabled={busy}>Keep</button>
-                        <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { void removeAuthenticatorFactor(factor); }} disabled={busy || (factor.status === "verified" && verifiedFactors.length <= 1)}>{busy ? "Removing…" : "Confirm remove"}</button>
+                        <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { void removeAuthenticatorFactor(factor); }} disabled={busy || !canManageFactors || (factor.status === "verified" && verifiedFactors.length <= 1)}>{busy ? "Removing…" : "Confirm remove"}</button>
                       </span>
                     ) : (
-                      <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { setActionError(null); setConfirmRemoveFactorId(factor.id); }} disabled={busy || (factor.status === "verified" && verifiedFactors.length <= 1)} title={factor.status === "verified" && verifiedFactors.length <= 1 ? "Add and verify a backup authenticator before removing this factor" : "Remove this authenticator"}>{factor.status === "verified" && verifiedFactors.length <= 1 ? "Primary factor locked" : "Remove"}</button>
+                      <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { setActionError(null); setConfirmRemoveFactorId(factor.id); }} disabled={busy || !canManageFactors || (factor.status === "verified" && verifiedFactors.length <= 1)} title={!canManageFactors ? "Verify an authenticator in this session before managing factors" : factor.status === "verified" && verifiedFactors.length <= 1 ? "Add and verify a backup authenticator before removing this factor" : "Remove this authenticator"}>{factor.status === "verified" && verifiedFactors.length <= 1 ? "Primary factor locked" : "Remove"}</button>
                     )}
                   </li>
                 ))}
               </ul>
             )}
             {pendingFactors.length > 0 && <p className="admin-security-status__note">{pendingFactors.length} pending factor(s) are not accepted for privileged operations.</p>}
+            {!canManageFactors && <p className="admin-security-status__note" role="status">Verify a registered authenticator in this session to add or remove factors. Factor-management actions remain unavailable until the session reaches TOTP-verified AAL2.</p>}
           </section>
           <section className="admin-security-status__revocation" aria-labelledby="admin-security-revocation-title">
             <div>
@@ -328,7 +330,7 @@ export default function AdminSecurityStatus() {
               <p>Add a second authenticator on a separate device so access does not depend on one phone. TACResQ uses Supabase's supported TOTP factor flow; recovery codes are not assumed to be enabled for project users.</p>
             </div>
             {!enrollment && (
-              <button className="admin-refresh" type="button" onClick={() => { void addBackupAuthenticator(); }} disabled={busy || snapshot.factors.length >= 10}>
+              <button className="admin-refresh" type="button" onClick={() => { void addBackupAuthenticator(); }} disabled={busy || !canManageFactors || snapshot.factors.length >= 10}>
                 Add backup authenticator
               </button>
             )}
