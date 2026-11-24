@@ -371,3 +371,34 @@ assert "account_status" not in legacy_create_source[
 ], "Compatibility create source unexpectedly changed; review its lifecycle path."
 
 assert "legacy and current incident creation paths must be covered" in requester_edit_runtime
+
+
+# Claimability and responder-coordinate reads are direct callable boundaries.
+# Keep their new lifecycle migration tied to the clean-replay catalog assertions.
+claimability_reader_migration = (ROOT / "supabase/migrations/20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "create or replace function public.api_set_incident_claimable",
+    "v_actor.account_status is distinct from 'active'",
+    "for update",
+    "incident_claimability_logs",
+    "only active dispatchers can toggle field claiming",
+    "alter function private.tacresq_active_responder_locations()",
+    "tacresq_active_responder_locations_internal",
+    "create or replace function private.tacresq_active_responder_locations()",
+    "account_status = 'active'",
+    "for share",
+    "only active dispatchers can view responder locations",
+    "revoke all on function private.tacresq_active_responder_locations_internal()",
+):
+    assert required in claimability_reader_migration, f"Claimability/GPS lifecycle guard is missing: {required}"
+
+foundation_replay = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "dispatcher_claimability_lifecycle_contract",
+    "v_actor.account_status is distinct from ''active''",
+    "incident_claimability_logs",
+    "active_responder_location_read_contract",
+    "tacresq_active_responder_locations_internal",
+    "has_function_privilege('authenticated', internal_oid, 'execute')",
+):
+    assert required in foundation_replay, f"Claimability/GPS replay contract is missing: {required}"
