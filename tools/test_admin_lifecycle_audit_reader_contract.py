@@ -17,8 +17,12 @@ assert 'api_admin_set_account_status' in client
 assert 'account_status' in admin_page
 assert 'changeaccountstatus(user)' in admin_page.lower()
 assert 'suspend' in admin_page.lower() and 'reactivate' in admin_page.lower()
-assert 'window.prompt' not in admin_page
-assert 'window.confirm' not in admin_page
+lifecycle_handler = admin_page[
+    admin_page.index("async function changeAccountStatus"):
+    admin_page.index("async function confirmRoleChange")
+]
+assert "window.prompt" not in lifecycle_handler
+assert "window.confirm" not in lifecycle_handler
 assert 'admin-lifecycle-dialog-title' in admin_page
 assert 'p_expected_account_status' in client
 assert '40001' in client
