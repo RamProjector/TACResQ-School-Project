@@ -203,7 +203,22 @@ export default function AdminSecurityStatus() {
       if (aal.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("Verify your authenticator again before removing a factor.");
       }
-      const { error: unenrollError } = await auth.mfa.unenroll({ factorId: factor.id });
+      // Re-read factor inventory immediately before removal. The rendered
+      // snapshot may be stale if another browser removed a backup factor.
+      const { data: latestFactors, error: factorsError } = await auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
+      const currentTotpFactors = latestFactors.all.filter((item) => item.factor_type === "totp");
+      const currentTarget = currentTotpFactors.find((item) => item.id === factor.id);
+      if (!currentTarget) {
+        setConfirmRemoveFactorId(null);
+        throw new Error("This authenticator is no longer registered. Refresh the security status.");
+      }
+      const currentVerifiedCount = currentTotpFactors.filter((item) => item.status === "verified").length;
+      if (currentTarget.status === "verified" && currentVerifiedCount <= 1) {
+        setConfirmRemoveFactorId(null);
+        throw new Error("Keep at least one verified authenticator registered for administrator access.");
+      }
+      const { error: unenrollError } = await auth.mfa.unenroll({ factorId: currentTarget.id });
       if (unenrollError) throw unenrollError;
       if (pendingEnrollmentId.current === factor.id) pendingEnrollmentId.current = null;
       if (enrollment?.factorId === factor.id) {
