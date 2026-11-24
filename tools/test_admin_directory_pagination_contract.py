@@ -13,6 +13,9 @@ def test_directory_page_size_is_user_configurable():
     assert "setPage(0); setPageSize(Number(event.target.value)" in source
     assert "getAdminUsersPage(pageSize, page * pageSize" in source
     assert "}, [activeSection, page, pageSize, debouncedQuery, roleFilter]);" in source
+    assert "up to {pageSize} profiles" in source
+    assert "Current directory page:" in source
+    assert "up to 25 profiles" not in source
 
 
 def test_directory_page_size_control_has_visible_keyboard_focus():
