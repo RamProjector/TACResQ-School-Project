@@ -217,3 +217,19 @@ for migration, expected in (
 
 assert "has_function_privilege('anon', routine_oid, 'execute')" in foundation_replay
 print("Expanded account-lifecycle callable replay source contract passed.")
+
+# Anonymous-callable routines are a distinct exposure surface. The catalog
+# must report effective anon EXECUTE (including inherited/PUBLIC grants) for
+# both exposed public RPCs and private routines, with owner and execution mode.
+for required in (
+    "anon-callable public routines",
+    "anon-callable private routines",
+    "has_function_privilege('anon', p.oid, 'execute')",
+    "owner_role.rolname as routine_owner",
+    "p.prokind in ('f', 'p')",
+    "has_function_privilege('authenticated', p.oid, 'execute') as authenticated_execute",
+):
+    assert required in inventory, f"Anonymous callable inventory is incomplete: {required}"
+
+assert inventory.count("has_function_privilege('anon', p.oid, 'execute')") >= 2
+print("Anonymous callable inventory source contract passed.")
