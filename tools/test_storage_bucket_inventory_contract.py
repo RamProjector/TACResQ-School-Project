@@ -64,6 +64,12 @@ assert "pol.polcmd = 'a'" in inventory
 assert "pol.polcmd = 'r'" in inventory
 assert "pol.polpermissive is true" in inventory
 assert "pol.polroles = array['authenticated'::regrole::oid]" in inventory
+assert "unexpected_client_policies" in inventory
+assert "pol.polpermissive is true" in inventory
+assert "pol.polcmd in ('*', 'r', 'a', 'w')" in inventory
+assert "0 = any(pol.polroles)" in inventory
+assert "'authenticated'::regrole::oid = any(pol.polroles)" in inventory
+assert "unreviewed permissive storage client policy(ies) detected" in inventory
 " in inventory
 assert "then (o.metadata->>'size')::bigint" in inventory
 assert "else 0" in inventory
