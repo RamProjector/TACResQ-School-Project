@@ -172,7 +172,7 @@ assert "[0, 20]" in feature and "[-1, 20]" in feature and "[10, 0]" in feature a
 assert "test_lifecycle_recorder_rejects_reasons_longer_than_database_limit" in feature
 assert "A valid, distinct actor and target are required." in recorder
 assert "mb_strlen($reason) > 500" in recorder
-assert "DB::connection()->transactionLevel() < 1" in recorder
+assert "$this->database->connection()->transactionLevel() < 1" in recorder
 
 # PostgreSQL rejection tests use nested transactions/savepoints so expected trigger
 # exceptions do not poison Laravel's surrounding RefreshDatabase transaction.
