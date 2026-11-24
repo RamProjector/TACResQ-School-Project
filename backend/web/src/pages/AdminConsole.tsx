@@ -112,6 +112,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [error, setError] = useState<string | null>(null);
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [roleToast, setRoleToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const roleToastTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!roleToast) return;
+    if (roleToastTimer.current !== null) window.clearTimeout(roleToastTimer.current);
+    roleToastTimer.current = window.setTimeout(() => setRoleToast(null), 5000);
+    return () => {
+      if (roleToastTimer.current !== null) window.clearTimeout(roleToastTimer.current);
+      roleToastTimer.current = null;
+    };
+  }, [roleToast]);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
