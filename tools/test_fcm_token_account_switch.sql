@@ -8,6 +8,8 @@ DECLARE
   function_settings text[];
   unregister_oid regprocedure := to_regprocedure('public.api_unregister_fcm_token(text)');
   unregister_settings text[];
+  delivery_cleanup_oid regprocedure := to_regprocedure('public.api_unregister_fcm_token_for_delivery(bigint,text)');
+  delivery_cleanup_settings text[];
 BEGIN
   IF register_oid IS NULL THEN
     RAISE EXCEPTION 'FCM registration RPC is missing';
@@ -18,6 +20,16 @@ BEGIN
   IF NOT has_function_privilege('authenticated', unregister_oid, 'EXECUTE')
      OR has_function_privilege('anon', unregister_oid, 'EXECUTE') THEN
     RAISE EXCEPTION 'FCM unregistration RPC must be authenticated-only';
+  END IF;
+  IF delivery_cleanup_oid IS NULL
+     OR NOT has_function_privilege('service_role', delivery_cleanup_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', delivery_cleanup_oid, 'EXECUTE')
+     OR has_function_privilege('anon', delivery_cleanup_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'FCM delivery-token cleanup must be executable only by service_role';
+  END IF;
+  SELECT proconfig INTO delivery_cleanup_settings FROM pg_proc WHERE oid = delivery_cleanup_oid;
+  IF NOT (coalesce(delivery_cleanup_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'FCM delivery-token cleanup must pin search_path to pg_catalog';
   END IF;
   IF has_table_privilege('authenticated', 'public.fcm_tokens', 'DELETE')
      OR has_table_privilege('anon', 'public.fcm_tokens', 'DELETE') THEN
