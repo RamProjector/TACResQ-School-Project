@@ -114,6 +114,10 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
 
   useEffect(() => {
     let active = true;
+    // Clipboard feedback belongs to the currently displayed investigation
+    // result. Clear it as soon as filters or pagination change.
+    setCopiedEventId(null);
+    setCopyError(null);
     if (dateRangeError) {
       setEvents([]);
       setTotal(0);
