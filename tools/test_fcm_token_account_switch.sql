@@ -119,13 +119,19 @@ DO $suspended_direct_update_denied$
 DECLARE
   changed_count bigint;
 BEGIN
-  UPDATE public.fcm_tokens
-     SET updated_at = statement_timestamp()
-   WHERE token = 'fcm-installation-token-account-switch-000000000201';
-  GET DIAGNOSTICS changed_count = ROW_COUNT;
-  IF changed_count <> 0 THEN
-    RAISE EXCEPTION 'Suspended account unexpectedly updated an FCM token row';
-  END IF;
+  BEGIN
+    UPDATE public.fcm_tokens
+       SET updated_at = statement_timestamp()
+     WHERE token = 'fcm-installation-token-account-switch-000000000201';
+    GET DIAGNOSTICS changed_count = ROW_COUNT;
+    IF changed_count <> 0 THEN
+      RAISE EXCEPTION 'Suspended account unexpectedly updated an FCM token row';
+    END IF;
+  EXCEPTION WHEN insufficient_privilege THEN
+    -- No UPDATE grant is also a valid denial; do not require an RLS zero-row
+    -- result when the table privilege boundary rejects the statement first.
+    NULL;
+  END;
 END;
 $suspended_direct_update_denied$;
 
