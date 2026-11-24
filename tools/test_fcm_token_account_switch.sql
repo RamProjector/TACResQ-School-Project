@@ -221,6 +221,9 @@ RESET ROLE;
 
 DO $suspended_token_cleanup_assertion$
 BEGIN
+  IF current_setting('tacresq.allow_suspended_fcm_self_cleanup', true) = 'on' THEN
+    RAISE EXCEPTION 'FCM cleanup transaction marker must be cleared after the scoped DELETE';
+  END IF;
   IF EXISTS (
     SELECT 1 FROM public.fcm_tokens
      WHERE token = 'fcm-installation-token-account-switch-000000000201'
