@@ -1439,3 +1439,16 @@
   outline:3px solid rgba(243,106,67,.5);
   outline-offset:2px;
 }
+
+.audit-page__lifecycle .audit-page__heading > span {
+  flex:1;
+  min-width:0;
+  text-align:right;
+  white-space:normal;
+  line-height:1.5;
+}
+@media (max-width:520px) {
+  .audit-page__lifecycle .audit-page__heading > span {
+    text-align:left;
+  }
+}
