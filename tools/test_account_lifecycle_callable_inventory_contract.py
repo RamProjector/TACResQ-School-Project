@@ -122,7 +122,7 @@ for item in (
     "public.api_assign_incident_team(bigint,bigint[])",
     "private.tacresq_release_incident_assignment(bigint,bigint)",
     "private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)",
-    "tacresq_assign_incident_team_internal",
+    "tacresq_assign_incident_team_guarded",
     "tacresq_release_incident_assignment_internal",
     "tacresq_record_location_v2_internal",
 ):
