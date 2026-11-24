@@ -52,3 +52,9 @@ The database transition function for suspension/reactivation remains revoked fro
 - The backup authenticator enrollment screen still requires a six-digit verification code before the factor is considered verified.
 - The daily request chart now has an expandable data table with exact date and count values for users who need precise figures or cannot use the visual chart.
 - The Security and Reports sections continue to use the existing Supabase Auth and protected aggregate-report interfaces; these UI refinements do not establish deployment health or broaden data access.
+
+## Account directory pagination
+
+The User Management directory defaults to 25 accounts per page. Administrators can choose 10, 25, 50, or 100 rows to suit the screen size and review task. Changing the page size returns the directory to page one so the displayed range remains valid. The selected page size is a view preference for the current console session; it does not change server-side retention or account records.
+
+The directory still applies search and role filters on the server, and pagination uses the same bounded directory endpoint. The control does not expose account suspension, administrator provisioning, or any additional account mutation.
