@@ -113,3 +113,9 @@ Migration `20261124090000_account_lifecycle_assignment_release_guard.sql` preser
 The guard prevents a suspended dispatcher with an unexpired JWT from releasing another responder/driver or changing assignment-derived duty availability through this private callable. Existing release behavior remains inside the preserved implementation rather than being reimplemented in the wrapper.
 
 The source and replay contracts check the active-state predicate, lock, and internal grant revocation. They do not replace execution of the disposable PostgreSQL same-JWT matrix.
+
+## Follow-up implementation — guarded responder GPS writer
+
+Migration `20261124100000_account_lifecycle_location_writer_guard.sql` moves the existing private GPS writer implementation behind a new guarded wrapper. The wrapper requires an active responder or driver and holds a `FOR SHARE` profile lock before delegating to the existing coordinate validation, assignment-state checks, timestamp bounds, and rate limiter. The moved internal writer is no longer directly executable by client roles.
+
+This retains the established GPS validation and throttling behavior while making account lifecycle state an explicit authorization prerequisite. The same-valid-JWT test matrix still needs to exercise both allowed active writes and denied suspended writes against disposable PostgreSQL; source assertions alone do not prove runtime behavior.
