@@ -92,7 +92,8 @@ jobs:
           if-no-files-found: error
 
   stress:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    # Run the bounded, disposable local-stack smoke test on every PR as well as scheduled/manual QA.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     name: Local stack stress smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 25
