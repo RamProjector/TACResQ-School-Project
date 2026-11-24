@@ -1001,3 +1001,32 @@ BEGIN
   END IF;
 END;
 $dispatcher_read_catalog_contract$;
+
+
+-- Dispatch progress is a private SECURITY DEFINER routine invoked through
+-- existing trusted call paths. Its own body must re-check and share-lock the
+-- active dispatcher profile rather than relying on caller-side authorization.
+DO $dispatch_progress_catalog_contract$
+DECLARE
+  routine_oid oid := to_regprocedure('private.tacresq_dispatch_update_incident_status(bigint,text)');
+  routine_source text;
+  routine_settings text[];
+BEGIN
+  IF routine_oid IS NULL THEN
+    RAISE EXCEPTION 'Dispatcher progress routine is missing';
+  END IF;
+  SELECT p.prosrc, p.proconfig INTO routine_source, routine_settings
+    FROM pg_catalog.pg_proc p WHERE p.oid = routine_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = routine_oid)
+     OR NOT (coalesce(routine_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR routine_source NOT ILIKE '%account_status = ''active''%'
+     OR routine_source NOT ILIKE '%FOR SHARE%'
+     OR routine_source NOT ILIKE '%Only active dispatchers can update incident progress%' THEN
+    RAISE EXCEPTION 'Dispatch progress must re-check an active dispatcher under a pinned share-locking definer';
+  END IF;
+  IF NOT has_function_privilege('authenticated', routine_oid, 'EXECUTE')
+     OR has_function_privilege('anon', routine_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Dispatch progress must be authenticated-only';
+  END IF;
+END;
+$dispatch_progress_catalog_contract$;
