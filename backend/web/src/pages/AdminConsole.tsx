@@ -5,6 +5,7 @@ import {
   BarChart3,
   Download,
   History,
+  HardDrive,
   LayoutDashboard,
   ShieldAlert,
   ArrowDownUp,
@@ -49,7 +50,7 @@ type AdminConsoleProps = {
 };
 
 type RoleFilter = "all" | AdminManagedRole | "admin";
-type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "settings" | "help";
+type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "settings" | "help";
 
 type AdminSettingsPage = "general" | "accessibility" | "notifications" | "security" | "privacy";
 
@@ -98,6 +99,7 @@ const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashb
   { id: "security", label: "Security", icon: ShieldAlert },
   { id: "analytics", label: "Reports", icon: BarChart3 },
   { id: "audit", label: "Activity log", icon: History },
+  { id: "recovery", label: "Recovery & continuity", icon: HardDrive },
   { id: "settings", label: "Settings", icon: Settings },
   { id: "help", label: "Help & about", icon: BookOpen },
 ];
@@ -111,7 +113,7 @@ function resolveSettingsPage(search: string): AdminSettingsPage {
 function resolveAdminSection(search: string): AdminSection {
   const route = new URLSearchParams(search).get("adminPage") ?? "overview";
   if (route === "audit-logs") return "audit";
-  return ["overview", "users", "security", "analytics", "settings", "help"].includes(route) ? route as AdminSection : "overview";
+  return ["overview", "users", "security", "analytics", "recovery", "settings", "help"].includes(route) ? route as AdminSection : "overview";
 }
 
 function displayRole(role: string) {
@@ -675,7 +677,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-nav-entry" key={id}>
               {index === 0 && <div className="admin-navigation__group-label">WORKSPACE</div>}
               {index === 1 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">GOVERNANCE</div>}
-              {index === 5 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">PREFERENCES &amp; SUPPORT</div>}
+              {index === 5 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">RESILIENCE</div>}
+              {index === 6 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">PREFERENCES &amp; SUPPORT</div>}
               <button type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigateToSection(id)}>
                 <Icon size={17} aria-hidden="true" /><span>{label}</span>
               </button>
@@ -708,7 +711,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <div>
                 <p className="admin-eyebrow">ADMINISTRATION</p>
                 <h1 ref={adminHeadingRef} tabIndex={-1}>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</h1>
-                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : activeSection === "recovery" ? "Review documented backup and restore procedures, evidence requirements, and recovery capabilities that remain unverified." : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
               </div>
             </div>
             {(activeSection === "overview" || activeSection === "users") && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
