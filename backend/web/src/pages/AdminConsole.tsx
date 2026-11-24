@@ -600,14 +600,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
       {target && (
         <div className="admin-modal-scrim" ref={modalRoot} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setTarget(null); }}>
-          <section className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-role-dialog-title">
+          <section className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-role-dialog-title" aria-describedby="admin-role-dialog-description admin-role-dialog-guidance">
             <button className="admin-modal__close" type="button" aria-label="Close role change" onClick={() => setTarget(null)} disabled={saving}><X size={18} /></button>
             <div className="admin-modal__icon"><ShieldCheck size={22} /></div>
             <p className="admin-eyebrow">PRIVILEGED ACTION</p>
             <h2 id="admin-role-dialog-title">Change account role</h2>
-            <p className="admin-modal__description">You are changing access for <strong>{target.name}</strong> ({target.email}). Review the role transition carefully. The database enforces authorization and records the reason in the audit log.</p>
+            <p className="admin-modal__description" id="admin-role-dialog-description">You are changing access for <strong>{target.name}</strong> ({target.email}). Review the role transition carefully. The database enforces authorization and records the reason in the audit log.</p>
             <div className="admin-role-transition" aria-live="polite" aria-atomic="true"><div><span>Current role</span><strong>{displayRole(target.role)}</strong></div><span className="admin-role-transition__arrow" aria-hidden="true">→</span><div><span>New role</span><strong>{displayRole(nextRole)}</strong></div></div>
-            <p className="admin-role-warning">Changing a role changes the account’s permissions in TACResQ. Confirm the intended access level with the responsible operator before saving.</p>
+            <p className="admin-role-warning" id="admin-role-dialog-guidance">Changing a role changes the account’s permissions in TACResQ. Confirm the intended access level with the responsible operator before saving.</p>
             {error && <p className="admin-modal__error" role="alert">{error}</p>}
             <label className="admin-form-label" htmlFor="admin-new-role">New role</label>
             <select id="admin-new-role" value={nextRole} onChange={(event) => setNextRole(event.target.value as AdminManagedRole)} disabled={saving}>
