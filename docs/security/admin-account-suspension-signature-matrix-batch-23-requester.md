@@ -20,3 +20,10 @@
 5. No suspension test may silently change assignment, duty status, or historical incident rows.
 
 **Status:** Source mapping only. This document does not claim that these tests have run.
+## Legacy creation compatibility RPCs
+
+The older signatures `api_create_incident(text,text,double precision,double precision,real)` and `api_create_incident_v2(text,text,double precision,double precision,real,text,timestamptz)` remain in the compatibility surface. Their source bodies are SECURITY INVOKER and INSERT into `public.incidents`; they predate the explicit active-account check in v4.
+
+Migration `20261123120000_account_lifecycle_write_guard_triggers.sql` installs the private active-account write trigger across public tables, including `public.incidents`. The replay contract now asserts that the incidents table has the enabled trigger bound to `private.tacresq_reject_suspended_account_write()`. This gives the legacy INSERT path an active-state enforcement layer without changing old RPC signatures.
+
+**Proof pending:** The SQL migration replay must be executed, and each legacy RPC must be called with an active requester and then with the same still-valid JWT after suspension. The source assertion does not prove deployed catalog state or runtime denial.
