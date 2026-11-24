@@ -1372,3 +1372,5 @@
   .admin-settings-actions button { width:100%; }
   .admin-settings-card { padding:15px; }
 }
+
+.admin-shell--hide-context-help .admin-context-help,.admin-shell--hide-context-help .admin-help-note { display:none !important; }
