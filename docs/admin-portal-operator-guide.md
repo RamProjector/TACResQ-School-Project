@@ -105,3 +105,8 @@ Overview dependency reachability, User Management, Reports, and Security include
 - Duty status describes field availability/progress; it is not an account-enabled, sign-in, or suspension state.
 - The directory does not currently provide a complete authentication history or account activity timeline. Use Activity Log only for the event sources and coverage explicitly shown there; do not infer that missing events did not occur.
 - Use **Change role** separately when a role correction is necessary. The existing confirmation, fresh account read, database authorization, and audit-reason requirements remain in force.
+
+
+## Activity Log date-range shortcuts
+
+The Activity Log includes **7 days**, **30 days**, and **90 days** quick ranges. Each preset includes the current Manila calendar date and the preceding calendar days, and updates the existing server-side date filters. The selected range is exposed with an accessible pressed state. Manual From/To dates remain available, and Clear filters removes the date range along with the other active filters. These shortcuts do not change the event sources or expand audit coverage.
