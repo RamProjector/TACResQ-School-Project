@@ -2,12 +2,17 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\ConnectionResolverInterface;
 use InvalidArgumentException;
 use LogicException;
 
 final class LocalAccountLifecycleRecorder
 {
+    public function __construct(
+        private readonly ConnectionResolverInterface $database,
+    ) {
+    }
+
     private const TRANSITIONS = [
         'suspended' => ['active', 'suspended'],
         'reactivated' => ['suspended', 'active'],
@@ -28,7 +33,7 @@ final class LocalAccountLifecycleRecorder
         string $previousState,
         string $newState,
     ): int {
-        if (DB::connection()->transactionLevel() < 1) {
+        if ($this->database->connection()->transactionLevel() < 1) {
             throw new LogicException('Account lifecycle events must be recorded inside the account-state transaction.');
         }
 
@@ -48,7 +53,7 @@ final class LocalAccountLifecycleRecorder
             throw new InvalidArgumentException('The lifecycle action and state transition are not supported.');
         }
 
-        return (int) DB::table('local_account_lifecycle_events')->insertGetId([
+        return (int) $this->database->connection()->table('local_account_lifecycle_events')->insertGetId([
             'actor_user_id' => $actorUserId,
             'target_user_id' => $targetUserId,
             'action' => $action,
