@@ -135,3 +135,8 @@ When an Overview dependency check starts, the previous three-probe snapshot and 
 ## Mobile Admin navigation
 
 The section navigation remains available on narrow screens as a horizontally scrollable row beneath the Admin brand. Swipe or horizontally scroll the navigation row to reach sections that do not fit on screen, then select the section. The active section is identified visually and with `aria-current="page"`. The mobile layout hides the desktop-only sidebar footer, not the section controls.
+
+
+## User directory retrieval freshness
+
+When the account directory starts loading a new page or applies a new search/role filter, its previous successful-retrieval timestamp is cleared. The timestamp returns only after the active directory request succeeds, so it is not presented as the retrieval time for a different page or filter. Any expanded read-only account detail panel is also closed when a new directory request begins; review the returned row again after the request completes.
