@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertCircle, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Copy, LoaderCircle, RefreshCw, Search } from "lucide-react";
 import { getAdminAccountLifecycleEvents, getAdminInvestigationEventsPage } from "@/lib/supabase";
 import type { AdminAccountLifecycleEvent, AdminInvestigationCategory, AdminInvestigationEvent, AdminInvestigationSource, TacruProfile } from "@/lib/supabase";
+import { getAuditDateRangeError } from "@/lib/adminAuditFilters";
 
 type AuditLogsPageProps = { profile: TacruProfile };
 
@@ -91,8 +92,18 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
 
+  const dateRangeError = getAuditDateRangeError(from, to);
+
   useEffect(() => {
     let active = true;
+    if (dateRangeError) {
+      setEvents([]);
+      setTotal(0);
+      setExpanded(null);
+      setError(dateRangeError);
+      setLoading(false);
+      return () => { active = false; };
+    }
     const timer = window.setTimeout(() => {
       setLoading(true);
       setError(null);
@@ -133,7 +144,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [page, query, category, source, from, to, refreshVersion]);
+  }, [page, query, category, source, from, to, refreshVersion, dateRangeError]);
 
   useEffect(() => {
     let active = true;
@@ -200,7 +211,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <button className="admin-refresh" type="button" onClick={() => {
           setLoading(true);
           setRefreshVersion((current) => current + 1);
-        }} disabled={loading}>
+        }} disabled={loading || Boolean(dateRangeError)}>
           <RefreshCw size={15} className={loading ? "admin-spin" : undefined} /> {loading ? "Refreshing…" : "Refresh"}
         </button>
       </div>
@@ -288,8 +299,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         </label>
         <label><span>Category</span><select value={category} onChange={(event) => { setPage(0); setCategory(event.target.value as AdminInvestigationCategory); }}><option value="all">All categories</option><option value="administrative">Administrative</option><option value="authentication">Authentication</option><option value="incident">Incident</option><option value="assignment">Assignment</option></select></label>
         <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label><span>From</span><input type="date" value={from} max={to || undefined} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
-        <label><span>To</span><input type="date" value={to} min={from || undefined} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
+        <label><span>From</span><input type="date" value={from} max={to || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
+        <label><span>To</span><input type="date" value={to} min={from || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
         <button className="audit-page__reset" type="button" onClick={resetFilters} disabled={!hasFilters}>Clear filters</button>
       </div>
 
