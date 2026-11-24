@@ -123,10 +123,15 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       setLoading(false);
       return () => { active = false; };
     }
+    // Invalidate the prior result as soon as filters/page change, including
+    // during the search debounce, so old events cannot look like matches.
+    setLoading(true);
+    setError(null);
+    setEvents([]);
+    setTotal(0);
+    setExpanded(null);
+    setLastSuccessfulRefresh(null);
     const timer = window.setTimeout(() => {
-      setLoading(true);
-      setError(null);
-      setLastSuccessfulRefresh(null);
       void getAdminInvestigationEventsPage(
         PAGE_SIZE,
         page * PAGE_SIZE,
