@@ -44,3 +44,11 @@ The database transition function for suspension/reactivation remains revoked fro
 - Keyboard users receive a visible, high-contrast focus outline across Admin links, buttons, and form controls.
 - Reduced-motion preferences suppress decorative animation and transition effects in the Admin shell.
 - These CSS safeguards complement, but do not replace, manual keyboard and assistive-technology review.
+
+
+## Security and reporting interface refinements
+
+- The backup-authenticator manual setup key is masked by default. Reveal it only when needed, keep it private, and close the enrollment flow when finished.
+- The backup authenticator enrollment screen still requires a six-digit verification code before the factor is considered verified.
+- The daily request chart now has an expandable data table with exact date and count values for users who need precise figures or cannot use the visual chart.
+- The Security and Reports sections continue to use the existing Supabase Auth and protected aggregate-report interfaces; these UI refinements do not establish deployment health or broaden data access.
