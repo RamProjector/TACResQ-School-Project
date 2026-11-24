@@ -60,7 +60,7 @@ fcm_secret_lookup = source.index('Deno.env.get("FCM_SERVICE_ACCOUNT_JSON")')
 assert token_lookup < fcm_secret_lookup < oauth_call, (
     "FCM configuration must not be disclosed before an authenticated, authorized recipient path reaches delivery."
 )
-assert "request.json()" in source
+assert "request.body?.getReader()" in source and "JSON.parse(rawBody)" in source, (\n    "The bounded body-reader parser must remain in place; unbounded request.json() parsing is not expected."\n)
 assert "payload.profile_id" not in source and "payload.user_id" not in source, (
     "Notification identity and recipient selection must not trust client-supplied profile IDs."
 )
