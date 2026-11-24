@@ -803,7 +803,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               {analyticsLoading ? (
                 <div className="admin-empty" role="status" aria-live="polite"><LoaderCircle size={19} className="admin-spin" /> Loading verified incident aggregates…</div>
               ) : analyticsError ? (
-                <div className="admin-health-unavailable" role="alert"><strong>Analytics unavailable.</strong> {analyticsError} The endpoint must be deployed before this report can display live data.</div>
+                <div className="admin-health-unavailable" role="alert"><strong>Analytics unavailable.</strong> {analyticsError} Check your connection and access, then retry. If the problem continues, ask the system maintainer to verify that the analytics service is deployed and reachable. <button className="admin-filter-reset" type="button" onClick={() => reloadAnalyticsReport()} disabled={analyticsLoading}>Retry report</button></div>
               ) : analytics ? (
                 <>
                   <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals. {analyticsLoadedAt ? "Report retrieved " + formatManilaDateTime(analyticsLoadedAt) + "." : ""}</p>
