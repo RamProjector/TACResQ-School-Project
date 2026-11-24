@@ -140,3 +140,12 @@ def test_directory_rows_are_scoped_to_the_active_server_query_before_effects_run
     assert refresh.index("setDirectoryResultsKey(null);") < refresh.index("getAdminUsersPage(pageSize")
     assert refresh.index("setDirectoryLoadedAt(new Date().toISOString());") < refresh.index("setDirectoryResultsKey(JSON.stringify")
     assert 'directoryFilterPending ? "Updating account results…"' in source
+
+
+
+def test_directory_error_state_offers_an_inline_retry():
+    source = SOURCE.read_text(encoding="utf-8")
+    assert 'directoryError && <button className="admin-filter-reset"' in source
+    assert 'onClick={() => { void refresh(); }} disabled={refreshing}>Retry account directory</button>' in source
+    assert 'role="region" aria-label="Account results; horizontally scrollable" tabIndex={0} aria-busy={loading || refreshing || directoryFilterPending}' in source
+    assert 'aria-describedby="admin-directory-status"' in source
