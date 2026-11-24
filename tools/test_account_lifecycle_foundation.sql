@@ -895,3 +895,34 @@ BEGIN
   END IF;
 END;
 $team_assignment_catalog_contract$;
+
+
+-- The release entry point must be guarded, and its preserved implementation
+-- must not remain directly callable by client roles.
+DO $assignment_release_catalog_contract$
+DECLARE
+  wrapper_oid oid := to_regprocedure('private.tacresq_release_incident_assignment(bigint,bigint)');
+  internal_oid oid := to_regprocedure('private.tacresq_release_incident_assignment_internal(bigint,bigint)');
+  wrapper_source text;
+  wrapper_settings text[];
+BEGIN
+  IF wrapper_oid IS NULL OR internal_oid IS NULL THEN
+    RAISE EXCEPTION 'Assignment release wrapper or internal routine is missing';
+  END IF;
+  SELECT p.prosrc, p.proconfig INTO wrapper_source, wrapper_settings
+    FROM pg_catalog.pg_proc p WHERE p.oid = wrapper_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = wrapper_oid)
+     OR NOT (coalesce(wrapper_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR wrapper_source NOT ILIKE '%account_status = ''active''%'
+     OR wrapper_source NOT ILIKE '%FOR SHARE%'
+     OR wrapper_source NOT ILIKE '%tacresq_release_incident_assignment_internal%' THEN
+    RAISE EXCEPTION 'Assignment release must use a pinned active-dispatcher wrapper and share lock';
+  END IF;
+  IF NOT has_function_privilege('authenticated', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('anon', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', internal_oid, 'EXECUTE')
+     OR has_function_privilege('anon', internal_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Assignment release wrapper/internal grants are unsafe';
+  END IF;
+END;
+$assignment_release_catalog_contract$;
