@@ -273,9 +273,9 @@ BEGIN
      OR guard_rpc_source NOT ILIKE '%private.tacresq_assign_incident_team%' THEN
     RAISE EXCEPTION 'Private assignment guard must be a pinned definer with an active-dispatcher share lock';
   END IF;
-  IF implementation_definer IS DISTINCT FROM false
+  IF implementation_definer IS DISTINCT FROM true
      OR NOT (coalesce(implementation_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
-    RAISE EXCEPTION 'Underlying assignment implementation must remain a pinned invoker';
+    RAISE EXCEPTION 'Underlying assignment implementation must remain a pinned SECURITY DEFINER internal routine';
   END IF;
   IF NOT has_function_privilege('authenticated', 'private.tacresq_assign_incident_team_guarded(bigint,bigint[])', 'EXECUTE')
      OR has_function_privilege('anon', 'private.tacresq_assign_incident_team_guarded(bigint,bigint[])', 'EXECUTE')
