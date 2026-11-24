@@ -27,6 +27,7 @@ DECLARE
     'public.api_my_notification(bigint)',
     'public.api_my_notifications(integer)',
     'public.api_register_fcm_token(text)',
+    'public.api_unregister_fcm_token(text)',
     'public.api_reserve_incident_image_upload(bigint,text,bigint,uuid)',
     'public.api_send_incident_image_message(bigint,text,text,text,bigint,uuid)',
     'public.api_send_incident_message(bigint,text,uuid)',
@@ -88,8 +89,8 @@ BEGIN
       unexpected_signature;
   END IF;
 
-  IF cardinality(expected_signatures) <> 23 THEN
-    RAISE EXCEPTION 'Inventory contract must contain exactly 23 classified signatures; found %',
+  IF cardinality(expected_signatures) <> 24 THEN
+    RAISE EXCEPTION 'Inventory contract must contain exactly 24 classified signatures; found %',
       cardinality(expected_signatures);
   END IF;
 
@@ -105,13 +106,13 @@ BEGIN
     AND has_function_privilege('authenticated', p.oid, 'EXECUTE');
 
   IF public_callable_count <> 74
-     OR public_definer_count <> 23
-     OR public_invoker_count <> 51 THEN
+     OR public_definer_count <> 24
+     OR public_invoker_count <> 50 THEN
     RAISE EXCEPTION
-      'Public callable function baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 74/23/51',
+      'Public callable function baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 74/24/50',
       public_callable_count, public_definer_count, public_invoker_count;
   END IF;
 END;
 $account_suspension_definer_inventory$;
 
-\echo 'PASS: all 23 public SECURITY DEFINER signatures and the 74/23/51 public callable baseline remain inventoried.'
+\echo 'PASS: all 24 public SECURITY DEFINER signatures and the 74/24/50 public callable baseline remain inventoried.'
