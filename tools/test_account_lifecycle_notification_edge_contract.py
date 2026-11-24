@@ -113,7 +113,7 @@ assert "JSON.parse(rawBody)" in source
 
 # Malformed payloads and unsupported events must not reach actor/incident
 # reads, recipient resolution, or any provider network call.
-json_error = source.index('catch { return json({ error: "Invalid JSON body" }, 400); }')
+json_error = source.index('catch { return json({ error: "Invalid JSON body" }, 400); }', body_parse)
 object_shape_guard = source.index('if (!payload || typeof payload !== "object" || Array.isArray(payload))')
 required_fields = source.index('if (typeof event !== "string" || !Number.isSafeInteger(incidentId) || incidentId <= 0)')
 unsupported_event = source.index('if (!["incident_created", "incident_assigned", "incident_status"].includes(event))')
