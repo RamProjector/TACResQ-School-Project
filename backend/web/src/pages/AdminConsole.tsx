@@ -253,6 +253,15 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
   const [settingsPage, setSettingsPage] = useState<AdminSettingsPage>(() => resolveSettingsPage(window.location.search));
+  const adminHeadingRef = useRef<HTMLHeadingElement>(null);
+  const previousAdminLocation = useRef({ section: activeSection, settingsPage });
+  useEffect(() => {
+    const previous = previousAdminLocation.current;
+    const locationChanged = previous.section !== activeSection ||
+      (activeSection === "settings" && previous.settingsPage !== settingsPage);
+    previousAdminLocation.current = { section: activeSection, settingsPage };
+    if (locationChanged) adminHeadingRef.current?.focus();
+  }, [activeSection, settingsPage]);
   const [preferences, setPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
   const [savedPreferences, setSavedPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
@@ -685,7 +694,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <span className="admin-heading__icon"><ActiveSectionIcon size={22} aria-hidden="true" /></span>
               <div>
                 <p className="admin-eyebrow">ADMINISTRATION</p>
-                <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</h1>
+                <h1 ref={adminHeadingRef} tabIndex={-1}>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</h1>
                 <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
               </div>
             </div>
