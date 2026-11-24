@@ -37,3 +37,12 @@ print("Admin analytics CSV export source contract passed.")
 assert "function escapeSpreadsheetText(value: string)" in SOURCE
 assert 'return /^[\\s\\u0000-\\u001f]*[=+@-]/.test(value) ? "\'" + value : value;' in SOURCE
 assert 'typeof value === "string" ? escapeSpreadsheetText(value) : String(value)' in exporter
+
+
+# The analytics failure state offers an in-context retry and avoids claiming
+# every failure means the endpoint is undeployed.
+assert "Retry report" in SOURCE
+assert 'onClick={() => reloadAnalyticsReport()}' in SOURCE
+assert "Check your connection and access, then retry." in SOURCE
+assert "ask the system maintainer to verify that the analytics service is deployed and reachable." in SOURCE
+assert "The endpoint must be deployed before this report can display live data." not in SOURCE
