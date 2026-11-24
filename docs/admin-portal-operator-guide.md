@@ -250,3 +250,7 @@ The browser-local **High contrast** preference also applies to the dedicated Aud
 ## Analytics refresh accessibility status
 
 The Request performance panel exposes its loading and refresh state through the aria-busy attribute while the selected reporting period is being retrieved. Its existing polite loading announcement and error alert remain in place, so assistive technology can identify that the report is updating without treating the entire panel as a new alert.
+
+## Audit history refresh accessibility status
+
+The main Audit history workspace exposes its query and refresh state through the aria-busy attribute while its filtered event feed is being retrieved. The existing polite activity-loading status and error alert remain in place. Account lifecycle history continues to expose a separate busy state because it is fetched and paginated independently.
