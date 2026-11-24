@@ -53,7 +53,7 @@ Deno.serve(async (request: Request) => {
   if (authError || !userResult.user) return json({ error: "Invalid or expired session" }, 401);
   const maxBodyBytes = 8192;
   const declaredBodyLength = request.headers.get("Content-Length");
-  if (declaredBodyLength !== null && /^\\d+$/.test(declaredBodyLength)
+  if (declaredBodyLength !== null && /^\d+$/.test(declaredBodyLength)
       && Number(declaredBodyLength) > maxBodyBytes) {
     return json({ error: "Request body is too large" }, 413);
   }
