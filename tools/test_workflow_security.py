@@ -83,7 +83,7 @@ def main() -> None:
         ), f"{job_name} must declare security-events: write in its own permissions block"
 
     android_codeql = re.search(
-        r"(?ms)^  codeql-android:\\n(.*?)(?=^  [A-Za-z0-9_-]+:\\n|\\Z)",
+        r"(?ms)^  codeql-android:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
         security,
     )
     assert android_codeql and "persist-credentials: false" in android_codeql.group(1), (
@@ -92,12 +92,12 @@ def main() -> None:
 
     quality = (WORKFLOWS / "quality-assurance.yml").read_text(encoding="utf-8")
     android_baseline = re.search(
-        r"(?ms)^  security:\\n(.*?)(?=^  [A-Za-z0-9_-]+:\\n|\\Z)",
+        r"(?ms)^  security:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
         quality,
     )
     assert android_baseline, "Android CodeQL baseline job must exist as quality-assurance.yml:security"
     baseline_permissions = re.search(
-        r"(?ms)^    permissions:\\n((?:      [^\\n]+\\n)+)",
+        r"(?ms)^    permissions:\n((?:      [^\n]+\n)+)",
         android_baseline.group(1),
     )
     assert baseline_permissions and re.search(
