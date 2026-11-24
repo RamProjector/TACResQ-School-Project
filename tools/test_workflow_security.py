@@ -91,20 +91,8 @@ def main() -> None:
     )
 
     quality = (WORKFLOWS / "quality-assurance.yml").read_text(encoding="utf-8")
-    android_baseline = re.search(
-        r"(?ms)^  security:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
-        quality,
-    )
-    assert android_baseline, "Android CodeQL baseline job must exist as quality-assurance.yml:security"
-    baseline_permissions = re.search(
-        r"(?ms)^    permissions:\n((?:      [^\n]+\n)+)",
-        android_baseline.group(1),
-    )
-    assert baseline_permissions and re.search(
-        r"(?m)^      security-events: write$", baseline_permissions.group(1)
-    ), "Android CodeQL baseline job must declare security-events: write in its own permissions block"
-    assert "persist-credentials: false" in android_baseline.group(1), (
-        "Android CodeQL baseline build must not retain the token"
+    assert not re.search(r"(?m)^  security:\\s*$", quality), (
+        "Android CodeQL must have one authoritative job in security.yml, not a duplicate QA job"
     )
 
     assert "vars.DEPENDENCY_GRAPH_ENABLED == 'true'" in security, (
