@@ -110,3 +110,8 @@ Overview dependency reachability, User Management, Reports, and Security include
 ## Activity Log date-range shortcuts
 
 The Activity Log includes **7 days**, **30 days**, and **90 days** quick ranges. Each preset includes the current Manila calendar date and the preceding calendar days, and updates the existing server-side date filters. The selected range is exposed with an accessible pressed state. Manual From/To dates remain available, and Clear filters removes the date range along with the other active filters. These shortcuts do not change the event sources or expand audit coverage.
+
+
+## Reports refresh and export feedback
+
+The Reports workspace shows when the currently displayed aggregate was retrieved, formatted in Asia/Manila time. Changing the reporting period or refreshing clears the previous retrieval timestamp and export notice while the next response loads, preventing stale metadata from being presented as current. CSV export reports the prepared filename through an announced status message; if the browser cannot prepare the file, the page displays a recoverable error. The export continues to contain only the aggregate data already returned to the page. Browser download completion itself is not verified by the application.
