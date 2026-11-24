@@ -119,7 +119,8 @@ confirm_route = routes[confirm_start:confirm_end]
 assert "current_password" in confirm_route
 assert "Hash::check($data['current_password'], $lockedUser->password)" in confirm_route
 assert "User::whereKey($user->id)->lockForUpdate()" in confirm_route
-assert "!$lockedUser->is_suspended" in confirm_route
+assert "$lockedUser->role !== 'admin'" in confirm_route
+assert "$lockedUser->is_suspended" in confirm_route
 assert "test_local_admin_totp_confirmation_requires_current_password" in feature
 
 
