@@ -266,6 +266,7 @@ BEGIN
        AND t.tgname = 'tacresq_active_assignment_target_guard'
        AND t.tgenabled = 'O'
        AND t.tgfoid = to_regprocedure('private.tacresq_require_active_assignment_target()')
+       AND pg_catalog.pg_get_triggerdef(t.oid) ILIKE '%BEFORE INSERT OR UPDATE ON%'
        AND NOT t.tgisinternal
   ) OR NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_trigger t
