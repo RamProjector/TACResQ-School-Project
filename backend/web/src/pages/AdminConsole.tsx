@@ -522,7 +522,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 </div>
                 <div className="admin-health-grid">
                 {dependencyProbes.map(([label, result]) => (
-                  <article className="admin-health-item" key={label}>
+                  <article className="admin-health-item" key={label} role="status" aria-label={label + " reachability: " + result.status}>
                     <div><strong>{label}</strong><span className={"admin-health-status admin-health-status--" + result.status}>{result.status === "healthy" ? "reachable" : result.status === "slow" ? "timed out" : "unavailable"}</span></div>
                     <small>{result.duration_ms === null ? "Response time unavailable" : result.duration_ms + " ms response time"}</small>
                   </article>
