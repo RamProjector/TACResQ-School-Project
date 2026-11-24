@@ -153,6 +153,13 @@ function AdminHelpTip({ label, message }: { label: string; message: string }) {
   return <details className="admin-context-help"><summary aria-label={label}><CircleHelp size={16} /></summary><div>{message}</div></details>;
 }
 
+function escapeSpreadsheetText(value: string) {
+  // CSV quoting protects delimiters, not spreadsheet formula evaluation.
+  // Prefix potentially executable text (including after leading whitespace)
+  // with an apostrophe before applying normal CSV quote escaping.
+  return /^[\s\u0000-\u001f]*[=+@-]/.test(value) ? "'" + value : value;
+}
+
 function exportAnalyticsCsv(summary: AdminAnalyticsSummary) {
   const rows: (string | number)[][] = [
     ["TACResQ incident performance report"],
@@ -175,7 +182,7 @@ function exportAnalyticsCsv(summary: AdminAnalyticsSummary) {
     ...summary.daily_requests.map((point) => [point.day, point.requests]),
   ];
   const csv = "\uFEFF" + rows.map((row) =>
-    row.map((value) => '"' + String(value).replaceAll('"', '""') + '"').join(",")
+    row.map((value) => { const cell = typeof value === "string" ? escapeSpreadsheetText(value) : String(value); return '"' + cell.replaceAll('"', '""') + '"'; }).join(",")
   ).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const objectUrl = URL.createObjectURL(blob);
