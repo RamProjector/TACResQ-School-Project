@@ -1,0 +1,32 @@
+# TACResQ Admin Portal
+
+## Available sections
+
+- **Overview:** paginated account summary and reachability checks for the configured Laravel, Supabase Auth, and database probes. Reachability is not an end-to-end emergency-readiness check.
+- **User management:** server-side account search and role filtering, paginated results, and reason-required role changes. Admin accounts remain operator-managed and cannot be promoted or demoted from this page.
+- **Security:** administrator TOTP/AAL2 controls and security guidance. A branch implementation is not proof that a production migration or setting has been deployed.
+- **Reports:** aggregate incident request counts, current status breakdown, daily request volume, and average/median time to first assignment for 7-, 30-, or 90-day windows.
+- **Activity log:** read-only, paginated investigation history plus a separate bounded account lifecycle history section.
+
+## Analytics CSV export
+
+The Reports section can export the currently loaded aggregate report as CSV. The export includes:
+- Reporting timezone and period boundaries
+- Total, pending, active, resolved, and cancelled request counts
+- Average and median time to first assignment
+- Count of requests with a valid assignment time
+- Daily request totals
+
+The export intentionally excludes requester names, phone numbers, descriptions, incident coordinates, responder identities, and raw audit details. It exports only the same aggregate summary already returned to the Reports page; it does not issue a second query or expand the caller's data access.
+
+## Account lifecycle safety boundary
+
+The database transition function for suspension/reactivation remains revoked from authenticated, anon, and PUBLIC until the remaining callable, Storage, Edge Function, Laravel bridge, and same-valid-JWT regression coverage is complete. The Admin UI must not offer Suspend/Reactivate actions before that release gate is satisfied. The read-only lifecycle audit history is not evidence that account transitions are enabled.
+
+## Operational verification
+
+- Configure the existing Laravel runtime or the web app's VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY values.
+- Sign in with a linked TACResQ Admin profile and complete the required authenticator/TOTP step.
+- Verify each page against a non-production environment with the matching database migrations applied.
+- Confirm the Admin reports page displays an explicit unavailable state if the aggregate RPC is missing or inaccessible; never substitute sample data.
+- Run the web build and Python source-contract tests in CI. Browser layout, keyboard, and screen-reader review remain separate checks.
