@@ -38,6 +38,12 @@ assert 'setFrom(manilaDateOffset(days - 1)); setTo(manilaDateOffset(0));' in AUD
 assert ".audit-page__date-presets button[aria-pressed=\"true\"]" in ADMIN_CSS
 assert ".audit-page__date-presets button:focus-visible" in ADMIN_CSS
 
+# Results and metadata are invalidated immediately, before the debounced request.
+query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, refreshVersion, dateRangeError]);", 1)[0]
+assert query_effect.index("setEvents([]);") < query_effect.index("window.setTimeout")
+assert query_effect.index("setTotal(0);") < query_effect.index("window.setTimeout")
+assert query_effect.index("setLoading(true);") < query_effect.index("window.setTimeout")
+
 # The displayed refresh timestamp belongs only to the currently applied query.
 assert "setLastSuccessfulRefresh(null);" in AUDIT_PAGE
 assert "setLastSuccessfulRefresh(new Date().toISOString());" in AUDIT_PAGE
