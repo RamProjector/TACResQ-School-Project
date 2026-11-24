@@ -7,6 +7,11 @@ ADMIN = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text(encoding="ut
 CSS = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text(encoding="utf-8")
 
 # MFA management must use the defined method parser and require AAL2.
+assert 'activeSection === "security" ? "Review your current administrator session' in ADMIN
+assert 'activeSection === "analytics" ? "Review request volume' in ADMIN
+assert ".admin-security-status__factor-list li > span:last-child strong" in CSS
+assert "@media (max-width:560px)" in CSS
+
 assert "function hasTotpMethod(" in SECURITY
 assert 'aal.currentLevel === "aal2" && hasTotpMethod(aal)' in SECURITY
 assert 'data.currentLevel === "aal2" && hasTotpMethod(data)' in SECURITY
