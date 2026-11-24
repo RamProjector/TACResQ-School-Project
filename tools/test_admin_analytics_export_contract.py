@@ -21,9 +21,7 @@ assert "latitude" not in exporter and "longitude" not in exporter
 
 assert 'aria-label="Export incident performance report as CSV"' in SOURCE
 assert "disabled={analyticsLoading || !analytics || Boolean(analyticsError)}" in SOURCE
-assert "if (analytics) exportAnalyticsCsv(analytics)" in SOURCE
-
-print("Admin analytics CSV export source contract passed.")
+assert "const filename = exportAnalyticsCsv(analytics)" in SOURCE
 
 assert "setAnalyticsLoadedAt(new Date().toISOString())" in SOURCE
 assert "Report retrieved " in SOURCE
