@@ -63,3 +63,5 @@ assert "admin-attachment-metrics" in styles
 assert "@media (max-width:760px)" in styles
 
 print("PASS: Admin attachment storage workspace is privacy-bounded, evidence-aware, read-only, and responsive.")
+assert 'placeholder="Search workspaces, roles, security, reports, recovery, storage…"' in source
+assert "recovery, or storage." in source
