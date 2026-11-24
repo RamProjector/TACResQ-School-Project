@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Activity,
   BarChart3,
+  Download,
   History,
   LayoutDashboard,
   ShieldAlert,
@@ -100,6 +101,42 @@ function formatDate(value: string | null | undefined) {
 
 function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "A";
+}
+
+function exportAnalyticsCsv(summary: AdminAnalyticsSummary) {
+  const rows: (string | number)[][] = [
+    ["TACResQ incident performance report"],
+    ["Reporting timezone", summary.reporting_timezone],
+    ["Period start", summary.period_start],
+    ["Period end", summary.period_end],
+    [],
+    ["Metric", "Value"],
+    ["Total requests", summary.total_requests],
+    ["Pending", summary.pending],
+    ["Active", summary.active],
+    ["Resolved", summary.resolved],
+    ["Cancelled", summary.cancelled],
+    ["Average assignment minutes", summary.average_assignment_minutes ?? "Not available"],
+    ["Median assignment minutes", summary.median_assignment_minutes ?? "Not available"],
+    ["Requests with assignment time", summary.assigned_request_count],
+    [],
+    ["Daily request volume"],
+    ["Date", "Requests"],
+    ...summary.daily_requests.map((point) => [point.day, point.requests]),
+  ];
+  const csv = "\uFEFF" + rows.map((row) =>
+    row.map((value) => '"' + String(value).replaceAll('"', '""') + '"').join(",")
+  ).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = "tacresq-incident-report-" + summary.period_start.slice(0, 10) + "-" + summary.period_end.slice(0, 10) + ".csv";
+  link.hidden = true;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
 }
 
 export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) {
