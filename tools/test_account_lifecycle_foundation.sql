@@ -119,7 +119,6 @@ BEGIN
       JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
      WHERE n.nspname = 'public'
        AND c.relkind IN ('r', 'p')
-       AND c.relname <> 'fcm_tokens'
        AND c.relrowsecurity
        AND (
          has_table_privilege('authenticated', c.oid, 'SELECT')
@@ -141,54 +140,6 @@ BEGIN
        )
   ) THEN
     RAISE EXCEPTION 'A public table with authenticated privileges is missing the restrictive active-account RLS policy';
-  END IF;
-
-  -- FCM token cleanup intentionally has a narrower exception than the
-  -- generic ALL-command policy: suspended users may DELETE only their own
-  -- token, while SELECT/INSERT/UPDATE still require an active account.
-  IF NOT EXISTS (
-    SELECT 1
-      FROM pg_catalog.pg_policies
-     WHERE schemaname = 'public'
-       AND tablename = 'fcm_tokens'
-       AND policyname = 'tacresq_fcm_select_requires_active'
-       AND permissive = 'RESTRICTIVE'
-       AND cmd = 'SELECT'
-       AND 'authenticated' = ANY(roles)
-       AND qual ILIKE '%tacresq_current_account_active%'
-  ) OR NOT EXISTS (
-    SELECT 1
-      FROM pg_catalog.pg_policies
-     WHERE schemaname = 'public'
-       AND tablename = 'fcm_tokens'
-       AND policyname = 'tacresq_fcm_insert_requires_active'
-       AND permissive = 'RESTRICTIVE'
-       AND cmd = 'INSERT'
-       AND 'authenticated' = ANY(roles)
-       AND with_check ILIKE '%tacresq_current_account_active%'
-  ) OR NOT EXISTS (
-    SELECT 1
-      FROM pg_catalog.pg_policies
-     WHERE schemaname = 'public'
-       AND tablename = 'fcm_tokens'
-       AND policyname = 'tacresq_fcm_update_requires_active'
-       AND permissive = 'RESTRICTIVE'
-       AND cmd = 'UPDATE'
-       AND 'authenticated' = ANY(roles)
-       AND qual ILIKE '%tacresq_current_account_active%'
-       AND with_check ILIKE '%tacresq_current_account_active%'
-  ) OR NOT EXISTS (
-    SELECT 1
-      FROM pg_catalog.pg_policies
-     WHERE schemaname = 'public'
-       AND tablename = 'fcm_tokens'
-       AND policyname = 'tacresq_fcm_delete_self_cleanup'
-       AND permissive = 'RESTRICTIVE'
-       AND cmd = 'DELETE'
-       AND 'authenticated' = ANY(roles)
-       AND qual ILIKE '%tacresq_auth_profile_id_for_token_cleanup%'
-  ) THEN
-    RAISE EXCEPTION 'FCM token policies must preserve active-account reads/writes and caller-only delete cleanup';
   END IF;
 
   IF EXISTS (
@@ -234,49 +185,6 @@ BEGIN
        AND NOT t.tgisinternal
   ) THEN
     RAISE EXCEPTION 'Legacy and current incident creation paths must be covered by the active-account INSERT trigger';
-  END IF;
-  -- Admin suspension must reject active field-unit work in both assignment models.
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_catalog.pg_proc p
-     WHERE p.oid = to_regprocedure('public.api_admin_set_account_status(bigint,text,text,text)')
-       AND p.prosrc ILIKE '%i.assigned_to = v_target.id%'
-       AND p.prosrc ILIKE '%ia.user_id = v_target.id%'
-       AND p.prosrc ILIKE '%assigned%'
-       AND p.prosrc ILIKE '%en_route%'
-       AND p.prosrc ILIKE '%on_scene%'
-       AND p.prosrc ILIKE '%transporting%'
-       AND p.prosrc ILIKE '%FOR UPDATE%'
-       AND p.prosrc ILIKE '%55006%'
-  ) THEN
-    RAISE EXCEPTION 'Admin suspension must reject active legacy and normalized field-unit assignments while holding the target profile lock';
-  END IF;
-  -- Assignment writes must lock and recheck the target profile so they
-  -- cannot race past an Admin suspension transition.
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_catalog.pg_proc p
-     WHERE p.oid = to_regprocedure('private.tacresq_require_active_assignment_target()')
-       AND p.prosecdef
-       AND p.provolatile = 'v'
-       AND coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']
-       AND p.prosrc ILIKE '%FOR SHARE%'
-       AND p.prosrc ILIKE '%account_status%'
-  ) OR NOT EXISTS (
-    SELECT 1 FROM pg_catalog.pg_trigger t
-     WHERE t.tgrelid = 'public.incident_assignments'::regclass
-       AND t.tgname = 'tacresq_active_assignment_target_guard'
-       AND t.tgenabled = 'O'
-       AND t.tgfoid = to_regprocedure('private.tacresq_require_active_assignment_target()')
-       AND pg_catalog.pg_get_triggerdef(t.oid) ILIKE '%BEFORE INSERT OR UPDATE ON%'
-       AND NOT t.tgisinternal
-  ) OR NOT EXISTS (
-    SELECT 1 FROM pg_catalog.pg_trigger t
-     WHERE t.tgrelid = 'public.incidents'::regclass
-       AND t.tgname = 'tacresq_active_legacy_assignment_target_guard'
-       AND t.tgenabled = 'O'
-       AND t.tgfoid = to_regprocedure('private.tacresq_require_active_assignment_target()')
-       AND NOT t.tgisinternal
-  ) THEN
-    RAISE EXCEPTION 'Legacy and normalized assignment writes must lock and reject inactive target profiles';
   END IF;
 END;
 $schema_contract$;
@@ -943,12 +851,12 @@ DECLARE
   v_volatility "char";
   v_definer boolean;
   required_routines text[] := ARRAY[
-    'public.api_assign_incident_team(bigint,bigint[])',
+    'private.tacresq_assign_incident_team_guarded(bigint,bigint[])',
     'private.tacresq_release_incident_assignment(bigint,bigint)',
     'private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)'
   ];
   internal_routines text[] := ARRAY[
-    'private.tacresq_assign_incident_team_internal(bigint,bigint[])',
+    'private.tacresq_assign_incident_team(bigint,bigint[])',
     'private.tacresq_release_incident_assignment_internal(bigint,bigint)',
     'private.tacresq_record_location_v2_internal(bigint,double precision,double precision,real,timestamp with time zone)'
   ];
@@ -1044,33 +952,47 @@ END;
 $active_dispatcher_read_contract$;
 
 
--- Dispatcher team assignment must expose only the active-state wrapper.
+-- Dispatcher team assignment exposes an invoker-safe public RPC. Its
+-- private guard serializes against account suspension, then calls the original
+-- private assignment implementation, which is not directly client-callable.
 DO $team_assignment_catalog_contract$
 DECLARE
   wrapper_oid oid := to_regprocedure('public.api_assign_incident_team(bigint,bigint[])');
   legacy_oid oid := to_regprocedure('public.api_assign_incident(bigint,bigint)');
-  internal_oid oid := to_regprocedure('private.tacresq_assign_incident_team_internal(bigint,bigint[])');
+  guard_oid oid := to_regprocedure('private.tacresq_assign_incident_team_guarded(bigint,bigint[])');
+  implementation_oid oid := to_regprocedure('private.tacresq_assign_incident_team(bigint,bigint[])');
   wrapper_source text;
   wrapper_settings text[];
+  guard_source text;
+  guard_settings text[];
 BEGIN
-  IF wrapper_oid IS NULL OR legacy_oid IS NULL OR internal_oid IS NULL THEN
-    RAISE EXCEPTION 'Team assignment lifecycle wrapper, alias, or internal routine is missing';
+  IF wrapper_oid IS NULL OR legacy_oid IS NULL OR guard_oid IS NULL OR implementation_oid IS NULL THEN
+    RAISE EXCEPTION 'Team assignment lifecycle wrapper, guard, alias, or implementation is missing';
   END IF;
   SELECT p.prosrc, p.proconfig INTO wrapper_source, wrapper_settings
     FROM pg_catalog.pg_proc p WHERE p.oid = wrapper_oid;
-  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = wrapper_oid)
+  IF (SELECT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = wrapper_oid)
      OR NOT (coalesce(wrapper_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
-     OR wrapper_source NOT ILIKE '%account_status = ''active''%'
-     OR wrapper_source NOT ILIKE '%FOR SHARE%'
-     OR wrapper_source NOT ILIKE '%tacresq_assign_incident_team_internal%' THEN
-    RAISE EXCEPTION 'Team assignment wrapper must be a pinned VOLATILE definer with active-profile share lock';
+     OR wrapper_source NOT ILIKE '%tacresq_assign_incident_team_guarded%' THEN
+    RAISE EXCEPTION 'Public team assignment RPC must remain a pinned VOLATILE SECURITY INVOKER wrapper';
+  END IF;
+  SELECT p.prosrc, p.proconfig INTO guard_source, guard_settings
+    FROM pg_catalog.pg_proc p WHERE p.oid = guard_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = guard_oid)
+     OR NOT (coalesce(guard_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR guard_source NOT ILIKE '%account_status = ''active''%'
+     OR guard_source NOT ILIKE '%FOR SHARE%'
+     OR guard_source NOT ILIKE '%private.tacresq_assign_incident_team%' THEN
+    RAISE EXCEPTION 'Private team assignment guard must lock an active dispatcher and delegate to the private implementation';
   END IF;
   IF NOT has_function_privilege('authenticated', wrapper_oid, 'EXECUTE')
      OR has_function_privilege('anon', wrapper_oid, 'EXECUTE')
-     OR has_function_privilege('authenticated', internal_oid, 'EXECUTE')
-     OR has_function_privilege('anon', internal_oid, 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', guard_oid, 'EXECUTE')
+     OR has_function_privilege('anon', guard_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', implementation_oid, 'EXECUTE')
+     OR has_function_privilege('anon', implementation_oid, 'EXECUTE')
      OR NOT has_function_privilege('authenticated', legacy_oid, 'EXECUTE') THEN
-    RAISE EXCEPTION 'Team assignment wrapper grants or internal implementation grants are unsafe';
+    RAISE EXCEPTION 'Team assignment wrapper grants or private implementation grants are unsafe';
   END IF;
   IF (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid = legacy_oid) THEN
     RAISE EXCEPTION 'Legacy single-member assignment alias must remain SECURITY INVOKER';
@@ -1363,6 +1285,8 @@ DECLARE
   register_source text;
   unregister_source text;
   cleanup_source text;
+  write_guard_oid oid := to_regprocedure('private.tacresq_reject_suspended_account_write()');
+  write_guard_source text;
   register_settings text[];
   unregister_settings text[];
 BEGIN
@@ -1374,19 +1298,33 @@ BEGIN
   SELECT prosrc, proconfig INTO unregister_source, unregister_settings
     FROM pg_catalog.pg_proc WHERE oid = unregister_oid;
   SELECT prosrc INTO cleanup_source FROM pg_catalog.pg_proc WHERE oid = cleanup_oid;
+  SELECT prosrc INTO write_guard_source FROM pg_catalog.pg_proc WHERE oid = write_guard_oid;
+  IF write_guard_oid IS NULL
+     OR write_guard_source NOT ILIKE '%tacresq.allow_suspended_fcm_self_cleanup%'
+     OR write_guard_source NOT ILIKE '%TG_TABLE_NAME = ''fcm_tokens''%'
+     OR write_guard_source NOT ILIKE '%OLD.profile_id = private.tacresq_auth_profile_id_for_token_cleanup()%' THEN
+    RAISE EXCEPTION 'Suspended FCM cleanup exception must remain restricted to the caller-owned token DELETE';
+  END IF;
   IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = register_oid)
      OR NOT (coalesce(register_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
      OR register_source NOT ILIKE '%account_status = ''active''%'
      OR register_source NOT ILIKE '%FOR SHARE%' THEN
     RAISE EXCEPTION 'FCM registration must require and lock an active profile';
   END IF;
+  -- The final staged migration replaces the earlier invoker/RLS path with a
+  -- narrowly scoped SECURITY DEFINER cleanup RPC. Keep the stronger ownership
+  -- invariant explicit: identity comes from auth.uid(), and DELETE matches
+  -- both that caller's profile and the exact installation token.
   IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = unregister_oid)
      OR NOT (coalesce(unregister_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
-     OR unregister_source NOT ILIKE '%tacresq_auth_profile_id_for_token_cleanup()%'
+     OR unregister_source NOT ILIKE '%profile.auth_user_id = auth.uid()%'
+     OR unregister_source NOT ILIKE '%token_row.profile_id = caller_profile_id%'
+     OR unregister_source NOT ILIKE '%token_row.token = p_token%'
      OR unregister_source NOT ILIKE '%DELETE FROM public.fcm_tokens%'
+     OR unregister_source NOT ILIKE '%set_config(''tacresq.allow_suspended_fcm_self_cleanup'', NULL, true)%'
      OR strpos(unregister_source, 'tacresq.allow_suspended_fcm_self_cleanup') = 0
      OR strpos(unregister_source, 'set_config(''tacresq.allow_suspended_fcm_self_cleanup'', NULL, true)') = 0 THEN
-    RAISE EXCEPTION 'FCM unregister must be a pinned definer self-cleanup operation with a reset transaction-local marker';
+    RAISE EXCEPTION 'FCM unregister must be a pinned, caller-owned token cleanup operation';
   END IF;
   IF (SELECT NOT prosecdef OR provolatile <> 's' FROM pg_catalog.pg_proc WHERE oid = cleanup_oid)
      OR cleanup_source NOT ILIKE '%auth.uid()%' THEN
@@ -1544,3 +1482,44 @@ BEGIN
   END IF;
 END;
 $active_duty_status_callable_contract$;
+
+
+-- Delivery-worker cleanup is a separate service_role-only boundary. It must
+-- never be callable by end-user roles or depend on auth.uid().
+DO $fcm_delivery_cleanup_catalog_contract$
+DECLARE
+  cleanup_oid oid := to_regprocedure('public.api_unregister_fcm_token_for_delivery(bigint,text)');
+  cleanup_source text;
+  cleanup_settings text[];
+BEGIN
+  IF cleanup_oid IS NULL THEN
+    RAISE EXCEPTION 'Service-only FCM delivery cleanup RPC is missing';
+  END IF;
+
+  SELECT prosrc, proconfig INTO cleanup_source, cleanup_settings
+    FROM pg_catalog.pg_proc WHERE oid = cleanup_oid;
+
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = cleanup_oid)
+     OR NOT (coalesce(cleanup_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR cleanup_source NOT ILIKE '%p_profile_id%'
+     OR cleanup_source NOT ILIKE '%p_token%'
+     OR cleanup_source NOT ILIKE '%token_row.profile_id = p_profile_id%'
+     OR cleanup_source NOT ILIKE '%token_row.token = p_token%' THEN
+    RAISE EXCEPTION 'Delivery cleanup must be a pinned definer deleting only the exact claimed profile/token pair';
+  END IF;
+
+  IF NOT has_function_privilege('service_role', cleanup_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', cleanup_oid, 'EXECUTE')
+     OR has_function_privilege('anon', cleanup_oid, 'EXECUTE')
+     OR EXISTS (
+       SELECT 1
+         FROM pg_catalog.pg_proc AS routine,
+              LATERAL pg_catalog.aclexplode(coalesce(routine.proacl, pg_catalog.acldefault('f', routine.proowner))) AS grant_entry
+        WHERE routine.oid = cleanup_oid
+          AND grant_entry.grantee = 0
+          AND grant_entry.privilege_type = 'EXECUTE'
+     ) THEN
+    RAISE EXCEPTION 'Delivery cleanup RPC must be executable only by service_role';
+  END IF;
+END;
+$fcm_delivery_cleanup_catalog_contract$;

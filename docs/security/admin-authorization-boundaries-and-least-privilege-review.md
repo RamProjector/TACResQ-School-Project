@@ -17,7 +17,7 @@ A multi-role Admin hierarchy is not automatically justified by the current featu
 
 ### Existing controls
 
-- The Admin console has five sections: Overview, User management, Security & countermeasures, Analytics & reports, and Audit Logs.
+- The current Admin console has seven sections: Overview, User management, Security, Reports, Activity log, Settings, and Help & about. Settings and Help are presentation/support workspaces, not additional security roles.
 - The Admin user-list, role-change, audit-list, and analytics RPCs are wrapped by a private MFA guard. The guard checks the authenticated user, AAL2, a TOTP authentication method, and the current profile's Admin role.
 - The audit table has an additional restrictive SELECT policy requiring AAL2 and TOTP, protecting direct table reads as well as the RPC path.
 - The role-change RPC accepts only requester, responder, driver, and dispatcher. It rejects Admin promotion/demotion, validates a reason, blocks changes to accounts with active incident assignments, and writes a role-change audit event in the same transaction.
@@ -40,6 +40,12 @@ A multi-role Admin hierarchy is not automatically justified by the current featu
 | Revoke own refreshable sessions | Current account + fresh TOTP/AAL2 | Not a target-user session-management capability |
 
 This is an implementation inventory, not a claim that every other TACResQ API or operational table has been exhaustively re-audited in this document.
+
+## Admin portal access review presentation
+
+The Security workspace now presents the capability inventory above as a read-only **Admin access review** matrix. It is intended to make the current portal boundary understandable to operators, including the Admin + AAL2 + TOTP requirement, ordinary-role change restrictions, self-service-only MFA/session operations, and unavailable suspension/reactivation controls.
+
+The matrix is deliberately not a live policy scanner or a per-user effective-permission report. It must not be expanded to claim coverage of every RLS policy, Edge Function, Laravel route, Storage object, or direct-client operation until a separate cross-layer inventory and automated catalog checks establish that coverage. Keep the current single Admin role; do not infer that Settings subpages or navigation sections represent distinct authorization roles.
 
 ## Risk and design assessment
 

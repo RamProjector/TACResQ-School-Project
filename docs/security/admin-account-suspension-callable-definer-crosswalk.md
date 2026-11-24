@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Review status:** source-traced crosswalk plus a staged lifecycle helper; not proof of runtime denial.  
-**Catalog baseline:** 25 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The upload-reservation RPC is included in the current signature inventory; the referenced batches document source-level checks and remaining account-state gaps.
+**Catalog baseline:** 23 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The upload-reservation RPC is included in the current signature inventory; the referenced batches document source-level checks and remaining account-state gaps.
 
 ## Public SECURITY DEFINER entry points
 
@@ -30,32 +30,30 @@
 | 20 | `api_units()` | Batch 3 — dispatch | Check active dispatcher and exclude suspended field-unit targets from eligibility |
 | 21 | `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)` | Batch 1 and Batch 13 — requester edit/validation | Check active requester before protected reads/mutations; preserve validation, edit cooldown, and audit/notification atomicity |
 | 22 | `api_admin_list_account_lifecycle_events(integer,integer)` | Batch 2 — lifecycle audit reader | Require active Admin with AAL2/TOTP before bounded history reads; keep direct ledger table grants revoked |
-| 23 | `api_assign_incident_team(bigint,bigint[])` | Batch 3 and Batch 24 — guarded dispatcher team assignment | Public SECURITY DEFINER wrapper requires an active dispatcher and profile share lock; the preserved internal implementation is not client-callable |
-| 24 | `api_unregister_fcm_token(text)` | Batch 4 — profile/notifications/FCM | Authenticated-only SECURITY DEFINER cleanup RPC; pinned search path; delete only caller's own token; transaction-local exception is limited to public.fcm_tokens DELETE and cleared before return; direct table DELETE remains revoked |
-| 25 | `api_admin_set_account_status(bigint,text,text,text)` | Website Admin account lifecycle | AAL2/TOTP and active-Admin check; reject self/Admin targets; lock target profile; atomically update status and append immutable audit history |
+| 23 | `api_unregister_fcm_token(text)` | Batch 4 — profile/notifications/FCM | Authenticated-only SECURITY DEFINER cleanup RPC; pinned search path; delete only caller's own token; transaction-local exception is limited to public.fcm_tokens DELETE and cleared before return; direct table DELETE remains revoked |
 
 ## Website Admin transition (client-callable)
 
 The website invokes `public.api_admin_set_account_status(bigint,text,text,text)` through the Supabase authenticated client. The follow-up migration grants EXECUTE only to `authenticated`; the function requires AAL2 with TOTP and an active Admin profile, prevents self-change and Admin targets, locks the target, compares the expected prior status under that lock, and commits the status change with an immutable audit event. The same migration updates the shared Admin MFA helper to reject suspended Admins and adds `account_status` to the bounded website directory response. Anonymous and PUBLIC execution remain revoked.
 
-The website control is implemented on the Admin User Management page. A same-valid-JWT PostgreSQL replay and successful migration application are still required before describing the workflow as runtime-verified. This migration does not claim to invalidate already-issued JWTs outside guarded application entry points.
+`public.api_admin_set_account_status(bigint,text,text)` is a staged SECURITY DEFINER transition routine, but its migration explicitly revokes EXECUTE from `PUBLIC`, `anon`, and `authenticated` and does not grant client EXECUTE. It is intentionally excluded from the 23 authenticated-callable public SECURITY DEFINER signatures and from the 74-function public callable total. Keep its active-Admin MFA, target-profile locking, Admin-target/self-suspension, audit atomicity, and concurrency contracts; do not expose it through a client route until the full access-surface validation and an explicit grant decision are complete.
 
 ## Private callable definer functions
 
 The private-function inventory is a separate callable surface. The clean-replay contract locks twelve authenticated-callable private SECURITY DEFINER helpers, including `private.tacresq_auth_profile_id_for_token_cleanup()` and `private.tacresq_current_account_active()`, and rejects `anon`/`PUBLIC` EXECUTE on every classified callable definer. A private function with authenticated EXECUTE is directly callable even if it is also used by a public wrapper. The source reviews explicitly identify these examples:
 
 - `private.tacresq_auth_profile_id()` and `private.tacresq_auth_can_access_incident_chat(bigint)` — Batch 1. The profile-ID helper now returns NULL for suspended callers; Storage policies that rely on it fail closed. The directly callable incident-assignee helper also checks active status and locks the caller profile. Notification list/detail and incident-chat history RPCs now use this helper directly; claimable-incident discovery requires an active profile under a share lock.
-- `private.tacresq_assign_incident_team(bigint,bigint[])`, `private.tacresq_is_incident_assignee(bigint)`, `private.tacresq_record_location_v2(...)`, `private.tacresq_active_responder_locations()`, and `private.tacresq_dispatch_update_incident_status(bigint,text)` — Batch 3. The dispatcher progress implementation is now separately guarded by `20261124070000_account_lifecycle_dispatch_progress_guard.sql`: it requires an active dispatcher and holds a `FOR SHARE` profile lock for the transaction. Its public `api_update_incident_status(bigint,text)` wrapper remains SECURITY INVOKER; the private implementation is the privileged write boundary.
+- `private.tacresq_assign_incident_team_guarded(bigint,bigint[])`, `private.tacresq_is_incident_assignee(bigint)`, `private.tacresq_record_location_v2(...)`, `private.tacresq_active_responder_locations()`, and `private.tacresq_dispatch_update_incident_status(bigint,text)` — Batch 3. The dispatcher progress implementation is now separately guarded by `20261124070000_account_lifecycle_dispatch_progress_guard.sql`: it requires an active dispatcher and holds a `FOR SHARE` profile lock for the transaction. Its public `api_update_incident_status(bigint,text)` wrapper remains SECURITY INVOKER; the private implementation is the privileged write boundary.
 - `private.tacresq_require_admin_mfa()` is intentionally not directly executable by client roles; it is a trusted internal authorization helper used by Admin wrappers — Batch 2.
-- `private.tacresq_current_account_active()` is directly executable by `authenticated`, reads and share-locks the caller's profile lifecycle state, and returns false for missing/suspended profiles. It is used by restrictive direct-table RLS policies; its direct-callable grant is included in the eleven-function private-definer inventory.
+- `private.tacresq_current_account_active()` is directly executable by `authenticated`, reads and share-locks the caller's profile lifecycle state, and returns false for missing/suspended profiles. It is used by restrictive direct-table RLS policies; its direct-callable grant is included in the twelve-function private-definer inventory.
 
 The full exact private signature list and function bodies are emitted by `tools/check_account_suspension_authorization_surface.sql` during clean replay. Do not treat this short list as the complete private catalog. Every function with client EXECUTE must be checked directly; every internal definer helper must be traced from its caller and checked for authorization assumptions.
 
 ## Invoker functions are not exempt
 
-The clean replay also reports 50 authenticated-callable public SECURITY INVOKER functions. Their access can still expose or mutate data through RLS, views, or helper calls. Examples documented in Batch 3 include `api_assign_incident`, `api_update_incident_status`, `api_all_incidents`, `api_my_incidents`, `api_set_duty_status`, `api_record_location_v2`, and `api_active_responder_locations`.
+The clean replay also reports 51 authenticated-callable public SECURITY INVOKER functions. Their access can still expose or mutate data through RLS, views, or helper calls. Examples documented in Batch 3 include `api_assign_incident_team`, `api_assign_incident`, `api_update_incident_status`, `api_all_incidents`, `api_my_incidents`, `api_set_duty_status`, `api_record_location_v2`, and `api_active_responder_locations`.
 
-A complete release matrix must therefore include all 75 public callable functions, not only the 25 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
+A complete release matrix must therefore include all 75 public callable functions, not only the 23 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
 
 ## Chat and Storage shared authorization chain
 
@@ -63,7 +61,7 @@ A complete release matrix must therefore include all 75 public callable function
 
 ## Current coverage and remaining gap
 
-This crosswalk connects the 25 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
+This crosswalk connects the 23 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
 
 Before adding the account-state migration:
 1. Finish exact coverage for all 50 invoker functions and all authenticated-callable private functions.
@@ -95,7 +93,7 @@ A release reviewer should record additions, removals, overload changes, owner/gr
 
 The next call-graph review found three more direct SECURITY DEFINER boundaries whose original implementations checked role/assignment state but did not independently require an active profile:
 
-- `public.api_assign_incident_team(bigint,bigint[])`: now checks and share-locks an active dispatcher before delegating to the preserved private implementation. The legacy single-member alias is recreated to route through the guarded public entry point. The moved internal implementation has client EXECUTE revoked.
+- `public.api_assign_incident_team(bigint,bigint[])` is now a SECURITY INVOKER wrapper that delegates to `private.tacresq_assign_incident_team_guarded(bigint,bigint[])`. The private guard checks and share-locks an active dispatcher; the preserved `private.tacresq_assign_incident_team(bigint,bigint[])` implementation has client EXECUTE revoked. The legacy single-member alias routes through the guarded public entry point.
 - `private.tacresq_release_incident_assignment(bigint,bigint)`: now checks and share-locks an active dispatcher before delegating to the preserved release transaction. The internal implementation is no longer client-callable.
 - `private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamptz)`: now checks and share-locks an active responder/driver before delegating to the existing coordinate validation, assignment-state validation, and rate-limited insert. The internal writer is no longer client-callable.
 
@@ -234,3 +232,6 @@ The PostgreSQL replay contract checks exact signatures, wrapper attributes, acti
 Migration `20261124140000_account_lifecycle_duty_status_guard.sql` updates `public.api_set_duty_status(text)` to require an active responder/driver in the locked profile read. The profile `FOR UPDATE` lock is held through the update, serializing duty changes with account suspension. Existing available/off-duty input limits and active-incident protection remain in place; suspension does not automatically alter duty status.
 
 The PostgreSQL replay contract verifies invoker mode, volatility, search path, active-state and role predicates, profile locking, active-incident protection, and effective grants. The source contract ties the migration to the replay. Runtime same-valid-JWT denial and duty-change-versus-suspension concurrency remain unexecuted release checks.
+
+
+The website Admin lifecycle transition is exposed through `public.api_admin_set_account_status(bigint, text, text, text)` to authenticated AAL2/TOTP Admins only. It rejects self-change and Admin targets, locks the target profile, and records the lifecycle audit event transactionally.

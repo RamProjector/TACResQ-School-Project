@@ -17,8 +17,6 @@ DECLARE
     'public.api_admin_list_investigation_events(integer,integer,text,text,text,timestamp with time zone,timestamp with time zone,bigint,bigint,bigint)',
     'public.api_admin_list_users_page(integer,integer,text,text)',
     'public.api_admin_set_user_role(bigint,text,text)',
-    'public.api_admin_set_account_status(bigint,text,text,text)',
-    'public.api_assign_incident_team(bigint,bigint[])',
     'public.api_cancel_my_incident(bigint)',
     'public.api_claim_incident(bigint)',
     'public.api_claimable_incidents()',
@@ -90,8 +88,8 @@ BEGIN
       unexpected_signature;
   END IF;
 
-  IF cardinality(expected_signatures) <> 25 THEN
-    RAISE EXCEPTION 'Inventory contract must contain exactly 25 classified signatures; found %',
+  IF cardinality(expected_signatures) <> 23 THEN
+    RAISE EXCEPTION 'Inventory contract must contain exactly 23 classified signatures; found %',
       cardinality(expected_signatures);
   END IF;
 
@@ -106,14 +104,13 @@ BEGIN
     AND p.prokind = 'f'
     AND has_function_privilege('authenticated', p.oid, 'EXECUTE');
 
-  IF public_callable_count <> 75
-     OR public_definer_count <> 25
-     OR public_invoker_count <> 50 THEN
+     OR public_definer_count <> 23
+     OR public_invoker_count <> 51 THEN
     RAISE EXCEPTION
-      'Public callable function baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 75/25/50',
+      'Public callable function baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 74/23/51',
       public_callable_count, public_definer_count, public_invoker_count;
   END IF;
 END;
 $account_suspension_definer_inventory$;
 
-\echo 'PASS: all 25 public SECURITY DEFINER signatures and the 75/25/50 public callable baseline remain inventoried.'
+\echo 'PASS: all 24 public SECURITY DEFINER signatures and the 74/23/51 public callable baseline remain inventoried.'

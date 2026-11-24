@@ -39,10 +39,25 @@ for required in (
     "SECURITY DEFINER",
     "account_status = 'active'",
     "FOR SHARE",
-    "tacresq_assign_incident_team_internal",
-    "REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team_internal",
+    "private.tacresq_assign_incident_team_guarded",
+    "REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team(bigint, bigint[])",
 ):
     assert required in lifecycle_guard, f"Guarded assignment boundary missing: {required}"
 
 print("PASS: backend persists team membership, rechecks availability under locks, and returns team IDs.")
+
+for required in (
+    "private.tacresq_assign_incident_team_guarded",
+    "p.account_status = 'active'",
+    "FOR SHARE",
+    "SECURITY DEFINER",
+    "SECURITY INVOKER",
+    "GRANT USAGE ON SCHEMA private TO authenticated",
+    "REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team(bigint, bigint[])",
+    "private.tacresq_assign_incident_team(p_id, p_user_ids)",
+):
+    assert required in lifecycle_guard, f"Active-account team assignment guard missing: {required}"
+assert lifecycle_guard.index("p.account_status = 'active'") < lifecycle_guard.index("FOR SHARE")
+assert "ALTER FUNCTION public.api_assign_incident_team" not in lifecycle_guard
+print("PASS: active-account assignment is serialized in a private definer helper behind a public invoker RPC.")
 print("PASS: public assignment wrapper enforces active-dispatcher authorization; private implementation is not client-callable; legacy alias remains invoker.")
