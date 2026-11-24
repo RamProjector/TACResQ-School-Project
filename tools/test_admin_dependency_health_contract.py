@@ -50,9 +50,9 @@ assert '"Checking…"' in console
 assert 'status: controller.signal.aborted ? "slow" : "unavailable"' in client
 
 
-assert "All three reachability probes responded" in console
-assert "At least one reachability probe did not respond" in console
-assert "At least one reachability probe exceeded five seconds" in console
+assert '"All three dependencies responded within the probe threshold"' in console
+assert 'reachableDependencyCount + " of " + dependencyProbes.length + " dependencies responded within the probe threshold"' in console
+assert 'result.status === "slow" ? "timed out" : "unavailable"' in console
 assert "not complete emergency-service readiness" in console
 
 print("PASS: admin dependency health is role-gated, bounded, data-free, and reports probe scope clearly.")
