@@ -111,6 +111,7 @@ PENDING = {
     "20261124190000_prevent_suspending_assigned_field_units.sql",
     "20261124200000_guard_active_assignment_targets.sql",
     "20261125100000_admin_website_account_lifecycle_controls.sql",
+    "20261125110000_admin_account_lifecycle_compare_and_set.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
