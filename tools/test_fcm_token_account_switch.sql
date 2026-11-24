@@ -151,7 +151,6 @@ BEGIN
   END;
 END;
 $suspended_direct_delete_denied$;
-SELECT set_config('tacresq.allow_suspended_fcm_self_cleanup', '', true);
 
 DO $suspended_registration_denied$
 BEGIN
