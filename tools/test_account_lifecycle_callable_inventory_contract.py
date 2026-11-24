@@ -90,8 +90,10 @@ release_migration = (ROOT / "supabase/migrations/20261124090000_account_lifecycl
 location_migration = (ROOT / "supabase/migrations/20261124100000_account_lifecycle_location_writer_guard.sql").read_text(encoding="utf-8").lower()
 for source, required in (
     (assignment_migration, (
-        "alter function public.api_assign_incident_team(bigint, bigint[]) set schema private",
-        "tacresq_assign_incident_team_internal",
+        "create or replace function private.tacresq_assign_incident_team_guarded",
+        "revoke all on function private.tacresq_assign_incident_team(bigint, bigint[])",
+        "create or replace function public.api_assign_incident_team",
+        "security invoker",
         "account_status = 'active'",
         "for share",
         "only active dispatchers can assign incident teams",
