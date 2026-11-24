@@ -136,6 +136,15 @@ def main() -> None:
     assert "secrets.SUPABASE_TEST_PASSWORD" in authenticated_smoke, (
         "Bridge smoke must pass only its required shared test password explicitly"
     )
+    assert "urllib.request.Request" in role_workflow and "urllib.request.urlopen" in role_workflow, (
+        "Authenticated bridge smoke must keep credentials and bearer tokens out of curl process arguments"
+    )
+    assert "curl " not in role_workflow and "/tmp/supabase-auth.json" not in role_workflow and "/tmp/bridge-rpc.json" not in role_workflow, (
+        "Authenticated bridge smoke must not expose credentials in process arguments or persist token response files"
+    )
+    assert 'expected_role not in {"requester", "responder", "driver", "dispatcher"}' in role_workflow, (
+        "Authenticated bridge smoke must validate its expected role against the supported role set"
+    )
 
     render_smoke = (WORKFLOWS / "render-live-smoke.yml").read_text(encoding="utf-8")
     live_smoke_job = render_smoke.split("  live-smoke:", 1)[1]
