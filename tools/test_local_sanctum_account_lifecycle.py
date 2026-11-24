@@ -85,7 +85,7 @@ assert "test_local_admin_sensitive_action_rejects_incorrect_password" in feature
 assert "test_local_admin_reauthentication_is_rate_limited_after_repeated_failures" in feature
 assert "'totp_code'" in admin_reauth and "verifyAndConsume" in admin_reauth
 assert "LocalAdminTotpService::class" in admin_reauth
-assert "verifyAndConsume($user, $credentials['totp_code'])" in admin_reauth
+assert "verifyAndConsume($lockedUser, $credentials['totp_code'])" in admin_reauth
 assert "local_admin_totp_credentials" in totp_migration
 assert "secret_ciphertext" in totp_migration and "last_used_step" in totp_migration and "last_used_code_hash" in totp_migration
 assert "confirmed_at" in totp_migration and "expires_at" in totp_migration and "unique()->constrained('users')" in totp_migration
