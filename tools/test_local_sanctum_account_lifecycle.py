@@ -71,7 +71,7 @@ assert "test_local_lifecycle_audit_event_rejects_content_updates_on_postgres" in
 assert "test_local_lifecycle_audit_event_rejects_deletion_on_postgres" in feature
 assert "test_local_lifecycle_audit_event_rejects_truncate_on_postgres" in feature
 assert "final class LocalAccountLifecycleRecorder" in recorder
-assert "DB::connection()->transactionLevel() < 1" in recorder, "Lifecycle writes must require an active transaction"
+assert "$this->database->connection()->transactionLevel() < 1" in recorder, "Lifecycle writes must require an active transaction"
 assert "self::TRANSITIONS[$action]" in recorder, "Only explicit lifecycle transitions may be recorded"
 assert "mb_strlen($reason) > 500" in recorder, "Lifecycle reason must respect the database limit"
 assert "insertGetId" in recorder and "created_at" in recorder
@@ -179,7 +179,7 @@ assert "[0, 20]" in feature and "[-1, 20]" in feature and "[10, 0]" in feature a
 assert "test_lifecycle_recorder_rejects_reasons_longer_than_database_limit" in feature
 assert "A valid, distinct actor and target are required." in recorder
 assert "mb_strlen($reason) > 500" in recorder
-assert "DB::connection()->transactionLevel() < 1" in recorder
+assert "$this->database->connection()->transactionLevel() < 1" in recorder
 
 # PostgreSQL rejection tests use nested transactions/savepoints so expected trigger
 # exceptions do not poison Laravel's surrounding RefreshDatabase transaction.
@@ -319,11 +319,11 @@ assert "drop trigger if exists local_lifecycle_events_no_truncate" in append_onl
 # The local audit recorder is intentionally a transaction-scoped append-only
 # writer, not an authorization or account-state mutation service.
 recorder_source = recorder
-assert recorder_source.index("DB::connection()->transactionLevel() < 1") < recorder_source.index("insertGetId")
+assert recorder_source.index("$this->database->connection()->transactionLevel() < 1") < recorder_source.index("insertGetId")
 assert "actorUserId === $targetUserId" in recorder_source
 assert "trim($reason)" in recorder_source and "mb_strlen($reason) > 500" in recorder_source
 assert "self::TRANSITIONS[$action]" in recorder_source
-assert "DB::table('local_account_lifecycle_events')->insertGetId" in recorder_source
+assert "$this->database->connection()->table('local_account_lifecycle_events')->insertGetId" in recorder_source
 assert "update(" not in recorder_source.lower() and "delete(" not in recorder_source.lower()
 
 
