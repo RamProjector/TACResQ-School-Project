@@ -54,3 +54,17 @@ assert "At least one reachability probe exceeded five seconds" in console
 assert "not complete emergency-service readiness" in console
 
 print("PASS: admin dependency health is role-gated, bounded, data-free, and reports probe scope clearly.")
+
+# Unprobed capabilities must be labeled as outside this page's monitoring scope,
+# never as healthy or failed provider states.
+for required in (
+    "Not covered by these probes",
+    "Not monitored here",
+    "Push notification delivery",
+    "Maps and route calculation",
+    "Incident attachments and Storage",
+    "End-to-end emergency workflow",
+    "Persistent monitoring and alerting",
+    "It does not mean the provider or workflow is down, healthy, or configured.",
+):
+    assert required in console, f"Missing monitoring-boundary disclosure: {required}"
