@@ -242,3 +242,7 @@ When an administrator opens the privileged role-change dialog, background page s
 ## Accessible security-action confirmations
 
 The inline confirmation controls for removing an authenticator factor and signing out all devices are exposed as polite, atomic live regions. Screen readers should be notified when the confirmation choices appear without interrupting the operator with an assertive alert. The actions still require the existing server/session authorization checks; this is an announcement improvement, not a change to permissions or action scope.
+
+## Audit history high-contrast display
+
+The browser-local **High contrast** preference also applies to the dedicated Audit history workspace: coverage disclosures, filters, event cards, expanded event details, selected date presets, pagination controls, and technical-reference actions receive stronger text, surface, border, and keyboard-focus contrast. This remains a display-only preference and does not change audit data, access controls, or event coverage.
