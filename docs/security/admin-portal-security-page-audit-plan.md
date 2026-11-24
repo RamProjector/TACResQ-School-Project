@@ -146,3 +146,13 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - Extended the static source-contract test to lock these layout rules.
 - These are presentation-only changes. No data access, account permissions, lifecycle transitions, API calls, or database behavior changed.
 - Still required: execute the Python contract test and verify browser rendering at 320px, 360px, 200% zoom, and multi-page print output. These checks have not been run in this remote-only commit workflow.
+
+
+## Role-change dialog accessibility and feedback follow-up
+
+- Role-change validation errors are now rendered inside the open dialog with an alert role, so an operator does not need to look behind the modal overlay for failed validation or request feedback.
+- Added a programmatic dialog description covering the target account and the access-change warning.
+- Added explicit reason-length guidance and associated it with the textarea and character counter for assistive technology.
+- Styled the inline error and helper text for readable contrast, wrapping, and narrow-screen spacing.
+- Added static source-contract assertions for the dialog description, alert placement, and reason-field relationships.
+- No role-transition authorization, server RPC, database, or lifecycle behavior changed. Browser and screen-reader verification remains outstanding; the static assertions only confirm source wiring.
