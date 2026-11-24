@@ -51,8 +51,19 @@ Deno.serve(async (request: Request) => {
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: userResult, error: authError } = await admin.auth.getUser(userToken);
   if (authError || !userResult.user) return json({ error: "Invalid or expired session" }, 401);
+  const maxBodyBytes = 8192;
+  const declaredBodyLength = request.headers.get("Content-Length");
+  if (declaredBodyLength !== null && /^\\d+$/.test(declaredBodyLength)
+      && Number(declaredBodyLength) > maxBodyBytes) {
+    return json({ error: "Request body is too large" }, 413);
+  }
+  let rawBody: string;
+  try { rawBody = await request.text(); } catch { return json({ error: "Invalid JSON body" }, 400); }
+  if (new TextEncoder().encode(rawBody).byteLength > maxBodyBytes) {
+    return json({ error: "Request body is too large" }, 413);
+  }
   let payload: unknown;
-  try { payload = await request.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
+  try { payload = JSON.parse(rawBody); } catch { return json({ error: "Invalid JSON body" }, 400); }
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return json({ error: "JSON body must be an object" }, 400);
   }
