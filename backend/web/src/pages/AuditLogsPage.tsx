@@ -71,17 +71,39 @@ function sourceDisplay(value: string) {
   return sourceLabels[value as Exclude<AdminInvestigationSource, "all">] || formatDetailLabel(value);
 }
 
-function formatDetailValue(value: unknown): string {
+const MAX_AUDIT_DETAIL_DEPTH = 3;
+const MAX_AUDIT_DETAIL_ITEMS = 20;
+const MAX_AUDIT_DETAIL_TEXT = 500;
+
+function boundedAuditText(value: string): string {
+  return value.length > MAX_AUDIT_DETAIL_TEXT
+    ? value.slice(0, MAX_AUDIT_DETAIL_TEXT) + "…"
+    : value;
+}
+
+function formatDetailValue(value: unknown, depth = 0): string {
   if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "string") return boundedAuditText(value);
+  if (typeof value === "number") return String(value);
   if (Array.isArray(value)) {
-    const labels = value.filter((item): item is string => typeof item === "string");
-    return labels.length ? labels.map(formatDetailLabel).join(", ") : "None";
+    const labels = value
+      .filter((item): item is string => typeof item === "string")
+      .slice(0, MAX_AUDIT_DETAIL_ITEMS)
+      .map(boundedAuditText);
+    if (!labels.length) return "None";
+    const remaining = value.length > MAX_AUDIT_DETAIL_ITEMS
+      ? " · +" + (value.length - MAX_AUDIT_DETAIL_ITEMS) + " more"
+      : "";
+    return labels.join(", ") + remaining;
   }
   if (value && typeof value === "object") {
-    return Object.entries(value as Record<string, unknown>)
-      .map(([key, item]) => formatDetailLabel(key) + ": " + formatDetailValue(item))
-      .join(" · ");
+    if (depth >= MAX_AUDIT_DETAIL_DEPTH) return "Additional nested details omitted";
+    const entries = Object.entries(value as Record<string, unknown>);
+    const visible = entries.slice(0, MAX_AUDIT_DETAIL_ITEMS);
+    const formatted = visible
+      .map(([key, item]) => boundedAuditText(formatDetailLabel(key)) + ": " + formatDetailValue(item, depth + 1));
+    if (entries.length > visible.length) formatted.push("+" + (entries.length - visible.length) + " more fields");
+    return formatted.join(" · ");
   }
   return "Not available";
 }
