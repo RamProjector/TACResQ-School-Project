@@ -277,3 +277,19 @@ assert "'suspension_reason'" not in register_block
 assert "local.admin.reauthenticated" in bootstrap
 assert "Route::post('/admin/accounts/{user}/suspend'" not in routes
 assert "Route::post('/admin/accounts/{user}/reactivate'" not in routes
+
+
+# Requiring actor/target attribution must serialize writers and fail closed
+# rather than silently fabricating or deleting historical audit identities.
+identity_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000012_require_local_lifecycle_audit_identities.php").read_text(encoding="utf-8")
+lock_position = identity_migration.index("LOCK TABLE local_account_lifecycle_events IN ACCESS EXCLUSIVE MODE")
+count_position = identity_migration.index("$unattributedEvents = DB::table")
+fail_position = identity_migration.index("if ($unattributedEvents > 0)")
+not_null_position = identity_migration.index("ALTER COLUMN actor_user_id SET NOT NULL")
+assert lock_position < count_position < fail_position < not_null_position
+assert "whereNull('actor_user_id')" in identity_migration
+assert "orWhereNull('target_user_id')" in identity_migration
+assert "throw new RuntimeException" in identity_migration
+assert "separately approved audit-preserving process" in identity_migration
+assert "DROP NOT NULL" in identity_migration
+
