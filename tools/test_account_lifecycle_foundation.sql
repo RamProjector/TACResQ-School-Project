@@ -1255,7 +1255,8 @@ BEGIN
      OR unregister_source NOT ILIKE '%profile.auth_user_id = auth.uid()%'
      OR unregister_source NOT ILIKE '%token_row.profile_id = caller_profile_id%'
      OR unregister_source NOT ILIKE '%token_row.token = p_token%'
-     OR unregister_source NOT ILIKE '%DELETE FROM public.fcm_tokens%' THEN
+     OR unregister_source NOT ILIKE '%DELETE FROM public.fcm_tokens%'
+     OR unregister_source NOT ILIKE '%set_config(''tacresq.allow_suspended_fcm_self_cleanup'', NULL, true)%' THEN
     RAISE EXCEPTION 'FCM unregister must be a pinned, caller-owned token cleanup operation';
   END IF;
   IF (SELECT NOT prosecdef OR provolatile <> 's' FROM pg_catalog.pg_proc WHERE oid = cleanup_oid)
