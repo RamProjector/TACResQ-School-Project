@@ -399,7 +399,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   return (
     <div className="admin-shell">
       <a className="admin-skip-link" href="#admin-workspace-main">Skip to admin content</a>
-      <div className="admin-toast-region" aria-live="polite" aria-atomic="true">
+      <div className="admin-toast-region" aria-atomic="true">
         {roleToast && (
           <div className={"admin-toast admin-toast--" + roleToast.type} role={roleToast.type === "error" ? "alert" : "status"}>
             <span>{roleToast.message}</span>
