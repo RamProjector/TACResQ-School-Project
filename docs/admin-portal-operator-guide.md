@@ -254,3 +254,7 @@ The Request performance panel exposes its loading and refresh state through the 
 ## Audit history refresh accessibility status
 
 The main Audit history workspace exposes its query and refresh state through the aria-busy attribute while its filtered event feed is being retrieved. The existing polite activity-loading status and error alert remain in place. Account lifecycle history continues to expose a separate busy state because it is fetched and paginated independently.
+
+## Pending authenticator enrollment teardown
+
+If an administrator leaves the Security workspace while a backup TOTP factor is still unverified, the component attempts best-effort removal of that pending factor. Teardown now contains both asynchronous unenrollment failures and synchronous client-initialization failures so navigation does not create an unhandled promise rejection. Because the view is already unmounted, this cleanup cannot present an interactive retry; the next Security status retrieval remains authoritative. Operators should verify the registered-factor inventory after returning to the workspace if an interrupted enrollment is suspected.
