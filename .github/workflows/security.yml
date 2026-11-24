@@ -16,34 +16,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  repository-guardrails:
-    name: Repository security guardrails
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Set up Python
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
-        with:
-          python-version: "3.11"
-
-      - name: Run deterministic repository security guardrails
-        run: python3 tools/ai_security_review.py
-
-      - name: Review dependency changes on pull requests
-        if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
-        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
-        with:
-          fail-on-severity: moderate
-
-      - name: Explain dependency review prerequisite
-        if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED != 'true'
-        run: |
-          echo "::warning::Dependency review was skipped because repository variable DEPENDENCY_GRAPH_ENABLED is not set to true."
-          echo "Enable the repository dependency graph in Settings > Security & analysis, then set repository variable DEPENDENCY_GRAPH_ENABLED=true."
-
   codeql-android:
     name: CodeQL Android (Java and Kotlin)
     runs-on: ubuntu-latest
@@ -86,6 +58,34 @@ jobs:
 
       - name: Analyze Android source with CodeQL
         uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
+
+  repository-guardrails:
+    name: Repository security guardrails
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.11"
+
+      - name: Run deterministic repository security guardrails
+        run: python3 tools/ai_security_review.py
+
+      - name: Review dependency changes on pull requests
+        if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED == 'true'
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+        with:
+          fail-on-severity: moderate
+
+      - name: Explain dependency review prerequisite
+        if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH_ENABLED != 'true'
+        run: |
+          echo "::warning::Dependency review was skipped because repository variable DEPENDENCY_GRAPH_ENABLED is not set to true."
+          echo "Enable the repository dependency graph in Settings > Security & analysis, then set repository variable DEPENDENCY_GRAPH_ENABLED=true."
 
   codeql-web-actions:
     name: CodeQL Web and GitHub Actions
