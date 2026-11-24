@@ -36,7 +36,7 @@ assert "complete administrative audit history" not in admin.lower(), "Do not imp
 assert "page * pageSize >= userPage.total_count" in admin, "User management must recover when the current page becomes out of range after the account set shrinks."
 assert "Math.ceil(userPage.total_count / pageSize) - 1" in admin, "Out-of-range user pagination must return to the last valid page instead of showing a false empty state."
 assert "const [debouncedQuery, setDebouncedQuery] = useState(\"\")" in admin, "User search must keep a debounced query separate from the live input."
-assert "window.setTimeout(() => {" in admin and "setDebouncedQuery(query)" in admin and "}, 250)" in admin, "User directory search must debounce server requests."
+assert "window.setTimeout(() => {" in admin and "setDebouncedQuery(query.trim())" in admin and "}, 250)" in admin, "User directory search must debounce server requests."
 assert "getAdminUsersPage(pageSize, page * pageSize, debouncedQuery, roleFilter)" in admin, "User directory RPC must use the debounced query."
 # Overview dependency probes must run independently of the account-directory RPC.
 refresh_body = admin.split("const refresh = useCallback(async () => {", 1)[1].split("}, [activeSection, page, debouncedQuery, roleFilter]);", 1)[0]
