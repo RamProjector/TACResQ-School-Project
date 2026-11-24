@@ -116,4 +116,4 @@ BEGIN
 END;
 $account_suspension_definer_inventory$;
 
-\echo 'PASS: all 24 public SECURITY DEFINER signatures and the 74/24/50 public callable baseline remain inventoried.'
+\echo 'PASS: all 25 public SECURITY DEFINER signatures and the 75/25/50 public callable baseline remain inventoried.'
