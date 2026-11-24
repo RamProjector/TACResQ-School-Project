@@ -158,3 +158,8 @@ When the lifecycle history page is changed or retried, the previous page's rows 
 ## Account lifecycle history freshness
 
 The suspension/reactivation history displays its own last-successful-retrieval time in Asia/Manila. That timestamp is cleared whenever a new lifecycle page load or retry starts, and is restored only after the requested page succeeds. It is independent of the main investigation feed's retrieval timestamp. If the requested page becomes invalid because records were removed, the interface moves to the last valid page and retrieves that page before showing a fresh timestamp.
+
+
+## Account directory refresh visibility
+
+When a new account-directory request starts, the previous page's rows and total are cleared along with its retrieval timestamp. The directory shows its loading state until the active protected request succeeds or reports an error. This prevents accounts matching an earlier page or filter from being mistaken for the results of the current selection.
