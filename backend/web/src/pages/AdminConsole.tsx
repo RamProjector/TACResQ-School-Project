@@ -397,6 +397,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [directoryLoadedAt, setDirectoryLoadedAt] = useState<string | null>(null);
   const [directoryResultsKey, setDirectoryResultsKey] = useState<string | null>(null);
   const [target, setTarget] = useState<AdminUser | null>(null);
+  const [lifecycleTarget, setLifecycleTarget] = useState<AdminUser | null>(null);
   const [expandedAccountId, setExpandedAccountId] = useState<number | null>(null);
   const [nextRole, setNextRole] = useState<AdminManagedRole>("requester");
   const [reason, setReason] = useState("");
@@ -408,14 +409,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   // Return keyboard focus to the control that opened the role-change dialog.
   useEffect(() => {
-    if (target) return;
+    if (target || lifecycleTarget) return;
     const trigger = previousFocus.current;
     if (trigger?.isConnected) trigger.focus();
     previousFocus.current = null;
-  }, [target]);
+  }, [target, lifecycleTarget]);
 
   useEffect(() => {
-    if (!target) return;
+    if (!target && !lifecycleTarget) return;
     const root = modalRoot.current;
     // Keep the page behind the privileged dialog from scrolling on touch or
     // wheel input; restore the exact prior body style when the dialog closes.
@@ -426,6 +427,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !saving) {
         setTarget(null);
+        setLifecycleTarget(null);
         return;
       }
       if (event.key !== "Tab") return;
@@ -453,7 +455,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousBodyOverflow;
     };
-  }, [target, saving]);
+  }, [target, lifecycleTarget, saving]);
 
   const refresh = useCallback(async () => {
     const requestId = ++requestVersion.current;
@@ -622,31 +624,44 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   async function changeAccountStatus(user: AdminUser) {
     if (user.role === "admin" || saving || roleChangeInFlight.current) return;
-    const nextStatus = user.account_status === "active" ? "suspended" : "active";
-    const action = nextStatus === "suspended" ? "suspend" : "reactivate";
-    const enteredReason = window.prompt((nextStatus === "suspended" ? "Enter a reason for suspending " : "Enter a reason for reactivating ") + user.name + " (10–500 characters):");
-    if (enteredReason === null) return;
-    const normalizedReason = enteredReason.trim();
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setLifecycleTarget(user);
+    setReason("");
+    setRoleToast(null);
+  }
+
+  async function confirmAccountStatusChange() {
+    if (!lifecycleTarget || saving || roleChangeInFlight.current) return;
+    const expectedStatus = lifecycleTarget.account_status;
+    const nextStatus = expectedStatus === "active" ? "suspended" : "active";
+    const normalizedReason = reason.trim();
     if (normalizedReason.length < 10 || normalizedReason.length > 500) {
       setRoleToast({ type: "error", message: "Enter an audit reason between 10 and 500 characters." });
       return;
     }
-    if (!window.confirm("Confirm " + action + " for " + user.name + "? Account access will change immediately.")) return;
     roleChangeInFlight.current = true;
     setSaving(true);
-    setRoleToast(null);
     try {
-      const latestPage = await getAdminUsersPage(100, 0, String(user.id), "all");
-      const latest = latestPage.users.find((item) => item.id === user.id);
-      if (!latest || latest.account_status !== user.account_status || latest.role !== user.role) {
+      const latestPage = await getAdminUsersPage(100, 0, String(lifecycleTarget.id), "all");
+      const latest = latestPage.users.find((item) => item.id === lifecycleTarget.id);
+      if (!latest || latest.account_status !== expectedStatus || latest.role !== lifecycleTarget.role) {
+        setLifecycleTarget(null);
+        setReason("");
         await refresh();
-        setRoleToast({ type: "error", message: "This account changed while the action was being prepared. Review the refreshed account before trying again." });
+        setRoleToast({ type: "error", message: "This account changed while confirmation was open. Review its refreshed status before trying again." });
         return;
       }
-      await setAdminAccountStatus(user.id, nextStatus, normalizedReason);
-      setRoleToast({ type: "success", message: user.name + " was " + (nextStatus === "suspended" ? "suspended" : "reactivated") + ". The action was recorded in lifecycle history." });
+      await setAdminAccountStatus(lifecycleTarget.id, expectedStatus, nextStatus, normalizedReason);
+      setLifecycleTarget(null);
+      setReason("");
+      setRoleToast({ type: "success", message: lifecycleTarget.name + " was " + (nextStatus === "suspended" ? "suspended" : "reactivated") + ". The action was recorded in lifecycle history." });
       await refresh();
     } catch (cause) {
+      if (cause instanceof Error && cause.message.includes("changed by another administrator")) {
+        setLifecycleTarget(null);
+        setReason("");
+        await refresh();
+      }
       setRoleToast({ type: "error", message: cause instanceof Error ? cause.message : "The account status change could not be confirmed." });
     } finally {
       roleChangeInFlight.current = false;
@@ -1347,31 +1362,32 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         </div>
       </main>
 
-      {target && (
-        <div className="admin-modal-scrim" ref={modalRoot} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setTarget(null); }}>
-          <section className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-role-dialog-title" aria-describedby="admin-role-dialog-description admin-role-dialog-guidance">
-            <button className="admin-modal__close" type="button" aria-label="Close role change" onClick={() => setTarget(null)} disabled={saving}><X size={18} /></button>
-            <div className="admin-modal__icon"><ShieldCheck size={22} /></div>
-            <p className="admin-eyebrow">PRIVILEGED ACTION</p>
-            <h2 id="admin-role-dialog-title">Change account role</h2>
-            <p className="admin-modal__description" id="admin-role-dialog-description">You are changing access for <strong>{target.name}</strong> ({target.email}). Review the role transition carefully. The database enforces authorization and records the reason in the audit log.</p>
-            <div className="admin-role-transition" aria-live="polite" aria-atomic="true"><div><span>Current role</span><strong>{displayRole(target.role)}</strong></div><span className="admin-role-transition__arrow" aria-hidden="true">→</span><div><span>New role</span><strong>{displayRole(nextRole)}</strong></div></div>
-            <p className="admin-role-warning" id="admin-role-dialog-guidance">Changing a role changes the account’s permissions in TACResQ. Confirm the intended access level with the responsible operator before saving.</p>
-            <label className="admin-form-label" htmlFor="admin-new-role">New role</label>
-            <select id="admin-new-role" value={nextRole} onChange={(event) => setNextRole(event.target.value as AdminManagedRole)} disabled={saving}>
-              {roleOptions.map((role) => <option key={role} value={role}>{displayRole(role)}</option>)}
-            </select>
-            <label className="admin-form-label" htmlFor="admin-change-reason">Reason for change <span>Required</span></label>
-            <p className="admin-form-hint" id="admin-change-reason-guidance">Explain why this access change is necessary. Enter 10–500 characters; surrounding whitespace is ignored.</p>
-            <textarea id="admin-change-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={10} maxLength={500} rows={4} placeholder="Record the operational reason for this role change." aria-describedby="admin-change-reason-guidance admin-reason-count" disabled={saving} />
-            <div className="admin-reason-count" id="admin-reason-count">{reason.trim().length}/500 characters · minimum 10</div>
-            <div className="admin-modal__actions">
-              <button className="admin-modal-cancel" type="button" onClick={() => setTarget(null)} disabled={saving}>Cancel</button>
-              <button className="admin-modal-confirm" type="button" onClick={() => { void confirmRoleChange(); }} disabled={saving || nextRole === target.role || reason.trim().length < 10 || reason.trim().length > 500}>
-                {saving ? <><LoaderCircle size={16} className="admin-spin" /> Saving…</> : <><ShieldCheck size={16} /> Confirm {displayRole(nextRole)} access</>}
-              </button>
-            </div>
-          </section>
+      {(target || lifecycleTarget) && (
+        <div className="admin-modal-scrim" ref={modalRoot} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) { setTarget(null); setLifecycleTarget(null); setReason(""); } }}>
+          {target ? (
+            <section className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-role-dialog-title">
+              <button className="admin-modal__close" type="button" aria-label="Close role change" onClick={() => setTarget(null)} disabled={saving}><X size={18} /></button>
+              <div className="admin-modal__icon"><ShieldCheck size={22} /></div><p className="admin-eyebrow">PRIVILEGED ACTION</p><h2 id="admin-role-dialog-title">Change account role</h2>
+              <p className="admin-modal__description">You are changing access for <strong>{target.name}</strong> ({target.email}).</p>
+              <div className="admin-role-transition"><div><span>Current role</span><strong>{displayRole(target.role)}</strong></div><span>→</span><div><span>New role</span><strong>{displayRole(nextRole)}</strong></div></div>
+              <label className="admin-form-label" htmlFor="admin-new-role">New role</label><select id="admin-new-role" value={nextRole} onChange={(event) => setNextRole(event.target.value as AdminManagedRole)} disabled={saving}>{roleOptions.map((role) => <option key={role} value={role}>{displayRole(role)}</option>)}</select>
+              <label className="admin-form-label" htmlFor="admin-change-reason">Reason <span>Required</span></label><textarea id="admin-change-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={10} maxLength={500} rows={4} disabled={saving} />
+              <div className="admin-reason-count">{reason.trim().length}/500 · minimum 10</div>
+              <div className="admin-modal__actions"><button className="admin-modal-cancel" type="button" onClick={() => setTarget(null)} disabled={saving}>Cancel</button><button className="admin-modal-confirm" type="button" onClick={() => { void confirmRoleChange(); }} disabled={saving || nextRole === target.role || reason.trim().length < 10 || reason.trim().length > 500}>Confirm role change</button></div>
+            </section>
+          ) : lifecycleTarget ? (
+            <section className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-lifecycle-dialog-title" aria-describedby="admin-lifecycle-dialog-description">
+              <button className="admin-modal__close" type="button" aria-label="Close confirmation" onClick={() => { setLifecycleTarget(null); setReason(""); }} disabled={saving}><X size={18} /></button>
+              <div className="admin-modal__icon"><ShieldAlert size={22} /></div><p className="admin-eyebrow">ACCOUNT GOVERNANCE</p>
+              <h2 id="admin-lifecycle-dialog-title">{lifecycleTarget.account_status === "active" ? "Suspend account" : "Reactivate account"}</h2>
+              <p className="admin-modal__description" id="admin-lifecycle-dialog-description">Confirm the account status change for <strong>{lifecycleTarget.name}</strong> ({lifecycleTarget.email}). The database rechecks the expected current status under a row lock and records the decision in immutable history.</p>
+              <div className="admin-role-transition"><div><span>Current status</span><strong>{lifecycleTarget.account_status === "active" ? "Active" : "Suspended"}</strong></div><span>→</span><div><span>New status</span><strong>{lifecycleTarget.account_status === "active" ? "Suspended" : "Active"}</strong></div></div>
+              <p className="admin-role-warning">Suspension blocks protected account operations. Already-issued authentication tokens are not immediately revoked.</p>
+              <label className="admin-form-label" htmlFor="admin-lifecycle-reason">Reason <span>Required</span></label><textarea id="admin-lifecycle-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={10} maxLength={500} rows={4} placeholder="Record the administrative reason." disabled={saving} />
+              <div className="admin-reason-count">{reason.trim().length}/500 · minimum 10</div>
+              <div className="admin-modal__actions"><button className="admin-modal-cancel" type="button" onClick={() => { setLifecycleTarget(null); setReason(""); }} disabled={saving}>Cancel</button><button className="admin-modal-confirm" type="button" onClick={() => { void confirmAccountStatusChange(); }} disabled={saving || reason.trim().length < 10 || reason.trim().length > 500}>{saving ? "Saving…" : "Confirm status change"}</button></div>
+            </section>
+          ) : null}
         </div>
       )}
     </div>
