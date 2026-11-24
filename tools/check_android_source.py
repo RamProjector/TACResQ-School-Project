@@ -379,7 +379,7 @@ if (ROOT / "gradlew").is_file():
         encoding="utf-8"
     )
     distribution_match = re.search(
-        r"^distributionUrl=.*?/gradle-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)-bin\\.zip$",
+        r"^distributionUrl=.*?/gradle-([0-9]+\.[0-9]+(?:\.[0-9]+)?)-bin\.zip$",
         properties,
         re.MULTILINE,
     )
