@@ -30,3 +30,17 @@ The database transition function for suspension/reactivation remains revoked fro
 - Verify each page against a non-production environment with the matching database migrations applied.
 - Confirm the Admin reports page displays an explicit unavailable state if the aggregate RPC is missing or inaccessible; never substitute sample data.
 - Run the web build and Python source-contract tests in CI. Browser layout, keyboard, and screen-reader review remain separate checks.
+
+## Audit-history filter safeguards
+
+- Date filters use inclusive calendar dates in Asia/Manila (UTC+08:00).
+- The client validates both date syntax and actual calendar validity before requesting records.
+- A start date later than the end date is rejected locally; the audit query is not sent and the page shows the validation error.
+- Clearing filters resets the date boundaries along with category, source, and search terms.
+- The activity feed remains read-only. Filtering does not widen the protected RPC's authorization scope.
+
+## Accessibility refinements
+
+- Keyboard users receive a visible, high-contrast focus outline across Admin links, buttons, and form controls.
+- Reduced-motion preferences suppress decorative animation and transition effects in the Admin shell.
+- These CSS safeguards complement, but do not replace, manual keyboard and assistive-technology review.
