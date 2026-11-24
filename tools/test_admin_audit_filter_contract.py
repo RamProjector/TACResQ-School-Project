@@ -41,3 +41,12 @@ assert ".audit-page__date-presets button:focus-visible" in ADMIN_CSS
 # The displayed refresh timestamp belongs only to the currently applied query.
 assert "setLastSuccessfulRefresh(null);" in AUDIT_PAGE
 assert "setLastSuccessfulRefresh(new Date().toISOString());" in AUDIT_PAGE
+
+
+# Account lifecycle history has an independent retry path after a source failure.
+assert "lifecycleRefreshVersion" in AUDIT_PAGE
+assert "setLifecycleRefreshVersion((current) => current + 1)" in AUDIT_PAGE
+assert "Retry lifecycle history" in AUDIT_PAGE
+assert "}, [lifecyclePage, refreshVersion, lifecycleRefreshVersion]);" in AUDIT_PAGE
+assert ".audit-page__lifecycle-error" in ADMIN_CSS
+assert ".audit-page__lifecycle-error .admin-refresh:focus-visible" in ADMIN_CSS
