@@ -167,3 +167,11 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - Factor-removal and global-sign-out confirmation controls expose labelled groups, and backup enrollment guidance is associated with the form as well as its verification input.
 - Factor rows wrap at narrow widths rather than forcing the action buttons outside the panel. Keyboard focus remains visible for Security-page controls.
 - Static source assertions cover the AAL2/TOTP UI gate, handler-facing controls, semantic confirmation groups, and responsive rules. Browser, keyboard, and screen-reader validation remain outstanding.
+
+## Fresh MFA factor-inventory checks
+
+- TOTP-method parsing is centralized so the session display and privileged factor actions interpret Supabase authentication-method claims consistently. The AAL2 level remains a separate explicit requirement at each mutation boundary.
+- Before removing an authenticator, the page now re-reads the current factor inventory, confirms the requested factor still exists, and recalculates the verified-factor count. This prevents a stale browser snapshot from removing the final verified factor after a backup was removed in another session.
+- Before enrolling a backup authenticator, the page re-reads the factor inventory and checks the current TOTP factor count and names. The client-side count is a usability guard, not a replacement for Supabase-side limits.
+- Static source-contract assertions cover centralized TOTP parsing, fresh inventory reads, stale target handling, last-factor protection, and enrollment-limit checks.
+- Cross-device races still require disposable-project integration tests. A read followed by a mutation is not a database transaction, and this client-side guard does not establish server-side serialization.
