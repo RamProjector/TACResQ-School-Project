@@ -298,4 +298,18 @@ assert audit_insert > profile_update, (
 )
 assert "trim(p_reason)" in role_body and "user_role_changed" in role_body
 
+# The Admin Security page exposes a readable, source-backed permission matrix.
+# Keep this as a portal capability summary, not a fabricated live policy scan.
+for marker in (
+    "Admin access review",
+    "Single Admin role",
+    "Admin + AAL2 + TOTP",
+    "Admin promotion/demotion is trusted-operator-only",
+    "Denied privileged RPC attempts and some direct-client operations are not comprehensively recorded",
+    "Suspend or reactivate accounts",
+    "This is a reviewed portal capability summary, not a live per-user permission calculation",
+    "Admin access does not implicitly grant dispatch or field-unit powers",
+):
+    assert marker in admin, f"Admin access review omits permission boundary: {marker}"
+
 print("Admin TOTP, backup-factor enrollment, role-change atomicity, wrapper ordering, grants, and audit RLS contracts passed.")
