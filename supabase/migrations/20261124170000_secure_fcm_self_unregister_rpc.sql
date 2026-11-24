@@ -53,7 +53,6 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   caller_profile_id bigint;
-  previous_cleanup_flag text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required'
@@ -75,18 +74,15 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  previous_cleanup_flag := current_setting('tacresq.allow_suspended_fcm_self_cleanup', true);
   PERFORM pg_catalog.set_config('tacresq.allow_suspended_fcm_self_cleanup', 'on', true);
 
   DELETE FROM public.fcm_tokens AS token_row
    WHERE token_row.profile_id = caller_profile_id
      AND token_row.token = p_token;
 
-  PERFORM pg_catalog.set_config(
-    'tacresq.allow_suspended_fcm_self_cleanup',
-    coalesce(previous_cleanup_flag, ''),
-    true
-  );
+  -- Reset rather than restore a caller-supplied value; the marker is private
+  -- control state for this RPC and must not remain enabled after it returns.
+  PERFORM pg_catalog.set_config('tacresq.allow_suspended_fcm_self_cleanup', NULL, true);
 END;
 $function$;
 
