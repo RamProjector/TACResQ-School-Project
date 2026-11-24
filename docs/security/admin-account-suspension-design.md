@@ -124,3 +124,7 @@ Added recorder invariants ensuring audit appends require an open transaction, di
 ### Regression gate — admin reauth
 
 Added source-order checks proving local Admin reauthentication locks and re-reads the account before checking role, suspension, password, and one-time TOTP consumption. The contract also pins the five-attempt throttle, 15-minute failure window, Retry-After, and no-store response.
+
+### Regression gate — sanctum guard headers
+
+Added a narrow middleware regression gate for early suspended-account denial, HTTP 403, no-store/private caching, and the intentionally retained self-service logout bypass. No new bypass route is introduced.
