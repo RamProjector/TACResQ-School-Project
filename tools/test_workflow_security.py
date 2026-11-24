@@ -152,8 +152,10 @@ def main() -> None:
         workflow_text = workflow_path.read_text(encoding="utf-8")
         action_refs = re.findall(r"(?m)^\s*uses:\s*([^\s#]+)", workflow_text)
         for action_ref in action_refs:
+            if action_ref.startswith("./.github/workflows/"):
+                continue  # Local reusable workflows are pinned by the reviewed repository commit.
             assert re.search(r"@[0-9a-f]{40}$", action_ref), (
-                f"{workflow_path.relative_to(ROOT)}: action must be pinned to a full commit SHA: {action_ref}"
+                f"{workflow_path.relative_to(ROOT)}: external action must be pinned to a full commit SHA: {action_ref}"
             )
 
     reviewer_job = code_review.split("  automated-review:", 1)[1]
