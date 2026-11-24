@@ -1004,7 +1004,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </div>
               <div className="admin-help-search">
                 <label htmlFor="admin-help-search">Search Admin guidance</label>
-                <input id="admin-help-search" type="search" value={helpQuery} onChange={(event) => setHelpQuery(event.target.value)} placeholder="Search workspaces, roles, security, reports…" autoComplete="off" />
+                <input id="admin-help-search" type="search" value={helpQuery} onChange={(event) => setHelpQuery(event.target.value)} placeholder="Search workspaces, roles, security, reports, recovery, storage…" autoComplete="off" />
                 <p id="admin-help-search-status" role="status" aria-live="polite">{normalizedHelpQuery ? "Showing guidance matching “" + helpQuery.trim() + "”." : "Browse the available Admin workspace guidance."}</p>
               </div>
               <div className="admin-help-grid">
@@ -1022,7 +1022,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 ["reports", "activity log", "audit", "aggregate", "events", "metrics", "privacy"],
                 ["recovery", "backup", "restore", "disaster recovery", "continuity", "storage backup", "rpo", "rto"],
                 ["attachments", "storage", "media", "upload", "image", "orphan", "retention", "chat attachment"],
-              ].some((terms) => matchesAdminHelp(normalizedHelpQuery, terms)) && <p className="admin-help-empty" role="status">No guidance matched that search. Try a workspace name or a term such as roles, authenticator, reports, or audit.</p>}
+              ].some((terms) => matchesAdminHelp(normalizedHelpQuery, terms)) && <p className="admin-help-empty" role="status">No guidance matched that search. Try a workspace name or a term such as roles, authenticator, reports, audit, recovery, or storage.</p>}
               <div className="admin-settings-subsection">
                 <p className="admin-eyebrow">ABOUT TACRESQ ADMIN</p>
                 <h3>Privileged workspace</h3>
