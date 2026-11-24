@@ -20,7 +20,7 @@ assert "modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),\n     
 assert ".statusBarsPadding()" in map_screen and ".navigationBarsPadding()" in map_screen
 assert "modifier = Modifier.fillMaxSize()" in map_screen
 # MapLibre supplies gesture-based zoom without legacy on-map zoom widgets.
-assert 'implementation("org.maplibre.gl:android-sdk-opengl:13.7.1")' in (ROOT / "app/build.gradle.kts").read_text()
+assert 'add("implementation", "org.maplibre.gl:android-sdk-opengl:13.7.1")' in (ROOT / "app/build.gradle.kts").read_text()
 assert 'OPENFREEMAP_LIBERTY_STYLE = "https://tiles.openfreemap.org/styles/liberty"' in map_screen
 assert "CameraUpdateFactory.newLatLngZoom" in map_screen
 
