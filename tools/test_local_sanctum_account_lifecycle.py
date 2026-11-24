@@ -293,3 +293,15 @@ assert "throw new RuntimeException" in identity_migration
 assert "separately approved audit-preserving process" in identity_migration
 assert "DROP NOT NULL" in identity_migration
 
+
+
+# PostgreSQL audit immutability covers row mutation and table truncation.
+append_only_source = append_only_migration.lower()
+assert "create or replace function tacresq_guard_local_lifecycle_event_mutation()" in append_only_source
+assert "before update or delete on local_account_lifecycle_events" in append_only_source
+assert "before truncate on local_account_lifecycle_events" in append_only_source
+assert "for each row" in append_only_source and "for each statement" in append_only_source
+assert "using errcode = '55000'" in append_only_source
+assert "security definer" not in append_only_source
+assert "drop trigger if exists local_lifecycle_events_no_truncate" in append_only_source
+
