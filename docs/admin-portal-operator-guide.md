@@ -57,7 +57,7 @@ The database transition function for suspension/reactivation remains revoked fro
 
 The User Management directory defaults to 25 accounts per page. Administrators can choose 10, 25, 50, or 100 rows to suit the screen size and review task. Changing the page size returns the directory to page one so the displayed range remains valid. The selected page size is a view preference for the current console session; it does not change server-side retention or account records.
 
-The directory still applies search and role filters on the server, and pagination uses the same bounded directory endpoint. The control does not expose account suspension, administrator provisioning, or any additional account mutation.
+The directory still applies search and role filters on the server, and pagination uses the same bounded directory endpoint. Settings → General also lets an administrator save a default page size (10, 25, 50, or 100) in this browser. Changing the Rows control in User Management temporarily changes the current console view; it does not overwrite the saved default. Invalid or older stored preference values fall back to 25. The control does not expose account suspension, administrator provisioning, or any additional account mutation.
 
 ## Overview workspace shortcuts
 
@@ -75,7 +75,7 @@ On narrow screens, the account directory remains horizontally scrollable so all 
 
 ## Settings workspace — personal preferences
 
-The Admin navigation includes a Settings workspace for preferences scoped to the current browser. Interface density (comfortable or compact), reduced motion, high contrast, and contextual-help visibility preview immediately. Select **Save preferences** to persist them in this browser's local storage; the page indicates when edits are unsaved. **Reset defaults** restores the default presentation values. These preferences do not alter account permissions, organization-wide policy, emergency notification delivery, or other users' settings. If browser storage is unavailable, the page reports that the preferences could not be saved.
+The Admin navigation includes a Settings workspace for preferences scoped to the current browser. Interface density (comfortable or compact), the default account-directory page size (10, 25, 50, or 100), reduced motion, high contrast, and contextual-help visibility preview immediately. Select **Save preferences** to persist them in this browser's local storage; the page indicates when edits are unsaved. **Reset defaults** restores the default presentation values. These preferences do not alter account permissions, organization-wide policy, emergency notification delivery, or other users' settings. If browser storage is unavailable, the page reports that the preferences could not be saved.
 
 The Settings page also explains current capability boundaries:
 - Privacy notice and data-rights request workflows are not published or available in this Admin workspace. The page does not invent a controller contact, legal retention period, or deletion action.
