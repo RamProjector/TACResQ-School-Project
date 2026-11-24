@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Review status:** source-traced crosswalk plus a staged lifecycle helper; not proof of runtime denial.  
-**Catalog baseline:** 23 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The upload-reservation RPC is included in the current signature inventory; the referenced batches document source-level checks and remaining account-state gaps.
+**Catalog baseline:** 24 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The upload-reservation RPC is included in the current signature inventory; the referenced batches document source-level checks and remaining account-state gaps.
 
 ## Public SECURITY DEFINER entry points
 
@@ -31,10 +31,11 @@
 | 21 | `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)` | Batch 1 and Batch 13 — requester edit/validation | Check active requester before protected reads/mutations; preserve validation, edit cooldown, and audit/notification atomicity |
 | 22 | `api_admin_list_account_lifecycle_events(integer,integer)` | Batch 2 — lifecycle audit reader | Require active Admin with AAL2/TOTP before bounded history reads; keep direct ledger table grants revoked |
 | 23 | `api_assign_incident_team(bigint,bigint[])` | Batch 3 and Batch 24 — guarded dispatcher team assignment | Public SECURITY DEFINER wrapper requires an active dispatcher and profile share lock; the preserved internal implementation is not client-callable |
+| 24 | `api_unregister_fcm_token(text)` | Batch 4 — profile/notifications/FCM | Authenticated-only SECURITY DEFINER cleanup RPC; pinned search path; delete only caller's own token; transaction-local exception is limited to public.fcm_tokens DELETE and cleared before return; direct table DELETE remains revoked |
 
 ## Staged internal Admin transition (not client-callable)
 
-`public.api_admin_set_account_status(bigint,text,text)` is a staged SECURITY DEFINER transition routine, but its migration explicitly revokes EXECUTE from `PUBLIC`, `anon`, and `authenticated` and does not grant client EXECUTE. It is intentionally excluded from the 22 authenticated-callable public SECURITY DEFINER signatures and from the 74-function public callable total. Keep its active-Admin MFA, target-profile locking, Admin-target/self-suspension, audit atomicity, and concurrency contracts; do not expose it through a client route until the full access-surface validation and an explicit grant decision are complete.
+`public.api_admin_set_account_status(bigint,text,text)` is a staged SECURITY DEFINER transition routine, but its migration explicitly revokes EXECUTE from `PUBLIC`, `anon`, and `authenticated` and does not grant client EXECUTE. It is intentionally excluded from the 23 authenticated-callable public SECURITY DEFINER signatures and from the 74-function public callable total. Keep its active-Admin MFA, target-profile locking, Admin-target/self-suspension, audit atomicity, and concurrency contracts; do not expose it through a client route until the full access-surface validation and an explicit grant decision are complete.
 
 ## Private callable definer functions
 
@@ -49,9 +50,9 @@ The full exact private signature list and function bodies are emitted by `tools/
 
 ## Invoker functions are not exempt
 
-The clean replay also reports 51 authenticated-callable public SECURITY INVOKER functions. Their access can still expose or mutate data through RLS, views, or helper calls. Examples documented in Batch 3 include `api_assign_incident`, `api_update_incident_status`, `api_all_incidents`, `api_my_incidents`, `api_set_duty_status`, `api_record_location_v2`, and `api_active_responder_locations`.
+The clean replay also reports 50 authenticated-callable public SECURITY INVOKER functions. Their access can still expose or mutate data through RLS, views, or helper calls. Examples documented in Batch 3 include `api_assign_incident`, `api_update_incident_status`, `api_all_incidents`, `api_my_incidents`, `api_set_duty_status`, `api_record_location_v2`, and `api_active_responder_locations`.
 
-A complete release matrix must therefore include all 74 public callable functions, not only the 23 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
+A complete release matrix must therefore include all 74 public callable functions, not only the 24 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
 
 ## Chat and Storage shared authorization chain
 
@@ -59,10 +60,10 @@ A complete release matrix must therefore include all 74 public callable function
 
 ## Current coverage and remaining gap
 
-This crosswalk connects the 23 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
+This crosswalk connects the 24 public definer signatures to source-review batches. It is not yet a full transitive call graph: the clean-replay SQL currently emits function source, but no automated parser proves every nested call edge or authorization predicate. Manual source tracing and executable negative tests remain required.
 
 Before adding the account-state migration:
-1. Finish exact coverage for all 51 invoker functions and all authenticated-callable private functions.
+1. Finish exact coverage for all 50 invoker functions and all authenticated-callable private functions.
 2. Trace each public and private entry point to nested helpers and trigger-mediated effects; document the actual lock order and transaction boundary.
 3. Map every Android, web, and Laravel direct operation to its effective grant, RLS policy, view, RPC, or Storage enforcement point.
 4. Keep the clean-replay inventory contract synchronized with exact callable signatures and effective `anon`/`PUBLIC` EXECUTE grants; treat active-account enforcement as a separate runtime-test requirement.
