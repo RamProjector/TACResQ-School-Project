@@ -399,6 +399,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   return (
     <div className="admin-shell">
       <a className="admin-skip-link" href="#admin-workspace-main">Skip to admin content</a>
+      <div className="admin-toast-region" aria-live="polite" aria-atomic="true">
+        {roleToast && (
+          <div className={"admin-toast admin-toast--" + roleToast.type} role={roleToast.type === "error" ? "alert" : "status"}>
+            <span>{roleToast.message}</span>
+            <button type="button" aria-label="Dismiss notification" onClick={() => setRoleToast(null)}><X size={15} /></button>
+          </div>
+        )}
+      </div>
       <aside className="admin-sidebar">
         <Brand inverse />
         <div className="admin-sidebar__context">
@@ -622,7 +630,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <p className="admin-modal__description" id="admin-role-dialog-description">You are changing access for <strong>{target.name}</strong> ({target.email}). Review the role transition carefully. The database enforces authorization and records the reason in the audit log.</p>
             <div className="admin-role-transition" aria-live="polite" aria-atomic="true"><div><span>Current role</span><strong>{displayRole(target.role)}</strong></div><span className="admin-role-transition__arrow" aria-hidden="true">→</span><div><span>New role</span><strong>{displayRole(nextRole)}</strong></div></div>
             <p className="admin-role-warning" id="admin-role-dialog-guidance">Changing a role changes the account’s permissions in TACResQ. Confirm the intended access level with the responsible operator before saving.</p>
-            {error && <p className="admin-modal__error" role="alert">{error}</p>}
             <label className="admin-form-label" htmlFor="admin-new-role">New role</label>
             <select id="admin-new-role" value={nextRole} onChange={(event) => setNextRole(event.target.value as AdminManagedRole)} disabled={saving}>
               {roleOptions.map((role) => <option key={role} value={role}>{displayRole(role)}</option>)}
