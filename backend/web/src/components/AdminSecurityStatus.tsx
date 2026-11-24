@@ -83,8 +83,18 @@ export default function AdminSecurityStatus() {
   useEffect(() => () => {
     // Navigating away must not leave an abandoned, unverified factor behind.
     // This is best-effort cleanup; Supabase remains the authority on factor state.
+    // A rejected cleanup must not become an unhandled promise after this view unmounts.
     const factorId = pendingEnrollmentId.current;
-    if (factorId) void getSupabase().auth.mfa.unenroll({ factorId });
+    if (!factorId) return;
+    try {
+      void getSupabase().auth.mfa.unenroll({ factorId }).catch(() => {
+        // The component is already unmounted, so there is no safe UI surface
+        // for retrying. Keep this explicitly best-effort rather than leaking
+        // an unhandled rejection; the next security-status read is authoritative.
+      });
+    } catch {
+      // Client initialization may also fail during teardown.
+    }
   }, []);
 
   const verifiedFactors = snapshot?.factors.filter((factor) => factor.status === "verified") ?? [];
