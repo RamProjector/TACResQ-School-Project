@@ -277,3 +277,42 @@ CROSS JOIN LATERAL pg_catalog.aclexplode(defaults.defaclacl) AS expanded
 LEFT JOIN pg_catalog.pg_roles AS grantee_role
   ON grantee_role.oid = expanded.grantee
 ORDER BY owner_role.rolname, schema_scope, object_type, grantee, expanded.privilege_type;
+
+\\echo '=== Anon-callable public routines (effective EXECUTE, including PUBLIC grants) ==='
+-- Anonymous exposure is a separate authorization surface from authenticated
+-- access. has_function_privilege includes inherited and PUBLIC privileges.
+SELECT
+  p.oid::regprocedure AS signature,
+  owner_role.rolname AS routine_owner,
+  CASE WHEN p.prosecdef THEN 'SECURITY DEFINER' ELSE 'SECURITY INVOKER' END AS execution_mode,
+  coalesce(array_to_string(p.proconfig, ', '), '(default search_path)') AS function_settings,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_execute,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_execute,
+  p.prosrc AS implementation_source
+FROM pg_catalog.pg_proc AS p
+JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+JOIN pg_catalog.pg_roles AS owner_role ON owner_role.oid = p.proowner
+WHERE n.nspname = 'public'
+  AND p.prokind IN ('f', 'p')
+  AND has_function_privilege('anon', p.oid, 'EXECUTE')
+ORDER BY p.proname, p.oid::regprocedure::text;
+
+
+\\echo '=== Anon-callable private routines (effective EXECUTE, including PUBLIC grants) ==='
+-- Private-schema exposure is still relevant when the schema is exposed or
+-- callable through another client path. Record it independently of public RPCs.
+SELECT
+  p.oid::regprocedure AS signature,
+  owner_role.rolname AS routine_owner,
+  CASE WHEN p.prosecdef THEN 'SECURITY DEFINER' ELSE 'SECURITY INVOKER' END AS execution_mode,
+  coalesce(array_to_string(p.proconfig, ', '), '(default search_path)') AS function_settings,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_execute,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_execute,
+  p.prosrc AS implementation_source
+FROM pg_catalog.pg_proc AS p
+JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+JOIN pg_catalog.pg_roles AS owner_role ON owner_role.oid = p.proowner
+WHERE n.nspname = 'private'
+  AND p.prokind IN ('f', 'p')
+  AND has_function_privilege('anon', p.oid, 'EXECUTE')
+ORDER BY p.proname, p.oid::regprocedure::text;
