@@ -193,3 +193,8 @@ After a backup authenticator is verified, a factor is removed, or a pending enro
 ## Unsaved display preference protection
 
 Display and accessibility preferences preview immediately but are saved only when **Save preferences** is selected. If edits remain unsaved, switching Admin sections, Settings subpages, or using browser Back/Forward asks for confirmation before discarding them. Declining a browser-history navigation keeps the current workspace and restores its URL. Leaving or reloading the browser page also triggers the browser's standard unsaved-changes warning. Saving preferences clears the warning; confirming discard immediately restores the last saved values in the current session.
+
+
+## Audit clipboard asynchronous feedback
+
+Copy confirmation and clipboard errors are shown only while the referenced event remains in the currently rendered investigation result set. If a clipboard operation finishes after filters or pagination have replaced that result set, its late completion does not restore stale feedback for an event that is no longer displayed. The copy operation itself remains read-only.
