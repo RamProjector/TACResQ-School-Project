@@ -53,37 +53,27 @@ assert "metadata-only report" in inventory
 assert "signed urls" in inventory
 assert "object paths" in inventory
 
-# The metadata-only summary must remain valid SQL and tolerate absent or
-# non-numeric size metadata without casting arbitrary text to bigint.
-assert "when o.metadata->>'size' ~ '^[0-9]+print("Supabase Storage bucket inventory contract passed.")
+# Numeric-only, bounded size metadata can be cast safely; all other values
+# contribute zero to the metadata-only aggregate.
+assert "when o.metadata->>'size' ~ '^[0-9]{1,18}$'" in inventory
+assert "then (o.metadata->>'size')::bigint" in inventory
+assert "else 0" in inventory
+assert "end), 0) as declared_object_bytes" in inventory
+assert "left join storage.objects o on o.bucket_id = b.id" in inventory
 
-
-# Policy names alone are insufficient: pin the exact SQL operation and role
-# audience so a permissive anon/PUBLIC policy cannot silently widen access.
+# Pin each reviewed policy's operation and authenticated-only audience.
 assert "pol.polcmd = 'a'" in inventory
 assert "pol.polcmd = 'r'" in inventory
 assert "pol.polpermissive is true" in inventory
 assert "pol.polroles = array['authenticated'::regrole::oid]" in inventory
+
+# Extra permissive policies for PUBLIC or authenticated clients can widen
+# access even if the reviewed policies remain present; keep the fail-closed
+# policy-expansion check in the inventory.
 assert "unexpected_client_policies" in inventory
-assert "pol.polpermissive is true" in inventory
 assert "pol.polcmd in ('*', 'r', 'a', 'w')" in inventory
 assert "0 = any(pol.polroles)" in inventory
 assert "'authenticated'::regrole::oid = any(pol.polroles)" in inventory
 assert "unreviewed permissive storage client policy(ies) detected" in inventory
-" in inventory
-assert "then (o.metadata->>'size')::bigint" in inventory
-assert "else 0" in inventory
-assert "end), 0) as declared_object_bytes" in inventory
-assert "from storage.buckets b" in inventory
-assert "left join storage.objects o on o.bucket_id = b.id" in inventory
-assert "when o.metadata->>'size' ~ '^[0-9]+\\n  array(" not in inventory
 
 print("Supabase Storage bucket inventory contract passed.")
-
-
-# Policy names alone are insufficient: pin the exact SQL operation and role
-# audience so a permissive anon/PUBLIC policy cannot silently widen access.
-assert "pol.polcmd = 'a'" in inventory
-assert "pol.polcmd = 'r'" in inventory
-assert "pol.polpermissive is true" in inventory
-assert "pol.polroles = array['authenticated'::regrole::oid]" in inventory
