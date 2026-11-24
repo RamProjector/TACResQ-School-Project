@@ -113,16 +113,16 @@ assert claim_body.find("from public.incidents") < claim_body.rfind("for update")
 # The runtime claim-queue test must use a suspended responder/driver. A requester
 # naturally has no claimable queue, so that role would make the test vacuous.
 responder_fixture = runtime_test.split(
-    "DO $suspended_responder_claim_contract$", 1
-)[0].rsplit("INSERT INTO auth.users", 1)[-1]
+    "do $suspended_responder_claim_contract$", 1
+)[0].rsplit("insert into auth.users", 1)[-1]
 assert "00000000-0000-4000-8000-000000000996" in responder_fixture
 assert "account_status = 'suspended'" in responder_fixture
 assert "role = 'responder'" in responder_fixture
 responder_claim_test = runtime_test.split(
-    "DO $suspended_responder_claim_contract$", 1
+    "do $suspended_responder_claim_contract$", 1
 )[1].split("$suspended_responder_claim_contract$;", 1)[0]
 assert "public.api_claimable_incidents()" in responder_claim_test
-assert "public.api_claim_incident(1)->>'code' IS DISTINCT FROM 'UNAUTHORIZED'" in responder_claim_test
+assert "public.api_claim_incident(1)->>'code' IS DISTINCT FROM 'unauthorized'" in responder_claim_test
 assert "request.jwt.claim.sub', '00000000-0000-4000-8000-000000000996'" in runtime_test, (
     "Suspended responder runtime checks must execute under the same synthetic Auth subject."
 )
