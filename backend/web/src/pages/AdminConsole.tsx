@@ -246,6 +246,21 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
   const preferencesDirty = JSON.stringify(preferences) !== JSON.stringify(savedPreferences);
 
+  function confirmDiscardPreferenceChanges() {
+    if (!preferencesDirty) return true;
+    return window.confirm("You have unsaved Admin display preferences. Leave this page and discard those changes?");
+  }
+
+  useEffect(() => {
+    if (!preferencesDirty) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [preferencesDirty]);
+
   function savePreferences() {
     try {
       window.localStorage.setItem(ADMIN_PREFERENCES_KEY, JSON.stringify(preferences));
@@ -275,6 +290,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }
 
   function navigateToSettingsPage(page: AdminSettingsPage) {
+    if (page !== settingsPage && !confirmDiscardPreferenceChanges()) return;
     setSettingsPage(page);
     const url = new URL(window.location.href);
     if (url.searchParams.get("adminSettings") !== page) {
@@ -285,6 +301,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }
 
   function navigateToSection(section: AdminSection) {
+    if (section !== activeSection && !confirmDiscardPreferenceChanges()) return;
     setActiveSection(section);
     const url = new URL(window.location.href);
     const route = section === "audit" ? "audit-logs" : section;
