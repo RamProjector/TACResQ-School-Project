@@ -97,6 +97,17 @@ PENDING = {
     "20261123190000_account_lifecycle_write_rpc_entry_guards.sql",
     "20261123200000_admin_account_lifecycle_audit_reader.sql",
     "20261123210000_account_lifecycle_fcm_token_guards.sql",
+    # Additional account-lifecycle enforcement migrations are staged on PR #347;
+    # allowlisted as repository files only, not as proof of live application.
+    "20261123220000_fcm_delivery_claim_active_recipient_guard.sql",
+    "20261124070000_account_lifecycle_dispatch_progress_guard.sql",
+    "20261124080000_account_lifecycle_team_assignment_guard.sql",
+    "20261124090000_account_lifecycle_assignment_release_guard.sql",
+    "20261124100000_account_lifecycle_location_writer_guard.sql",
+    "20261124110000_account_lifecycle_dispatcher_directory_guard.sql",
+    "20261124120000_account_lifecycle_requester_edit_guard.sql",
+    "20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql",
+    "20261124140000_account_lifecycle_duty_status_guard.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
