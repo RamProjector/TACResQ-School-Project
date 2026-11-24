@@ -90,7 +90,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   // Clipboard promises can resolve after a filter/page change has cleared the
   // current result set. Track the IDs rendered now, not the stale closure.
   const visibleEventIds = useRef<Set<string>>(new Set());
-  visibleEventIds.current = new Set(events.map((event) => String(event.id)));
+  visibleEventIds.current = new Set(events.map((event) => String(event.event_id)));
   const [lifecycleEvents, setLifecycleEvents] = useState<AdminAccountLifecycleEvent[]>([]);
   const [lifecycleTotal, setLifecycleTotal] = useState(0);
   const [lifecyclePage, setLifecyclePage] = useState(0);
