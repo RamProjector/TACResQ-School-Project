@@ -10,7 +10,7 @@ DECLARE
   expected_signatures text[] := ARRAY[
     'private.tacresq_active_responder_locations()',
     'private.tacresq_actor_role()',
-    'private.tacresq_assign_incident_team(bigint,bigint[])',
+    'private.tacresq_assign_incident_team_guarded(bigint,bigint[])',
     'private.tacresq_auth_can_access_incident_chat(bigint)',
     'private.tacresq_auth_profile_id()',
     'private.tacresq_auth_profile_id_for_token_cleanup()',
