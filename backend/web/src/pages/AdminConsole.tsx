@@ -51,6 +51,8 @@ type AdminConsoleProps = {
 type RoleFilter = "all" | AdminManagedRole | "admin";
 type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "settings" | "help";
 
+type AdminSettingsPage = "general" | "accessibility" | "notifications" | "security" | "privacy";
+
 type AdminPreferences = {
   density: "comfortable" | "compact";
   reducedMotion: boolean;
@@ -93,6 +95,11 @@ const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashb
   { id: "help", label: "Help & about", icon: BookOpen },
 ];
 const roleOptions: AdminManagedRole[] = ["requester", "responder", "driver", "dispatcher"];
+
+function resolveSettingsPage(search: string): AdminSettingsPage {
+  const page = new URLSearchParams(search).get("adminSettings");
+  return ["general", "accessibility", "notifications", "security", "privacy"].includes(page ?? "") ? page as AdminSettingsPage : "general";
+}
 
 function resolveAdminSection(search: string): AdminSection {
   const route = new URLSearchParams(search).get("adminPage") ?? "overview";
@@ -228,6 +235,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     return () => window.clearTimeout(timer);
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
+  const [settingsPage, setSettingsPage] = useState<AdminSettingsPage>(() => resolveSettingsPage(window.location.search));
   const [preferences, setPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
   const [savedPreferences, setSavedPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
@@ -249,12 +257,23 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setPreferencesError(null);
   }
 
+  function navigateToSettingsPage(page: AdminSettingsPage) {
+    setSettingsPage(page);
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("adminSettings") !== page) {
+      url.searchParams.set("adminPage", "settings");
+      url.searchParams.set("adminSettings", page);
+      window.history.pushState({}, "", url.toString());
+    }
+  }
+
   function navigateToSection(section: AdminSection) {
     setActiveSection(section);
     const url = new URL(window.location.href);
     const route = section === "audit" ? "audit-logs" : section;
     if (url.searchParams.get("adminPage") !== route) {
       url.searchParams.set("adminPage", route);
+      if (section !== "settings") url.searchParams.delete("adminSettings");
       window.history.pushState({}, "", url.toString());
     }
   }
@@ -263,6 +282,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   useEffect(() => {
     const syncSectionFromLocation = () => {
       setActiveSection(resolveAdminSection(window.location.search));
+      setSettingsPage(resolveSettingsPage(window.location.search));
     };
     window.addEventListener("popstate", syncSectionFromLocation);
     return () => window.removeEventListener("popstate", syncSectionFromLocation);
@@ -756,39 +776,52 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div><p className="admin-eyebrow">YOUR WORKSPACE</p><h2 id="admin-settings-title"><Settings size={19} /> Display & accessibility</h2></div>
                 <span className="admin-count">{preferencesDirty ? "Unsaved changes" : "Saved on this device"}</span>
               </div>
-              <p className="admin-settings-intro">These preferences affect only how the Admin portal appears in this browser. They do not change emergency notifications, user permissions, security policy, or other users’ settings.</p>
-              <div className="admin-settings-grid">
+              <p className="admin-settings-intro">These settings are separated by purpose. Personal display preferences affect only this browser; notification, security, and privacy controls remain read-only until their backend and governance requirements are verified.</p>
+              <nav className="admin-settings-nav" aria-label="Settings pages">
+                {([["general", "General"], ["accessibility", "Accessibility"], ["notifications", "Notifications"], ["security", "Security & sessions"], ["privacy", "Privacy & data"]] as const).map(([id, label]) => <button key={id} type="button" className={settingsPage === id ? "admin-settings-nav__item admin-settings-nav__item--active" : "admin-settings-nav__item"} aria-current={settingsPage === id ? "page" : undefined} onClick={() => navigateToSettingsPage(id)}>{label}</button>)}
+              </nav>
+              {settingsPage === "general" && <div className="admin-settings-grid">
                 <article className="admin-settings-card">
                   <div className="admin-settings-card__heading"><div><h3>Interface density</h3><p>Choose how much information appears in tables and workspace panels.</p></div><details className="admin-context-help"><summary aria-label="About interface density"><CircleHelp size={16} /></summary><div>Compact mode reduces row and panel spacing. It does not hide fields or change which records are loaded.</div></details></div>
                   <label className="admin-settings-field"><span>Layout density</span><select value={preferences.density} onChange={(event) => setPreferences((current) => ({ ...current, density: event.target.value === "compact" ? "compact" : "comfortable" }))}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
                 </article>
+              </div>}
+              {settingsPage === "accessibility" && <div className="admin-settings-grid">
                 <article className="admin-settings-card">
                   <div className="admin-settings-card__heading"><div><h3>Accessibility</h3><p>Adjust motion and contrast to make the interface easier to use.</p></div><details className="admin-context-help"><summary aria-label="About accessibility preferences"><CircleHelp size={16} /></summary><div>These preferences change this portal’s presentation only. They do not replace operating-system accessibility settings or a full accessibility review.</div></details></div>
                   <label className="admin-settings-toggle"><span><strong>Reduce motion</strong><small>Limit decorative transitions and animations.</small></span><input type="checkbox" checked={preferences.reducedMotion} onChange={(event) => setPreferences((current) => ({ ...current, reducedMotion: event.target.checked }))} /></label>
                   <label className="admin-settings-toggle"><span><strong>High contrast</strong><small>Strengthen borders and text contrast across Admin panels.</small></span><input type="checkbox" checked={preferences.highContrast} onChange={(event) => setPreferences((current) => ({ ...current, highContrast: event.target.checked }))} /></label>
                   <label className="admin-settings-toggle"><span><strong>Contextual help</strong><small>Show short explanations beside settings and complex controls.</small></span><input type="checkbox" checked={preferences.contextualHelp} onChange={(event) => setPreferences((current) => ({ ...current, contextualHelp: event.target.checked }))} /></label>
                 </article>
-              </div>
-              {preferences.contextualHelp && <div className="admin-help-note"><CircleHelp size={17} /><p><strong>About these preferences</strong> Changes preview immediately. Select Save preferences to keep them in this browser. Reset restores the default display without changing your account or server data.</p></div>}
-              {preferencesError && <p className="admin-settings-error" role="alert">{preferencesError}</p>}
-              <div className="admin-settings-actions">
+              </div>}
+              {(settingsPage === "general" || settingsPage === "accessibility") && preferences.contextualHelp && <div className="admin-help-note"><CircleHelp size={17} /><p><strong>About these preferences</strong> Changes preview immediately. Select Save preferences to keep them in this browser. Reset restores the default display without changing your account or server data.</p></div>}
+              {(settingsPage === "general" || settingsPage === "accessibility") && preferencesError && <p className="admin-settings-error" role="alert">{preferencesError}</p>}
+              {(settingsPage === "general" || settingsPage === "accessibility") && <div className="admin-settings-actions">
                 <button className="admin-refresh" type="button" onClick={resetPreferences} disabled={!preferencesDirty}><RotateCcw size={15} /> Reset defaults</button>
                 <button className="admin-settings-save" type="button" onClick={savePreferences} disabled={!preferencesDirty}><Save size={15} /> Save preferences</button>
-              </div>
-              <div className="admin-settings-subsection">
+              </div>}
+              {settingsPage === "privacy" && <div className="admin-settings-subsection">
                 <p className="admin-eyebrow">PRIVACY & DATA</p>
                 <h3>Privacy information</h3>
                 <p>The Admin portal handles account and operational information. The approved TACResQ privacy notice, controller contact, and retention schedule must be maintained by the project owner before this page can publish legal commitments or offer data-rights actions.</p>
                 <div className="admin-settings-status"><span>Privacy notice</span><strong>Not published in this Admin workspace</strong></div>
                 <div className="admin-settings-status"><span>Data requests</span><strong>Not available as an online workflow</strong></div>
                 <p className="admin-panel__footnote">No deletion, export-of-personal-data, or retention controls are provided here. Do not treat the aggregate Reports CSV as a personal-data request response.</p>
-              </div>
-              <div className="admin-settings-subsection">
+              </div>}
+              {settingsPage === "notifications" && <div className="admin-settings-subsection">
                 <p className="admin-eyebrow">NOTIFICATIONS</p>
                 <h3>Delivery preferences</h3>
                 <p>Emergency notification preferences are not configurable from this Admin portal. This section intentionally provides no quiet-hours or suppression toggle, because no verified preference-enforcement workflow is connected here.</p>
                 <div className="admin-settings-status"><span>Preference controls</span><strong>Unavailable — no verified settings service</strong></div>
-              </div>
+              </div>}
+              {settingsPage === "security" && <div className="admin-settings-subsection">
+                <p className="admin-eyebrow">SECURITY & SESSIONS</p>
+                <h3>Administrator session protection</h3>
+                <p>Authenticator enrollment and current-session assurance are managed in the Security workspace. This Settings subpage does not expose password changes, session revocation, or account lock controls because no separate verified Admin settings workflow is connected.</p>
+                <div className="admin-settings-status"><span>Authenticator controls</span><strong>Available in Security workspace</strong></div>
+                <div className="admin-settings-status"><span>Session/device management</span><strong>Not available in this portal</strong></div>
+                <button className="admin-refresh" type="button" onClick={() => navigateToSection("security")}>Open Security workspace <span aria-hidden="true">→</span></button>
+              </div>}
             </section>
           )}
           {activeSection === "help" && (
