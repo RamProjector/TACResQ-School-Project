@@ -40,6 +40,22 @@ function startOfDay(value: string) {
   return value ? value + "T00:00:00+08:00" : null;
 }
 
+function manilaDateOffset(daysAgo: number) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+  const date = new Date(Date.UTC(Number(part("year")), Number(part("month")) - 1, Number(part("day")) - daysAgo));
+  return date.toISOString().slice(0, 10);
+}
+
+function isDatePresetSelected(days: number, from: string, to: string) {
+  return from === manilaDateOffset(days - 1) && to === manilaDateOffset(0);
+}
+
 function startOfNextDay(value: string) {
   if (!value) return null;
   const date = new Date(value + "T00:00:00Z");
@@ -301,6 +317,10 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label><span>From</span><input type="date" value={from} max={to || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
         <label><span>To</span><input type="date" value={to} min={from || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
+        <div className="audit-page__date-presets" role="group" aria-label="Quick date range">
+          <span>Quick range</span>
+          {[7, 30, 90].map((days) => <button key={days} type="button" aria-pressed={isDatePresetSelected(days, from, to)} onClick={() => { setPage(0); setFrom(manilaDateOffset(days - 1)); setTo(manilaDateOffset(0)); }}>{days} days</button>)}
+        </div>
         <button className="audit-page__reset" type="button" onClick={resetFilters} disabled={!hasFilters}>Clear filters</button>
       </div>
 
