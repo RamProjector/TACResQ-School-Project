@@ -263,11 +263,12 @@ export async function setAdminUserRole(userId: number, role: AdminManagedRole, r
   }
   return result;
 }
-export async function setAdminAccountStatus(profileId: number, status: "active" | "suspended", reason: string): Promise<void> {
+export async function setAdminAccountStatus(profileId: number, expectedStatus: "active" | "suspended", status: "active" | "suspended", reason: string): Promise<void> {
   const { data, error } = await getSupabase().rpc("api_admin_set_account_status", {
-    p_target_profile_id: profileId, p_account_status: status, p_reason: reason,
+    p_target_profile_id: profileId, p_expected_account_status: expectedStatus, p_account_status: status, p_reason: reason,
   });
   if (error) {
+    if (error.code === "40001") throw new Error("This account was changed by another administrator. Refresh the directory and review its current status before trying again.");
     if (["42501", "22023", "P0002"].includes(error.code ?? "")) throwAdminError(error);
     throw new Error("The account status change for profile #" + profileId + " could not be confirmed. Refresh the directory and lifecycle history before retrying.");
   }
