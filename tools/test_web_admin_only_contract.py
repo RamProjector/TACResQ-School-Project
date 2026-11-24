@@ -161,7 +161,7 @@ assert '.admin-security-status__factor-list li,' in admin_css
 assert '.admin-security-status__confirm { display:none !important; }' in admin_css
 
 # Analytics announcements and labels must communicate only the changed state and its scope.
-assert 'className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title">' in admin_console
+assert 'className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title" aria-busy={analyticsLoading}' in admin_console
 assert '<div className="admin-empty" role="status" aria-live="polite"><LoaderCircle' in admin_console
 assert 'role="group" aria-label="Current status of requests created during the selected reporting period"' in admin_console
 assert '<span>Period (Manila time)</span>' in admin_console
