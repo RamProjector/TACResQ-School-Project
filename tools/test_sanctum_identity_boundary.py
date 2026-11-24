@@ -8,7 +8,7 @@ user_model = (ROOT / "backend/src/app/Models/User.php").read_text(encoding="utf-
 initial_migration = (ROOT / "backend/src/database/migrations/2026_10_16_000001_create_tacresq_tables.php").read_text(encoding="utf-8")
 inventory = (ROOT / "docs/security/legacy-sanctum-account-lifecycle-boundary.md").read_text(encoding="utf-8")
 
-group_start = routes.index("Route::middleware('auth:sanctum')->group")
+group_start = routes.index("Route::middleware(['auth:sanctum', 'account.active'])->group")
 group_end = routes.index("\n});", group_start) + len("\n});")
 sanctum_group = routes[group_start:group_end]
 expected_routes = (
