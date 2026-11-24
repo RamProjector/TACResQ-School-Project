@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Contracts\FcmClientContract;
+use App\FcmHttpV1Client;
 use App\FcmNotificationDispatcher;
 use Mockery;
 use RuntimeException;
@@ -9,6 +11,12 @@ use Tests\TestCase;
 
 final class DispatchFcmCommandTest extends TestCase
 {
+    public function test_container_resolves_the_final_fcm_client_through_its_contract(): void
+    {
+        self::assertInstanceOf(FcmHttpV1Client::class, $this->app->make(FcmClientContract::class));
+        self::assertInstanceOf(FcmNotificationDispatcher::class, $this->app->make(FcmNotificationDispatcher::class));
+    }
+
     public function test_dispatch_failure_does_not_echo_sensitive_exception_details(): void
     {
         $dispatcher = Mockery::mock(FcmNotificationDispatcher::class);
