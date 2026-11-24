@@ -41,5 +41,5 @@ assert "LOWER(email)" in routes  # local email normalization is allowed for loca
 assert "protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'duty_status'];" in user_model
 assert "'role' => 'requester'" in routes
 assert "do not" in inventory.lower() and "email" in inventory.lower()
-assert "Missing:" in inventory and "local suspension state" in inventory
+assert "still missing" in inventory.lower() and "privileged transition endpoint" in inventory.lower()
 print("Laravel Sanctum identity-boundary contract passed.")
