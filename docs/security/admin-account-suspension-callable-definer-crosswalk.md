@@ -119,3 +119,11 @@ The source and replay contracts check the active-state predicate, lock, and inte
 Migration `20261124100000_account_lifecycle_location_writer_guard.sql` moves the existing private GPS writer implementation behind a new guarded wrapper. The wrapper requires an active responder or driver and holds a `FOR SHARE` profile lock before delegating to the existing coordinate validation, assignment-state checks, timestamp bounds, and rate limiter. The moved internal writer is no longer directly executable by client roles.
 
 This retains the established GPS validation and throttling behavior while making account lifecycle state an explicit authorization prerequisite. The same-valid-JWT test matrix still needs to exercise both allowed active writes and denied suspended writes against disposable PostgreSQL; source assertions alone do not prove runtime behavior.
+
+## Follow-up implementation — guarded dispatcher directory and queue
+
+Migration `20261124110000_account_lifecycle_dispatcher_directory_guard.sql` moves the previous `api_units()` SECURITY DEFINER query into a private internal routine, revokes client EXECUTE on that implementation, and adds an active-dispatcher wrapper with a profile `FOR SHARE` lock. This protects the field-unit directory, including responder contact and assignment-availability data, from suspended dispatchers.
+
+The same migration updates `api_all_incidents()`, which remains SECURITY INVOKER, to authorize through the shared active-aware `private.tacresq_actor_role()` helper rather than a raw profile-role lookup. The PostgreSQL replay contract checks the wrapper security mode, active-state lock, private grant, and queue helper.
+
+The read guards are staged migration changes; the disposable migration replay and same-valid-JWT runtime checks remain required before lifecycle enforcement can be enabled.
