@@ -76,7 +76,7 @@ assert "test_lifecycle_recorder_event_rolls_back_with_account_transaction" in fe
 assert "test_lifecycle_recorder_rejects_invalid_transition_and_empty_reason" in feature
 assert "final class EnsureLocalAdminReauthenticated" in admin_reauth
 assert "$user->role !== 'admin'" in admin_reauth, "Only local Laravel Admins may pass the privileged guard"
-assert "Hash::check($credentials['current_password'], $user->password)" in admin_reauth
+assert "Hash::check($credentials['current_password'], $lockedUser->password)" in admin_reauth
 assert "RateLimiter::tooManyAttempts($key, 5)" in admin_reauth
 assert "RateLimiter::hit($key, 900)" in admin_reauth
 assert "test_local_admin_sensitive_action_requires_admin_password_and_totp" in feature
@@ -85,7 +85,7 @@ assert "test_local_admin_sensitive_action_rejects_incorrect_password" in feature
 assert "test_local_admin_reauthentication_is_rate_limited_after_repeated_failures" in feature
 assert "'totp_code'" in admin_reauth and "verifyAndConsume" in admin_reauth
 assert "LocalAdminTotpService::class" in admin_reauth
-assert "verifyAndConsume($user, $credentials['totp_code'])" in admin_reauth
+assert "verifyAndConsume($lockedUser, $credentials['totp_code'])" in admin_reauth
 assert "local_admin_totp_credentials" in totp_migration
 assert "secret_ciphertext" in totp_migration and "last_used_step" in totp_migration and "last_used_code_hash" in totp_migration
 assert "confirmed_at" in totp_migration and "expires_at" in totp_migration and "unique()->constrained('users')" in totp_migration
