@@ -1415,3 +1415,37 @@ BEGIN
   END IF;
 END;
 $active_duty_status_callable_contract$;
+
+
+-- Delivery-worker cleanup is a separate service_role-only boundary. It must
+-- never be callable by end-user roles or depend on auth.uid().
+DO $fcm_delivery_cleanup_catalog_contract$
+DECLARE
+  cleanup_oid oid := to_regprocedure('public.api_unregister_fcm_token_for_delivery(bigint,text)');
+  cleanup_source text;
+  cleanup_settings text[];
+BEGIN
+  IF cleanup_oid IS NULL THEN
+    RAISE EXCEPTION 'Service-only FCM delivery cleanup RPC is missing';
+  END IF;
+
+  SELECT prosrc, proconfig INTO cleanup_source, cleanup_settings
+    FROM pg_catalog.pg_proc WHERE oid = cleanup_oid;
+
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = cleanup_oid)
+     OR NOT (coalesce(cleanup_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR cleanup_source NOT ILIKE '%p_profile_id%'
+     OR cleanup_source NOT ILIKE '%p_token%'
+     OR cleanup_source NOT ILIKE '%token_row.profile_id = p_profile_id%'
+     OR cleanup_source NOT ILIKE '%token_row.token = p_token%' THEN
+    RAISE EXCEPTION 'Delivery cleanup must be a pinned definer deleting only the exact claimed profile/token pair';
+  END IF;
+
+  IF NOT has_function_privilege('service_role', cleanup_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', cleanup_oid, 'EXECUTE')
+     OR has_function_privilege('anon', cleanup_oid, 'EXECUTE')
+     OR has_function_privilege('PUBLIC', cleanup_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Delivery cleanup RPC must be executable only by service_role';
+  END IF;
+END;
+$fcm_delivery_cleanup_catalog_contract$;
