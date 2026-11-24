@@ -141,3 +141,16 @@ The crosswalk now records active-state enforcement at the dispatcher team-assign
 These additions reduce known callable gaps but do not complete the full 72-public-callable inventory or the private transitive call graph. Before enabling account transitions, still require: a fresh complete catalog replay; explicit review of every newly discovered callable and nested helper; disposable PostgreSQL same-valid-JWT tests for every guarded path; isolated Edge Function tests proving denied paths make no OAuth/FCM calls; Laravel/Sanctum identity-boundary verification; Storage policy and object-operation tests; and concurrency tests for lifecycle transitions racing with assignment and location operations.
 
 No connected Supabase project was queried or modified, no live migration was applied, and no account transition RPC grant was enabled by these documentation commits.
+
+
+## November 24 catalog-level replay assertions
+
+The PostgreSQL foundation replay now has explicit catalog contracts for the dispatcher callable boundaries added in the November 24 sequence. These assertions inspect the installed routine signatures, SECURITY DEFINER/SECURITY INVOKER mode, volatility, pinned search path, active-profile predicate, FOR SHARE lock, and effective anon/authenticated EXECUTE grants for:
+
+- Team assignment wrapper, legacy one-member alias, and preserved internal implementation.
+- Assignment-release wrapper and preserved internal implementation.
+- GPS location writer wrapper and preserved internal implementation.
+- Field-unit directory wrapper, preserved internal implementation, and incident queue.
+- Dispatcher incident-progress routine.
+
+These are assertions added to the disposable PostgreSQL replay script, not a claim that the replay has been run. They validate installed catalog state and function source shape; they do not by themselves prove every runtime denial path or concurrency interleaving. The same-valid-JWT mutation/read matrix and transaction-race tests remain release gates.
