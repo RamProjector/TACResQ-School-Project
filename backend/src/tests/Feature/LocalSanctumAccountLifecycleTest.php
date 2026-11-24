@@ -666,15 +666,24 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             'role' => 'requester',
         ]);
 
-        $this->expectException(\LogicException::class);
-        app(\App\Services\LocalAccountLifecycleRecorder::class)->record(
-            $actor->id,
-            $target->id,
-            'suspended',
-            'Valid reason',
-            'active',
-            'suspended',
-        );
+        // RefreshDatabase wraps each test in a transaction. Temporarily end
+        // that wrapper so this contract exercises the recorder's real
+        // out-of-transaction guard, then restore it for trait teardown.
+        $connection = DB::connection();
+        $connection->rollBack();
+        try {
+            $this->expectException(\LogicException::class);
+            app(\App\Services\LocalAccountLifecycleRecorder::class)->record(
+                $actor->id,
+                $target->id,
+                'suspended',
+                'Valid reason',
+                'active',
+                'suspended',
+            );
+        } finally {
+            $connection->beginTransaction();
+        }
     }
 
     public function test_lifecycle_recorder_rejects_non_positive_actor_and_target_ids(): void
