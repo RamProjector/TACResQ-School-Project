@@ -258,3 +258,7 @@ The main Audit history workspace exposes its query and refresh state through the
 ## Pending authenticator enrollment teardown
 
 If an administrator leaves the Security workspace while a backup TOTP factor is still unverified, the component attempts best-effort removal of that pending factor. Teardown now contains both asynchronous unenrollment failures and synchronous client-initialization failures so navigation does not create an unhandled promise rejection. Because the view is already unmounted, this cleanup cannot present an interactive retry; the next Security status retrieval remains authoritative. Operators should verify the registered-factor inventory after returning to the workspace if an interrupted enrollment is suspected.
+
+## Searchable Admin Help Centre
+
+The Help & About workspace includes a browser-local search across its four operator-guidance cards: Overview and dependency reachability, User Management, Security and authenticator protection, and Reports/Activity Log. Search matches topic keywords and multi-word queries, hides nonmatching cards, and presents a no-results explanation when nothing matches. Search does not query account data, audit events, or backend services; it only filters the static guidance already displayed in the Admin portal. The search field and result feedback are keyboard accessible and use a polite status announcement.
