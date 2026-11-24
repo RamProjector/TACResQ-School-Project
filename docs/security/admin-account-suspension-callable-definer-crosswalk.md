@@ -195,3 +195,10 @@ No runtime test result is implied by the matrix. The clean migration replay, eff
 The wrapper preserves the public RPC signature and the internal implementation retains existing ownership, assignment, input validation, cooldown, review-confirmation, and edit-history behavior. The profile lock is held through the nested call so it serializes with account suspension on the same profile row.
 
 Replay contract: `active_requester_edit_entry_contract` in `tools/test_account_lifecycle_foundation.sql`, with source coverage in `tools/test_account_lifecycle_callable_inventory_contract.py`. These checks are committed but have not been executed in this environment. Disposable PostgreSQL replay, same-valid-JWT suspended edit denial, and edit-versus-suspension concurrency tests remain required before the guard is runtime-verified.
+## Legacy requester incident-create compatibility — November 24
+
+The older invoker RPCs `public.api_create_incident(text,text,double precision,double precision,real)` and `public.api_create_incident_v2(text,text,double precision,double precision,real,text,timestamptz)` remain available for supported Android clients. Both INSERT into `public.incidents` and predate the v4 explicit active-profile check.
+
+The generic write guard from `20261123120000_account_lifecycle_write_guard_triggers.sql` is installed on every public table, including `public.incidents`. Its trigger function calls the current-account active helper for end-user JWT operations, so the legacy INSERT paths receive lifecycle enforcement at the table boundary. The requester replay contract now explicitly verifies the incidents trigger binding; the Python source contract ties the legacy function definitions to the all-public-table trigger migration.
+
+This is defense-in-depth, not a reason to skip RPC-level role/ownership review. Disposable PostgreSQL replay and active-versus-suspended calls to each legacy signature remain unexecuted release checks.
