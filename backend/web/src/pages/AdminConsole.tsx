@@ -991,8 +991,30 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </div>
             </section>
             <AdminSecurityStatus />
+            <section className="admin-panel admin-access-review" aria-labelledby="admin-access-review-title">
+              <div className="admin-panel__heading">
+                <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">LEAST-PRIVILEGE REVIEW</p><h2 id="admin-access-review-title"><ShieldCheck size={19} /> Admin access review</h2></div><AdminHelpTip label="About Admin access review" message="This matrix summarizes the current Admin portal boundary from the repository. It is not a live scan of every database policy, API, Storage object, or user permission." /></div>
+                <span className="admin-count">Single Admin role</span>
+              </div>
+              <p className="admin-panel__footnote">The portal currently uses one Admin application role, not separate Auditor, Security Admin, or User Manager roles. Protected Admin RPCs require the current Admin profile and an AAL2 session containing TOTP. Navigation visibility is not an authorization boundary; the database remains authoritative.</p>
+              <div className="admin-table-wrap" role="region" aria-label="Admin portal permission matrix; horizontally scrollable" tabIndex={0}>
+                <table className="admin-table" aria-describedby="admin-access-review-limitations">
+                  <caption className="admin-table-caption">Repository-backed access boundaries for the current Admin portal</caption>
+                  <thead><tr><th scope="col">Capability</th><th scope="col">Current authorization</th><th scope="col">Boundary / limitation</th></tr></thead>
+                  <tbody>
+                    <tr><th scope="row">Overview and dependency reachability</th><td>Admin portal</td><td>Fixed reachability probes only; not emergency-service readiness.</td></tr>
+                    <tr><th scope="row">Account directory</th><td>Admin + AAL2 + TOTP</td><td>Bounded, read-only account listing. It does not expose a complete authentication history or suspension state.</td></tr>
+                    <tr><th scope="row">Change an ordinary account role</th><td>Admin + AAL2 + TOTP; reason required</td><td>Only requester, responder, driver, and dispatcher roles. Admin promotion/demotion is trusted-operator-only; active incident assignments block changes.</td></tr>
+                    <tr><th scope="row">Activity and investigation history</th><td>Admin + AAL2 + TOTP</td><td>Read-only, source-bounded history. Denied privileged RPC attempts and some direct-client operations are not comprehensively recorded.</td></tr>
+                    <tr><th scope="row">Aggregate reports</th><td>Admin + AAL2 + TOTP</td><td>Aggregate request metrics only; no requester names, contact details, descriptions, or coordinates in the report export.</td></tr>
+                    <tr><th scope="row">Authenticator and session controls</th><td>Current signed-in Admin account</td><td>Self-service factor/session operations only; not arbitrary management of another user's factors or sessions.</td></tr>
+                    <tr><th scope="row">Suspend or reactivate accounts</th><td><span className="admin-role admin-role--pending">Unavailable</span></td><td>Do not treat duty status as suspension. The portal must not expose this mutation before its security release gates pass.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="admin-panel__footnote" id="admin-access-review-limitations">This is a reviewed portal capability summary, not a live per-user permission calculation or exhaustive cross-layer authorization audit. Requester, responder, driver, and dispatcher operational permissions remain separately enforced by their own server-side policies. Admin access does not implicitly grant dispatch or field-unit powers.</p>
+            </section>
             </>
-          )}
           <footer className="admin-footer"><span>TACRESQ · ADMINISTRATION</span><span>Administrator permissions are checked before each action</span></footer>
         </div>
       </main>
