@@ -322,12 +322,22 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   // Keep the selected admin view in sync with browser Back/Forward navigation.
   useEffect(() => {
     const syncSectionFromLocation = () => {
+      // Browser Back/Forward bypasses the in-app navigation handlers. Apply
+      // the same discard guard before changing the visible workspace.
+      if (preferencesDirty && !confirmDiscardPreferenceChanges()) {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set("adminPage", activeSection === "audit" ? "audit-logs" : activeSection);
+        if (activeSection === "settings") currentUrl.searchParams.set("adminSettings", settingsPage);
+        else currentUrl.searchParams.delete("adminSettings");
+        window.history.pushState({}, "", currentUrl.toString());
+        return;
+      }
       setActiveSection(resolveAdminSection(window.location.search));
       setSettingsPage(resolveSettingsPage(window.location.search));
     };
     window.addEventListener("popstate", syncSectionFromLocation);
     return () => window.removeEventListener("popstate", syncSectionFromLocation);
-  }, []);
+  }, [activeSection, settingsPage, preferencesDirty]);
 
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
