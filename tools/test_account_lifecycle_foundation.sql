@@ -316,6 +316,16 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN
     NULL;
   END;
+  BEGIN
+    PERFORM public.api_update_my_incident(
+      1, 'medical', 'Suspended requester edit must fail',
+      14.0, 121.0, 5.0, 'test location', clock_timestamp(),
+      'gps', true
+    );
+    RAISE EXCEPTION 'Suspended requester unexpectedly edited an incident';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
   IF public.api_claim_incident(1)->>'code' IS DISTINCT FROM 'UNAUTHORIZED' THEN
     RAISE EXCEPTION 'Suspended caller must not enter the incident claim workflow';
   END IF;
