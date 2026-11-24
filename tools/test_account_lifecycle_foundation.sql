@@ -1169,3 +1169,53 @@ BEGIN
 END;
 $requester_sos_write_catalog_contract$;
 
+
+
+-- FCM registration is an active-account write, while unregister is the
+-- intentionally narrow self-cleanup path retained for suspended sign-out.
+DO $fcm_token_lifecycle_catalog_contract$
+DECLARE
+  register_oid oid := to_regprocedure('public.api_register_fcm_token(text)');
+  unregister_oid oid := to_regprocedure('public.api_unregister_fcm_token(text)');
+  cleanup_oid oid := to_regprocedure('private.tacresq_auth_profile_id_for_token_cleanup()');
+  register_source text;
+  unregister_source text;
+  cleanup_source text;
+  register_settings text[];
+  unregister_settings text[];
+BEGIN
+  IF register_oid IS NULL OR unregister_oid IS NULL OR cleanup_oid IS NULL THEN
+    RAISE EXCEPTION 'FCM registration, unregister, or cleanup identity helper is missing';
+  END IF;
+  SELECT prosrc, proconfig INTO register_source, register_settings
+    FROM pg_catalog.pg_proc WHERE oid = register_oid;
+  SELECT prosrc, proconfig INTO unregister_source, unregister_settings
+    FROM pg_catalog.pg_proc WHERE oid = unregister_oid;
+  SELECT prosrc INTO cleanup_source FROM pg_catalog.pg_proc WHERE oid = cleanup_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = register_oid)
+     OR NOT (coalesce(register_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR register_source NOT ILIKE '%account_status = ''active''%'
+     OR register_source NOT ILIKE '%FOR SHARE%' THEN
+    RAISE EXCEPTION 'FCM registration must require and lock an active profile';
+  END IF;
+  IF (SELECT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = unregister_oid)
+     OR NOT (coalesce(unregister_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR unregister_source NOT ILIKE '%tacresq_auth_profile_id_for_token_cleanup()%'
+     OR unregister_source NOT ILIKE '%DELETE FROM public.fcm_tokens%' THEN
+    RAISE EXCEPTION 'FCM unregister must remain an invoker self-cleanup operation';
+  END IF;
+  IF (SELECT NOT prosecdef OR provolatile <> 's' FROM pg_catalog.pg_proc WHERE oid = cleanup_oid)
+     OR cleanup_source NOT ILIKE '%auth.uid()%' THEN
+    RAISE EXCEPTION 'FCM cleanup identity helper must remain stable and narrowly scoped';
+  END IF;
+  IF NOT has_function_privilege('authenticated', register_oid, 'EXECUTE')
+     OR has_function_privilege('anon', register_oid, 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', unregister_oid, 'EXECUTE')
+     OR has_function_privilege('anon', unregister_oid, 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', cleanup_oid, 'EXECUTE')
+     OR has_function_privilege('anon', cleanup_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'FCM lifecycle routine grants are unsafe';
+  END IF;
+END;
+$fcm_token_lifecycle_catalog_contract$;
+
