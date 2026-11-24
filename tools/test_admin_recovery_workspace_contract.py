@@ -57,3 +57,10 @@ assert "admin-recovery-metrics" in styles
 assert "@media (max-width:760px)" in styles
 
 print("PASS: Admin recovery workspace is evidence-aware, read-only, responsive, and links approved operator procedures.")
+# Navigation, overview shortcuts, and the permission matrix must describe the
+# new section without implying it performs privileged recovery operations.
+assert 'navigateToSection("recovery")' in source
+assert "Recovery &amp; continuity</strong>" in source
+assert "Recovery &amp; continuity</th><td>Admin portal · read-only guidance</td>" in source
+assert '["recovery", "backup", "restore", "disaster recovery", "continuity", "storage backup", "rpo", "rto"]' in source
+assert "grid-template-columns:repeat(auto-fit,minmax(220px,1fr))" in styles
