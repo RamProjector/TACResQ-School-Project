@@ -222,3 +222,7 @@ If the protected account-directory request fails, the table's unavailable state 
 ## Spreadsheet-safe report exports
 
 The aggregate incident CSV export preserves numeric metric cells as numeric values and neutralizes text cells that begin with spreadsheet formula characters (=, +, -, or @), including when preceded by whitespace or control characters. CSV quoting remains in place for delimiters and embedded quotation marks. This reduces formula-injection risk when operators open exported reports in spreadsheet software; it does not change the report's data scope or make the file a trusted executable-free document in every spreadsheet application.
+
+## Analytics report recovery
+
+When the aggregate analytics request fails, the report shows the returned error and an inline **Retry report** action. Retry repeats the existing read-only analytics request for the selected Manila-time period. A failure is not automatically attributed to an undeployed endpoint: operators should first check connectivity and access; if it persists, the system maintainer can verify service deployment and reachability. The retry does not change report scope or application data.
