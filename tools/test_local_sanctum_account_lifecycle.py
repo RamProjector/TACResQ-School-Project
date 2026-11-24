@@ -312,11 +312,11 @@ assert "drop trigger if exists local_lifecycle_events_no_truncate" in append_onl
 # The local audit recorder is intentionally a transaction-scoped append-only
 # writer, not an authorization or account-state mutation service.
 recorder_source = recorder
-assert recorder_source.index("DB::connection()->transactionLevel() < 1") < recorder_source.index("insertGetId")
+assert recorder_source.index("$this->database->connection()->transactionLevel() < 1") < recorder_source.index("insertGetId")
 assert "actorUserId === $targetUserId" in recorder_source
 assert "trim($reason)" in recorder_source and "mb_strlen($reason) > 500" in recorder_source
 assert "self::TRANSITIONS[$action]" in recorder_source
-assert "DB::table('local_account_lifecycle_events')->insertGetId" in recorder_source
+assert "$this->database->connection()->table('local_account_lifecycle_events')->insertGetId" in recorder_source
 assert "update(" not in recorder_source.lower() and "delete(" not in recorder_source.lower()
 
 
