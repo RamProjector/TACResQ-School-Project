@@ -218,3 +218,7 @@ The User Management table displays rows only when their result key matches the a
 ## User directory recovery and assistive status
 
 If the protected account-directory request fails, the table's unavailable state includes a **Retry account directory** action beside the message, in addition to the page-level Refresh data action. Both repeat the existing read-only directory request; neither changes account data. The scrollable results region exposes its busy state while a request or filter transition is pending, and the table is associated with the directory status announcement.
+
+## Spreadsheet-safe report exports
+
+The aggregate incident CSV export preserves numeric metric cells as numeric values and neutralizes text cells that begin with spreadsheet formula characters (=, +, -, or @), including when preceded by whitespace or control characters. CSV quoting remains in place for delimiters and embedded quotation marks. This reduces formula-injection risk when operators open exported reports in spreadsheet software; it does not change the report's data scope or make the file a trusted executable-free document in every spreadsheet application.
