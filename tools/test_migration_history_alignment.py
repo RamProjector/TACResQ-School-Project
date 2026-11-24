@@ -97,6 +97,8 @@ PENDING = {
     "20261123190000_account_lifecycle_write_rpc_entry_guards.sql",
     "20261123200000_admin_account_lifecycle_audit_reader.sql",
     "20261123210000_account_lifecycle_fcm_token_guards.sql",
+    "20261124190000_prevent_suspending_assigned_field_units.sql",
+    "20261124200000_guard_active_assignment_targets.sql",
     # Additional account-lifecycle enforcement migrations are staged on PR #347;
     # allowlisted as repository files only, not as proof of live application.
     "20261123220000_fcm_delivery_claim_active_recipient_guard.sql",
