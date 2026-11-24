@@ -10,14 +10,14 @@ buildscript {
 
         // Pin vulnerable AGP transitive build-time libraries to patched, compatible releases.
         // These dependencies are for the Gradle plugin classpath; they are not app runtime dependencies.
-        classpath("org.bouncycastle:bcprov-jdk18on:1.87")
-        classpath("org.bouncycastle:bcpkix-jdk18on:1.87")
-        classpath("org.bouncycastle:bcutil-jdk18on:1.87")
-        classpath("org.jdom:jdom2:2.0.6.1")
-        classpath("com.google.guava:guava:33.7.2-jre")
-        classpath("org.bitbucket.b_c:jose4j:0.9.7")
-        classpath("org.apache.commons:commons-lang3:3.22.0")
-        classpath("org.apache.httpcomponents:httpclient:4.5.14")
+        classpath("org.bouncycastle:bcprov-jdk18on") { version { strictly("1.87") } }
+        classpath("org.bouncycastle:bcpkix-jdk18on") { version { strictly("1.87") } }
+        classpath("org.bouncycastle:bcutil-jdk18on") { version { strictly("1.87") } }
+        classpath("org.jdom:jdom2") { version { strictly("2.0.6.1") } }
+        classpath("com.google.guava:guava") { version { strictly("33.7.2-jre") } }
+        classpath("org.bitbucket.b_c:jose4j") { version { strictly("0.9.7") } }
+        classpath("org.apache.commons:commons-lang3") { version { strictly("3.22.0") } }
+        classpath("org.apache.httpcomponents:httpclient") { version { strictly("4.5.14") } }
     }
 }
 
