@@ -117,6 +117,26 @@ def main() -> None:
         "Skipped dependency review must produce an actionable warning, not silently pass"
     )
 
+    authenticated_smoke = (WORKFLOWS / "render-authenticated-bridge-smoke.yml").read_text(encoding="utf-8")
+    assert "secrets[" not in authenticated_smoke and "format(" not in authenticated_smoke, (
+        "Authenticated bridge smoke must not dynamically select repository secrets"
+    )
+    role_workflow = (WORKFLOWS / "render-authenticated-bridge-smoke-role.yml").read_text(encoding="utf-8")
+    assert "workflow_call:" in role_workflow, (
+        "Authenticated bridge smoke role must be an explicitly reusable workflow"
+    )
+    for secret_name in ("SUPABASE_PUBLISHABLE_KEY", "TEST_EMAIL", "TEST_PASSWORD"):
+        assert re.search(rf"(?m)^      {secret_name}: \\n        required: true$", role_workflow), (
+            f"Reusable bridge smoke role must declare {secret_name} as a required explicit secret"
+        )
+    for role in ("REQUESTER", "RESPONDER", "DRIVER", "DISPATCHER"):
+        assert f"secrets.SUPABASE_{role}_TEST_EMAIL" in authenticated_smoke, (
+            f"Bridge smoke must pass the {role.lower()} email secret explicitly"
+        )
+    assert "secrets.SUPABASE_TEST_PASSWORD" in authenticated_smoke, (
+        "Bridge smoke must pass only its required shared test password explicitly"
+    )
+
     render_smoke = (WORKFLOWS / "render-live-smoke.yml").read_text(encoding="utf-8")
     live_smoke_job = render_smoke.split("  live-smoke:", 1)[1]
     assert re.search(r"(?m)^    permissions: \{\}$", live_smoke_job), (
