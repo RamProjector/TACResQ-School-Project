@@ -635,13 +635,14 @@ END;
 $suspended_dispatcher_directory_contract$;
 RESET ROLE;
 
--- The transition function is implemented but remains unavailable to client roles
--- until the complete callable/Storage/bridge release gate is closed.
+-- The website transition is authenticated-callable only. Its own function
+-- body enforces AAL2/TOTP and current active-Admin state on every invocation.
 DO $transition_rpc_exposure$
 BEGIN
-  IF has_function_privilege('authenticated', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE')
-     OR has_function_privilege('anon', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE') THEN
-    RAISE EXCEPTION 'Account lifecycle transition RPC must remain unexposed before the release gate';
+  IF NOT has_function_privilege('authenticated', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE')
+     OR has_function_privilege('public', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Website account lifecycle RPC must be authenticated-only, never anonymous or PUBLIC';
   END IF;
 END;
 $transition_rpc_exposure$;
