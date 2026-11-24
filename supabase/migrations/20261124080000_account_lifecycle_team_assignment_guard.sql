@@ -43,6 +43,11 @@ REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team_guarded(bigint, bigi
 GRANT EXECUTE ON FUNCTION private.tacresq_assign_incident_team_guarded(bigint, bigint[])
   TO authenticated;
 
+-- SECURITY INVOKER wrappers execute with the caller's schema privileges.
+-- USAGE exposes only name resolution; each private function still requires its
+-- own explicit EXECUTE grant, and the private schema remains outside the Data API.
+GRANT USAGE ON SCHEMA private TO authenticated;
+
 -- Public API functions remain SECURITY INVOKER; only the private helper is
 -- privileged and it pins search_path to pg_catalog.
 CREATE OR REPLACE FUNCTION public.api_assign_incident_team(

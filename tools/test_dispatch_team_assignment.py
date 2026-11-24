@@ -43,6 +43,7 @@ for required in (
     "FOR SHARE",
     "SECURITY DEFINER",
     "SECURITY INVOKER",
+    "GRANT USAGE ON SCHEMA private TO authenticated",
     "REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team(bigint, bigint[])",
     "private.tacresq_assign_incident_team(p_id, p_user_ids)",
 ):
