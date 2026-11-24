@@ -38,7 +38,9 @@ assert "api_dependency_health" in client[client.index("export async function get
 assert "health: '/up'" in bootstrap
 assert "Laravel backend" in console
 assert "Dependency reachability" in console
-assert 'role="status" aria-label={label + " reachability: " + result.status}' in console
+assert 'className="admin-health-summary" role="status" aria-live="polite"' in console
+assert '<article className="admin-health-item" key={label}>' in console
+assert 'className={"admin-health-status admin-health-status--" + result.status}' in console
 assert "do not verify incident creation" in console
 assert "void getAdminDependencyHealth()" in console
 assert "exceeded five seconds" in console
@@ -48,9 +50,23 @@ assert '"Checking…"' in console
 assert 'status: controller.signal.aborted ? "slow" : "unavailable"' in client
 
 
-assert "All three dependencies responded within the probe threshold" in console
-assert '" of " + dependencyProbes.length + " dependencies responded within the probe threshold"' in console
-assert 'result.status === "slow" ? "timed out"' in console
+assert '"All three dependencies responded within the probe threshold"' in console
+assert 'reachableDependencyCount + " of " + dependencyProbes.length + " dependencies responded within the probe threshold"' in console
+assert 'result.status === "slow" ? "timed out" : "unavailable"' in console
 assert "not complete emergency-service readiness" in console
 
 print("PASS: admin dependency health is role-gated, bounded, data-free, and reports probe scope clearly.")
+
+# Unprobed capabilities must be labeled as outside this page's monitoring scope,
+# never as healthy or failed provider states.
+for required in (
+    "Not covered by these probes",
+    "Not monitored here",
+    "Push notification delivery",
+    "Maps and route calculation",
+    "Incident attachments and Storage",
+    "End-to-end emergency workflow",
+    "Persistent monitoring and alerting",
+    "It does not mean the provider or workflow is down, healthy, or configured.",
+):
+    assert required in console, f"Missing monitoring-boundary disclosure: {required}"
