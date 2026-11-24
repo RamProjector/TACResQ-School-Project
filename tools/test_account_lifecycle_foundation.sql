@@ -1136,3 +1136,36 @@ BEGIN
 END;
 $chat_idempotency_catalog_contract$;
 
+
+
+-- Requester SOS create/retry and cancellation must lock an active requester
+-- before returning an idempotent response or mutating incident state.
+DO $requester_sos_write_catalog_contract$
+DECLARE
+  f text;
+  expected text[] := ARRAY[
+    'public.api_create_incident_v4(text,text,double precision,double precision,real,text,timestamp with time zone,text,uuid)',
+    'public.api_cancel_my_incident(bigint)'
+  ];
+  routine_source text;
+  routine_settings text[];
+BEGIN
+  FOREACH f IN ARRAY expected LOOP
+    IF to_regprocedure(f) IS NULL THEN RAISE EXCEPTION 'Requester SOS RPC is missing: %', f; END IF;
+    SELECT p.prosrc, p.proconfig INTO routine_source, routine_settings
+      FROM pg_catalog.pg_proc p WHERE p.oid = to_regprocedure(f);
+    IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = to_regprocedure(f))
+       OR NOT (coalesce(routine_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+       OR routine_source NOT ILIKE '%account_status = ''active''%'
+       OR routine_source NOT ILIKE '%FOR UPDATE%'
+       OR routine_source NOT ILIKE '%requester%' THEN
+      RAISE EXCEPTION 'Requester SOS RPC must lock an active requester under a pinned definer: %', f;
+    END IF;
+    IF NOT has_function_privilege('authenticated', to_regprocedure(f), 'EXECUTE')
+       OR has_function_privilege('anon', to_regprocedure(f), 'EXECUTE') THEN
+      RAISE EXCEPTION 'Requester SOS RPC grants must be authenticated-only: %', f;
+    END IF;
+  END LOOP;
+END;
+$requester_sos_write_catalog_contract$;
+
