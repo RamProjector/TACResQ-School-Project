@@ -40,10 +40,16 @@ assert "pg_default_acl" in inventory
 
 # The crosswalk is deliberately honest about the difference between listing
 # known SECURITY DEFINER signatures and reviewing every nested call path.
-assert "20 public" in crosswalk
+assert "21 public" in crosswalk
+assert "73 public callable functions" in crosswalk
+assert "eleven authenticated-callable private security definer helpers" in crosswalk
 assert "52 authenticated-callable public security invoker functions" in crosswalk
 assert "not an automated proof" in crosswalk or "not proof" in crosswalk
 assert "call-graph" in review
+assert (ROOT / "docs/security/admin-account-suspension-rpc-review-batch-23-private-callable-definer-source-trace.md").is_file()
+assert (ROOT / "docs/security/admin-account-suspension-rpc-review-batch-24-chat-storage-authentication-chain.md").is_file()
+assert (ROOT / "tools/test_account_suspension_definer_inventory.sql").is_file()
+assert (ROOT / "tools/test_account_suspension_private_definer_inventory.sql").is_file()
 print("Account-lifecycle callable inventory contract passed.")
 
 
