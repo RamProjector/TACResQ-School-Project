@@ -316,3 +316,13 @@ assert 'aria-describedby="admin-backup-enrollment-guidance" onSubmit={verifyBack
 assert '.admin-security-status__factor-list li { flex-wrap:wrap; }' in admin_css
 assert '.admin-security-status :where(button,input):focus-visible {' in admin_css
 assert '.admin-security-status__factor-list li > .admin-security-status__actions { width:100%;' in admin_css
+
+# Authenticator mutations re-read current factor inventory instead of trusting stale UI state.
+assert 'function hasTotpMethod(data:' in admin_security
+assert 'const currentTotpFactors = latestFactors.all.filter((item) => item.factor_type === "totp");' in admin_security
+assert 'const currentTarget = currentTotpFactors.find((item) => item.id === factor.id);' in admin_security
+assert 'const currentVerifiedCount = currentTotpFactors.filter((item) => item.status === "verified").length;' in admin_security
+assert 'if (currentTarget.status === "verified" && currentVerifiedCount <= 1)' in admin_security
+assert 'const currentTotpFactors = latestFactors.all.filter((factor) => factor.factor_type === "totp");' in admin_security
+assert 'if (currentTotpFactors.length >= 10)' in admin_security
+assert 'const existingNames = new Set(currentTotpFactors.map((factor) => factor.friendly_name || "Authenticator app"));' in admin_security
