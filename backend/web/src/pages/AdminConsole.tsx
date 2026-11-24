@@ -175,6 +175,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [nextRole, setNextRole] = useState<AdminManagedRole>("requester");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const roleChangeInFlight = useRef(false);
   const modalRoot = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const requestVersion = useRef(0);
@@ -365,7 +366,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }
 
   async function confirmRoleChange() {
-    if (!target || saving || target.role === "admin") return;
+    if (!target || saving || roleChangeInFlight.current || target.role === "admin") return;
     if (reason.trim().length < 10 || reason.trim().length > 500) {
       setRoleToast({ type: "error", message: "Enter an audit reason between 10 and 500 characters." });
       return;
@@ -374,6 +375,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       setRoleToast({ type: "error", message: "Choose a different role before saving." });
       return;
     }
+    roleChangeInFlight.current = true;
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -399,6 +401,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     } catch (cause) {
       setRoleToast({ type: "error", message: cause instanceof Error ? cause.message : "The role change was not saved." });
     } finally {
+      roleChangeInFlight.current = false;
       setSaving(false);
     }
   }
