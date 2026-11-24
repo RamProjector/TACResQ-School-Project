@@ -208,3 +208,8 @@ The Account suspension and reactivation panel includes its own **Refresh history
 ## Activity Log app-action source
 
 The Activity Log's seventh source, **App actions**, is a metadata-only record of selected server-confirmed actions: incident chat-message sends, notification-read changes, and field-unit duty-status changes. These events are not click tracking. The Admin projection exposes bounded action metadata and references, not message text, attachment contents, credentials, or tokens. When an event is expanded, nested metadata fields are displayed as labeled values (for example, message kind or a duty-status transition) rather than being hidden as an unavailable object. This source does not represent every action in the application and must not be described as a complete user-activity history.
+
+
+## User directory query consistency
+
+The User Management table displays rows only when their result key matches the active page, page size, debounced search, and role filter. When any of those selections changes, the prior result set is hidden immediately—even before the next request effect begins—and the table reports that account results are updating. The retrieval timestamp is set only after a valid response for the active selection. This is a presentation/freshness safeguard; it does not change the protected directory endpoint or its authorization rules.
