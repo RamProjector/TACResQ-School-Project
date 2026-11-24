@@ -248,7 +248,7 @@ for required in (
     "suspended requester unexpectedly replayed or created an sos",
     "suspended requester unexpectedly accessed incident cancellation",
     "suspended caller must not enter the incident claim workflow",
-    "suspended field-unit caller must not receive claimable incident data",
+    "suspended responder unexpectedly received claimable incident data",
     "test_account_lifecycle_definer_write",
     "security definer table write unexpectedly succeeded",
     "suspended admin unexpectedly passed the totp-protected directory rpc",
