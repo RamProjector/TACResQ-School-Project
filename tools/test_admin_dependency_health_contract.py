@@ -38,7 +38,9 @@ assert "api_dependency_health" in client[client.index("export async function get
 assert "health: '/up'" in bootstrap
 assert "Laravel backend" in console
 assert "Dependency reachability" in console
-assert 'role="status" aria-label={label + " reachability: " + result.status}' in console
+assert 'className="admin-health-summary" role="status" aria-live="polite"' in console
+assert '<article className="admin-health-item" key={label}>' in console
+assert 'className={"admin-health-status admin-health-status--" + result.status}' in console
 assert "do not verify incident creation" in console
 assert "void getAdminDependencyHealth()" in console
 assert "exceeded five seconds" in console
