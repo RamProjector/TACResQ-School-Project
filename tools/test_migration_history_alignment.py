@@ -112,6 +112,7 @@ PENDING = {
     # PR #348 FCM self-unregister RPC is staged for review/deployment; do not
     # treat repository presence as proof that the live Supabase ledger applied it.
     "20261124170000_secure_fcm_self_unregister_rpc.sql",
+    "20261124180000_secure_fcm_delivery_token_cleanup_rpc.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
