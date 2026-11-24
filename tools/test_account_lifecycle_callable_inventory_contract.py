@@ -292,7 +292,7 @@ for required in (
     "api_admin_list_users_page(integer,integer,text,text)",
     "api_admin_set_user_role(bigint,text,text)",
     "api_admin_list_audit_logs_page(integer,integer,text,text,timestamptz,timestamptz,bigint,bigint)",
-    "no email-based identity mapping exists",
+    "never join by email",
 ):
     assert required in admin_matrix, f"Admin/legacy matrix is missing callable/boundary: {required}"
 
