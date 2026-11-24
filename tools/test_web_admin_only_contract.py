@@ -103,7 +103,7 @@ assert ".audit-page__lifecycle-pagination button:focus-visible" in admin_css
 assert "@media (max-width:520px)" in admin_css
 
 # Audit history labels its actual seven queried sources and exposes accessible detail controls.
-assert "Seven recorded event sources are queried." in audit_page
+assert "Seven source readers are queried;" in audit_page
 assert "Six recorded event sources are queried." not in audit_page
 assert 'aria-controls={"audit-event-details-" + event.event_id}' in audit_page
 assert 'id={"audit-event-details-" + event.event_id}' in audit_page
