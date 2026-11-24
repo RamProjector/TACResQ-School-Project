@@ -786,12 +786,12 @@ DECLARE
   v_volatility "char";
   v_definer boolean;
   required_routines text[] := ARRAY[
-    'public.api_assign_incident_team(bigint,bigint[])',
+    'private.tacresq_assign_incident_team_guarded(bigint,bigint[])',
     'private.tacresq_release_incident_assignment(bigint,bigint)',
     'private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)'
   ];
   internal_routines text[] := ARRAY[
-    'private.tacresq_assign_incident_team_internal(bigint,bigint[])',
+    'private.tacresq_assign_incident_team(bigint,bigint[])',
     'private.tacresq_release_incident_assignment_internal(bigint,bigint)',
     'private.tacresq_record_location_v2_internal(bigint,double precision,double precision,real,timestamp with time zone)'
   ];
@@ -887,33 +887,47 @@ END;
 $active_dispatcher_read_contract$;
 
 
--- Dispatcher team assignment must expose only the active-state wrapper.
+-- Dispatcher team assignment exposes an invoker-safe public RPC. Its
+-- private guard serializes against account suspension, then calls the original
+-- private assignment implementation, which is not directly client-callable.
 DO $team_assignment_catalog_contract$
 DECLARE
   wrapper_oid oid := to_regprocedure('public.api_assign_incident_team(bigint,bigint[])');
   legacy_oid oid := to_regprocedure('public.api_assign_incident(bigint,bigint)');
-  internal_oid oid := to_regprocedure('private.tacresq_assign_incident_team_internal(bigint,bigint[])');
+  guard_oid oid := to_regprocedure('private.tacresq_assign_incident_team_guarded(bigint,bigint[])');
+  implementation_oid oid := to_regprocedure('private.tacresq_assign_incident_team(bigint,bigint[])');
   wrapper_source text;
   wrapper_settings text[];
+  guard_source text;
+  guard_settings text[];
 BEGIN
-  IF wrapper_oid IS NULL OR legacy_oid IS NULL OR internal_oid IS NULL THEN
-    RAISE EXCEPTION 'Team assignment lifecycle wrapper, alias, or internal routine is missing';
+  IF wrapper_oid IS NULL OR legacy_oid IS NULL OR guard_oid IS NULL OR implementation_oid IS NULL THEN
+    RAISE EXCEPTION 'Team assignment lifecycle wrapper, guard, alias, or implementation is missing';
   END IF;
   SELECT p.prosrc, p.proconfig INTO wrapper_source, wrapper_settings
     FROM pg_catalog.pg_proc p WHERE p.oid = wrapper_oid;
-  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = wrapper_oid)
+  IF (SELECT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = wrapper_oid)
      OR NOT (coalesce(wrapper_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
-     OR wrapper_source NOT ILIKE '%account_status = ''active''%'
-     OR wrapper_source NOT ILIKE '%FOR SHARE%'
-     OR wrapper_source NOT ILIKE '%tacresq_assign_incident_team_internal%' THEN
-    RAISE EXCEPTION 'Team assignment wrapper must be a pinned VOLATILE definer with active-profile share lock';
+     OR wrapper_source NOT ILIKE '%tacresq_assign_incident_team_guarded%' THEN
+    RAISE EXCEPTION 'Public team assignment RPC must remain a pinned VOLATILE SECURITY INVOKER wrapper';
+  END IF;
+  SELECT p.prosrc, p.proconfig INTO guard_source, guard_settings
+    FROM pg_catalog.pg_proc p WHERE p.oid = guard_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = guard_oid)
+     OR NOT (coalesce(guard_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR guard_source NOT ILIKE '%account_status = ''active''%'
+     OR guard_source NOT ILIKE '%FOR SHARE%'
+     OR guard_source NOT ILIKE '%private.tacresq_assign_incident_team%' THEN
+    RAISE EXCEPTION 'Private team assignment guard must lock an active dispatcher and delegate to the private implementation';
   END IF;
   IF NOT has_function_privilege('authenticated', wrapper_oid, 'EXECUTE')
      OR has_function_privilege('anon', wrapper_oid, 'EXECUTE')
-     OR has_function_privilege('authenticated', internal_oid, 'EXECUTE')
-     OR has_function_privilege('anon', internal_oid, 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', guard_oid, 'EXECUTE')
+     OR has_function_privilege('anon', guard_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', implementation_oid, 'EXECUTE')
+     OR has_function_privilege('anon', implementation_oid, 'EXECUTE')
      OR NOT has_function_privilege('authenticated', legacy_oid, 'EXECUTE') THEN
-    RAISE EXCEPTION 'Team assignment wrapper grants or internal implementation grants are unsafe';
+    RAISE EXCEPTION 'Team assignment wrapper grants or private implementation grants are unsafe';
   END IF;
   IF (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid = legacy_oid) THEN
     RAISE EXCEPTION 'Legacy single-member assignment alias must remain SECURITY INVOKER';
