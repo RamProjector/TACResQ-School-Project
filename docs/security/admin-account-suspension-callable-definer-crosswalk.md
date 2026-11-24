@@ -105,3 +105,11 @@ Migration `20261124080000_account_lifecycle_team_assignment_guard.sql` moves the
 The legacy single-member `api_assign_incident(bigint,bigint)` alias now routes through the guarded team-assignment RPC. This prevents the alias from bypassing the new lifecycle boundary while preserving the existing assignment implementation. The migration's Python/source and PostgreSQL replay contracts check the wrapper, alias, active predicate, lock, and internal grant revocation.
 
 This is migration/source-contract coverage only until the complete disposable PostgreSQL replay and same-valid-JWT denial matrix execute successfully.
+
+## Follow-up implementation — guarded assignment release
+
+Migration `20261124090000_account_lifecycle_assignment_release_guard.sql` preserves the prior assignment-release transaction as a private internal routine and revokes its direct client EXECUTE grant. The callable private wrapper now reads and share-locks the caller's profile, requires an active dispatcher, and only then delegates to the preserved implementation.
+
+The guard prevents a suspended dispatcher with an unexpired JWT from releasing another responder/driver or changing assignment-derived duty availability through this private callable. Existing release behavior remains inside the preserved implementation rather than being reimplemented in the wrapper.
+
+The source and replay contracts check the active-state predicate, lock, and internal grant revocation. They do not replace execution of the disposable PostgreSQL same-JWT matrix.
