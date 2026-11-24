@@ -68,7 +68,8 @@ jobs:
         uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
 
   screen-capture:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    # Capture the prototype gallery on PRs as well as scheduled/manual QA; this is advisory visual evidence, not native-app acceptance.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     name: Capture every prototype screen and activity
     runs-on: ubuntu-latest
     timeout-minutes: 20
