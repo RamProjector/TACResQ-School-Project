@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "backend/src/routes/api.php").read_text()
-AUTH_START = SOURCE.index("Route::middleware('auth:sanctum')->group")
+AUTH_START = SOURCE.index("Route::middleware(['auth:sanctum', 'account.active'])->group")
 AUTH_END = SOURCE.index("\n});", AUTH_START) + 4
 AUTH = SOURCE[AUTH_START:AUTH_END]
 
