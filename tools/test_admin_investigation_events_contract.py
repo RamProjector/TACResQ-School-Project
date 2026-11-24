@@ -144,4 +144,16 @@ for marker in (
 ):
     assert marker in page, f"Missing Admin investigation UI contract: {marker}"
 
+# Audit metadata is database-backed JSON and must not cause unbounded UI work.
+for marker in (
+    "MAX_AUDIT_DETAIL_DEPTH = 3",
+    "MAX_AUDIT_DETAIL_ITEMS = 20",
+    "MAX_AUDIT_DETAIL_TEXT = 500",
+    "depth >= MAX_AUDIT_DETAIL_DEPTH",
+    ".slice(0, MAX_AUDIT_DETAIL_ITEMS)",
+    "boundedAuditText(value)",
+    "Additional nested details omitted",
+):
+    assert marker in page, f"Missing bounded audit-detail rendering guard: {marker}"
+
 print("PASS: Admin investigation source, authorization, privacy, and UI contracts are present.")
