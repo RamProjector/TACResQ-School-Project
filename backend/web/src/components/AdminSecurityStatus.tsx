@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertCircle, CheckCircle2, Clock3, LogOut, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3, Eye, EyeOff, LogOut, RefreshCw, ShieldCheck, ShieldX } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 
 type SecurityFactor = { id: string; name: string; status: string };
@@ -28,10 +28,12 @@ function formatLevel(level: string | null) {
 
 export default function AdminSecurityStatus() {
   const [snapshot, setSnapshot] = useState<SecuritySnapshot | null>(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
+  const [showEnrollmentSecret, setShowEnrollmentSecret] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -44,6 +46,14 @@ export default function AdminSecurityStatus() {
     const requestId = ++refreshVersion.current;
     setLoading(true);
     setError(null);
+    setActionError(null);
+    setNotice(null);
+    setConfirmRemoveFactorId(null);
+    setConfirmGlobalSignOut(false);
+    // Do not present the previous session/factor inventory as current while
+    // a new Supabase Auth read is in flight.
+    setSnapshot(null);
+    setLastCheckedAt(null);
     try {
       const auth = getSupabase().auth;
       const [aalResult, factorsResult] = await Promise.all([
@@ -63,10 +73,12 @@ export default function AdminSecurityStatus() {
           status: factor.status,
         })),
       });
+      setLastCheckedAt(new Date().toISOString());
     } catch (cause) {
       if (requestId !== refreshVersion.current) return;
       setError(cause instanceof Error ? cause.message : "Could not retrieve the current MFA status.");
       setSnapshot(null);
+      setLastCheckedAt(null);
     } finally {
       if (requestId === refreshVersion.current) setLoading(false);
     }
@@ -112,7 +124,7 @@ export default function AdminSecurityStatus() {
       const auth = getSupabase().auth;
       const { data: aal, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) throw aalError;
-      const usedTotp = hasTotpMethod(aal);
+      const usedTotp = aal.currentLevel === "aal2" && hasTotpMethod(aal);
       if (aal.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("Verify your authenticator again before adding a backup device.");
       }
@@ -136,6 +148,7 @@ export default function AdminSecurityStatus() {
       pendingEnrollmentId.current = data.id;
       setEnrollment({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
       setVerificationCode("");
+      setShowEnrollmentSecret(false);
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "A backup authenticator could not be started.");
     } finally {
@@ -157,15 +170,16 @@ export default function AdminSecurityStatus() {
       if (verifyError) throw verifyError;
       const { data, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) throw aalError;
-      const usedTotp = hasTotpMethod(data);
+      const usedTotp = data.currentLevel === "aal2" && hasTotpMethod(data);
       if (data.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("The backup authenticator was not confirmed for this session. Please try again.");
       }
       pendingEnrollmentId.current = null;
       setEnrollment(null);
       setVerificationCode("");
-      setNotice("Backup authenticator verified and added.");
+      setShowEnrollmentSecret(false);
       await refresh();
+      setNotice("Backup authenticator verified and added.");
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "The authenticator code could not be verified.");
     } finally {
@@ -245,8 +259,8 @@ export default function AdminSecurityStatus() {
         setVerificationCode("");
       }
       setConfirmRemoveFactorId(null);
-      setNotice(factor.name + " was removed.");
       await refresh();
+      setNotice(factor.name + " was removed.");
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "The authenticator factor could not be removed.");
     } finally {
@@ -264,8 +278,9 @@ export default function AdminSecurityStatus() {
       pendingEnrollmentId.current = null;
       setEnrollment(null);
       setVerificationCode("");
-      setNotice("Unverified backup enrollment cancelled.");
+      setShowEnrollmentSecret(false);
       await refresh();
+      setNotice("Unverified backup enrollment cancelled.");
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "The pending enrollment could not be cancelled.");
     } finally {
@@ -284,6 +299,7 @@ export default function AdminSecurityStatus() {
           <RefreshCw size={15} className={loading ? "admin-spin" : ""} /> Refresh status
         </button>
       </div>
+      {lastCheckedAt && snapshot && <p className="admin-security-status__checked">Last checked {new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(lastCheckedAt))} (Asia/Manila). Refresh to retrieve the latest session and factor state.</p>}
       {loading && snapshot && <p className="admin-security-status__message" role="status" aria-live="polite"><Clock3 size={16} /> Refreshing Supabase Auth status…</p>}
       {loading && !snapshot ? (
         <p className="admin-security-status__message" role="status" aria-live="polite"><Clock3 size={16} /> Checking Supabase Auth…</p>
@@ -322,7 +338,7 @@ export default function AdminSecurityStatus() {
                     <span className="admin-security-status__factor-icon">{factor.status === "verified" ? <CheckCircle2 size={16} /> : <ShieldX size={16} />}</span>
                     <span><strong>{factor.name}</strong><small>{factor.status === "verified" ? "Verified" : "Pending verification"}</small></span>
                     {confirmRemoveFactorId === factor.id ? (
-                      <span className="admin-security-status__actions" role="group" aria-label={`Confirm removal of ${factor.name}`}>
+                      <span className="admin-security-status__actions" role="group" aria-label={`Confirm removal of ${factor.name}`} aria-live="polite" aria-atomic="true">
                         <button className="admin-refresh" type="button" onClick={() => setConfirmRemoveFactorId(null)} disabled={busy}>Keep</button>
                         <button className="admin-refresh admin-security-status__danger-action" type="button" onClick={() => { void removeAuthenticatorFactor(factor); }} disabled={busy || !canManageFactors || (factor.status === "verified" && verifiedFactors.length <= 1)}>{busy ? "Removing…" : "Confirm remove"}</button>
                       </span>
@@ -346,7 +362,7 @@ export default function AdminSecurityStatus() {
                 <LogOut size={15} /> Sign out all devices
               </button>
             ) : (
-              <div className="admin-security-status__confirm" role="group" aria-label="Confirm global sign-out">
+              <div className="admin-security-status__confirm" role="group" aria-label="Confirm global sign-out" aria-live="polite" aria-atomic="true">
                 <p><strong>Confirm global sign-out?</strong> All devices will need to sign in again. Already-issued access tokens may remain valid until they expire.</p>
                 <div className="admin-security-status__actions">
                   <button className="admin-refresh" type="button" onClick={() => setConfirmGlobalSignOut(false)} disabled={busy}>Cancel</button>
@@ -373,7 +389,13 @@ export default function AdminSecurityStatus() {
               <p id="admin-backup-enrollment-guidance">Scan this QR code with an authenticator app on a different device. Keep the setup key private and do not send it to anyone.</p>
               <img src={enrollment.qrCode} alt="QR code for the backup authenticator" />
               <label htmlFor="admin-backup-secret">Manual setup key</label>
-              <input id="admin-backup-secret" type="text" readOnly value={enrollment.secret} autoComplete="off" />
+              <div className="admin-security-status__secret-field">
+                <input id="admin-backup-secret" type={showEnrollmentSecret ? "text" : "password"} readOnly value={enrollment.secret} autoComplete="off" spellCheck={false} aria-describedby="admin-backup-secret-guidance" />
+                <button className="admin-refresh" type="button" onClick={() => setShowEnrollmentSecret((visible) => !visible)} aria-label={showEnrollmentSecret ? "Hide manual setup key" : "Show manual setup key"} aria-pressed={showEnrollmentSecret}>
+                  {showEnrollmentSecret ? <EyeOff size={15} /> : <Eye size={15} />}{showEnrollmentSecret ? "Hide key" : "Show key"}
+                </button>
+              </div>
+              <small id="admin-backup-secret-guidance">The key is hidden until you choose to reveal it. Treat it like a password and do not share it.</small>
               <label htmlFor="admin-backup-code">Six-digit code</label>
               <input id="admin-backup-code" type="text" aria-describedby="admin-backup-enrollment-guidance" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} placeholder="000000" value={verificationCode} onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required />
               <div className="admin-security-status__actions">
@@ -406,7 +428,7 @@ export default function AdminSecurityStatus() {
               <div className="admin-security-status__coverage-group admin-security-status__coverage-group--gaps">
                 <h4><ShieldX size={15} /> Not verified by this Admin console</h4>
                 <ul>
-                  <li><strong>Account suspension</strong><span>No verified Admin suspend/disable-account control is available in this console.</span></li>
+                  <li><strong>Account suspension</strong><span>The database transition function is staged but EXECUTE remains revoked from client roles. Remaining same-JWT authorization coverage, migration/deployment verification, session-revocation behavior, and the Admin workflow are not complete. No suspend/reactivate action is exposed here.</span></li>
                   <li><strong>Denied-action audit trail</strong><span>Rejected privileged requests are not yet recorded in a trusted, durable Admin event stream.</span></li>
                   <li><strong>Device-security telemetry</strong><span>No trusted server-side writer currently feeds device-security events into this control center.</span></li>
                   <li><strong>Backup and restore status</strong><span>Live backup-job and restore-drill evidence is not connected to this page.</span></li>
