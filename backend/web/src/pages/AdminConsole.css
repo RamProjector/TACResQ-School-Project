@@ -1607,3 +1607,41 @@
   .admin-health-coverage { margin:0 14px 16px; padding:13px; }
   .admin-health-coverage ul { grid-template-columns:minmax(0,1fr); }
 }
+
+/* Backup and recovery workspace: evidence-aware, read-only operator guidance. */
+.admin-recovery-panel { padding-bottom:22px; }
+.admin-recovery-intro { max-width:980px; margin:0; padding:0 22px 16px; color:#647673; font-size:11px; line-height:1.7; }
+.admin-recovery-status { display:flex; align-items:flex-start; gap:11px; margin:0 22px 18px; padding:13px 14px; border:1px solid #eadfbd; border-radius:6px; color:#755d2e; background:#fbf7eb; }
+.admin-recovery-status > svg { flex:0 0 auto; margin-top:1px; }
+.admin-recovery-status div { display:grid; gap:4px; }
+.admin-recovery-status strong { font-size:11px; }
+.admin-recovery-status span { color:#806f4b; font-size:10px; line-height:1.55; }
+.admin-recovery-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(245px,1fr)); gap:12px; padding:0 22px 20px; }
+.admin-recovery-card { display:flex; min-width:0; flex-direction:column; align-items:flex-start; padding:15px; border:1px solid #e3e8e0; border-radius:7px; background:#fbfcf8; }
+.admin-recovery-card > div { display:flex; width:100%; align-items:center; justify-content:space-between; gap:8px; }
+.admin-recovery-card .admin-eyebrow { margin:0; }
+.admin-recovery-state { padding:4px 6px; border:1px solid #e5e1d4; border-radius:4px; color:#796c4d; background:#f8f5eb; font:600 8px var(--mono); text-align:right; }
+.admin-recovery-card h3 { margin:12px 0 6px; color:#40575a; font-size:12px; }
+.admin-recovery-card p { flex:1; margin:0 0 12px; color:#718081; font-size:10px; line-height:1.65; }
+.admin-recovery-card a,.admin-recovery-next a { color:#356e67; font-size:10px; font-weight:700; text-decoration:underline; text-underline-offset:3px; }
+.admin-recovery-card a:focus-visible,.admin-recovery-next a:focus-visible { outline:2px solid #356e67; outline-offset:3px; }
+.admin-recovery-note { margin-top:auto; color:#8a6c36; font-size:9px; font-weight:700; }
+.admin-recovery-next { margin:0 22px 18px; padding:16px; border:1px solid #e3e8e0; border-radius:7px; background:#fffefa; }
+.admin-recovery-next h3 { margin:0 0 12px; color:#40575a; font-size:12px; }
+.admin-recovery-next ol { display:grid; gap:11px; margin:0; padding-left:20px; }
+.admin-recovery-next li { padding-left:3px; color:#40575a; font-size:10px; line-height:1.6; }
+.admin-recovery-next li strong,.admin-recovery-next li span { display:block; }
+.admin-recovery-next li span { color:#718081; }
+.admin-recovery-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:9px; padding:0 22px 16px; }
+.admin-recovery-metrics > div { display:flex; flex-direction:column; gap:6px; padding:11px 12px; border:1px solid #e3e8e0; border-radius:6px; background:#f8faf6; }
+.admin-recovery-metrics span { color:#7a8984; font-size:9px; }
+.admin-recovery-metrics strong { color:#665b43; font-size:10px; }
+.admin-recovery-panel > .admin-panel__footnote { margin:0 22px; }
+@media (max-width:760px) {
+  .admin-recovery-intro { padding:0 14px 14px; }
+  .admin-recovery-status { margin:0 14px 14px; }
+  .admin-recovery-grid { grid-template-columns:minmax(0,1fr); padding:0 14px 16px; }
+  .admin-recovery-next { margin:0 14px 14px; padding:13px; }
+  .admin-recovery-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); padding:0 14px 14px; }
+  .admin-recovery-panel > .admin-panel__footnote { margin:0 14px; }
+}
