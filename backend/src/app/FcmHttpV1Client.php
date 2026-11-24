@@ -2,11 +2,13 @@
 
 namespace App;
 
+use App\Contracts\FcmClientContract;
+
 use Google\Auth\ApplicationDefaultCredentials;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
-final class FcmHttpV1Client
+final class FcmHttpV1Client implements FcmClientContract
 {
     private const MESSAGING_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 
