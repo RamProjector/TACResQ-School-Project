@@ -92,6 +92,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [lifecyclePage, setLifecyclePage] = useState(0);
   const [lifecycleLoading, setLifecycleLoading] = useState(true);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+  const [lifecycleRefreshVersion, setLifecycleRefreshVersion] = useState(0);
   const lifecyclePageSize = 5;
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
@@ -188,7 +189,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       if (active) setLifecycleLoading(false);
     });
     return () => { active = false; };
-  }, [lifecyclePage, refreshVersion]);
+  }, [lifecyclePage, refreshVersion, lifecycleRefreshVersion]);
 
   async function copyEventId(eventId: string) {
     setCopyError(null);
@@ -274,7 +275,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
           <span>{lifecycleError ? "Unavailable" : lifecycleTotal.toLocaleString() + " recorded"}</span>
         </div>
         {lifecycleError ? (
-          <p className="admin-panel__footnote" role="alert">{lifecycleError}</p>
+          <div className="audit-page__lifecycle-error"><p className="admin-panel__footnote" role="alert">{lifecycleError}</p><button className="admin-refresh" type="button" onClick={() => setLifecycleRefreshVersion((current) => current + 1)} disabled={lifecycleLoading}><RefreshCw size={15} className={lifecycleLoading ? "admin-spin" : undefined} /> Retry lifecycle history</button></div>
         ) : lifecycleLoading ? (
           <p className="admin-panel__footnote audit-page__lifecycle-loading" role="status" aria-live="polite"><LoaderCircle size={15} className="admin-spin" /> Loading account lifecycle history…</p>
         ) : lifecycleEvents.length === 0 ? (
