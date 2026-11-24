@@ -158,3 +158,7 @@ These are assertions added to the disposable PostgreSQL replay script, not a cla
 ## Callable replay addition — notification claimable read
 
 Notification and claimable-incident reads: exact signatures, pinned VOLATILE definer execution, authenticated-only grants, account-aware identity resolution, and active-profile lock for claimable discovery. Runtime denial still requires same-valid-JWT replay.
+
+## Callable replay addition — assignment helper
+
+Incident-assignee RLS helper: pinned SECURITY DEFINER, current auth.uid(), active predicate, FOR SHARE lock, and no anon/PUBLIC EXECUTE. Disposable-database RLS tests remain required.
