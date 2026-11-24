@@ -1292,3 +1292,24 @@
     margin-left:40px;
   }
 }
+
+/* Keep account identity visible while reviewing wide directory columns on mobile. */
+@media (max-width:760px) {
+  .admin-table th:first-child {
+    position:sticky;
+    left:0;
+    z-index:3;
+    background:#f8f9f4;
+    box-shadow:1px 0 0 #e4e8e0;
+  }
+  .admin-table td:first-child {
+    position:sticky;
+    left:0;
+    z-index:1;
+    background:#fffefa;
+    box-shadow:1px 0 0 #e4e8e0;
+  }
+  .admin-table tbody tr:hover td:first-child {
+    background:#f8faf5;
+  }
+}
