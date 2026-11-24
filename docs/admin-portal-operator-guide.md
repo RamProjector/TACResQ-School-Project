@@ -68,7 +68,7 @@ The Overview page provides direct shortcuts to User Management, Reports, and Act
 
 ## Security workspace layout
 
-The Security page heading explains the current administrator-session and authenticator scope, while Reports describes the aggregate measures and reporting period available there. Long authenticator names wrap within the factor inventory on narrow screens; factor-management actions move below the factor details on small viewports to avoid horizontal overflow. The interface remains read-only for account suspension/reactivation until the documented security release gates pass.
+The Security page heading explains the current administrator-session and authenticator scope, while Reports describes the aggregate measures and reporting period available there. Long authenticator names wrap within the factor inventory on narrow screens; factor-management actions move below the factor details on small viewports to avoid horizontal overflow. The interface remains read-only for account suspension/reactivation until the documented security release gates pass. The database transition RPC is staged, but its EXECUTE grant remains revoked from client roles. Same-valid-JWT authorization coverage, migration/deployment verification, session-revocation behavior, and the Admin workflow are not complete. Do not attempt to invoke the RPC directly or treat the existence of the function as an enabled control.
 
 ## Admin access review
 
