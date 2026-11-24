@@ -203,3 +203,8 @@ Copy confirmation and clipboard errors are shown only while the referenced event
 ## Independent account lifecycle history refresh
 
 The Account suspension and reactivation panel includes its own **Refresh history** action, available after successful reads and empty results as well as a **Retry history** action when the source is unavailable. It re-reads only the protected lifecycle-history endpoint and keeps its loading, error, result count, and last-checked timestamp separate from the main investigation feed. It does not create, change, or reactivate accounts.
+
+
+## Activity Log app-action source
+
+The Activity Log's seventh source, **App actions**, is a metadata-only record of selected server-confirmed actions: incident chat-message sends, notification-read changes, and field-unit duty-status changes. These events are not click tracking. The Admin projection exposes bounded action metadata and references, not message text, attachment contents, credentials, or tokens. This source does not represent every action in the application and must not be described as a complete user-activity history.
