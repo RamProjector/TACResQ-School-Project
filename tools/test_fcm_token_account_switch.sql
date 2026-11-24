@@ -121,6 +121,57 @@ BEGIN
 END;
 $cross_account_cleanup_denied$;
 
+-- Create both worker fixtures while the recipient account is still active.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'f2000000-1111-4111-8111-000000000202', true);
+SELECT public.api_register_fcm_token('fcm-server-cleanup-token-account-switch-000000000202');
+SELECT public.api_register_fcm_token('fcm-server-cleanup-survivor-token-account-switch-000000000202');
+RESET ROLE;
+
+DO $resolve_service_cleanup_profile$
+DECLARE
+  recipient_profile_id bigint;
+BEGIN
+  SELECT id INTO recipient_profile_id
+    FROM public.profiles
+   WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202';
+  IF recipient_profile_id IS NULL THEN
+    RAISE EXCEPTION 'Expected service-cleanup recipient profile';
+  END IF;
+  PERFORM set_config('tacresq.test_fcm_cleanup_profile_id', recipient_profile_id::text, true);
+END;
+$resolve_service_cleanup_profile$;
+
+-- The worker has no end-user JWT and can delete only the claimed pair.
+SELECT set_config('request.jwt.claim.sub', '', true);
+SET LOCAL ROLE service_role;
+SELECT public.api_unregister_fcm_token_for_delivery(
+  current_setting('tacresq.test_fcm_cleanup_profile_id')::bigint,
+  'fcm-server-cleanup-token-account-switch-000000000202'
+);
+RESET ROLE;
+
+DO $service_cleanup_exact_pair_assertion$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.fcm_tokens
+     WHERE token = 'fcm-server-cleanup-token-account-switch-000000000202'
+  ) THEN
+    RAISE EXCEPTION 'Service-role delivery cleanup did not remove the exact claimed token';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.fcm_tokens
+     WHERE token = 'fcm-server-cleanup-survivor-token-account-switch-000000000202'
+       AND profile_id = (
+         SELECT id FROM public.profiles
+          WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202'
+       )
+  ) THEN
+    RAISE EXCEPTION 'Service-role cleanup for one token must not remove another token for the same profile';
+  END IF;
+END;
+$service_cleanup_exact_pair_assertion$;
+
 -- Suspend the second account and exercise the same still-valid JWT. Registration,
 -- direct reads, and direct writes must fail/return no rows, while self-cleanup
 -- remains available so sign-out can remove this installation's token.
@@ -244,20 +295,6 @@ $suspended_token_cleanup_assertion$;
 
 -- The trusted delivery worker uses a different RPC and a service-role JWT.
 -- Its cleanup is restricted to the profile/token pair returned by the claim.
--- The account is suspended at this point, so seed the worker fixture as the
--- trusted database role rather than bypassing the active-account registration RPC.
-SELECT set_config('request.jwt.claim.sub', '', true);
-SET LOCAL ROLE service_role;
-INSERT INTO public.fcm_tokens(profile_id, token)
-SELECT id, 'fcm-server-cleanup-token-account-switch-000000000202'
-  FROM public.profiles
- WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202';
-INSERT INTO public.fcm_tokens(profile_id, token)
-SELECT id, 'fcm-server-cleanup-survivor-token-account-switch-000000000202'
-  FROM public.profiles
- WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202';
-RESET ROLE;
-
 DO $resolve_service_cleanup_profile$
 DECLARE
   recipient_profile_id bigint;
