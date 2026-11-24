@@ -168,3 +168,8 @@ When a new account-directory request starts, the previous page's rows and total 
 ## Activity Log filter transition behavior
 
 When an Activity Log filter or page changes, the previous event rows, count, expanded detail, and successful-retrieval timestamp are cleared immediately, before the search debounce and protected request. The loading state covers that transition. This avoids presenting records from the previous filter as though they match the newly selected criteria.
+
+
+## Security status refresh behavior
+
+Refreshing the current MFA/factor snapshot clears prior action notices and errors and closes any outstanding factor-removal or global-sign-out confirmation prompt before the new Supabase Auth reads begin. Review the refreshed factor inventory and session assurance state before starting a privileged factor action. An in-progress backup enrollment is not silently cancelled by refresh; use its explicit cancellation control when abandoning enrollment.
