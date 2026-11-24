@@ -1136,3 +1136,26 @@
   .admin-security-status__backup,
   .admin-security-status__revocation { padding:13px; }
 }
+
+
+/* Consistent keyboard focus across the privileged console. */
+.admin-shell :is(a,button,input,select,textarea,[tabindex]):focus-visible {
+  outline: 3px solid #d66b49;
+  outline-offset: 3px;
+}
+.admin-shell :is(button,a):focus:not(:focus-visible) {
+  outline: none;
+}
+.admin-shell button:disabled {
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *,
+  .admin-shell *::before,
+  .admin-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
