@@ -50,3 +50,11 @@ assert "Retry lifecycle history" in AUDIT_PAGE
 assert "}, [lifecyclePage, refreshVersion, lifecycleRefreshVersion]);" in AUDIT_PAGE
 assert ".audit-page__lifecycle-error" in ADMIN_CSS
 assert ".audit-page__lifecycle-error .admin-refresh:focus-visible" in ADMIN_CSS
+
+
+# Account lifecycle history freshness is scoped to its own successful retrieval.
+assert "lifecycleLastCheckedAt" in AUDIT_PAGE
+assert "setLifecycleLastCheckedAt(null);" in AUDIT_PAGE
+assert "setLifecycleLastCheckedAt(new Date().toISOString());" in AUDIT_PAGE
+assert 'Updated " + formatDate(lifecycleLastCheckedAt) + " (Asia/Manila)' in AUDIT_PAGE
+assert "setLifecycleRefreshVersion((current) => current + 1)" in AUDIT_PAGE
