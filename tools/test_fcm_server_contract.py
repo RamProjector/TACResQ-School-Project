@@ -20,6 +20,8 @@ base_migration = read("supabase/migrations/20261105235016_fcm_delivery_attempts.
 queue_migration = read("supabase/migrations/20261114153546_fcm_delivery_queue_hardening.sql")
 queue_test = read("tools/test_fcm_delivery_queue.sql")
 docs = read("docs/FCM_SETUP.md")
+fcm_lifecycle = read("supabase/migrations/20261123210000_account_lifecycle_fcm_token_guards.sql")
+account_write_guard = read("supabase/migrations/20261123120000_account_lifecycle_write_guard_triggers.sql")
 
 assert "ApplicationDefaultCredentials::getCredentials" in transport
 assert "->timeout(10)" in transport
@@ -102,6 +104,19 @@ assert "FROM candidates" in queue_migration
 assert "GRANT EXECUTE ON FUNCTION public.api_claim_fcm_delivery_batch(integer, integer)" in queue_migration
 assert "TO service_role" in queue_migration
 assert "FROM PUBLIC, anon, authenticated" in queue_migration
+
+unregister_body = fcm_lifecycle.split("CREATE OR REPLACE FUNCTION public.api_unregister_fcm_token", 1)[1].split("$function$;", 1)[0]
+assert "SECURITY DEFINER" in unregister_body
+assert "SET search_path = pg_catalog" in unregister_body
+assert "private.tacresq_auth_profile_id_for_token_cleanup()" in unregister_body
+assert "set_config('tacresq.allow_suspended_fcm_self_cleanup', 'on', true)" in unregister_body
+assert "set_config('tacresq.allow_suspended_fcm_self_cleanup', NULL, true)" in unregister_body
+for required in (
+    "TG_TABLE_NAME = 'fcm_tokens'",
+    "current_setting('tacresq.allow_suspended_fcm_self_cleanup', true) = 'on'",
+    "OLD.profile_id = private.tacresq_auth_profile_id_for_token_cleanup()",
+):
+    assert required in account_write_guard, f"Suspended FCM cleanup trigger exception is not narrowly scoped: {required}"
 assert "permanent_failure" in queue_migration
 assert "service_role" in queue_test and "authenticated" in queue_test
 assert "A second worker claim must not reclaim a live lease" in queue_test
