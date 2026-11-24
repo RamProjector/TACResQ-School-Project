@@ -25,5 +25,5 @@ assert "factorId: prepared.factorId" in gate
 assert "Cleanup is best-effort" in gate
 assert "Sign-out must remain possible" in gate
 assert "onSignOut();" in gate[gate.index("async function handleSignOut()"):gate.index("async function cancelEnrollment()")]
-assert "finally {\\n      onSignOut();\\n    }" in gate
+assert "finally {\n      onSignOut();\n    }" in gate
 assert 'onClick={() => { void handleSignOut(); }} disabled={busy}' in gate

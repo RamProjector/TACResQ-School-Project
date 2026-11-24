@@ -145,7 +145,6 @@ export default function AdminMfaGate({ children, onSignOut }: {
       setQrCode("");
       setShowSecret(false);
       setCode("");
-      onSignOut();
     } catch {
       // Cancellation includes signing out. Do not keep the administrator
       // authenticated merely because Supabase could not remove this factor.
