@@ -35,7 +35,7 @@
 
 ## Staged internal Admin transition (not client-callable)
 
-`public.api_admin_set_account_status(bigint,text,text)` is a staged SECURITY DEFINER transition routine, but its migration explicitly revokes EXECUTE from `PUBLIC`, `anon`, and `authenticated` and does not grant client EXECUTE. It is intentionally excluded from the 23 authenticated-callable public SECURITY DEFINER signatures and from the 74-function public callable total. Keep its active-Admin MFA, target-profile locking, Admin-target/self-suspension, audit atomicity, and concurrency contracts; do not expose it through a client route until the full access-surface validation and an explicit grant decision are complete.
+`public.api_admin_set_account_status(bigint,text,text)` is a staged SECURITY DEFINER transition routine, but its migration explicitly revokes EXECUTE from `PUBLIC`, `anon`, and `authenticated` and does not grant client EXECUTE. It is intentionally excluded from the 24 authenticated-callable public SECURITY DEFINER signatures and from the 74-function public callable total. Keep its active-Admin MFA, target-profile locking, Admin-target/self-suspension, audit atomicity, and concurrency contracts; do not expose it through a client route until the full access-surface validation and an explicit grant decision are complete.
 
 ## Private callable definer functions
 
