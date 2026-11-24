@@ -22,10 +22,12 @@
 
 ## Baseline
 
-The clean-replay snapshot in `admin-account-suspension-clean-replay-snapshot.md` records 23 public authenticated-callable SECURITY DEFINER signatures, plus 52 public invoker routines and eleven authenticated-callable private SECURITY DEFINER functions. The current reviewed baseline is 75 public callable functions (23 SECURITY DEFINER and 52 SECURITY INVOKER). Re-run the catalog after migration changes; do not treat the historical snapshot as the current catalog.
+The clean-replay snapshot in `admin-account-suspension-clean-replay-snapshot.md` records 22 public authenticated-callable SECURITY DEFINER signatures, plus 52 public invoker routines and eleven authenticated-callable private SECURITY DEFINER functions. The current reviewed baseline is 74 public callable functions (22 SECURITY DEFINER and 52 SECURITY INVOKER). Re-run the catalog after migration changes; do not treat the historical snapshot as the current catalog.
 
 The read-only catalog now includes separate effective `anon` callable sections for public and private routines. The anon results must be captured and reviewed from a fresh replay; this index does not assert that the anon result is empty.
 
 ## Release gate
 
 PR #347 remains draft until every callable and every direct table/Storage path is classified, isolated Edge Function denial tests are executed, Laravel/Sanctum boundaries are independently validated, and disposable PostgreSQL same-valid-JWT plus concurrency tests pass. No live Supabase project is modified by this matrix.
+
+`api_admin_set_account_status(bigint,text,text)` is documented in the Admin matrix as a staged SECURITY DEFINER routine with client EXECUTE revoked; it is not part of the authenticated-callable count.
