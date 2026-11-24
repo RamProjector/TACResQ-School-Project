@@ -247,6 +247,7 @@ $suspended_token_cleanup_assertion$;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'f2000000-1111-4111-8111-000000000202', true);
 SELECT public.api_register_fcm_token('fcm-server-cleanup-token-account-switch-000000000202');
+SELECT public.api_register_fcm_token('fcm-server-cleanup-survivor-token-account-switch-000000000202');
 RESET ROLE;
 
 DO $resolve_service_cleanup_profile$
@@ -280,7 +281,7 @@ BEGIN
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.fcm_tokens
-     WHERE token = 'fcm-installation-token-account-switch-000000000201'
+     WHERE token = 'fcm-server-cleanup-survivor-token-account-switch-000000000202'
        AND profile_id = (
          SELECT id FROM public.profiles
           WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202'
