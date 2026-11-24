@@ -186,7 +186,8 @@ function exportAnalyticsCsv(summary: AdminAnalyticsSummary) {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(objectUrl);
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  return link.download;
 }
 
 export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) {
@@ -295,6 +296,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [analyticsLoadedAt, setAnalyticsLoadedAt] = useState<string | null>(null);
+  const [analyticsExportNotice, setAnalyticsExportNotice] = useState<string | null>(null);
   const [analyticsDays, setAnalyticsDays] = useState<7 | 30 | 90>(30);
   const [analyticsRefreshVersion, setAnalyticsRefreshVersion] = useState(0);
   const [page, setPage] = useState(0);
@@ -431,8 +434,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setAnalyticsLoading(true);
     setAnalyticsError(null);
     setAnalytics(null);
+    setAnalyticsLoadedAt(null);
+    setAnalyticsExportNotice(null);
     void getAdminAnalyticsSummary(range.from, range.to)
-      .then((result) => { if (active) setAnalytics(result); })
+      .then((result) => { if (active) { setAnalytics(result); setAnalyticsLoadedAt(new Date().toISOString()); } })
       .catch((cause: unknown) => {
         if (!active) return;
         setAnalytics(null);
@@ -720,17 +725,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div><AdminHelpTip label="About request performance" message="Reports contain aggregate request counts. Status totals show each request’s current status at query time, not historical transitions. Assignment timing uses the first recorded assigned status event." /></div>
                 <div className="admin-analytics-controls">
                   <label className="admin-analytics-range"><span>Period (Manila time)</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
-                  <button className="admin-refresh" type="button" onClick={() => { if (analytics) exportAnalyticsCsv(analytics); }} disabled={analyticsLoading || !analytics || Boolean(analyticsError)} aria-label="Export incident performance report as CSV"><Download size={15} /> Export CSV</button>
+                  <button className="admin-refresh" type="button" onClick={() => { if (!analytics) return; try { const filename = exportAnalyticsCsv(analytics); setAnalyticsExportNotice("Export prepared: " + filename); } catch { setAnalyticsExportNotice("The CSV export could not be prepared. Try again or refresh the report."); } }} disabled={analyticsLoading || !analytics || Boolean(analyticsError)} aria-label="Export incident performance report as CSV"><Download size={15} /> Export CSV</button>
                   <button className="admin-refresh" type="button" onClick={() => setAnalyticsRefreshVersion((version) => version + 1)} disabled={analyticsLoading}><RefreshCw size={15} className={analyticsLoading ? "admin-spin" : ""} /> Refresh report</button>
                 </div>
               </div>
+              {analyticsExportNotice && <p className="admin-analytics-export-notice" role="status" aria-live="polite">{analyticsExportNotice}</p>}
               {analyticsLoading ? (
                 <div className="admin-empty" role="status" aria-live="polite"><LoaderCircle size={19} className="admin-spin" /> Loading verified incident aggregates…</div>
               ) : analyticsError ? (
                 <div className="admin-health-unavailable" role="alert"><strong>Analytics unavailable.</strong> {analyticsError} The endpoint must be deployed before this report can display live data.</div>
               ) : analytics ? (
                 <>
-                  <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals.</p>
+                  <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals. {analyticsLoadedAt ? "Report retrieved " + formatManilaDateTime(analyticsLoadedAt) + "." : ""}</p>
                   <div className="admin-analytics-metrics">
                     <article><span>TOTAL REQUESTS</span><strong>{analytics.total_requests.toLocaleString()}</strong><small>Created during selected period</small></article>
                     <article><span>ACTIVE</span><strong>{analytics.active.toLocaleString()}</strong><small>Assigned, en route, on scene or transporting</small></article>
