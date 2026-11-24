@@ -328,3 +328,11 @@ The Admin website should not be called complete until:
 - External standards provide design and verification guidance; they do not prove that TACResQ currently meets those standards.
 - No schema, production configuration, provider plan, backup setting, or deployed service was changed during this review.
 - This assessment was initially documentation-only. Subsequent commits on the same PR branch added and documented Settings/Help refinements and the browser-local default account-directory page-size preference; those changes still require CI and manual browser validation.
+
+## 9. Follow-up implementation — Privacy & Data guidance workspace (2026-11-24)
+
+The Admin Settings → Privacy & data panel now presents the Philippine data-subject rights categories, a manual interim request-handling procedure, and explicit release gates for a future online request centre. This is a UI/documentation improvement only. It does not establish TACResQ's controller identity, publish a legal notice, set a retention period, collect requests, create a case register, or perform personal-data export/correction/erasure/blocking. The operator guide and a source-contract test record these limits.
+
+The interim procedure requires use of an owner-approved channel and restricted register, minimum-necessary identity verification, referral to an authorized privacy decision-maker, reasoned outcome recording, and assessment of applicable preservation/legal obligations. It deliberately avoids inventing a privacy contact, statutory response deadline, or blanket right to delete emergency records. Before enabling online intake or fulfillment, the project owner must approve governance details and the implementation must add a restricted case model, per-request authorization, secure evidence handling, source/processor mapping, retention/disposal rules, and audit history, followed by privacy/security review.
+
+**Status:** operator guidance is implemented; a governed, end-to-end data-subject request workflow remains an outstanding website/backend capability. The Admin website must not be described as complete on this basis.
