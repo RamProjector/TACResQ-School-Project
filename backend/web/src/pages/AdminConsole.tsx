@@ -373,6 +373,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     // Run dependency probes independently from the account-directory RPC.
     // A user-list failure must not suppress system-health diagnostics.
     if (activeSection === "overview") {
+      setDependencyHealth(null);
+      setDependencyHealthError(null);
       setDependencyHealthLoading(true);
       void getAdminDependencyHealth()
         .then((nextHealth) => {
