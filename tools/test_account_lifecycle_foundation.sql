@@ -640,8 +640,8 @@ RESET ROLE;
 DO $transition_rpc_exposure$
 BEGIN
   IF NOT has_function_privilege('authenticated', 'public.api_admin_set_account_status(bigint, text, text, text)', 'EXECUTE')
-     OR has_function_privilege('anon', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE')
-     OR has_function_privilege('public', 'public.api_admin_set_account_status(bigint, text, text)', 'EXECUTE') THEN
+     OR has_function_privilege('anon', 'public.api_admin_set_account_status(bigint, text, text, text)', 'EXECUTE')
+     OR has_function_privilege('public', 'public.api_admin_set_account_status(bigint, text, text, text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Website account lifecycle RPC must be authenticated-only, never anonymous or PUBLIC';
   END IF;
 END;
