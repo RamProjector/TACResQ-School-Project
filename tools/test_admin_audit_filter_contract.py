@@ -49,13 +49,16 @@ assert "setLastSuccessfulRefresh(null);" in AUDIT_PAGE
 assert "setLastSuccessfulRefresh(new Date().toISOString());" in AUDIT_PAGE
 
 
-# Account lifecycle history has an independent retry path after a source failure.
+# Account lifecycle history can be refreshed independently, including after
+# a successful read or an empty result; failures retain an explicit retry action.
 assert "lifecycleRefreshVersion" in AUDIT_PAGE
 assert "setLifecycleRefreshVersion((current) => current + 1)" in AUDIT_PAGE
-assert "Retry lifecycle history" in AUDIT_PAGE
+assert 'lifecycleError ? "Retry history" : "Refresh history"' in AUDIT_PAGE
+assert 'className="audit-page__lifecycle-actions"' in AUDIT_PAGE
 assert "}, [lifecyclePage, refreshVersion, lifecycleRefreshVersion]);" in AUDIT_PAGE
 assert ".audit-page__lifecycle-error" in ADMIN_CSS
-assert ".audit-page__lifecycle-error .admin-refresh:focus-visible" in ADMIN_CSS
+assert ".audit-page__lifecycle-actions .admin-refresh:focus-visible" in ADMIN_CSS
+assert ".audit-page__lifecycle-actions" in ADMIN_CSS
 
 
 # Account lifecycle history freshness is scoped to its own successful retrieval.
