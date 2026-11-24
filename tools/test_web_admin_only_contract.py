@@ -38,7 +38,9 @@ admin_console = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
 audit_page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 for page in ('"overview"', '"users"', '"security"', '"analytics"', '"audit"'):
     assert page in admin_console
-assert '"settings"' in admin_console, "The browser-only Admin settings workspace is part of the implemented portal"
+assert '"settings"' in admin_console
+assert "AdminSettingsPage" in admin_console
+assert "navigateToSettingsPage" in admin_console
 assert '"backups"' not in admin_console
 assert 'import AuditLogsPage from "@/pages/AuditLogsPage"' in admin_console
 assert 'activeSection === "audit" && <AuditLogsPage profile={profile} />' in admin_console
@@ -102,8 +104,22 @@ assert ".audit-page__lifecycle-pagination" in admin_css
 assert ".audit-page__lifecycle-pagination button:focus-visible" in admin_css
 assert "@media (max-width:520px)" in admin_css
 
-# Audit history labels its actual seven queried sources and exposes accessible detail controls.
-assert "Seven source readers are queried;" in audit_page
+# Audit history documents each integrated source, not a fragile copy string.
+# Keep this inventory aligned with the source-specific coverage explanations rendered to Admins.
+for source_label in (
+    "Admin role changes",
+    "Supabase Auth",
+    "Incident status",
+    "Incident claiming",
+    "Requester edits",
+    "Responder assignments",
+    "App actions",
+):
+    assert f"<strong>{source_label}</strong>" in audit_page, f"Audit coverage is missing {source_label}."
+assert "Feed reader: integrated." in audit_page
+assert "not proof that every source writer or provider setting is active" in audit_page
+assert "A zero-row result means no matching records were returned" in audit_page
+assert "selected-action subset, not comprehensive activity monitoring" in audit_page
 assert "Six recorded event sources are queried." not in audit_page
 assert 'aria-controls={"audit-event-details-" + event.event_id}' in audit_page
 assert 'id={"audit-event-details-" + event.event_id}' in audit_page
@@ -161,7 +177,9 @@ assert '.admin-security-status__factor-list li,' in admin_css
 assert '.admin-security-status__confirm { display:none !important; }' in admin_css
 
 # Analytics announcements and labels must communicate only the changed state and its scope.
-assert 'className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title" aria-busy={analyticsLoading}' in admin_console
+assert '<section className="admin-panel admin-analytics-panel"' in admin_console
+assert 'aria-labelledby="admin-analytics-title"' in admin_console
+assert 'aria-busy={analyticsLoading}' in admin_console
 assert '<div className="admin-empty" role="status" aria-live="polite"><LoaderCircle' in admin_console
 assert 'role="group" aria-label="Current status of requests created during the selected reporting period"' in admin_console
 assert '<span>Period (Manila time)</span>' in admin_console
