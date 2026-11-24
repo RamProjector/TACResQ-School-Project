@@ -57,11 +57,33 @@ Deno.serve(async (request: Request) => {
       && Number(declaredBodyLength) > maxBodyBytes) {
     return json({ error: "Request body is too large" }, 413);
   }
-  let rawBody: string;
-  try { rawBody = await request.text(); } catch { return json({ error: "Invalid JSON body" }, 400); }
-  if (new TextEncoder().encode(rawBody).byteLength > maxBodyBytes) {
-    return json({ error: "Request body is too large" }, 413);
+  const bodyReader = request.body?.getReader();
+  if (!bodyReader) return json({ error: "Invalid JSON body" }, 400);
+  const bodyChunks: Uint8Array[] = [];
+  let totalBodyBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await bodyReader.read();
+      if (done) break;
+      totalBodyBytes += value.byteLength;
+      if (totalBodyBytes > maxBodyBytes) {
+        try { await bodyReader.cancel(); } catch { /* The oversized request is already rejected. */ }
+        return json({ error: "Request body is too large" }, 413);
+      }
+      bodyChunks.push(value);
+    }
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
   }
+  const bodyBytes = new Uint8Array(totalBodyBytes);
+  let bodyOffset = 0;
+  for (const chunk of bodyChunks) {
+    bodyBytes.set(chunk, bodyOffset);
+    bodyOffset += chunk.byteLength;
+  }
+  let rawBody: string;
+  try { rawBody = new TextDecoder("utf-8", { fatal: true }).decode(bodyBytes); }
+  catch { return json({ error: "Invalid JSON body" }, 400); }
   let payload: unknown;
   try { payload = JSON.parse(rawBody); } catch { return json({ error: "Invalid JSON body" }, 400); }
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
