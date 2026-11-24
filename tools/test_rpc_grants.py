@@ -33,7 +33,10 @@ MIGRATION_SQL = "\n".join(
 )
 
 ACTIVE_CLIENT_RPCS = {
+    "api_admin_list_account_lifecycle_events",
+    "api_admin_list_investigation_events",
     "api_admin_list_users_page",
+    "api_admin_set_account_status",
     "api_admin_set_user_role",
     "api_admin_list_audit_logs",
     "api_admin_list_audit_logs_page",
