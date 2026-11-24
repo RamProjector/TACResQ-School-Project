@@ -22,3 +22,22 @@ assert ".admin-shell *, .admin-shell *::before, .admin-shell *::after" in CSS
 assert ".admin-shell--high-contrast .admin-settings-toggle input[type=\"checkbox\"]" in CSS
 assert ".admin-shell--high-contrast .admin-settings-toggle input[type=\"checkbox\"]:focus-visible" in CSS
 assert "Improve text, table, form-control, navigation, and keyboard-focus contrast." in SOURCE
+
+
+# The default account-directory page size is a browser-local preference. Invalid
+# or older stored values must fall back safely, and discarding/resetting edits
+# must restore the selected default rather than leaving an unsaved preview.
+for marker in (
+    "type AdminPageSize = 10 | 25 | 50 | 100;",
+    "directoryPageSize: 25,",
+    "parsed.directoryPageSize === 10",
+    "parsed.directoryPageSize === 25",
+    "parsed.directoryPageSize === 50",
+    "parsed.directoryPageSize === 100",
+    "Default account rows per page",
+    "setPageSize(next)",
+    "savedPreferences.directoryPageSize",
+    "setPageSize(DEFAULT_ADMIN_PREFERENCES.directoryPageSize)",
+    "readAdminPreferences().directoryPageSize",
+):
+    assert marker in SOURCE, f"Missing account page-size preference contract: {marker}"
