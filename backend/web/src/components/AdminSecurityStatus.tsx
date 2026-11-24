@@ -46,6 +46,10 @@ export default function AdminSecurityStatus() {
     const requestId = ++refreshVersion.current;
     setLoading(true);
     setError(null);
+    // Do not present the previous session/factor inventory as current while
+    // a new Supabase Auth read is in flight.
+    setSnapshot(null);
+    setLastCheckedAt(null);
     try {
       const auth = getSupabase().auth;
       const [aalResult, factorsResult] = await Promise.all([
