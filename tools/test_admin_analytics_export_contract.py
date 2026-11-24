@@ -30,3 +30,10 @@ assert "setAnalyticsExportNotice(\"Export prepared: \" + filename)" in SOURCE
 assert "window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)" in exporter
 
 print("Admin analytics CSV export source contract passed.")
+
+
+# Spreadsheet applications may evaluate formula-like text even inside quoted CSV
+# fields. Keep numeric metrics numeric while neutralizing untrusted text cells.
+assert "function escapeSpreadsheetText(value: string)" in SOURCE
+assert 'return /^[\\s\\u0000-\\u001f]*[=+@-]/.test(value) ? "\'" + value : value;' in SOURCE
+assert 'typeof value === "string" ? escapeSpreadsheetText(value) : String(value)' in exporter
