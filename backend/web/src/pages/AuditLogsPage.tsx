@@ -295,10 +295,15 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
             <h3 id="account-lifecycle-history-title">Account suspension and reactivation</h3>
             <p>Trusted account-status transitions recorded by the database. This history is separate from ordinary role changes.</p>
           </div>
-          <span>{lifecycleError ? "Unavailable" : lifecycleTotal.toLocaleString() + " recorded"}{lifecycleLastCheckedAt && !lifecycleError ? " · Updated " + formatDate(lifecycleLastCheckedAt) + " (Asia/Manila)" : ""}</span>
+          <div className="audit-page__lifecycle-actions">
+            <span>{lifecycleError ? "Unavailable" : lifecycleTotal.toLocaleString() + " recorded"}{lifecycleLastCheckedAt && !lifecycleError ? " · Updated " + formatDate(lifecycleLastCheckedAt) + " (Asia/Manila)" : ""}</span>
+            <button className="admin-refresh" type="button" onClick={() => setLifecycleRefreshVersion((current) => current + 1)} disabled={lifecycleLoading}>
+              <RefreshCw size={15} className={lifecycleLoading ? "admin-spin" : undefined} /> {lifecycleError ? "Retry history" : "Refresh history"}
+            </button>
+          </div>
         </div>
         {lifecycleError ? (
-          <div className="audit-page__lifecycle-error"><p className="admin-panel__footnote" role="alert">{lifecycleError}</p><button className="admin-refresh" type="button" onClick={() => setLifecycleRefreshVersion((current) => current + 1)} disabled={lifecycleLoading}><RefreshCw size={15} className={lifecycleLoading ? "admin-spin" : undefined} /> Retry lifecycle history</button></div>
+          <div className="audit-page__lifecycle-error"><p className="admin-panel__footnote" role="alert">{lifecycleError}</p></div>
         ) : lifecycleLoading ? (
           <p className="admin-panel__footnote audit-page__lifecycle-loading" role="status" aria-live="polite"><LoaderCircle size={15} className="admin-spin" /> Loading account lifecycle history…</p>
         ) : lifecycleEvents.length === 0 ? (
