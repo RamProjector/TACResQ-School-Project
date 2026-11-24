@@ -81,6 +81,10 @@ $token_owner_assertion$;
 UPDATE public.profiles
    SET account_status = 'suspended',
        suspended_at = statement_timestamp(),
+       suspended_by = (
+         SELECT id FROM public.profiles
+          WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000201'
+       ),
        suspension_reason = 'Synthetic FCM lifecycle test'
  WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202';
 
