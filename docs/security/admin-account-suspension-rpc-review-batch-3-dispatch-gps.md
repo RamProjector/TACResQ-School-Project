@@ -66,3 +66,10 @@ The source-review gaps for dispatcher claimability and responder-coordinate read
 - `private.tacresq_active_responder_locations()`: now checks and share-locks an active dispatcher before delegating to the preserved latest-fresh-location query. The preserved query is renamed `private.tacresq_active_responder_locations_internal()` and client EXECUTE is revoked.
 
 These are implemented in the PR branch, not production-verified. Clean disposable PostgreSQL replay, same-valid-JWT suspended denial, and concurrency tests remain pending. No live migration was applied.
+
+
+## Duty-status lifecycle implementation follow-up — November 24
+
+The earlier `api_set_duty_status(text)` gap now has a staged implementation in migration `20261124140000_account_lifecycle_duty_status_guard.sql`. The RPC locks the caller's profile and requires both a responder/driver role and `account_status = 'active'` before updating operational duty state. It retains the active-incident restriction and does not automatically change duty status when an account is suspended or reactivated.
+
+This implementation is source-reviewed and has a committed PostgreSQL replay contract. It is not yet runtime-verified: execute clean migration replay, same-valid-JWT suspended denial, and duty-change-versus-suspension concurrency tests before treating it as complete.
