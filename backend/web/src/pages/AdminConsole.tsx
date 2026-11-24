@@ -614,8 +614,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               {roleOptions.map((role) => <option key={role} value={role}>{displayRole(role)}</option>)}
             </select>
             <label className="admin-form-label" htmlFor="admin-change-reason">Reason for change <span>Required</span></label>
-            <textarea id="admin-change-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={10} maxLength={500} rows={4} placeholder="Record the operational reason for this role change." disabled={saving} />
-            <div className="admin-reason-count">{reason.trim().length}/500 characters · minimum 10</div>
+            <p className="admin-form-hint" id="admin-change-reason-guidance">Explain why this access change is necessary. Enter 10–500 characters; surrounding whitespace is ignored.</p>
+            <textarea id="admin-change-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={10} maxLength={500} rows={4} placeholder="Record the operational reason for this role change." aria-describedby="admin-change-reason-guidance admin-reason-count" disabled={saving} />
+            <div className="admin-reason-count" id="admin-reason-count">{reason.trim().length}/500 characters · minimum 10</div>
             <div className="admin-modal__actions">
               <button className="admin-modal-cancel" type="button" onClick={() => setTarget(null)} disabled={saving}>Cancel</button>
               <button className="admin-modal-confirm" type="button" onClick={() => { void confirmRoleChange(); }} disabled={saving || nextRole === target.role || reason.trim().length < 10 || reason.trim().length > 500}>
