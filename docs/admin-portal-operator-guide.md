@@ -183,3 +183,8 @@ The copied-reference confirmation and clipboard error message are cleared whenev
 ## Analytics period changes and refresh
 
 Changing the reporting period or selecting Refresh report immediately clears the previous aggregate values, retrieval timestamp, and CSV export feedback while the new request is pending. Export remains unavailable until the selected period has returned successfully. This avoids presenting the previous period's figures or export notice as belonging to the newly selected reporting window.
+
+
+## Security action completion feedback
+
+After a backup authenticator is verified, a factor is removed, or a pending enrollment is cancelled, the Security workspace refreshes its Supabase Auth snapshot first and then displays the success notice. The refresh clears older notices by design, so the completion message is intentionally published only after that refresh finishes. This is UI feedback for the completed action; the refreshed snapshot remains the source for current factor status.
