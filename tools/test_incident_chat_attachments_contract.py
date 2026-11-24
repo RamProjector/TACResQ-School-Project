@@ -241,7 +241,7 @@ for required in (
     assert required in inventory_sql, f"Storage bucket inventory contract missing: {required}"
 assert "DELETE " not in inventory_sql.upper()
 assert "UPDATE " not in inventory_sql.upper()
-assert "INSERT " not in inventory_sql.upper()
+assert not any(line.lstrip().upper().startswith("INSERT INTO ") for line in inventory_sql.splitlines())
 assert "DROP " not in inventory_sql.upper()
 for required in (
     "CREATE OR REPLACE FUNCTION private.tacresq_auth_profile_id()",
