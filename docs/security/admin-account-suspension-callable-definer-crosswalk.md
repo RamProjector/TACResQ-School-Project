@@ -202,3 +202,12 @@ The older invoker RPCs `public.api_create_incident(text,text,double precision,do
 The generic write guard from `20261123120000_account_lifecycle_write_guard_triggers.sql` is installed on every public table, including `public.incidents`. Its trigger function calls the current-account active helper for end-user JWT operations, so the legacy INSERT paths receive lifecycle enforcement at the table boundary. The requester replay contract now explicitly verifies the incidents trigger binding; the Python source contract ties the legacy function definitions to the all-public-table trigger migration.
 
 This is defense-in-depth, not a reason to skip RPC-level role/ownership review. Disposable PostgreSQL replay and active-versus-suspended calls to each legacy signature remain unexecuted release checks.
+
+## Dispatcher claimability and responder-location read guards — November 24
+
+Migration `20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql` closes two dispatcher callable gaps found during the next signature review:
+
+- `public.api_set_incident_claimable(bigint,boolean)` now includes `account_status = 'active'` in the locked dispatcher profile decision. It preserves the incident-then-profile lock order, lifecycle allowlist, no-op semantics, and same-transaction claimability audit.
+- `private.tacresq_active_responder_locations()` is now an active-dispatcher wrapper with a profile `FOR SHARE` lock. The existing latest-fresh-location query is retained as `private.tacresq_active_responder_locations_internal()`, which is no longer client-callable.
+
+The PostgreSQL replay contract checks exact signatures, wrapper attributes, active-state predicates, effective grants, and preserved audit/query boundaries. The Python source contract binds the migration to those replay assertions. Neither source inspection nor committed replay SQL is runtime proof: clean disposable PostgreSQL replay, same-valid-JWT suspended denial, and suspension-versus-read/mutation concurrency checks remain pending.
