@@ -341,3 +341,33 @@ assert "public.api_update_my_incident(" in suspended_block
 assert "suspended requester unexpectedly edited an incident" in suspended_block
 assert "exception when insufficient_privilege" in suspended_block
 assert "set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000991', false)" in requester_edit_replay
+
+# Older Android clients may still call the compatibility incident-create RPCs.
+# Their INSERTs must remain covered by the generic active-account table trigger,
+# even though these older functions do not contain the newer explicit profile
+# lifecycle check in their own bodies.
+legacy_create_source = (
+    ROOT / "supabase/migrations/20261019214218_incident_one_time_location.sql"
+).read_text(encoding="utf-8").lower()
+write_guard_source = (
+    ROOT / "supabase/migrations/20261123120000_account_lifecycle_write_guard_triggers.sql"
+).read_text(encoding="utf-8").lower()
+for signature in (
+    "function public.api_create_incident(",
+    "function public.api_create_incident_v2(",
+):
+    start = legacy_create_source.index(signature)
+    end = legacy_create_source.find("$$;", start)
+    assert end > start, f"Legacy requester creation body not found: {signature}"
+    body = legacy_create_source[start:end]
+    assert "security invoker" in body
+    assert "insert into public.incidents" in body
+
+assert "before insert or update or delete on %i.%i" in write_guard_source
+assert "private.tacresq_current_account_active()" in write_guard_source
+assert "account_status" not in legacy_create_source[
+    legacy_create_source.index("function public.api_create_incident("):
+    legacy_create_source.index("function public.api_my_incidents")
+], "Compatibility create source unexpectedly changed; review its lifecycle path."
+
+assert "legacy and current incident creation paths must be covered" in requester_edit_runtime
