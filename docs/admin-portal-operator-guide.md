@@ -226,3 +226,7 @@ The aggregate incident CSV export preserves numeric metric cells as numeric valu
 ## Analytics report recovery
 
 When the aggregate analytics request fails, the report shows the returned error and an inline **Retry report** action. Retry repeats the existing read-only analytics request for the selected Manila-time period. A failure is not automatically attributed to an undeployed endpoint: operators should first check connectivity and access; if it persists, the system maintainer can verify service deployment and reachability. The retry does not change report scope or application data.
+
+## High-contrast display preference
+
+The browser-local **High contrast** preference now increases contrast across more of the Admin workspace, including secondary text, table cells and borders, settings navigation, form controls, and keyboard-focus outlines. This is a presentation preference only; it does not alter account permissions, security policy, or backend data.
