@@ -178,3 +178,8 @@ Refreshing the current MFA/factor snapshot clears prior action notices and error
 ## Audit reference copy feedback
 
 The copied-reference confirmation and clipboard error message are cleared whenever the investigation query, filters, date range, or page changes. This keeps copy feedback tied to the result set currently displayed rather than implying that an item on a previous page or filter is still available. If clipboard access is blocked, the technical reference remains selectable for manual copying.
+
+
+## Analytics period changes and refresh
+
+Changing the reporting period or selecting Refresh report immediately clears the previous aggregate values, retrieval timestamp, and CSV export feedback while the new request is pending. Export remains unavailable until the selected period has returned successfully. This avoids presenting the previous period's figures or export notice as belonging to the newly selected reporting window.
