@@ -1237,11 +1237,17 @@ BEGIN
      OR register_source NOT ILIKE '%FOR SHARE%' THEN
     RAISE EXCEPTION 'FCM registration must require and lock an active profile';
   END IF;
-  IF (SELECT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = unregister_oid)
+  -- The final staged migration replaces the earlier invoker/RLS path with a
+  -- narrowly scoped SECURITY DEFINER cleanup RPC. Keep the stronger ownership
+  -- invariant explicit: identity comes from auth.uid(), and DELETE matches
+  -- both that caller's profile and the exact installation token.
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = unregister_oid)
      OR NOT (coalesce(unregister_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
-     OR unregister_source NOT ILIKE '%tacresq_auth_profile_id_for_token_cleanup()%'
+     OR unregister_source NOT ILIKE '%profile.auth_user_id = auth.uid()%'
+     OR unregister_source NOT ILIKE '%token_row.profile_id = caller_profile_id%'
+     OR unregister_source NOT ILIKE '%token_row.token = p_token%'
      OR unregister_source NOT ILIKE '%DELETE FROM public.fcm_tokens%' THEN
-    RAISE EXCEPTION 'FCM unregister must remain an invoker self-cleanup operation';
+    RAISE EXCEPTION 'FCM unregister must be a pinned, caller-owned token cleanup operation';
   END IF;
   IF (SELECT NOT prosecdef OR provolatile <> 's' FROM pg_catalog.pg_proc WHERE oid = cleanup_oid)
      OR cleanup_source NOT ILIKE '%auth.uid()%' THEN
