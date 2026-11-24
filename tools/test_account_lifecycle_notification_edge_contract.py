@@ -93,8 +93,8 @@ bearer_guard = source.index('if (!userToken)', method_guard);
 auth_lookup = source.index("admin.auth.getUser(userToken)");
 invalid_auth_guard = source.index("if (authError || !userResult.user)", auth_lookup);
 content_length_guard = source.index('request.headers.get("Content-Length")', invalid_auth_guard);
-body_read = source.index("rawBody = await request.text()", content_length_guard);
-body_size_guard = source.index("new TextEncoder().encode(rawBody).byteLength > maxBodyBytes", body_read);
+body_read = source.index("request.body?.getReader()", content_length_guard);
+body_size_guard = source.index("totalBodyBytes > maxBodyBytes", body_read);
 body_parse = source.index("payload = JSON.parse(rawBody)", body_size_guard);
 event_validation = source.index('if (!["incident_created", "incident_assigned", "incident_status"].includes(event))', body_parse);
 assert method_guard < bearer_guard < auth_lookup < invalid_auth_guard < content_length_guard < body_read < body_size_guard < body_parse < event_validation < actor_lookup, (
@@ -108,6 +108,10 @@ assert 'return json({ error: "POST required" }, 405)' in source
 assert 'return json({ error: "Authorization bearer token required" }, 401)' in source
 assert "const maxBodyBytes = 8192;" in source
 assert "Number(declaredBodyLength) > maxBodyBytes" in source
+assert "const bodyReader = request.body?.getReader();" in source
+assert "bodyChunks.push(value)" in source
+assert "await bodyReader.cancel()" in source
+assert "new TextDecoder(\"utf-8\", { fatal: true })" in source
 assert 'return json({ error: "Request body is too large" }, 413)' in source
 assert "JSON.parse(rawBody)" in source
 
