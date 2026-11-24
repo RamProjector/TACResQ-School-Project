@@ -40,13 +40,13 @@ assert "pg_default_acl" in inventory
 
 # The crosswalk is deliberately honest about the difference between listing
 # known SECURITY DEFINER signatures and reviewing every nested call path.
-assert "24 public" in crosswalk
+assert "25 public" in crosswalk
 assert "api_assign_incident_team(bigint,bigint[])" in crosswalk
 assert "api_unregister_fcm_token(text)" in crosswalk
 assert "api_admin_set_account_status" in crosswalk
 assert "not client-callable" in crosswalk
 assert "api_admin_list_account_lifecycle_events(integer,integer)" in crosswalk
-assert "74 public callable functions" in crosswalk
+assert "75 public callable functions" in crosswalk
 assert "twelve authenticated-callable private security definer helpers" in crosswalk
 assert "50 authenticated-callable public security invoker functions" in crosswalk
 assert "not an automated proof" in crosswalk or "not proof" in crosswalk
