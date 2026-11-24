@@ -244,10 +244,18 @@ $suspended_token_cleanup_assertion$;
 
 -- The trusted delivery worker uses a different RPC and a service-role JWT.
 -- Its cleanup is restricted to the profile/token pair returned by the claim.
-SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', 'f2000000-1111-4111-8111-000000000202', true);
-SELECT public.api_register_fcm_token('fcm-server-cleanup-token-account-switch-000000000202');
-SELECT public.api_register_fcm_token('fcm-server-cleanup-survivor-token-account-switch-000000000202');
+-- The account is suspended at this point, so seed the worker fixture as the
+-- trusted database role rather than bypassing the active-account registration RPC.
+SELECT set_config('request.jwt.claim.sub', '', true);
+SET LOCAL ROLE service_role;
+INSERT INTO public.fcm_tokens(profile_id, token)
+SELECT id, 'fcm-server-cleanup-token-account-switch-000000000202'
+  FROM public.profiles
+ WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202';
+INSERT INTO public.fcm_tokens(profile_id, token)
+SELECT id, 'fcm-server-cleanup-survivor-token-account-switch-000000000202'
+  FROM public.profiles
+ WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202';
 RESET ROLE;
 
 DO $resolve_service_cleanup_profile$
