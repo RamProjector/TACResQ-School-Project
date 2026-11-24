@@ -714,7 +714,7 @@ BEGIN
   END IF;
 
   response := public.api_admin_set_account_status(
-    target_id, 'active', 'suspended', 'Synthetic account suspension reason'
+    target_id, 'suspended', 'suspended', 'Synthetic account suspension reason'
   );
   SELECT count(*) INTO audit_count
     FROM public.account_lifecycle_audit_logs
@@ -785,7 +785,7 @@ DECLARE
   response jsonb;
 BEGIN
   response := public.api_admin_set_account_status(
-    target_id, 'suspended', 'Authenticated same-valid-JWT suspension test'
+    target_id, 'active', 'suspended', 'Authenticated same-valid-JWT suspension test'
   );
   IF response->>'status' IS DISTINCT FROM 'changed'
      OR response->>'account_status' IS DISTINCT FROM 'suspended'
@@ -794,7 +794,7 @@ BEGIN
   END IF;
 
   response := public.api_admin_set_account_status(
-    target_id, 'active', 'Authenticated same-valid-JWT reactivation test'
+    target_id, 'suspended', 'active', 'Authenticated same-valid-JWT reactivation test'
   );
   IF response->>'status' IS DISTINCT FROM 'changed'
      OR response->>'account_status' IS DISTINCT FROM 'active'
