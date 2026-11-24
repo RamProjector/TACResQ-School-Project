@@ -56,3 +56,13 @@
 - `tools/test_per_responder_assignment_status.py`
 
 No connected Supabase project was queried or modified. These findings are based on repository source.
+
+
+## Account-lifecycle implementation follow-up — November 24
+
+The source-review gaps for dispatcher claimability and responder-coordinate reads have since received forward-only guards in migration `20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql`:
+
+- `public.api_set_incident_claimable(bigint,boolean)`: the locked dispatcher profile re-read now requires `account_status = 'active'`. Existing incident → profile lock order, claimability state allowlist, no-op semantics, and transactional audit insertion are preserved.
+- `private.tacresq_active_responder_locations()`: now checks and share-locks an active dispatcher before delegating to the preserved latest-fresh-location query. The preserved query is renamed `private.tacresq_active_responder_locations_internal()` and client EXECUTE is revoked.
+
+These are implemented in the PR branch, not production-verified. Clean disposable PostgreSQL replay, same-valid-JWT suspended denial, and concurrency tests remain pending. No live migration was applied.
