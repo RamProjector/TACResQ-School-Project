@@ -46,6 +46,10 @@ export default function AdminSecurityStatus() {
     const requestId = ++refreshVersion.current;
     setLoading(true);
     setError(null);
+    setActionError(null);
+    setNotice(null);
+    setConfirmRemoveFactorId(null);
+    setConfirmGlobalSignOut(false);
     // Do not present the previous session/factor inventory as current while
     // a new Supabase Auth read is in flight.
     setSnapshot(null);
