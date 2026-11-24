@@ -61,7 +61,7 @@ assert "$this->tableUrl('fcm_tokens').'?'.$query" in dispatcher
 assert "$this->client()->delete($this->tableUrl('fcm_tokens'), [" not in dispatcher
 assert "permanent_failure" in dispatcher
 assert "persistAttemptSafely" in dispatcher
-assert "Delivery ledger update failed for attempt" in dispatcher
+assert "FCM delivery ledger update failed for attempt" in dispatcher
 assert "continue;" in dispatcher
 assert "catch (\\Throwable $exception)" in dispatcher
 assert "Log::warning(" in dispatcher
