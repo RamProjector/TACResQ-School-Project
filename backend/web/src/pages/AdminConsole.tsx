@@ -518,7 +518,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const ActiveSectionIcon = adminSections.find((section) => section.id === activeSection)?.icon ?? LayoutDashboard;
 
   return (
-    <div className={"admin-shell" + (preferences.density === "compact" ? " admin-shell--compact" : "") + (preferences.reducedMotion ? " admin-shell--reduced-motion" : "") + (preferences.highContrast ? " admin-shell--high-contrast" : "")}>
+    <div className={"admin-shell" + (preferences.density === "compact" ? " admin-shell--compact" : "") + (preferences.reducedMotion ? " admin-shell--reduced-motion" : "") + (preferences.highContrast ? " admin-shell--high-contrast" : "") + (!preferences.contextualHelp ? " admin-shell--hide-context-help" : "")}>
       <a className="admin-skip-link" href="#admin-workspace-main">Skip to admin content</a>
       <div className="admin-toast-region" aria-atomic="true">
         {roleToast && (
@@ -754,7 +754,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <section className="admin-panel admin-settings-panel" aria-labelledby="admin-settings-title">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">YOUR WORKSPACE</p><h2 id="admin-settings-title"><Settings size={19} /> Display & accessibility</h2></div>
-                <span className="admin-count">Saved on this device</span>
+                <span className="admin-count">{preferencesDirty ? "Unsaved changes" : "Saved on this device"}</span>
               </div>
               <p className="admin-settings-intro">These preferences affect only how the Admin portal appears in this browser. They do not change emergency notifications, user permissions, security policy, or other users’ settings.</p>
               <div className="admin-settings-grid">
