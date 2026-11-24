@@ -82,3 +82,19 @@ def test_settings_subpages_are_deep_linkable_and_separate_policy_boundaries():
         assert f'settingsPage === "{page}"' in source
     assert "no verified settings service" in source
     assert "No deletion, export-of-personal-data, or retention controls are provided here." in source
+
+
+def test_core_admin_workspaces_expose_contextual_help_for_metric_and_permission_boundaries():
+    source = SOURCE.read_text(encoding="utf-8")
+    assert "function AdminHelpTip({ label, message }" in source
+    for label in (
+        "About dependency reachability",
+        "About user management",
+        "About request performance",
+        "About security coverage",
+    ):
+        assert label in source
+    assert 'className="admin-context-help"' in source
+    css = CSS.read_text(encoding="utf-8")
+    assert ".admin-panel__title-with-help" in css
+    assert ".admin-context-help summary:focus-visible" in css
