@@ -9,6 +9,11 @@ import {
   ShieldAlert,
   ArrowDownUp,
   CheckCircle2,
+  CircleHelp,
+  Settings,
+  BookOpen,
+  Save,
+  RotateCcw,
   LoaderCircle,
   LogOut,
   RefreshCw,
@@ -44,7 +49,39 @@ type AdminConsoleProps = {
 };
 
 type RoleFilter = "all" | AdminManagedRole | "admin";
-type AdminSection = "overview" | "users" | "security" | "analytics" | "audit";
+type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "settings" | "help";
+
+type AdminPreferences = {
+  density: "comfortable" | "compact";
+  reducedMotion: boolean;
+  highContrast: boolean;
+  contextualHelp: boolean;
+};
+
+const DEFAULT_ADMIN_PREFERENCES: AdminPreferences = {
+  density: "comfortable",
+  reducedMotion: false,
+  highContrast: false,
+  contextualHelp: true,
+};
+
+const ADMIN_PREFERENCES_KEY = "tacresq.admin.preferences.v1";
+
+function readAdminPreferences(): AdminPreferences {
+  try {
+    const stored = window.localStorage.getItem(ADMIN_PREFERENCES_KEY);
+    if (!stored) return DEFAULT_ADMIN_PREFERENCES;
+    const parsed = JSON.parse(stored) as Partial<AdminPreferences>;
+    return {
+      density: parsed.density === "compact" ? "compact" : "comfortable",
+      reducedMotion: parsed.reducedMotion === true,
+      highContrast: parsed.highContrast === true,
+      contextualHelp: parsed.contextualHelp !== false,
+    };
+  } catch {
+    return DEFAULT_ADMIN_PREFERENCES;
+  }
+}
 
 const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -52,13 +89,15 @@ const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashb
   { id: "security", label: "Security", icon: ShieldAlert },
   { id: "analytics", label: "Reports", icon: BarChart3 },
   { id: "audit", label: "Activity log", icon: History },
+  { id: "settings", label: "Settings", icon: Settings },
+  { id: "help", label: "Help & about", icon: BookOpen },
 ];
 const roleOptions: AdminManagedRole[] = ["requester", "responder", "driver", "dispatcher"];
 
 function resolveAdminSection(search: string): AdminSection {
   const route = new URLSearchParams(search).get("adminPage") ?? "overview";
   if (route === "audit-logs") return "audit";
-  return ["overview", "users", "security", "analytics"].includes(route) ? route as AdminSection : "overview";
+  return ["overview", "users", "security", "analytics", "settings", "help"].includes(route) ? route as AdminSection : "overview";
 }
 
 function displayRole(role: string) {
@@ -189,6 +228,26 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     return () => window.clearTimeout(timer);
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
+  const [preferences, setPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
+  const [savedPreferences, setSavedPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
+  const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const preferencesDirty = JSON.stringify(preferences) !== JSON.stringify(savedPreferences);
+
+  function savePreferences() {
+    try {
+      window.localStorage.setItem(ADMIN_PREFERENCES_KEY, JSON.stringify(preferences));
+      setSavedPreferences(preferences);
+      setPreferencesError(null);
+      setNotice("Your Admin display preferences were saved on this device.");
+    } catch {
+      setPreferencesError("Preferences could not be saved in this browser. Check its storage settings and try again.");
+    }
+  }
+
+  function resetPreferences() {
+    setPreferences(DEFAULT_ADMIN_PREFERENCES);
+    setPreferencesError(null);
+  }
 
   function navigateToSection(section: AdminSection) {
     setActiveSection(section);
@@ -459,7 +518,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const ActiveSectionIcon = adminSections.find((section) => section.id === activeSection)?.icon ?? LayoutDashboard;
 
   return (
-    <div className="admin-shell">
+    <div className={"admin-shell" + (preferences.density === "compact" ? " admin-shell--compact" : "") + (preferences.reducedMotion ? " admin-shell--reduced-motion" : "") + (preferences.highContrast ? " admin-shell--high-contrast" : "")}>
       <a className="admin-skip-link" href="#admin-workspace-main">Skip to admin content</a>
       <div className="admin-toast-region" aria-atomic="true">
         {roleToast && (
@@ -512,7 +571,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <div>
                 <p className="admin-eyebrow">ADMINISTRATION</p>
                 <h1>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</h1>
-                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review accounts and manage operational roles with an auditable reason." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed." : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
               </div>
             </div>
             {(activeSection === "overview" || activeSection === "users") && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
@@ -688,6 +747,70 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <p className="admin-panel__footnote">Aggregates include requests created within the selected timestamp range. Status counts reflect each request’s current status at query time, not historical status totals. All timestamps are evaluated by the database; daily buckets use {analytics.reporting_timezone}. No requester names, contact details, descriptions or coordinates are returned.</p>
                 </>
               ) : null}
+            </section>
+          )}
+          {activeSection === "settings" && (
+            <section className="admin-panel admin-settings-panel" aria-labelledby="admin-settings-title">
+              <div className="admin-panel__heading">
+                <div><p className="admin-eyebrow">YOUR WORKSPACE</p><h2 id="admin-settings-title"><Settings size={19} /> Display & accessibility</h2></div>
+                <span className="admin-count">Saved on this device</span>
+              </div>
+              <p className="admin-settings-intro">These preferences affect only how the Admin portal appears in this browser. They do not change emergency notifications, user permissions, security policy, or other users’ settings.</p>
+              <div className="admin-settings-grid">
+                <article className="admin-settings-card">
+                  <div><h3>Interface density</h3><p>Choose how much information appears in tables and workspace panels.</p></div>
+                  <label className="admin-settings-field"><span>Layout density</span><select value={preferences.density} onChange={(event) => setPreferences((current) => ({ ...current, density: event.target.value === "compact" ? "compact" : "comfortable" }))}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
+                </article>
+                <article className="admin-settings-card">
+                  <div><h3>Accessibility</h3><p>Adjust motion and contrast to make the interface easier to use.</p></div>
+                  <label className="admin-settings-toggle"><span><strong>Reduce motion</strong><small>Limit decorative transitions and animations.</small></span><input type="checkbox" checked={preferences.reducedMotion} onChange={(event) => setPreferences((current) => ({ ...current, reducedMotion: event.target.checked }))} /></label>
+                  <label className="admin-settings-toggle"><span><strong>High contrast</strong><small>Strengthen borders and text contrast across Admin panels.</small></span><input type="checkbox" checked={preferences.highContrast} onChange={(event) => setPreferences((current) => ({ ...current, highContrast: event.target.checked }))} /></label>
+                  <label className="admin-settings-toggle"><span><strong>Contextual help</strong><small>Show short explanations beside settings and complex controls.</small></span><input type="checkbox" checked={preferences.contextualHelp} onChange={(event) => setPreferences((current) => ({ ...current, contextualHelp: event.target.checked }))} /></label>
+                </article>
+              </div>
+              {preferences.contextualHelp && <div className="admin-help-note"><CircleHelp size={17} /><p><strong>About these preferences</strong> Changes preview immediately. Select Save preferences to keep them in this browser. Reset restores the default display without changing your account or server data.</p></div>}
+              {preferencesError && <p className="admin-settings-error" role="alert">{preferencesError}</p>}
+              <div className="admin-settings-actions">
+                <button className="admin-refresh" type="button" onClick={resetPreferences} disabled={!preferencesDirty}><RotateCcw size={15} /> Reset defaults</button>
+                <button className="admin-settings-save" type="button" onClick={savePreferences} disabled={!preferencesDirty}><Save size={15} /> Save preferences</button>
+              </div>
+              <div className="admin-settings-subsection">
+                <p className="admin-eyebrow">PRIVACY & DATA</p>
+                <h3>Privacy information</h3>
+                <p>The Admin portal handles account and operational information. The approved TACResQ privacy notice, controller contact, and retention schedule must be maintained by the project owner before this page can publish legal commitments or offer data-rights actions.</p>
+                <div className="admin-settings-status"><span>Privacy notice</span><strong>Not published in this Admin workspace</strong></div>
+                <div className="admin-settings-status"><span>Data requests</span><strong>Not available as an online workflow</strong></div>
+                <p className="admin-panel__footnote">No deletion, export-of-personal-data, or retention controls are provided here. Do not treat the aggregate Reports CSV as a personal-data request response.</p>
+              </div>
+              <div className="admin-settings-subsection">
+                <p className="admin-eyebrow">NOTIFICATIONS</p>
+                <h3>Delivery preferences</h3>
+                <p>Emergency notification preferences are not configurable from this Admin portal. This section intentionally provides no quiet-hours or suppression toggle, because no verified preference-enforcement workflow is connected here.</p>
+                <div className="admin-settings-status"><span>Preference controls</span><strong>Unavailable — no verified settings service</strong></div>
+              </div>
+            </section>
+          )}
+          {activeSection === "help" && (
+            <section className="admin-panel admin-help-panel" aria-labelledby="admin-help-title">
+              <div className="admin-panel__heading">
+                <div><p className="admin-eyebrow">SUPPORT & GUIDANCE</p><h2 id="admin-help-title"><BookOpen size={19} /> Admin help centre</h2></div>
+                <span className="admin-count">Operator guidance</span>
+              </div>
+              <div className="admin-help-grid">
+                <article className="admin-help-card"><h3>Overview & service reachability</h3><p>The Overview probes Laravel, Supabase Auth, and the database. A reachable dependency does not prove that incident creation, assignment, mapping, push delivery, or the full emergency workflow works.</p><button type="button" onClick={() => navigateToSection("overview")}>Open Overview <span aria-hidden="true">→</span></button></article>
+                <article className="admin-help-card"><h3>User management</h3><p>Search and filter accounts, then change eligible operational roles with a required reason. Admin accounts are operator-managed. Duty status is not an account suspension or sign-in state.</p><button type="button" onClick={() => navigateToSection("users")}>Open User management <span aria-hidden="true">→</span></button></article>
+                <article className="admin-help-card"><h3>Security & authenticator</h3><p>Use a verified authenticator for the required AAL2 session. Keep the only verified factor available. The current Security page is not a complete security-event monitoring centre.</p><button type="button" onClick={() => navigateToSection("security")}>Open Security <span aria-hidden="true">→</span></button></article>
+                <article className="admin-help-card"><h3>Reports & Activity Log</h3><p>Reports contain aggregate request metrics. Activity Log contains only events collected by its connected sources; missing sources must not be interpreted as zero activity.</p><div><button type="button" onClick={() => navigateToSection("analytics")}>Open Reports <span aria-hidden="true">→</span></button><button type="button" onClick={() => navigateToSection("audit")}>Open Activity Log <span aria-hidden="true">→</span></button></div></article>
+              </div>
+              <div className="admin-settings-subsection">
+                <p className="admin-eyebrow">ABOUT TACRESQ ADMIN</p>
+                <h3>Privileged workspace</h3>
+                <p>This portal is intended for authorized administration of TACResQ accounts, security status, aggregate reporting, and recorded activity. It is not a dispatch console and does not grant responder or driver permissions.</p>
+                <div className="admin-settings-status"><span>Current workspace</span><strong>Admin web portal</strong></div>
+                <div className="admin-settings-status"><span>Privacy-safe reporting</span><strong>Aggregate data only</strong></div>
+                <div className="admin-settings-status"><span>Support contact</span><strong>Not configured in this build</strong></div>
+              </div>
+              <p className="admin-panel__footnote">For operational issues, follow the project’s approved support and incident-response procedure. Do not send passwords, authenticator setup keys, recovery material, or access tokens through support channels.</p>
             </section>
           )}
           {activeSection === "security" && (
