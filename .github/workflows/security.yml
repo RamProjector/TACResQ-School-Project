@@ -53,8 +53,21 @@ jobs:
           languages: java-kotlin
           build-mode: manual
 
-      - name: Build Android source for CodeQL
-        run: ./gradlew --no-daemon --no-build-cache clean assembleDebug
+      - name: Build Android source for CodeQL (retry transient Maven rate limits)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ./gradlew --no-daemon --no-build-cache clean assembleDebug; then
+              exit 0
+            fi
+            if [[ "$attempt" -lt 3 ]]; then
+              echo "Gradle build failed; retrying in $((attempt * 30)) seconds (attempt $((attempt + 1))/3)."
+              sleep $((attempt * 30))
+            fi
+          done
+          echo "::error::Android CodeQL build failed after three attempts."
+          exit 1
 
       - name: Analyze Android source with CodeQL
         uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
