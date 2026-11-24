@@ -116,3 +116,7 @@ Added a source regression gate for the local audit-identity migration: it must t
 ### Regression gate — append only trigger
 
 Added explicit regression assertions for the append-only audit trigger's UPDATE/DELETE and TRUNCATE coverage, SQLSTATE, and ordinary invoker execution. This checks source structure only; database-owner and privileged-role bypass behavior still needs a disposable PostgreSQL test.
+
+### Regression gate — recorder input
+
+Added recorder invariants ensuring audit appends require an open transaction, distinct positive actor/target identifiers, a bounded nonblank reason, and one of the two supported transitions. The recorder must not mutate account state or update/delete existing audit rows.
