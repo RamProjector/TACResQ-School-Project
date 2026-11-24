@@ -247,6 +247,9 @@ jobs:
       - name: Check administrator recovery workspace contract
         run: python3 tools/test_admin_recovery_workspace_contract.py
 
+      - name: Check administrator attachment storage workspace contract
+        run: python3 tools/test_admin_attachment_storage_workspace_contract.py
+
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
 
