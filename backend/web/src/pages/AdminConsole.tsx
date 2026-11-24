@@ -361,6 +361,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setRefreshing(true);
     setError(null);
     setDirectoryError(null);
+    // The previous retrieval timestamp belongs to the old page/filter set.
+    // Clear it until this request succeeds so it cannot be mistaken for the
+    // freshness of the results currently being requested.
+    setDirectoryLoadedAt(null);
+    setExpandedAccountId(null);
     // A section change invalidates an in-flight Overview probe. Clear its
     // loading state here because the superseded request will no longer finish
     // with the current request ID and therefore cannot clear it itself.
