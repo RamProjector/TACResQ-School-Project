@@ -17,7 +17,7 @@ DECLARE
     'public.api_admin_list_investigation_events(integer,integer,text,text,text,timestamp with time zone,timestamp with time zone,bigint,bigint,bigint)',
     'public.api_admin_list_users_page(integer,integer,text,text)',
     'public.api_admin_set_user_role(bigint,text,text)',
-    'public.api_admin_set_account_status(bigint,text,text)',
+    'public.api_admin_set_account_status(bigint,text,text,text)',
     'public.api_assign_incident_team(bigint,bigint[])',
     'public.api_cancel_my_incident(bigint)',
     'public.api_claim_incident(bigint)',
