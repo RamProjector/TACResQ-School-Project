@@ -454,7 +454,7 @@ SELECT set_config('application_name', '$app_name', false);
 SELECT set_config('request.jwt.claim.sub', '$suspension_admin_uuid', false);
 SELECT set_config('request.jwt.claims', '{"aal":"aal2","amr":[{"method":"totp"}]}', false);
 BEGIN;
-SELECT public.api_admin_set_account_status($target_profile_id, 'suspended', 'Disposable concurrency regression');
+SELECT public.api_admin_set_account_status($target_profile_id, 'active', 'suspended', 'Disposable concurrency regression');
 COMMIT;
 SQL
 }
