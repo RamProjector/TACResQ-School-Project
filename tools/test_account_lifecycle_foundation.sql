@@ -1291,3 +1291,66 @@ BEGIN
   END IF;
 END;
 $active_requester_edit_entry_contract$;
+
+
+-- Dispatcher claimability must re-check active state under its existing
+-- incident -> profile lock order, while preserving the audited transition.
+DO $dispatcher_claimability_lifecycle_contract$
+DECLARE
+  routine_oid oid := to_regprocedure('public.api_set_incident_claimable(bigint,boolean)');
+  routine_source text;
+  routine_config text[];
+BEGIN
+  IF routine_oid IS NULL THEN
+    RAISE EXCEPTION 'Dispatcher claimability RPC is missing';
+  END IF;
+  SELECT p.prosrc, p.proconfig INTO routine_source, routine_config
+    FROM pg_catalog.pg_proc p WHERE p.oid = routine_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = routine_oid)
+     OR NOT (coalesce(routine_config, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR routine_source NOT ILIKE '%v_actor.account_status IS DISTINCT FROM ''active''%'
+     OR routine_source NOT ILIKE '%FOR UPDATE%'
+     OR routine_source NOT ILIKE '%incident_claimability_logs%'
+     OR routine_source NOT ILIKE '%source_rpc%'
+     OR routine_source NOT ILIKE '%Only active dispatchers can toggle field claiming%' THEN
+    RAISE EXCEPTION 'Claimability must require a locked active dispatcher and preserve transactional audit behavior';
+  END IF;
+  IF NOT has_function_privilege('authenticated', routine_oid, 'EXECUTE')
+     OR has_function_privilege('anon', routine_oid, 'EXECUTE')
+     OR has_function_privilege('public', routine_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Claimability RPC must be authenticated-only';
+  END IF;
+END;
+$dispatcher_claimability_lifecycle_contract$;
+
+-- The responder-coordinate private callable must itself be active-aware.
+-- The preserved query is internal-only; clients can execute only the wrapper.
+DO $active_responder_location_read_contract$
+DECLARE
+  wrapper_oid oid := to_regprocedure('private.tacresq_active_responder_locations()');
+  internal_oid oid := to_regprocedure('private.tacresq_active_responder_locations_internal()');
+  wrapper_source text;
+  wrapper_config text[];
+BEGIN
+  IF wrapper_oid IS NULL OR internal_oid IS NULL THEN
+    RAISE EXCEPTION 'Responder location reader wrapper or internal query is missing';
+  END IF;
+  SELECT p.prosrc, p.proconfig INTO wrapper_source, wrapper_config
+    FROM pg_catalog.pg_proc p WHERE p.oid = wrapper_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = wrapper_oid)
+     OR NOT (coalesce(wrapper_config, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR wrapper_source NOT ILIKE '%account_status = ''active''%'
+     OR wrapper_source NOT ILIKE '%FOR SHARE%'
+     OR wrapper_source NOT ILIKE '%dispatcher%'
+     OR wrapper_source NOT ILIKE '%tacresq_active_responder_locations_internal%' THEN
+    RAISE EXCEPTION 'Responder location reader must lock an active dispatcher before delegation';
+  END IF;
+  IF NOT has_function_privilege('authenticated', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('anon', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('public', wrapper_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', internal_oid, 'EXECUTE')
+     OR has_function_privilege('anon', internal_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Responder location reader grants must expose only the guarded wrapper';
+  END IF;
+END;
+$active_responder_location_read_contract$;
