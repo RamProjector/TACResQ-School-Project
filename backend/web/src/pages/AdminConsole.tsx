@@ -350,6 +350,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [pageSize, setPageSize] = useState<10 | 25 | 50 | 100>(25);
   const [totalUsers, setTotalUsers] = useState(0);
   const [directoryLoadedAt, setDirectoryLoadedAt] = useState<string | null>(null);
+  const [directoryResultsKey, setDirectoryResultsKey] = useState<string | null>(null);
   const [target, setTarget] = useState<AdminUser | null>(null);
   const [expandedAccountId, setExpandedAccountId] = useState<number | null>(null);
   const [nextRole, setNextRole] = useState<AdminManagedRole>("requester");
@@ -411,6 +412,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     // Clear it until this request succeeds so it cannot be mistaken for the
     // freshness of the results currently being requested.
     setDirectoryLoadedAt(null);
+    setDirectoryResultsKey(null);
     // Do not leave accounts from the previous page or filter visible while
     // the next protected directory request is pending.
     setUsers([]);
@@ -451,7 +453,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       if (requestId !== requestVersion.current) return;
       // Record every successful directory response, including a response that
       // requires moving pagination back after the account count shrinks.
-      setDirectoryLoadedAt(new Date().toISOString());
       // The underlying account set can shrink while an administrator is on a
       // later page (for example, after another admin changes/removes records).
       // Move to the last valid page instead of presenting a false empty result.
@@ -461,6 +462,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         setPage(Math.max(0, Math.ceil(userPage.total_count / pageSize) - 1));
         return;
       }
+      setDirectoryLoadedAt(new Date().toISOString());
+      setDirectoryResultsKey(JSON.stringify([page, pageSize, debouncedQuery, roleFilter]));
       setUsers(userPage.users);
       setTotalUsers(userPage.total_count);
     } catch (cause) {
@@ -469,6 +472,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       setUsers([]);
       setTotalUsers(0);
       setDirectoryLoadedAt(null);
+      setDirectoryResultsKey(null);
       // Dependency health is fetched independently and may still be valid
       // even when the account-directory RPC fails.
       const message = cause instanceof Error ? cause.message : "The Admin service could not load its data.";
@@ -537,9 +541,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   // Resolve the pending state before deriving visible results. Keeping this
   // declaration first avoids a temporal-dead-zone error during initial render.
-  const directoryFilterPending = query.trim() !== debouncedQuery;
+  const directoryRequestKey = JSON.stringify([page, pageSize, debouncedQuery, roleFilter]);
+  const directoryFilterPending = query.trim() !== debouncedQuery || directoryResultsKey !== directoryRequestKey;
   const hasDirectoryFilters = query.trim().length > 0 || roleFilter !== "all";
-  // Do not present results for the previous query while a new server-side search is pending.
+  // Never display a previous page, role, or search result while a different
+  // protected directory request is pending, including the render before its effect runs.
   const filteredUsers = directoryFilterPending ? [] : users;
 
   function openRoleChange(user: AdminUser) {
@@ -745,7 +751,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <label className="admin-page-size"><span>Rows</span><select id="admin-directory-page-size" value={pageSize} onChange={(event) => { setPage(0); setPageSize(Number(event.target.value) as 10 | 25 | 50 | 100); }} aria-label="Accounts per page" aria-controls="admin-account-directory-table"><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
               {hasDirectoryFilters && <button className="admin-filter-reset" type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setRoleFilter("all"); setPage(0); }} disabled={refreshing}>Clear filters</button>}
             </div>
-            <p className="admin-directory-status" id="admin-directory-status" role="status" aria-live="polite">{directoryFilterPending ? "Applying search…" : refreshing ? "Updating account results…" : directoryError ? "Account results could not be retrieved. Use Refresh data to try again." : hasDirectoryFilters ? "Showing " + totalUsers.toLocaleString() + " matching accounts. Search and role filters are applied on the server." : "Showing all accounts. Search and role filters are applied on the server."}{directoryLoadedAt && !directoryError ? " Last successful retrieval: " + formatManilaDateTime(directoryLoadedAt) + " (Asia/Manila)." : ""}</p>
+            <p className="admin-directory-status" id="admin-directory-status" role="status" aria-live="polite">{directoryFilterPending ? "Updating account results…" : refreshing ? "Updating account results…" : directoryError ? "Account results could not be retrieved. Use Refresh data to try again." : hasDirectoryFilters ? "Showing " + totalUsers.toLocaleString() + " matching accounts. Search and role filters are applied on the server." : "Showing all accounts. Search and role filters are applied on the server."}{directoryLoadedAt && !directoryError ? " Last successful retrieval: " + formatManilaDateTime(directoryLoadedAt) + " (Asia/Manila)." : ""}</p>
             <div className="admin-table-wrap" role="region" aria-label="Account results; horizontally scrollable" tabIndex={0} aria-busy={loading || refreshing || directoryFilterPending}>
               <table className="admin-table" id="admin-account-directory-table" aria-label="Administrator account directory" aria-describedby="admin-directory-status">
                 <caption className="admin-table-caption">Account details and available role-management actions for the current directory page.</caption>
