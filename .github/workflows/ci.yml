@@ -68,6 +68,9 @@ jobs:
       - name: Check Admin investigation and app-action audit contracts
         run: python3 tools/test_admin_investigation_events_contract.py
 
+      - name: Check Admin account-lifecycle audit reader and pagination
+        run: python3 tools/test_admin_lifecycle_audit_reader_contract.py
+
       - name: Check inline authentication validation
         run: python3 tools/test_auth_inline_validation.py
 
