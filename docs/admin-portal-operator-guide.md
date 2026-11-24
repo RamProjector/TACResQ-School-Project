@@ -120,3 +120,8 @@ The Reports workspace shows when the currently displayed aggregate was retrieved
 ## Security status freshness
 
 The live Security workspace displays the time its Supabase Auth MFA session and authenticator-factor snapshot was successfully retrieved, formatted in Asia/Manila time. Use **Refresh status** before reviewing factor inventory or interpreting the displayed assurance level. A failed refresh clears the prior snapshot and timestamp rather than presenting stale security state as current. Privileged factor actions continue to re-read and verify the current TOTP/AAL2 state immediately before acting.
+
+
+## Activity Log refresh timestamp
+
+The Activity Log refresh timestamp is cleared when a new filter query begins, when the date range is invalid, or when the current query fails. It is set again only after the active investigation-history query succeeds. This avoids showing the previous query’s retrieval time as though it applied to newly selected filters. The independently paginated account-lifecycle history retains its own loading and error state.
