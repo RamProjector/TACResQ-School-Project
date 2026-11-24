@@ -29,10 +29,27 @@ final class EnsureLocalAdminReauthenticated
                 ->header('Cache-Control', 'no-store, private');
         }
 
-        $credentials = $request->validate([
-            'current_password' => ['required', 'string', 'max:72'],
-            'totp_code' => ['required', 'string', 'regex:/^\d{6}$/'],
-        ]);
+        try {
+            $credentials = $request->validate([
+                'current_password' => ['required', 'string', 'max:72'],
+                'totp_code' => ['required', 'string', 'regex:/^\\d{6}$/'],
+            ]);
+        } catch (ValidationException $exception) {
+            // Malformed step-up attempts must not bypass the same throttle or
+            // return cacheable validation details from a privileged boundary.
+            RateLimiter::hit($key, 900);
+
+            if (RateLimiter::tooManyAttempts($key, 5)) {
+                return response()->json(['message' => 'Too many re-authentication attempts. Please retry later.'], 429)
+                    ->header('Retry-After', (string) RateLimiter::availableIn($key))
+                    ->header('Cache-Control', 'no-store, private');
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'errors' => $exception->errors(),
+            ], 422)->header('Cache-Control', 'no-store, private');
+        }
 
         $authorized = DB::transaction(function () use ($user, $credentials): bool {
             // Re-read and lock the current account state so a role change or
