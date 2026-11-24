@@ -1256,4 +1256,34 @@ class LocalSanctumAccountLifecycleTest extends TestCase
             ->assertHeader('Cache-Control', 'no-store, private');
     }
 
+    public function test_successful_local_admin_step_up_clears_malformed_attempt_throttle(): void
+    {
+        $admin = User::create([
+            'name' => 'Throttle Reset Admin',
+            'email' => 'throttle-reset-admin@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        $key = 'local-admin-reauth:'.hash('sha256', (string) $admin->id.'|127.0.0.1');
+        for ($attempt = 0; $attempt < 4; $attempt++) {
+            \\Illuminate\\Support\\Facades\\RateLimiter::hit($key, 900);
+        }
+
+        $this->postJson('/_test/local-admin-sensitive-action', [
+            'current_password' => 'synthetic-test-password',
+            'totp_code' => $this->adminTotpCode,
+        ])->assertOk();
+
+        for ($attempt = 1; $attempt <= 4; $attempt++) {
+            $this->postJson('/_test/local-admin-sensitive-action', [
+                'current_password' => 'synthetic-test-password',
+                'totp_code' => 'not-a-code',
+            ])->assertUnprocessable()
+                ->assertHeader('Cache-Control', 'no-store, private');
+        }
+    }
+
 }
