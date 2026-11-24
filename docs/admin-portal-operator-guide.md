@@ -266,3 +266,7 @@ The Help & About workspace includes a browser-local search across its four opera
 ## Admin workspace navigation focus
 
 When an administrator changes workspace through the Admin navigation or browser Back/Forward, keyboard focus moves to the new workspace heading after the view updates. Moving between Settings subpages also focuses the Settings heading so the changed context is announced without forcing keyboard users to tab through the sidebar again. The heading is programmatically focusable but does not add another normal Tab stop. Initial page load does not steal focus.
+
+## Audit history pagination announcements
+
+The main investigation history and the separate account lifecycle history expose their current result range/page through polite live status text. Screen-reader users should hear the updated page/range when they move between result pages; the page controls remain independently labeled for each history list. These announcements report the currently rendered pagination state and do not imply that either feed is a complete audit record.
