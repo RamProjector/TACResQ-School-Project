@@ -8,15 +8,17 @@
 
 ## 1. Executive assessment
 
-The current Admin website is a useful operational starting point, but it is not yet a complete administration workspace. The checked branch currently exposes five primary sections:
+The current Admin website is a useful operational starting point, but it is not yet a complete administration workspace. The checked branch currently exposes seven primary sections:
 
 1. Overview
 2. User management
 3. Security
 4. Reports
 5. Activity log
+6. Settings
+7. Help & about
 
-The current operator guide confirms those sections and their present limits. The Admin console's section union and navigation list also contain only `overview`, `users`, `security`, `analytics`, and `audit`. There is no dedicated Settings workspace, Help/About area, accessibility preferences page, notification-preference page, privacy-governance workspace, integrations dashboard, or recovery-readiness page in the reviewed console.
+The current operator guide confirms those sections and their present limits. Settings has URL-backed General, Accessibility, Notifications, Security & sessions, and Privacy & data subpages. General and Accessibility provide browser-local preferences; Notifications, Security & sessions, and Privacy & data remain explanatory/read-only where backend or governance controls are not verified. Help & about provides searchable static operator guidance. The remaining major workspace gaps are a governed privacy/data-request workflow, evidence-backed integrations and operational oversight, and verified recovery readiness. These are not safe to simulate with static “healthy” statuses or unsupported controls.
 
 The important gap is not simply a lack of menu items. Several useful administration capabilities need trustworthy backend evidence and enforceable authorization before they can be represented as working controls. The UI must not imply that a system is healthy, an audit trail is complete, a notification preference is effective, an account is disabled, or a backup is recoverable unless the underlying service actually proves it.
 
@@ -28,9 +30,9 @@ The following files were read from the reviewed branch:
 
 | Repository evidence | What it establishes |
 |---|---|
-| `backend/web/src/pages/AdminConsole.tsx` | The current primary Admin sections are Overview, User Management, Security, Reports, and Activity Log. The console already has navigation state and page-level composition that a future Settings workspace must integrate with rather than duplicate. |
+| `backend/web/src/pages/AdminConsole.tsx` | The current primary Admin sections are Overview, User Management, Security, Reports, Activity Log, Settings, and Help & about. Settings is URL-backed and contains five subpages; Help & about provides searchable operator guidance. |
 | `backend/web/src/lib/supabase.ts` | Admin-facing types and data access already include aggregate analytics, dependency health, paginated user data, investigation events, and account lifecycle history. These are existing foundations, not proof that every possible operational/security event is collected. |
-| `docs/admin-portal-operator-guide.md` | Documents the five available sections, aggregate report export, current directory controls, and important limitations. It explicitly says dependency reachability is not an end-to-end emergency-readiness check. |
+| `docs/admin-portal-operator-guide.md` | Documents the seven primary sections, aggregate report export, current directory controls, browser-local Settings preferences, Help & about guidance, and important limitations. It explicitly says dependency reachability is not an end-to-end emergency-readiness check. |
 | `docs/ADMIN_AUDIT_TRAIL_SOURCE_INVENTORY_2026-11-22.md` | Records a source inventory and deployment-boundary review for Admin investigation history. Its header references an earlier branch/PR; treat its deployment snapshot as dated evidence, not a live guarantee. |
 | `docs/security/security-event-coverage-and-observability-review.md` | Describes distinct security and operational event sources and known collection gaps. Its header references an earlier branch; confirm source behavior against the current code before implementing changes. |
 | `docs/security/authentication-event-collection-boundaries.md` | Explains why Laravel-only authentication logging cannot represent the direct Supabase Auth flows used by Android and the web portal. |
@@ -112,14 +114,14 @@ Keep the event-source scope visible. Recommended refinements:
 
 Do not call this a complete audit trail until the source inventory, collection, access, retention, and integrity requirements are satisfied.
 
-## 4. Settings workspace — recommended subpages
+## 4. Settings workspace — current baseline and remaining gaps
 
-Settings is the most visible missing part of the Admin experience. It should be a real workspace with grouped subpages, not a single long form. Split personal preferences from global policy and infrastructure configuration.
+The Settings shell and Help & about workspace are present in the reviewed branch. Settings is grouped into URL-backed subpages rather than one long form. Its safe editable controls are deliberately limited to browser-local preferences; notification delivery, account security, privacy governance, and infrastructure configuration remain read-only until their authoritative services and owners are verified. Split personal preferences from global policy and infrastructure configuration.
 
 | Proposed subpage | Intended contents | Safe first release | Dependencies / restrictions |
 |---|---|---|---|
-| **General & appearance** | Theme, density, language/locale if supported, date/time display, default landing page, table page-size preference | Personal UI preferences with reset-to-default and save feedback | Persist only preferences that the app can honor. Avoid organization-wide branding/config without a defined owner and policy. |
-| **Accessibility** | Reduced motion, text scaling/comfortable density, contrast preference, focus/keyboard guidance, screen-reader support notes | Honor system preferences and add user-controlled options only when implemented end to end | Must be tested at zoom, keyboard, touch, forced-colors/high-contrast, and assistive-technology levels. Do not offer decorative toggles that do not change behavior. |
+| **General & appearance** | Interface density and default account-directory page size | Browser-local preferences with preview, save, reset, validation, and unsaved-change protection | Persist only preferences that the app can honor. Avoid organization-wide branding/config without a defined owner and policy. |
+| **Accessibility** | Reduced motion, high contrast, and contextual-help visibility | Browser-local controls that affect the Admin portal presentation | Must be tested at zoom, keyboard, touch, forced-colors/high-contrast, and assistive-technology levels. Do not offer decorative toggles that do not change behavior. |
 | **Notifications** | Notification categories, delivery channel, quiet hours, frequency, test/diagnostic explanation | Read-only explanation of current delivery capabilities and status | Do not expose toggles until preferences are stored, validated, enforced by every relevant sender, and respected by emergency-critical notification rules. Emergency alerts must not be silently suppressed by a generic quiet-hours switch. |
 | **Security & sessions** | MFA status, session/device visibility, sign-out guidance, recovery guidance, security notices | Read-only status and safe navigation to existing MFA controls | Session revocation, device removal, password policy, and account lock controls require authoritative APIs, strong re-authentication, audit evidence, and server-side enforcement. Never display secrets. |
 | **Privacy & data** | Privacy notice, data categories/purposes, retention explanation, rights-request guidance, data export/deletion request status | Accurate notice and contact/request instructions grounded in approved policy | Do not invent a retention period, legal basis, controller identity, or deletion promise. A request workflow requires identity verification, case tracking, and a documented response process. |
@@ -270,7 +272,7 @@ The existing branch has focus and reduced-motion styling, but that does not esta
 | Priority | Workstream | Why this order | Exit criteria |
 |---|---|---|---|
 | P0 | Confirm Admin route/permission model and source inventory | Prevents building pages on unsupported or unsafe assumptions | Current route map, authorization matrix, data-source map, and known limitations documented |
-| P1 | Settings shell + Help/About + General preferences | Completes the missing information architecture with low-risk, personal-scope features | Navigation works; preferences are real, scoped, validated, accessible, and reversible |
+| P1 | Settings shell + Help/About + General preferences | **Implemented in the current branch:** URL-backed Settings subpages, searchable Help & about, browser-local density/accessibility preferences, and saved default account-directory page size | Static source contracts exist; browser rendering, keyboard, screen-reader, storage-failure, and cross-browser persistence checks remain outstanding |
 | P1 | Accessibility preferences and interaction refinements | Benefits every Admin workspace and reduces future rework | Keyboard/touch/zoom/screen-reader review; no inert accessibility controls |
 | P2 | Security coverage and access review | Depends on event-source and authorization coverage | Event inventory, collection limits, source freshness, access control, and retention are explicit |
 | P2 | Privacy & Data governance | Requires approved policy ownership and data inventory | Approved notice, controller/contact, purposes, processors, retention rules, and request process |
@@ -325,4 +327,4 @@ The Admin website should not be called complete until:
 - Repository documentation that references older branches or dates is treated as historical evidence and must be revalidated before implementation.
 - External standards provide design and verification guidance; they do not prove that TACResQ currently meets those standards.
 - No schema, production configuration, provider plan, backup setting, or deployed service was changed during this review.
-- No application code or user-facing Admin page was implemented as part of this documentation commit.
+- This assessment was initially documentation-only. Subsequent commits on the same PR branch added and documented Settings/Help refinements and the browser-local default account-directory page-size preference; those changes still require CI and manual browser validation.
