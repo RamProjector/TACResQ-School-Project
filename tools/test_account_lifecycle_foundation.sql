@@ -1030,3 +1030,46 @@ BEGIN
   END IF;
 END;
 $dispatch_progress_catalog_contract$;
+
+
+-- Notification and claimable-incident SECURITY DEFINER reads must resolve an
+-- active identity before returning private account/incident data.
+DO $notification_claimable_read_catalog_contract$
+DECLARE
+  f text;
+  expected text[] := ARRAY[
+    'public.api_my_notifications(integer)',
+    'public.api_my_notification(bigint)',
+    'public.api_my_incident_messages(bigint,integer,bigint)',
+    'public.api_claimable_incidents()'
+  ];
+BEGIN
+  FOREACH f IN ARRAY expected LOOP
+    IF to_regprocedure(f) IS NULL THEN RAISE EXCEPTION 'Lifecycle-guarded read RPC is missing: %', f; END IF;
+    IF (SELECT NOT p.prosecdef OR p.provolatile <> 'v'
+          OR NOT (coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+        FROM pg_catalog.pg_proc p WHERE p.oid = to_regprocedure(f)) THEN
+      RAISE EXCEPTION 'Read RPC must be a pinned VOLATILE SECURITY DEFINER: %', f;
+    END IF;
+    IF NOT has_function_privilege('authenticated', to_regprocedure(f), 'EXECUTE')
+       OR has_function_privilege('anon', to_regprocedure(f), 'EXECUTE') THEN
+      RAISE EXCEPTION 'Read RPC grants must be authenticated-only: %', f;
+    END IF;
+  END LOOP;
+  IF (SELECT count(*) FROM pg_catalog.pg_proc p
+       WHERE p.oid = ANY (ARRAY[
+         to_regprocedure('public.api_my_notifications(integer)'),
+         to_regprocedure('public.api_my_notification(bigint)'),
+         to_regprocedure('public.api_my_incident_messages(bigint,integer,bigint)')
+       ])
+       AND p.prosrc ILIKE '%tacresq_auth_profile_id()%') <> 3 THEN
+    RAISE EXCEPTION 'Notification/chat reads must resolve the account-aware profile';
+  END IF;
+  IF (SELECT prosrc NOT ILIKE '%account_status = ''active''%'
+             OR prosrc NOT ILIKE '%FOR SHARE%'
+        FROM pg_catalog.pg_proc WHERE oid = to_regprocedure('public.api_claimable_incidents()')) THEN
+    RAISE EXCEPTION 'Claimable-incident discovery must lock and require an active profile';
+  END IF;
+END;
+$notification_claimable_read_catalog_contract$;
+
