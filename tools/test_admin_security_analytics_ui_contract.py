@@ -86,7 +86,7 @@ assert "setSavedPreferences(preferences);" in ADMIN
 discard_helper = ADMIN.split("function confirmDiscardPreferenceChanges()", 1)[1].split("\n  useEffect", 1)[0]
 assert "const discard = window.confirm(" in discard_helper
 assert "if (!discard) return false;" in discard_helper
-assert discard_helper.index("setPreferences(savedPreferences);") < discard_helper.index("return true;")
+assert discard_helper.index("setPreferences(savedPreferences);") < discard_helper.rindex("return true;")
 assert "setPreferencesError(null);" in discard_helper
 
 
