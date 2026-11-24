@@ -402,3 +402,28 @@ for required in (
     "has_function_privilege('authenticated', internal_oid, 'execute')",
 ):
     assert required in foundation_replay, f"Claimability/GPS replay contract is missing: {required}"
+
+
+# The field-unit duty-status RPC is a direct authenticated mutation. Its
+# profile lock must serialize with lifecycle suspension and reject suspended
+# responders/drivers without silently changing their operational duty state.
+duty_guard_migration = (ROOT / "supabase/migrations/20261124140000_account_lifecycle_duty_status_guard.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "create or replace function public.api_set_duty_status(p_duty_status text)",
+    "p.account_status is distinct from 'active'",
+    "p.role not in ('responder', 'driver')",
+    "for update",
+    "finish your active incident first",
+    "revoke all on function public.api_set_duty_status(text) from public, anon",
+    "grant execute on function public.api_set_duty_status(text) to authenticated",
+):
+    assert required in duty_guard_migration, f"Duty-status lifecycle guard is missing: {required}"
+
+duty_replay = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "active_duty_status_callable_contract",
+    "p.account_status is distinct from ''active''",
+    "finish your active incident first",
+    "has_function_privilege('authenticated', routine_oid, 'execute')",
+):
+    assert required in duty_replay, f"Duty-status replay assertion is missing: {required}"
