@@ -428,16 +428,16 @@ run_admin_suspension_and_hold() {
   local target_profile_id="$2"
   local output_file="$3"
   local error_file="$4"
-  # This disposable replay runs as the migration owner so it can exercise the
-  # deliberately ungranted staged RPC. The function itself still validates
-  # auth.uid(), AAL2, TOTP AMR, active Admin role, and target eligibility.
+  # This disposable replay runs as the migration owner to coordinate the
+  # two-connection race. The function still validates auth.uid(), AAL2, TOTP
+  # AMR, active Admin role, and target eligibility.
   PGAPPNAME="$app_name" psql -qAt -v ON_ERROR_STOP=1 >"$output_file" 2>"$error_file" <<SQL
 \set VERBOSITY verbose
 SELECT set_config('application_name', '$app_name', false);
 SELECT set_config('request.jwt.claim.sub', '$suspension_admin_uuid', false);
 SELECT set_config('request.jwt.claims', '{"aal":"aal2","amr":[{"method":"totp"}]}', false);
 BEGIN;
-SELECT public.api_admin_set_account_status($target_profile_id, 'suspended', 'Disposable concurrency regression');
+SELECT public.api_admin_set_account_status($target_profile_id, 'active', 'suspended', 'Disposable concurrency regression');
 SELECT pg_sleep(4);
 COMMIT;
 SQL
