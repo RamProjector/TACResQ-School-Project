@@ -37,3 +37,7 @@ assert 'aria-pressed={isDatePresetSelected(days, from, to)}' in AUDIT_PAGE
 assert 'setFrom(manilaDateOffset(days - 1)); setTo(manilaDateOffset(0));' in AUDIT_PAGE
 assert ".audit-page__date-presets button[aria-pressed=\"true\"]" in ADMIN_CSS
 assert ".audit-page__date-presets button:focus-visible" in ADMIN_CSS
+
+# The displayed refresh timestamp belongs only to the currently applied query.
+assert "setLastSuccessfulRefresh(null);" in AUDIT_PAGE
+assert "setLastSuccessfulRefresh(new Date().toISOString());" in AUDIT_PAGE
