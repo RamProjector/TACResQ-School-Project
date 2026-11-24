@@ -507,3 +507,75 @@
   .admin-modal__error { padding: 9px 10px; }
   .admin-reason-count { text-align: left; }
 }
+
+
+/* Short-lived feedback for privileged role changes; does not block dialog controls. */
+.admin-toast-region {
+  position: fixed;
+  z-index: 120;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  display: grid;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.admin-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 15px;
+  border: 1px solid #d7e1d9;
+  border-left: 4px solid #4b8064;
+  border-radius: 10px;
+  background: #fffefa;
+  color: #29463b;
+  box-shadow: 0 12px 34px rgba(23, 43, 35, .2);
+  font-size: 13px;
+  line-height: 1.5;
+  pointer-events: auto;
+  overflow-wrap: anywhere;
+}
+.admin-toast--error {
+  border-color: #e8c7c3;
+  border-left-color: #b5473d;
+  color: #782f2a;
+}
+.admin-toast--success {
+  border-left-color: #3d7958;
+}
+.admin-toast > span { flex: 1 1 auto; min-width: 0; }
+.admin-toast > button {
+  display: grid;
+  flex: 0 0 32px;
+  place-items: center;
+  width: 32px;
+  min-height: 32px;
+  margin: -5px -5px 0 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.admin-toast > button:hover { background: rgba(38, 67, 54, .08); }
+.admin-toast > button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .admin-toast-region {
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    width: calc(100vw - 20px);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .admin-toast { animation: admin-toast-enter 160ms ease-out both; }
+  @keyframes admin-toast-enter {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+@media print {
+  .admin-toast-region { display: none !important; }
+}
