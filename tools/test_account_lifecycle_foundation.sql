@@ -1096,7 +1096,7 @@ BEGIN
   END IF;
   IF NOT has_function_privilege('authenticated', routine_oid, 'EXECUTE')
      OR has_function_privilege('anon', routine_oid, 'EXECUTE')
-     OR has_function_privilege('public', routine_oid, 'EXECUTE') THEN
+ THEN
     RAISE EXCEPTION 'Assignee helper must be authenticated-only';
   END IF;
 END;
