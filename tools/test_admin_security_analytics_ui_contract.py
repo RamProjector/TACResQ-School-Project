@@ -58,3 +58,13 @@ assert analytics_reload.index("setAnalyticsLoadedAt(null);") < analytics_reload.
 assert analytics_reload.index("setAnalyticsExportNotice(null);") < analytics_reload.index("setAnalyticsRefreshVersion(")
 assert 'onChange={(event) => reloadAnalyticsReport(Number(event.target.value) as 7 | 30 | 90)}' in ADMIN
 assert 'onClick={() => reloadAnalyticsReport()}' in ADMIN
+
+
+# Successful authenticator lifecycle actions refresh the factor snapshot before
+# publishing their success notice, because refresh intentionally clears notices.
+verify_action = SECURITY.split("async function verifyBackupAuthenticator", 1)[1].split("\n  async function signOutAllDevices", 1)[0]
+assert verify_action.index("await refresh();") < verify_action.index('setNotice("Backup authenticator verified and added.");')
+remove_action = SECURITY.split("async function removeAuthenticatorFactor", 1)[1].split("\n  async function cancelBackupEnrollment", 1)[0]
+assert remove_action.index("await refresh();") < remove_action.index('setNotice(factor.name + " was removed.");')
+cancel_action = SECURITY.split("async function cancelBackupEnrollment", 1)[1].split("\n  return (", 1)[0]
+assert cancel_action.index("await refresh();") < cancel_action.index('setNotice("Unverified backup enrollment cancelled.");')
