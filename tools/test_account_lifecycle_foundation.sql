@@ -1220,6 +1220,8 @@ DECLARE
   register_source text;
   unregister_source text;
   cleanup_source text;
+  write_guard_oid oid := to_regprocedure('private.tacresq_reject_suspended_account_write()');
+  write_guard_source text;
   register_settings text[];
   unregister_settings text[];
 BEGIN
@@ -1231,6 +1233,13 @@ BEGIN
   SELECT prosrc, proconfig INTO unregister_source, unregister_settings
     FROM pg_catalog.pg_proc WHERE oid = unregister_oid;
   SELECT prosrc INTO cleanup_source FROM pg_catalog.pg_proc WHERE oid = cleanup_oid;
+  SELECT prosrc INTO write_guard_source FROM pg_catalog.pg_proc WHERE oid = write_guard_oid;
+  IF write_guard_oid IS NULL
+     OR write_guard_source NOT ILIKE '%tacresq.allow_suspended_fcm_self_cleanup%'
+     OR write_guard_source NOT ILIKE '%TG_TABLE_NAME = ''fcm_tokens''%'
+     OR write_guard_source NOT ILIKE '%OLD.profile_id = private.tacresq_auth_profile_id_for_token_cleanup()%' THEN
+    RAISE EXCEPTION 'Suspended FCM cleanup exception must remain restricted to the caller-owned token DELETE';
+  END IF;
   IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = register_oid)
      OR NOT (coalesce(register_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
      OR register_source NOT ILIKE '%account_status = ''active''%'
