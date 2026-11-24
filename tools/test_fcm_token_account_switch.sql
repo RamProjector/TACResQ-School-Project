@@ -5,7 +5,9 @@ BEGIN;
 DO $token_rpc_privileges$
 DECLARE
   register_oid regprocedure := to_regprocedure('public.api_register_fcm_token(text)');
+  unregister_oid regprocedure := to_regprocedure('public.api_unregister_fcm_token(text)');
   function_settings text[];
+  unregister_settings text[];
 BEGIN
   IF register_oid IS NULL THEN
     RAISE EXCEPTION 'FCM registration RPC is missing';
@@ -20,6 +22,19 @@ BEGIN
   SELECT proconfig INTO function_settings FROM pg_proc WHERE oid = register_oid;
   IF NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
     RAISE EXCEPTION 'FCM registration RPC must pin search_path to pg_catalog';
+  END IF;
+  IF unregister_oid IS NULL
+     OR NOT has_function_privilege('authenticated', unregister_oid, 'EXECUTE')
+     OR has_function_privilege('anon', unregister_oid, 'EXECUTE')
+     OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid = unregister_oid) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'FCM self-unregister RPC must be an authenticated-only SECURITY DEFINER boundary';
+  END IF;
+  SELECT proconfig INTO unregister_settings FROM pg_catalog.pg_proc WHERE oid = unregister_oid;
+  IF NOT (coalesce(unregister_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'FCM self-unregister RPC must pin search_path to pg_catalog';
+  END IF;
+  IF has_table_privilege('authenticated', 'public.fcm_tokens', 'DELETE') THEN
+    RAISE EXCEPTION 'Authenticated clients must not receive direct FCM token DELETE privilege';
   END IF;
 END;
 $token_rpc_privileges$;
@@ -150,11 +165,21 @@ BEGIN
 END;
 $suspended_direct_write_denied$;
 
+-- A caller-supplied marker must not turn direct table access into an
+-- authorization path. The RPC owns and clears this transaction-local marker.
+SELECT set_config('tacresq.allow_suspended_fcm_self_cleanup', 'on', true);
 DO $suspended_self_cleanup$
 BEGIN
   PERFORM public.api_unregister_fcm_token('fcm-installation-token-account-switch-000000000201');
 END;
 $suspended_self_cleanup$;
+DO $suspended_cleanup_marker_reset$
+BEGIN
+  IF current_setting('tacresq.allow_suspended_fcm_self_cleanup', true) = 'on' THEN
+    RAISE EXCEPTION 'FCM self-unregister RPC must clear its transaction-local cleanup marker';
+  END IF;
+END;
+$suspended_cleanup_marker_reset$;
 RESET ROLE;
 
 DO $suspended_token_cleanup_assertion$
