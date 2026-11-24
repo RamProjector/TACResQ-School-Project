@@ -1063,7 +1063,77 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </div>
               <p className="admin-panel__footnote" id="admin-access-review-limitations">This is a reviewed portal capability summary, not a live per-user permission calculation or exhaustive cross-layer authorization audit. Requester, responder, driver, and dispatcher operational permissions remain separately enforced by their own server-side policies. Admin access does not implicitly grant dispatch or field-unit powers.</p>
             </section>
+
             </>
+          )}
+          {activeSection === "recovery" && (
+            <section className="admin-panel admin-recovery-panel" aria-labelledby="admin-recovery-title">
+              <div className="admin-panel__heading">
+                <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">BUSINESS CONTINUITY</p><h2 id="admin-recovery-title"><HardDrive size={19} /> Backup &amp; recovery readiness</h2></div><AdminHelpTip label="About recovery readiness" message="This workspace summarizes documented procedures and known gaps. It is not connected to backup jobs, provider snapshots, off-site storage, or restore evidence." /></div>
+                <span className="admin-count">No live recovery evidence connected</span>
+              </div>
+              <p className="admin-recovery-intro">TACResQ has operator-run database and Storage backup procedures plus an isolated restore-drill checklist. This page does not verify that a backup exists, that it is current, or that any restore has succeeded. Do not treat repository documentation or a checksum manifest as proof of recoverability.</p>
+              <div className="admin-recovery-status" role="status">
+                <AlertCircle size={17} aria-hidden="true" />
+                <div><strong>Recovery capability is not currently verified.</strong><span>No backup schedule, off-site copy, backup freshness record, or completed restore drill is connected to this Admin portal.</span></div>
+              </div>
+              <div className="admin-recovery-grid">
+                <article className="admin-recovery-card">
+                  <div><p className="admin-eyebrow">DATABASE</p><span className="admin-recovery-state">Procedure documented</span></div>
+                  <h3>PostgreSQL data &amp; schema</h3>
+                  <p>The documented export separates schema, data, and custom roles. The Supabase CLI dump excludes managed Auth and Storage schemas. No export or destination is verified here.</p>
+                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/postgres-logical-backup-procedure.md" target="_blank" rel="noreferrer">Open database backup procedure <span aria-hidden="true">↗</span></a>
+                </article>
+                <article className="admin-recovery-card">
+                  <div><p className="admin-eyebrow">ATTACHMENTS</p><span className="admin-recovery-state">Separate procedure</span></div>
+                  <h3>Storage object bytes</h3>
+                  <p>Incident attachments require a separate object copy and manifest. Database metadata alone cannot recover deleted object bytes. No off-site object copy or restore is verified here.</p>
+                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/storage-object-backup-procedure.md" target="_blank" rel="noreferrer">Open Storage backup procedure <span aria-hidden="true">↗</span></a>
+                </article>
+                <article className="admin-recovery-card">
+                  <div><p className="admin-eyebrow">IDENTITY &amp; CONFIGURATION</p><span className="admin-recovery-state">Recovery unresolved</span></div>
+                  <h3>Auth users &amp; project settings</h3>
+                  <p>Auth identities, MFA/provider configuration, project secrets, redirect settings, and Storage policies are separate recovery concerns. They are not included in the three logical database dump components.</p>
+                  <span className="admin-recovery-note">No verified Auth/configuration recovery evidence</span>
+                </article>
+                <article className="admin-recovery-card">
+                  <div><p className="admin-eyebrow">APPLICATION HOSTING</p><span className="admin-recovery-state">Source-controlled</span></div>
+                  <h3>Render Admin portal &amp; API</h3>
+                  <p>Git preserves source history, not the deployed runtime configuration. Render filesystems are ephemeral by default; do not use the service filesystem as a backup destination. Environment values and secret files require separate protected recovery.</p>
+                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/RENDER_DEPLOYMENT.md" target="_blank" rel="noreferrer">Open deployment guide <span aria-hidden="true">↗</span></a>
+                </article>
+                <article className="admin-recovery-card">
+                  <div><p className="admin-eyebrow">NOTIFICATIONS</p><span className="admin-recovery-state">Execution not verified</span></div>
+                  <h3>FCM dispatcher continuity</h3>
+                  <p>The documented Render web-service startup does not launch the FCM dispatcher, scheduler, or worker. Credential availability is not proof of queue execution or device delivery.</p>
+                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/FCM_OPERATIONS_RUNBOOK.md" target="_blank" rel="noreferrer">Open FCM operations runbook <span aria-hidden="true">↗</span></a>
+                </article>
+                <article className="admin-recovery-card">
+                  <div><p className="admin-eyebrow">VALIDATION</p><span className="admin-recovery-state">No drill recorded</span></div>
+                  <h3>Isolated restore drill</h3>
+                  <p>A successful manifest check is not a restore test. Recovery requires an approved isolated project, database and Storage restore validation, Auth recovery, application smoke checks, and reviewer acceptance.</p>
+                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/isolated-restore-drill-checklist.md" target="_blank" rel="noreferrer">Open restore-drill checklist <span aria-hidden="true">↗</span></a>
+                </article>
+              </div>
+              <section className="admin-recovery-next" aria-labelledby="admin-recovery-next-title">
+                <h3 id="admin-recovery-next-title">Safe recovery sequence</h3>
+                <ol>
+                  <li><strong>Approve the recovery target and owner.</strong><span>Use an isolated project with no production users, traffic, or external integrations. Confirm provider access and any cost before running exports or restores.</span></li>
+                  <li><strong>Export and verify each data layer separately.</strong><span>Pin the Supabase CLI version and project target; export schema, data, and roles; separately copy Storage object bytes; verify manifests offline.</span></li>
+                  <li><strong>Encrypt and store copies independently.</strong><span>Keep encryption keys separate from the backup destination. Do not use Git, ordinary CI artifacts, or the Render filesystem as the only copy.</span></li>
+                  <li><strong>Recover Auth and configuration independently.</strong><span>Document supported identity, MFA, provider, redirect, bucket-policy, and secret recovery without exposing credentials in this portal.</span></li>
+                  <li><strong>Run an isolated restore drill and record measured results.</strong><span>Validate RLS, grants, RPCs, row relationships, attachment checksums, authorization, and contained test workflows; obtain reviewer acceptance before claiming recoverability.</span></li>
+                </ol>
+              </section>
+              <div className="admin-recovery-metrics" aria-label="Recovery evidence status">
+                <div><span>Backup freshness</span><strong>Not measured</strong></div>
+                <div><span>Off-site copy</span><strong>Not verified</strong></div>
+                <div><span>Restore success</span><strong>Not tested</strong></div>
+                <div><span>Achieved RPO / RTO</span><strong>Not measured</strong></div>
+              </div>
+              <p className="admin-panel__footnote">The research plan contains provisional RPO/RTO planning targets, not measured service objectives or guarantees. This workspace is read-only guidance; it does not start exports, schedule jobs, alter provider settings, create recovery projects, or restore production. See the <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/backup-disaster-recovery-research-and-implementation-plan.md" target="_blank" rel="noreferrer">backup and disaster-recovery research plan</a> for the complete architecture and approval gates.</p>
+            </section>
+          )}
           <footer className="admin-footer"><span>TACRESQ · ADMINISTRATION</span><span>Administrator permissions are checked before each action</span></footer>
         </div>
       </main>
