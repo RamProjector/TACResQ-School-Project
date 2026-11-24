@@ -198,3 +198,8 @@ Display and accessibility preferences preview immediately but are saved only whe
 ## Audit clipboard asynchronous feedback
 
 Copy confirmation and clipboard errors are shown only while the referenced event remains in the currently rendered investigation result set. The visibility check uses the feed's `event_id` reference, the same identifier passed to the copy action. If a clipboard operation finishes after filters or pagination have replaced that result set, its late completion does not restore stale feedback for an event that is no longer displayed. The copy operation itself remains read-only.
+
+
+## Independent account lifecycle history refresh
+
+The Account suspension and reactivation panel includes its own **Refresh history** action, available after successful reads and empty results as well as a **Retry history** action when the source is unavailable. It re-reads only the protected lifecycle-history endpoint and keeps its loading, error, result count, and last-checked timestamp separate from the main investigation feed. It does not create, change, or reactivate accounts.
