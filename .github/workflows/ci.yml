@@ -243,6 +243,8 @@ jobs:
         run: python3 tools/test_dependency_health_monitoring_contract.py
       - name: Check administrator dependency health visibility contract
         run: python3 tools/test_admin_dependency_health_contract.py
+      - name: Check pending MFA cleanup on gate sign-out
+        run: python3 tools/test_admin_pending_mfa_cleanup_contract.py
 
       - name: Check administrator recovery workspace contract
         run: python3 tools/test_admin_recovery_workspace_contract.py
