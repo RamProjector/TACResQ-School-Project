@@ -51,7 +51,7 @@ REVOKE ALL ON FUNCTION private.tacresq_require_active_assignment_target()
 DROP TRIGGER IF EXISTS tacresq_active_assignment_target_guard
   ON public.incident_assignments;
 CREATE TRIGGER tacresq_active_assignment_target_guard
-BEFORE INSERT OR UPDATE OF user_id ON public.incident_assignments
+BEFORE INSERT OR UPDATE ON public.incident_assignments
 FOR EACH ROW
 EXECUTE FUNCTION private.tacresq_require_active_assignment_target();
 
