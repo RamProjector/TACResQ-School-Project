@@ -8,6 +8,7 @@ audit_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000008_cre
 append_only_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000009_enforce_local_lifecycle_event_append_only.php").read_text()
 audit_constraints_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000011_constrain_local_account_lifecycle_events.php").read_text()
 audit_identity_migration = (ROOT / "backend/src/database/migrations/2026_11_23_000012_require_local_lifecycle_audit_identities.php").read_text()
+sanctum_tokens_migration = (ROOT / "backend/src/database/migrations/2026_11_24_000013_create_personal_access_tokens_table.php").read_text()
 
 model = (ROOT / "backend/src/app/Models/User.php").read_text()
 middleware = (ROOT / "backend/src/app/Http/Middleware/EnsureLocalAccountIsActive.php").read_text()
@@ -23,6 +24,12 @@ totp_service = (ROOT / "backend/src/app/Services/LocalAdminTotpService.php").rea
 assert "boolean('is_suspended')->default(false)" in migration
 assert "timestampTz('suspended_at')->nullable()" in migration
 assert "string('suspension_reason', 500)->nullable()" in migration
+assert "Schema::create('personal_access_tokens'" in sanctum_tokens_migration
+assert "$table->morphs('tokenable')" in sanctum_tokens_migration
+assert "$table->string('token', 64)->unique()" in sanctum_tokens_migration
+assert "$table->text('abilities')->nullable()" in sanctum_tokens_migration
+assert "$table->timestamp('expires_at')->nullable()->index()" in sanctum_tokens_migration
+assert "Schema::dropIfExists('personal_access_tokens')" in sanctum_tokens_migration
 assert "'is_suspended' => 'boolean'" in model
 assert "'is_suspended'" not in model.split("protected $fillable", 1)[1].split(";", 1)[0], "Public mass assignment must not control suspension"
 assert "EnsureLocalAccountIsActive::class" in bootstrap
