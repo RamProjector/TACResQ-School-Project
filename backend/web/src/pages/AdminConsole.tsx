@@ -641,6 +641,20 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                           return <div className="admin-analytics-bar-column" key={point.day} title={point.day + ": " + point.requests + " requests"}><span>{point.requests || ""}</span><div><i style={{ height: Math.max(point.requests > 0 ? 4 : 0, point.requests / maximum * 100) + "%" }} /></div><small>{new Date(point.day + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}</small></div>;
                         })}
                       </div>}
+                      {analytics.daily_requests.length > 0 && (
+                        <details className="admin-analytics-data">
+                          <summary>View daily values</summary>
+                          <div className="admin-analytics-data__table-wrap">
+                            <table>
+                              <caption>Daily request counts for the selected reporting period</caption>
+                              <thead><tr><th scope="col">Date</th><th scope="col">Requests</th></tr></thead>
+                              <tbody>{analytics.daily_requests.map((point) => (
+                                <tr key={point.day}><th scope="row">{point.day}</th><td>{point.requests.toLocaleString()}</td></tr>
+                              ))}</tbody>
+                            </table>
+                          </div>
+                        </details>
+                      )}
                     </section>
                   </div>
                   <div className="admin-analytics-status-grid" role="group" aria-label="Current status of requests created during the selected reporting period">
