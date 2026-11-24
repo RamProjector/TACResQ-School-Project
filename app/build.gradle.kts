@@ -1,7 +1,12 @@
+import com.android.build.api.dsl.ApplicationExtension
+
 plugins {
-    id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Apply AGP from the root buildscript classpath so patched transitive build-tool
+// dependencies are used instead of a separately resolved plugin marker classpath.
+apply(plugin = "com.android.application")
 
 val releaseSigningConfigured = listOf(
     System.getenv("ANDROID_SIGNING_STORE_FILE"),
@@ -9,7 +14,7 @@ val releaseSigningConfigured = listOf(
     System.getenv("ANDROID_SIGNING_KEY_ALIAS"),
     System.getenv("ANDROID_SIGNING_KEY_PASSWORD"),
 ).all { !it.isNullOrBlank() } && System.getenv("ANDROID_RELEASE_SIGNING_CONFIGURED") == "true"
-android {
+extensions.configure<ApplicationExtension>("android") {
     namespace = "com.tacresq.app"
     compileSdk {
         version = release(37) {
