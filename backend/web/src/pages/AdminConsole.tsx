@@ -262,6 +262,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setPreferencesError(null);
   }
 
+  function reloadAnalyticsReport(days: 7 | 30 | 90 = analyticsDays) {
+    // Invalidate the previous report synchronously on user intent, rather than
+    // waiting for the effect to run after paint.
+    setAnalyticsDays(days);
+    setAnalytics(null);
+    setAnalyticsLoadedAt(null);
+    setAnalyticsError(null);
+    setAnalyticsExportNotice(null);
+    setAnalyticsLoading(true);
+    setAnalyticsRefreshVersion((version) => version + 1);
+  }
+
   function navigateToSettingsPage(page: AdminSettingsPage) {
     setSettingsPage(page);
     const url = new URL(window.location.href);
@@ -735,9 +747,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <div className="admin-panel__heading">
                 <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div><AdminHelpTip label="About request performance" message="Reports contain aggregate request counts. Status totals show each request’s current status at query time, not historical transitions. Assignment timing uses the first recorded assigned status event." /></div>
                 <div className="admin-analytics-controls">
-                  <label className="admin-analytics-range"><span>Period (Manila time)</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
+                  <label className="admin-analytics-range"><span>Period (Manila time)</span><select value={analyticsDays} onChange={(event) => reloadAnalyticsReport(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
                   <button className="admin-refresh" type="button" onClick={() => { if (!analytics) return; try { const filename = exportAnalyticsCsv(analytics); setAnalyticsExportNotice("Export prepared: " + filename); } catch { setAnalyticsExportNotice("The CSV export could not be prepared. Try again or refresh the report."); } }} disabled={analyticsLoading || !analytics || Boolean(analyticsError)} aria-label="Export incident performance report as CSV"><Download size={15} /> Export CSV</button>
-                  <button className="admin-refresh" type="button" onClick={() => setAnalyticsRefreshVersion((version) => version + 1)} disabled={analyticsLoading}><RefreshCw size={15} className={analyticsLoading ? "admin-spin" : ""} /> Refresh report</button>
+                  <button className="admin-refresh" type="button" onClick={() => reloadAnalyticsReport()} disabled={analyticsLoading}><RefreshCw size={15} className={analyticsLoading ? "admin-spin" : ""} /> Refresh report</button>
                 </div>
               </div>
               {analyticsExportNotice && <p className="admin-analytics-export-notice" role="status" aria-live="polite">{analyticsExportNotice}</p>}
