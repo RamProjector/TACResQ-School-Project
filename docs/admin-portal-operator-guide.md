@@ -246,3 +246,7 @@ The inline confirmation controls for removing an authenticator factor and signin
 ## Audit history high-contrast display
 
 The browser-local **High contrast** preference also applies to the dedicated Audit history workspace: coverage disclosures, filters, event cards, expanded event details, selected date presets, pagination controls, and technical-reference actions receive stronger text, surface, border, and keyboard-focus contrast. This remains a display-only preference and does not change audit data, access controls, or event coverage.
+
+## Analytics refresh accessibility status
+
+The Request performance panel exposes its loading and refresh state through the aria-busy attribute while the selected reporting period is being retrieved. Its existing polite loading announcement and error alert remain in place, so assistive technology can identify that the report is updating without treating the entire panel as a new alert.
