@@ -154,3 +154,7 @@ The PostgreSQL foundation replay now has explicit catalog contracts for the disp
 - Dispatcher incident-progress routine.
 
 These are assertions added to the disposable PostgreSQL replay script, not a claim that the replay has been run. They validate installed catalog state and function source shape; they do not by themselves prove every runtime denial path or concurrency interleaving. The same-valid-JWT mutation/read matrix and transaction-race tests remain release gates.
+
+## Callable replay addition — notification claimable read
+
+Notification and claimable-incident reads: exact signatures, pinned VOLATILE definer execution, authenticated-only grants, account-aware identity resolution, and active-profile lock for claimable discovery. Runtime denial still requires same-valid-JWT replay.
