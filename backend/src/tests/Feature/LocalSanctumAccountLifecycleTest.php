@@ -1287,4 +1287,27 @@ class LocalSanctumAccountLifecycleTest extends TestCase
         }
     }
 
+    public function test_missing_local_admin_step_up_fields_are_counted_as_failures(): void
+    {
+        $admin = User::create([
+            'name' => 'Missing Step-up Fields Admin',
+            'email' => 'missing-step-up-fields@example.test',
+            'password' => 'synthetic-test-password',
+            'role' => 'admin',
+        ]);
+        Sanctum::actingAs($admin);
+        $this->registerLocalAdminReauthenticationTestRoute();
+
+        for ($attempt = 1; $attempt <= 4; $attempt++) {
+            $this->postJson('/_test/local-admin-sensitive-action', [])
+                ->assertUnprocessable()
+                ->assertHeader('Cache-Control', 'no-store, private');
+        }
+
+        $this->postJson('/_test/local-admin-sensitive-action', [])
+            ->assertTooManyRequests()
+            ->assertHeader('Retry-After')
+            ->assertHeader('Cache-Control', 'no-store, private');
+    }
+
 }
