@@ -1,6 +1,6 @@
 # Admin account suspension: security design and implementation gates
 
-**Status:** first database foundation committed on `security/admin-account-suspension-runtime-foundation`; full authorization coverage and Admin UI are NOT complete. An atomic Admin account-status transition RPC exists but its EXECUTE grant is intentionally revoked from client roles. Auth session revocation and connected-project deployment are NOT implemented. The migration only adds default-active lifecycle fields, an immutable audit ledger, and a current-database-state helper. No account has been suspended and no live Supabase project or user data was changed.
+**Status (25 Nov 2026):** The website Admin User Management page now displays Active/Suspended state, exposes Suspend/Reactivate actions with a required reason and confirmation, and shows recent lifecycle audit events. The protected transition RPC is granted to authenticated clients only and independently requires AAL2/TOTP plus an active Admin profile. The website controls depend on migration `20261125100000_admin_website_account_lifecycle_controls.sql`. Exact-head PostgreSQL replay, RPC-grant, TypeScript build, and same-valid-JWT validation are still required before runtime sign-off. Android Admin UI is intentionally outside this website-first phase. Auth session revocation and connected-project deployment are NOT implemented. No account has been suspended and no live Supabase project or user data was changed.
 
 ## Goal
 
