@@ -96,3 +96,12 @@ Settings is divided into URL-backed subpages: **General**, **Accessibility**, **
 ## Contextual help across core workspaces
 
 Overview dependency reachability, User Management, Reports, and Security include question-mark help disclosures beside their section headings. The disclosures explain important measurement, permission, and coverage boundaries. They use native disclosure behavior, so the same information can be opened by pointer, keyboard, or touch; they are not hover-only tooltips.
+
+
+## Reviewing an account from User Management
+
+- Use **View details** on a directory row to expand a read-only summary without entering a privileged role-change flow.
+- The summary displays only fields currently returned by the protected Admin directory: profile identifier, account role, operational duty status, and account creation time.
+- Duty status describes field availability/progress; it is not an account-enabled, sign-in, or suspension state.
+- The directory does not currently provide a complete authentication history or account activity timeline. Use Activity Log only for the event sources and coverage explicitly shown there; do not infer that missing events did not occur.
+- Use **Change role** separately when a role correction is necessary. The existing confirmation, fresh account read, database authorization, and audit-reason requirements remain in force.
