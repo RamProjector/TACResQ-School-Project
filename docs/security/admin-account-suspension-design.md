@@ -108,3 +108,7 @@ The audit write and state mutation must be in one database transaction. Clients 
 - No automatic incident cancellation, release, or reassignment.
 - No new paid service, third-party auth product, or stack change.
 - No fake "force sign-out all devices" success message.
+
+### Regression gate — audit identity preflight
+
+Added a source regression gate for the local audit-identity migration: it must take an ACCESS EXCLUSIVE lock before checking unattributed rows, fail with an explicit audit-preserving remediation message, and only then enforce NOT NULL. Rollback only relaxes nullability; it does not rewrite audit history.
