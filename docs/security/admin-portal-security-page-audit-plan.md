@@ -152,6 +152,9 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 
 - Role-change validation, stale-account, and mutation failures now use a dismissible toast outside the modal rather than an inline modal error. This keeps the dialog layout stable and makes the feedback visible without requiring the operator to search behind the scrim.
 - Successful role changes use the same toast surface with a status announcement; errors use an alert announcement. Toasts dismiss automatically after five seconds and can be dismissed immediately.
+- The five-second dismissal pauses while the toast is hovered or keyboard focus is inside it, then restarts when interaction leaves. This prevents the dismiss control from disappearing while an operator is using it.
+- The toast live-region wrapper does not impose a polite announcement mode on its children; success and error roles retain their respective status/alert announcement behavior.
+- Role-change submission now has a synchronous in-flight guard in addition to the rendered saving state, preventing rapid repeated activation from issuing duplicate mutation requests before React rerenders.
 - The toast region is positioned above the Admin workspace, remains within narrow viewport bounds, respects device safe-area insets, and is excluded from printed reports.
 - Added static source-contract assertions for the toast lifecycle, announcement semantics, dismissal control, responsive styling, and print behavior.
 - Kept the programmatic dialog description, access-change warning, reason-length guidance, and textarea/character-counter associations.
