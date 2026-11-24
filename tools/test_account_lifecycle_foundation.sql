@@ -250,6 +250,33 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Admin suspension must reject active legacy and normalized field-unit assignments while holding the target profile lock';
   END IF;
+  -- Assignment writes must lock and recheck the target profile so they
+  -- cannot race past an Admin suspension transition.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc p
+     WHERE p.oid = to_regprocedure('private.tacresq_require_active_assignment_target()')
+       AND p.prosecdef
+       AND p.provolatile = 'v'
+       AND coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']
+       AND p.prosrc ILIKE '%FOR SHARE%'
+       AND p.prosrc ILIKE '%account_status%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_trigger t
+     WHERE t.tgrelid = 'public.incident_assignments'::regclass
+       AND t.tgname = 'tacresq_active_assignment_target_guard'
+       AND t.tgenabled = 'O'
+       AND t.tgfoid = to_regprocedure('private.tacresq_require_active_assignment_target()')
+       AND NOT t.tgisinternal
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_trigger t
+     WHERE t.tgrelid = 'public.incidents'::regclass
+       AND t.tgname = 'tacresq_active_legacy_assignment_target_guard'
+       AND t.tgenabled = 'O'
+       AND t.tgfoid = to_regprocedure('private.tacresq_require_active_assignment_target()')
+       AND NOT t.tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'Legacy and normalized assignment writes must lock and reject inactive target profiles';
+  END IF;
 END;
 $schema_contract$;
 
