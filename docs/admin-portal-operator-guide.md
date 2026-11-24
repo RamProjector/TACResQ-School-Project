@@ -6,7 +6,9 @@
 - **User management:** server-side account search and role filtering, paginated results, and reason-required role changes. Admin accounts remain operator-managed and cannot be promoted or demoted from this page.
 - **Security:** administrator TOTP/AAL2 controls and security guidance. A branch implementation is not proof that a production migration or setting has been deployed.
 - **Reports:** aggregate incident request counts, current status breakdown, daily request volume, and average/median time to first assignment for 7-, 30-, or 90-day windows.
-- **Activity log:** read-only, paginated investigation history plus a separate bounded account lifecycle history section.
+- **Activity log:** read-only, paginated investigation history plus a separate bounded account lifecycle history section. Its visible source inventory explains which event types are included and which remain unavailable.
+- **Settings:** browser-local display and accessibility preferences, with Notifications, Security & sessions, and Privacy & data guidance kept read-only until their backend/governance requirements are verified.
+- **Help & about:** searchable operator guidance for the available Admin workspaces and their capability boundaries.
 
 ## Analytics CSV export
 
