@@ -250,15 +250,11 @@ class FcmNotificationDispatcher
 
     private function deleteToken(string $token): void
     {
-        // Laravel's delete(url, data) argument is a request body, not PostgREST
-        // query parameters. Put the encoded filter in the URL instead.
-        $query = http_build_query(
-            ['token' => 'eq.'.$token],
-            '',
-            '&',
-            PHP_QUERY_RFC3986,
-        );
-        $response = $this->client()->delete($this->tableUrl('fcm_tokens').'?'.$query);
+        // Client table DELETE is intentionally unavailable. Use the scoped RPC,
+        // which authenticates the caller and deletes only that profile's token.
+        $response = $this->client()->post($this->rpcUrl('api_unregister_fcm_token'), [
+            'p_token' => $token,
+        ]);
         if (!$response->successful()) {
             throw new RuntimeException('Supabase invalid-token cleanup failed.');
         }
