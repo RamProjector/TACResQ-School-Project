@@ -298,3 +298,20 @@ The Overview → Dependency reachability panel performs three bounded, on-demand
 The panel explicitly lists capabilities that are **not monitored by these probes**: FCM push delivery, mapping/routing, Storage attachment operations and integrity, the end-to-end SOS/dispatch/responder workflow, and persistent scheduled monitoring/alerting. “Not monitored here” is a coverage statement, not a provider health result. Do not interpret it as healthy, degraded, unavailable, or configured. A timeout is also not conclusive proof of an outage.
 
 Do not trigger synthetic SOS, assignment, notification, or upload actions from a health check. Future probes require a separately reviewed safe test strategy, ownership, rate limits, data isolation, and evidence retention. No provider credentials or secrets should be displayed in the Admin UI.
+
+## Recovery & continuity workspace
+
+The Admin sidebar includes a read-only **Recovery & continuity** workspace. It links to the repository's operator procedures for PostgreSQL logical exports, Storage object copies, FCM operations, and isolated restore drills. It distinguishes documented procedures from live operational evidence.
+
+The workspace deliberately reports backup freshness, off-site copy, restore success, and achieved RPO/RTO as unmeasured or unverified. It has no connection to a backup scheduler, provider snapshot inventory, off-site destination, Auth identity recovery, Render deployment evidence, or restore-drill register. A Git commit, export procedure, or SHA-256 manifest is not proof that data can be restored.
+
+Important recovery boundaries shown in the workspace:
+
+- PostgreSQL schema, data, and custom roles are separate logical export components. Supabase-managed Auth and Storage schemas are not included.
+- Storage object bytes must be copied and restored separately; database metadata does not recover deleted attachments.
+- Auth identities, MFA/provider settings, project secrets, redirect configuration, and Storage policies require separate supported recovery paths.
+- Git preserves source history, not the Render runtime configuration. Treat Render filesystems as ephemeral unless a persistent disk is independently verified; do not use them as the only backup destination.
+- The FCM runbook documents that the deployed web-service startup does not itself launch the dispatcher, scheduler, or worker. Credentials alone do not prove queue execution or device receipt.
+- A restore drill must use an approved isolated target, contain external side effects, validate database and Storage integrity plus application authorization, and receive reviewer acceptance. Never test restore against production.
+
+The page performs no exports, copies, restores, provider probes, scheduling, or configuration changes. Before any live backup/restore integration is added, approve ownership, target and destination, encryption/key recovery, access controls, retention, evidence storage, and production-change boundaries. Use the [backup and disaster-recovery research plan](security/backup-disaster-recovery-research-and-implementation-plan.md) and [isolated restore-drill checklist](security/isolated-restore-drill-checklist.md) as the source procedures.
