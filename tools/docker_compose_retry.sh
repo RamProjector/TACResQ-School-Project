@@ -16,7 +16,7 @@ if ! [[ "$INITIAL_DELAY_SECONDS" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
-TRANSIENT_PATTERN='HTTP/[0-9.]+ (429|502|503|504)( |$)|502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout|429 Too Many Requests|TLS handshake timeout|context deadline exceeded|temporary failure in name resolution|connection reset by peer|unexpected EOF|i/o timeout|no such host|network is unreachable|no route to host|net/http: request canceled'
+TRANSIENT_PATTERN='HTTP/[0-9.]+ (429|502|503|504)([^0-9]|$)|502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout|429 Too Many Requests|TLS handshake timeout|context deadline exceeded|temporary failure in name resolution|connection reset by peer|unexpected EOF|i/o timeout|no such host|network is unreachable|no route to host|net/http: request canceled'
 
 for ((attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)); do
   log_file="$(mktemp)"
