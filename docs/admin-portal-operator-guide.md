@@ -58,3 +58,7 @@ The database transition function for suspension/reactivation remains revoked fro
 The User Management directory defaults to 25 accounts per page. Administrators can choose 10, 25, 50, or 100 rows to suit the screen size and review task. Changing the page size returns the directory to page one so the displayed range remains valid. The selected page size is a view preference for the current console session; it does not change server-side retention or account records.
 
 The directory still applies search and role filters on the server, and pagination uses the same bounded directory endpoint. The control does not expose account suspension, administrator provisioning, or any additional account mutation.
+
+## Overview workspace shortcuts
+
+The Overview page provides direct shortcuts to User Management, Reports, and Activity Log. These use the same section-navigation handler as the sidebar, so the selected workspace and `adminPage` URL parameter remain synchronized and browser Back/Forward navigation continues to work. The shortcuts do not introduce new privileges or data access; each destination retains its existing authorization and loading behavior.
