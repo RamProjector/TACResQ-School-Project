@@ -412,6 +412,8 @@
   .admin-search { flex-basis:100%; }
   .admin-role-filter { flex:1; justify-content:space-between; }
   .admin-role-filter select { flex:1; }
+  .admin-page-size { flex:0 0 auto; justify-content:space-between; }
+  .admin-page-size select { min-width:72px; }
   .admin-filter-reset { flex:0 0 auto; }
   .admin-directory-status { margin:0 14px 12px; }
 }
