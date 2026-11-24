@@ -56,7 +56,7 @@ CREATE POLICY tacresq_fcm_delete_self_cleanup
 CREATE OR REPLACE FUNCTION public.api_unregister_fcm_token(p_token text)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
 DECLARE
@@ -71,9 +71,14 @@ BEGIN
     RETURN;
   END IF;
 
+  PERFORM pg_catalog.set_config('tacresq.allow_suspended_fcm_self_cleanup', 'on', true);
+
   DELETE FROM public.fcm_tokens
    WHERE profile_id = actor_profile_id
      AND token = p_token;
+
+  -- The marker is transaction-local and must not remain enabled after this RPC.
+  PERFORM pg_catalog.set_config('tacresq.allow_suspended_fcm_self_cleanup', NULL, true);
 END;
 $function$;
 
