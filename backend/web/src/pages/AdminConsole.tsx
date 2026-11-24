@@ -33,6 +33,7 @@ import {
   getAdminUsersPage,
   getMyProfile,
   setAdminUserRole,
+  setAdminAccountStatus,
 } from "@/lib/supabase";
 import type {
   AdminAnalyticsSummary,
@@ -606,6 +607,40 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setRoleToast(null);
   }
 
+  async function changeAccountStatus(user: AdminUser) {
+    if (user.role === "admin" || saving || roleChangeInFlight.current) return;
+    const nextStatus = user.account_status === "active" ? "suspended" : "active";
+    const action = nextStatus === "suspended" ? "suspend" : "reactivate";
+    const enteredReason = window.prompt("Enter a reason for " + action + " " + user.name + " (10–500 characters):");
+    if (enteredReason === null) return;
+    const normalizedReason = enteredReason.trim();
+    if (normalizedReason.length < 10 || normalizedReason.length > 500) {
+      setRoleToast({ type: "error", message: "Enter an audit reason between 10 and 500 characters." });
+      return;
+    }
+    if (!window.confirm("Confirm " + action + " for " + user.name + "? Account access will change immediately.")) return;
+    roleChangeInFlight.current = true;
+    setSaving(true);
+    setRoleToast(null);
+    try {
+      const latestPage = await getAdminUsersPage(100, 0, String(user.id), "all");
+      const latest = latestPage.users.find((item) => item.id === user.id);
+      if (!latest || latest.account_status !== user.account_status || latest.role !== user.role) {
+        await refresh();
+        setRoleToast({ type: "error", message: "This account changed while the action was being prepared. Review the refreshed account before trying again." });
+        return;
+      }
+      await setAdminAccountStatus(user.id, nextStatus, normalizedReason);
+      setRoleToast({ type: "success", message: user.name + " was " + (nextStatus === "suspended" ? "suspended" : "reactivated") + ". The action was recorded in lifecycle history." });
+      await refresh();
+    } catch (cause) {
+      setRoleToast({ type: "error", message: cause instanceof Error ? cause.message : "The account status change could not be confirmed." });
+    } finally {
+      roleChangeInFlight.current = false;
+      setSaving(false);
+    }
+  }
+
   async function confirmRoleChange() {
     if (!target || saving || roleChangeInFlight.current || target.role === "admin") return;
     if (reason.trim().length < 10 || reason.trim().length > 500) {
@@ -816,7 +851,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-table-wrap" role="region" aria-label="Account results; horizontally scrollable" tabIndex={0} aria-busy={loading || refreshing || directoryFilterPending}>
               <table className="admin-table" id="admin-account-directory-table" aria-label="Administrator account directory" aria-describedby="admin-directory-status">
                 <caption className="admin-table-caption">Account details and available role-management actions for the current directory page.</caption>
-                <thead><tr><th scope="col">Account</th><th scope="col">Role</th><th scope="col">Duty status</th><th scope="col">Created</th><th scope="col">Action</th></tr></thead>
+                <thead><tr><th scope="col">Account</th><th scope="col">Role</th><th scope="col">Account status</th><th scope="col">Duty status</th><th scope="col">Created</th><th scope="col">Actions</th></tr></thead>
                 <tbody>
                   {directoryFilterPending ? (
                     <tr><td colSpan={5}><div className="admin-empty" role="status" aria-live="polite"><LoaderCircle size={19} className="admin-spin" /> Applying search…</div></td></tr>
@@ -829,6 +864,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                       <tr>
                         <td><div className="admin-account"><span className="admin-account__avatar">{initials(user.name)}</span><span><strong>{user.name}</strong><small>{user.email}</small><small className="admin-account__id">Profile #{user.id}</small></span></div></td>
                         <td><span className={"admin-role admin-role--" + user.role}>{displayRole(user.role)}</span></td>
+                        <td><span className={"admin-account-status admin-account-status--" + user.account_status}>{user.account_status === "active" ? "Active" : "Suspended"}</span></td>
                         <td><span className="admin-duty">{user.duty_status ? user.duty_status.replaceAll("_", " ") : "Not applicable"}</span></td>
                         <td className="admin-date">{formatDate(user.created_at)}</td>
                         <td>
@@ -845,6 +881,15 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                             {user.role === "admin" ? (
                               <span className="admin-provisioned">Operator managed</span>
                             ) : (
+                              <>
+                              <button
+                                className="admin-account-details"
+                                type="button"
+                                onClick={() => { void changeAccountStatus(user); }}
+                                disabled={loading || refreshing || saving || directoryFilterPending || Boolean(directoryError)}
+                              >
+                                {user.account_status === "active" ? "Suspend" : "Reactivate"}
+                              </button>
                               <button
                                 className="admin-change-role"
                                 type="button"
@@ -853,13 +898,14 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                               >
                                 <ArrowDownUp size={14} /> Change role
                               </button>
+                              </>
                             )}
                           </div>
                         </td>
                       </tr>
                       {expandedAccountId === user.id && (
                         <tr className="admin-account-details-row">
-                          <td colSpan={5}>
+                          <td colSpan={6}>
                             <section
                               className="admin-account-details-panel"
                               id={"admin-account-details-" + user.id}
@@ -867,6 +913,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                             >
                               <div><span>Profile identifier</span><strong>#{user.id}</strong></div>
                               <div><span>Account role</span><strong>{displayRole(user.role)}</strong></div>
+                              <div><span>Account status</span><strong>{user.account_status === "active" ? "Active" : "Suspended"}</strong></div>
                               <div>
                                 <span>Operational duty status</span>
                                 <strong>{user.duty_status ? user.duty_status.replaceAll("_", " ") : "Not applicable"}</strong>
