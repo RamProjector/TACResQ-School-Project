@@ -17,6 +17,21 @@ BEGIN
   -- lock so suspension and writes serialize on the same row.
   IF auth.uid() IS NOT NULL
      AND NOT private.tacresq_current_account_active() THEN
+    -- Allow only the authenticated self-unregister RPC to remove its own
+    -- installation token during sign-out. Keep this exception scoped by
+    -- operation, relation, transaction-local marker, and profile ownership.
+    IF TG_OP = 'DELETE' THEN
+      IF TG_TABLE_SCHEMA = 'public' THEN
+        IF TG_TABLE_NAME = 'fcm_tokens' THEN
+          IF current_setting('tacresq.allow_suspended_fcm_self_cleanup', true) = 'on' THEN
+            IF OLD.profile_id = private.tacresq_auth_profile_id_for_token_cleanup() THEN
+              RETURN OLD;
+            END IF;
+          END IF;
+        END IF;
+      END IF;
+    END IF;
+
     RAISE EXCEPTION 'Suspended accounts cannot perform protected writes'
       USING ERRCODE = '42501';
   END IF;
