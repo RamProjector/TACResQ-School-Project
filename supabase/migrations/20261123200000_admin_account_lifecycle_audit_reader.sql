@@ -25,32 +25,43 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  SELECT count(*)
-    INTO v_total
-    FROM public.account_lifecycle_audit_logs;
-
-  SELECT coalesce(
-    jsonb_agg(to_jsonb(page_row) ORDER BY page_row.created_at DESC, page_row.id DESC),
-    '[]'::jsonb
+  -- Count and page rows in one SQL statement so both values use the same
+  -- PostgreSQL statement snapshot. Separate READ COMMITTED statements can
+  -- otherwise observe different concurrent audit inserts.
+  WITH total AS (
+    SELECT count(*)::bigint AS total_count
+      FROM public.account_lifecycle_audit_logs
+  ),
+  lifecycle_page AS (
+    SELECT
+      a.id,
+      a.actor_profile_id,
+      a.actor_identity,
+      a.target_profile_id,
+      coalesce(target.name, 'Profile #' || a.target_profile_id::text) AS target_name,
+      a.action,
+      a.previous_status,
+      a.new_status,
+      a.reason,
+      a.created_at
+    FROM public.account_lifecycle_audit_logs AS a
+    LEFT JOIN public.profiles AS target ON target.id = a.target_profile_id
+    ORDER BY a.created_at DESC, a.id DESC
+    LIMIT p_limit OFFSET p_offset
   )
-    INTO v_events
-    FROM (
-      SELECT
-        a.id,
-        a.actor_profile_id,
-        a.actor_identity,
-        a.target_profile_id,
-        coalesce(target.name, 'Profile #' || a.target_profile_id::text) AS target_name,
-        a.action,
-        a.previous_status,
-        a.new_status,
-        a.reason,
-        a.created_at
-      FROM public.account_lifecycle_audit_logs AS a
-      LEFT JOIN public.profiles AS target ON target.id = a.target_profile_id
-      ORDER BY a.created_at DESC, a.id DESC
-      LIMIT p_limit OFFSET p_offset
-    ) AS page_row;
+  SELECT
+    total.total_count,
+    coalesce(
+      jsonb_agg(
+        to_jsonb(lifecycle_page)
+        ORDER BY lifecycle_page.created_at DESC, lifecycle_page.id DESC
+      ) FILTER (WHERE lifecycle_page.id IS NOT NULL),
+      '[]'::jsonb
+    )
+    INTO v_total, v_events
+    FROM total
+    LEFT JOIN lifecycle_page ON true
+    GROUP BY total.total_count;
 
   RETURN jsonb_build_object('events', v_events, 'total_count', v_total);
 END;
