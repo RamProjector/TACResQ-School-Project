@@ -624,7 +624,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     if (user.role === "admin" || saving || roleChangeInFlight.current) return;
     const nextStatus = user.account_status === "active" ? "suspended" : "active";
     const action = nextStatus === "suspended" ? "suspend" : "reactivate";
-    const enteredReason = window.prompt("Enter a reason for " + action + " " + user.name + " (10–500 characters):");
+    const enteredReason = window.prompt((nextStatus === "suspended" ? "Enter a reason for suspending " : "Enter a reason for reactivating ") + user.name + " (10–500 characters):");
     if (enteredReason === null) return;
     const normalizedReason = enteredReason.trim();
     if (normalizedReason.length < 10 || normalizedReason.length > 500) {
