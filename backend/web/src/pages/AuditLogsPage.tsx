@@ -78,6 +78,11 @@ function formatDetailValue(value: unknown) {
     const labels = value.filter((item): item is string => typeof item === "string");
     return labels.length ? labels.map(formatDetailLabel).join(", ") : "None";
   }
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => formatDetailLabel(key) + ": " + formatDetailValue(item))
+      .join(" · ");
+  }
   return "Not available";
 }
 
