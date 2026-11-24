@@ -1425,3 +1425,17 @@
 
 .admin-security-status__checked { margin:0 22px 14px; color:#778681; font-size:10px; line-height:1.5; }
 @media (max-width:760px) { .admin-security-status__checked { margin:0 14px 12px; } }
+
+.audit-page__lifecycle-error {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px 16px;
+}
+.audit-page__lifecycle-error .admin-panel__footnote { margin:0; }
+.audit-page__lifecycle-error .admin-refresh { flex:none; }
+.audit-page__lifecycle-error .admin-refresh:focus-visible {
+  outline:3px solid rgba(243,106,67,.5);
+  outline-offset:2px;
+}
