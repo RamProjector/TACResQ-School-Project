@@ -125,3 +125,18 @@ def test_directory_refresh_invalidates_old_filter_timestamp_and_expanded_row():
     assert "setExpandedAccountId(null);" in refresh_start
     assert refresh_start.index("setDirectoryLoadedAt(null);") < refresh_start.index("getAdminUsersPage(pageSize")
     assert "Last successful retrieval:" in source
+
+
+
+def test_directory_rows_are_scoped_to_the_active_server_query_before_effects_run():
+    source = SOURCE.read_text(encoding="utf-8")
+    assert 'const [directoryResultsKey, setDirectoryResultsKey] = useState<string | null>(null);' in source
+    assert 'const directoryRequestKey = JSON.stringify([page, pageSize, debouncedQuery, roleFilter]);' in source
+    assert 'directoryResultsKey !== directoryRequestKey' in source
+    assert 'const filteredUsers = directoryFilterPending ? [] : users;' in source
+    refresh = source.split("const refresh = useCallback", 1)[1].split("}, [activeSection, page, pageSize, debouncedQuery, roleFilter]);", 1)[0]
+    assert "setDirectoryResultsKey(null);" in refresh
+    assert 'setDirectoryResultsKey(JSON.stringify([page, pageSize, debouncedQuery, roleFilter]));' in refresh
+    assert refresh.index("setDirectoryResultsKey(null);") < refresh.index("getAdminUsersPage(pageSize")
+    assert refresh.index("setDirectoryLoadedAt(new Date().toISOString());") < refresh.index("setDirectoryResultsKey(JSON.stringify")
+    assert 'directoryFilterPending ? "Updating account results…"' in source
