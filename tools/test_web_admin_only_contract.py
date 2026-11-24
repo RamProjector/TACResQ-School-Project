@@ -270,10 +270,23 @@ assert ".admin-metrics { grid-template-columns: minmax(0,1fr); }" in admin_resol
 
 # Privileged role-change feedback uses a dismissible, timed toast outside the modal.
 assert 'const [roleToast, setRoleToast] = useState<{ type: "success" | "error"; message: string } | null>(null);' in admin_console
-assert 'window.setTimeout(() => setRoleToast(null), 5000)' in admin_console
-assert 'className="admin-toast-region" aria-live="polite" aria-atomic="true"' in admin_console
+assert 'roleToastTimer.current = window.setTimeout(() => {' in admin_console
+assert 'roleToastTimer.current = null;' in admin_console
+assert '}, 5000);' in admin_console
+assert 'function pauseRoleToastDismissal()' in admin_console
+assert 'function resumeRoleToastDismissal()' in admin_console
+assert 'className="admin-toast-region" aria-atomic="true"' in admin_console
+assert 'className={"admin-toast admin-toast--" + roleToast.type}' in admin_console
 assert 'role={roleToast.type === "error" ? "alert" : "status"}' in admin_console
+assert 'onMouseEnter={pauseRoleToastDismissal}' in admin_console
+assert 'onMouseLeave={resumeRoleToastDismissal}' in admin_console
+assert 'onFocusCapture={pauseRoleToastDismissal}' in admin_console
+assert 'onBlurCapture={resumeRoleToastDismissal}' in admin_console
 assert 'aria-label="Dismiss notification"' in admin_console
+assert 'const roleChangeInFlight = useRef(false);' in admin_console
+assert 'if (!target || saving || roleChangeInFlight.current || target.role === "admin") return;' in admin_console
+assert 'roleChangeInFlight.current = true;' in admin_console
+assert 'roleChangeInFlight.current = false;' in admin_console
 assert 'setRoleToast({ type: "error", message: "Enter an audit reason between 10 and 500 characters." })' in admin_console
 assert 'setRoleToast({ type: "success", message: changed.name +' in admin_console
 assert 'setRoleToast({ type: "error", message: cause instanceof Error ? cause.message' in admin_console
