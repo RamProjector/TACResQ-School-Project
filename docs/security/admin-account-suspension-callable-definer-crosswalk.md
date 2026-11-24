@@ -95,3 +95,13 @@ The next read-path review found that `public.api_units()` exposed the responder/
 The related `public.api_all_incidents()` queue function remains SECURITY INVOKER but now uses `private.tacresq_actor_role()`, the shared active-aware role resolver, instead of a raw profile-role lookup. This keeps both roster and queue reads aligned with the account lifecycle boundary.
 
 The SQL replay contract verifies wrapper attributes, active-state locking, private implementation permissions, and the invoker queue helper. The Python source contract ties those assertions to the migration. These are not claims of live PostgreSQL replay or deployment validation.
+
+
+
+## Follow-up implementation — guarded dispatcher team assignment
+
+Migration `20261124080000_account_lifecycle_team_assignment_guard.sql` moves the previous public SECURITY DEFINER assignment implementation into a private internal routine, revokes client EXECUTE on that implementation, and recreates the public signature as an active-dispatcher wrapper. The wrapper takes a `FOR SHARE` lock on the caller's active profile before delegating, so the suspension transition's profile lock serializes against team assignment.
+
+The legacy single-member `api_assign_incident(bigint,bigint)` alias now routes through the guarded team-assignment RPC. This prevents the alias from bypassing the new lifecycle boundary while preserving the existing assignment implementation. The migration's Python/source and PostgreSQL replay contracts check the wrapper, alias, active predicate, lock, and internal grant revocation.
+
+This is migration/source-contract coverage only until the complete disposable PostgreSQL replay and same-valid-JWT denial matrix execute successfully.
