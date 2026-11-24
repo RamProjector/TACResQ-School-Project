@@ -116,6 +116,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       setEvents([]);
       setTotal(0);
       setExpanded(null);
+      setLastSuccessfulRefresh(null);
       setError(dateRangeError);
       setLoading(false);
       return () => { active = false; };
@@ -123,6 +124,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     const timer = window.setTimeout(() => {
       setLoading(true);
       setError(null);
+      setLastSuccessfulRefresh(null);
       void getAdminInvestigationEventsPage(
         PAGE_SIZE,
         page * PAGE_SIZE,
@@ -151,6 +153,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         if (!active) return;
         setEvents([]);
         setTotal(0);
+        setLastSuccessfulRefresh(null);
         setError(cause instanceof Error ? cause.message : "Investigation history could not be loaded.");
       }).finally(() => {
         if (active) setLoading(false);
