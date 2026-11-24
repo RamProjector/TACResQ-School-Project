@@ -16,3 +16,9 @@ assert "outline:3px solid #8a321c" in CSS
 assert ".admin-shell--high-contrast .admin-settings-nav__item--active" in CSS
 
 print("Admin high-contrast preference source contract passed.")
+
+assert "@media (prefers-reduced-motion: reduce)" in CSS
+assert ".admin-shell *, .admin-shell *::before, .admin-shell *::after" in CSS
+assert ".admin-shell--high-contrast .admin-settings-toggle input[type=\"checkbox\"]" in CSS
+assert ".admin-shell--high-contrast .admin-settings-toggle input[type=\"checkbox\"]:focus-visible" in CSS
+assert "Improve text, table, form-control, navigation, and keyboard-focus contrast." in SOURCE
