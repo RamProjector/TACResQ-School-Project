@@ -33,3 +33,12 @@ def test_overview_shortcuts_use_the_shared_section_navigation():
     assert 'onClick={() => navigateToSection("audit")}' in source
     assert 'aria-labelledby="admin-overview-shortcuts-title"' in source
     assert "admin-overview-shortcuts__grid" in source
+
+def test_mobile_directory_keeps_account_identity_visible_during_horizontal_scroll():
+    css = CSS.read_text(encoding="utf-8")
+    assert "@media (max-width:760px)" in css
+    assert ".admin-table th:first-child" in css
+    assert ".admin-table td:first-child" in css
+    assert "position:sticky;" in css
+    assert "left:0;" in css
+    assert "background:#fffefa;" in css
