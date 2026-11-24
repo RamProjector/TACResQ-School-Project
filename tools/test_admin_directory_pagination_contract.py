@@ -98,3 +98,18 @@ def test_core_admin_workspaces_expose_contextual_help_for_metric_and_permission_
     css = CSS.read_text(encoding="utf-8")
     assert ".admin-panel__title-with-help" in css
     assert ".admin-context-help summary:focus-visible" in css
+
+
+def test_directory_account_details_are_expandable_read_only_and_source_bounded():
+    source = SOURCE.read_text(encoding="utf-8")
+    assert "const [expandedAccountId, setExpandedAccountId] = useState<number | null>(null);" in source
+    assert 'aria-expanded={expandedAccountId === user.id}' in source
+    assert 'aria-controls={`admin-account-details-${user.id}`}' in source
+    assert 'aria-label={`Details for ${user.name}`}' in source
+    assert "Profile identifier" in source
+    assert "Operational duty status" in source
+    assert "These are the account fields currently returned by the protected Admin directory." in source
+    assert "does not include authentication history or a complete account activity timeline" in source
+    assert "user.duty_status ? user.duty_status.replaceAll(\"_\", \" \") : \"Not applicable\"" in source
+    assert "admin-account-details-panel" in CSS.read_text(encoding="utf-8")
+    assert "admin-account-details:focus-visible" in CSS.read_text(encoding="utf-8")
