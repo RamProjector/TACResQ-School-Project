@@ -328,13 +328,6 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     }
   }, [activeSection, page, debouncedQuery, roleFilter]);
 
-  useEffect(() => {
-    const syncSection = () => setActiveSection(resolveAdminSection(window.location.search));
-    syncSection();
-    window.addEventListener("popstate", syncSection);
-    return () => window.removeEventListener("popstate", syncSection);
-  }, []);
-
   useEffect(() => { void refresh(); }, [refresh]);
 
   useEffect(() => {
