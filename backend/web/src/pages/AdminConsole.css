@@ -1348,6 +1348,16 @@
 .admin-context-help summary:focus-visible { outline:3px solid rgba(243,106,67,.55); outline-offset:2px; }
 .admin-context-help > div { position:absolute; z-index:8; top:36px; right:0; width:min(260px,75vw); padding:12px; border:1px solid #dce5dc; border-radius:7px; color:#526762; background:#fff; box-shadow:0 12px 28px rgba(31,55,47,.14); font-size:var(--admin-font-xs); line-height:1.55; }
 .admin-help-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; padding:0 22px 20px; }
+.admin-help-search { display:grid; gap:7px; margin:0 22px 16px; }
+.admin-help-search label { color:var(--admin-ink, #334b45); font-size:var(--admin-font-xs); font-weight:700; }
+.admin-help-search input { width:100%; min-height:42px; padding:9px 12px; border:1px solid #cfd9d1; border-radius:6px; color:var(--admin-ink, #263d37); background:#fffefa; font:inherit; }
+.admin-help-search input:focus-visible { outline:2px solid var(--ember); outline-offset:2px; }
+.admin-help-search p { margin:0; color:#71817a; font-size:var(--admin-font-xs); }
+.admin-help-card[hidden] { display:none; }
+.admin-help-empty { margin:0 22px 20px; padding:16px; border:1px dashed #cbd7ce; border-radius:7px; color:#596d64; background:#fafbf7; }
+.admin-shell--high-contrast .admin-help-search input { border-color:#64756d; color:#172d2b; }
+.admin-shell--high-contrast .admin-help-empty { border-color:#64756d; color:#263f36; }
+
 .admin-help-card { display:flex; min-width:0; flex-direction:column; align-items:flex-start; padding:18px; border:1px solid #e3e9e1; border-radius:8px; background:#fffefa; }
 .admin-help-card p { flex:1; margin-bottom:16px; }
 .admin-help-card > button,.admin-help-card > div button { display:inline-flex; min-height:36px; align-items:center; gap:8px; padding:0 10px; border:1px solid #e1e8e0; border-radius:5px; color:#4c7061; background:#f8fbf7; font-size:var(--admin-font-xs); font-weight:700; cursor:pointer; }
