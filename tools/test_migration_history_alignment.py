@@ -109,6 +109,9 @@ PENDING = {
     "20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql",
     "20261124140000_account_lifecycle_duty_status_guard.sql",
     "20261124150000_reconcile_active_account_rls_inventory.sql",
+    # PR #348 FCM self-unregister RPC is staged for review/deployment; do not
+    # treat repository presence as proof that the live Supabase ledger applied it.
+    "20261124170000_secure_fcm_self_unregister_rpc.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
