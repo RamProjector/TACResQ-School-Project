@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Copy, LoaderCircle, RefreshCw, Search } from "lucide-react";
 import { getAdminAccountLifecycleEvents, getAdminInvestigationEventsPage } from "@/lib/supabase";
 import type { AdminAccountLifecycleEvent, AdminInvestigationCategory, AdminInvestigationEvent, AdminInvestigationSource, TacruProfile } from "@/lib/supabase";
@@ -87,6 +87,10 @@ function actorDisplay(event: AdminInvestigationEvent, profile: TacruProfile) {
 
 export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [events, setEvents] = useState<AdminInvestigationEvent[]>([]);
+  // Clipboard promises can resolve after a filter/page change has cleared the
+  // current result set. Track the IDs rendered now, not the stale closure.
+  const visibleEventIds = useRef<Set<string>>(new Set());
+  visibleEventIds.current = new Set(events.map((event) => String(event.id)));
   const [lifecycleEvents, setLifecycleEvents] = useState<AdminAccountLifecycleEvent[]>([]);
   const [lifecycleTotal, setLifecycleTotal] = useState(0);
   const [lifecyclePage, setLifecyclePage] = useState(0);
@@ -214,8 +218,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard access is unavailable in this browser context.");
       await navigator.clipboard.writeText(eventId);
-      setCopiedEventId(eventId);
+      if (visibleEventIds.current.has(eventId)) setCopiedEventId(eventId);
     } catch {
+      if (!visibleEventIds.current.has(eventId)) return;
       setCopiedEventId(null);
       setCopyError("Could not copy the technical reference. Select the reference text and copy it manually.");
     }
