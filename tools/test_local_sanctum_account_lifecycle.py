@@ -76,7 +76,7 @@ assert "test_lifecycle_recorder_event_rolls_back_with_account_transaction" in fe
 assert "test_lifecycle_recorder_rejects_invalid_transition_and_empty_reason" in feature
 assert "final class EnsureLocalAdminReauthenticated" in admin_reauth
 assert "$user->role !== 'admin'" in admin_reauth, "Only local Laravel Admins may pass the privileged guard"
-assert "Hash::check($credentials['current_password'], $user->password)" in admin_reauth
+assert "Hash::check($credentials['current_password'], $lockedUser->password)" in admin_reauth
 assert "RateLimiter::tooManyAttempts($key, 5)" in admin_reauth
 assert "RateLimiter::hit($key, 900)" in admin_reauth
 assert "test_local_admin_sensitive_action_requires_admin_password_and_totp" in feature
