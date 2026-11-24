@@ -84,15 +84,6 @@ PENDING = {
     "20261122213000_reconcile_incident_chat_upload_policy.sql",
     # Follow-on account-lifecycle callable guards are staged and not confirmed in
     # the live Supabase migration ledger.
-    "20261123220000_fcm_delivery_claim_active_recipient_guard.sql",
-    "20261124070000_account_lifecycle_dispatch_progress_guard.sql",
-    "20261124080000_account_lifecycle_team_assignment_guard.sql",
-    "20261124090000_account_lifecycle_assignment_release_guard.sql",
-    "20261124100000_account_lifecycle_location_writer_guard.sql",
-    "20261124110000_account_lifecycle_dispatcher_directory_guard.sql",
-    "20261124120000_account_lifecycle_requester_edit_guard.sql",
-    "20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql",
-    "20261124140000_account_lifecycle_duty_status_guard.sql",
     # Account-lifecycle runtime PR #347 migrations are pending review/deployment;
     # allow them on that branch without implying they exist in the live ledger.
     "20261123090000_account_lifecycle_foundation.sql",
@@ -110,19 +101,8 @@ PENDING = {
     "20261123210000_account_lifecycle_fcm_token_guards.sql",
     "20261124190000_prevent_suspending_assigned_field_units.sql",
     "20261124200000_guard_active_assignment_targets.sql",
-    "20261124190000_prevent_suspending_assigned_field_units.sql",
-    "20261124200000_guard_active_assignment_targets.sql",
     # Additional account-lifecycle enforcement migrations are staged on PR #347;
     # allowlisted as repository files only, not as proof of live application.
-    "20261123220000_fcm_delivery_claim_active_recipient_guard.sql",
-    "20261124070000_account_lifecycle_dispatch_progress_guard.sql",
-    "20261124080000_account_lifecycle_team_assignment_guard.sql",
-    "20261124090000_account_lifecycle_assignment_release_guard.sql",
-    "20261124100000_account_lifecycle_location_writer_guard.sql",
-    "20261124110000_account_lifecycle_dispatcher_directory_guard.sql",
-    "20261124120000_account_lifecycle_requester_edit_guard.sql",
-    "20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql",
-    "20261124140000_account_lifecycle_duty_status_guard.sql",
     "20261124150000_reconcile_active_account_rls_inventory.sql",
     # PR #348 FCM self-unregister RPC is staged for review/deployment; do not
     # treat repository presence as proof that the live Supabase ledger applied it.
