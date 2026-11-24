@@ -149,6 +149,10 @@ function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "A";
 }
 
+function AdminHelpTip({ label, message }: { label: string; message: string }) {
+  return <details className="admin-context-help"><summary aria-label={label}><CircleHelp size={16} /></summary><div>{message}</div></details>;
+}
+
 function exportAnalyticsCsv(summary: AdminAnalyticsSummary) {
   const rows: (string | number)[][] = [
     ["TACResQ incident performance report"],
