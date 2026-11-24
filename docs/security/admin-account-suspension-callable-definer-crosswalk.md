@@ -174,3 +174,10 @@ Requester SOS create/retry and cancellation: exact signatures, pinned VOLATILE S
 ## Callable replay addition — fcm token
 
 FCM registration versus suspended sign-out cleanup: registration must lock an active profile; unregister remains SECURITY INVOKER through a narrow stable cleanup helper. Catalog grants are asserted; RLS and authenticated runtime behavior remain unexecuted.
+## November 24 anonymous callable inventory expansion
+
+The read-only authorization catalog now lists effective EXECUTE access for the anon role independently in both public and private schemas. Each row includes the exact routine signature, owner, SECURITY DEFINER/INVOKER mode, configured search path, and the corresponding authenticated-role EXECUTE result. PostgreSQL's has_function_privilege evaluates effective privileges, including privileges inherited through role membership and grants to PUBLIC; this is intentionally broader than inspecting explicit ACL text alone.
+
+This closes an inventory visibility gap, not an authorization finding by itself. A routine appearing in the anon result must be classified by intended public behavior, schema exposure, function body, nested calls, and data returned or changed. An empty result also needs to be observed from a fresh replay; source inspection cannot establish the live catalog. The inventory remains read-only and does not revoke grants or change any connected project.
+
+The source contract requires both anon sections and checks that owner, execution mode, procedure/function kind, and effective authenticated access remain visible. The Python contract is not a substitute for executing the catalog SQL after clean migration replay.
