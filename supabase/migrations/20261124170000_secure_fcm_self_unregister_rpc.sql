@@ -13,14 +13,17 @@ SET search_path = pg_catalog
 AS $guard$
 BEGIN
   IF auth.uid() IS NOT NULL
-     AND NOT private.tacresq_current_account_active()
-     AND NOT (
-       TG_OP = 'DELETE'
+     AND NOT private.tacresq_current_account_active() THEN
+    -- OLD is a relation-specific record. Read profile_id only inside this
+    -- nested branch; the trigger is installed on many tables with other shapes.
+    IF TG_OP = 'DELETE'
        AND TG_TABLE_SCHEMA = 'public'
        AND TG_TABLE_NAME = 'fcm_tokens'
        AND current_setting('tacresq.allow_suspended_fcm_self_cleanup', true) = 'on'
-       AND OLD.profile_id = private.tacresq_auth_profile_id_for_token_cleanup()
-     ) THEN
+       AND OLD.profile_id = private.tacresq_auth_profile_id_for_token_cleanup() THEN
+      RETURN OLD;
+    END IF;
+
     RAISE EXCEPTION 'Suspended accounts cannot perform protected writes'
       USING ERRCODE = '42501';
   END IF;
