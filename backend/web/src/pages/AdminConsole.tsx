@@ -326,7 +326,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         setRefreshing(false);
       }
     }
-  }, [activeSection, page, debouncedQuery, roleFilter]);
+  }, [activeSection, page, pageSize, debouncedQuery, roleFilter]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
