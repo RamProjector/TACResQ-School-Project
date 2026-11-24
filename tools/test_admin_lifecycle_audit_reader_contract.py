@@ -18,6 +18,8 @@ assert 'account_status' in admin_page
 assert 'changeaccountstatus(user)' in admin_page.lower()
 assert 'suspend' in admin_page.lower() and 'reactivate' in admin_page.lower()
 assert 'window.prompt' in admin_page and 'window.confirm' in admin_page
+assert 'getAdminAccountLifecycleEvents(10, 0)' in admin_page
+assert 'Recent suspension activity' in admin_page
 assert 'p.account_status = \'active\'' in website_migration
 assert 'grant execute on function public.api_admin_set_account_status(bigint, text, text)' in website_migration
 assert 'from public, anon' in website_migration
