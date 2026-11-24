@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Contracts\FcmClientContract;
 use App\FcmHttpV1Client;
 
+use App\Contracts\FcmClientContract;
+use App\FcmHttpV1Client;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Http\Resources\Json\JsonResource;
 

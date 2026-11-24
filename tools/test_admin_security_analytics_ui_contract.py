@@ -86,7 +86,7 @@ assert "setSavedPreferences(preferences);" in ADMIN
 discard_helper = ADMIN.split("function confirmDiscardPreferenceChanges()", 1)[1].split("\n  useEffect", 1)[0]
 assert "const discard = window.confirm(" in discard_helper
 assert "if (!discard) return false;" in discard_helper
-assert discard_helper.index("setPreferences(savedPreferences);") < discard_helper.rindex("return true;")
+assert discard_helper.index("setPreferences(savedPreferences);") < discard_helper.index("return true;")
 assert "setPreferencesError(null);" in discard_helper
 
 
@@ -96,7 +96,7 @@ popstate_guard = ADMIN.split("const syncSectionFromLocation = () => {", 1)[1].sp
 assert "if (preferencesDirty && !confirmDiscardPreferenceChanges())" in popstate_guard
 assert "window.history.pushState({}, \"\", currentUrl.toString());" in popstate_guard
 assert "setActiveSection(resolveAdminSection(window.location.search));" in popstate_guard
-assert "confirmDiscardPreferenceChanges" in ADMIN.split("}, [activeSection, settingsPage, preferencesDirty,", 1)[1].split("]);", 1)[0]
+assert "confirmDiscardPreferenceChanges" in ADMIN.split("window.addEventListener(\"popstate\", syncSectionFromLocation);", 1)[0].split("}, [activeSection, settingsPage, preferencesDirty,", 1)[1]
 
 # Dynamic confirmations for destructive security actions are announced to
 # assistive technology when their controls appear.

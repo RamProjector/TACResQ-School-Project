@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { AlertCircle, LoaderCircle, LogOut, ShieldCheck } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, LoaderCircle, LogOut, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/Brand";
 import { getSupabase } from "@/lib/supabase";
 import "./AdminMfaGate.css";
@@ -55,6 +55,7 @@ export default function AdminMfaGate({ children, onSignOut }: {
   const [availableFactors, setAvailableFactors] = useState<Array<{ id: string; name: string }>>([]);
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
+  const [showSecret, setShowSecret] = useState(false);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +78,7 @@ export default function AdminMfaGate({ children, onSignOut }: {
         setFactorId(result.factorId);
         setQrCode(result.qrCode);
         setSecret(result.secret);
+        setShowSecret(false);
         setState("enroll");
       }
     }).catch((cause: unknown) => {
@@ -120,6 +122,49 @@ export default function AdminMfaGate({ children, onSignOut }: {
     onSignOut();
   }
 
+  async function handleSignOut() {
+    if (busy) return;
+
+    // If enrollment has already completed, remove only the pending factor
+    // created by this gate before ending the session.
+    if (state === "enroll" && factorId) {
+      await cancelEnrollment();
+      return;
+    }
+
+    // Sign-out can be clicked while preparation is still creating a factor.
+    // Await the cached preparation operation so a newly-created pending factor
+    // is not orphaned after the component unmounts.
+    if (state === "checking" && preparation.current) {
+      setBusy(true);
+      setError(null);
+      try {
+        const prepared = await preparation.current;
+        if (prepared.state === "enroll") {
+          // Cleanup is best-effort. An Auth outage must never trap an
+          // administrator in an authenticated session or block sign-out.
+          try {
+            const { error: unenrollError } = await getSupabase().auth.mfa.unenroll({
+              factorId: prepared.factorId,
+            });
+            if (unenrollError) throw unenrollError;
+          } catch {
+            // The pending factor can be cleaned up on a later authenticated visit.
+          }
+        }
+      } catch {
+        // MFA preparation may fail because Auth is unavailable. Sign-out must
+        // remain possible even when the security setup service is unavailable.
+      }
+      onSignOut();
+      return;
+    }
+
+    // A verified-factor challenge or an existing AAL2 session owns no new
+    // pending factor, so normal sign-out is safe.
+    onSignOut();
+  }
+
   async function cancelEnrollment() {
     if (state !== "enroll" || !factorId || busy) return;
     setBusy(true);
@@ -131,6 +176,14 @@ export default function AdminMfaGate({ children, onSignOut }: {
       if (unenrollError) throw unenrollError;
       setSecret("");
       setQrCode("");
+      setCode("");
+    } catch {
+      // Cancellation includes signing out. Do not keep the administrator
+      // authenticated merely because Supabase could not remove this factor.
+    } finally {
+      setSecret("");
+      setQrCode("");
+      setShowSecret(false);
       setCode("");
     } catch {
       // Cancellation includes signing out. Do not keep the administrator
@@ -156,6 +209,9 @@ export default function AdminMfaGate({ children, onSignOut }: {
         throw new Error("TOTP verification was not confirmed. Please check your authenticator code and try again.");
       }
       setCode("");
+      setSecret("");
+      setQrCode("");
+      setShowSecret(false);
       setState("ready");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The code could not be verified. Check Google Authenticator and try again.");
@@ -187,8 +243,13 @@ export default function AdminMfaGate({ children, onSignOut }: {
           <div className="mfa-enrollment">
             {qrCode && <img className="mfa-qr" src={qrCode} alt="Scan this QR code with Google Authenticator" />}
             <label htmlFor="mfa-secret">Manual setup key</label>
-            <input id="mfa-secret" type="text" readOnly value={secret} autoComplete="off" />
-            <p className="mfa-help">Keep this setup key private. Anyone who has it can generate your administrator codes.</p>
+            <div className="mfa-secret-field">
+              <input id="mfa-secret" type={showSecret ? "text" : "password"} readOnly value={secret} autoComplete="off" spellCheck={false} aria-describedby="mfa-secret-help" />
+              <button className="button button--quiet" type="button" onClick={() => setShowSecret((visible) => !visible)} aria-label={showSecret ? "Hide manual setup key" : "Show manual setup key"} aria-pressed={showSecret}>
+                {showSecret ? <EyeOff size={15} /> : <Eye size={15} />}{showSecret ? "Hide key" : "Show key"}
+              </button>
+            </div>
+            <p className="mfa-help" id="mfa-secret-help">The setup key is hidden until you choose to reveal it. Keep it private; anyone who has it can generate your administrator codes.</p>
           </div>
         )}
         {(state === "enroll" || state === "verify") && (

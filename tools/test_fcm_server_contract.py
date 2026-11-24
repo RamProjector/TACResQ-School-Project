@@ -10,6 +10,8 @@ def read(path: str) -> str:
 
 
 transport = read("backend/src/app/FcmHttpV1Client.php")
+client_contract = read("backend/src/app/Contracts/FcmClientContract.php")
+service_provider = read("backend/src/app/Providers/AppServiceProvider.php")
 error_classifier = read("backend/src/app/FcmHttpV1ErrorClassifier.php")
 dispatcher = read("backend/src/app/FcmNotificationDispatcher.php")
 command = read("backend/src/app/Console/Commands/DispatchFcmNotifications.php")
@@ -29,6 +31,9 @@ provider = read("backend/src/app/Providers/AppServiceProvider.php")
 assert "interface FcmClientContract" in contract
 assert "implements \\App\\Contracts\\FcmClientContract" in transport
 assert "FcmClientContract::class, FcmHttpV1Client::class" in provider
+assert "interface FcmClientContract" in client_contract
+assert "implements FcmClientContract" in transport
+assert "FcmClientContract::class, FcmHttpV1Client::class" in service_provider
 assert "ApplicationDefaultCredentials::getCredentials" in transport
 assert "->timeout(10)" in transport
 assert "->timeout(10)" in dispatcher
@@ -63,11 +68,20 @@ assert "claimAttempt" not in dispatcher
 assert "resolution=ignore-duplicates" not in dispatcher
 assert "http_build_query" in dispatcher
 assert "PHP_QUERY_RFC3986" in dispatcher
-assert "$this->tableUrl('fcm_tokens').'?'.$query" in dispatcher
+assert "$this->rpcUrl('api_unregister_fcm_token_for_delivery')" in dispatcher
+assert "'p_profile_id' => $profileId" in dispatcher
+assert "'p_token' => $token" in dispatcher
+server_cleanup = read("supabase/migrations/20261124180000_secure_fcm_delivery_token_cleanup_rpc.sql")
+assert "api_unregister_fcm_token_for_delivery" in server_cleanup
+assert "FROM PUBLIC, anon, authenticated" in server_cleanup
+assert "TO service_role" in server_cleanup
+assert "token_row.profile_id = p_profile_id" in server_cleanup
+assert "token_row.token = p_token" in server_cleanup
+assert "SET search_path = pg_catalog" in server_cleanup
 assert "$this->client()->delete($this->tableUrl('fcm_tokens'), [" not in dispatcher
 assert "permanent_failure" in dispatcher
 assert "persistAttemptSafely" in dispatcher
-assert "FCM delivery ledger update failed for attempt" in dispatcher
+assert "FCM delivery ledger update failed for attempt." in dispatcher
 assert "continue;" in dispatcher
 assert "catch (\\Throwable $exception)" in dispatcher
 assert "Log::warning(" in dispatcher
@@ -166,6 +180,7 @@ assert "test_missing_fcm_project_id_fails_before_queue_claim" in dispatcher_test
 assert "test_non_array_claim_response_is_rejected_before_send" in dispatcher_tests
 assert "test_empty_queue_returns_zero_counts_without_sending" in dispatcher_tests
 assert "test_cleanup_failure_log_contains_only_attempt_and_exception_class" in dispatcher_tests
+assert "test_container_resolves_the_final_fcm_client_through_its_contract" in read("backend/src/tests/Feature/DispatchFcmCommandTest.php")
 # The trusted sender must not expose a public route or use a client-visible key.
 assert "Route::post('/internal/push" not in read("backend/src/routes/api.php")
 assert "supabase_publishable_key" not in dispatcher

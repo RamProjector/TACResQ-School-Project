@@ -242,6 +242,8 @@ jobs:
         run: python3 tools/test_admin_totp_contract.py
       - name: Check pending MFA cleanup on gate sign-out
         run: python3 tools/test_admin_gate_signout_cleanup_contract.py
+      - name: Check Admin pending MFA cleanup contract
+        run: python3 tools/test_admin_pending_mfa_cleanup_contract.py
 
       - name: Check dependency health monitoring safety contract
         run: python3 tools/test_dependency_health_monitoring_contract.py
