@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
-        if self.path in {"/up", "/dispatch/", "/dispatch/config.json"}:
+        if self.path in {"/up", "/admin/", "/runtime-config.json"}:
             body = b"{}"
             self.send_response(200)
             self.send_header("Content-Length", str(len(body)))
@@ -28,6 +28,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    source = (ROOT / "tools/stress_test.py").read_text(encoding="utf-8")
+    assert 'endpoints = ["/up", "/admin/", "/runtime-config.json"]' in source
+    assert "/dispatch/" not in source and "/dispatch/config.json" not in source
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

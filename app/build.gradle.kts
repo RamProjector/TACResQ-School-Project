@@ -1,7 +1,12 @@
+import com.android.build.api.dsl.ApplicationExtension
+
 plugins {
-    id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Apply AGP from the root buildscript classpath so patched transitive build-tool
+// dependencies are used instead of a separately resolved plugin marker classpath.
+apply(plugin = "com.android.application")
 
 val releaseSigningConfigured = listOf(
     System.getenv("ANDROID_SIGNING_STORE_FILE"),
@@ -9,7 +14,7 @@ val releaseSigningConfigured = listOf(
     System.getenv("ANDROID_SIGNING_KEY_ALIAS"),
     System.getenv("ANDROID_SIGNING_KEY_PASSWORD"),
 ).all { !it.isNullOrBlank() } && System.getenv("ANDROID_RELEASE_SIGNING_CONFIGURED") == "true"
-android {
+extensions.configure<ApplicationExtension>("android") {
     namespace = "com.tacresq.app"
     compileSdk {
         version = release(37) {
@@ -83,51 +88,51 @@ android {
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2026.11.01")
-    implementation(composeBom)
+    add("implementation", composeBom)
 
-    implementation("androidx.core:core-ktx:1.19.1")
-    implementation("androidx.activity:activity-compose:1.13.0")
-    implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.material:material-icons-core")
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material3.adaptive:adaptive:1.3.0")
-    implementation("androidx.compose.material3.adaptive:adaptive-layout:1.3.0")
-    implementation("androidx.compose.material3.adaptive:adaptive-navigation:1.3.0")
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
+    add("implementation", "androidx.core:core-ktx:1.19.1")
+    add("implementation", "androidx.activity:activity-compose:1.13.0")
+    add("implementation", "androidx.compose.foundation:foundation")
+    add("implementation", "androidx.compose.material:material-icons-core")
+    add("implementation", "androidx.compose.material:material-icons-extended")
+    add("implementation", "androidx.compose.material3:material3")
+    add("implementation", "androidx.compose.material3.adaptive:adaptive:1.3.0")
+    add("implementation", "androidx.compose.material3.adaptive:adaptive-layout:1.3.0")
+    add("implementation", "androidx.compose.material3.adaptive:adaptive-navigation:1.3.0")
+    add("implementation", "androidx.compose.ui:ui")
+    add("implementation", "androidx.compose.ui:ui-graphics")
+    add("implementation", "androidx.compose.ui:ui-tooling-preview")
 
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
-    implementation("androidx.datastore:datastore-preferences:1.3.0")
-    implementation("androidx.work:work-runtime-ktx:2.12.0")
+    add("implementation", "androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
+    add("implementation", "androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0")
+    add("implementation", "androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
+    add("implementation", "androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
+    add("implementation", "androidx.datastore:datastore-preferences:1.3.0")
+    add("implementation", "androidx.work:work-runtime-ktx:2.12.0")
 
-    implementation("com.google.code.gson:gson:2.15.0")
-    implementation("com.squareup.retrofit2:retrofit:3.0.0")
-    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:5.5.1")
+    add("implementation", "com.google.code.gson:gson:2.15.0")
+    add("implementation", "com.squareup.retrofit2:retrofit:3.0.0")
+    add("implementation", "com.squareup.retrofit2:converter-gson:3.0.0")
+    add("implementation", "com.squareup.okhttp3:logging-interceptor:5.5.1")
 
-    implementation("com.google.android.gms:play-services-location:21.4.0")
+    add("implementation", "com.google.android.gms:play-services-location:21.4.0")
     // Firebase project configuration is supplied per environment; no credentials are committed.
-    implementation("com.google.firebase:firebase-messaging:26.0.1")
+    add("implementation", "com.google.firebase:firebase-messaging:26.0.1")
     // Open-source vector renderer; OpenFreeMap supplies the Liberty style without an API key.
-    implementation("org.maplibre.gl:android-sdk-opengl:13.7.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
+    add("implementation", "org.maplibre.gl:android-sdk-opengl:13.7.1")
+    add("implementation", "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    add("implementation", "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
 
-    implementation("androidx.core.locationbutton:locationbutton:1.0.0-alpha01")
-    implementation("androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01")
+    add("implementation", "androidx.core.locationbutton:locationbutton:1.0.0-alpha01")
+    add("implementation", "androidx.core.locationbutton:locationbutton-compose:1.0.0-alpha01")
 
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("com.squareup.okhttp3:mockwebserver:5.5.1")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
-    androidTestImplementation(composeBom)
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    add("testImplementation", "junit:junit:4.13.2")
+    add("testImplementation", "com.squareup.okhttp3:mockwebserver:5.5.1")
+    add("testImplementation", "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    add("androidTestImplementation", composeBom)
+    add("androidTestImplementation", "androidx.compose.ui:ui-test-junit4")
+    add("androidTestImplementation", "androidx.test.ext:junit:1.2.1")
+    add("androidTestImplementation", "androidx.test.espresso:espresso-core:3.6.1")
+    add("debugImplementation", "androidx.compose.ui:ui-tooling")
+    add("debugImplementation", "androidx.compose.ui:ui-test-manifest")
 }

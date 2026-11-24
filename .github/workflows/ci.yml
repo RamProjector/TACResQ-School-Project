@@ -506,6 +506,10 @@ jobs:
           echo "ANDROID_RELEASE_SIGNING_CONFIGURED=true" >> "$GITHUB_ENV"
           echo "configured=true" >> "$GITHUB_OUTPUT"
 
+      - name: Verify patched Android build-tool dependencies
+        if: hashFiles('gradlew') != ''
+        run: ./gradlew --no-daemon verifyBuildToolDependencySecurity
+
       - name: Build demo-mode debug APK
         if: hashFiles('gradlew') != ''
         run: |
