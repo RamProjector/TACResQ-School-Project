@@ -616,7 +616,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div>
                 <div className="admin-analytics-controls">
                   <label className="admin-analytics-range"><span>Period (Manila time)</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
-                  <button className="admin-refresh" type="button" onClick={() => { if (analytics) exportAnalyticsCsv(analytics); }} disabled={analyticsLoading || !analytics || Boolean(analyticsError)}><Download size={15} /> Export CSV</button>
+                  <button className="admin-refresh" type="button" onClick={() => { if (analytics) exportAnalyticsCsv(analytics); }} disabled={analyticsLoading || !analytics || Boolean(analyticsError)} aria-label="Export incident performance report as CSV"><Download size={15} /> Export CSV</button>
                   <button className="admin-refresh" type="button" onClick={() => setAnalyticsRefreshVersion((version) => version + 1)} disabled={analyticsLoading}><RefreshCw size={15} className={analyticsLoading ? "admin-spin" : ""} /> Refresh report</button>
                 </div>
               </div>
