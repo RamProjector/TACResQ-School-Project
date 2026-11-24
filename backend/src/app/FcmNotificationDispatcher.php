@@ -103,7 +103,7 @@ class FcmNotificationDispatcher
                     // FCM UNREGISTERED is the definitive signal that this token is
                     // no longer registered. Do not delete tokens for INVALID_ARGUMENT.
                     try {
-                        $this->deleteToken($token);
+                        $this->deleteToken($profileId, $token);
                     } catch (\Throwable $cleanupException) {
                         // Keep this delivery retryable until token cleanup succeeds.
                         // Do not misclassify a PostgREST cleanup failure as an FCM transport failure.
@@ -248,11 +248,12 @@ class FcmNotificationDispatcher
         }
     }
 
-    private function deleteToken(string $token): void
+    private function deleteToken(int $profileId, string $token): void
     {
-        // Client table DELETE is intentionally unavailable. Use the scoped RPC,
-        // which authenticates the caller and deletes only that profile's token.
-        $response = $this->client()->post($this->rpcUrl('api_unregister_fcm_token'), [
+        // The worker uses the service-role key, not an end-user JWT. This RPC
+        // is service_role-only and matches the exact claimed profile/token pair.
+        $response = $this->client()->post($this->rpcUrl('api_unregister_fcm_token_for_delivery'), [
+            'p_profile_id' => $profileId,
             'p_token' => $token,
         ]);
         if (!$response->successful()) {
