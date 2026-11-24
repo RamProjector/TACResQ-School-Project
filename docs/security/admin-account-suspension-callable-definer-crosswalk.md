@@ -211,3 +211,10 @@ Migration `20261124130000_account_lifecycle_claimability_and_responder_read_guar
 - `private.tacresq_active_responder_locations()` is now an active-dispatcher wrapper with a profile `FOR SHARE` lock. The existing latest-fresh-location query is retained as `private.tacresq_active_responder_locations_internal()`, which is no longer client-callable.
 
 The PostgreSQL replay contract checks exact signatures, wrapper attributes, active-state predicates, effective grants, and preserved audit/query boundaries. The Python source contract binds the migration to those replay assertions. Neither source inspection nor committed replay SQL is runtime proof: clean disposable PostgreSQL replay, same-valid-JWT suspended denial, and suspension-versus-read/mutation concurrency checks remain pending.
+
+
+## Field-unit duty-status mutation guard — November 24
+
+Migration `20261124140000_account_lifecycle_duty_status_guard.sql` updates `public.api_set_duty_status(text)` to require an active responder/driver in the locked profile read. The profile `FOR UPDATE` lock is held through the update, serializing duty changes with account suspension. Existing available/off-duty input limits and active-incident protection remain in place; suspension does not automatically alter duty status.
+
+The PostgreSQL replay contract verifies invoker mode, volatility, search path, active-state and role predicates, profile locking, active-incident protection, and effective grants. The source contract ties the migration to the replay. Runtime same-valid-JWT denial and duty-change-versus-suspension concurrency remain unexecuted release checks.
