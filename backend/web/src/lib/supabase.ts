@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export type TacruRole = "requester" | "responder" | "driver" | "dispatcher" | "admin";
 export type AdminManagedRole = Exclude<TacruRole, "admin">;
-export interface AdminUser { id: number; name: string; email: string; role: TacruRole; duty_status: DutyStatus | null; created_at: string; }
+export interface AdminUser { id: number; name: string; email: string; role: TacruRole; duty_status: DutyStatus | null; account_status: "active" | "suspended"; created_at: string; }
 export interface AdminAuditEvent { id: number; actor_user_id: number | null; actor_identity: string; target_user_id: number | null; action: "user_role_changed"; old_role: TacruRole; new_role: TacruRole; reason: string; created_at: string; }
 export type AdminInvestigationCategory = "all" | "administrative" | "authentication" | "incident" | "assignment";
 export type AdminInvestigationSource = "all" | "admin_audit_logs" | "supabase_auth_audit_logs" | "incident_status_logs" | "incident_claimability_logs" | "incident_request_edit_logs" | "incident_assignment_events" | "app_action_audit_logs";
@@ -74,6 +74,7 @@ type TacruDatabase = {
       api_active_responder_locations: { Args: Record<string, never>; Returns: ResponderLocation[] };
       api_admin_list_users_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_role: string }; Returns: { users: AdminUser[]; total_count: number } };
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
+      api_admin_set_account_status: { Args: { p_target_profile_id: number; p_account_status: "active" | "suspended"; p_reason: string }; Returns: Record<string, unknown> };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
       api_admin_list_audit_logs_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_action: string; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null }; Returns: { events: AdminAuditEvent[]; total_count: number } };
       api_admin_list_account_lifecycle_events: { Args: { p_limit: number; p_offset: number }; Returns: AdminAccountLifecyclePage };
@@ -222,6 +223,7 @@ export async function getAdminUsersPage(limit: number, offset: number, query: st
       || typeof user.email !== "string" || !user.email.trim()
       || !roles.has(user.role)
       || (user.duty_status !== null && !dutyStatuses.has(user.duty_status))
+      || !["active", "suspended"].includes(user.account_status)
       || typeof user.created_at !== "string"
       || !Number.isFinite(Date.parse(user.created_at))
     ) {
@@ -260,6 +262,20 @@ export async function setAdminUserRole(userId: number, role: AdminManagedRole, r
     throw new Error("The role change outcome for profile #" + userId + " could not be confirmed because the service returned an invalid confirmation. Do not retry yet: refresh the account directory, then open Audit Logs, select “Admin role changes”, filter Target profile ID to " + userId + ", and refresh the audit results.");
   }
   return result;
+}
+export async function setAdminAccountStatus(profileId: number, status: "active" | "suspended", reason: string): Promise<void> {
+  const { data, error } = await getSupabase().rpc("api_admin_set_account_status", {
+    p_target_profile_id: profileId, p_account_status: status, p_reason: reason,
+  });
+  if (error) {
+    if (["42501", "22023", "P0002"].includes(error.code ?? "")) throwAdminError(error);
+    throw new Error("The account status change for profile #" + profileId + " could not be confirmed. Refresh the directory and lifecycle history before retrying.");
+  }
+  const result = data as Record<string, unknown> | null;
+  if (!result || !["changed", "unchanged"].includes(String(result.status))
+    || result.target_profile_id !== profileId || result.account_status !== status) {
+    throw new Error("The account status change for profile #" + profileId + " returned an invalid confirmation. Refresh the directory and lifecycle history before retrying.");
+  }
 }
 export async function getAdminAnalyticsSummary(from: string, to: string): Promise<AdminAnalyticsSummary> {
   const { data, error } = await getSupabase().rpc("api_admin_analytics_summary", {
