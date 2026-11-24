@@ -163,3 +163,8 @@ The suspension/reactivation history displays its own last-successful-retrieval t
 ## Account directory refresh visibility
 
 When a new account-directory request starts, the previous page's rows and total are cleared along with its retrieval timestamp. The directory shows its loading state until the active protected request succeeds or reports an error. This prevents accounts matching an earlier page or filter from being mistaken for the results of the current selection.
+
+
+## Activity Log filter transition behavior
+
+When an Activity Log filter or page changes, the previous event rows, count, expanded detail, and successful-retrieval timestamp are cleared immediately, before the search debounce and protected request. The loading state covers that transition. This avoids presenting records from the previous filter as though they match the newly selected criteria.
