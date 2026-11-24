@@ -117,6 +117,10 @@ The Activity Log includes **7 days**, **30 days**, and **90 days** quick ranges.
 The Reports workspace shows when the currently displayed aggregate was retrieved, formatted in Asia/Manila time. Changing the reporting period or refreshing clears the previous retrieval timestamp and export notice while the next response loads, preventing stale metadata from being presented as current. CSV export reports the prepared filename through an announced status message; if the browser cannot prepare the file, the page displays a recoverable error. The export continues to contain only the aggregate data already returned to the page. Browser download completion itself is not verified by the application.
 
 
+## Security status refresh behavior
+
+Starting a manual or automatic MFA status refresh clears the previously displayed session/factor snapshot and its retrieval timestamp. The workspace shows a checking state until the new Supabase Auth read succeeds, or an explicit unavailable error if it fails. This prevents an older assurance level or factor inventory from remaining visible as though it were the result of the in-progress refresh.
+
 ## Security status freshness
 
 The live Security workspace displays the time its Supabase Auth MFA session and authenticator-factor snapshot was successfully retrieved, formatted in Asia/Manila time. Use **Refresh status** before reviewing factor inventory or interpreting the displayed assurance level. A failed refresh clears the prior snapshot and timestamp rather than presenting stale security state as current. Privileged factor actions continue to re-read and verify the current TOTP/AAL2 state immediately before acting.
