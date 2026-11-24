@@ -127,3 +127,17 @@ Migration `20261124110000_account_lifecycle_dispatcher_directory_guard.sql` move
 The same migration updates `api_all_incidents()`, which remains SECURITY INVOKER, to authorize through the shared active-aware `private.tacresq_actor_role()` helper rather than a raw profile-role lookup. The PostgreSQL replay contract checks the wrapper security mode, active-state lock, private grant, and queue helper.
 
 The read guards are staged migration changes; the disposable migration replay and same-valid-JWT runtime checks remain required before lifecycle enforcement can be enabled.
+
+## Updated release-gate status after the November 24 callable guards
+
+The crosswalk now records active-state enforcement at the dispatcher team-assignment, assignment-release, GPS location-write, field-unit directory, and dispatcher incident-queue boundaries. The related migration sequence is:
+
+- `20261124070000_account_lifecycle_dispatch_progress_guard.sql`
+- `20261124080000_account_lifecycle_team_assignment_guard.sql`
+- `20261124090000_account_lifecycle_assignment_release_guard.sql`
+- `20261124100000_account_lifecycle_location_writer_guard.sql`
+- `20261124110000_account_lifecycle_dispatcher_directory_guard.sql`
+
+These additions reduce known callable gaps but do not complete the full 72-public-callable inventory or the private transitive call graph. Before enabling account transitions, still require: a fresh complete catalog replay; explicit review of every newly discovered callable and nested helper; disposable PostgreSQL same-valid-JWT tests for every guarded path; isolated Edge Function tests proving denied paths make no OAuth/FCM calls; Laravel/Sanctum identity-boundary verification; Storage policy and object-operation tests; and concurrency tests for lifecycle transitions racing with assignment and location operations.
+
+No connected Supabase project was queried or modified, no live migration was applied, and no account transition RPC grant was enabled by these documentation commits.
