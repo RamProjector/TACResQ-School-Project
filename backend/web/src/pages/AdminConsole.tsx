@@ -418,7 +418,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       <a className="admin-skip-link" href="#admin-workspace-main">Skip to admin content</a>
       <div className="admin-toast-region" aria-atomic="true">
         {roleToast && (
-          <div className={"admin-toast admin-toast--" + roleToast.type} role={roleToast.type === "error" ? "alert" : "status"}>
+          <div className={"admin-toast admin-toast--" + roleToast.type} role={roleToast.type === "error" ? "alert" : "status"} onMouseEnter={pauseRoleToastDismissal} onMouseLeave={resumeRoleToastDismissal} onFocusCapture={pauseRoleToastDismissal} onBlurCapture={resumeRoleToastDismissal}>
             <span>{roleToast.message}</span>
             <button type="button" aria-label="Dismiss notification" onClick={() => setRoleToast(null)}><X size={15} /></button>
           </div>
