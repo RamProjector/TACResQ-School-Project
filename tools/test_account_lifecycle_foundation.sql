@@ -1073,3 +1073,32 @@ BEGIN
 END;
 $notification_claimable_read_catalog_contract$;
 
+
+
+-- The private assignee helper is directly executable by authenticated users
+-- because incident RLS policies call it; it must independently reject suspended
+-- profiles and remain unavailable to anon/PUBLIC.
+DO $incident_assignee_helper_catalog_contract$
+DECLARE
+  routine_oid oid := to_regprocedure('private.tacresq_is_incident_assignee(bigint)');
+  routine_source text;
+  routine_settings text[];
+BEGIN
+  IF routine_oid IS NULL THEN RAISE EXCEPTION 'Incident assignee helper is missing'; END IF;
+  SELECT p.prosrc, p.proconfig INTO routine_source, routine_settings
+    FROM pg_catalog.pg_proc p WHERE p.oid = routine_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = routine_oid)
+     OR NOT (coalesce(routine_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR routine_source NOT ILIKE '%account_status = ''active''%'
+     OR routine_source NOT ILIKE '%FOR SHARE%'
+     OR routine_source NOT ILIKE '%auth.uid()%' THEN
+    RAISE EXCEPTION 'Assignee helper must be a pinned active-aware SECURITY DEFINER with a profile lock';
+  END IF;
+  IF NOT has_function_privilege('authenticated', routine_oid, 'EXECUTE')
+     OR has_function_privilege('anon', routine_oid, 'EXECUTE')
+     OR has_function_privilege('public', routine_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Assignee helper must be authenticated-only';
+  END IF;
+END;
+$incident_assignee_helper_catalog_contract$;
+
