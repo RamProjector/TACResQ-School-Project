@@ -301,7 +301,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
               <li><strong>Incident claiming</strong><span>Feed reader: integrated. Shows recorded claimability history; an empty result does not verify trigger health or prove no claimability changes occurred.</span></li>
               <li><strong>Requester edits</strong><span>Feed reader: integrated. Shows allowlisted changed-field names only; private before/after snapshots are excluded. Empty results are not a writer-health check.</span></li>
               <li><strong>Responder assignments</strong><span>Feed reader: integrated. Shows recorded assignment, release, and team-closure events; an empty result may simply mean none were recorded in the selected range.</span></li>
-              <li><strong>App actions</strong><span>Feed reader and database event writers: integrated for chat-message sends, notification-read changes, and field-unit duty-status changes. Only bounded metadata is exposed; message content and credentials are excluded. This is a selected-action subset, not comprehensive activity monitoring.</span></li>
+              <li><strong>App actions</strong><span>Feed reader and database event writers: integrated for chat-message sends, notification reads, and field-unit duty-status changes. Only bounded metadata is exposed; message content and credentials are excluded. This is a selected-action subset, not comprehensive activity monitoring.</span></li>
             </ul>
           </section>
           <section aria-labelledby="audit-sources-gaps">
