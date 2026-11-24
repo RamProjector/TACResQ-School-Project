@@ -251,6 +251,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [preferences, setPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
   const [savedPreferences, setSavedPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [helpQuery, setHelpQuery] = useState("");
+  const normalizedHelpQuery = helpQuery.trim().toLocaleLowerCase();
   const preferencesDirty = JSON.stringify(preferences) !== JSON.stringify(savedPreferences);
 
   function confirmDiscardPreferenceChanges() {
@@ -915,16 +917,22 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           )}
           {activeSection === "help" && (
             <section className="admin-panel admin-help-panel" aria-labelledby="admin-help-title">
+              <div className="admin-help-search">
+                <label htmlFor="admin-help-search">Search Admin guidance</label>
+                <input id="admin-help-search" type="search" value={helpQuery} onChange={(event) => setHelpQuery(event.target.value)} placeholder="Search workspaces, roles, security, reports…" autoComplete="off" />
+                <p id="admin-help-search-status" role="status" aria-live="polite">{normalizedHelpQuery ? "Showing guidance matching “" + helpQuery.trim() + "”." : "Browse the available Admin workspace guidance."}</p>
+              </div>
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">SUPPORT & GUIDANCE</p><h2 id="admin-help-title"><BookOpen size={19} /> Admin help centre</h2></div>
                 <span className="admin-count">Operator guidance</span>
               </div>
               <div className="admin-help-grid">
-                <article className="admin-help-card"><h3>Overview & service reachability</h3><p>The Overview probes Laravel, Supabase Auth, and the database. A reachable dependency does not prove that incident creation, assignment, mapping, push delivery, or the full emergency workflow works.</p><button type="button" onClick={() => navigateToSection("overview")}>Open Overview <span aria-hidden="true">→</span></button></article>
-                <article className="admin-help-card"><h3>User management</h3><p>Search and filter accounts, then change eligible operational roles with a required reason. Admin accounts are operator-managed. Duty status is not an account suspension or sign-in state.</p><button type="button" onClick={() => navigateToSection("users")}>Open User management <span aria-hidden="true">→</span></button></article>
-                <article className="admin-help-card"><h3>Security & authenticator</h3><p>Use a verified authenticator for the required AAL2 session. Keep the only verified factor available. The current Security page is not a complete security-event monitoring centre.</p><button type="button" onClick={() => navigateToSection("security")}>Open Security <span aria-hidden="true">→</span></button></article>
-                <article className="admin-help-card"><h3>Reports & Activity Log</h3><p>Reports contain aggregate request metrics. Activity Log contains only events collected by its connected sources; missing sources must not be interpreted as zero activity.</p><div><button type="button" onClick={() => navigateToSection("analytics")}>Open Reports <span aria-hidden="true">→</span></button><button type="button" onClick={() => navigateToSection("audit")}>Open Activity Log <span aria-hidden="true">→</span></button></div></article>
+                <article className="admin-help-card" hidden={!["overview", "service reachability", "dependencies", "health", "incident workflow", "laravel", "supabase"].some((term) => term.includes(normalizedHelpQuery) || normalizedHelpQuery.includes(term))}><h3>Overview & service reachability</h3><p>The Overview probes Laravel, Supabase Auth, and the database. A reachable dependency does not prove that incident creation, assignment, mapping, push delivery, or the full emergency workflow works.</p><button type="button" onClick={() => navigateToSection("overview")}>Open Overview <span aria-hidden="true">→</span></button></article>
+                <article className="admin-help-card" hidden={!["user management", "accounts", "roles", "duty status", "role changes", "permissions"].some((term) => term.includes(normalizedHelpQuery) || normalizedHelpQuery.includes(term))}><h3>User management</h3><p>Search and filter accounts, then change eligible operational roles with a required reason. Admin accounts are operator-managed. Duty status is not an account suspension or sign-in state.</p><button type="button" onClick={() => navigateToSection("users")}>Open User management <span aria-hidden="true">→</span></button></article>
+                <article className="admin-help-card" hidden={!["security", "authenticator", "totp", "aal2", "mfa", "factor", "sessions"].some((term) => term.includes(normalizedHelpQuery) || normalizedHelpQuery.includes(term))}><h3>Security & authenticator</h3><p>Use a verified authenticator for the required AAL2 session. Keep the only verified factor available. The current Security page is not a complete security-event monitoring centre.</p><button type="button" onClick={() => navigateToSection("security")}>Open Security <span aria-hidden="true">→</span></button></article>
+                <article className="admin-help-card" hidden={!["reports", "activity log", "audit", "aggregate", "events", "metrics", "privacy"].some((term) => term.includes(normalizedHelpQuery) || normalizedHelpQuery.includes(term))}><h3>Reports & Activity Log</h3><p>Reports contain aggregate request metrics. Activity Log contains only events collected by its connected sources; missing sources must not be interpreted as zero activity.</p><div><button type="button" onClick={() => navigateToSection("analytics")}>Open Reports <span aria-hidden="true">→</span></button><button type="button" onClick={() => navigateToSection("audit")}>Open Activity Log <span aria-hidden="true">→</span></button></div></article>
               </div>
+              {normalizedHelpQuery && !["overview service reachability dependencies health incident workflow laravel supabase","user management accounts roles duty status role changes permissions","security authenticator totp aal2 mfa factor sessions","reports activity log audit aggregate events metrics privacy"].some((content) => content.includes(normalizedHelpQuery) || normalizedHelpQuery.split(/\\s+/).some((word) => word.length > 1 && content.includes(word)))} && <p className="admin-help-empty" role="status">No guidance matched that search. Try a workspace name or a term such as roles, authenticator, reports, or audit.</p>}
               <div className="admin-settings-subsection">
                 <p className="admin-eyebrow">ABOUT TACRESQ ADMIN</p>
                 <h3>Privileged workspace</h3>
