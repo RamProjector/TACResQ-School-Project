@@ -42,8 +42,19 @@ assert ".admin-security-status__checked" in CSS
 
 # A security refresh clears stale action feedback and confirmation prompts
 # before the new Supabase Auth snapshot is requested.
-security_refresh = SECURITY_STATUS.split("const refresh = useCallback(async () => {", 1)[1].split("}, []);", 1)[0]
+security_refresh = SECURITY.split("const refresh = useCallback(async () => {", 1)[1].split("}, []);", 1)[0]
 assert security_refresh.index("setActionError(null);") < security_refresh.index("setSnapshot(null);")
 assert security_refresh.index("setNotice(null);") < security_refresh.index("setSnapshot(null);")
 assert security_refresh.index("setConfirmRemoveFactorId(null);") < security_refresh.index("setSnapshot(null);")
 assert security_refresh.index("setConfirmGlobalSignOut(false);") < security_refresh.index("setSnapshot(null);")
+
+
+# Analytics data and export feedback are invalidated synchronously when a
+# period change or manual refresh is requested.
+assert "function reloadAnalyticsReport(days: 7 | 30 | 90 = analyticsDays)" in ADMIN
+analytics_reload = ADMIN.split("function reloadAnalyticsReport(", 1)[1].split("\n  }", 1)[0]
+assert analytics_reload.index("setAnalytics(null);") < analytics_reload.index("setAnalyticsRefreshVersion(")
+assert analytics_reload.index("setAnalyticsLoadedAt(null);") < analytics_reload.index("setAnalyticsRefreshVersion(")
+assert analytics_reload.index("setAnalyticsExportNotice(null);") < analytics_reload.index("setAnalyticsRefreshVersion(")
+assert 'onChange={(event) => reloadAnalyticsReport(Number(event.target.value) as 7 | 30 | 90)}' in ADMIN
+assert 'onClick={() => reloadAnalyticsReport()}' in ADMIN
