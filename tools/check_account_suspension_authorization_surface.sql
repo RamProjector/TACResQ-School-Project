@@ -278,7 +278,7 @@ LEFT JOIN pg_catalog.pg_roles AS grantee_role
   ON grantee_role.oid = expanded.grantee
 ORDER BY owner_role.rolname, schema_scope, object_type, grantee, expanded.privilege_type;
 
-\\echo '=== Anon-callable public routines (effective EXECUTE, including PUBLIC grants) ==='
+\echo '=== Anon-callable public routines (effective EXECUTE, including PUBLIC grants) ==='
 -- Anonymous exposure is a separate authorization surface from authenticated
 -- access. has_function_privilege includes inherited and PUBLIC privileges.
 SELECT
@@ -298,7 +298,7 @@ WHERE n.nspname = 'public'
 ORDER BY p.proname, p.oid::regprocedure::text;
 
 
-\\echo '=== Anon-callable private routines (effective EXECUTE, including PUBLIC grants) ==='
+\echo '=== Anon-callable private routines (effective EXECUTE, including PUBLIC grants) ==='
 -- Private-schema exposure is still relevant when the schema is exposed or
 -- callable through another client path. Record it independently of public RPCs.
 SELECT
