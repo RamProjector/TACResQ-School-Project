@@ -38,7 +38,9 @@ admin_console = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
 audit_page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 for page in ('"overview"', '"users"', '"security"', '"analytics"', '"audit"'):
     assert page in admin_console
-assert '"settings"' not in admin_console
+assert '"settings"' in admin_console
+assert "AdminSettingsPage" in admin_console
+assert "navigateToSettingsPage" in admin_console
 assert '"backups"' not in admin_console
 assert 'import AuditLogsPage from "@/pages/AuditLogsPage"' in admin_console
 assert 'activeSection === "audit" && <AuditLogsPage profile={profile} />' in admin_console
