@@ -758,7 +758,7 @@ BEGIN
   denied := false;
   BEGIN
     PERFORM public.api_admin_set_account_status(
-      actor_id, 'suspended', 'Synthetic self-suspension reason'
+      actor_id, 'active', 'suspended', 'Synthetic self-suspension reason'
     );
   EXCEPTION WHEN insufficient_privilege THEN
     denied := true;
@@ -770,7 +770,7 @@ BEGIN
   denied := false;
   BEGIN
     PERFORM public.api_admin_set_account_status(
-      admin_target_id, 'active', 'Synthetic Admin reactivation reason'
+      admin_target_id, 'active', 'active', 'Synthetic Admin reactivation reason'
     );
   EXCEPTION WHEN insufficient_privilege THEN
     denied := true;
@@ -858,7 +858,7 @@ BEGIN
    WHERE auth_user_id = '00000000-0000-4000-8000-000000000994';
   BEGIN
     PERFORM public.api_admin_set_account_status(
-      rollback_target_id, 'suspended', 'Synthetic rollback contract reason'
+      rollback_target_id, 'active', 'suspended', 'Synthetic rollback contract reason'
     );
   EXCEPTION WHEN raise_exception THEN
     denied := true;
