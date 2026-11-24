@@ -118,12 +118,29 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   useEffect(() => {
     if (!roleToast) return;
     if (roleToastTimer.current !== null) window.clearTimeout(roleToastTimer.current);
-    roleToastTimer.current = window.setTimeout(() => setRoleToast(null), 5000);
+    roleToastTimer.current = window.setTimeout(() => {
+      roleToastTimer.current = null;
+      setRoleToast(null);
+    }, 5000);
     return () => {
       if (roleToastTimer.current !== null) window.clearTimeout(roleToastTimer.current);
       roleToastTimer.current = null;
     };
   }, [roleToast]);
+
+  function pauseRoleToastDismissal() {
+    if (roleToastTimer.current !== null) window.clearTimeout(roleToastTimer.current);
+    roleToastTimer.current = null;
+  }
+
+  function resumeRoleToastDismissal() {
+    if (!roleToast) return;
+    if (roleToastTimer.current !== null) window.clearTimeout(roleToastTimer.current);
+    roleToastTimer.current = window.setTimeout(() => {
+      roleToastTimer.current = null;
+      setRoleToast(null);
+    }, 5000);
+  }
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
