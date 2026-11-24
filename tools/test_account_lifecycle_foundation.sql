@@ -1354,3 +1354,34 @@ BEGIN
   END IF;
 END;
 $active_responder_location_read_contract$;
+
+
+-- Duty status must remain distinct from account lifecycle state. The RPC
+-- locks the caller profile and rejects suspended field units before mutation.
+DO $active_duty_status_callable_contract$
+DECLARE
+  routine_oid oid := to_regprocedure('public.api_set_duty_status(text)');
+  routine_source text;
+  routine_config text[];
+BEGIN
+  IF routine_oid IS NULL THEN
+    RAISE EXCEPTION 'Duty-status RPC is missing';
+  END IF;
+  SELECT p.prosrc, p.proconfig INTO routine_source, routine_config
+    FROM pg_catalog.pg_proc p WHERE p.oid = routine_oid;
+  IF (SELECT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = routine_oid)
+     OR NOT (coalesce(routine_config, ARRAY[]::text[]) @> ARRAY['search_path=public, pg_temp'])
+     OR routine_source NOT ILIKE '%p.account_status IS DISTINCT FROM ''active''%'
+     OR routine_source NOT ILIKE '%p.role NOT IN (''responder'', ''driver'')%'
+     OR routine_source NOT ILIKE '%FOR UPDATE%'
+     OR routine_source NOT ILIKE '%Finish your active incident first%'
+     OR routine_source NOT ILIKE '%UPDATE public.profiles%' THEN
+    RAISE EXCEPTION 'Duty-status RPC must lock an active field-unit profile and preserve active-incident protection';
+  END IF;
+  IF NOT has_function_privilege('authenticated', routine_oid, 'EXECUTE')
+     OR has_function_privilege('anon', routine_oid, 'EXECUTE')
+     OR has_function_privilege('public', routine_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Duty-status RPC must remain authenticated-only';
+  END IF;
+END;
+$active_duty_status_callable_contract$;
