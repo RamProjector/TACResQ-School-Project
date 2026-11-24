@@ -188,3 +188,8 @@ Changing the reporting period or selecting Refresh report immediately clears the
 ## Security action completion feedback
 
 After a backup authenticator is verified, a factor is removed, or a pending enrollment is cancelled, the Security workspace refreshes its Supabase Auth snapshot first and then displays the success notice. The refresh clears older notices by design, so the completion message is intentionally published only after that refresh finishes. This is UI feedback for the completed action; the refreshed snapshot remains the source for current factor status.
+
+
+## Unsaved display preference protection
+
+Display and accessibility preferences preview immediately but are saved only when **Save preferences** is selected. If edits remain unsaved, switching Admin sections or Settings subpages asks for confirmation before discarding them. Leaving or reloading the browser page also triggers the browser's standard unsaved-changes warning. Saving preferences clears the warning; choosing to discard returns to the last saved values on the next load.
