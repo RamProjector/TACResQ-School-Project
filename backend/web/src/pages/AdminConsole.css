@@ -674,6 +674,7 @@
 .audit-page__heading h3 { margin:0; color:var(--ink-deep); font:600 15px/1.35 var(--display); }
 .audit-page__heading p { margin:5px 0 0; color:#718081; font-size:10px; line-height:1.55; }
 .audit-page__heading > span { flex:none; color:#718081; font:600 9px var(--mono); }
+.audit-page__lifecycle .audit-page__heading > span { text-align:left; }
 .audit-page__lifecycle .audit-page__list { display:grid; gap:9px; }
 .audit-page__lifecycle .audit-event-card { border:1px solid #e6ebe2; border-radius:8px; background:#fff; }
 .audit-page__lifecycle .audit-event-card__details { padding:0 15px 13px; }
