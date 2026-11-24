@@ -97,6 +97,8 @@ assert "p_limit > 50" in queue_migration
 assert "existing.attempt_count < 8" in queue_migration
 assert "existing.next_attempt_at <= statement_timestamp()" in queue_migration
 assert "WHERE n.read_at IS NULL" in queue_migration
+assert "SELECT candidates.notification_id, candidates.profile_id, candidates.token" in queue_migration
+assert "FROM candidates" in queue_migration
 assert "GRANT EXECUTE ON FUNCTION public.api_claim_fcm_delivery_batch(integer, integer)" in queue_migration
 assert "TO service_role" in queue_migration
 assert "FROM PUBLIC, anon, authenticated" in queue_migration
