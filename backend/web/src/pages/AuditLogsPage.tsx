@@ -86,13 +86,11 @@ function formatDetailValue(value: unknown, depth = 0): string {
   if (typeof value === "string") return boundedAuditText(value);
   if (typeof value === "number") return String(value);
   if (Array.isArray(value)) {
-    const labels = value
-      .filter((item): item is string => typeof item === "string")
-      .slice(0, MAX_AUDIT_DETAIL_ITEMS)
-      .map(boundedAuditText);
+    const stringValues = value.filter((item): item is string => typeof item === "string");
+    const labels = stringValues.slice(0, MAX_AUDIT_DETAIL_ITEMS).map(boundedAuditText);
     if (!labels.length) return "None";
-    const remaining = value.length > MAX_AUDIT_DETAIL_ITEMS
-      ? " · +" + (value.length - MAX_AUDIT_DETAIL_ITEMS) + " more"
+    const remaining = stringValues.length > labels.length
+      ? " · +" + (stringValues.length - labels.length) + " more"
       : "";
     return labels.join(", ") + remaining;
   }
