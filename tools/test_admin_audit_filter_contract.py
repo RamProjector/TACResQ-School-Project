@@ -76,3 +76,12 @@ assert "text-align:left;" in ADMIN_CSS
 query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, refreshVersion, dateRangeError]);", 1)[0]
 assert query_effect.index("setCopiedEventId(null);") < query_effect.index("if (dateRangeError)")
 assert query_effect.index("setCopyError(null);") < query_effect.index("if (dateRangeError)")
+
+
+# An asynchronous clipboard result must not restore feedback for an event that
+# disappeared from the active investigation result set while copying.
+assert "const visibleEventIds = useRef<Set<string>>(new Set());" in AUDIT
+assert "visibleEventIds.current = new Set(events.map((event) => String(event.id)));" in AUDIT
+copy_handler = AUDIT.split("async function copyEventId(eventId: string)", 1)[1].split("\n  }", 1)[0]
+assert "if (visibleEventIds.current.has(eventId)) setCopiedEventId(eventId);" in copy_handler
+assert "if (!visibleEventIds.current.has(eventId)) return;" in copy_handler
