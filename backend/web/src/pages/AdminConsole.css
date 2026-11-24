@@ -1159,3 +1159,38 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Keep the authenticator setup secret masked and its reveal control aligned. */
+.admin-security-status__secret-field {
+  display:flex;
+  min-width:0;
+  align-items:center;
+  gap:8px;
+}
+.admin-security-status__secret-field input {
+  min-width:0;
+  flex:1 1 auto;
+  letter-spacing:.08em;
+}
+.admin-security-status__secret-field button {
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+.admin-security-status__enrollment > small {
+  display:block;
+  margin-top:-5px;
+  color:#778783;
+  font-size:var(--admin-font-xs);
+  line-height:1.5;
+}
+@media (max-width:480px) {
+  .admin-security-status__secret-field {
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .admin-security-status__secret-field button {
+    width:100%;
+    justify-content:center;
+  }
+}
