@@ -170,3 +170,7 @@ Chat idempotency/upload reservation: exact signatures, active-aware profile reso
 ## Callable replay addition — sos write
 
 Requester SOS create/retry and cancellation: exact signatures, pinned VOLATILE SECURITY DEFINER attributes, active requester predicate, FOR UPDATE lock, and authenticated-only grants. Field-claim runtime denial and transaction races remain separate gates.
+
+## Callable replay addition — fcm token
+
+FCM registration versus suspended sign-out cleanup: registration must lock an active profile; unregister remains SECURITY INVOKER through a narrow stable cleanup helper. Catalog grants are asserted; RLS and authenticated runtime behavior remain unexecuted.
