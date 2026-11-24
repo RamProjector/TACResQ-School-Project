@@ -1519,3 +1519,66 @@
   outline:3px solid #8a321c;
   outline-offset:3px;
 }
+
+/* Extend the browser-local high-contrast preference to the dedicated
+   investigation feed, including its disclosures, filters, and pagination. */
+.admin-shell--high-contrast .audit-page,
+.admin-shell--high-contrast .audit-page__coverage,
+.admin-shell--high-contrast .audit-page__filters,
+.admin-shell--high-contrast .audit-event-card,
+.admin-shell--high-contrast .audit-event-card__details,
+.admin-shell--high-contrast .audit-event-card__references,
+.admin-shell--high-contrast .audit-page__lifecycle {
+  border-color:#65796e;
+}
+.admin-shell--high-contrast .audit-page__intro p:last-child,
+.admin-shell--high-contrast .audit-page__coverage,
+.admin-shell--high-contrast .audit-page__coverage strong,
+.admin-shell--high-contrast .audit-page__filters > label,
+.admin-shell--high-contrast .audit-page__date-presets > span,
+.admin-shell--high-contrast .audit-page__summary,
+.admin-shell--high-contrast .audit-page__lifecycle-actions > span,
+.admin-shell--high-contrast .audit-event-card__meta,
+.admin-shell--high-contrast .audit-event-card__meta small,
+.admin-shell--high-contrast .audit-event-card__details dt,
+.admin-shell--high-contrast .audit-page__pagination,
+.admin-shell--high-contrast .audit-page__lifecycle-pagination {
+  color:#344b43;
+}
+.admin-shell--high-contrast .audit-page__filters,
+.admin-shell--high-contrast .audit-page__coverage,
+.admin-shell--high-contrast .audit-event-card,
+.admin-shell--high-contrast .audit-event-card__details,
+.admin-shell--high-contrast .audit-event-card__references {
+  background:#fff;
+}
+.admin-shell--high-contrast .audit-page__details,
+.admin-shell--high-contrast .audit-page__reset,
+.admin-shell--high-contrast .audit-page__date-presets button,
+.admin-shell--high-contrast .audit-page__pagination button,
+.admin-shell--high-contrast .audit-page__lifecycle-pagination button,
+.admin-shell--high-contrast .audit-event-card__references button {
+  border-color:#65796e;
+  color:#172d27;
+  background:#fff;
+}
+.admin-shell--high-contrast .audit-page__date-presets button[aria-pressed="true"] {
+  border-color:#315b45;
+  color:#173c2e;
+  background:#e4f0e5;
+}
+.admin-shell--high-contrast .audit-event-card__meta strong,
+.admin-shell--high-contrast .audit-event-card__details dd,
+.admin-shell--high-contrast .audit-event-card__heading h3,
+.admin-shell--high-contrast .audit-event-card__heading p {
+  color:#172d27;
+}
+.admin-shell--high-contrast .audit-page__details:focus-visible,
+.admin-shell--high-contrast .audit-page__reset:focus-visible,
+.admin-shell--high-contrast .audit-page__date-presets button:focus-visible,
+.admin-shell--high-contrast .audit-page__pagination button:focus-visible,
+.admin-shell--high-contrast .audit-page__lifecycle-pagination button:focus-visible,
+.admin-shell--high-contrast .audit-event-card__references button:focus-visible {
+  outline:3px solid #8a321c;
+  outline-offset:2px;
+}
