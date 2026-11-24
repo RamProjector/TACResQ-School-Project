@@ -350,9 +350,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   }, [onSignOut]);
 
   // Do not present results for the previous query while a new server-side search is pending.
+  const directoryFilterPending = query.trim() !== debouncedQuery;
   const filteredUsers = directoryFilterPending ? [] : users;
   const hasDirectoryFilters = query.trim().length > 0 || roleFilter !== "all";
-  const directoryFilterPending = query.trim() !== debouncedQuery;
 
   function openRoleChange(user: AdminUser) {
     if (user.role === "admin") return;
