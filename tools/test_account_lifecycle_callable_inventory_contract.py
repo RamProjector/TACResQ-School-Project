@@ -297,3 +297,36 @@ for required in (
     assert required in admin_matrix, f"Admin/legacy matrix is missing callable/boundary: {required}"
 
 print("Per-signature account-lifecycle authorization matrix source contract passed.")
+
+# Requester incident editing is a SECURITY DEFINER entry point. Keep the
+# active-account gate at the public boundary and preserve the existing edit
+# validation/cooldown/audit implementation behind an inaccessible private call.
+requester_edit_migration = (
+    ROOT / "supabase/migrations/20261124120000_account_lifecycle_requester_edit_guard.sql"
+).read_text(encoding="utf-8").lower()
+requester_edit_runtime = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text(encoding="utf-8").lower()
+for required in (
+    "alter function public.api_update_my_incident(",
+    "set schema private",
+    "rename to tacresq_update_my_incident_internal",
+    "revoke all on function private.tacresq_update_my_incident_internal(",
+    "account_status = 'active'",
+    "actor_role is distinct from 'requester'",
+    "for share",
+    "private.tacresq_update_my_incident_internal(",
+    "grant execute on function public.api_update_my_incident(",
+):
+    assert required in requester_edit_migration, f"Requester edit lifecycle migration is missing: {required}"
+
+for required in (
+    "active_requester_edit_entry_contract",
+    "public.api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamp with time zone,text,boolean)",
+    "private.tacresq_update_my_incident_internal(bigint,text,text,double precision,double precision,real,text,timestamp with time zone,text,boolean)",
+    "requester_edit_count",
+    "incident_request_edit_logs",
+    "requester_last_edited_at",
+):
+    assert required in requester_edit_runtime, f"Requester edit replay contract is missing: {required}"
+
+assert "same-valid-jwt" in requester_edit_migration or "same-valid-jwt" in crosswalk
+print("Active requester edit lifecycle source contract passed.")
