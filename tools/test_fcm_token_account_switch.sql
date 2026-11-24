@@ -91,6 +91,32 @@ BEGIN
 END;
 $token_owner_assertion$;
 
+-- A previously associated account must not be able to unregister a token after
+-- that installation has moved to another authenticated profile.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'f2000000-1111-4111-8111-000000000201', true);
+SELECT public.api_unregister_fcm_token('fcm-installation-token-account-switch-000000000201');
+RESET ROLE;
+
+DO $cross_account_cleanup_denied$
+DECLARE
+  expected_profile_id bigint;
+BEGIN
+  SELECT id INTO expected_profile_id
+    FROM public.profiles
+   WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202';
+
+  IF expected_profile_id IS NULL OR NOT EXISTS (
+    SELECT 1
+      FROM public.fcm_tokens
+     WHERE token = 'fcm-installation-token-account-switch-000000000201'
+       AND profile_id = expected_profile_id
+  ) THEN
+    RAISE EXCEPTION 'An account that no longer owns an installation token must not unregister the current owner token';
+  END IF;
+END;
+$cross_account_cleanup_denied$;
+
 -- Suspend the second account and exercise the same still-valid JWT. Registration,
 -- direct reads, and direct writes must fail/return no rows, while self-cleanup
 -- remains available so sign-out can remove this installation's token.
