@@ -4,7 +4,7 @@
 
 | Exact callable / signature | Operation | Branch guard evidence | Remaining proof / decision |
 |---|---|---|---|
-| `api_assign_incident_team(bigint,bigint[])` | Assign multiple units | Guarded wrapper requires active dispatcher and profile `FOR SHARE`; delegates to preserved internal implementation. | Replay exact grants and target-unit active checks; test concurrent suspension and assignment. |
+| `api_assign_incident_team(bigint,bigint[])` | Assign multiple units | Public SECURITY DEFINER wrapper requires active dispatcher and profile `FOR SHARE`; delegates to preserved private implementation. This signature is included in the 23-function public definer inventory. | Replay exact authenticated-only grant, target-unit active checks, and no anon/PUBLIC execute; test concurrent suspension and assignment. |
 | `api_assign_incident(bigint,bigint)` | Legacy one-unit assignment alias | Documented as routed through guarded team-assignment wrapper. | Verify exact signature/grant and test alias parity; no direct internal bypass. |
 | `private.tacresq_assign_incident_team(bigint,bigint[])` | Private assignment implementation | Moved behind guarded wrapper; client EXECUTE is expected revoked. | Verify effective anon/authenticated EXECUTE false and inspect all trigger side effects. |
 | `private.tacresq_release_incident_assignment(bigint,bigint)` | Release assignment | Guarded wrapper requires active dispatcher and profile share lock; preserved implementation is internal. | Verify intended actor role and emergency release semantics; test assignment/duty continuity. |
