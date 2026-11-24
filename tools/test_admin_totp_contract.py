@@ -320,4 +320,108 @@ for marker in (
 ):
     assert marker in admin, f"Admin access review omits permission boundary: {marker}"
 
-print("Admin TOTP, backup-factor enrollment, role-change atomicity, wrapper ordering, grants, and audit RLS contracts passed.")
+# The unified investigation feed is a separate callable Admin endpoint. Keep its
+# trusted MFA check inside the database function and before any source-history reads.
+investigation_migration = (
+    ROOT / "supabase/migrations/20261122160000_admin_investigation_events.sql"
+).read_text().lower()
+investigation_wrapper = re.search(
+    r"create or replace function public[.]api_admin_list_investigation_events[(].*?as [$]function[$](.*?)[$]function[$];",
+    investigation_migration,
+    flags=re.DOTALL,
+)
+assert investigation_wrapper, "Missing unified Admin investigation RPC"
+investigation_body = investigation_wrapper.group(1)
+investigation_mfa = investigation_body.find("perform private.tacresq_require_admin_mfa()")
+first_history_read = investigation_body.find("from public.admin_audit_logs")
+assert investigation_mfa >= 0 and first_history_read > investigation_mfa, (
+    "Investigation RPC must enforce the shared Admin MFA gate before reading audit history"
+)
+source_cte = investigation_body.find("with source_events as (")
+assert source_cte > investigation_mfa, "Investigation source CTE must follow Admin MFA enforcement"
+for validation in (
+    "if p_limit is null or p_limit < 1 or p_limit > 100",
+    "if length(v_query) > 120",
+    "if p_category is null or p_category not in (",
+    "if p_source is null or p_source not in (",
+    "if p_from is not null and p_to is not null and p_from >= p_to",
+    "if (p_actor_user_id is not null and p_actor_user_id < 1)",
+):
+    position = investigation_body.find(validation)
+    assert investigation_mfa < position < source_cte, (
+        f"Investigation input validation must run after MFA and before source reads: {validation}"
+    )
+
+# Keep the investigation feed bounded and allowlisted before it touches source data.
+for requirement in (
+    "p_limit < 1 or p_limit > 100",
+    "p_offset < 0 or p_offset > 1000000",
+    "length(v_query) > 120",
+    "'supabase_auth_audit_logs'",
+    "'incident_status_logs'",
+    "'incident_claimability_logs'",
+    "'incident_request_edit_logs'",
+    "'incident_assignment_events'",
+    "p_category not in (",
+    "p_source not in (",
+):
+    assert requirement in investigation_body, (
+        f"Investigation RPC is missing its bounded/allowlisted contract: {requirement}"
+    )
+auth_projection = investigation_body.split("from auth.audit_log_entries as a", 1)[0].rsplit(
+    "'auth:'", 1
+)[1]
+assert "'provider_action'" in auth_projection
+auth_details = auth_projection.split("jsonb_build_object(", 1)[1].split(
+    ") AS details", 1
+)[0]
+assert "'provider_action'" in auth_details
+assert "a.payload ->> 'action'" in auth_details, (
+    "Auth investigation details must retain only the normalized provider action"
+)
+assert re.search(r"\\ba[.]payload\\b(?!\\s*->>)", auth_details) is None, (
+    "Auth investigation details must not expose the raw provider audit payload object"
+)
+assert "ip_address" not in auth_projection.lower(), (
+    "Auth investigation projection must not expose IP address fields"
+)
+
+# Preserve half-open date ranges and stable ordering so adjacent pages do not
+# duplicate boundary events or reshuffle records with equal timestamps.
+for requirement in (
+    "p_from is null or e.occurred_at >= p_from",
+    "p_to is null or e.occurred_at < p_to",
+    "order by occurred_at desc, event_id desc",
+    "order by page_row.occurred_at desc, page_row.event_id desc",
+    "'total_count', (select count(*) from filtered)",
+):
+    assert requirement in investigation_body, (
+        f"Investigation feed pagination is missing its date/order contract: {requirement}"
+    )
+for searchable_field in (
+    "e.event_id",
+    "e.source",
+    "e.category",
+    "e.event_type",
+    "e.actor_label",
+    "e.target_label",
+    "e.summary",
+    "e.actor_user_id::text",
+    "e.target_user_id::text",
+    "e.incident_id::text",
+    "e.details::text",
+):
+    assert searchable_field in investigation_body, (
+        f"Investigation search no longer covers {searchable_field}"
+    )
+
+assert "revoke all on function public.api_admin_list_investigation_events(" in investigation_migration
+assert "from public, anon, authenticated" in investigation_migration.split(
+    "revoke all on function public.api_admin_list_investigation_events(", 1
+)[1].split(";", 1)[0], "Investigation RPC must revoke PUBLIC and anon execution"
+assert "grant execute on function public.api_admin_list_investigation_events(" in investigation_migration
+assert "to authenticated" in investigation_migration.split(
+    "grant execute on function public.api_admin_list_investigation_events(", 1
+)[1].split(";", 1)[0], "Investigation RPC must remain authenticated-callable through its MFA-checked body"
+
+print("Admin TOTP, investigation-feed MFA ordering, role-change atomicity, wrapper grants, and audit RLS contracts passed.")

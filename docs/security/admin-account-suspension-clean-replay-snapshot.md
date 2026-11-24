@@ -1,7 +1,8 @@
 # Account suspension: clean-replay authorization snapshot
 
 **Branch:** `security/admin-account-suspension`  
-**Observed PR merge commit:** `4f16baf73b38c295baec6d72698233a73a74cac8`  
+**Original replay source commit:** `4f16baf73b38c295baec6d72698233a73a74cac8`  
+**Current reviewed baseline:** 21 public and 11 authenticated-callable private SECURITY DEFINER functions, including the later incident-image reservation RPC.  
 **Source:** CI job `Replay Supabase migrations on clean PostgreSQL` (run `45072734414`)  
 **Purpose:** Record the effective catalog discovered after replaying the repository migrations. This is a point-in-time inventory, not a statement that any endpoint is suspension-safe.
 
@@ -9,17 +10,17 @@
 
 | Surface | Observed |
 |---|---:|
-| Authenticated-callable public functions | 72 |
-| Public `SECURITY DEFINER` functions | 20 |
+| Authenticated-callable public functions | 73 |
+| Public `SECURITY DEFINER` functions | 21 |
 | Public `SECURITY INVOKER` functions | 52 |
 | Public ordinary/partitioned tables inventoried | 20 |
 | Authenticated Storage object policies | 2 |
 
-The earlier preliminary review referenced 18 public authenticated-callable definer functions. The clean replay now reports **20**. Use the replayed catalog as the current baseline and re-run it after every migration change; do not carry the older count forward.
+The earlier preliminary review referenced 18 public authenticated-callable definer functions. The original replay snapshot below reported 20; the later incident-chat upload-reservation migration adds `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, bringing the current reviewed baseline to **21**. The current branch's executable contract locks all 21 signatures and separately locks eleven authenticated-callable private SECURITY DEFINER helpers. Re-run clean replay after every migration change.
 
 ## Public authenticated-callable SECURITY DEFINER functions
 
-These 20 effective signatures were reported by the replay:
+These 20 effective signatures were reported by the original replay. The current baseline adds `api_reserve_incident_image_upload(bigint,text,bigint,uuid)` as signature 16; the current 21-signature exact list is enforced by `tools/test_account_suspension_definer_inventory.sql`.
 
 1. `api_admin_analytics_summary(timestamptz,timestamptz)`
 2. `api_admin_list_audit_logs(integer)`
@@ -36,11 +37,16 @@ These 20 effective signatures were reported by the replay:
 13. `api_my_notification(bigint)`
 14. `api_my_notifications(integer)`
 15. `api_register_fcm_token(text)`
-16. `api_send_incident_image_message(bigint,text,text,text,bigint,uuid)`
-17. `api_send_incident_message(bigint,text,uuid)`
-18. `api_set_incident_claimable(bigint,boolean)`
-19. `api_units()`
-20. `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)`
+16. `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`
+17. `api_send_incident_image_message(bigint,text,text,text,bigint,uuid)`
+18. `api_send_incident_message(bigint,text,uuid)`
+19. `api_set_incident_claimable(bigint,boolean)`
+20. `api_units()`
+21. `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)`
+
+## Private authenticated-callable SECURITY DEFINER functions
+
+The clean replay separately inventories eleven private SECURITY DEFINER helpers with effective `authenticated` EXECUTE. The list includes `private.tacresq_current_account_active()` plus the ten helpers in [batch 23](admin-account-suspension-rpc-review-batch-23-private-callable-definer-source-trace.md). The SQL inventory contract rejects new callable private definers and any `anon`/`PUBLIC` EXECUTE grant. This is a callable-surface inventory, not proof that each helper is safe in every caller context.
 
 Every callable definer entry point remains an independent review target. A wrapper's role check, MFA check, or ownership check does not automatically establish a current account-state check. The private implementation called by a wrapper must also be inspected, and direct authenticated grants to private functions must be treated as callable entry points.
 
@@ -91,7 +97,7 @@ PostgreSQL combines permissive policies with OR and restrictive policies with AN
 
 ## Next implementation gates
 
-1. Build an explicit per-signature review matrix for all 20 public definer functions and every authenticated-callable private definer function.
+1. Build an explicit per-signature review matrix for all 21 public definer functions and all eleven authenticated-callable private definer functions.
 2. Trace each public wrapper into private functions and triggers; record the exact current authorization checks and whether they are sufficient for suspension.
 3. Inventory all direct authenticated table operations in Android, web, and Laravel, mapping each to its effective RLS/grant enforcement.
 4. Add account-state enforcement only after the matrix covers every direct and indirect path, including Storage.
