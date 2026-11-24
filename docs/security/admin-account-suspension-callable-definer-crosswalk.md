@@ -181,3 +181,10 @@ The read-only authorization catalog now lists effective EXECUTE access for the a
 This closes an inventory visibility gap, not an authorization finding by itself. A routine appearing in the anon result must be classified by intended public behavior, schema exposure, function body, nested calls, and data returned or changed. An empty result also needs to be observed from a fresh replay; source inspection cannot establish the live catalog. The inventory remains read-only and does not revoke grants or change any connected project.
 
 The source contract requires both anon sections and checks that owner, execution mode, procedure/function kind, and effective authenticated access remain visible. The Python contract is not a substitute for executing the catalog SQL after clean migration replay.
+## Per-signature authorization matrix — batches 23–26
+
+The detailed review register is now split into four role/surface slices, indexed by `admin-account-suspension-signature-matrix-index.md`: requester lifecycle, field/dispatcher operations, messaging/notifications, and Admin/legacy compatibility. Each callable is a separate review unit, and each row distinguishes documented source guard evidence from outstanding replay/runtime proof. Unknown signatures are explicitly left unresolved for fresh catalog discovery rather than guessed.
+
+The matrix highlights unresolved review items including requester incident editing, active responder coordinate reads, the precise duty-status mutation signature, Admin active-state verification, legacy requester RPC compatibility, and the data-free health RPC decision. These are review blockers, not claims that each is currently exploitable. The Python source contract now requires the matrix slices and their key signature/boundary entries to remain present.
+
+No runtime test result is implied by the matrix. The clean migration replay, effective-grant inventory, same-valid-JWT tests, isolated Edge provider-spy tests, HTTP Storage tests, and concurrency suite remain mandatory.
