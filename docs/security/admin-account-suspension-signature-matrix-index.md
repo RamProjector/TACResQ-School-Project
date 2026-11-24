@@ -22,7 +22,7 @@
 
 ## Baseline
 
-The clean-replay snapshot in `admin-account-suspension-clean-replay-snapshot.md` records 20 public authenticated-callable SECURITY DEFINER signatures, plus invoker routines and private callable functions. Re-run the catalog after migration changes; do not treat the historical snapshot as the current catalog.
+The clean-replay snapshot in `admin-account-suspension-clean-replay-snapshot.md` records 23 public authenticated-callable SECURITY DEFINER signatures, plus 52 public invoker routines and eleven authenticated-callable private SECURITY DEFINER functions. The current reviewed baseline is 75 public callable functions (23 SECURITY DEFINER and 52 SECURITY INVOKER). Re-run the catalog after migration changes; do not treat the historical snapshot as the current catalog.
 
 The read-only catalog now includes separate effective `anon` callable sections for public and private routines. The anon results must be captured and reviewed from a fresh replay; this index does not assert that the anon result is empty.
 
