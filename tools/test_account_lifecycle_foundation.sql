@@ -171,6 +171,21 @@ BEGIN
     OR has_function_privilege('anon', 'private.tacresq_reject_suspended_account_write()', 'EXECUTE') THEN
     RAISE EXCEPTION 'Suspended-account write trigger function must be pinned, privileged, and non-callable by clients';
   END IF;
+
+  -- Legacy incident-create RPCs write through public.incidents too. Assert
+  -- this specific table has the active-account trigger, not only that the
+  -- current table inventory happens to be complete.
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_trigger t
+     WHERE t.tgrelid = 'public.incidents'::regclass
+       AND t.tgname = 'tacresq_active_account_write_guard'
+       AND t.tgenabled = 'O'
+       AND t.tgfoid = to_regprocedure('private.tacresq_reject_suspended_account_write()')
+       AND NOT t.tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'Legacy and current incident creation paths must be covered by the active-account INSERT trigger';
+  END IF;
 END;
 $schema_contract$;
 
