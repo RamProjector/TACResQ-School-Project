@@ -713,6 +713,17 @@ BEGIN
     RAISE EXCEPTION 'Suspension and audit insertion must commit exactly one event';
   END IF;
 
+  -- A stale Admin confirmation must not be treated as idempotent or
+  -- reverse a newer transition: expected active no longer matches suspended.
+  BEGIN
+    PERFORM public.api_admin_set_account_status(
+      target_id, 'active', 'active', 'Stale confirmation must be rejected'
+    );
+    RAISE EXCEPTION 'Stale account status confirmation unexpectedly succeeded';
+  EXCEPTION WHEN serialization_failure THEN
+    NULL;
+  END;
+
   response := public.api_admin_set_account_status(
     target_id, 'suspended', 'suspended', 'Synthetic account suspension reason'
   );
