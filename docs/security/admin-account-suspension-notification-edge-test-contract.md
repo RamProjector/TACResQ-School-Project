@@ -17,13 +17,15 @@ Consequently, this Edge Function is an explicit future enforcement boundary; it 
 4. Keep the existing role and incident relationship checks. An active account is not automatically authorized for an event.
 5. Resolve target profile IDs using the existing event-specific logic, then load only active target profiles. **Implemented.**
 6. Fetch FCM registrations only for those active target IDs. Do not infer recipient eligibility from token existence. **Implemented.**
+7. Accept numeric incident IDs supplied as numbers or digit-only strings, then require a positive safe integer. **Implemented.**
+8. Bound the request body to 8 KiB using both the declared Content-Length (when present) and the actual UTF-8 byte length before JSON parsing. Oversized bodies return HTTP 413. **Implemented.**
 7. Preserve current no-recipient and no-token responses; do not leak whether a suspended target has a token.
 8. Do not delete historical FCM registrations or incident records as a side effect of suspension.
 9. Do not put service-role credentials in client code or return them in error messages.
 
 ## Automated source-level coverage
 
-`tools/test_account_lifecycle_notification_edge_contract.py` runs in CI and checks that the actor account-state lookup and fail-closed decision precede incident lookup; recipient active-state filtering precedes token lookup; and token lookup precedes Google OAuth and FCM send calls. This is a source-order regression check only. It does not execute Deno, mock network calls, or prove provider behavior.
+`tools/test_account_lifecycle_notification_edge_contract.py` checks that the actor account-state lookup and fail-closed decision precede incident lookup; recipient active-state filtering precedes token lookup; token lookup precedes Google OAuth and FCM send calls; and request parsing enforces the body cap and incident-ID validation. This is a source-level regression check only. It does not execute Deno, mock network calls, or prove provider behavior.
 
 ## Remaining Edge Function negative-test matrix
 
@@ -40,6 +42,9 @@ Run against an isolated Supabase test project with synthetic Auth users and FCM 
 | Unknown lifecycle value | Authenticated actor | Any | Fail closed |
 | Active actor, wrong role/incident | Active but unauthorized actor | Any | Existing 403 behavior remains |
 | Active actor, no active recipients | Active authorized actor | Suspended/non-provisioned targets | `sent: 0`; no FCM call |
+| Oversized request body | Authenticated actor | Any | 413 before JSON parsing or database/provider work |
+| Numeric incident ID as digit-only string | Active authorized actor | Active recipient | Same behavior as positive safe-integer numeric ID |
+| Non-digit, zero, negative, or unsafe incident ID | Authenticated actor | Any | 400; no incident/recipient/provider work |
 | Active actor, invalid FCM token | Active authorized actor | Active recipient with invalid token | Existing invalid-token cleanup remains scoped to that token |
 
 ## Test instrumentation requirements
