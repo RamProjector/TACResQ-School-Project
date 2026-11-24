@@ -30,3 +30,8 @@ assert 'scope="row"' in ADMIN
 assert ".admin-analytics-data__table-wrap" in CSS
 
 print("Admin MFA and analytics UI source contract passed.")
+
+assert "const [lastCheckedAt, setLastCheckedAt]" in SECURITY
+assert "setLastCheckedAt(new Date().toISOString())" in SECURITY
+assert "Last checked " in SECURITY and "Asia/Manila" in SECURITY
+assert ".admin-security-status__checked" in CSS
