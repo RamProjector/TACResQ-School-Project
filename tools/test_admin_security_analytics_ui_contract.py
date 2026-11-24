@@ -33,5 +33,8 @@ print("Admin MFA and analytics UI source contract passed.")
 
 assert "const [lastCheckedAt, setLastCheckedAt]" in SECURITY
 assert "setLastCheckedAt(new Date().toISOString())" in SECURITY
+assert "setSnapshot(null);" in SECURITY
+assert "setLastCheckedAt(null);" in SECURITY
+assert "Do not present the previous session/factor inventory as current" in SECURITY
 assert "Last checked " in SECURITY and "Asia/Manila" in SECURITY
 assert ".admin-security-status__checked" in CSS
