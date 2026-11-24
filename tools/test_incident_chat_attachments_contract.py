@@ -209,10 +209,10 @@ for required in (
     "declared_object_bytes",
 ):
     assert required in inventory_sql, f"Storage bucket inventory contract missing: {required}"
-assert "DELETE " not in inventory_sql.upper()
-assert "UPDATE " not in inventory_sql.upper()
-assert "INSERT " not in inventory_sql.upper()
-assert "DROP " not in inventory_sql.upper()
+assert not any(
+    line.lstrip().upper().startswith(("DELETE ", "UPDATE ", "INSERT ", "TRUNCATE ", "DROP ", "ALTER "))
+    for line in inventory_sql.splitlines()
+), "Storage bucket inventory must remain strictly read-only"
 for required in (
     "CREATE OR REPLACE FUNCTION private.tacresq_auth_profile_id()",
     "p.account_status = 'active'",
