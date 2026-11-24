@@ -24,6 +24,11 @@ docs = read("docs/FCM_SETUP.md")
 fcm_lifecycle = read("supabase/migrations/20261123210000_account_lifecycle_fcm_token_guards.sql")
 account_write_guard = read("supabase/migrations/20261123120000_account_lifecycle_write_guard_triggers.sql")
 
+contract = read("backend/src/app/Contracts/FcmClientContract.php")
+provider = read("backend/src/app/Providers/AppServiceProvider.php")
+assert "interface FcmClientContract" in contract
+assert "implements \\App\\Contracts\\FcmClientContract" in transport
+assert "FcmClientContract::class, FcmHttpV1Client::class" in provider
 assert "ApplicationDefaultCredentials::getCredentials" in transport
 assert "->timeout(10)" in transport
 assert "->timeout(10)" in dispatcher
