@@ -234,3 +234,7 @@ The browser-local **High contrast** preference now increases contrast across mor
 ## Operating-system motion and accessibility toggles
 
 The Admin workspace also honors the browser's `prefers-reduced-motion` media preference. This applies reduced transitions and animation even if the Admin-specific browser preference is left off. When High contrast is enabled in Admin Settings, the preference toggle controls themselves receive stronger text, checkbox, and keyboard-focus treatment. These presentation aids complement—but do not replace—operating-system accessibility settings or a formal accessibility audit.
+
+## Role-change dialog scrolling
+
+When an administrator opens the privileged role-change dialog, background page scrolling is locked so the underlying account directory cannot move while the dialog is active. Closing the dialog restores the body's previous inline overflow setting. Keyboard focus trapping, Escape handling, and focus return to the invoking control remain in place.
