@@ -29,7 +29,6 @@ account_write_guard = read("supabase/migrations/20261123120000_account_lifecycle
 contract = read("backend/src/app/Contracts/FcmClientContract.php")
 provider = read("backend/src/app/Providers/AppServiceProvider.php")
 assert "interface FcmClientContract" in contract
-assert "implements \\App\\Contracts\\FcmClientContract" in transport
 assert "FcmClientContract::class, FcmHttpV1Client::class" in provider
 assert "interface FcmClientContract" in client_contract
 assert "implements FcmClientContract" in transport
