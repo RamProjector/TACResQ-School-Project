@@ -88,3 +88,11 @@ assert "visibleEventIds.current = new Set(events.map((event) => String(event.eve
 copy_handler = AUDIT_PAGE.split("async function copyEventId(eventId: string)", 1)[1].split("\n  }", 1)[0]
 assert "if (visibleEventIds.current.has(eventId)) setCopiedEventId(eventId);" in copy_handler
 assert "if (!visibleEventIds.current.has(eventId)) return;" in copy_handler
+
+
+# The seventh, metadata-only app-action source must be described accurately in
+# the UI and operator guide without implying comprehensive activity tracking.
+assert 'app_action_audit_logs: "App actions"' in AUDIT_PAGE
+assert "<strong>App actions</strong>" in AUDIT_PAGE
+assert "chat-message sends, notification reads, and field-unit duty-status changes" in AUDIT_PAGE
+assert "do not expose message content" in AUDIT_PAGE
