@@ -11,13 +11,13 @@ type SecuritySnapshot = {
 };
 type Enrollment = { factorId: string; qrCode: string; secret: string };
 
-function hasTotpAal2(data: { currentLevel: string | null; currentAuthenticationMethods?: unknown[] | null }) {
+function hasTotpMethod(data: { currentLevel: string | null; currentAuthenticationMethods?: unknown[] | null }) {
   const methods = data.currentAuthenticationMethods ?? [];
   const usedTotp = methods.some((method) =>
     typeof method === "string" ? method === "totp" :
       typeof method === "object" && method !== null && "method" in method && method.method === "totp"
   );
-  return data.currentLevel === "aal2" && usedTotp;
+  return usedTotp;
 }
 
 function formatLevel(level: string | null) {
@@ -52,7 +52,7 @@ export default function AdminSecurityStatus() {
       ]);
       if (aalResult.error) throw aalResult.error;
       if (factorsResult.error) throw factorsResult.error;
-      const usedTotp = hasTotpAal2(aalResult.data);
+      const usedTotp = hasTotpMethod(aalResult.data);
       if (requestId !== refreshVersion.current) return;
       setSnapshot({
         currentLevel: aalResult.data.currentLevel ?? null,
