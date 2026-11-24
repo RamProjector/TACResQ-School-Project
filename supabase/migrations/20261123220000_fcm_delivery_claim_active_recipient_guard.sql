@@ -65,8 +65,8 @@ BEGIN
       notification_id, profile_id, token, status, attempted_at,
       updated_at, attempt_count, next_attempt_at
     )
-    SELECT notification_id, profile_id, token, 'claimed', statement_timestamp(),
-      statement_timestamp(), 1, statement_timestamp()
+    SELECT candidates.notification_id, candidates.profile_id, candidates.token,
+      'claimed', statement_timestamp(), statement_timestamp(), 1, statement_timestamp()
     FROM candidates
     ON CONFLICT ON CONSTRAINT fcm_delivery_attempts_notification_id_token_key DO UPDATE
       SET status = 'claimed', attempted_at = statement_timestamp(),
