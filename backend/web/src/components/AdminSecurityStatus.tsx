@@ -106,7 +106,16 @@ export default function AdminSecurityStatus() {
       if (aal.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("Verify your authenticator again before adding a backup device.");
       }
-      const existingNames = new Set(snapshot.factors.map((factor) => factor.name));
+      // Do not trust the rendered factor count when another session may have
+      // enrolled a device since this page was loaded.
+      const { data: latestFactors, error: factorsError } = await auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
+      const currentTotpFactors = latestFactors.all.filter((factor) => factor.factor_type === "totp");
+      if (currentTotpFactors.length >= 10) {
+        await refresh();
+        throw new Error("The maximum number of authenticator factors is already registered.");
+      }
+      const existingNames = new Set(currentTotpFactors.map((factor) => factor.friendly_name || "Authenticator app"));
       let suffix = 1;
       while (existingNames.has(`TACResQ Backup ${suffix}`)) suffix += 1;
       const { data, error: enrollError } = await getSupabase().auth.mfa.enroll({
