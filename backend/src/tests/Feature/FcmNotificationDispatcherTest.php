@@ -160,7 +160,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             if (str_contains($request->url(), '/rpc/api_claim_fcm_delivery_batch')) {
                 return Http::response([$this->attempt()], 200);
             }
-            if (str_contains($request->url(), '/fcm_tokens')) {
+            if (str_contains($request->url(), '/rpc/api_unregister_fcm_token')) {
                 return Http::response([], 500);
             }
             if (str_contains($request->url(), '/fcm_delivery_attempts')) {
@@ -214,7 +214,7 @@ final class FcmNotificationDispatcherTest extends TestCase
     {
         Http::fake([
             'https://project.supabase.co/rest/v1/rpc/api_claim_fcm_delivery_batch' => Http::response([$this->attempt()], 200),
-            'https://project.supabase.co/rest/v1/fcm_tokens*' => Http::response([], 204),
+            'https://project.supabase.co/rest/v1/rpc/api_unregister_fcm_token' => Http::response([], 204),
             'https://project.supabase.co/rest/v1/fcm_delivery_attempts*' => Http::response([], 204),
         ]);
 
@@ -291,7 +291,7 @@ final class FcmNotificationDispatcherTest extends TestCase
 
         self::assertSame(1, $stats['failed']);
         self::assertSame(0, $stats['invalid_tokens']);
-        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/fcm_tokens'));
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/rpc/api_unregister_fcm_token'));
         Http::assertSent(fn ($request) => str_contains($request->url(), '/fcm_delivery_attempts')
             && ($request->data()['status'] ?? null) === 'permanent_failure'
             && ($request->data()['last_error_code'] ?? null) === 'INVALID_ARGUMENT');
@@ -333,7 +333,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             if (str_contains($request->url(), '/rpc/api_claim_fcm_delivery_batch')) {
                 return Http::response([$this->attempt(911), $this->attempt(912, 'device-token-b')], 200);
             }
-            if (str_contains($request->url(), '/fcm_tokens')) {
+            if (str_contains($request->url(), '/rpc/api_unregister_fcm_token')) {
                 return Http::response([], 503);
             }
             if (str_contains($request->url(), '/fcm_delivery_attempts')) {
@@ -478,7 +478,7 @@ final class FcmNotificationDispatcherTest extends TestCase
             if (str_contains($request->url(), '/rpc/api_claim_fcm_delivery_batch')) {
                 return Http::response([$this->attempt()], 200);
             }
-            if (str_contains($request->url(), '/fcm_tokens')) {
+            if (str_contains($request->url(), '/rpc/api_unregister_fcm_token')) {
                 return Http::response(['message' => 'private token-bearing provider detail'], 500);
             }
 
