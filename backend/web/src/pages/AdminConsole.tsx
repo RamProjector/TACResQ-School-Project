@@ -53,11 +53,14 @@ type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | 
 
 type AdminSettingsPage = "general" | "accessibility" | "notifications" | "security" | "privacy";
 
+type AdminPageSize = 10 | 25 | 50 | 100;
+
 type AdminPreferences = {
   density: "comfortable" | "compact";
   reducedMotion: boolean;
   highContrast: boolean;
   contextualHelp: boolean;
+  directoryPageSize: AdminPageSize;
 };
 
 const DEFAULT_ADMIN_PREFERENCES: AdminPreferences = {
@@ -65,6 +68,7 @@ const DEFAULT_ADMIN_PREFERENCES: AdminPreferences = {
   reducedMotion: false,
   highContrast: false,
   contextualHelp: true,
+  directoryPageSize: 25,
 };
 
 const ADMIN_PREFERENCES_KEY = "tacresq.admin.preferences.v1";
@@ -79,6 +83,9 @@ function readAdminPreferences(): AdminPreferences {
       reducedMotion: parsed.reducedMotion === true,
       highContrast: parsed.highContrast === true,
       contextualHelp: parsed.contextualHelp !== false,
+      directoryPageSize: parsed.directoryPageSize === 10 || parsed.directoryPageSize === 25 || parsed.directoryPageSize === 50 || parsed.directoryPageSize === 100
+        ? parsed.directoryPageSize
+        : 25,
     };
   } catch {
     return DEFAULT_ADMIN_PREFERENCES;
@@ -277,6 +284,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     // warning would say "discard" while the unsaved preview remained in state
     // and reappeared when the operator returned to Settings.
     setPreferences(savedPreferences);
+    if (preferences.directoryPageSize !== savedPreferences.directoryPageSize) {
+      setPageSize(savedPreferences.directoryPageSize);
+      setPage(0);
+    }
     setPreferencesError(null);
     return true;
   }
@@ -304,6 +315,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function resetPreferences() {
     setPreferences(DEFAULT_ADMIN_PREFERENCES);
+    setPageSize(DEFAULT_ADMIN_PREFERENCES.directoryPageSize);
+    setPage(0);
     setPreferencesError(null);
   }
 
@@ -370,7 +383,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [analyticsDays, setAnalyticsDays] = useState<7 | 30 | 90>(30);
   const [analyticsRefreshVersion, setAnalyticsRefreshVersion] = useState(0);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState<10 | 25 | 50 | 100>(25);
+  const [pageSize, setPageSize] = useState<AdminPageSize>(() => readAdminPreferences().directoryPageSize);
   const [totalUsers, setTotalUsers] = useState(0);
   const [directoryLoadedAt, setDirectoryLoadedAt] = useState<string | null>(null);
   const [directoryResultsKey, setDirectoryResultsKey] = useState<string | null>(null);
@@ -889,6 +902,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <article className="admin-settings-card">
                   <div className="admin-settings-card__heading"><div><h3>Interface density</h3><p>Choose how much information appears in tables and workspace panels.</p></div><details className="admin-context-help"><summary aria-label="About interface density"><CircleHelp size={16} /></summary><div>Compact mode reduces row and panel spacing. It does not hide fields or change which records are loaded.</div></details></div>
                   <label className="admin-settings-field"><span>Layout density</span><select value={preferences.density} onChange={(event) => setPreferences((current) => ({ ...current, density: event.target.value === "compact" ? "compact" : "comfortable" }))}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
+                  <label className="admin-settings-field"><span>Default account rows per page</span><select value={preferences.directoryPageSize} onChange={(event) => { const next = Number(event.target.value) as AdminPageSize; setPreferences((current) => ({ ...current, directoryPageSize: next })); setPageSize(next); setPage(0); }}><option value={10}>10 accounts</option><option value={25}>25 accounts</option><option value={50}>50 accounts</option><option value={100}>100 accounts</option></select></label>
                 </article>
               </div>}
               {settingsPage === "accessibility" && <div className="admin-settings-grid">
