@@ -62,3 +62,8 @@ The directory still applies search and role filters on the server, and paginatio
 ## Overview workspace shortcuts
 
 The Overview page provides direct shortcuts to User Management, Reports, and Activity Log. These use the same section-navigation handler as the sidebar, so the selected workspace and `adminPage` URL parameter remain synchronized and browser Back/Forward navigation continues to work. The shortcuts do not introduce new privileges or data access; each destination retains its existing authorization and loading behavior.
+
+
+## Security workspace layout
+
+The Security page heading explains the current administrator-session and authenticator scope, while Reports describes the aggregate measures and reporting period available there. Long authenticator names wrap within the factor inventory on narrow screens; factor-management actions move below the factor details on small viewports to avoid horizontal overflow. The interface remains read-only for account suspension/reactivation until the documented security release gates pass.
