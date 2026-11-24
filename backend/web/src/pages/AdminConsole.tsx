@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Activity,
@@ -825,14 +825,16 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   ) : filteredUsers.length === 0 ? (
                     <tr><td colSpan={5}><div className="admin-empty"><Users size={20} /><strong>{directoryError ? "User data is unavailable" : "No accounts match this filter"}</strong><span>{directoryError ? "The page does not substitute demo accounts for live data." : "Try another search or role filter."}</span>{directoryError && <button className="admin-filter-reset" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>Retry account directory</button>}</div></td></tr>
                   ) : filteredUsers.map((user) => (
-                    <tr key={user.id}>
-                      <td><div className="admin-account"><span className="admin-account__avatar">{initials(user.name)}</span><span><strong>{user.name}</strong><small>{user.email}</small><small className="admin-account__id">Profile #{user.id}</small></span></div></td>
-                      <td><span className={"admin-role admin-role--" + user.role}>{displayRole(user.role)}</span></td>
-                      <td><span className="admin-duty">{user.duty_status ? user.duty_status.replaceAll("_", " ") : "Not applicable"}</span></td>
-                      <td className="admin-date">{formatDate(user.created_at)}</td>
-                      <td><div className="admin-account-actions"><button className="admin-account-details" type="button" aria-expanded={expandedAccountId === user.id} aria-controls={`admin-account-details-${user.id}`} onClick={() => setExpandedAccountId((current) => current === user.id ? null : user.id)}>{expandedAccountId === user.id ? "Hide details" : "View details"}</button>{user.role === "admin" ? <span className="admin-provisioned">Operator managed</span> : <button className="admin-change-role" type="button" onClick={() => openRoleChange(user)} disabled={loading || refreshing || directoryFilterPending || Boolean(directoryError)}><ArrowDownUp size={14} /> Change role</button>}</div></td>
-                    </tr>
-                    {expandedAccountId === user.id && <tr className="admin-account-details-row"><td colSpan={5}><section className="admin-account-details-panel" id={`admin-account-details-${user.id}`} aria-label={`Details for ${user.name}`}><div><span>Profile identifier</span><strong>#{user.id}</strong></div><div><span>Account role</span><strong>{displayRole(user.role)}</strong></div><div><span>Operational duty status</span><strong>{user.duty_status ? user.duty_status.replaceAll("_", " ") : "Not applicable"}</strong></div><div><span>Account created</span><strong>{formatDate(user.created_at)}</strong></div><p>These are the account fields currently returned by the protected Admin directory. Duty status is operational availability, not sign-in or suspension status. This view does not include authentication history or a complete account activity timeline.</p></section></td></tr>}
+                    <Fragment key={user.id}>
+                      <tr>
+                        <td><div className="admin-account"><span className="admin-account__avatar">{initials(user.name)}</span><span><strong>{user.name}</strong><small>{user.email}</small><small className="admin-account__id">Profile #{user.id}</small></span></div></td>
+                        <td><span className={"admin-role admin-role--" + user.role}>{displayRole(user.role)}</span></td>
+                        <td><span className="admin-duty">{user.duty_status ? user.duty_status.replaceAll("_", " ") : "Not applicable"}</span></td>
+                        <td className="admin-date">{formatDate(user.created_at)}</td>
+                        <td><div className="admin-account-actions"><button className="admin-account-details" type="button" aria-expanded={expandedAccountId === user.id} aria-controls={`admin-account-details-${user.id}`} onClick={() => setExpandedAccountId((current) => current === user.id ? null : user.id)}>{expandedAccountId === user.id ? "Hide details" : "View details"}</button>{user.role === "admin" ? <span className="admin-provisioned">Operator managed</span> : <button className="admin-change-role" type="button" onClick={() => openRoleChange(user)} disabled={loading || refreshing || directoryFilterPending || Boolean(directoryError)}><ArrowDownUp size={14} /> Change role</button>}</div></td>
+                      </tr>
+                      {expandedAccountId === user.id && <tr className="admin-account-details-row"><td colSpan={5}><section className="admin-account-details-panel" id={`admin-account-details-${user.id}`} aria-label={`Details for ${user.name}`}><div><span>Profile identifier</span><strong>#{user.id}</strong></div><div><span>Account role</span><strong>{displayRole(user.role)}</strong></div><div><span>Operational duty status</span><strong>{user.duty_status ? user.duty_status.replaceAll("_", " ") : "Not applicable"}</strong></div><div><span>Account created</span><strong>{formatDate(user.created_at)}</strong></div><p>These are the account fields currently returned by the protected Admin directory. Duty status is operational availability, not sign-in or suspension status. This view does not include authentication history or a complete account activity timeline.</p></section></td></tr>}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
