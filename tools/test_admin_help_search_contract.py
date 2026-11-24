@@ -8,7 +8,7 @@ assert 'id="admin-help-search"' in source
 assert 'aria-live="polite"' in source[source.index('id="admin-help-search"'):]
 assert "function matchesAdminHelp(query: string, terms: string[])" in source
 assert "split(/\\s+/)" in source
-assert source.count("hidden={!matchesAdminHelp(normalizedHelpQuery") == 4
+assert source.count("hidden={!matchesAdminHelp(normalizedHelpQuery") == 5
 assert "No guidance matched that search." in source
 assert ".admin-help-card[hidden] { display:none; }" in styles
 assert ".admin-help-search input:focus-visible" in styles
