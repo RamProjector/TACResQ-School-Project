@@ -22,8 +22,6 @@ buildscript {
 }
 
 plugins {
-    // Resolve AGP from the patched root buildscript classpath, not a second plugin classpath.
-    id("com.android.application") apply false
     // AGP is supplied by the root buildscript classpath so its transitive
     // dependencies can be resolved to the patched versions declared above.
     id("org.jetbrains.kotlin.plugin.compose") version "2.4.21" apply false
