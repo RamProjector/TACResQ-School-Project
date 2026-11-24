@@ -8,6 +8,7 @@ CSS = ROOT / "backend/web/src/pages/AdminConsole.css"
 def test_directory_page_size_is_user_configurable():
     source = SOURCE.read_text(encoding="utf-8")
     assert "useState<10 | 25 | 50 | 100>(25)" in source
+    assert source.index("const directoryFilterPending =") < source.index("const filteredUsers =")
     assert 'id="admin-directory-page-size"' in source
     assert 'aria-label="Accounts per page"' in source
     assert "setPage(0); setPageSize(Number(event.target.value)" in source
