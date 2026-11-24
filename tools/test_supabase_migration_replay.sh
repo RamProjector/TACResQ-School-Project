@@ -262,8 +262,8 @@ BEGIN
      OR public_rpc_source NOT ILIKE '%tacresq_assign_incident_team_internal%' THEN
     RAISE EXCEPTION 'Public team-assignment wrapper must pin search_path and lock an active dispatcher before delegation';
   END IF;
-  IF private_rpc_definer IS DISTINCT FROM true THEN
-    RAISE EXCEPTION 'Private team-assignment implementation must retain SECURITY DEFINER';
+  IF private_rpc_definer IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'Private team-assignment implementation must remain SECURITY INVOKER inside the guarded definer wrapper';
   END IF;
   IF NOT (coalesce(private_rpc_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
     RAISE EXCEPTION 'Private team-assignment implementation must pin search_path to pg_catalog';
