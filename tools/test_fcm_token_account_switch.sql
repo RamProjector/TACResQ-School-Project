@@ -19,6 +19,10 @@ BEGIN
      OR has_function_privilege('anon', unregister_oid, 'EXECUTE') THEN
     RAISE EXCEPTION 'FCM unregistration RPC must be authenticated-only';
   END IF;
+  IF has_table_privilege('authenticated', 'public.fcm_tokens', 'DELETE')
+     OR has_table_privilege('anon', 'public.fcm_tokens', 'DELETE') THEN
+    RAISE EXCEPTION 'FCM self-cleanup must not reopen direct client table DELETE';
+  END IF;
   IF (SELECT prosecdef FROM pg_proc WHERE oid = unregister_oid) IS DISTINCT FROM true THEN
     RAISE EXCEPTION 'FCM self-cleanup RPC must use its narrowly scoped SECURITY DEFINER boundary';
   END IF;
@@ -132,6 +136,22 @@ UPDATE public.profiles
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'f2000000-1111-4111-8111-000000000202', true);
+
+-- Even if a caller can set the custom transaction flag, direct table DELETE
+-- remains unavailable. Only the scoped definer RPC owns the cleanup boundary.
+SELECT set_config('tacresq.allow_suspended_fcm_self_cleanup', 'on', true);
+DO $suspended_direct_delete_denied$
+BEGIN
+  BEGIN
+    DELETE FROM public.fcm_tokens
+     WHERE token = 'fcm-installation-token-account-switch-000000000201';
+    RAISE EXCEPTION 'Suspended account unexpectedly deleted an FCM token directly';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+END;
+$suspended_direct_delete_denied$;
+SELECT set_config('tacresq.allow_suspended_fcm_self_cleanup', '', true);
 
 DO $suspended_registration_denied$
 BEGIN
