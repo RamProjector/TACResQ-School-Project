@@ -173,3 +173,8 @@ When an Activity Log filter or page changes, the previous event rows, count, exp
 ## Security status refresh behavior
 
 Refreshing the current MFA/factor snapshot clears prior action notices and errors and closes any outstanding factor-removal or global-sign-out confirmation prompt before the new Supabase Auth reads begin. Review the refreshed factor inventory and session assurance state before starting a privileged factor action. An in-progress backup enrollment is not silently cancelled by refresh; use its explicit cancellation control when abandoning enrollment.
+
+
+## Audit reference copy feedback
+
+The copied-reference confirmation and clipboard error message are cleared whenever the investigation query, filters, date range, or page changes. This keeps copy feedback tied to the result set currently displayed rather than implying that an item on a previous page or filter is still available. If clipboard access is blocked, the technical reference remains selectable for manual copying.
