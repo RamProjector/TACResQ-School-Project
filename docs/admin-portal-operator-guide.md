@@ -70,6 +70,12 @@ The Overview page provides direct shortcuts to User Management, Reports, and Act
 
 The Security page heading explains the current administrator-session and authenticator scope, while Reports describes the aggregate measures and reporting period available there. Long authenticator names wrap within the factor inventory on narrow screens; factor-management actions move below the factor details on small viewports to avoid horizontal overflow. The interface remains read-only for account suspension/reactivation until the documented security release gates pass.
 
+## Admin access review
+
+The Security workspace includes a read-only **Admin access review** matrix. It summarizes the current portal-level capabilities, the Admin + AAL2 + TOTP gate on protected Admin RPCs, the ordinary-role change restrictions, and operations that remain unavailable. The current portal uses one Admin application role; it does not create separate Auditor, Security Admin, or User Manager roles.
+
+The matrix is a repository-backed capability summary, not a live scan of every RLS policy, API route, Edge Function, Storage object, or individual user's effective permissions. Operational permissions for requesters, responders, drivers, and dispatchers remain separately enforced by their server-side policies. Admin access does not implicitly grant dispatch or field-unit powers.
+
 ## Mobile account directory navigation
 
 On narrow screens, the account directory remains horizontally scrollable so all five data columns stay available without compressing names, email addresses, and role information into unreadable cells. The first Account column stays pinned while the other columns scroll, preserving the identity context for each row. The table's scroll region remains keyboard-focusable; use Tab to reach it and the horizontal scroll controls provided by the browser or trackpad. This is a presentation-only change and does not alter directory queries or account data.
@@ -85,7 +91,7 @@ The Settings page also explains current capability boundaries:
 
 ## Help & About workspace
 
-The Help & About section explains the purpose and limitations of Overview, User Management, Security, Reports, and Activity Log, with direct links to each workspace. It identifies the Admin portal as a privileged administration interface rather than a dispatch console and does not claim an unconfigured support contact or release version.
+The Help & About section explains the purpose and limitations of Overview, User Management, Security, Reports, and Activity Log, with direct links to each workspace, including Settings and Admin access review. It identifies the Admin portal as a privileged administration interface rather than a dispatch console and does not claim an unconfigured support contact or release version.
 
 Contextual question-mark disclosures in Settings work with pointer, keyboard, and touch interaction through native disclosure controls. Their explanatory content is optional and can be hidden using the contextual-help preference. Important capability limitations remain visible in the page content and are not tooltip-only.
 
