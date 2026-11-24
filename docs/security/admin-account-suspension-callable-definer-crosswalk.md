@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Review status:** source-traced crosswalk plus a staged lifecycle helper; not proof of runtime denial.  
-**Catalog baseline:** 24 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The upload-reservation RPC is included in the current signature inventory; the referenced batches document source-level checks and remaining account-state gaps.
+**Catalog baseline:** 25 authenticated-callable public SECURITY DEFINER functions in the clean migration replay. The upload-reservation RPC is included in the current signature inventory; the referenced batches document source-level checks and remaining account-state gaps.
 
 ## Public SECURITY DEFINER entry points
 
@@ -32,6 +32,7 @@
 | 22 | `api_admin_list_account_lifecycle_events(integer,integer)` | Batch 2 — lifecycle audit reader | Require active Admin with AAL2/TOTP before bounded history reads; keep direct ledger table grants revoked |
 | 23 | `api_assign_incident_team(bigint,bigint[])` | Batch 3 and Batch 24 — guarded dispatcher team assignment | Public SECURITY DEFINER wrapper requires an active dispatcher and profile share lock; the preserved internal implementation is not client-callable |
 | 24 | `api_unregister_fcm_token(text)` | Batch 4 — profile/notifications/FCM | Authenticated-only SECURITY DEFINER cleanup RPC; pinned search path; delete only caller's own token; transaction-local exception is limited to public.fcm_tokens DELETE and cleared before return; direct table DELETE remains revoked |
+| 25 | `api_admin_set_account_status(bigint,text,text)` | Website Admin account lifecycle | AAL2/TOTP and active-Admin check; reject self/Admin targets; lock target profile; atomically update status and append immutable audit history |
 
 ## Website Admin transition (client-callable)
 
@@ -54,7 +55,7 @@ The full exact private signature list and function bodies are emitted by `tools/
 
 The clean replay also reports 50 authenticated-callable public SECURITY INVOKER functions. Their access can still expose or mutate data through RLS, views, or helper calls. Examples documented in Batch 3 include `api_assign_incident`, `api_update_incident_status`, `api_all_incidents`, `api_my_incidents`, `api_set_duty_status`, `api_record_location_v2`, and `api_active_responder_locations`.
 
-A complete release matrix must therefore include all 75 public callable functions, not only the 24 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
+A complete release matrix must therefore include all 75 public callable functions, not only the 25 public definers, and reconcile them with direct table privileges, RLS policy composition, views, Storage, Auth triggers, Edge Functions, Android, web, and Laravel.
 
 ## Chat and Storage shared authorization chain
 
