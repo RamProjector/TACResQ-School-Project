@@ -64,7 +64,8 @@ assert "test_local_lifecycle_audit_event_rejects_content_updates_on_postgres" in
 assert "test_local_lifecycle_audit_event_rejects_deletion_on_postgres" in feature
 assert "test_local_lifecycle_audit_event_rejects_truncate_on_postgres" in feature
 assert "final class LocalAccountLifecycleRecorder" in recorder
-assert "DB::connection()->transactionLevel() < 1" in recorder, "Lifecycle writes must require an active transaction"
+assert "$this->database->connection()->transactionLevel() < 1" in recorder, "Lifecycle writes must require an active transaction"
+assert "ConnectionResolverInterface $database" in recorder, "Lifecycle recorder must use the injected Laravel connection resolver"
 assert "self::TRANSITIONS[$action]" in recorder, "Only explicit lifecycle transitions may be recorded"
 assert "mb_strlen($reason) > 500" in recorder, "Lifecycle reason must respect the database limit"
 assert "insertGetId" in recorder and "created_at" in recorder
