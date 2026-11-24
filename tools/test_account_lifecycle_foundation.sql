@@ -1102,3 +1102,37 @@ BEGIN
 END;
 $incident_assignee_helper_catalog_contract$;
 
+
+
+-- Chat send and upload-reservation RPCs must resolve active identity before
+-- replaying an idempotency key or reading prior message/reservation state.
+DO $chat_idempotency_catalog_contract$
+DECLARE
+  f text;
+  expected text[] := ARRAY[
+    'public.api_reserve_incident_image_upload(bigint,text,bigint,uuid)',
+    'public.api_send_incident_message(bigint,text,uuid)',
+    'public.api_send_incident_image_message(bigint,text,text,text,bigint,uuid)'
+  ];
+  routine_source text;
+  routine_settings text[];
+BEGIN
+  FOREACH f IN ARRAY expected LOOP
+    IF to_regprocedure(f) IS NULL THEN RAISE EXCEPTION 'Chat idempotency RPC is missing: %', f; END IF;
+    SELECT p.prosrc, p.proconfig INTO routine_source, routine_settings
+      FROM pg_catalog.pg_proc p WHERE p.oid = to_regprocedure(f);
+    IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = to_regprocedure(f))
+       OR NOT (coalesce(routine_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+       OR routine_source NOT ILIKE '%tacresq_auth_profile_id()%'
+       OR routine_source NOT ILIKE '%tacresq_can_access_incident_chat%' THEN
+      RAISE EXCEPTION 'Chat RPC must use pinned active-aware identity and chat authorization: %', f;
+    END IF;
+    IF NOT has_function_privilege('authenticated', to_regprocedure(f), 'EXECUTE')
+       OR has_function_privilege('anon', to_regprocedure(f), 'EXECUTE')
+       OR has_function_privilege('public', to_regprocedure(f), 'EXECUTE') THEN
+      RAISE EXCEPTION 'Chat RPC grants must be authenticated-only: %', f;
+    END IF;
+  END LOOP;
+END;
+$chat_idempotency_catalog_contract$;
+
