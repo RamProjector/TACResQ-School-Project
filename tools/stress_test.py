@@ -53,7 +53,8 @@ def main() -> int:
     if ("localhost" in args.base_url or "127.0.0.1" in args.base_url) and not args.allow_localhost:
         parser.error("refusing localhost; pass --allow-localhost for an explicitly local run")
 
-    endpoints = ["/up", "/dispatch/", "/dispatch/config.json"]
+    # Dispatch is Android-only; probe the current health and static Admin portal routes.
+    endpoints = ["/up", "/admin/", "/runtime-config.json"]
     work = [endpoints[index % len(endpoints)] for index in range(args.requests)]
     started = time.perf_counter()
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
