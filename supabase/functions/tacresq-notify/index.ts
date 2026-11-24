@@ -61,7 +61,7 @@ Deno.serve(async (request: Request) => {
   const rawIncidentId = requestData.incident_id;
   const incidentId = typeof rawIncidentId === "number"
     ? rawIncidentId
-    : typeof rawIncidentId === "string" && /^\\d+$/.test(rawIncidentId)
+    : typeof rawIncidentId === "string" && /^\d+$/.test(rawIncidentId)
       ? Number(rawIncidentId)
       : Number.NaN;
   if (typeof event !== "string" || !Number.isSafeInteger(incidentId) || incidentId <= 0) {
