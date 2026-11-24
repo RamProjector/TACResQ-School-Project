@@ -67,3 +67,7 @@ The Overview page provides direct shortcuts to User Management, Reports, and Act
 ## Security workspace layout
 
 The Security page heading explains the current administrator-session and authenticator scope, while Reports describes the aggregate measures and reporting period available there. Long authenticator names wrap within the factor inventory on narrow screens; factor-management actions move below the factor details on small viewports to avoid horizontal overflow. The interface remains read-only for account suspension/reactivation until the documented security release gates pass.
+
+## Mobile account directory navigation
+
+On narrow screens, the account directory remains horizontally scrollable so all five data columns stay available without compressing names, email addresses, and role information into unreadable cells. The first Account column stays pinned while the other columns scroll, preserving the identity context for each row. The table's scroll region remains keyboard-focusable; use Tab to reach it and the horizontal scroll controls provided by the browser or trackpad. This is a presentation-only change and does not alter directory queries or account data.
