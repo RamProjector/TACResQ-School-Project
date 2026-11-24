@@ -70,3 +70,9 @@ assert "setLifecycleRefreshVersion((current) => current + 1)" in AUDIT_PAGE
 
 assert ".audit-page__lifecycle .audit-page__heading > span" in ADMIN_CSS
 assert "text-align:left;" in ADMIN_CSS
+
+
+# Clipboard success/error feedback is scoped to the active audit query.
+query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, refreshVersion, dateRangeError]);", 1)[0]
+assert query_effect.index("setCopiedEventId(null);") < query_effect.index("if (dateRangeError)")
+assert query_effect.index("setCopyError(null);") < query_effect.index("if (dateRangeError)")
