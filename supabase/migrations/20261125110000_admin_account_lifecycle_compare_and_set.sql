@@ -82,6 +82,34 @@ BEGIN
       USING ERRCODE = '40001';
   END IF;
 
+  -- Refuse to suspend a field unit while either assignment model still
+  -- contains active work. The target profile is already locked FOR UPDATE;
+  -- assignment writers take FOR SHARE on that same profile before inserting,
+  -- so a new assignment cannot slip between this check and the state change.
+  -- Lock matching work rows as well so a concurrent release/closure is ordered
+  -- with this decision rather than being observed half-way through.
+  IF p_account_status = 'suspended' AND (
+    EXISTS (
+      SELECT 1
+        FROM public.incidents i
+       WHERE i.assigned_to = v_target.id
+         AND i.status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+       FOR UPDATE
+    )
+    OR EXISTS (
+      SELECT 1
+        FROM public.incident_assignments ia
+        JOIN public.incidents i ON i.id = ia.incident_id
+       WHERE ia.user_id = v_target.id
+         AND ia.responder_status IN ('assigned', 'en_route', 'on_scene', 'transporting')
+         AND i.status NOT IN ('resolved', 'cancelled')
+       FOR UPDATE OF ia, i
+    )
+  ) THEN
+    RAISE EXCEPTION 'Release or complete active incident assignments before suspending this account'
+      USING ERRCODE = '55006';
+  END IF;
+
   IF v_target.account_status = p_account_status THEN
     RETURN jsonb_build_object(
       'status', 'unchanged',
