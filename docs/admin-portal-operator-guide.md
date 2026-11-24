@@ -91,3 +91,8 @@ Contextual question-mark disclosures in Settings work with pointer, keyboard, an
 ### Settings subpages
 
 Settings is divided into URL-backed subpages: **General**, **Accessibility**, **Notifications**, **Security & sessions**, and **Privacy & data**. The selected subpage is represented by the `adminSettings` query parameter and is restored by browser Back/Forward navigation. General and Accessibility expose the working local display preferences. Notifications, Security & sessions, and Privacy & data explain the currently unavailable controls and link to existing verified capabilities where applicable; they do not present inert toggles or promise unsupported data-rights operations.
+
+
+## Contextual help across core workspaces
+
+Overview dependency reachability, User Management, Reports, and Security include question-mark help disclosures beside their section headings. The disclosures explain important measurement, permission, and coverage boundaries. They use native disclosure behavior, so the same information can be opened by pointer, keyboard, or touch; they are not hover-only tooltips.
