@@ -102,7 +102,7 @@ export default function AdminSecurityStatus() {
       const auth = getSupabase().auth;
       const { data: aal, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) throw aalError;
-      const usedTotp = hasTotpAal2(aal);
+      const usedTotp = aal.currentLevel === "aal2" && hasTotpMethod(aal);
       if (aal.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("Verify your authenticator again before adding a backup device.");
       }
@@ -147,7 +147,7 @@ export default function AdminSecurityStatus() {
       if (verifyError) throw verifyError;
       const { data, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) throw aalError;
-      const usedTotp = hasTotpAal2(data);
+      const usedTotp = data.currentLevel === "aal2" && hasTotpMethod(data);
       if (data.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("The backup authenticator was not confirmed for this session. Please try again.");
       }
