@@ -174,3 +174,46 @@ for migration, section in (
 assert "updated release-gate status after the november 24 callable guards" in crosswalk
 assert "same-valid-jwt" in crosswalk
 assert "no connected supabase project was queried or modified" in crosswalk
+
+
+# Keep the expanded PostgreSQL callable replay assertions tied to the exact
+# migrations that introduced the guarded notification, assignee, chat, SOS,
+# and FCM entry points. These source checks prevent a replay block from silently
+# outliving or drifting away from its implementation migration.
+foundation_replay = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text(encoding="utf-8").lower()
+for block in (
+    "notification_claimable_read_catalog_contract",
+    "incident_assignee_helper_catalog_contract",
+    "chat_idempotency_catalog_contract",
+    "requester_sos_write_catalog_contract",
+    "fcm_token_lifecycle_catalog_contract",
+):
+    assert block in foundation_replay, f"PostgreSQL replay is missing callable contract: {block}"
+
+for migration, expected in (
+    ("20261123140000_account_lifecycle_read_rpc_guards.sql", (
+        "public.api_my_notifications", "public.api_my_notification",
+        "public.api_my_incident_messages", "public.api_claimable_incidents",
+    )),
+    ("20261123150000_account_lifecycle_assignment_helper_guard.sql", (
+        "private.tacresq_is_incident_assignee", "account_status = 'active'", "for share",
+    )),
+    ("20261123180000_account_lifecycle_chat_idempotency_guards.sql", (
+        "public.api_reserve_incident_image_upload", "public.api_send_incident_message",
+        "public.api_send_incident_image_message", "tacresq_auth_profile_id()",
+    )),
+    ("20261123190000_account_lifecycle_write_rpc_entry_guards.sql", (
+        "public.api_create_incident_v4", "public.api_cancel_my_incident",
+        "account_status = 'active'", "for update",
+    )),
+    ("20261123210000_account_lifecycle_fcm_token_guards.sql", (
+        "public.api_register_fcm_token", "public.api_unregister_fcm_token",
+        "tacresq_auth_profile_id_for_token_cleanup",
+    )),
+):
+    migration_source = (ROOT / "supabase/migrations" / migration).read_text(encoding="utf-8").lower()
+    for item in expected:
+        assert item in migration_source, f"{migration} no longer contains expected guard: {item}"
+
+assert "has_function_privilege('anon', routine_oid, 'execute')" in foundation_replay
+print("Expanded account-lifecycle callable replay source contract passed.")
