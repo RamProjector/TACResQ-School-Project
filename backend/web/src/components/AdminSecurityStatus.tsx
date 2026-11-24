@@ -11,6 +11,15 @@ type SecuritySnapshot = {
 };
 type Enrollment = { factorId: string; qrCode: string; secret: string };
 
+function hasTotpAal2(data: { currentLevel: string | null; currentAuthenticationMethods?: unknown[] | null }) {
+  const methods = data.currentAuthenticationMethods ?? [];
+  const usedTotp = methods.some((method) =>
+    typeof method === "string" ? method === "totp" :
+      typeof method === "object" && method !== null && "method" in method && method.method === "totp"
+  );
+  return data.currentLevel === "aal2" && usedTotp;
+}
+
 function formatLevel(level: string | null) {
   if (level === "aal2") return "Elevated (AAL2)";
   if (level === "aal1") return "Password session (AAL1)";
@@ -43,11 +52,7 @@ export default function AdminSecurityStatus() {
       ]);
       if (aalResult.error) throw aalResult.error;
       if (factorsResult.error) throw factorsResult.error;
-      const methods = aalResult.data.currentAuthenticationMethods ?? [];
-      const usedTotp = methods.some((method) =>
-        typeof method === "string" ? method === "totp" :
-          typeof method === "object" && method !== null && method.method === "totp"
-      );
+      const usedTotp = hasTotpAal2(aalResult.data);
       if (requestId !== refreshVersion.current) return;
       setSnapshot({
         currentLevel: aalResult.data.currentLevel ?? null,
@@ -97,11 +102,7 @@ export default function AdminSecurityStatus() {
       const auth = getSupabase().auth;
       const { data: aal, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) throw aalError;
-      const methods = aal.currentAuthenticationMethods ?? [];
-      const usedTotp = methods.some((method) =>
-        typeof method === "string" ? method === "totp" :
-          typeof method === "object" && method !== null && method.method === "totp"
-      );
+      const usedTotp = hasTotpAal2(aal);
       if (aal.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("Verify your authenticator again before adding a backup device.");
       }
@@ -137,11 +138,7 @@ export default function AdminSecurityStatus() {
       if (verifyError) throw verifyError;
       const { data, error: aalError } = await auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) throw aalError;
-      const methods = data.currentAuthenticationMethods ?? [];
-      const usedTotp = methods.some((method) =>
-        typeof method === "string" ? method === "totp" :
-          typeof method === "object" && method !== null && method.method === "totp"
-      );
+      const usedTotp = hasTotpAal2(data);
       if (data.currentLevel !== "aal2" || !usedTotp) {
         throw new Error("The backup authenticator was not confirmed for this session. Please try again.");
       }
