@@ -159,3 +159,11 @@ The sole-factor warning and contradictory Remove control are implemented. The lo
 - Added static source-contract assertions for the toast lifecycle, announcement semantics, dismissal control, responsive styling, and print behavior.
 - Kept the programmatic dialog description, access-change warning, reason-length guidance, and textarea/character-counter associations.
 - No role-transition authorization, server RPC, database, or lifecycle behavior changed. Browser, keyboard, and screen-reader verification remains outstanding; static assertions only confirm source wiring.
+
+## MFA factor-management interaction safeguards
+
+- Adding or removing authenticator factors is now visibly unavailable unless the current Supabase session is both AAL2 and reports TOTP in its authentication methods. The action handlers continue to perform their own fresh assurance-level check immediately before mutation; the rendered state is not treated as authorization.
+- The Security page explains why factor actions are unavailable when the session has not completed TOTP verification. This avoids presenting an action that can only fail at submission time.
+- Factor-removal and global-sign-out confirmation controls expose labelled groups, and backup enrollment guidance is associated with the form as well as its verification input.
+- Factor rows wrap at narrow widths rather than forcing the action buttons outside the panel. Keyboard focus remains visible for Security-page controls.
+- Static source assertions cover the AAL2/TOTP UI gate, handler-facing controls, semantic confirmation groups, and responsive rules. Browser, keyboard, and screen-reader validation remain outstanding.
