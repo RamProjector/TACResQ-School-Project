@@ -1,5 +1,40 @@
 BEGIN;
 
+-- The global suspended-account write trigger also runs for SECURITY DEFINER
+-- functions. Permit one narrowly scoped exception: this authenticated RPC may
+-- delete only the current caller's own FCM token while a suspended session is
+-- signing out. The transaction-local marker is set only around this DELETE.
+CREATE OR REPLACE FUNCTION private.tacresq_reject_suspended_account_write()
+RETURNS trigger
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $guard$
+BEGIN
+  IF auth.uid() IS NOT NULL
+     AND NOT private.tacresq_current_account_active()
+     AND NOT (
+       TG_OP = 'DELETE'
+       AND TG_TABLE_SCHEMA = 'public'
+       AND TG_TABLE_NAME = 'fcm_tokens'
+       AND current_setting('tacresq.allow_suspended_fcm_self_cleanup', true) = 'on'
+       AND OLD.profile_id = private.tacresq_auth_profile_id_for_token_cleanup()
+     ) THEN
+    RAISE EXCEPTION 'Suspended accounts cannot perform protected writes'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$guard$;
+
+REVOKE ALL ON FUNCTION private.tacresq_reject_suspended_account_write()
+  FROM PUBLIC, anon, authenticated, service_role;
+
 -- Clients have no direct DELETE privilege on fcm_tokens. Keep sign-out cleanup
 -- available through a narrowly scoped definer RPC that can remove only the
 -- caller's own token, including after account suspension.
@@ -11,6 +46,7 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   caller_profile_id bigint;
+  previous_cleanup_flag text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required'
@@ -32,9 +68,18 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  previous_cleanup_flag := current_setting('tacresq.allow_suspended_fcm_self_cleanup', true);
+  PERFORM pg_catalog.set_config('tacresq.allow_suspended_fcm_self_cleanup', 'on', true);
+
   DELETE FROM public.fcm_tokens AS token_row
    WHERE token_row.profile_id = caller_profile_id
      AND token_row.token = p_token;
+
+  PERFORM pg_catalog.set_config(
+    'tacresq.allow_suspended_fcm_self_cleanup',
+    coalesce(previous_cleanup_flag, ''),
+    true
+  );
 END;
 $function$;
 
