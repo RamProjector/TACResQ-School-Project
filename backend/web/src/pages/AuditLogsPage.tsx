@@ -71,7 +71,7 @@ function sourceDisplay(value: string) {
   return sourceLabels[value as Exclude<AdminInvestigationSource, "all">] || formatDetailLabel(value);
 }
 
-function formatDetailValue(value: unknown) {
+function formatDetailValue(value: unknown): string {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string" || typeof value === "number") return String(value);
   if (Array.isArray(value)) {
