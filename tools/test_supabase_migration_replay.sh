@@ -242,35 +242,46 @@ DECLARE
   public_rpc_definer boolean;
   public_rpc_settings text[];
   public_rpc_source text;
-  private_rpc_definer boolean;
-  private_rpc_settings text[];
+  guard_rpc_definer boolean;
+  guard_rpc_settings text[];
+  guard_rpc_source text;
+  implementation_definer boolean;
+  implementation_settings text[];
 BEGIN
   SELECT prosecdef, proconfig, prosrc
     INTO public_rpc_definer, public_rpc_settings, public_rpc_source
     FROM pg_catalog.pg_proc
    WHERE oid = to_regprocedure('public.api_assign_incident_team(bigint,bigint[])');
-  SELECT prosecdef, proconfig
-    INTO private_rpc_definer, private_rpc_settings
+  SELECT prosecdef, proconfig, prosrc
+    INTO guard_rpc_definer, guard_rpc_settings, guard_rpc_source
     FROM pg_catalog.pg_proc
-   WHERE oid = to_regprocedure('private.tacresq_assign_incident_team_internal(bigint,bigint[])');
-  IF public_rpc_definer IS DISTINCT FROM true THEN
-    RAISE EXCEPTION 'Public team-assignment wrapper must be SECURITY DEFINER';
+   WHERE oid = to_regprocedure('private.tacresq_assign_incident_team_guarded(bigint,bigint[])');
+  SELECT prosecdef, proconfig
+    INTO implementation_definer, implementation_settings
+    FROM pg_catalog.pg_proc
+   WHERE oid = to_regprocedure('private.tacresq_assign_incident_team(bigint,bigint[])');
+
+  IF public_rpc_definer IS DISTINCT FROM false
+     OR NOT (coalesce(public_rpc_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR public_rpc_source NOT ILIKE '%tacresq_assign_incident_team_guarded%' THEN
+    RAISE EXCEPTION 'Public team-assignment wrapper must remain SECURITY INVOKER and delegate to the guarded private helper';
   END IF;
-  IF NOT (coalesce(public_rpc_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
-     OR public_rpc_source NOT ILIKE '%account_status = ''active''%'
-     OR public_rpc_source NOT ILIKE '%FOR SHARE%'
-     OR public_rpc_source NOT ILIKE '%tacresq_assign_incident_team_internal%' THEN
-    RAISE EXCEPTION 'Public team-assignment wrapper must pin search_path and lock an active dispatcher before delegation';
+  IF guard_rpc_definer IS DISTINCT FROM true
+     OR NOT (coalesce(guard_rpc_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR guard_rpc_source NOT ILIKE '%account_status = ''active''%'
+     OR guard_rpc_source NOT ILIKE '%FOR SHARE%'
+     OR guard_rpc_source NOT ILIKE '%private.tacresq_assign_incident_team%' THEN
+    RAISE EXCEPTION 'Private assignment guard must be a pinned definer with an active-dispatcher share lock';
   END IF;
-  IF private_rpc_definer IS DISTINCT FROM false THEN
-    RAISE EXCEPTION 'Private team-assignment implementation must remain SECURITY INVOKER inside the guarded definer wrapper';
+  IF implementation_definer IS DISTINCT FROM false
+     OR NOT (coalesce(implementation_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'Underlying assignment implementation must remain a pinned invoker';
   END IF;
-  IF NOT (coalesce(private_rpc_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
-    RAISE EXCEPTION 'Private team-assignment implementation must pin search_path to pg_catalog';
-  END IF;
-  IF has_function_privilege('authenticated', 'private.tacresq_assign_incident_team_internal(bigint,bigint[])', 'EXECUTE')
-     OR has_function_privilege('anon', 'private.tacresq_assign_incident_team_internal(bigint,bigint[])', 'EXECUTE') THEN
-    RAISE EXCEPTION 'Private team-assignment implementation must not be client-callable';
+  IF NOT has_function_privilege('authenticated', 'private.tacresq_assign_incident_team_guarded(bigint,bigint[])', 'EXECUTE')
+     OR has_function_privilege('anon', 'private.tacresq_assign_incident_team_guarded(bigint,bigint[])', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'private.tacresq_assign_incident_team(bigint,bigint[])', 'EXECUTE')
+     OR has_function_privilege('anon', 'private.tacresq_assign_incident_team(bigint,bigint[])', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Only the guarded private assignment helper may be callable by authenticated clients';
   END IF;
 END;
 $dispatch_test$;
