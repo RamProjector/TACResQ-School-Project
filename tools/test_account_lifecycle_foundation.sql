@@ -959,3 +959,45 @@ BEGIN
   END IF;
 END;
 $location_writer_catalog_contract$;
+
+
+-- The dispatcher directory and queue are separate read boundaries: the
+-- directory is a guarded definer wrapper; the queue delegates to the shared
+-- active-aware identity helper as an invoker.
+DO $dispatcher_read_catalog_contract$
+DECLARE
+  units_oid oid := to_regprocedure('public.api_units()');
+  units_internal_oid oid := to_regprocedure('private.tacresq_api_units_internal()');
+  queue_oid oid := to_regprocedure('public.api_all_incidents()');
+  units_source text;
+  units_settings text[];
+  queue_source text;
+BEGIN
+  IF units_oid IS NULL OR units_internal_oid IS NULL OR queue_oid IS NULL THEN
+    RAISE EXCEPTION 'Dispatcher directory or queue routine is missing';
+  END IF;
+  SELECT p.prosrc, p.proconfig INTO units_source, units_settings
+    FROM pg_catalog.pg_proc p WHERE p.oid = units_oid;
+  IF (SELECT NOT prosecdef OR provolatile <> 'v' FROM pg_catalog.pg_proc WHERE oid = units_oid)
+     OR NOT (coalesce(units_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR units_source NOT ILIKE '%account_status = ''active''%'
+     OR units_source NOT ILIKE '%FOR SHARE%'
+     OR units_source NOT ILIKE '%tacresq_api_units_internal%' THEN
+    RAISE EXCEPTION 'Field-unit directory must use a pinned active-dispatcher wrapper';
+  END IF;
+  SELECT p.prosrc INTO queue_source FROM pg_catalog.pg_proc p WHERE p.oid = queue_oid;
+  IF (SELECT prosecdef OR provolatile <> 's' FROM pg_catalog.pg_proc WHERE oid = queue_oid)
+     OR queue_source NOT ILIKE '%private.tacresq_actor_role()%'
+     OR queue_source NOT ILIKE '%IS DISTINCT FROM ''dispatcher''%' THEN
+    RAISE EXCEPTION 'Incident queue must be a stable invoker guarded by the active-aware dispatcher helper';
+  END IF;
+  IF NOT has_function_privilege('authenticated', units_oid, 'EXECUTE')
+     OR has_function_privilege('anon', units_oid, 'EXECUTE')
+     OR has_function_privilege('authenticated', units_internal_oid, 'EXECUTE')
+     OR has_function_privilege('anon', units_internal_oid, 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', queue_oid, 'EXECUTE')
+     OR has_function_privilege('anon', queue_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'Dispatcher read wrapper/internal grants are unsafe';
+  END IF;
+END;
+$dispatcher_read_catalog_contract$;
