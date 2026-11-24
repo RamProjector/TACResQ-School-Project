@@ -317,3 +317,19 @@ assert "self::TRANSITIONS[$action]" in recorder_source
 assert "DB::table('local_account_lifecycle_events')->insertGetId" in recorder_source
 assert "update(" not in recorder_source.lower() and "delete(" not in recorder_source.lower()
 
+
+
+# Privileged local Sanctum actions must re-read and lock the current Admin
+# state before password/TOTP verification, with bounded failure throttling.
+reauth_source = admin_reauth
+lock_position = reauth_source.index("User::whereKey($user->getAuthIdentifier())->lockForUpdate()->first()")
+role_position = reauth_source.index("$lockedUser->role !== 'admin'")
+suspension_position = reauth_source.index("$lockedUser->is_suspended")
+password_position = reauth_source.index("Hash::check($credentials['current_password'], $lockedUser->password)")
+totp_position = reauth_source.index("verifyAndConsume($lockedUser, $credentials['totp_code'])")
+assert lock_position < role_position < suspension_position < password_position < totp_position
+assert "RateLimiter::tooManyAttempts($key, 5)" in reauth_source
+assert "RateLimiter::hit($key, 900)" in reauth_source
+assert "Cache-Control', 'no-store, private'" in reauth_source
+assert "Retry-After" in reauth_source
+
