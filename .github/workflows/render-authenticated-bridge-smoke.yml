@@ -28,12 +28,76 @@ jobs:
           - secret_suffix: DISPATCHER
             expected_role: dispatcher
     steps:
-      - name: Sign in and verify role through the live Render bridge
+      - name: Sign in and verify role through the live Render bridge (REQUESTER)
+        if: matrix.secret_suffix == 'REQUESTER'
         env:
           BASE_URL: https://tacresq-school-project.onrender.com
           SUPABASE_URL: https://kttguamhznoflzagfutr.supabase.co
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          TEST_EMAIL: ${{ secrets[format('SUPABASE_{0}_TEST_EMAIL', matrix.secret_suffix)] }}
+          TEST_EMAIL: ${{ secrets.SUPABASE_REQUESTER_TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.SUPABASE_TEST_PASSWORD }}
+          EXPECTED_ROLE: ${{ matrix.expected_role }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Fail closed when a role-specific test account or shared test password is missing.
+          if [[ -z "${TEST_EMAIL}" || -z "${TEST_PASSWORD}" || -z "${SUPABASE_PUBLISHABLE_KEY}" ]]; then
+            echo "::error::Required Actions secret missing. Configure SUPABASE_${{ matrix.secret_suffix }}_TEST_EMAIL, SUPABASE_TEST_PASSWORD, and SUPABASE_PUBLISHABLE_KEY."
+            exit 1
+          fi
+
+          # Never print credentials, access tokens, auth response bodies, or profile data.
+          auth_status="$(curl --connect-timeout 5 --max-time 15 --silent --show-error \
+      - name: Sign in and verify role through the live Render bridge (RESPONDER)
+        if: matrix.secret_suffix == 'RESPONDER'
+        env:
+          BASE_URL: https://tacresq-school-project.onrender.com
+          SUPABASE_URL: https://kttguamhznoflzagfutr.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          TEST_EMAIL: ${{ secrets.SUPABASE_RESPONDER_TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.SUPABASE_TEST_PASSWORD }}
+          EXPECTED_ROLE: ${{ matrix.expected_role }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Fail closed when a role-specific test account or shared test password is missing.
+          if [[ -z "${TEST_EMAIL}" || -z "${TEST_PASSWORD}" || -z "${SUPABASE_PUBLISHABLE_KEY}" ]]; then
+            echo "::error::Required Actions secret missing. Configure SUPABASE_${{ matrix.secret_suffix }}_TEST_EMAIL, SUPABASE_TEST_PASSWORD, and SUPABASE_PUBLISHABLE_KEY."
+            exit 1
+          fi
+
+          # Never print credentials, access tokens, auth response bodies, or profile data.
+          auth_status="$(curl --connect-timeout 5 --max-time 15 --silent --show-error \
+      - name: Sign in and verify role through the live Render bridge (DRIVER)
+        if: matrix.secret_suffix == 'DRIVER'
+        env:
+          BASE_URL: https://tacresq-school-project.onrender.com
+          SUPABASE_URL: https://kttguamhznoflzagfutr.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          TEST_EMAIL: ${{ secrets.SUPABASE_DRIVER_TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.SUPABASE_TEST_PASSWORD }}
+          EXPECTED_ROLE: ${{ matrix.expected_role }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Fail closed when a role-specific test account or shared test password is missing.
+          if [[ -z "${TEST_EMAIL}" || -z "${TEST_PASSWORD}" || -z "${SUPABASE_PUBLISHABLE_KEY}" ]]; then
+            echo "::error::Required Actions secret missing. Configure SUPABASE_${{ matrix.secret_suffix }}_TEST_EMAIL, SUPABASE_TEST_PASSWORD, and SUPABASE_PUBLISHABLE_KEY."
+            exit 1
+          fi
+
+          # Never print credentials, access tokens, auth response bodies, or profile data.
+          auth_status="$(curl --connect-timeout 5 --max-time 15 --silent --show-error \
+      - name: Sign in and verify role through the live Render bridge (DISPATCHER)
+        if: matrix.secret_suffix == 'DISPATCHER'
+        env:
+          BASE_URL: https://tacresq-school-project.onrender.com
+          SUPABASE_URL: https://kttguamhznoflzagfutr.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          TEST_EMAIL: ${{ secrets.SUPABASE_DISPATCHER_TEST_EMAIL }}
           TEST_PASSWORD: ${{ secrets.SUPABASE_TEST_PASSWORD }}
           EXPECTED_ROLE: ${{ matrix.expected_role }}
         shell: bash
