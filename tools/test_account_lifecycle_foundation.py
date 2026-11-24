@@ -181,7 +181,7 @@ for required in (
     assert required in audit_reader_migration, f"Protected lifecycle audit reader is missing: {required}"
 
 for required in (
-    "create or replace function private.tacresq_auth_can_access_incident_chat("
+    "create or replace function private.tacresq_auth_can_access_incident_chat(",
     "language plpgsql\nvolatile",
     "private.tacresq_auth_profile_id()",
     "create or replace function public.api_units()",
