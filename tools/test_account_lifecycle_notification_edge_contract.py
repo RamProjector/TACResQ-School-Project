@@ -119,6 +119,11 @@ required_fields = source.index('if (typeof event !== "string" || !Number.isSafeI
 unsupported_event = source.index('if (!["incident_created", "incident_assigned", "incident_status"].includes(event))')
 assert body_parse < json_error < object_shape_guard < required_fields < unsupported_event < actor_lookup
 assert 'typeof rawIncidentId === "number"' in source
+assert r'&& /^\d+$/.test(rawIncidentId)' in source, (
+    "String incident IDs must use a digit-only regular expression."
+)
+assert 'Number.isSafeInteger(incidentId)' in source
+assert 'incidentId <= 0' in source
 assert unsupported_event < recipient_lookup < oauth_call < fcm_send, (
     "Invalid payloads and unsupported event types must be rejected before delivery."
 )
