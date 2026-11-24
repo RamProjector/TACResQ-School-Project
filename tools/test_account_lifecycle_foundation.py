@@ -15,6 +15,7 @@ transition_migration = (ROOT / "supabase/migrations/20261123170000_account_lifec
 chat_idempotency_migration = (ROOT / "supabase/migrations/20261123180000_account_lifecycle_chat_idempotency_guards.sql").read_text().lower()
 write_rpc_migration = (ROOT / "supabase/migrations/20261123190000_account_lifecycle_write_rpc_entry_guards.sql").read_text().lower()
 audit_reader_migration = (ROOT / "supabase/migrations/20261123200000_admin_account_lifecycle_audit_reader.sql").read_text().lower()
+website_lifecycle_migration = (ROOT / "supabase/migrations/20261125100000_admin_website_account_lifecycle_controls.sql").read_text().lower()
 runtime_test = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text().lower()
 storage_test = (ROOT / "tools/test_incident_chat_storage_policies.sql").read_text().lower()
 replay = (ROOT / "tools/test_supabase_migration_replay.sh").read_text()
@@ -166,6 +167,17 @@ for required in (
     "revoke all on function public.api_admin_set_account_status(bigint, text, text)",
 ):
     assert required in transition_migration, f"Admin account transition is missing: {required}"
+
+for required in (
+    "create or replace function private.tacresq_require_admin_mfa()",
+    "p.account_status = 'active'",
+    "create or replace function public.api_admin_list_users_page(",
+    "api_admin_list_users_page_internal(p_limit, p_offset, p_query, p_role)",
+    "'account_status', p.account_status",
+    "grant execute on function public.api_admin_set_account_status(bigint, text, text)",
+    "grant execute on function public.api_admin_list_users_page(integer, integer, text, text)",
+):
+    assert required in website_lifecycle_migration, f"Website lifecycle enablement is missing: {required}"
 
 for required in (
     "create or replace function public.api_admin_list_account_lifecycle_events(",
