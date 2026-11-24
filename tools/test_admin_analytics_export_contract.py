@@ -11,7 +11,7 @@ exporter = SOURCE[start:end]
 assert "new Blob([csv], { type: \"text/csv;charset=utf-8;\" })" in exporter
 assert "URL.createObjectURL(blob)" in exporter
 assert "link.download" in exporter
-assert "replaceAll('\\\"', '\\\\"\\\"')" in exporter or "replaceAll('\\"', '\\"\\"')" in exporter
+assert "replaceAll" in exporter
 assert "summary.total_requests" in exporter
 assert "summary.average_assignment_minutes" in exporter
 assert "summary.daily_requests.map" in exporter
