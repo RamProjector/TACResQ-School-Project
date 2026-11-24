@@ -608,6 +608,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <p className="admin-modal__description">You are changing access for <strong>{target.name}</strong> ({target.email}). Review the role transition carefully. The database enforces authorization and records the reason in the audit log.</p>
             <div className="admin-role-transition" aria-live="polite" aria-atomic="true"><div><span>Current role</span><strong>{displayRole(target.role)}</strong></div><span className="admin-role-transition__arrow" aria-hidden="true">→</span><div><span>New role</span><strong>{displayRole(nextRole)}</strong></div></div>
             <p className="admin-role-warning">Changing a role changes the account’s permissions in TACResQ. Confirm the intended access level with the responsible operator before saving.</p>
+            {error && <p className="admin-modal__error" role="alert">{error}</p>}
             <label className="admin-form-label" htmlFor="admin-new-role">New role</label>
             <select id="admin-new-role" value={nextRole} onChange={(event) => setNextRole(event.target.value as AdminManagedRole)} disabled={saving}>
               {roleOptions.map((role) => <option key={role} value={role}>{displayRole(role)}</option>)}
