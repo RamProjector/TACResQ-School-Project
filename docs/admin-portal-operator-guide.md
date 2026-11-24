@@ -265,7 +265,7 @@ The main Audit history workspace exposes its query and refresh state through the
 
 ## Pending authenticator enrollment teardown
 
-If an administrator leaves the Security workspace while a backup TOTP factor is still unverified, the component attempts best-effort removal of that pending factor. Teardown now contains both asynchronous unenrollment failures and synchronous client-initialization failures so navigation does not create an unhandled promise rejection. Because the view is already unmounted, this cleanup cannot present an interactive retry; the next Security status retrieval remains authoritative. Operators should verify the registered-factor inventory after returning to the workspace if an interrupted enrollment is suspected.
+If an administrator leaves the Security workspace while a backup TOTP factor is still unverified, the component attempts best-effort removal of that pending factor. Teardown now contains both asynchronous unenrollment failures and synchronous client-initialization failures so navigation does not create an unhandled promise rejection. Because the view is already unmounted, this cleanup cannot present an interactive retry; the next Security status retrieval remains authoritative. Operators should verify the registered-factor inventory after returning to the workspace if an interrupted enrollment is suspected. On the initial sign-in MFA gate, choosing **Sign out** during enrollment now waits for any in-flight preparation and removes only the pending factor created by that gate before ending the session. If cleanup fails, the gate remains available and reports the error so the operator can retry; signing out from a verified-factor challenge does not remove an existing factor.
 
 ## Searchable Admin Help Centre
 
