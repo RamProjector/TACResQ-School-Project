@@ -781,6 +781,17 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </>
             )}
             <p id="admin-health-limitations" className="admin-panel__footnote">Reachability only — not service readiness or emergency-operational status. Laravel /up confirms application liveness; Supabase Auth checks its health endpoint; the database probe executes a fixed, data-free RPC using the current Admin session. These checks do not verify incident creation, responder assignment, location accuracy, routing, push delivery, or end-to-end sign-in. “Timed out” means the probe exceeded five seconds; startup delay or network latency may contribute and does not by itself prove an outage. Refresh to retry.</p>
+            <section className="admin-health-coverage" aria-labelledby="admin-health-coverage-title">
+              <div className="admin-health-coverage__heading"><div><p className="admin-eyebrow">MONITORING BOUNDARIES</p><h3 id="admin-health-coverage-title">Not covered by these probes</h3></div><span>Not monitored here</span></div>
+              <ul>
+                <li><strong>Push notification delivery</strong><span>No FCM send/receipt probe is run. Provider acceptance, device delivery, and user receipt are different outcomes.</span></li>
+                <li><strong>Maps and route calculation</strong><span>No mapping-provider or routing request is tested; location accuracy and route feasibility remain unverified.</span></li>
+                <li><strong>Incident attachments and Storage</strong><span>No object upload, download, integrity, access-policy, or retention check is performed.</span></li>
+                <li><strong>End-to-end emergency workflow</strong><span>No synthetic SOS, dispatch, responder assignment, status transition, or notification is created by this dashboard.</span></li>
+                <li><strong>Persistent monitoring and alerting</strong><span>These are on-demand browser checks only. There is no scheduled probe history, outage alert, or independent monitoring record shown here.</span></li>
+              </ul>
+              <p>“Not monitored here” means this page has no verified probe for that capability. It does not mean the provider or workflow is down, healthy, or configured.</p>
+            </section>
           </section>
 
           <section className="admin-panel" id="admin-user-management" aria-labelledby="admin-user-management-title" hidden={activeSection !== "users"}>
