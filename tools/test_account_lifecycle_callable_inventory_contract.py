@@ -330,3 +330,14 @@ for required in (
 
 assert "same-valid-jwt" in requester_edit_migration or "same-valid-jwt" in crosswalk
 print("Active requester edit lifecycle source contract passed.")
+
+# The disposable replay must exercise the new requester-edit guard with the
+# same still-valid JWT after account suspension, not merely inspect its source.
+requester_edit_replay = requester_edit_runtime
+suspended_block_start = requester_edit_replay.index("do $still_valid_jwt_denial$")
+suspended_block_end = requester_edit_replay.index("$still_valid_jwt_denial$;", suspended_block_start)
+suspended_block = requester_edit_replay[suspended_block_start:suspended_block_end]
+assert "public.api_update_my_incident(" in suspended_block
+assert "suspended requester unexpectedly edited an incident" in suspended_block
+assert "exception when insufficient_privilege" in suspended_block
+assert "set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000991', false)" in requester_edit_replay
