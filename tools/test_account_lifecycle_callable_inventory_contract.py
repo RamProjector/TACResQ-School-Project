@@ -262,9 +262,9 @@ for required in (
     assert required in matrix_index, f"Matrix index is missing review rule: {required}"
 
 for required in (
-    "api_create_incident_v4(text,text,double precision,double precision,real,text,timestamp with time zone,text,uuid)",
+    "api_create_incident_v4(text,text,double precision,double precision,real,text,timestamptz,text,uuid)",
     "api_cancel_my_incident(bigint)",
-    "api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamp with time zone,text,boolean)",
+    "api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)",
     "same still-valid jwt",
 ):
     assert required in requester_matrix, f"Requester matrix is missing callable/test: {required}"
@@ -291,8 +291,8 @@ for required in (
 for required in (
     "api_admin_list_users_page(integer,integer,text,text)",
     "api_admin_set_user_role(bigint,text,text)",
-    "api_admin_list_audit_logs_page(integer,integer,text,text,timestamp with time zone,timestamp with time zone,bigint,bigint)",
-    "never join by email",
+    "api_admin_list_audit_logs_page(integer,integer,text,text,timestamptz,timestamptz,bigint,bigint)",
+    "no email-based identity mapping exists",
 ):
     assert required in admin_matrix, f"Admin/legacy matrix is missing callable/boundary: {required}"
 
