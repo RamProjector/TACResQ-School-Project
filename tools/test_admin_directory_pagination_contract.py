@@ -69,3 +69,16 @@ def test_admin_settings_preferences_have_real_presentation_effects_and_responsiv
     assert ".admin-settings-grid" in css
     assert ".admin-help-grid" in css
     assert "@media (max-width:520px)" in css
+
+
+def test_settings_subpages_are_deep_linkable_and_separate_policy_boundaries():
+    source = SOURCE.read_text(encoding="utf-8")
+    assert 'type AdminSettingsPage = "general" | "accessibility" | "notifications" | "security" | "privacy";' in source
+    assert "function resolveSettingsPage(search: string)" in source
+    assert 'url.searchParams.set("adminSettings", page)' in source
+    assert "setSettingsPage(resolveSettingsPage(window.location.search))" in source
+    assert 'aria-label="Settings pages"' in source
+    for page in ("general", "accessibility", "notifications", "security", "privacy"):
+        assert f'settingsPage === "{page}"' in source
+    assert "no verified settings service" in source
+    assert "No deletion, export-of-personal-data, or retention controls are provided here." in source
