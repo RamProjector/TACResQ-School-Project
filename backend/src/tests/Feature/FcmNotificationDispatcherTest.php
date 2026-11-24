@@ -445,7 +445,7 @@ final class FcmNotificationDispatcherTest extends TestCase
         try {
             (new FcmNotificationDispatcher($fcm))->dispatch(1);
             self::fail('Expected an object-shaped claim payload to be rejected.');
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             self::assertSame('Supabase FCM delivery queue claim failed.', $exception->getMessage());
         }
     }
