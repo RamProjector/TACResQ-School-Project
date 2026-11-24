@@ -6,9 +6,25 @@ DO $token_rpc_privileges$
 DECLARE
   register_oid regprocedure := to_regprocedure('public.api_register_fcm_token(text)');
   function_settings text[];
+  unregister_oid regprocedure := to_regprocedure('public.api_unregister_fcm_token(text)');
+  unregister_settings text[];
 BEGIN
   IF register_oid IS NULL THEN
     RAISE EXCEPTION 'FCM registration RPC is missing';
+  END IF;
+  IF unregister_oid IS NULL THEN
+    RAISE EXCEPTION 'FCM unregistration RPC is missing';
+  END IF;
+  IF NOT has_function_privilege('authenticated', unregister_oid, 'EXECUTE')
+     OR has_function_privilege('anon', unregister_oid, 'EXECUTE') THEN
+    RAISE EXCEPTION 'FCM unregistration RPC must be authenticated-only';
+  END IF;
+  IF (SELECT prosecdef FROM pg_proc WHERE oid = unregister_oid) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'FCM self-cleanup RPC must use its narrowly scoped SECURITY DEFINER boundary';
+  END IF;
+  SELECT proconfig INTO unregister_settings FROM pg_proc WHERE oid = unregister_oid;
+  IF NOT (coalesce(unregister_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'FCM unregistration RPC must pin search_path to pg_catalog';
   END IF;
   IF NOT has_function_privilege('authenticated', register_oid, 'EXECUTE')
      OR has_function_privilege('anon', register_oid, 'EXECUTE') THEN
