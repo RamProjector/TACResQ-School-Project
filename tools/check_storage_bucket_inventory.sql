@@ -11,6 +11,7 @@ DECLARE
   ]::text[];
   actual_policies text[];
   unknown_bucket_ids text[];
+  unexpected_client_policies text[];
 BEGIN
   IF to_regclass('storage.buckets') IS NULL OR to_regclass('storage.objects') IS NULL THEN
     RAISE EXCEPTION 'Supabase Storage buckets/objects catalog is unavailable';
@@ -47,6 +48,25 @@ BEGIN
     RAISE EXCEPTION
       'Incident-chat Storage policy inventory is incomplete. Expected %, found %',
       expected_policies, actual_policies;
+  END IF;
+
+  -- An additional permissive policy can widen access even when both reviewed
+  -- policies remain present. Fail closed on any unreviewed policy that applies
+  -- to PUBLIC or authenticated callers for read/write operations.
+  SELECT coalesce(array_agg(pol.polname ORDER BY pol.polname), ARRAY[]::text[])
+    INTO unexpected_client_policies
+    FROM pg_catalog.pg_policy pol
+   WHERE pol.polrelid = 'storage.objects'::regclass
+     AND pol.polpermissive IS TRUE
+     AND pol.polcmd IN ('*', 'r', 'a', 'w')
+     AND (0 = ANY(pol.polroles)
+       OR 'authenticated'::regrole::oid = ANY(pol.polroles))
+     AND NOT (pol.polname = ANY(expected_policies));
+
+  IF cardinality(unexpected_client_policies) > 0 THEN
+    RAISE EXCEPTION
+      'Unreviewed permissive Storage client policy(ies) detected: %',
+      unexpected_client_policies;
   END IF;
 
   IF NOT EXISTS (
