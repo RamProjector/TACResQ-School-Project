@@ -12,6 +12,7 @@ def test_directory_page_size_is_user_configurable():
     assert 'aria-label="Accounts per page"' in source
     assert "setPage(0); setPageSize(Number(event.target.value)" in source
     assert "getAdminUsersPage(pageSize, page * pageSize" in source
+    assert "}, [activeSection, page, pageSize, debouncedQuery, roleFilter]);" in source
 
 
 def test_directory_page_size_control_has_visible_keyboard_focus():
