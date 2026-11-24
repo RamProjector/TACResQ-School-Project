@@ -92,10 +92,13 @@ method_guard = source.index('if (request.method !== "POST")');
 bearer_guard = source.index('if (!userToken)', method_guard);
 auth_lookup = source.index("admin.auth.getUser(userToken)");
 invalid_auth_guard = source.index("if (authError || !userResult.user)", auth_lookup);
-body_parse = source.index("payload = await request.json()", invalid_auth_guard);
+content_length_guard = source.index('request.headers.get("Content-Length")', invalid_auth_guard);
+body_read = source.index("rawBody = await request.text()", content_length_guard);
+body_size_guard = source.index("new TextEncoder().encode(rawBody).byteLength > maxBodyBytes", body_read);
+body_parse = source.index("payload = JSON.parse(rawBody)", body_size_guard);
 event_validation = source.index('if (!["incident_created", "incident_assigned", "incident_status"].includes(event))', body_parse);
-assert method_guard < bearer_guard < auth_lookup < invalid_auth_guard < body_parse < event_validation < actor_lookup, (
-    "HTTP method, bearer authentication, and event validation must precede account and incident lookups."
+assert method_guard < bearer_guard < auth_lookup < invalid_auth_guard < content_length_guard < body_read < body_size_guard < body_parse < event_validation < actor_lookup, (
+    "HTTP method, bearer authentication, bounded body parsing, and event validation must precede account and incident lookups."
 );
 assert invalid_auth_guard < actor_lookup < incident_lookup < recipient_lookup < token_lookup < oauth_call < fcm_send, (
     "Unauthenticated requests must not reach profile/incident/token reads or provider side effects."
@@ -103,6 +106,10 @@ assert invalid_auth_guard < actor_lookup < incident_lookup < recipient_lookup < 
 assert 'return json({ error: "Invalid or expired session" }, 401)' in source
 assert 'return json({ error: "POST required" }, 405)' in source
 assert 'return json({ error: "Authorization bearer token required" }, 401)' in source
+assert "const maxBodyBytes = 8192;" in source
+assert "Number(declaredBodyLength) > maxBodyBytes" in source
+assert 'return json({ error: "Request body is too large" }, 413)' in source
+assert "JSON.parse(rawBody)" in source
 
 # Malformed payloads and unsupported events must not reach actor/incident
 # reads, recipient resolution, or any provider network call.
