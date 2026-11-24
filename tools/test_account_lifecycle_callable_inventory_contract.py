@@ -152,3 +152,25 @@ for required in (
     "tacresq_actor_role()",
 ):
     assert required in runtime_contract, f"Dispatcher read replay contract is missing: {required}"
+
+
+# Keep the callable crosswalk synchronized with the November 24 guarded
+# dispatcher mutations and reads. A migration without a corresponding review
+# entry would otherwise look like a complete inventory while hiding a new
+# callable boundary from reviewers.
+for migration, section in (
+    ("20261124080000_account_lifecycle_team_assignment_guard.sql", "guarded dispatcher team assignment"),
+    ("20261124090000_account_lifecycle_assignment_release_guard.sql", "guarded assignment release"),
+    ("20261124100000_account_lifecycle_location_writer_guard.sql", "guarded responder gps writer"),
+    ("20261124110000_account_lifecycle_dispatcher_directory_guard.sql", "guarded dispatcher directory and queue"),
+):
+    assert (ROOT / "supabase/migrations" / migration).is_file(), (
+        f"Crosswalk references a missing lifecycle migration: {migration}"
+    )
+    assert section in crosswalk, (
+        f"Callable crosswalk is missing its implementation review section: {section}"
+    )
+
+assert "updated release-gate status after the november 24 callable guards" in crosswalk
+assert "same-valid-jwt" in crosswalk
+assert "no connected supabase project was queried or modified" in crosswalk
