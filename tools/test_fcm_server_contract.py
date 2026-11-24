@@ -60,8 +60,16 @@ assert "claimAttempt" not in dispatcher
 assert "resolution=ignore-duplicates" not in dispatcher
 assert "http_build_query" in dispatcher
 assert "PHP_QUERY_RFC3986" in dispatcher
-assert "$this->rpcUrl('api_unregister_fcm_token')" in dispatcher
+assert "$this->rpcUrl('api_unregister_fcm_token_for_delivery')" in dispatcher
+assert "'p_profile_id' => $profileId" in dispatcher
 assert "'p_token' => $token" in dispatcher
+server_cleanup = read("supabase/migrations/20261124180000_secure_fcm_delivery_token_cleanup_rpc.sql")
+assert "api_unregister_fcm_token_for_delivery" in server_cleanup
+assert "FROM PUBLIC, anon, authenticated" in server_cleanup
+assert "TO service_role" in server_cleanup
+assert "token_row.profile_id = p_profile_id" in server_cleanup
+assert "token_row.token = p_token" in server_cleanup
+assert "SET search_path = pg_catalog" in server_cleanup
 assert "$this->client()->delete($this->tableUrl('fcm_tokens'), [" not in dispatcher
 assert "permanent_failure" in dispatcher
 assert "persistAttemptSafely" in dispatcher
