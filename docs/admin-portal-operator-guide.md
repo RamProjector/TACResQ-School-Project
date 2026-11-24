@@ -140,3 +140,8 @@ The section navigation remains available on narrow screens as a horizontally scr
 ## User directory retrieval freshness
 
 When the account directory starts loading a new page or applies a new search/role filter, its previous successful-retrieval timestamp is cleared. The timestamp returns only after the active directory request succeeds, so it is not presented as the retrieval time for a different page or filter. Any expanded read-only account detail panel is also closed when a new directory request begins; review the returned row again after the request completes.
+
+
+## Account lifecycle history retry
+
+The Activity Log's account suspension/reactivation history is loaded independently from the main investigation feed. If that source fails, use **Retry lifecycle history** in the lifecycle section to request that history again without resetting the main feed's search, date range, category, source, or page. The retry does not create or modify account-status records; it only re-reads the existing protected history endpoint.
