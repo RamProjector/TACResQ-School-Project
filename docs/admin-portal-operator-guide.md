@@ -125,3 +125,8 @@ The live Security workspace displays the time its Supabase Auth MFA session and 
 ## Activity Log refresh timestamp
 
 The Activity Log refresh timestamp is cleared when a new filter query begins, when the date range is invalid, or when the current query fails. It is set again only after the active investigation-history query succeeds. This avoids showing the previous query’s retrieval time as though it applied to newly selected filters. The independently paginated account-lifecycle history retains its own loading and error state.
+
+
+## Overview dependency-check freshness
+
+When an Overview dependency check starts, the previous three-probe snapshot and any prior diagnostic error are cleared. The page shows a checking state until the current probe completes; a failed probe shows an unavailable message instead of retaining an older reachable/unavailable result as though it were current. The timestamp shown beside the dependency summary belongs to the successful probe response. This remains a reachability check only and does not establish emergency-service readiness.
