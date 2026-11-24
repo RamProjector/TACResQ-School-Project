@@ -188,3 +188,10 @@ The detailed review register is now split into four role/surface slices, indexed
 The matrix highlights unresolved review items including requester incident editing, active responder coordinate reads, the precise duty-status mutation signature, Admin active-state verification, legacy requester RPC compatibility, and the data-free health RPC decision. These are review blockers, not claims that each is currently exploitable. The Python source contract now requires the matrix slices and their key signature/boundary entries to remain present.
 
 No runtime test result is implied by the matrix. The clean migration replay, effective-grant inventory, same-valid-JWT tests, isolated Edge provider-spy tests, HTTP Storage tests, and concurrency suite remain mandatory.
+## Requester incident-edit callable guard — November 24
+
+`public.api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)` is now included in the account-lifecycle guard set. Migration `20261124120000_account_lifecycle_requester_edit_guard.sql` moves the pre-existing SECURITY DEFINER implementation into the private schema, revokes direct client-role execution, and installs an authenticated wrapper that locks the caller's active requester profile before delegation.
+
+The wrapper preserves the public RPC signature and the internal implementation retains existing ownership, assignment, input validation, cooldown, review-confirmation, and edit-history behavior. The profile lock is held through the nested call so it serializes with account suspension on the same profile row.
+
+Replay contract: `active_requester_edit_entry_contract` in `tools/test_account_lifecycle_foundation.sql`, with source coverage in `tools/test_account_lifecycle_callable_inventory_contract.py`. These checks are committed but have not been executed in this environment. Disposable PostgreSQL replay, same-valid-JWT suspended edit denial, and edit-versus-suspension concurrency tests remain required before the guard is runtime-verified.
