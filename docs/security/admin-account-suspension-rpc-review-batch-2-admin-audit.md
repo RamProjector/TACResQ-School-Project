@@ -1,7 +1,7 @@
 # Account suspension RPC review — batch 2: Admin and audit
 
 **Branch:** `security/admin-account-suspension`  
-**Status:** source review only; no schema, enforcement, or UI changes.
+**Status:** original source review with staged PR #347 implementation follow-up below; not proof of live deployment or runtime validation.
 
 ## Admin callable entry points
 
@@ -13,6 +13,8 @@
 | `api_admin_analytics_summary(timestamptz,timestamptz)` | Protected wrapper calls the same helper before delegating to internal analytics implementation. | Add active-Admin check to shared helper; analytics must not remain accessible to a suspended Admin via an unexpired JWT. |
 | `api_admin_list_audit_logs_page(...)` | Dedicated bounded/searchable page endpoint calls the shared helper directly; limits page size to 100, offset to 1,000,000, query length to 120, validates action/date/profile filters. | Same missing active-Admin check in shared helper. |
 | `api_admin_list_investigation_events(...)` | Calls the shared helper before reading an allowlisted union of admin, Auth, incident, claimability, requester-edit, and assignment histories. It bounds pagination and filters; projects minimized details rather than raw Auth payload/IP fields. | Same missing active-Admin check. Do not duplicate divergent role/MFA logic in this RPC; strengthen the shared helper and test every wrapper. |
+| `api_admin_set_account_status(bigint,text,text)` | New bounded lifecycle transition RPC calls the shared Admin MFA helper, locks the target profile, validates status/reason, blocks Admin targets/self-suspension, and inserts an immutable transition event in the same transaction. | Keep active-Admin AAL2/TOTP, target-state validation, idempotency, audit atomicity, and profile-lock ordering. Prove transition-vs-role/duty concurrency and rollback on audit failure. |
+| `api_admin_list_account_lifecycle_events(integer,integer)` | New bounded reader calls the shared Admin MFA helper before reading the lifecycle audit ledger; direct client ledger access remains revoked. | Preserve page-size/offset bounds and ensure suspended Admins with still-valid JWTs are denied before any lifecycle history is returned. |
 | `api_admin_list_users()` | Legacy unbounded list function remains in the schema but is explicitly revoked from PUBLIC, anon, and authenticated; current TOTP migration keeps it unavailable. | Keep revoked. Add a regression assertion so future migrations cannot accidentally re-grant it. |
 
 ## Shared Admin MFA helper
@@ -65,7 +67,14 @@ Observed checks:
 - `supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql`
 - `supabase/migrations/20261122140000_admin_audit_server_pagination.sql`
 - `supabase/migrations/20261122160000_admin_investigation_events.sql`
+- `supabase/migrations/20261123170000_account_lifecycle_admin_transition_rpc.sql`
+- `supabase/migrations/20261123200000_admin_account_lifecycle_audit_reader.sql`
 - `tools/test_admin_totp_contract.py`
 - `tools/test_supabase_migration_replay.sh`
 
 No connected Supabase project was queried or modified. These are repository migration findings.
+
+
+## PR #347 lifecycle implementation follow-up
+
+Migration `20261123170000_account_lifecycle_admin_transition_rpc.sql` adds `api_admin_set_account_status(bigint,text,text)` as a public SECURITY DEFINER entry point. It delegates actor authorization to the shared Admin MFA helper, serializes against profile changes, validates the transition and reason, and writes the lifecycle audit row in the same transaction. Migration `20261123200000_admin_account_lifecycle_audit_reader.sql` adds the bounded `api_admin_list_account_lifecycle_events(integer,integer)` reader behind the same Admin MFA boundary. Both signatures are included in the clean-replay callable inventory; they remain staged and are not live-deployed.
