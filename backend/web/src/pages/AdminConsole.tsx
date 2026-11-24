@@ -365,6 +365,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     // Clear it until this request succeeds so it cannot be mistaken for the
     // freshness of the results currently being requested.
     setDirectoryLoadedAt(null);
+    // Do not leave accounts from the previous page or filter visible while
+    // the next protected directory request is pending.
+    setUsers([]);
+    setTotalUsers(0);
     setExpandedAccountId(null);
     // A section change invalidates an in-flight Overview probe. Clear its
     // loading state here because the superseded request will no longer finish
