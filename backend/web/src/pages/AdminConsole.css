@@ -1440,15 +1440,29 @@
   outline-offset:2px;
 }
 
-.audit-page__lifecycle .audit-page__heading > span {
-  flex:1;
+.audit-page__lifecycle-actions {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:8px 12px;
   min-width:0;
+}
+.audit-page__lifecycle-actions > span {
+  color:#718081;
+  font:600 9px/1.5 var(--mono);
   text-align:right;
-  white-space:normal;
-  line-height:1.5;
+  overflow-wrap:anywhere;
+}
+.audit-page__lifecycle-actions .admin-refresh { flex:none; }
+.audit-page__lifecycle-actions .admin-refresh:focus-visible {
+  outline:3px solid rgba(243,106,67,.5);
+  outline-offset:2px;
 }
 @media (max-width:520px) {
-  .audit-page__lifecycle .audit-page__heading > span {
-    text-align:left;
+  .audit-page__lifecycle-actions {
+    justify-content:flex-start;
+    width:100%;
   }
+  .audit-page__lifecycle-actions > span { text-align:left; }
 }
