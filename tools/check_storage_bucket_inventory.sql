@@ -120,9 +120,7 @@ SELECT
   b.allowed_mime_types,
   count(o.id) AS object_count,
   coalesce(sum(CASE
-    WHEN o.metadata->>'size' ~ '^[0-9]+
-
-      THEN (o.metadata->>'size')::bigint
+    WHEN o.metadata->>'size' ~ '^[0-9]{1,18}$' THEN (o.metadata->>'size')::bigint
     ELSE 0
   END), 0) AS declared_object_bytes,
   ARRAY(
