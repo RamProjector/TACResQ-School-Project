@@ -126,7 +126,7 @@ def main() -> None:
         "Authenticated bridge smoke role must be an explicitly reusable workflow"
     )
     for secret_name in ("SUPABASE_PUBLISHABLE_KEY", "TEST_EMAIL", "TEST_PASSWORD"):
-        assert re.search(rf"(?m)^      {secret_name}: \\n        required: true$", role_workflow), (
+        assert re.search(rf"(?m)^      {secret_name}:\n        required: true$", role_workflow), (
             f"Reusable bridge smoke role must declare {secret_name} as a required explicit secret"
         )
     for role in ("REQUESTER", "RESPONDER", "DRIVER", "DISPATCHER"):
