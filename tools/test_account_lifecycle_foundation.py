@@ -122,7 +122,7 @@ responder_claim_test = runtime_test.split(
     "do $suspended_responder_claim_contract$", 1
 )[1].split("$suspended_responder_claim_contract$;", 1)[0]
 assert "public.api_claimable_incidents()" in responder_claim_test
-assert "public.api_claim_incident(1)->>'code' IS DISTINCT FROM 'unauthorized'" in responder_claim_test
+assert "public.api_claim_incident(1)->>'code' is distinct from 'unauthorized'" in responder_claim_test
 assert "request.jwt.claim.sub', '00000000-0000-4000-8000-000000000996'" in runtime_test, (
     "Suspended responder runtime checks must execute under the same synthetic Auth subject."
 )
