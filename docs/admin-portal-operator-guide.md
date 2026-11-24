@@ -238,3 +238,7 @@ The Admin workspace also honors the browser's `prefers-reduced-motion` media pre
 ## Role-change dialog scrolling
 
 When an administrator opens the privileged role-change dialog, background page scrolling is locked so the underlying account directory cannot move while the dialog is active. Closing the dialog restores the body's previous inline overflow setting. Keyboard focus trapping, Escape handling, and focus return to the invoking control remain in place.
+
+## Accessible security-action confirmations
+
+The inline confirmation controls for removing an authenticator factor and signing out all devices are exposed as polite, atomic live regions. Screen readers should be notified when the confirmation choices appear without interrupting the operator with an assertive alert. The actions still require the existing server/session authorization checks; this is an announcement improvement, not a change to permissions or action scope.
