@@ -119,6 +119,7 @@ BEGIN
       JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
      WHERE n.nspname = 'public'
        AND c.relkind IN ('r', 'p')
+       AND c.relname <> 'fcm_tokens'
        AND c.relrowsecurity
        AND (
          has_table_privilege('authenticated', c.oid, 'SELECT')
@@ -140,6 +141,54 @@ BEGIN
        )
   ) THEN
     RAISE EXCEPTION 'A public table with authenticated privileges is missing the restrictive active-account RLS policy';
+  END IF;
+
+  -- FCM token cleanup intentionally has a narrower exception than the
+  -- generic ALL-command policy: suspended users may DELETE only their own
+  -- token, while SELECT/INSERT/UPDATE still require an active account.
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'fcm_tokens'
+       AND policyname = 'tacresq_fcm_select_requires_active'
+       AND permissive = 'RESTRICTIVE'
+       AND cmd = 'SELECT'
+       AND 'authenticated' = ANY(roles)
+       AND qual ILIKE '%tacresq_current_account_active%'
+  ) OR NOT EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'fcm_tokens'
+       AND policyname = 'tacresq_fcm_insert_requires_active'
+       AND permissive = 'RESTRICTIVE'
+       AND cmd = 'INSERT'
+       AND 'authenticated' = ANY(roles)
+       AND with_check ILIKE '%tacresq_current_account_active%'
+  ) OR NOT EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'fcm_tokens'
+       AND policyname = 'tacresq_fcm_update_requires_active'
+       AND permissive = 'RESTRICTIVE'
+       AND cmd = 'UPDATE'
+       AND 'authenticated' = ANY(roles)
+       AND qual ILIKE '%tacresq_current_account_active%'
+       AND with_check ILIKE '%tacresq_current_account_active%'
+  ) OR NOT EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'fcm_tokens'
+       AND policyname = 'tacresq_fcm_delete_self_cleanup'
+       AND permissive = 'RESTRICTIVE'
+       AND cmd = 'DELETE'
+       AND 'authenticated' = ANY(roles)
+       AND qual ILIKE '%tacresq_auth_profile_id_for_token_cleanup%'
+  ) THEN
+    RAISE EXCEPTION 'FCM token policies must preserve active-account reads/writes and caller-only delete cleanup';
   END IF;
 
   IF EXISTS (
