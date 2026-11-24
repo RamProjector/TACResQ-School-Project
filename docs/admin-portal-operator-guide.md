@@ -213,3 +213,8 @@ The Activity Log's seventh source, **App actions**, is a metadata-only record of
 ## User directory query consistency
 
 The User Management table displays rows only when their result key matches the active page, page size, debounced search, and role filter. When any of those selections changes, the prior result set is hidden immediately—even before the next request effect begins—and the table reports that account results are updating. The retrieval timestamp is set only after a valid response for the active selection. This is a presentation/freshness safeguard; it does not change the protected directory endpoint or its authorization rules.
+
+
+## User directory recovery and assistive status
+
+If the protected account-directory request fails, the table's unavailable state includes a **Retry account directory** action beside the message, in addition to the page-level Refresh data action. Both repeat the existing read-only directory request; neither changes account data. The scrollable results region exposes its busy state while a request or filter transition is pending, and the table is associated with the directory status announcement.
