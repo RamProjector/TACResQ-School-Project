@@ -71,3 +71,18 @@ The Security page heading explains the current administrator-session and authent
 ## Mobile account directory navigation
 
 On narrow screens, the account directory remains horizontally scrollable so all five data columns stay available without compressing names, email addresses, and role information into unreadable cells. The first Account column stays pinned while the other columns scroll, preserving the identity context for each row. The table's scroll region remains keyboard-focusable; use Tab to reach it and the horizontal scroll controls provided by the browser or trackpad. This is a presentation-only change and does not alter directory queries or account data.
+
+
+## Settings workspace — personal preferences
+
+The Admin navigation includes a Settings workspace for preferences scoped to the current browser. Interface density (comfortable or compact), reduced motion, high contrast, and contextual-help visibility preview immediately. Select **Save preferences** to persist them in this browser's local storage; the page indicates when edits are unsaved. **Reset defaults** restores the default presentation values. These preferences do not alter account permissions, organization-wide policy, emergency notification delivery, or other users' settings. If browser storage is unavailable, the page reports that the preferences could not be saved.
+
+The Settings page also explains current capability boundaries:
+- Privacy notice and data-rights request workflows are not published or available in this Admin workspace. The page does not invent a controller contact, legal retention period, or deletion action.
+- Emergency notification preferences are not configurable here. No quiet-hours or suppression control is shown because a verified preference-enforcement service is not connected to the Admin portal.
+
+## Help & About workspace
+
+The Help & About section explains the purpose and limitations of Overview, User Management, Security, Reports, and Activity Log, with direct links to each workspace. It identifies the Admin portal as a privileged administration interface rather than a dispatch console and does not claim an unconfigured support contact or release version.
+
+Contextual question-mark disclosures in Settings work with pointer, keyboard, and touch interaction through native disclosure controls. Their explanatory content is optional and can be hidden using the contextual-help preference. Important capability limitations remain visible in the page content and are not tooltip-only.
