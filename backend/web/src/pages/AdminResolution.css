@@ -476,3 +476,34 @@
   .admin-pagination > div { flex-direction: column; }
   .admin-pagination button { width: 100%; }
 }
+
+
+/* Keep privileged role-change guidance and validation visible within the dialog. */
+.admin-modal__error {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #d9a49a;
+  border-radius: 8px;
+  color: #873b31;
+  background: #fff5f2;
+  font-size: var(--admin-ui-small);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.admin-form-hint {
+  margin: -4px 0 8px;
+  color: #65766e;
+  font-size: var(--admin-ui-small);
+  line-height: 1.5;
+}
+.admin-reason-count {
+  margin-top: 5px;
+  color: #65766e;
+  font-size: var(--admin-ui-label);
+  line-height: 1.45;
+  text-align: right;
+}
+@media (max-width: 520px) {
+  .admin-modal__error { padding: 9px 10px; }
+  .admin-reason-count { text-align: left; }
+}
