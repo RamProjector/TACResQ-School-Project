@@ -88,6 +88,14 @@ assert "api_admin_list_account_lifecycle_events" in supabase_client
 assert (ROOT / "docs/security/admin-session-revocation-and-auth-audit-boundaries.md").exists()
 
 # The Security page reports live Supabase Auth state without exposing factor secrets.
+# Initial enrollment must hide the password-equivalent TOTP setup key by default,
+# expose it only through an explicit accessible control, and clear it after use.
+assert 'type={showSecret ? "text" : "password"}' in gate
+assert 'aria-label={showSecret ? "Hide manual setup key" : "Show manual setup key"}' in gate
+assert "setSecret(\"\")" in gate, "Initial TOTP enrollment must clear the setup key after verification/cancellation."
+assert 'type="text" readOnly value={secret}' not in gate, "Do not render the initial TOTP setup key in clear text by default."
+gate_css = (ROOT / "backend/web/src/components/AdminMfaGate.css").read_text()
+assert ".mfa-secret-field" in gate_css and "@media (max-width:420px)" in gate_css, "The secret reveal control must remain usable on narrow screens."
 security_status = (ROOT / "backend/web/src/components/AdminSecurityStatus.tsx").read_text()
 assert 'import AdminSecurityStatus from "@/components/AdminSecurityStatus"' in admin
 assert "<AdminSecurityStatus />" in admin
