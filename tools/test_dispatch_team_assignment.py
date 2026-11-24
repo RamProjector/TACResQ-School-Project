@@ -10,6 +10,7 @@ fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").re
 repo = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 sql = (ROOT / "supabase/migrations/20261023081706_dispatch_team_assignment.sql").read_text()
 hardening = (ROOT / "supabase/migrations/20261023082526_harden_dispatch_team_assignment.sql").read_text()
+lifecycle_guard = (ROOT / "supabase/migrations/20261124080000_account_lifecycle_team_assignment_guard.sql").read_text()
 
 for required in ("Select response team", "Checkbox(", "selectedUnitIds.size < maxTeamSelection", "Add responders", "Assign team", "This assigns responders to the incident as one response group.", "It does not appoint a team leader"):
     assert required in screen, f"Dispatcher team-selection UI missing: {required}"
@@ -35,4 +36,18 @@ for required in ("SET SCHEMA private", "SECURITY INVOKER", "REVOKE ALL ON FUNCTI
     assert required in hardening, f"Public assignment RPC hardening missing: {required}"
 
 print("PASS: backend persists team membership, rechecks availability under locks, and returns team IDs.")
+
+for required in (
+    "private.tacresq_assign_incident_team_guarded",
+    "p.account_status = 'active'",
+    "FOR SHARE",
+    "SECURITY DEFINER",
+    "SECURITY INVOKER",
+    "REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team(bigint, bigint[])",
+    "private.tacresq_assign_incident_team(p_id, p_user_ids)",
+):
+    assert required in lifecycle_guard, f"Active-account team assignment guard missing: {required}"
+assert lifecycle_guard.index("p.account_status = 'active'") < lifecycle_guard.index("FOR SHARE")
+assert "ALTER FUNCTION public.api_assign_incident_team" not in lifecycle_guard
+print("PASS: active-account assignment is serialized in a private definer helper behind a public invoker RPC.")
 print("PASS: exposed assignment RPCs are invoker wrappers; privileged implementation is private.")
