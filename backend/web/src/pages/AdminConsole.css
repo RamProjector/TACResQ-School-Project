@@ -1681,3 +1681,8 @@
   .admin-attachment-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); padding:0 14px 14px; }
   .admin-attachment-panel > .admin-panel__footnote { margin:0 14px; }
 }
+
+
+/* Account lifecycle status in the website Admin directory. */
+.admin-account-status { display:inline-flex; align-items:center; min-height:24px; padding:0 9px; border:1px solid #dce5dc; border-radius:999px; color:#456451; background:#f1f7ef; font-size:9px; font-weight:700; text-transform:capitalize; }
+.admin-account-status--suspended { border-color:#efc9c0; color:#9b4334; background:#fff1ed; }
