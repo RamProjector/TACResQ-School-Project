@@ -1466,3 +1466,36 @@
   }
   .audit-page__lifecycle-actions > span { text-align:left; }
 }
+
+/* Make the optional high-contrast preference reach controls and secondary
+   content throughout the Admin workspace, not only panel borders. */
+.admin-shell--high-contrast .admin-sidebar__label,
+.admin-shell--high-contrast .admin-panel__footnote,
+.admin-shell--high-contrast .admin-settings-intro,
+.admin-shell--high-contrast .admin-settings-card p,
+.admin-shell--high-contrast .admin-help-card p,
+.admin-shell--high-contrast .admin-security-status__checked,
+.admin-shell--high-contrast .admin-security-status__item small,
+.admin-shell--high-contrast .admin-directory-status,
+.admin-shell--high-contrast .admin-table td { color:#344b43; }
+.admin-shell--high-contrast .admin-table th,
+.admin-shell--high-contrast .admin-table td,
+.admin-shell--high-contrast .admin-settings-nav,
+.admin-shell--high-contrast .admin-settings-nav__item,
+.admin-shell--high-contrast .admin-filter-reset,
+.admin-shell--high-contrast .admin-refresh,
+.admin-shell--high-contrast input,
+.admin-shell--high-contrast select,
+.admin-shell--high-contrast textarea { border-color:#65796e; }
+.admin-shell--high-contrast .admin-settings-nav__item,
+.admin-shell--high-contrast .admin-filter-reset,
+.admin-shell--high-contrast .admin-refresh,
+.admin-shell--high-contrast input,
+.admin-shell--high-contrast select,
+.admin-shell--high-contrast textarea { color:#172d27; background:#fff; }
+.admin-shell--high-contrast button:focus-visible,
+.admin-shell--high-contrast a:focus-visible,
+.admin-shell--high-contrast input:focus-visible,
+.admin-shell--high-contrast select:focus-visible,
+.admin-shell--high-contrast textarea:focus-visible { outline:3px solid #8a321c; outline-offset:2px; }
+.admin-shell--high-contrast .admin-settings-nav__item--active { color:#173c2e; background:#e4f0e5; border-color:#526c5d; }
