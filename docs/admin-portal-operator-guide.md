@@ -230,3 +230,7 @@ When the aggregate analytics request fails, the report shows the returned error 
 ## High-contrast display preference
 
 The browser-local **High contrast** preference now increases contrast across more of the Admin workspace, including secondary text, table cells and borders, settings navigation, form controls, and keyboard-focus outlines. This is a presentation preference only; it does not alter account permissions, security policy, or backend data.
+
+## Operating-system motion and accessibility toggles
+
+The Admin workspace also honors the browser's `prefers-reduced-motion` media preference. This applies reduced transitions and animation even if the Admin-specific browser preference is left off. When High contrast is enabled in Admin Settings, the preference toggle controls themselves receive stronger text, checkbox, and keyboard-focus treatment. These presentation aids complement—but do not replace—operating-system accessibility settings or a formal accessibility audit.
