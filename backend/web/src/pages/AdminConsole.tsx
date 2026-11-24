@@ -344,21 +344,23 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setReason("");
     setError(null);
     setNotice(null);
+    setRoleToast(null);
   }
 
   async function confirmRoleChange() {
     if (!target || saving || target.role === "admin") return;
     if (reason.trim().length < 10 || reason.trim().length > 500) {
-      setError("Enter an audit reason between 10 and 500 characters.");
+      setRoleToast({ type: "error", message: "Enter an audit reason between 10 and 500 characters." });
       return;
     }
     if (nextRole === target.role) {
-      setError("Choose a different role before saving.");
+      setRoleToast({ type: "error", message: "Choose a different role before saving." });
       return;
     }
     setSaving(true);
     setError(null);
     setNotice(null);
+    setRoleToast(null);
     try {
       // Re-read this exact account immediately before mutation. The dialog may
       // have remained open while another administrator changed the account.
@@ -367,18 +369,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       if (!latestTarget || latestTarget.role !== target.role) {
         setTarget(null);
         await refresh();
-        setError(!latestTarget
+        setRoleToast({ type: "error", message: !latestTarget
           ? "This account is no longer available in the directory. Refresh the results and review the account before trying again."
-          : "This account's role changed while the confirmation dialog was open. The requested change was not submitted. Review the refreshed account before trying again.");
+          : "This account's role changed while the confirmation dialog was open. The requested change was not submitted. Review the refreshed account before trying again." });
         return;
       }
       const changed = await setAdminUserRole(target.id, nextRole, reason.trim());
-      setNotice(changed.name + "'s role changed from " + displayRole(changed.old_role) + " to " + displayRole(changed.role) + ". The action was recorded in the audit log.");
+      setRoleToast({ type: "success", message: changed.name + "'s role changed from " + displayRole(changed.old_role) + " to " + displayRole(changed.role) + ". The action was recorded in the audit log." });
       setTarget(null);
       setReason("");
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The role change was not saved.");
+      setRoleToast({ type: "error", message: cause instanceof Error ? cause.message : "The role change was not saved." });
     } finally {
       setSaving(false);
     }
