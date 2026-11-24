@@ -168,8 +168,8 @@ export default function AdminSecurityStatus() {
       setEnrollment(null);
       setVerificationCode("");
       setShowEnrollmentSecret(false);
-      setNotice("Backup authenticator verified and added.");
       await refresh();
+      setNotice("Backup authenticator verified and added.");
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "The authenticator code could not be verified.");
     } finally {
@@ -249,8 +249,8 @@ export default function AdminSecurityStatus() {
         setVerificationCode("");
       }
       setConfirmRemoveFactorId(null);
-      setNotice(factor.name + " was removed.");
       await refresh();
+      setNotice(factor.name + " was removed.");
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "The authenticator factor could not be removed.");
     } finally {
@@ -269,8 +269,8 @@ export default function AdminSecurityStatus() {
       setEnrollment(null);
       setVerificationCode("");
       setShowEnrollmentSecret(false);
-      setNotice("Unverified backup enrollment cancelled.");
       await refresh();
+      setNotice("Unverified backup enrollment cancelled.");
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "The pending enrollment could not be cancelled.");
     } finally {
