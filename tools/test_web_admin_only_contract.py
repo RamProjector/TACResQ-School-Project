@@ -266,3 +266,16 @@ assert ".audit-event-card__details dl { gap: 7pt 12pt; }" in admin_resolution_cs
 assert "@media (max-width: 360px)" in admin_resolution_css
 assert ".admin-pagination > div { flex-direction: column; }" in admin_resolution_css
 assert ".admin-metrics { grid-template-columns: minmax(0,1fr); }" in admin_resolution_css
+
+
+# Privileged role-change dialogs expose validation feedback and programmatic guidance in-context.
+assert 'className="admin-modal__error" role="alert">{error}' in admin_console
+assert 'aria-describedby="admin-role-dialog-description admin-role-dialog-guidance"' in admin_console
+assert 'id="admin-role-dialog-description"' in admin_console
+assert 'id="admin-role-dialog-guidance"' in admin_console
+assert 'id="admin-change-reason-guidance"' in admin_console
+assert 'aria-describedby="admin-change-reason-guidance admin-reason-count"' in admin_console
+assert 'id="admin-reason-count"' in admin_console
+assert ".admin-modal__error {" in admin_resolution_css
+assert ".admin-form-hint {" in admin_resolution_css
+assert ".admin-reason-count {" in admin_resolution_css
