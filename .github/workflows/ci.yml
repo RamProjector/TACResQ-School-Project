@@ -244,6 +244,9 @@ jobs:
       - name: Check administrator dependency health visibility contract
         run: python3 tools/test_admin_dependency_health_contract.py
 
+      - name: Check administrator recovery workspace contract
+        run: python3 tools/test_admin_recovery_workspace_contract.py
+
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
 
