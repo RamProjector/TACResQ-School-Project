@@ -119,6 +119,9 @@ def test_directory_refresh_invalidates_old_filter_timestamp_and_expanded_row():
     source = SOURCE.read_text(encoding="utf-8")
     refresh_start = source.split("const refresh = useCallback", 1)[1].split("if (activeSection !== \"overview\" && activeSection !== \"users\")", 1)[0]
     assert "setDirectoryLoadedAt(null);" in refresh_start
+    assert "setUsers([]);" in refresh_start
+    assert "setTotalUsers(0);" in refresh_start
+    assert refresh_start.index("setUsers([]);") < refresh_start.index("getAdminUsersPage(pageSize")
     assert "setExpandedAccountId(null);" in refresh_start
     assert refresh_start.index("setDirectoryLoadedAt(null);") < refresh_start.index("getAdminUsersPage(pageSize")
     assert "Last successful retrieval:" in source
