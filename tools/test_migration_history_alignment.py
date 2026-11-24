@@ -108,6 +108,7 @@ PENDING = {
     "20261124120000_account_lifecycle_requester_edit_guard.sql",
     "20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql",
     "20261124140000_account_lifecycle_duty_status_guard.sql",
+    "20261124150000_reconcile_active_account_rls_inventory.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
