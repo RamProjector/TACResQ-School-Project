@@ -136,6 +136,10 @@ for marker in (
     "sourceLabels",
     "All sources",
     "Coverage boundaries",
+    "Feed reader: integrated.",
+    "Capture is conditional on the Supabase project’s optional Auth Audit Logs Postgres storage setting",
+    "A zero-row result means no matching records were returned, not that no activity occurred.",
+    "database event writers: integrated",
     "date boundaries and displayed times use Asia/Manila",
 ):
     assert marker in page, f"Missing Admin investigation UI contract: {marker}"
