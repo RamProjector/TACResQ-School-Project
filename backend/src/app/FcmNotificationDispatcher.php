@@ -2,6 +2,8 @@
 
 namespace App;
 
+use App\Contracts\FcmClientContract;
+
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -11,7 +13,7 @@ class FcmNotificationDispatcher
 {
     private const CLAIM_LEASE_SECONDS = 600;
 
-    public function __construct(private readonly FcmHttpV1Client $fcm)
+    public function __construct(private readonly FcmClientContract $fcm)
     {
     }
 
