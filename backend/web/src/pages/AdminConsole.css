@@ -1113,3 +1113,26 @@
   .admin-table td { padding-block:13px; }
   .admin-footer { font-size:8px; }
 }
+
+
+/* Keep MFA factor actions usable when names and confirmation controls wrap. */
+.admin-security-status__factor-list li { flex-wrap:wrap; }
+.admin-security-status__factor-list li > span:nth-child(2) { flex:1 1 180px; }
+.admin-security-status__factor-list li > button,
+.admin-security-status__factor-list li > .admin-security-status__actions { flex:0 1 auto; margin-left:auto; }
+.admin-security-status__factor-list li > .admin-security-status__actions { min-width:0; }
+.admin-security-status__note[role="status"] { padding:9px 11px; border-left:3px solid #c6a36a; background:#fbf8f0; }
+.admin-security-status :where(button,input):focus-visible {
+  outline:3px solid rgba(243,106,67,.55);
+  outline-offset:2px;
+}
+.admin-security-status__confirm,
+.admin-security-status__enrollment { min-width:0; }
+.admin-security-status__enrollment input { min-width:0; overflow-wrap:anywhere; }
+@media (max-width:480px) {
+  .admin-security-status__factor-list li { align-items:flex-start; }
+  .admin-security-status__factor-list li > .admin-security-status__actions { width:100%; justify-content:flex-start; margin-left:40px; }
+  .admin-security-status__factor-list li > button { margin-left:40px; }
+  .admin-security-status__backup,
+  .admin-security-status__revocation { padding:13px; }
+}
