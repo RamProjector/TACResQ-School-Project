@@ -22,3 +22,13 @@ def test_directory_page_size_control_has_visible_keyboard_focus():
     css = CSS.read_text(encoding="utf-8")
     assert ".admin-page-size" in css
     assert ".admin-page-size select:focus-visible" in css
+
+
+def test_overview_shortcuts_use_the_shared_section_navigation():
+    source = SOURCE.read_text(encoding="utf-8")
+    assert "function navigateToSection(section: AdminSection)" in source
+    assert 'onClick={() => navigateToSection("users")}' in source
+    assert 'onClick={() => navigateToSection("analytics")}' in source
+    assert 'onClick={() => navigateToSection("audit")}' in source
+    assert 'aria-labelledby="admin-overview-shortcuts-title"' in source
+    assert "admin-overview-shortcuts__grid" in source
