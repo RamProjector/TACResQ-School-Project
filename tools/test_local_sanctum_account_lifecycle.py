@@ -359,3 +359,6 @@ assert "test_successful_local_admin_step_up_clears_malformed_attempt_throttle" i
 assert "use Illuminate\\Support\\Facades\\RateLimiter;" in feature
 assert "RateLimiter::hit($key, 900)" in feature
 assert "->assertTooManyRequests()" in feature
+
+assert "test_missing_local_admin_step_up_fields_are_counted_as_failures" in feature
+assert "per-account-and-client-IP five-attempt/900-second throttle" in (ROOT / "docs/security/legacy-sanctum-account-lifecycle-boundary.md").read_text()
