@@ -637,7 +637,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" aria-describedby="admin-health-limitations" aria-busy={dependencyHealthLoading} hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
-              <div><p className="admin-eyebrow">SERVICE REACHABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency reachability</h2></div>
+              <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">SERVICE REACHABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency reachability</h2></div><AdminHelpTip label="About dependency reachability" message="These probes only confirm that Laravel, Supabase Auth, and the database responded within the configured threshold. They do not verify incident creation, assignment, routing, location accuracy, or push delivery." /></div>
               <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatManilaDateTime(dependencyHealth.checked_at) + " (Asia/Manila)" : "No verified result"}</span>
             </div>
             {dependencyHealthError ? (
@@ -669,7 +669,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
           <section className="admin-panel" id="admin-user-management" aria-labelledby="admin-user-management-title" hidden={activeSection !== "users"}>
             <div className="admin-panel__heading">
-              <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2 id="admin-user-management-title"><Users size={19} /> User management</h2></div>
+              <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2 id="admin-user-management-title"><Users size={19} /> User management</h2></div><AdminHelpTip label="About user management" message="This directory changes operational roles only. Admin accounts remain operator-managed, and duty status is not a sign-in, suspension, or account-enabled state." /></div>
               <span className="admin-count">{directoryError ? "Account results unavailable" : totalUsers === 0 ? "0 matching accounts" : (page * pageSize + 1) + "–" + Math.min((page + 1) * pageSize, totalUsers) + " of " + totalUsers + " matching"}</span>
             </div>
             <div className="admin-toolbar">
@@ -711,7 +711,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           {activeSection === "analytics" && (
             <section className="admin-panel admin-analytics-panel" aria-labelledby="admin-analytics-title">
               <div className="admin-panel__heading">
-                <div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div>
+                <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">INCIDENT OPERATIONS</p><h2 id="admin-analytics-title"><BarChart3 size={19} /> Request performance</h2></div><AdminHelpTip label="About request performance" message="Reports contain aggregate request counts. Status totals show each request’s current status at query time, not historical transitions. Assignment timing uses the first recorded assigned status event." /></div>
                 <div className="admin-analytics-controls">
                   <label className="admin-analytics-range"><span>Period (Manila time)</span><select value={analyticsDays} onChange={(event) => setAnalyticsDays(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
                   <button className="admin-refresh" type="button" onClick={() => { if (analytics) exportAnalyticsCsv(analytics); }} disabled={analyticsLoading || !analytics || Boolean(analyticsError)} aria-label="Export incident performance report as CSV"><Download size={15} /> Export CSV</button>
@@ -851,7 +851,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <>
             <section className="admin-panel admin-roadmap-panel">
               <div className="admin-panel__heading">
-                <div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><ShieldCheck size={19} /> Security overview</h2></div>
+                <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">IDENTITY &amp; ACCESS</p><h2><ShieldCheck size={19} /> Security overview</h2></div><AdminHelpTip label="About security coverage" message="This section describes the repository implementation and current administrator session controls. It is not a complete security-event monitoring centre and does not prove that every branch migration is deployed." /></div>
                 <span className="admin-count">Branch policy · deployment unverified</span>
               </div>
               <div className="admin-roadmap-content">
