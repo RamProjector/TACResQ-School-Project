@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 migration = (
     ROOT
-    / "supabase/migrations/20261122090000_admin_analytics_summary.sql"
+    / "supabase/migrations/20261122050856_admin_analytics_summary.sql"
 ).read_text()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 page = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()

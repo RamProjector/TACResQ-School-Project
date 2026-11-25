@@ -3,13 +3,13 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-migration = (ROOT / "supabase/migrations/20261123200000_admin_account_lifecycle_audit_reader.sql").read_text(encoding="utf-8").lower()
+migration = (ROOT / "supabase/migrations/20261125020844_admin_account_lifecycle_audit_reader.sql").read_text(encoding="utf-8").lower()
 client = (ROOT / "backend/web/src/lib/supabase.ts").read_text(encoding="utf-8")
 page = client[client.index("export async function getAdminAccountLifecycleEvents"):]
 
 # The website account directory must display current lifecycle state and use
 # only the protected Admin transition RPC for changes.
-website_migration = (ROOT / "supabase/migrations/20261125110000_admin_account_lifecycle_compare_and_set.sql").read_text(encoding="utf-8").lower()
+website_migration = (ROOT / "supabase/migrations/20261125020926_admin_account_lifecycle_compare_and_set.sql").read_text(encoding="utf-8").lower()
 admin_page = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text(encoding="utf-8")
 assert 'account_status: "active" | "suspended"' in client
 assert 'setadminaccountstatus' in client.lower()

@@ -69,7 +69,7 @@ assert "join pg_catalog.pg_roles as table_owner" in inventory
 # The directly callable private dispatcher implementation is an authorization
 # boundary in its own right, even though the REST-facing wrapper is SECURITY
 # INVOKER. Keep its active-profile lock contract tied to the replayed migration.
-dispatch_migration = (ROOT / "supabase/migrations/20261124070000_account_lifecycle_dispatch_progress_guard.sql").read_text(encoding="utf-8").lower()
+dispatch_migration = (ROOT / "supabase/migrations/20261125020856_account_lifecycle_dispatch_progress_guard.sql").read_text(encoding="utf-8").lower()
 runtime_contract = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text(encoding="utf-8").lower()
 for required in (
     "create or replace function private.tacresq_dispatch_update_incident_status",
@@ -96,9 +96,9 @@ for required in (
 # Guard the dispatcher team-assignment, release, and GPS location write paths.
 # These checks prevent accidental restoration of direct client EXECUTE on the
 # preserved internal implementations or removal of the active-profile locks.
-assignment_migration = (ROOT / "supabase/migrations/20261124080000_account_lifecycle_team_assignment_guard.sql").read_text(encoding="utf-8").lower()
-release_migration = (ROOT / "supabase/migrations/20261124090000_account_lifecycle_assignment_release_guard.sql").read_text(encoding="utf-8").lower()
-location_migration = (ROOT / "supabase/migrations/20261124100000_account_lifecycle_location_writer_guard.sql").read_text(encoding="utf-8").lower()
+assignment_migration = (ROOT / "supabase/migrations/20261125020857_account_lifecycle_team_assignment_guard.sql").read_text(encoding="utf-8").lower()
+release_migration = (ROOT / "supabase/migrations/20261125020859_account_lifecycle_assignment_release_guard.sql").read_text(encoding="utf-8").lower()
+location_migration = (ROOT / "supabase/migrations/20261125020901_account_lifecycle_location_writer_guard.sql").read_text(encoding="utf-8").lower()
 for source, required in (
     (assignment_migration, (
         "create or replace function private.tacresq_assign_incident_team_guarded",
@@ -142,7 +142,7 @@ for item in (
 # Dispatcher roster and incident-queue reads must use the active lifecycle
 # boundary. The roster SECURITY DEFINER body is preserved privately, while its
 # public wrapper owns the active-profile share lock.
-dispatcher_read_migration = (ROOT / "supabase/migrations/20261124110000_account_lifecycle_dispatcher_directory_guard.sql").read_text(encoding="utf-8").lower()
+dispatcher_read_migration = (ROOT / "supabase/migrations/20261125020903_account_lifecycle_dispatcher_directory_guard.sql").read_text(encoding="utf-8").lower()
 for required in (
     "alter function public.api_units() set schema private",
     "tacresq_api_units_internal",
@@ -171,10 +171,10 @@ for required in (
 # entry would otherwise look like a complete inventory while hiding a new
 # callable boundary from reviewers.
 for migration, section in (
-    ("20261124080000_account_lifecycle_team_assignment_guard.sql", "guarded dispatcher team assignment"),
-    ("20261124090000_account_lifecycle_assignment_release_guard.sql", "guarded assignment release"),
-    ("20261124100000_account_lifecycle_location_writer_guard.sql", "guarded responder gps writer"),
-    ("20261124110000_account_lifecycle_dispatcher_directory_guard.sql", "guarded dispatcher directory and queue"),
+    ("20261125020857_account_lifecycle_team_assignment_guard.sql", "guarded dispatcher team assignment"),
+    ("20261125020859_account_lifecycle_assignment_release_guard.sql", "guarded assignment release"),
+    ("20261125020901_account_lifecycle_location_writer_guard.sql", "guarded responder gps writer"),
+    ("20261125020903_account_lifecycle_dispatcher_directory_guard.sql", "guarded dispatcher directory and queue"),
 ):
     assert (ROOT / "supabase/migrations" / migration).is_file(), (
         f"Crosswalk references a missing lifecycle migration: {migration}"
@@ -203,22 +203,22 @@ for block in (
     assert block in foundation_replay, f"PostgreSQL replay is missing callable contract: {block}"
 
 for migration, expected in (
-    ("20261123140000_account_lifecycle_read_rpc_guards.sql", (
+    ("20261125020833_account_lifecycle_read_rpc_guards.sql", (
         "public.api_my_notifications", "public.api_my_notification",
         "public.api_my_incident_messages", "public.api_claimable_incidents",
     )),
-    ("20261123150000_account_lifecycle_assignment_helper_guard.sql", (
+    ("20261125020835_account_lifecycle_assignment_helper_guard.sql", (
         "private.tacresq_is_incident_assignee", "account_status = 'active'", "for share",
     )),
-    ("20261123180000_account_lifecycle_chat_idempotency_guards.sql", (
+    ("20261125020840_account_lifecycle_chat_idempotency_guards.sql", (
         "public.api_reserve_incident_image_upload", "public.api_send_incident_message",
         "public.api_send_incident_image_message", "tacresq_auth_profile_id()",
     )),
-    ("20261123190000_account_lifecycle_write_rpc_entry_guards.sql", (
+    ("20261125020842_account_lifecycle_write_rpc_entry_guards.sql", (
         "public.api_create_incident_v4", "public.api_cancel_my_incident",
         "account_status = 'active'", "for update",
     )),
-    ("20261123210000_account_lifecycle_fcm_token_guards.sql", (
+    ("20261125020846_account_lifecycle_fcm_token_guards.sql", (
         "public.api_register_fcm_token", "public.api_unregister_fcm_token",
         "tacresq_auth_profile_id_for_token_cleanup",
     )),
@@ -314,7 +314,7 @@ print("Per-signature account-lifecycle authorization matrix source contract pass
 # active-account gate at the public boundary and preserve the existing edit
 # validation/cooldown/audit implementation behind an inaccessible private call.
 requester_edit_migration = (
-    ROOT / "supabase/migrations/20261124120000_account_lifecycle_requester_edit_guard.sql"
+    ROOT / "supabase/migrations/20261125020905_account_lifecycle_requester_edit_guard.sql"
 ).read_text(encoding="utf-8").lower()
 requester_edit_runtime = (ROOT / "tools/test_account_lifecycle_foundation.sql").read_text(encoding="utf-8").lower()
 for required in (
@@ -362,7 +362,7 @@ legacy_create_source = (
     ROOT / "supabase/migrations/20261019214218_incident_one_time_location.sql"
 ).read_text(encoding="utf-8").lower()
 write_guard_source = (
-    ROOT / "supabase/migrations/20261123120000_account_lifecycle_write_guard_triggers.sql"
+    ROOT / "supabase/migrations/20261125020825_account_lifecycle_write_guard_triggers.sql"
 ).read_text(encoding="utf-8").lower()
 for signature in (
     "function public.api_create_incident(",
@@ -387,7 +387,7 @@ assert "legacy and current incident creation paths must be covered" in requester
 
 # Claimability and responder-coordinate reads are direct callable boundaries.
 # Keep their new lifecycle migration tied to the clean-replay catalog assertions.
-claimability_reader_migration = (ROOT / "supabase/migrations/20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql").read_text(encoding="utf-8").lower()
+claimability_reader_migration = (ROOT / "supabase/migrations/20261125020907_account_lifecycle_claimability_and_responder_read_guard.sql").read_text(encoding="utf-8").lower()
 for required in (
     "create or replace function public.api_set_incident_claimable",
     "v_actor.account_status is distinct from 'active'",
@@ -419,7 +419,7 @@ for required in (
 # The field-unit duty-status RPC is a direct authenticated mutation. Its
 # profile lock must serialize with lifecycle suspension and reject suspended
 # responders/drivers without silently changing their operational duty state.
-duty_guard_migration = (ROOT / "supabase/migrations/20261124140000_account_lifecycle_duty_status_guard.sql").read_text(encoding="utf-8").lower()
+duty_guard_migration = (ROOT / "supabase/migrations/20261125020913_account_lifecycle_duty_status_guard.sql").read_text(encoding="utf-8").lower()
 for required in (
     "create or replace function public.api_set_duty_status(p_duty_status text)",
     "p.account_status is distinct from 'active'",
