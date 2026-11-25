@@ -1225,7 +1225,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <div className="admin-analytics-detail-grid">
                     <section className="admin-analytics-card admin-analytics-status-chart" aria-labelledby="admin-status-distribution-title">
                       <p className="admin-eyebrow">CURRENT STATUS MIX</p><h3 id="admin-status-distribution-title">Request status distribution</h3>
-                      <p className="admin-panel__footnote">Current status of requests created in the selected reporting period; this is not a historical status-transition chart.</p>
+                      <p className="admin-analytics-status-chart__description">Current status of requests created in the selected reporting period; this is not a historical status-transition chart.</p>
                       <div className="admin-analytics-status-chart__rows">
                         {[
                           { label: "Pending", value: analytics.pending },
@@ -1246,7 +1246,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                       <div className="admin-analytics-secondary"><span>Median</span><strong>{analytics.median_assignment_minutes === null ? "—" : analytics.median_assignment_minutes.toLocaleString() + " min"}</strong></div>
                       <p className="admin-panel__footnote">Based on the first recorded “assigned” status transition for requests created in this period. {analytics.assigned_request_count.toLocaleString()} requests had a valid assignment time.</p>
                     </section>
-                    <section className="admin-analytics-card" aria-labelledby="admin-request-trend-title">
+                    <section className="admin-analytics-card admin-analytics-card--wide" aria-labelledby="admin-request-trend-title">
                       <p className="admin-eyebrow">REQUEST VOLUME</p><h3 id="admin-request-trend-title">Daily requests</h3>
                       {analytics.daily_requests.length === 0 ? <div className="admin-empty" role="status">No daily buckets were returned for this reporting period.</div> : <div className="admin-analytics-bars" role="img" aria-label={analytics.daily_requests.map((point) => point.day + ": " + point.requests + " requests").join("; ")}>
                         {analytics.daily_requests.map((point) => {
