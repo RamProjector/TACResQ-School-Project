@@ -1854,3 +1854,35 @@
 .admin-info-disclosure p { margin:8px 0; color:#71817b; font-size:10px; line-height:1.6; }
 .admin-info-disclosure a { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; }
 .admin-info-disclosure[open] { border-color:#cbd9ca; background:#fbfcf8; }
+
+/* Keep long navigation lists scrollable inside the sidebar, without a harsh scrollbar. */
+@media (min-width: 761px) {
+  .admin-sidebar {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(184,200,191,.28) transparent;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+  }
+  .admin-sidebar::-webkit-scrollbar { width: 6px; }
+  .admin-sidebar::-webkit-scrollbar-track { background: transparent; }
+  .admin-sidebar::-webkit-scrollbar-thumb {
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: rgba(184,200,191,.22);
+    background-clip: padding-box;
+  }
+  .admin-sidebar:hover::-webkit-scrollbar-thumb,
+  .admin-sidebar:focus-within::-webkit-scrollbar-thumb {
+    background: rgba(184,200,191,.48);
+    background-clip: padding-box;
+  }
+  .admin-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(234,240,235,.62);
+    background-clip: padding-box;
+  }
+}
+
