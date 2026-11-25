@@ -944,6 +944,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                             <button
                               className="admin-account-details"
                               type="button"
+                              aria-label={(expandedAccountId === user.id ? "Hide details for " : "View details for ") + user.name}
                               aria-expanded={expandedAccountId === user.id}
                               aria-controls={"admin-account-details-" + user.id}
                               onClick={() => setExpandedAccountId((current) => current === user.id ? null : user.id)}
@@ -957,6 +958,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                               <button
                                 className="admin-account-details"
                                 type="button"
+                                aria-label={(user.account_status === "active" ? "Suspend account for " : "Reactivate account for ") + user.name}
                                 onClick={() => { void changeAccountStatus(user); }}
                                 disabled={loading || refreshing || saving || directoryFilterPending || Boolean(directoryError)}
                               >
@@ -965,6 +967,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                               <button
                                 className="admin-change-role"
                                 type="button"
+                                aria-label={"Change role for " + user.name}
                                 onClick={() => openRoleChange(user)}
                                 disabled={loading || refreshing || directoryFilterPending || Boolean(directoryError)}
                               >
