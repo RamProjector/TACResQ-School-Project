@@ -828,9 +828,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-nav-entry" key={id}>
               {index === 0 && <div className="admin-navigation__group-label">WORKSPACE</div>}
               {index === 1 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">GOVERNANCE</div>}
-              {index === 5 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">RESILIENCE</div>}
-              {index === 6 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">STORAGE &amp; MEDIA</div>}
-              {index === 7 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">PREFERENCES &amp; SUPPORT</div>}
+              {index === 5 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">DATA &amp; CONTINUITY</div>}
+              {index === 6 && <div className="admin-navigation__group-label admin-navigation__group-label--spaced">PREFERENCES &amp; SUPPORT</div>}
               <button type="button" className={"admin-nav-item" + (activeSection === id ? " admin-nav-item--active" : "")} aria-label={label} title={sidebarCollapsed ? label : undefined} aria-current={activeSection === id ? "page" : undefined} onClick={() => navigateToSection(id)}>
                 <Icon size={17} aria-hidden="true" /><span>{label}</span>
               </button>
