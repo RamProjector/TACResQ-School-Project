@@ -5,6 +5,7 @@
 - **Overview:** paginated account summary and reachability checks for the configured Laravel, Supabase Auth, and database probes. Reachability is not an end-to-end emergency-readiness check.
 - **User management:** server-side account search and role filtering, paginated results, and reason-required role changes. Admin accounts remain operator-managed and cannot be promoted or demoted from this page.
 - **Security:** administrator TOTP/AAL2 controls and security guidance. A branch implementation is not proof that a production migration or setting has been deployed.
+  The Security workspace also shows a five-event preview from the protected authentication investigation feed, with a refresh action and a route to the full Activity Log. The preview is limited to events currently collected by that source and is not a complete sign-in/session history; an empty result is not proof that no sign-ins occurred.
 - **Reports:** aggregate incident request counts, current status breakdown, daily request volume, and average/median time to first assignment for 7-, 30-, or 90-day windows.
 - **Activity log:** read-only, paginated investigation history plus a separate bounded account lifecycle history section. Its visible source inventory explains which event types are included and which remain unavailable.
 - **Settings:** browser-local display and accessibility preferences, with Notifications, Security & sessions, and Privacy & data guidance kept read-only until their backend/governance requirements are verified.
