@@ -41,3 +41,8 @@ for marker in (
     "readAdminPreferences().directoryPageSize",
 ):
     assert marker in SOURCE, f"Missing account page-size preference contract: {marker}"
+
+# Settings status must distinguish editable browser preferences from informational pages.
+assert 'settingsPage === "general" || settingsPage === "accessibility"' in SOURCE
+assert 'settingsPage === "notifications" ? "Emergency notification delivery preferences are not connected here; this page does not suppress or delay alerts."' in SOURCE
+assert '"Read-only guidance"' in SOURCE
