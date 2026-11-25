@@ -1894,3 +1894,12 @@
 .admin-health-actions .admin-button { min-height:32px; padding:6px 10px; font-size:10px; }
 .admin-health-actions .admin-button:disabled { cursor:wait; opacity:.65; }
 @media (max-width:760px) { .admin-health-actions { justify-content:flex-start; } }
+
+
+/* Keep backup/recovery and private attachment safeguards in one data workspace. */
+.admin-continuity-nav { display:flex; gap:6px; margin:0 22px 19px; padding:0 0 8px; overflow-x:auto; border-bottom:1px solid #e6ebe4; }
+.admin-continuity-nav__item { min-height:39px; flex:0 0 auto; padding:0 13px; border:1px solid transparent; border-radius:6px; color:#71817c; background:transparent; font-size:var(--admin-font-sm); font-weight:600; cursor:pointer; }
+.admin-continuity-nav__item:hover { color:#42675a; background:#f4f8f3; }
+.admin-continuity-nav__item.is-active { border-color:#dce8dc; color:#345f4e; background:#f1f7f0; box-shadow:inset 0 -2px 0 var(--ember); }
+.admin-continuity-nav__item:focus-visible { outline:3px solid rgba(243,106,67,.55); outline-offset:2px; }
+@media (max-width:900px) { .admin-continuity-nav { margin-inline:14px; } }
