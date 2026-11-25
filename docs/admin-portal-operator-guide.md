@@ -367,3 +367,8 @@ These helpers are local navigation only. They do not change account data, permis
 ## Collapsible desktop navigation
 
 The desktop Admin sidebar can be collapsed from the top bar to give data tables and workspace content more horizontal room. The compact rail retains the section icons; each navigation button keeps its accessible name and exposes the section label as a tooltip. The control is hidden at tablet and mobile widths, where the existing responsive navigation layout remains in place. Collapsing the rail changes only the current page layout and does not hide or restrict any Admin capability.
+
+
+## Account directory action clarity and row scanning
+
+Repeated actions in the account directory include the affected account's name in their accessible labels, so assistive-technology users can distinguish identical controls across rows. The visible button labels remain concise. Table rows receive a restrained hover/focus-within surface to help track a row across wide columns; this is only a reading aid and does not encode role, account status, or duty status. Expanded account details retain a separate background and the existing explicit status text. Motion on row highlighting is removed when reduced motion is requested.
