@@ -353,3 +353,12 @@ Scrollbar styling improves the visual affordance that more content is available;
 Audit history, coverage, filters, lifecycle information, event rows, and expanded metadata use a flatter hierarchy: one workspace surface, grouped headings, whitespace, and dividers. Reserve bordered cards for independently actionable objects rather than wrapping every explanatory block in another panel. This reduces visual competition and makes the primary task area easier to scan.
 
 The reflow boundary follows WCAG 2.2 SC 1.4.10: ordinary content should work at a 320 CSS-pixel viewport without two-dimensional page scrolling; genuinely two-dimensional content such as data tables may use its own contained scroll region. Reference: [W3C Understanding Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow). The CSS fallback uses [MDN scrollbar styling guidance](https://developer.mozilla.org/en-US/docs/Web/CSS/::-webkit-scrollbar) alongside the standardized `scrollbar-width` and `scrollbar-color` properties. These changes are presentation improvements and source-contract checks only; browser/device checks are still needed to confirm actual scrollbar visibility on Windows, macOS overlay-scrollbar settings, Linux, and touch devices.
+
+
+## Workspace navigation quality-of-life controls
+
+On the User Management workspace, press `/` while focus is outside an editable control to focus and select the account search field. The shortcut is inactive on other Admin pages and while a role or account-lifecycle dialog is open. It does not intercept the slash key while typing in an input, textarea, select, or editable region. The visible `/` key hint is a reminder, not a required interaction; the search field remains available by pointer and normal keyboard navigation.
+
+On long pages, a Back to top control appears after the page has been scrolled down. It returns the operator to the workspace header, uses smooth scrolling by default, and switches to immediate scrolling when the Admin reduced-motion preference is enabled. The control is fixed above page content, keeps a clear focus indicator, and accounts for mobile safe-area insets.
+
+These helpers are local navigation only. They do not change account data, permissions, query scope, or server behavior.
