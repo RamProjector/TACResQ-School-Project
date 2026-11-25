@@ -15,6 +15,7 @@ assert overview_probe.index("setDependencyHealthError(null);") < overview_probe.
 assert "setDependencyHealth(null);" in overview_probe
 assert "setDependencyHealthError(\"Dependency diagnostics are unavailable." in overview_probe
 assert 'dependencyHealthLoading ? "Checking…"' in ADMIN
-assert '"No verified result"' in ADMIN
+assert '"Not yet checked"' in ADMIN
+assert '"Waiting for the first diagnostic check…"' in ADMIN
 
 print("Admin Overview dependency freshness source contract passed.")
