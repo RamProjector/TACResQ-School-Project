@@ -1918,6 +1918,7 @@
 .admin-overview-activity__list small,.admin-overview-activity__list time { color:#82908e; font-size:9px; line-height:1.45; }
 .admin-overview-activity__list time { flex:0 0 auto; text-align:right; }
 .admin-overview-activity > .admin-panel__footnote { margin:12px 22px 16px; }
+.admin-analytics-card--wide { grid-column:1 / -1; }
 .admin-analytics-status-chart__description { margin:-6px 0 16px; color:#82908e; font-size:9px; line-height:1.5; }
 .admin-analytics-status-chart__rows { display:grid; gap:13px; }
 .admin-analytics-status-chart__row { display:grid; gap:6px; }
