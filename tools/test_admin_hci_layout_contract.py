@@ -41,3 +41,13 @@ assert "independently scrollable" in GUIDE.lower()
 assert 'className="admin-skip-link" href="#admin-workspace-main"' in SOURCE
 assert ".admin-nav-item:focus-visible" in ADMIN_CSS
 print("Admin HCI layout and form contract passed.")
+
+# Visual polish remains restrained and respects motion preferences.
+assert ".admin-shell .admin-panel::before" in CSS
+assert "linear-gradient(90deg, transparent" in CSS
+assert "0 10px 26px rgba(20, 42, 49, .045)" in CSS
+assert "@media (prefers-reduced-motion: no-preference)" in CSS
+assert "@media (prefers-reduced-motion: reduce)" in CSS
+reduced = CSS.rsplit("@media (prefers-reduced-motion: reduce)", 1)[1]
+assert "transform: none" in reduced
+assert "animation: admin-dialog-enter" in CSS
