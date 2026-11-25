@@ -1067,7 +1067,7 @@
 }
 
 
-/* Persistent desktop rail and touch-friendly mobile navigation drawer. */
+/* Touch-friendly mobile navigation drawer; desktop collapse is handled by the workspace grid. */
 .admin-shell > .admin-sidebar > .admin-sidebar__header {
   display: flex;
   min-width: 0;
@@ -1103,9 +1103,9 @@
     scrollbar-gutter: stable;
     box-shadow: 18px 0 48px rgba(8, 24, 27, .22);
     transform: translateX(-105%);
-    transition: transform .22s cubic-bezier(.2,.7,.2,1);
+    transition: transform .22s cubic-bezier(.2,.7,.2,1), visibility 0s linear .22s;
   }
-  .admin-shell > .admin-sidebar.admin-sidebar--mobile-open { visibility: visible; transform: translateX(0); }
+  .admin-shell > .admin-sidebar.admin-sidebar--mobile-open { visibility: visible; transform: translateX(0); transition-delay: 0s; }
   .admin-shell > .admin-sidebar > .admin-sidebar__header { justify-content: space-between; }
   .admin-shell > .admin-sidebar > .admin-sidebar__header > .brand { padding: 0; }
   .admin-shell > .admin-sidebar .admin-sidebar__context,
