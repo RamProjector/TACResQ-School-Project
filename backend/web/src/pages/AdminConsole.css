@@ -219,7 +219,7 @@
 .admin-analytics-controls { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
 .admin-analytics-range { display:flex; align-items:center; gap:9px; color:#758582; font-size:10px; }
 .admin-analytics-range select { min-height:34px; padding:0 27px 0 10px; border:1px solid #dfe4dc; border-radius:6px; color:#43595c; background:#fff; font-size:10px; }
-.admin-analytics-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; padding:0 22px 18px; }
+.admin-analytics-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; padding:0 22px 18px; }
 .admin-analytics-metrics article { min-width:0; padding:14px; border:1px solid #e4e9e1; border-radius:7px; background:#fbfcf8; }
 .admin-analytics-metrics article > span { display:block; color:#758582; font:600 8px var(--mono); letter-spacing:.09em; }
 .admin-analytics-metrics article strong { display:block; margin:10px 0 5px; color:var(--ink-deep); font:600 26px/1 var(--display); }
