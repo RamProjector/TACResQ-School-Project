@@ -14,8 +14,10 @@ assert 'activeSection === "recovery" && continuityPage === "recovery"' in page
 assert 'activeSection === "recovery" && continuityPage === "attachments"' in page
 assert 'aria-label="Data and continuity views"' in page
 assert 'aria-current={continuityPage === "attachments" ? "page" : undefined}' in page
-assert 'url.searchParams.set("adminPage", "attachments")' in page
-assert 'url.searchParams.set("adminPage", "recovery")' in page
+assert 'function navigateToContinuityPage(page: AdminContinuityPage)' in page
+assert 'url.searchParams.set("adminPage", page)' in page
+assert 'onClick={() => navigateToContinuityPage("attachments")}' in page
+assert 'onClick={() => navigateToContinuityPage("recovery")}' in page
 assert 'type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "settings" | "help";' in page
 assert 'id: "attachments"' not in page
 
