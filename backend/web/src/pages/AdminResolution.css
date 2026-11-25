@@ -1098,13 +1098,14 @@
     padding: 18px 16px max(18px, env(safe-area-inset-bottom));
     overflow-x: hidden;
     overflow-y: auto;
+    visibility: hidden;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
     box-shadow: 18px 0 48px rgba(8, 24, 27, .22);
     transform: translateX(-105%);
     transition: transform .22s cubic-bezier(.2,.7,.2,1);
   }
-  .admin-shell > .admin-sidebar.admin-sidebar--mobile-open { transform: translateX(0); }
+  .admin-shell > .admin-sidebar.admin-sidebar--mobile-open { visibility: visible; transform: translateX(0); }
   .admin-shell > .admin-sidebar > .admin-sidebar__header { justify-content: space-between; }
   .admin-shell > .admin-sidebar > .admin-sidebar__header > .brand { padding: 0; }
   .admin-shell > .admin-sidebar .admin-sidebar__context,
