@@ -74,7 +74,7 @@ type TacruDatabase = {
       api_active_responder_locations: { Args: Record<string, never>; Returns: ResponderLocation[] };
       api_admin_list_users_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_role: string }; Returns: { users: AdminUser[]; total_count: number } };
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
-      api_admin_set_account_status: { Args: { p_target_profile_id: number; p_account_status: "active" | "suspended"; p_reason: string }; Returns: Record<string, unknown> };
+      api_admin_set_account_status: { Args: { p_target_profile_id: number; p_expected_account_status: "active" | "suspended"; p_account_status: "active" | "suspended"; p_reason: string }; Returns: Record<string, unknown> };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
       api_admin_list_audit_logs_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_action: string; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null }; Returns: { events: AdminAuditEvent[]; total_count: number } };
       api_admin_list_account_lifecycle_events: { Args: { p_limit: number; p_offset: number }; Returns: AdminAccountLifecyclePage };
