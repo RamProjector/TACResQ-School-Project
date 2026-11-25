@@ -1035,18 +1035,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           </div>
         )}
       </div>
-      <aside ref={mobileSidebarRef} id="admin-primary-sidebar" className={"admin-sidebar" + (mobileSidebarOpen ? " admin-sidebar--mobile-open" : "")} role={mobileSidebarOpen ? "dialog" : undefined} aria-modal={mobileSidebarOpen ? true : undefined} aria-label="Primary navigation">
+      <aside ref={mobileSidebarRef} id="admin-primary-sidebar" className={"admin-sidebar" + (mobileSidebarOpen ? " admin-sidebar--mobile-open" : "")} role={mobileSidebarOpen ? "dialog" : undefined} aria-modal={mobileSidebarOpen ? true : undefined} aria-hidden={sidebarCollapsed && !mobileSidebarOpen} inert={sidebarCollapsed && !mobileSidebarOpen} aria-label="Primary navigation">
         <div className="admin-sidebar__header">
           <Brand inverse />
           <button
             className="admin-sidebar-toggle"
             type="button"
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-pressed={sidebarCollapsed}
+            aria-label="Collapse navigation"
+            title="Collapse navigation"
+            aria-pressed={false}
             onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
           >
-            {sidebarCollapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <PanelLeftClose size={17} aria-hidden="true" />}
+            <PanelLeftClose size={17} aria-hidden="true" />
           </button>
           <button ref={mobileSidebarCloseRef} className="admin-mobile-sidebar-close" type="button" aria-label="Close navigation" onClick={() => closeMobileSidebar(true)}>
             <X size={19} aria-hidden="true" />
@@ -1079,6 +1079,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       <main className="admin-main" id="admin-workspace-main" tabIndex={-1}>
         <header className="admin-topbar">
           <div className="admin-topbar__leading">
+            {sidebarCollapsed && <button className="admin-sidebar-expand" type="button" aria-label="Expand navigation" title="Expand navigation" aria-controls="admin-primary-sidebar" aria-expanded={false} onClick={() => setSidebarCollapsed(false)}>
+              <PanelLeftOpen size={17} aria-hidden="true" />
+            </button>}
             <button
               ref={mobileSidebarTriggerRef}
               className="admin-mobile-sidebar-toggle"
