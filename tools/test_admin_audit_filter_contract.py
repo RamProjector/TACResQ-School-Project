@@ -77,8 +77,8 @@ assert "text-align:left;" in ADMIN_CSS
 
 # Clipboard success/error feedback is scoped to the active audit query.
 query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", 1)[0]
-assert query_effect.index("setCopiedEventId(null);") < query_effect.index("if (dateRangeError)")
-assert query_effect.index("setCopyError(null);") < query_effect.index("if (dateRangeError)")
+assert query_effect.index("setCopiedEventId(null);") < query_effect.index("if (dateRangeError || idFilterError)")
+assert query_effect.index("setCopyError(null);") < query_effect.index("if (dateRangeError || idFilterError)")
 
 
 # An asynchronous clipboard result must not restore feedback for an event that
