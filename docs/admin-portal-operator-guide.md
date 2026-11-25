@@ -337,7 +337,7 @@ Before any cleanup or retention feature is implemented, the project owner must a
 
 ## Admin workspace layout and form usability
 
-The desktop Admin sidebar is an independently scrollable region when its navigation exceeds the viewport. The mobile layout retains the horizontally scrollable section row; it does not inherit the desktop sidebar's vertical scroll container. The security note and version information remain part of the desktop sidebar's scrollable content.
+The desktop Admin sidebar is an independently scrollable region when its navigation exceeds the viewport. At tablet and mobile widths, navigation becomes an overlay drawer: the main workspace remains full width, the drawer scrolls independently, and a backdrop plus Escape key closes it. The drawer locks background page scrolling while open and restores the previous scroll behavior when closed. The security note and version information remain available in the drawer.
 
 Admin sections use one primary panel surface. When a subsection is nested inside a panel, it is presented as a heading/content group separated by a divider rather than another bordered panel. Small information groups and metric collections should not add repeated card borders or shadows inside the parent surface. Content tiles should size to their content instead of stretching to the tallest neighboring tile.
 
@@ -366,9 +366,13 @@ On long pages, a Back to top control appears after the page has been scrolled do
 These helpers are local navigation only. They do not change account data, permissions, query scope, or server behavior.
 
 
-## Collapsible desktop navigation
+## Collapsible desktop navigation and mobile drawer
 
-The desktop Admin sidebar can be collapsed from the top bar to give data tables and workspace content more horizontal room. The compact rail retains the section icons; each navigation button keeps its accessible name and exposes the section label as a tooltip. The control is hidden at tablet and mobile widths, where the existing responsive navigation layout remains in place. Collapsing the rail changes only the current page layout and does not hide or restrict any Admin capability.
+The desktop Admin sidebar can be collapsed from the control beside the sidebar brand. Its compact rail retains the existing Lucide SVG section icons, active-page indicator, accessible navigation names, and per-item tooltips. The selected section and its URL are unchanged when the rail is collapsed. The collapsed preference is stored locally in this browser and restored on the next visit; if browser storage is unavailable, the control still works for the current page session.
+
+At tablet and mobile widths, the desktop collapse control is replaced by a menu button in the top bar. It opens the same navigation as a left-side drawer over the full-width workspace. The drawer has its own vertical scroll region, a visible close control, a dimmed backdrop, and Escape-key dismissal. Choosing a section closes the drawer and preserves the existing route/navigation behavior. Background page scrolling is locked while the drawer is open. If the desktop rail was saved as collapsed, the mobile drawer still displays the full navigation labels.
+
+The desktop rail transition and mobile drawer animation respect reduced-motion preferences. Keyboard focus remains visible, the drawer receives focus when opened, and Escape returns focus to the menu trigger. These controls change only presentation and navigation visibility; they do not alter authentication, permissions, account data, or available Admin capabilities.
 
 
 ## Account directory action clarity and row scanning
