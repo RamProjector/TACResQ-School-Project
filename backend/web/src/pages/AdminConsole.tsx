@@ -528,6 +528,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [target, setTarget] = useState<AdminUser | null>(null);
   const [lifecycleTarget, setLifecycleTarget] = useState<AdminUser | null>(null);
   const [expandedAccountId, setExpandedAccountId] = useState<number | null>(null);
+  const [accountActivityAccountId, setAccountActivityAccountId] = useState<number | null>(null);
+  const [accountActivityEvents, setAccountActivityEvents] = useState<AdminInvestigationEvent[]>([]);
+  const [accountActivityLoading, setAccountActivityLoading] = useState(false);
+  const [accountActivityError, setAccountActivityError] = useState<string | null>(null);
+  const accountActivityRequestVersion = useRef(0);
   const [nextRole, setNextRole] = useState<AdminManagedRole>("requester");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
@@ -613,6 +618,60 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       document.body.style.overflow = previousBodyOverflow;
     };
   }, [target, lifecycleTarget, saving]);
+
+  async function loadAccountActivity(user: AdminUser) {
+    const requestId = ++accountActivityRequestVersion.current;
+    setAccountActivityAccountId(user.id);
+    setAccountActivityEvents([]);
+    setAccountActivityError(null);
+    setAccountActivityLoading(true);
+    try {
+      // The existing investigation RPC requires Admin TOTP/AAL2. Query both
+      // actor and target dimensions so the timeline includes events performed
+      // by this profile as well as events affecting it.
+      const [asActor, asTarget] = await Promise.all([
+        getAdminInvestigationEventsPage(5, 0, "", "all", "all", null, null, user.id, null, null),
+        getAdminInvestigationEventsPage(5, 0, "", "all", "all", null, null, null, user.id, null),
+      ]);
+      if (requestId !== accountActivityRequestVersion.current) return;
+      const uniqueEvents = new Map<string, AdminInvestigationEvent>();
+      for (const event of [...asActor.events, ...asTarget.events]) {
+        uniqueEvents.set(event.event_id, event);
+      }
+      setAccountActivityEvents(
+        [...uniqueEvents.values()]
+          .sort((left, right) => Date.parse(right.occurred_at) - Date.parse(left.occurred_at))
+          .slice(0, 10),
+      );
+    } catch (cause) {
+      if (requestId !== accountActivityRequestVersion.current) return;
+      setAccountActivityEvents([]);
+      setAccountActivityError(cause instanceof Error ? cause.message : "Recent account activity is unavailable.");
+    } finally {
+      if (requestId === accountActivityRequestVersion.current) setAccountActivityLoading(false);
+    }
+  }
+
+  function toggleAccountActivity(user: AdminUser) {
+    if (accountActivityAccountId === user.id) {
+      accountActivityRequestVersion.current += 1;
+      setAccountActivityAccountId(null);
+      setAccountActivityEvents([]);
+      setAccountActivityError(null);
+      setAccountActivityLoading(false);
+      return;
+    }
+    void loadAccountActivity(user);
+  }
+
+  useEffect(() => {
+    if (accountActivityAccountId === null || expandedAccountId === accountActivityAccountId) return;
+    accountActivityRequestVersion.current += 1;
+    setAccountActivityAccountId(null);
+    setAccountActivityEvents([]);
+    setAccountActivityError(null);
+    setAccountActivityLoading(false);
+  }, [expandedAccountId, accountActivityAccountId]);
 
   async function retryDependencyHealth() {
     const requestId = ++dependencyHealthRequestVersion.current;
@@ -1174,6 +1233,39 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                                 Duty status is operational availability, not sign-in or suspension status.
                                 This view does not include authentication history or a complete account activity timeline.
                               </p>
+                              <div className="admin-account-activity">
+                                <button
+                                  className="admin-account-details"
+                                  type="button"
+                                  aria-expanded={accountActivityAccountId === user.id}
+                                  onClick={() => toggleAccountActivity(user)}
+                                >
+                                  {accountActivityAccountId === user.id ? "Hide recent activity" : "Load recent activity"}
+                                </button>
+                                {accountActivityAccountId === user.id && (
+                                  <div className="admin-account-activity__results" aria-live="polite">
+                                    {accountActivityLoading ? (
+                                      <p role="status"><LoaderCircle size={15} className="admin-spin" /> Loading protected account activity…</p>
+                                    ) : accountActivityError ? (
+                                      <p role="status">{accountActivityError}</p>
+                                    ) : accountActivityEvents.length === 0 ? (
+                                      <p>No matching events were returned for this profile.</p>
+                                    ) : (
+                                      <>
+                                        <p>Up to 10 recent events where this profile was the actor or target.</p>
+                                        <ul>
+                                          {accountActivityEvents.map((event) => (
+                                            <li key={event.event_id}>
+                                              <span>{event.summary}</span>
+                                              <small>{event.source.replaceAll("_", " ")} · {formatManilaDateTime(event.occurred_at)}</small>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </section>
                           </td>
                         </tr>
