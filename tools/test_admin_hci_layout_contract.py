@@ -65,6 +65,8 @@ for required in (
     "::-webkit-scrollbar-thumb:hover",
     ".admin-sidebar",
     ".admin-navigation",
+    ".admin-settings-nav",
+    ".admin-analytics-data__table-wrap",
     ".admin-table-wrap",
     ".admin-analytics-bars",
     ".admin-modal",
