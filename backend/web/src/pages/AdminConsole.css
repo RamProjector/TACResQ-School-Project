@@ -1812,3 +1812,12 @@
     transition: none;
   }
 }
+
+
+/* Keep dense account tables easy to scan without changing row meaning or status colors. */
+.admin-table tbody tr:not(.admin-account-details-row) > td { transition: background-color .12s ease; }
+.admin-table tbody tr:not(.admin-account-details-row):hover > td,
+.admin-table tbody tr:not(.admin-account-details-row):focus-within > td { background: #f7faf5; }
+.admin-table tbody tr.admin-account-row--expanded > td { background: #f1f6ef; }
+.admin-table .admin-account-actions button:focus-visible { position: relative; z-index: 1; outline: 3px solid rgba(243,106,67,.55); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .admin-table tbody tr:not(.admin-account-details-row) > td { transition: none; } }
