@@ -935,9 +935,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <div className="admin-panel__heading">
               <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">SERVICE REACHABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency reachability</h2></div><AdminHelpTip label="About dependency reachability" message="These probes only confirm that Laravel, Supabase Auth, and the database responded within the configured threshold. They do not verify incident creation, assignment, routing, location accuracy, or push delivery." /></div>
               <div className="admin-health-actions">
-                <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatManilaDateTime(dependencyHealth.checked_at) + " (Asia/Manila)" : "No verified result"}</span>
-                <button type="button" className="admin-button admin-button--quiet" onClick={() => void retryDependencyHealth()} disabled={dependencyHealthLoading} aria-label="Refresh dependency diagnostics">
-                  <RefreshCw size={14} aria-hidden="true" /> {dependencyHealthLoading ? "Checking…" : "Refresh"}
+                <span className="admin-data-freshness" data-state={dependencyHealthError ? "error" : dependencyHealthLoading ? "loading" : dependencyHealth ? "success" : "empty"} role="status" aria-live="polite">{dependencyHealthError ? "Unavailable" : dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Checked " + formatManilaDateTime(dependencyHealth.checked_at) + " · Asia/Manila" : "Not yet checked"}</span>
+                <button type="button" className="admin-refresh" onClick={() => void retryDependencyHealth()} disabled={dependencyHealthLoading} aria-label="Refresh dependency diagnostics">
+                  <RefreshCw size={14} className={dependencyHealthLoading ? "admin-spin" : undefined} aria-hidden="true" /> {dependencyHealthLoading ? "Checking…" : "Refresh"}
                 </button>
               </div>
             </div>
@@ -1120,7 +1120,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div className="admin-analytics-controls">
                   <label className="admin-analytics-range"><span>Period (Manila time)</span><select value={analyticsDays} onChange={(event) => reloadAnalyticsReport(Number(event.target.value) as 7 | 30 | 90)} aria-label="Analytics reporting period"><option value={7}>Last 7 calendar days</option><option value={30}>Last 30 calendar days</option><option value={90}>Last 90 calendar days</option></select></label>
                   <button className="admin-refresh" type="button" onClick={() => { if (!analytics) return; try { const filename = exportAnalyticsCsv(analytics); setAnalyticsExportNotice("Export prepared: " + filename); } catch { setAnalyticsExportNotice("The CSV export could not be prepared. Try again or refresh the report."); } }} disabled={analyticsLoading || !analytics || Boolean(analyticsError)} aria-label="Export incident performance report as CSV"><Download size={15} /> Export CSV</button>
-                  <button className="admin-refresh" type="button" onClick={() => reloadAnalyticsReport()} disabled={analyticsLoading}><RefreshCw size={15} className={analyticsLoading ? "admin-spin" : ""} /> Refresh report</button>
+                  <span className="admin-data-freshness" data-state={analyticsError ? "error" : analyticsLoading ? "loading" : analyticsLoadedAt ? "success" : "empty"} role="status" aria-live="polite">{analyticsError ? "Unavailable" : analyticsLoading ? "Refreshing…" : analyticsLoadedAt ? "Updated " + formatManilaDateTime(analyticsLoadedAt) + " · Asia/Manila" : "Not yet retrieved"}</span>
+                  <button className="admin-refresh" type="button" onClick={() => reloadAnalyticsReport()} disabled={analyticsLoading}><RefreshCw size={15} className={analyticsLoading ? "admin-spin" : ""} /> {analyticsError ? "Retry report" : "Refresh report"}</button>
                 </div>
               </div>
               {analyticsExportNotice && <p className="admin-analytics-export-notice" role="status" aria-live="polite">{analyticsExportNotice}</p>}
@@ -1130,7 +1131,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <div className="admin-health-unavailable" role="alert"><strong>Analytics unavailable.</strong> {analyticsError} Check your connection and access, then retry. If the problem continues, ask the system maintainer to verify that the analytics service is deployed and reachable. <button className="admin-filter-reset" type="button" onClick={() => reloadAnalyticsReport()} disabled={analyticsLoading}>Retry report</button></div>
               ) : analytics ? (
                 <>
-                  <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals. {analyticsLoadedAt ? "Report retrieved " + formatManilaDateTime(analyticsLoadedAt) + "." : ""}</p>
+                  <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals.</p>
                   <div className="admin-analytics-metrics">
                     <article><span>TOTAL REQUESTS</span><strong>{analytics.total_requests.toLocaleString()}</strong><small>Created during selected period</small></article>
                     <article><span>PENDING</span><strong>{analytics.pending.toLocaleString()}</strong><small>Currently awaiting assignment</small></article>
@@ -1316,8 +1317,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <div className="admin-panel__heading">
                 <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">AUTHENTICATION ACTIVITY</p><h2 id="admin-security-events-title"><History size={19} /> Recent authentication events</h2></div><AdminHelpTip label="About authentication events" message="This is a five-event preview from the existing protected investigation feed. It includes only events currently collected by the connected authentication source; it is not a complete sign-in or session history." /></div>
                 <div className="admin-analytics-controls">
-                  <span className="admin-count" role="status" aria-live="polite">{authenticationEventsLoading ? "Refreshing…" : authenticationEventsLoadedAt ? "Retrieved " + formatManilaDateTime(authenticationEventsLoadedAt) : "No result yet"}</span>
-                  <button className="admin-refresh" type="button" onClick={() => { void refreshAuthenticationEvents(); }} disabled={authenticationEventsLoading}><RefreshCw size={15} className={authenticationEventsLoading ? "admin-spin" : ""} /> Refresh</button>
+                  <span className="admin-data-freshness" data-state={authenticationEventsError ? "error" : authenticationEventsLoading ? "loading" : authenticationEventsLoadedAt ? "success" : "empty"} role="status" aria-live="polite">{authenticationEventsError ? "Unavailable" : authenticationEventsLoading ? "Refreshing…" : authenticationEventsLoadedAt ? "Updated " + formatManilaDateTime(authenticationEventsLoadedAt) + " · Asia/Manila" : "Not yet retrieved"}</span>
+                  <button className="admin-refresh" type="button" onClick={() => { void refreshAuthenticationEvents(); }} disabled={authenticationEventsLoading}><RefreshCw size={15} className={authenticationEventsLoading ? "admin-spin" : ""} /> {authenticationEventsError ? "Retry" : "Refresh"}</button>
                 </div>
               </div>
               {authenticationEventsError ? (
