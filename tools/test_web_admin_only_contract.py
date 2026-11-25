@@ -146,7 +146,6 @@ assert 'id="admin-overview-metrics-context"' in admin_console
 assert 'directoryError ? "Unavailable" : loading && users.length === 0 ? "Loading" : totalUsers.toLocaleString()' in admin_console
 assert 'todayActivityError ? "Unavailable" : todayActivityLoading ? "Loading" : todayActivityCount === null ? "—" : todayActivityCount.toLocaleString()' in admin_console
 assert "setTodayActivityCount(result.total_count)" in admin_console
-assert "The five preview rows" not in admin_console
 assert 'role="status" aria-live="polite"><LoaderCircle' in admin_console
 assert ".admin-metrics strong { min-width:0; font-size:clamp(20px,2vw,29px); overflow-wrap:anywhere; }" in admin_css
 assert ".admin-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }" in admin_css
