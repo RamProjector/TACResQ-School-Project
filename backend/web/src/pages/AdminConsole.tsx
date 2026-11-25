@@ -386,6 +386,17 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const mobileSidebarTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileSidebarCloseRef = useRef<HTMLButtonElement>(null);
   const mobileSidebarRef = useRef<HTMLElement>(null);
+  const sidebarCollapseRef = useRef<HTMLButtonElement>(null);
+  const sidebarExpandRef = useRef<HTMLButtonElement>(null);
+  const previousSidebarCollapsedRef = useRef(sidebarCollapsed);
+
+  useEffect(() => {
+    if (previousSidebarCollapsedRef.current !== sidebarCollapsed && window.matchMedia("(min-width: 901px)").matches) {
+      if (sidebarCollapsed) sidebarExpandRef.current?.focus();
+      else sidebarCollapseRef.current?.focus();
+    }
+    previousSidebarCollapsedRef.current = sidebarCollapsed;
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     try {
@@ -1039,6 +1050,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         <div className="admin-sidebar__header">
           <Brand inverse />
           <button
+            ref={sidebarCollapseRef}
             className="admin-sidebar-toggle"
             type="button"
             aria-label="Collapse navigation"
@@ -1079,7 +1091,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       <main className="admin-main" id="admin-workspace-main" tabIndex={-1}>
         <header className="admin-topbar">
           <div className="admin-topbar__leading">
-            {sidebarCollapsed && <button className="admin-sidebar-expand" type="button" aria-label="Expand navigation" title="Expand navigation" aria-controls="admin-primary-sidebar" aria-expanded={false} onClick={() => setSidebarCollapsed(false)}>
+            {sidebarCollapsed && <button ref={sidebarExpandRef} className="admin-sidebar-expand" type="button" aria-label="Expand navigation" title="Expand navigation" aria-controls="admin-primary-sidebar" aria-expanded={false} onClick={() => setSidebarCollapsed(false)}>
               <PanelLeftOpen size={17} aria-hidden="true" />
             </button>}
             <button
