@@ -342,3 +342,33 @@ Admin sections use one primary panel surface. When a subsection is nested inside
 Forms follow a consistent vertical sequence: visible label, concise hint when needed, control, then inline validation or status feedback. Labels remain visible while editing; placeholders are examples, not replacements for labels. Related radio buttons and checkboxes should be grouped with a fieldset and legend. Use a single column for ordinary data-entry flows; use multiple columns only for short, independent fields where the reading order remains clear. Form controls must stay within their parent width, long labels and help text must wrap, and actions should remain aligned with the form content.
 
 Icons and symbols are decorative unless they convey a state or action. Keep them vertically centered with their associated text, prevent flex/grid shrinkage, and provide enough inset spacing that neither the icon nor the focus outline touches or clips against the panel edge. Preserve visible keyboard focus, touch scrolling, text enlargement, and reflow. These are implementation safeguards, not a substitute for browser-based keyboard, zoom, and screen-reader acceptance testing.
+
+
+## Admin scrollbar visibility and minimal panel hierarchy (2026-11-25)
+
+The Admin workspace styles its intentional scroll regions with a thin, high-contrast-enough thumb and track in both the standard scrollbar properties (Firefox and supporting browsers) and WebKit scrollbar pseudo-elements. The targeted regions are the desktop sidebar, mobile section navigation and Settings tabs, horizontally scrollable data tables and analytics bars, the bounded analytics data table, modal content, and any future element explicitly marked with `data-scrollable="true"`. Vertical sidebar and modal scroll regions reserve a stable gutter where the platform uses classic scrollbars. Forced-colors mode returns scrollbar colors to the user agent.
+
+Scrollbar styling improves the visual affordance that more content is available; it does not override operating-system/browser settings that automatically hide overlay scrollbars. Users can still scroll with touch, trackpad, wheel, keyboard where the region is focusable, or the browser's native scrollbar. Do not add a horizontal page scrollbar to ordinary text or form content. Keep horizontal overflow local to content that genuinely needs two-dimensional presentation, such as data tables and chart plots, while the surrounding page reflows.
+
+Audit history, coverage, filters, lifecycle information, event rows, and expanded metadata use a flatter hierarchy: one workspace surface, grouped headings, whitespace, and dividers. Reserve bordered cards for independently actionable objects rather than wrapping every explanatory block in another panel. This reduces visual competition and makes the primary task area easier to scan.
+
+The reflow boundary follows WCAG 2.2 SC 1.4.10: ordinary content should work at a 320 CSS-pixel viewport without two-dimensional page scrolling; genuinely two-dimensional content such as data tables may use its own contained scroll region. Reference: [W3C Understanding Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow). The CSS fallback uses [MDN scrollbar styling guidance](https://developer.mozilla.org/en-US/docs/Web/CSS/::-webkit-scrollbar) alongside the standardized `scrollbar-width` and `scrollbar-color` properties. These changes are presentation improvements and source-contract checks only; browser/device checks are still needed to confirm actual scrollbar visibility on Windows, macOS overlay-scrollbar settings, Linux, and touch devices.
+
+
+## Workspace navigation quality-of-life controls
+
+On the User Management workspace, press `/` while focus is outside an editable control to focus and select the account search field. The shortcut is inactive on other Admin pages and while a role or account-lifecycle dialog is open. It does not intercept the slash key while typing in an input, textarea, select, or editable region. The visible `/` key hint is a reminder, not a required interaction; the search field remains available by pointer and normal keyboard navigation.
+
+On long pages, a Back to top control appears after the page has been scrolled down. It returns the operator to the workspace header, uses smooth scrolling by default, and switches to immediate scrolling when the Admin reduced-motion preference is enabled. The control is fixed above page content, keeps a clear focus indicator, and accounts for mobile safe-area insets.
+
+These helpers are local navigation only. They do not change account data, permissions, query scope, or server behavior.
+
+
+## Collapsible desktop navigation
+
+The desktop Admin sidebar can be collapsed from the top bar to give data tables and workspace content more horizontal room. The compact rail retains the section icons; each navigation button keeps its accessible name and exposes the section label as a tooltip. The control is hidden at tablet and mobile widths, where the existing responsive navigation layout remains in place. Collapsing the rail changes only the current page layout and does not hide or restrict any Admin capability.
+
+
+## Account directory action clarity and row scanning
+
+Repeated actions in the account directory include the affected account's name in their accessible labels, so assistive-technology users can distinguish identical controls across rows. The visible button labels remain concise. Table rows receive a restrained hover/focus-within surface to help track a row across wide columns; this is only a reading aid and does not encode role, account status, or duty status. Expanded account details retain a separate background and the existing explicit status text. Motion on row highlighting is removed when reduced motion is requested.

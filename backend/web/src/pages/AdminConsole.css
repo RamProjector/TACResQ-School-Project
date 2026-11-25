@@ -1686,3 +1686,138 @@
 /* Account lifecycle status in the website Admin directory. */
 .admin-account-status { display:inline-flex; align-items:center; min-height:24px; padding:0 9px; border:1px solid #dce5dc; border-radius:999px; color:#456451; background:#f1f7ef; font-size:9px; font-weight:700; text-transform:capitalize; }
 .admin-account-status--suspended { border-color:#efc9c0; color:#9b4334; background:#fff1ed; }
+
+
+/* Small workflow helpers: keyboard-search cue and a low-noise return-to-top action. */
+.admin-search kbd {
+  display: inline-flex;
+  min-width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0e6df;
+  border-radius: 4px;
+  color: #778680;
+  background: #f7f9f5;
+  font: 600 10px var(--mono);
+}
+.admin-back-to-top {
+  position: fixed;
+  z-index: 12;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dce5dc;
+  border-radius: 50%;
+  color: #f8faf5;
+  background: #29463f;
+  box-shadow: 0 5px 18px rgba(20,42,49,.16);
+  cursor: pointer;
+  transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.admin-back-to-top:hover {
+  transform: translateY(-2px);
+  background: #1c3832;
+  box-shadow: 0 8px 22px rgba(20,42,49,.2);
+}
+.admin-back-to-top:focus-visible {
+  outline: 3px solid rgba(243,106,67,.65);
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .admin-back-to-top {
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-back-to-top {
+    transition: none;
+  }
+}
+
+
+/* Desktop operators can reclaim workspace width without losing navigation context. */
+.admin-topbar__leading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 13px;
+}
+.admin-sidebar-toggle {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dfe5dc;
+  border-radius: 7px;
+  color: #536b62;
+  background: #fffefa;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+.admin-sidebar-toggle:hover {
+  border-color: #b9cbbd;
+  color: #29463f;
+  background: #f4f8f2;
+}
+.admin-sidebar-toggle:focus-visible {
+  outline: 3px solid rgba(243,106,67,.55);
+  outline-offset: 2px;
+}
+@media (min-width: 901px) {
+  .admin-shell--sidebar-collapsed {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+  .admin-shell--sidebar-collapsed .admin-sidebar {
+    align-items: stretch;
+    padding-inline: 12px;
+  }
+  .admin-shell--sidebar-collapsed .admin-sidebar > .brand {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .admin-shell--sidebar-collapsed .admin-sidebar .brand__wordmark,
+  .admin-shell--sidebar-collapsed .admin-sidebar__context,
+  .admin-shell--sidebar-collapsed .admin-navigation__group-label,
+  .admin-shell--sidebar-collapsed .admin-sidebar__bottom {
+    display: none;
+  }
+  .admin-shell--sidebar-collapsed .admin-nav-item {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+  .admin-shell--sidebar-collapsed .admin-nav-item span {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .admin-sidebar-toggle {
+    display: none;
+  }
+  .admin-shell--sidebar-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar-toggle {
+    transition: none;
+  }
+}
+
+
+/* Keep dense account tables easy to scan without changing row meaning or status colors. */
+.admin-table tbody tr:not(.admin-account-details-row) > td { transition: background-color .12s ease; }
+.admin-table tbody tr:not(.admin-account-details-row):hover > td,
+.admin-table tbody tr:not(.admin-account-details-row):focus-within > td { background: #f7faf5; }
+.admin-table tbody tr.admin-account-row--expanded > td { background: #f1f6ef; }
+.admin-table .admin-account-actions button:focus-visible { position: relative; z-index: 1; outline: 3px solid rgba(243,106,67,.55); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .admin-table tbody tr:not(.admin-account-details-row) > td { transition: none; } }

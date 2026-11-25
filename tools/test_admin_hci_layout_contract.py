@@ -52,3 +52,72 @@ reduced = CSS.rsplit("@media (prefers-reduced-motion: reduce)", 1)[1]
 assert "transform: none" in reduced
 assert "animation: admin-dialog-enter" in CSS
 assert ".audit-page__date-presets button" in CSS
+
+
+# Intentional scroll regions have visible, themed scrollbar affordances across engines.
+for required in (
+    "scrollbar-width: thin",
+    "scrollbar-color: var(--admin-scrollbar-thumb) var(--admin-scrollbar-track)",
+    "scrollbar-gutter: stable",
+    "::-webkit-scrollbar",
+    "::-webkit-scrollbar-track",
+    "::-webkit-scrollbar-thumb",
+    "::-webkit-scrollbar-thumb:hover",
+    ".admin-sidebar",
+    ".admin-navigation",
+    ".admin-settings-nav",
+    ".admin-analytics-data__table-wrap",
+    ".admin-table-wrap",
+    ".admin-analytics-bars",
+    ".admin-modal",
+):
+    assert required in CSS, f"Admin scrollbar affordance is missing {required}"
+assert "scrollbar-color: auto" in CSS  # preserve forced-colors user-agent behavior
+
+# Audit subcontent is presented as a restrained hierarchy rather than nested cards.
+for selector in (
+    ".admin-shell .audit-page__coverage",
+    ".admin-shell .audit-page__coverage-details",
+    ".admin-shell .audit-page__lifecycle",
+    ".admin-shell .audit-page__filters",
+    ".admin-shell .audit-event-card",
+    ".admin-shell .audit-event-card__details",
+):
+    assert selector in CSS, f"Minimal audit surface rule missing {selector}"
+assert ".admin-shell .audit-event-card {\n  padding-inline: 0;\n  border-bottom: 1px solid #e5eae2;" in CSS
+
+
+# Common navigation quality-of-life controls remain keyboard and motion aware.
+assert 'const directorySearchRef = useRef<HTMLInputElement>(null);' in SOURCE
+assert 'event.key !== "/"' in SOURCE
+assert "directorySearchRef.current?.focus();" in SOURCE
+assert '<kbd aria-hidden="true">/</kbd>' in SOURCE
+assert 'className="admin-back-to-top"' in SOURCE
+assert 'preferences.reducedMotion ? "auto" : "smooth"' in SOURCE
+assert ".admin-search kbd {" in ADMIN_CSS
+assert ".admin-back-to-top {" in ADMIN_CSS
+assert "@media (prefers-reduced-motion: reduce)" in ADMIN_CSS
+
+forced_colors = CSS.rsplit("@media (forced-colors: active)", 1)[1].split("\n}\n", 1)[0]
+assert ".admin-settings-nav" in forced_colors
+assert ".admin-analytics-data__table-wrap" in forced_colors
+
+
+# The desktop navigation rail can collapse without removing accessible section names.
+assert 'const [sidebarCollapsed, setSidebarCollapsed] = useState(false);' in SOURCE
+assert 'aria-pressed={sidebarCollapsed}' in SOURCE
+assert 'aria-label={label} title={sidebarCollapsed ? label : undefined}' in SOURCE
+assert 'PanelLeftClose' in SOURCE and 'PanelLeftOpen' in SOURCE
+assert ".admin-shell--sidebar-collapsed {" in ADMIN_CSS
+assert ".admin-shell--sidebar-collapsed .admin-nav-item span" in ADMIN_CSS
+assert "@media (max-width: 900px)" in ADMIN_CSS
+assert ".admin-sidebar-toggle:focus-visible" in ADMIN_CSS
+
+
+# Repeated directory actions expose the affected account in their accessible names.
+assert 'aria-label={(expandedAccountId === user.id ? "Hide details for " : "View details for ") + user.name}' in SOURCE
+assert 'aria-label={(user.account_status === "active" ? "Suspend account for " : "Reactivate account for ") + user.name}' in SOURCE
+assert 'aria-label={"Change role for " + user.name}' in SOURCE
+assert ".admin-table tbody tr:not(.admin-account-details-row):hover > td" in ADMIN_CSS
+assert ".admin-table tbody tr:not(.admin-account-details-row):focus-within > td" in ADMIN_CSS
+assert ".admin-table tbody tr.admin-account-row--expanded > td" in ADMIN_CSS
