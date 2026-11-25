@@ -162,7 +162,8 @@ function getManilaTodayRange(now = new Date()) {
   const month = Number(part("month"));
   const day = Number(part("day"));
   const from = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 8 * 60 * 60 * 1000);
-  return { from: from.toISOString(), to: now.toISOString() };
+  const date = year + "-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+  return { from: from.toISOString(), to: now.toISOString(), date };
 }
 
 function formatManilaDateTime(value: string) {
@@ -477,6 +478,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       else if (url.searchParams.get("adminSettings") === "security") url.searchParams.set("adminSettings", "general");
       window.history.pushState({}, "", url.toString());
     }
+  }
+
+  function navigateToTodayActivityLog() {
+    if (activeSection !== "audit" && !confirmDiscardPreferenceChanges()) return;
+    const range = getManilaTodayRange();
+    setActiveSection("audit");
+    const url = new URL(window.location.href);
+    url.searchParams.set("adminPage", "audit-logs");
+    url.searchParams.set("auditFrom", range.date);
+    url.searchParams.set("auditTo", range.date);
+    url.searchParams.delete("adminSettings");
+    window.history.pushState({}, "", url.toString());
   }
 
   // Keep the selected admin view in sync with browser Back/Forward navigation.
@@ -987,7 +1000,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <div className="admin-overview-activity__actions">
                 <span className="admin-data-freshness" data-state={todayActivityError ? "error" : todayActivityLoading ? "loading" : todayActivityLoadedAt ? "success" : "empty"} role="status" aria-live="polite">{todayActivityError ? "Unavailable" : todayActivityLoading ? "Loading…" : todayActivityLoadedAt ? "Updated " + formatManilaDateTime(todayActivityLoadedAt) : "Not yet retrieved"}</span>
                 <button type="button" className="admin-refresh" onClick={() => void refreshTodayActivity()} disabled={todayActivityLoading}><RefreshCw size={14} className={todayActivityLoading ? "admin-spin" : ""} /> {todayActivityError ? "Retry" : "Refresh"}</button>
-                <button type="button" className="admin-refresh" onClick={() => navigateToSection("audit")}>Open Activity Log</button>
+                <button type="button" className="admin-refresh" onClick={navigateToTodayActivityLog}>Open Today in Activity Log</button>
               </div>
             </div>
             {todayActivityError ? (
