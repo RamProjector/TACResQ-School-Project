@@ -385,6 +385,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const mobileSidebarTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileSidebarCloseRef = useRef<HTMLButtonElement>(null);
+  const mobileSidebarRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     try {
@@ -400,10 +401,27 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     document.body.style.overflow = "hidden";
     mobileSidebarCloseRef.current?.focus();
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setMobileSidebarOpen(false);
-      mobileSidebarTriggerRef.current?.focus();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileSidebarOpen(false);
+        mobileSidebarTriggerRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = mobileSidebarRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+      if (!focusable?.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => {
@@ -483,6 +501,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     setAnalyticsExportNotice(null);
     setAnalyticsLoading(true);
     setAnalyticsRefreshVersion((version) => version + 1);
+  }
+
+  function closeMobileSidebar(restoreFocus = false) {
+    setMobileSidebarOpen(false);
+    if (restoreFocus) mobileSidebarTriggerRef.current?.focus();
   }
 
   function navigateToSettingsPage(page: AdminSettingsPage) {
@@ -1012,7 +1035,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           </div>
         )}
       </div>
-      <aside id="admin-primary-sidebar" className={"admin-sidebar" + (mobileSidebarOpen ? " admin-sidebar--mobile-open" : "")} aria-label="Primary navigation">
+      <aside ref={mobileSidebarRef} id="admin-primary-sidebar" className={"admin-sidebar" + (mobileSidebarOpen ? " admin-sidebar--mobile-open" : "")} role={mobileSidebarOpen ? "dialog" : undefined} aria-modal={mobileSidebarOpen ? true : undefined} aria-label="Primary navigation">
         <div className="admin-sidebar__header">
           <Brand inverse />
           <button
@@ -1025,7 +1048,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           >
             {sidebarCollapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <PanelLeftClose size={17} aria-hidden="true" />}
           </button>
-          <button ref={mobileSidebarCloseRef} className="admin-mobile-sidebar-close" type="button" aria-label="Close navigation" onClick={() => setMobileSidebarOpen(false)}>
+          <button ref={mobileSidebarCloseRef} className="admin-mobile-sidebar-close" type="button" aria-label="Close navigation" onClick={() => closeMobileSidebar(true)}>
             <X size={19} aria-hidden="true" />
           </button>
         </div>
@@ -1051,7 +1074,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <div className="admin-sidebar__version">TACRESQ · PRIVILEGED ACCESS</div>
         </div>
       </aside>
-      {mobileSidebarOpen && <button className="admin-sidebar-backdrop" type="button" aria-label="Close navigation" tabIndex={-1} onClick={() => setMobileSidebarOpen(false)} />}
+      {mobileSidebarOpen && <button className="admin-sidebar-backdrop" type="button" aria-label="Close navigation" tabIndex={-1} onClick={() => closeMobileSidebar(true)} />}
 
       <main className="admin-main" id="admin-workspace-main" tabIndex={-1}>
         <header className="admin-topbar">
