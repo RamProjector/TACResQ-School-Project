@@ -1389,9 +1389,9 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             <section className="admin-panel admin-settings-panel" aria-labelledby="admin-settings-title">
               <div className="admin-panel__heading">
                 <div><p className="admin-eyebrow">YOUR WORKSPACE</p><h2 id="admin-settings-title"><Settings size={19} /> {settingsPage === "general" ? "General & appearance" : settingsPage === "accessibility" ? "Accessibility" : settingsPage === "notifications" ? "Notifications" : "Privacy & data"}</h2></div>
-                <span className="admin-count">{preferencesDirty ? "Unsaved changes" : "Saved on this device"}</span>
+                <span className="admin-count">{settingsPage === "general" || settingsPage === "accessibility" ? (preferencesDirty ? "Unsaved changes" : "Saved on this device") : "Read-only guidance"}</span>
               </div>
-              <p className="admin-settings-intro">Display preferences are saved on this browser. Notification and privacy sections remain informational until their backend and governance requirements are verified.</p>
+              <p className="admin-settings-intro">{settingsPage === "general" ? "Set personal workspace defaults for this browser." : settingsPage === "accessibility" ? "Adjust contrast, motion, and contextual help for this browser." : settingsPage === "notifications" ? "Emergency notification delivery preferences are not connected here; this page does not suppress or delay alerts." : "Review privacy governance and interim handling guidance. No personal-data request is submitted or processed here."}</p>
               <nav className="admin-settings-nav" aria-label="Settings pages">
                 {([["general", "General"], ["accessibility", "Accessibility"], ["notifications", "Notifications"], ["privacy", "Privacy & data"]] as const).map(([id, label]) => <button key={id} type="button" className={settingsPage === id ? "admin-settings-nav__item admin-settings-nav__item--active" : "admin-settings-nav__item"} aria-current={settingsPage === id ? "page" : undefined} onClick={() => navigateToSettingsPage(id)}>{label}</button>)}
               </nav>
