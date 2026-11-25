@@ -104,7 +104,7 @@ assert 'boundedAuditText(formatDetailLabel(key)) + ": " + formatDetailValue(item
 # Empty values mean "all"; malformed, non-positive, fractional, or unsafe IDs
 # are rejected locally rather than silently becoming an unfiltered request.
 assert "function parseOptionalPositiveId(value: string): number | null" in AUDIT_PAGE
-assert r"/^[1-9]\\d*$/.test(value)" in AUDIT_PAGE
+assert r"/^[1-9]\d*$/.test(value)" in AUDIT_PAGE
 assert "Number.isSafeInteger(parsed)" in AUDIT_PAGE
 for marker in (
     'const [actorId, setActorId] = useState("")',
@@ -120,9 +120,9 @@ for marker in (
     'Actor profile ID',
     'Target profile ID',
     'Incident ID',
-    "setActorId(\\"\\")",
-    "setTargetId(\\"\\")",
-    "setIncidentId(\\"\\")",
+    'setActorId("")',
+    'setTargetId("")',
+    'setIncidentId("")',
     "idFilterError",
 ):
     assert marker in AUDIT_PAGE, f"Missing server-backed audit identifier filter contract: {marker}"
