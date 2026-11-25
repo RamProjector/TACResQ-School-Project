@@ -12,7 +12,7 @@ sidebar = CSS.split(".admin-shell > .admin-sidebar {", 1)[1].split("}", 1)[0]
 for required in ("height: 100vh", "height: 100dvh", "min-height: 0", "overflow-y: auto", "overscroll-behavior-y: contain", "-webkit-overflow-scrolling: touch"):
     assert required in sidebar, f"Desktop sidebar scrolling is missing {required}"
 assert "@media (max-width: 900px)" in CSS
-mobile_sidebar = CSS.split("@media (max-width: 900px)", 1)[1].split("}", 1)[0]
+mobile_sidebar = CSS.split("@media (max-width: 900px)", 1)[1].split("/* Keep one primary panel surface", 1)[0]
 assert "overflow: visible" in mobile_sidebar
 assert ".admin-navigation" in ADMIN_CSS and "overflow-x: auto" in ADMIN_CSS
 assert '<nav className="admin-navigation" aria-label="Admin sections">' in SOURCE
