@@ -579,3 +579,343 @@
 @media print {
   .admin-toast-region { display: none !important; }
 }
+
+
+/* Admin HCI refinement: one scroll owner, clear section surfaces, and predictable form rhythm. */
+.admin-shell {
+  --admin-panel-inset: clamp(14px, 1.55vw, 24px);
+  --admin-form-measure: 44rem;
+  --admin-copy-measure: 72ch;
+}
+
+/* Desktop navigation scrolls independently when the menu exceeds the viewport. */
+.admin-shell > .admin-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+.admin-shell > .admin-sidebar > .brand,
+.admin-shell > .admin-sidebar > .admin-sidebar__context,
+.admin-shell > .admin-sidebar > .admin-navigation,
+.admin-shell > .admin-sidebar > .admin-sidebar__bottom {
+  flex: 0 0 auto;
+}
+.admin-shell > .admin-sidebar > .admin-sidebar__bottom { margin-top: auto; }
+
+@media (max-width: 900px) {
+  .admin-shell > .admin-sidebar {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+}
+
+/* Keep one primary panel surface. A nested panel becomes a plain subsection. */
+.admin-shell .admin-panel .admin-panel {
+  margin: 14px var(--admin-panel-inset) 18px;
+  overflow: visible;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.admin-shell .admin-panel .admin-panel > .admin-panel__heading {
+  padding: 15px 0 11px;
+}
+.admin-shell .admin-panel .admin-panel .admin-panel__footnote {
+  padding: 10px 0 0;
+  border-top: 0;
+}
+.admin-shell .admin-panel__heading {
+  padding-inline: var(--admin-panel-inset);
+}
+.admin-shell .admin-panel > .admin-toolbar,
+.admin-shell .admin-panel > .admin-panel__footnote {
+  padding-inline: var(--admin-panel-inset);
+}
+.admin-shell .admin-panel__heading > *,
+.admin-shell .admin-panel__title-with-help,
+.admin-shell .admin-panel__title-with-help > div {
+  min-width: 0;
+}
+.admin-shell .admin-panel__heading h2 {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.admin-shell .admin-panel__heading h2 svg,
+.admin-shell .admin-panel__title-with-help svg,
+.admin-shell .admin-heading__identity > svg,
+.admin-shell .admin-banner > svg,
+.admin-shell .admin-security-note > svg {
+  flex: 0 0 auto;
+}
+
+/* Replace nested mini-cards with simple content groups and dividers. */
+.admin-shell .admin-overview-shortcuts__grid {
+  align-items: start;
+  padding-inline: var(--admin-panel-inset);
+}
+.admin-shell .admin-overview-shortcuts__grid button {
+  align-self: start;
+  min-height: 0;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.admin-shell .admin-overview-shortcuts__grid button:hover {
+  transform: none;
+  border-color: var(--ember);
+  background: transparent;
+}
+.admin-shell .admin-health-grid,
+.admin-shell .admin-analytics-metrics,
+.admin-shell .admin-analytics-detail-grid,
+.admin-shell .admin-settings-grid,
+.admin-shell .admin-recovery-grid,
+.admin-shell .admin-attachment-grid,
+.admin-shell .admin-attachment-metrics {
+  align-items: start;
+}
+.admin-shell .admin-health-grid,
+.admin-shell .admin-analytics-metrics,
+.admin-shell .admin-analytics-detail-grid,
+.admin-shell .admin-settings-grid,
+.admin-shell .admin-recovery-grid,
+.admin-shell .admin-attachment-grid,
+.admin-shell .admin-attachment-metrics {
+  padding-inline: var(--admin-panel-inset);
+}
+.admin-shell .admin-panel :is(
+  .admin-health-item,
+  .admin-analytics-metrics article,
+  .admin-analytics-card,
+  .admin-settings-card,
+  .admin-help-card,
+  .admin-recovery-card,
+  .admin-attachment-card,
+  .admin-attachment-operations,
+  .admin-attachment-metrics > div
+) {
+  min-width: 0;
+  height: auto;
+  align-self: start;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.admin-shell .admin-panel .admin-health-item,
+.admin-shell .admin-panel .admin-analytics-metrics article,
+.admin-shell .admin-panel .admin-attachment-metrics > div {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.admin-shell .admin-panel .admin-analytics-card,
+.admin-shell .admin-panel .admin-settings-card,
+.admin-shell .admin-panel .admin-help-card,
+.admin-shell .admin-panel .admin-recovery-card,
+.admin-shell .admin-panel .admin-attachment-card {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.admin-shell .admin-panel .admin-attachment-operations {
+  margin: 0 var(--admin-panel-inset) 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.admin-shell .admin-panel :is(.admin-health-item, .admin-recovery-card, .admin-attachment-card) p,
+.admin-shell .admin-panel :is(.admin-health-item, .admin-recovery-card, .admin-attachment-card) small {
+  max-width: var(--admin-copy-measure);
+}
+.admin-shell .admin-metrics {
+  align-items: start;
+}
+.admin-shell .admin-metrics article {
+  height: auto;
+  align-self: start;
+  min-width: 0;
+}
+
+/* Form fields use a predictable label → hint → control → feedback sequence. */
+.admin-shell .admin-form-label {
+  display: block;
+  max-width: var(--admin-form-measure);
+  margin: 18px 0 6px;
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+.admin-shell .admin-form-label span {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: baseline;
+}
+.admin-shell .admin-form-hint {
+  max-width: var(--admin-copy-measure);
+  margin: 0 0 8px;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+.admin-shell .admin-modal :where(input:not([type="checkbox"]), select, textarea) {
+  display: block;
+  width: 100%;
+  max-width: var(--admin-form-measure);
+  min-width: 0;
+  min-height: 42px;
+}
+.admin-shell .admin-modal textarea {
+  min-height: 112px;
+  line-height: 1.55;
+}
+.admin-shell .admin-modal__actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+.admin-shell .admin-settings-grid { align-items: start; }
+.admin-shell .admin-settings-card,
+.admin-shell .admin-settings-field {
+  min-width: 0;
+  height: auto;
+}
+.admin-shell .admin-settings-field select { max-width: 100%; }
+.admin-shell :where(p, li, dd, small, .admin-panel__footnote) {
+  overflow-wrap: break-word;
+}
+.admin-shell :where(.admin-panel__heading, .admin-banner, .admin-security-note) > * {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .admin-shell .admin-panel .admin-panel {
+    margin-inline: 14px;
+  }
+  .admin-shell .admin-panel__heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .admin-shell .admin-panel__heading > .admin-count {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .admin-shell .admin-settings-grid,
+  .admin-shell .admin-analytics-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-shell .admin-modal__actions {
+    justify-content: flex-start;
+  }
+}
+
+
+/* Quiet visual polish: tactile controls, restrained depth, and a soft surface highlight. */
+.admin-shell .admin-topbar {
+  box-shadow: 0 5px 18px rgba(20, 42, 49, .045);
+}
+.admin-shell .admin-panel {
+  position: relative;
+  border-color: #dfe7dd;
+  box-shadow:
+    0 1px 2px rgba(20, 42, 49, .025),
+    0 10px 26px rgba(20, 42, 49, .045);
+}
+.admin-shell .admin-panel::before {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.96) 18%, rgba(255,255,255,.68) 82%, transparent);
+  content: "";
+  pointer-events: none;
+}
+.admin-shell .admin-panel__heading {
+  background: linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,0));
+}
+.admin-shell .admin-modal {
+  box-shadow:
+    0 26px 76px rgba(10, 30, 35, .22),
+    0 4px 14px rgba(10, 30, 35, .08);
+}
+.admin-shell .admin-heading__icon {
+  box-shadow:
+    0 6px 16px rgba(20, 42, 49, .055),
+    inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+/* Keep hover feedback on actionable controls, not informational content. */
+@media (prefers-reduced-motion: no-preference) {
+  .admin-shell .admin-nav-item,
+  .admin-shell .admin-refresh,
+  .admin-shell .admin-pagination button,
+  .admin-shell .admin-account-details,
+  .admin-shell .admin-modal__actions button,
+  .admin-shell .audit-page__date-presets button {
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      transform 150ms cubic-bezier(.2,.75,.25,1);
+  }
+  .admin-shell .admin-nav-item:hover {
+    transform: translateX(2px);
+  }
+  .admin-shell .admin-refresh:hover:not(:disabled),
+  .admin-shell .admin-pagination button:hover:not(:disabled),
+  .admin-shell .admin-account-details:hover,
+  .admin-shell .admin-modal__actions button:hover:not(:disabled),
+  .admin-shell .audit-page__date-presets button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 11px rgba(20, 42, 49, .08);
+  }
+  .admin-shell .admin-modal-scrim {
+    animation: admin-scrim-enter 150ms ease-out both;
+  }
+  .admin-shell .admin-modal {
+    animation: admin-dialog-enter 190ms cubic-bezier(.2,.75,.25,1) both;
+  }
+  @keyframes admin-scrim-enter {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes admin-dialog-enter {
+    from { opacity: 0; transform: translateY(7px) scale(.992); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+}
+
+/* Reduced motion keeps clear color/focus feedback without spatial movement. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell .admin-nav-item,
+  .admin-shell .admin-refresh,
+  .admin-shell .admin-pagination button,
+  .admin-shell .admin-account-details,
+  .admin-shell .admin-modal__actions button,
+  .admin-shell .audit-page__date-presets button {
+    transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+  }
+  .admin-shell .admin-nav-item:hover,
+  .admin-shell .admin-refresh:hover:not(:disabled),
+  .admin-shell .admin-pagination button:hover:not(:disabled),
+  .admin-shell .admin-account-details:hover,
+  .admin-shell .admin-modal__actions button:hover:not(:disabled),
+  .admin-shell .audit-page__date-presets button:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+.admin-shell .admin-panel .admin-panel::before { display: none; }
