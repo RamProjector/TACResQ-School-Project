@@ -136,7 +136,7 @@ function throwIfError(error: { message: string } | null) {
 }
 
 export async function getMyProfile(): Promise<TacruProfile> {
-  const { data, error } = await getSupabase().rpc("api_me");
+  const { data, error } = await getSupabase().rpc("api_me", {}, { get: true });
   throwIfError(error);
   if (!data) throw new Error("No TACRU profile is linked to this account.");
   return data as unknown as TacruProfile;
