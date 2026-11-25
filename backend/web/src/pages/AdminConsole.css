@@ -1887,3 +1887,10 @@
   }
 }
 
+
+
+/* Keep the on-demand dependency probe action aligned with its freshness label. */
+.admin-health-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; }
+.admin-health-actions .admin-button { min-height:32px; padding:6px 10px; font-size:10px; }
+.admin-health-actions .admin-button:disabled { cursor:wait; opacity:.65; }
+@media (max-width:760px) { .admin-health-actions { justify-content:flex-start; } }
