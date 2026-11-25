@@ -1946,3 +1946,37 @@
 .admin-account-activity__results ul { display:grid; gap:10px; margin:10px 0 0; padding:0; list-style:none; }
 .admin-account-activity__results li { display:grid; gap:3px; padding-top:9px; border-top:1px solid #e8ece5; color:#354943; font-size:11px; line-height:1.45; }
 .admin-account-activity__results li small { color:#82908a; font-size:10px; }
+
+
+/* Shared page cleanup: tighter rhythm, readable supporting copy, and balanced charts. */
+.admin-panel { margin-bottom:16px; }
+.admin-panel__heading { gap:16px; padding:18px 20px 14px; }
+.admin-panel__heading h2 { font-size:17px; }
+.admin-panel__heading .admin-eyebrow { margin-bottom:5px; }
+.admin-panel__footnote { font-size:10px; line-height:1.55; }
+.admin-overview-shortcuts__grid { grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; padding:0 20px 16px; }
+.admin-overview-shortcuts__grid button { padding:13px; }
+.admin-analytics-metrics { grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),320px)); }
+.admin-analytics-detail-grid { gap:10px; }
+.admin-analytics-card { padding:14px; }
+.admin-analytics-status-grid { gap:8px; }
+.admin-settings-panel .admin-settings-card__heading { gap:12px; }
+.admin-help-panel .admin-help-card { min-width:0; }
+.admin-recovery-panel .admin-recovery-state { line-height:1.4; }
+.admin-attachment-panel .admin-panel__footnote { line-height:1.55; }
+
+@media (max-width:900px) {
+  .admin-panel__heading { padding:16px 16px 13px; }
+  .admin-overview-shortcuts__grid { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); padding-inline:16px; }
+  .admin-analytics-status-grid { grid-template-columns:repeat(2,minmax(0,1fr)); padding-inline:16px; }
+}
+@media (max-width:600px) {
+  .admin-panel { margin-bottom:12px; border-radius:8px; }
+  .admin-panel__heading { align-items:flex-start; flex-wrap:wrap; gap:10px; padding:14px 14px 11px; }
+  .admin-panel__heading h2 { font-size:16px; }
+  .admin-overview-shortcuts__grid { grid-template-columns:minmax(0,1fr); padding:0 14px 14px; }
+  .admin-analytics-metrics { grid-template-columns:minmax(0,1fr); padding-inline:14px; }
+  .admin-analytics-detail-grid { grid-template-columns:minmax(0,1fr); padding-inline:14px; }
+  .admin-analytics-status-grid { grid-template-columns:minmax(0,1fr); padding-inline:14px; }
+  .admin-analytics-card { padding:13px; }
+}
