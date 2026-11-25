@@ -362,3 +362,8 @@ On the User Management workspace, press `/` while focus is outside an editable c
 On long pages, a Back to top control appears after the page has been scrolled down. It returns the operator to the workspace header, uses smooth scrolling by default, and switches to immediate scrolling when the Admin reduced-motion preference is enabled. The control is fixed above page content, keeps a clear focus indicator, and accounts for mobile safe-area insets.
 
 These helpers are local navigation only. They do not change account data, permissions, query scope, or server behavior.
+
+
+## Collapsible desktop navigation
+
+The desktop Admin sidebar can be collapsed from the top bar to give data tables and workspace content more horizontal room. The compact rail retains the section icons; each navigation button keeps its accessible name and exposes the section label as a tooltip. The control is hidden at tablet and mobile widths, where the existing responsive navigation layout remains in place. Collapsing the rail changes only the current page layout and does not hide or restrict any Admin capability.
