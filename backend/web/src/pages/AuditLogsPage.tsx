@@ -110,6 +110,12 @@ function actorDisplay(event: AdminInvestigationEvent, profile: TacruProfile) {
   return event.actor_user_id === profile.id ? "You" : event.actor_label || "Unknown actor";
 }
 
+function parseOptionalPositiveId(value: string): number | null {
+  if (!value.trim() || !/^[1-9]\\d*$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
 export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [events, setEvents] = useState<AdminInvestigationEvent[]>([]);
   // Clipboard promises can resolve after a filter/page change has cleared the
@@ -130,6 +136,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [source, setSource] = useState<AdminInvestigationSource>("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [actorId, setActorId] = useState("");
+  const [targetId, setTargetId] = useState("");
+  const [incidentId, setIncidentId] = useState("");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +149,14 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [copyError, setCopyError] = useState<string | null>(null);
 
   const dateRangeError = getAuditDateRangeError(from, to);
+  const actorFilterId = parseOptionalPositiveId(actorId);
+  const targetFilterId = parseOptionalPositiveId(targetId);
+  const incidentFilterId = parseOptionalPositiveId(incidentId);
+  const idFilterError = (
+    (actorId.trim() && actorFilterId === null)
+    || (targetId.trim() && targetFilterId === null)
+    || (incidentId.trim() && incidentFilterId === null)
+  ) ? "Actor, target, and incident filters must be positive whole numbers." : null;
 
   useEffect(() => {
     let active = true;
@@ -147,12 +164,12 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     // result. Clear it as soon as filters or pagination change.
     setCopiedEventId(null);
     setCopyError(null);
-    if (dateRangeError) {
+    if (dateRangeError || idFilterError) {
       setEvents([]);
       setTotal(0);
       setExpanded(null);
       setLastSuccessfulRefresh(null);
-      setError(dateRangeError);
+      setError(dateRangeError || idFilterError || "Invalid audit filter.");
       setLoading(false);
       return () => { active = false; };
     }
@@ -173,9 +190,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         source,
         startOfDay(from),
         startOfNextDay(to),
-        null,
-        null,
-        null,
+        actorFilterId,
+        targetFilterId,
+        incidentFilterId,
       ).then((result) => {
         if (!active) return;
         if (page > 0 && page * PAGE_SIZE >= result.total_count) {
@@ -203,7 +220,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [page, query, category, source, from, to, refreshVersion, dateRangeError]);
+  }, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);
 
   useEffect(() => {
     let active = true;
@@ -257,12 +274,15 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
     setSource("all");
     setFrom("");
     setTo("");
+    setActorId("");
+    setTargetId("");
+    setIncidentId("");
     setPage(0);
   }
 
   const lifecyclePageCount = Math.ceil(lifecycleTotal / lifecyclePageSize);
   const pageCount = Math.ceil(total / PAGE_SIZE);
-  const hasFilters = Boolean(query || category !== "all" || source !== "all" || from || to);
+  const hasFilters = Boolean(query || category !== "all" || source !== "all" || from || to || actorId || targetId || incidentId);
   const firstVisiblePage = Math.max(0, Math.min(page - 2, pageCount - 5));
   const visiblePages = Array.from({ length: Math.min(5, pageCount) }, (_, index) => firstVisiblePage + index);
   const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
@@ -280,7 +300,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <button className="admin-refresh" type="button" onClick={() => {
           setLoading(true);
           setRefreshVersion((current) => current + 1);
-        }} disabled={loading || Boolean(dateRangeError)} aria-label="Refresh investigation activity">
+        }} disabled={loading || Boolean(dateRangeError || idFilterError)} aria-label="Refresh investigation activity">
           <RefreshCw size={15} className={loading ? "admin-spin" : undefined} /> {loading ? "Refreshing…" : error ? "Retry" : "Refresh"}
         </button>
       </div>
@@ -376,6 +396,9 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label><span>From</span><input type="date" value={from} max={to || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
         <label><span>To</span><input type="date" value={to} min={from || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
+        <label><span>Actor profile ID</span><input type="number" inputMode="numeric" min="1" step="1" value={actorId} aria-invalid={Boolean(actorId.trim() && actorFilterId === null)} onChange={(event) => { setPage(0); setActorId(event.target.value); }} placeholder="Any actor" /></label>
+        <label><span>Target profile ID</span><input type="number" inputMode="numeric" min="1" step="1" value={targetId} aria-invalid={Boolean(targetId.trim() && targetFilterId === null)} onChange={(event) => { setPage(0); setTargetId(event.target.value); }} placeholder="Any target" /></label>
+        <label><span>Incident ID</span><input type="number" inputMode="numeric" min="1" step="1" value={incidentId} aria-invalid={Boolean(incidentId.trim() && incidentFilterId === null)} onChange={(event) => { setPage(0); setIncidentId(event.target.value); }} placeholder="Any incident" /></label>
         <div className="audit-page__date-presets" role="group" aria-label="Quick date range">
           <span>Quick range</span>
           {[7, 30, 90].map((days) => <button key={days} type="button" aria-pressed={isDatePresetSelected(days, from, to)} onClick={() => { setPage(0); setFrom(manilaDateOffset(days - 1)); setTo(manilaDateOffset(0)); }}>{days} days</button>)}
