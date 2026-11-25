@@ -1238,6 +1238,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                                   className="admin-account-details"
                                   type="button"
                                   aria-expanded={accountActivityAccountId === user.id}
+                                  aria-label={(accountActivityAccountId === user.id ? "Hide recent activity for " : "Load recent activity for ") + user.name}
                                   onClick={() => toggleAccountActivity(user)}
                                 >
                                   {accountActivityAccountId === user.id ? "Hide recent activity" : "Load recent activity"}
