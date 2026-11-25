@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 migration = (
     ROOT
-    / "supabase/migrations/20261118011000_dispatcher_release_incident_assignment.sql"
+    / "supabase/migrations/20261122050837_dispatcher_release_incident_assignment.sql"
 ).read_text()
 
 # Both entry points must be explicit, authenticated, and protected by a
@@ -63,7 +63,7 @@ for required in (
         migration
         + (
             ROOT
-            / "supabase/migrations/20261118010000_incident_assignment_event_history.sql"
+            / "supabase/migrations/20261122050834_incident_assignment_event_history.sql"
         ).read_text()
     ), f"Missing release audit/availability behavior: {required}"
 

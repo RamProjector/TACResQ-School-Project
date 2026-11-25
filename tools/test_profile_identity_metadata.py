@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sql = (ROOT / "supabase/migrations/20261116210000_protect_profile_identity_metadata.sql").read_text()
+sql = (ROOT / "supabase/migrations/20261122050820_protect_profile_identity_metadata.sql").read_text()
 
 required = (
     "CREATE OR REPLACE FUNCTION public.tacresq_guard_profile_update()",

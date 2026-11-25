@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sql = (ROOT / "supabase/migrations/20261116190000_validate_requester_location_edits.sql").read_text()
+sql = (ROOT / "supabase/migrations/20261122050815_validate_requester_location_edits.sql").read_text()
 
 required = (
     "p_type IS NULL OR p_type NOT IN",

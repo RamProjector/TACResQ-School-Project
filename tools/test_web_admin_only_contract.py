@@ -60,7 +60,7 @@ admin_user_type = (ROOT / "backend/web/src/lib/supabase.ts").read_text().split("
 assert "phone" not in admin_user_type, "Admin directory client type must not include phone contact data."
 assert 'placeholder="Search name, email or profile ID"' in admin_console
 assert '{user.email}</small>' in admin_console and "user.phone" not in admin_console
-privacy_migration = (ROOT / "supabase/migrations/20261122200000_admin_directory_contact_minimization.sql").read_text().lower()
+privacy_migration = (ROOT / "supabase/migrations/20261123045605_20261122200000_admin_directory_contact_minimization.sql").read_text().lower()
 assert "api_admin_list_users_page_internal" in privacy_migration
 assert "'phone'" not in privacy_migration and "p.phone" not in privacy_migration
 assert "api_admin_list_users_page(" not in privacy_migration, "Keep the public TOTP/AAL2 wrapper intact."

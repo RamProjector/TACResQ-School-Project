@@ -42,11 +42,11 @@ A function is not considered suspension-safe merely because it checks `auth.uid(
 ## Source files inspected for this batch
 
 - `supabase/migrations/20261023031810_requester_single_active_and_cancel.sql`
-- `supabase/migrations/20261116180000_harden_field_claim_exclusivity.sql`
-- `supabase/migrations/20261116200000_harden_dispatch_claimability_lifecycle.sql`
+- `supabase/migrations/20261122050813_harden_field_claim_exclusivity.sql`
+- `supabase/migrations/20261122050818_harden_dispatch_claimability_lifecycle.sql`
 - `supabase/migrations/20261114153550_fcm_token_account_switch.sql`
 - `supabase/migrations/20261108092703_incident_chat_image_attachments.sql`
-- `supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql`
-- `supabase/migrations/20261122160000_admin_investigation_events.sql`
+- `supabase/migrations/20261122050858_require_totp_for_admin_rpcs.sql`
+- `supabase/migrations/20261122120710_admin_investigation_events.sql`
 
 No connected Supabase project was read or modified for this source review. This is a repository finding, not a claim that a live project has these exact deployed definitions.

@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 migration = (
     ROOT
-    / "supabase/migrations/20261118010000_incident_assignment_event_history.sql"
+    / "supabase/migrations/20261122050834_incident_assignment_event_history.sql"
 ).read_text()
 
 # The ledger records membership changes and incident closure as distinct events.

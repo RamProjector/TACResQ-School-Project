@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sql = (ROOT / "supabase/migrations/20261116200000_harden_dispatch_claimability_lifecycle.sql").read_text()
+sql = (ROOT / "supabase/migrations/20261122050818_harden_dispatch_claimability_lifecycle.sql").read_text()
 
 required = (
     "IF p_incident_id IS NULL OR p_incident_id < 1 OR p_claimable IS NULL",

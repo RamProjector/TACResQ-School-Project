@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "supabase" / "migrations"
-sql = (MIGRATIONS / "20261116180000_harden_field_claim_exclusivity.sql").read_text()
+sql = (MIGRATIONS / "20261122050813_harden_field_claim_exclusivity.sql").read_text()
 
 claim_start = sql.index("CREATE OR REPLACE FUNCTION public.api_claim_incident")
 claim_end = sql.index("$function$;", claim_start) + len("$function$;")

@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SQL = (ROOT / "supabase/migrations/20261023081706_dispatch_team_assignment.sql").read_text()
-RLS = (ROOT / "supabase/migrations/20261116153000_optimize_rls_policy_initplans.sql").read_text()
+RLS = (ROOT / "supabase/migrations/20261122050809_optimize_rls_policy_initplans.sql").read_text()
 ANDROID = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 BRIDGE_CONFIG = (ROOT / "backend/src/config/tacru.php").read_text()
 BRIDGE = (ROOT / "backend/src/app/SupabaseBridge.php").read_text()

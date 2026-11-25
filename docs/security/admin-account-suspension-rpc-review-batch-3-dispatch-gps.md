@@ -46,9 +46,9 @@
 
 - `supabase/migrations/20261023081706_dispatch_team_assignment.sql`
 - `supabase/migrations/20261023082526_harden_dispatch_team_assignment.sql` (confirm final definitions against the replay after each migration change)
-- `supabase/migrations/20261116180000_harden_field_claim_exclusivity.sql`
-- `supabase/migrations/20261116200000_harden_dispatch_claimability_lifecycle.sql`
-- `supabase/migrations/20261117234000_dispatch_managed_incident_progress.sql`
+- `supabase/migrations/20261122050813_harden_field_claim_exclusivity.sql`
+- `supabase/migrations/20261122050818_harden_dispatch_claimability_lifecycle.sql`
+- `supabase/migrations/20261122050825_dispatch_managed_incident_progress.sql`
 - `supabase/migrations/20261112215429_isolate_per_responder_location_writer.sql`
 - `supabase/migrations/20261112215554_isolate_multi_responder_location_reader.sql`
 - `tools/test_dispatch_claimability_lifecycle.py`
@@ -60,7 +60,7 @@ No connected Supabase project was queried or modified. These findings are based 
 
 ## Account-lifecycle implementation follow-up — November 24
 
-The source-review gaps for dispatcher claimability and responder-coordinate reads have since received forward-only guards in migration `20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql`:
+The source-review gaps for dispatcher claimability and responder-coordinate reads have since received forward-only guards in migration `20261125020907_account_lifecycle_claimability_and_responder_read_guard.sql`:
 
 - `public.api_set_incident_claimable(bigint,boolean)`: the locked dispatcher profile re-read now requires `account_status = 'active'`. Existing incident → profile lock order, claimability state allowlist, no-op semantics, and transactional audit insertion are preserved.
 - `private.tacresq_active_responder_locations()`: now checks and share-locks an active dispatcher before delegating to the preserved latest-fresh-location query. The preserved query is renamed `private.tacresq_active_responder_locations_internal()` and client EXECUTE is revoked.
@@ -70,6 +70,6 @@ These are implemented in the PR branch, not production-verified. Clean disposabl
 
 ## Duty-status lifecycle implementation follow-up — November 24
 
-The earlier `api_set_duty_status(text)` gap now has a staged implementation in migration `20261124140000_account_lifecycle_duty_status_guard.sql`. The RPC locks the caller's profile and requires both a responder/driver role and `account_status = 'active'` before updating operational duty state. It retains the active-incident restriction and does not automatically change duty status when an account is suspended or reactivated.
+The earlier `api_set_duty_status(text)` gap now has a staged implementation in migration `20261125020913_account_lifecycle_duty_status_guard.sql`. The RPC locks the caller's profile and requires both a responder/driver role and `account_status = 'active'` before updating operational duty state. It retains the active-incident restriction and does not automatically change duty status when an account is suspended or reactivated.
 
 This implementation is source-reviewed and has a committed PostgreSQL replay contract. It is not yet runtime-verified: execute clean migration replay, same-valid-JWT suspended denial, and duty-change-versus-suspension concurrency tests before treating it as complete.

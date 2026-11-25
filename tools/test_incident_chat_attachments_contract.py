@@ -10,7 +10,7 @@ def read(path: str) -> str:
 
 
 migration = read("supabase/migrations/20261108092703_incident_chat_image_attachments.sql")
-reservation_migration = read("supabase/migrations/20261122210000_incident_chat_upload_reservations.sql")
+reservation_migration = read("supabase/migrations/20261123045607_20261122210000_incident_chat_upload_reservations.sql")
 for label, passed in {
     "attachment metadata is stored with the message": "ADD COLUMN IF NOT EXISTS attachment_path text" in migration,
     "image-only messages remain bounded": "attachment_size_bytes BETWEEN 1 AND 5242880" in migration,
@@ -225,7 +225,7 @@ assert inventory.rstrip().endswith(";"), "Inventory query must terminate cleanly
 # The Storage surface currently consists of one application bucket. Keep the
 # inventory fail-closed so adding another bucket forces a fresh security review.
 inventory_sql = read("tools/check_storage_bucket_inventory.sql")
-identity_migration = read("supabase/migrations/20261123110000_account_lifecycle_identity_helpers.sql")
+identity_migration = read("supabase/migrations/20261125020823_account_lifecycle_identity_helpers.sql")
 for required in (
     "FROM storage.buckets",
     "unknown_bucket_ids",

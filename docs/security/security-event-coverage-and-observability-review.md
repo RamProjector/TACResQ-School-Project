@@ -138,11 +138,11 @@ Propagate server-generated correlation IDs across server-mediated operations. Fo
 - `backend/src/routes/api.php`: Laravel login/register/logout/logout-all/password-change routes, rate limits, and credential/session behavior.
 - `backend/src/app/SupabaseBridge.php`: existing metadata logging for Auth token validation, RPC outcomes, rejected bridge RPCs, and timeouts.
 - `backend/src/app/ApiOperationAuditLogger.php`: metadata-only server-side writer, fail-open behavior, bounded timeouts, and missing-secret skip.
-- `supabase/migrations/20261116170000_api_operation_audit_and_fk_indexes.sql`: `api_operation_logs` schema and service-role-only table grants.
+- `supabase/migrations/20261122050811_api_operation_audit_and_fk_indexes.sql`: `api_operation_logs` schema and service-role-only table grants.
 - `supabase/migrations/20261112215653_admin_role_audit_foundation.sql`: successful role-change audit event model.
-- `supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql`: Admin AAL2/TOTP assurance wrapper.
+- `supabase/migrations/20261122050858_require_totp_for_admin_rpcs.sql`: Admin AAL2/TOTP assurance wrapper.
 - `supabase/migrations/20261022040223_fix_incident_status_audit_trigger.sql`: operational incident status history.
-- `supabase/migrations/20261118010000_incident_assignment_event_history.sql`: operational assignment lifecycle history.
+- `supabase/migrations/20261122050834_incident_assignment_event_history.sql`: operational assignment lifecycle history.
 - `supabase/functions/tacresq-notify/index.ts`: FCM send authorization and provider failure handling.
 
 This is a source-based review of the repository at the stated commit. It does not establish the live Supabase migration state, Auth audit retention, Render secret configuration, or production event delivery.

@@ -19,7 +19,7 @@ notifications_screen = read("app/src/main/java/com/tacresq/app/ui/notifications/
 service = read("app/src/main/java/com/tacresq/app/notifications/TacResqFirebaseMessagingService.kt")
 recipient_policy = read("app/src/main/java/com/tacresq/app/notifications/PushNotificationRecipientPolicy.kt")
 app_root = read("app/src/main/java/com/tacresq/app/ui/AppRoot.kt")
-lifecycle_fcm = read("supabase/migrations/20261123210000_account_lifecycle_fcm_token_guards.sql")
+lifecycle_fcm = read("supabase/migrations/20261125020846_account_lifecycle_fcm_token_guards.sql")
 token_sql_test = read("tools/test_fcm_token_account_switch.sql")
 
 assert 'com.google.firebase:firebase-messaging:' in build

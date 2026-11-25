@@ -20,11 +20,11 @@ dockerfile = read("backend/Dockerfile")
 env = read("backend/.env.example")
 base_migration = read("supabase/migrations/20261105235016_fcm_delivery_attempts.sql")
 queue_migration = read("supabase/migrations/20261114153546_fcm_delivery_queue_hardening.sql")
-claim_migration = read("supabase/migrations/20261123220000_fcm_delivery_claim_active_recipient_guard.sql")
+claim_migration = read("supabase/migrations/20261125020853_fcm_delivery_claim_active_recipient_guard.sql")
 queue_test = read("tools/test_fcm_delivery_queue.sql")
 docs = read("docs/FCM_SETUP.md")
-fcm_lifecycle = read("supabase/migrations/20261123210000_account_lifecycle_fcm_token_guards.sql")
-account_write_guard = read("supabase/migrations/20261123120000_account_lifecycle_write_guard_triggers.sql")
+fcm_lifecycle = read("supabase/migrations/20261125020846_account_lifecycle_fcm_token_guards.sql")
+account_write_guard = read("supabase/migrations/20261125020825_account_lifecycle_write_guard_triggers.sql")
 
 contract = read("backend/src/app/Contracts/FcmClientContract.php")
 provider = read("backend/src/app/Providers/AppServiceProvider.php")
@@ -70,7 +70,7 @@ assert "PHP_QUERY_RFC3986" in dispatcher
 assert "$this->rpcUrl('api_unregister_fcm_token_for_delivery')" in dispatcher
 assert "'p_profile_id' => $profileId" in dispatcher
 assert "'p_token' => $token" in dispatcher
-server_cleanup = read("supabase/migrations/20261124180000_secure_fcm_delivery_token_cleanup_rpc.sql")
+server_cleanup = read("supabase/migrations/20261125020918_secure_fcm_delivery_token_cleanup_rpc.sql")
 assert "api_unregister_fcm_token_for_delivery" in server_cleanup
 assert "FROM PUBLIC, anon, authenticated" in server_cleanup
 assert "TO service_role" in server_cleanup

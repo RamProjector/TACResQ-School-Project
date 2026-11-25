@@ -1,7 +1,7 @@
 from pathlib import Path
 
 migration = Path(
-    "supabase/migrations/20261118003000_dispatch_request_edit_notifications.sql"
+    "supabase/migrations/20261122050832_dispatch_request_edit_notifications.sql"
 ).read_text(encoding="utf-8").lower()
 
 checks = {
@@ -46,7 +46,7 @@ print(f"Requester edit dispatch notification contract passed ({len(checks)} chec
 
 
 cancellation_migration = Path(
-    "supabase/migrations/20261120070000_notify_dispatcher_of_requester_cancellation.sql"
+    "supabase/migrations/20261122050851_notify_dispatcher_of_requester_cancellation.sql"
 ).read_text(encoding="utf-8").lower()
 
 cancellation_checks = {

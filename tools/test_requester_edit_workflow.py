@@ -8,7 +8,7 @@ SQL = MIGRATION.read_text().lower()
 SCREEN = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 API = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 CANCEL_SQL = (ROOT / "supabase/migrations/20261023031810_requester_single_active_and_cancel.sql").read_text().lower()
-FINAL_EDIT_SQL = (ROOT / "supabase/migrations/20261116190000_validate_requester_location_edits.sql").read_text().lower()
+FINAL_EDIT_SQL = (ROOT / "supabase/migrations/20261122050815_validate_requester_location_edits.sql").read_text().lower()
 MODEL = (ROOT / "app/src/main/java/com/tacresq/app/data/model/Models.kt").read_text()
 
 for required in (

@@ -10,7 +10,7 @@ No runtime code, schema, grants, migrations, or production configuration are cha
 
 ## Admin RPC boundary
 
-The migration `20261122123000_require_totp_for_admin_rpcs.sql`:
+The migration `20261122050858_require_totp_for_admin_rpcs.sql`:
 
 - Defines private `private.tacresq_require_admin_mfa()`.
 - Requires a non-null authenticated subject, JWT assurance level `aal2`, a TOTP method in the JWT `amr` claim, and a current `profiles.role = 'admin'` row linked to that Auth subject.
@@ -77,10 +77,10 @@ A future security-event collector should use a separate transaction or provider-
 ## Repository evidence reviewed
 
 - `supabase/migrations/20261112215653_admin_role_audit_foundation.sql`
-- `supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql`
-- `supabase/migrations/20261122140000_admin_audit_server_pagination.sql`
+- `supabase/migrations/20261122050858_require_totp_for_admin_rpcs.sql`
+- `supabase/migrations/20261125020814_admin_audit_server_pagination.sql`
 - `supabase/migrations/20261023103737_per_responder_assignment_status.sql`
-- `supabase/migrations/20261118090000_restrict_incident_assignment_table_privileges.sql`
+- `supabase/migrations/20261122050839_restrict_incident_assignment_table_privileges.sql`
 - `tools/test_admin_totp_contract.py`
 - `tools/test_rpc_grants.py`
 

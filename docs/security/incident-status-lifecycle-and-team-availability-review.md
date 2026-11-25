@@ -10,12 +10,12 @@ Reviewed source:
 - `20261023081706_dispatch_team_assignment.sql`
 - `20261023103737_per_responder_assignment_status.sql`
 - `20261116042927_responder_incident_claiming.sql`
-- `20261116200000_harden_dispatch_claimability_lifecycle.sql`
-- `20261117234000_dispatch_managed_incident_progress.sql`
-- `20261118010000_incident_assignment_event_history.sql`
-- `20261118011000_dispatcher_release_incident_assignment.sql`
-- `20261118090000_restrict_incident_assignment_table_privileges.sql`
-- `20261122090000_admin_analytics_summary.sql`
+- `20261122050818_harden_dispatch_claimability_lifecycle.sql`
+- `20261122050825_dispatch_managed_incident_progress.sql`
+- `20261122050834_incident_assignment_event_history.sql`
+- `20261122050837_dispatcher_release_incident_assignment.sql`
+- `20261122050839_restrict_incident_assignment_table_privileges.sql`
+- `20261122050856_admin_analytics_summary.sql`
 
 ## Current lifecycle
 
@@ -62,7 +62,7 @@ This is an incident-created-period report, not a count of all incidents that wer
 
 The initial source review identified a potential mismatch: the core schema granted authenticated users column-level incident updates, the RLS policy allows dispatcher incident updates, and the transition trigger contains a dispatcher status branch. Read in isolation, those objects appear to allow a direct status update that would skip the coordinated progress RPC.
 
-**The complete migration history changes that conclusion.** Migration `20261116200000_harden_dispatch_claimability_lifecycle.sql` explicitly:
+**The complete migration history changes that conclusion.** Migration `20261122050818_harden_dispatch_claimability_lifecycle.sql` explicitly:
 - Revokes table-level INSERT, UPDATE, and DELETE on `public.incidents` from PUBLIC, anon, and authenticated.
 - Dynamically revokes historical column-level INSERT and UPDATE grants across every incident column, including `status`, `assigned_to`, and `updated_at`.
 - Documents that supported Android and web clients write incidents through SECURITY DEFINER RPCs.

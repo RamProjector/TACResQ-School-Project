@@ -193,7 +193,7 @@ print(
 # incident_assignments is a client read-only table. The new migration must
 # remove every anon/PUBLIC privilege and every authenticated write/DDL privilege.
 ASSIGNMENT_PRIVILEGE_SQL = Path(
-    "supabase/migrations/20261118090000_restrict_incident_assignment_table_privileges.sql"
+    "supabase/migrations/20261122050839_restrict_incident_assignment_table_privileges.sql"
 ).read_text()
 assert re.search(
     r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+TABLE\s+public\.incident_assignments\s+"
@@ -210,7 +210,7 @@ assert "TRUNCATE" in ASSIGNMENT_PRIVILEGE_SQL.upper(), "Document the RLS-bypassi
 # Token, status-history, and location tables are read-only to client roles.
 # Their writes must pass through the reviewed RPC or server-only worker paths.
 OPERATIONAL_PRIVILEGE_SQL = Path(
-    "supabase/migrations/20261118092000_restrict_operational_table_writes.sql"
+    "supabase/migrations/20261122050841_restrict_operational_table_writes.sql"
 ).read_text()
 for table in ("fcm_tokens", "incident_status_logs", "location_logs"):
     assert re.search(
@@ -229,7 +229,7 @@ assert re.search(
 # Core profile/incident tables retain the current RLS-backed create/update
 # workflows, but authenticated clients must not directly delete or truncate.
 CORE_TABLE_PRIVILEGE_SQL = Path(
-    "supabase/migrations/20261118100000_restrict_core_table_destructive_privileges.sql"
+    "supabase/migrations/20261122050843_restrict_core_table_destructive_privileges.sql"
 ).read_text()
 assert re.search(
     r"REVOKE\s+DELETE,\s*TRUNCATE\s+ON\s+TABLE\s+"

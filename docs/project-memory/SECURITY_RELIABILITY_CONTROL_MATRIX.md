@@ -18,7 +18,7 @@ This is an engineering alignment review, not a certification, penetration-test r
 | Area | Public practice | TACResQ evidence | Gap / required control |
 |---|---|---|---|
 | API object/function authorization | OWASP API Security Top 10 2023: API1 Broken Object Level Authorization and API5 Broken Function Level Authorization. https://owasp.org/API-Security/editions/2023/en/0x00-header/ | RPCs enforce caller role/ownership in SQL. Tests include tools/test_rpc_grants.py, tools/test_location_rpc_security.sql, and tools/test_notification_rpc_security.sql. | Eighteen authenticated-callable SECURITY DEFINER functions were reported by the prior advisor review. This count is not proof of vulnerability. Inventory every signature, owner, search_path, EXECUTE grant, role check, ownership check, exposed fields, and negative test. |
-| Privileged functions | Supabase recommends SECURITY INVOKER where possible; SECURITY DEFINER needs a controlled search_path, schema-qualified references, and restricted EXECUTE. https://supabase.com/docs/guides/database/functions | api_units() is SECURITY DEFINER and schema-qualifies public/auth references. Main contains migration 20261116150000_pin_api_units_search_path.sql setting search_path=pg_catalog. | Live inspection on 2026-11-17 still showed search_path=pg_catalog, public, auth. The migration is in the repository but absent from the live migration ledger. Do not create a duplicate migration. Keep it pending until the authorized migration process; test exact proconfig and unchanged grants in isolated PostgreSQL. |
+| Privileged functions | Supabase recommends SECURITY INVOKER where possible; SECURITY DEFINER needs a controlled search_path, schema-qualified references, and restricted EXECUTE. https://supabase.com/docs/guides/database/functions | api_units() is SECURITY DEFINER and schema-qualifies public/auth references. Main contains migration 20261122050807_pin_api_units_search_path.sql setting search_path=pg_catalog. | Live inspection on 2026-11-17 still showed search_path=pg_catalog, public, auth. The migration is in the repository but absent from the live migration ledger. Do not create a duplicate migration. Keep it pending until the authorized migration process; test exact proconfig and unchanged grants in isolated PostgreSQL. |
 | Grants | OWASP API5 and PostgreSQL function/table privilege controls. https://www.postgresql.org/docs/current/sql-grant.html | PR #319 removes authenticated incident table DML and dynamically revokes column-level INSERT/UPDATE grants. PR #321 restricts the unbounded legacy Admin user-list RPC. | Table-level REVOKE does not remove separately granted column privileges. Inspect table, column, sequence, and function ACLs separately. Negative-test direct DML, legacy RPC denial, and valid replacement RPC calls. |
 | Incident concurrency | PostgreSQL explicit row locking. https://www.postgresql.org/docs/current/explicit-locking.html | PR #317 serializes field claims and enforces one active assignment per field member. PR #319 serializes dispatcher claimability with incident lifecycle. | Static source contracts are not two-session concurrency tests. Add independent-session tests for same-incident claims, cross-incident double claims, capacity races, claimability vs cancellation/closure, and role revocation vs claim. Assert final database invariants. |
 | Location permission/capture | Android location permissions and fused location APIs. https://developer.android.com/develop/sensors-and-location/location/permissions and https://developers.google.com/android/reference/com/google/android/gms/location/FusedLocationProviderClient | LocationProvider.kt uses FusedLocationProviderClient. Requester capture uses getCurrentLocation, bounded timeout, zero max update age, validity checks, and no lastLocation fallback. Responder updates use coarse granularity in an explicitly started foreground service. GPS_LOCATION_NOTES.md documents consent and flow separation. | Source proves the API used, not which physical sensors contributed to a fused fix. Test approximate/precise permission, denial/revocation, disabled services, stale/null fix, timeout, lifecycle cancellation, and manual fallback on supported devices. Do not add background permission merely to improve freshness. |
@@ -42,7 +42,7 @@ Checked on 2026-11-17:
   - #320: 21495bfbe7d93c87850ab9151b6cf156c1081d8f
   - #321: f44af2d88a8c822ab911612352a9cf65a114137a
 - For each exact head, the returned workflow list showed TACResQ CI, TACResQ Security, RPC grant contract, and TACResQ Frontend Review completed successfully. #316 also showed TACResQ Render live smoke completed successfully. This does not prove physical-device behavior, live migration state, or overall readiness.
-- Live Supabase migration ledger ended at 20261116042927_responder_incident_claiming. It did not contain 20261116150000_pin_api_units_search_path.sql or later PR migrations. No live migration was applied during this review.
+- Live Supabase migration ledger ended at 20261116042927_responder_incident_claiming. It did not contain 20261122050807_pin_api_units_search_path.sql or later PR migrations. No live migration was applied during this review.
 - Read-only inspection of live public.api_units() confirmed SECURITY DEFINER and the older search_path=pg_catalog, public, auth. The repository migration already narrows it to pg_catalog. This is deployment drift, not a reason to create a duplicate migration.
 
 ## Prioritized follow-up
@@ -245,11 +245,11 @@ Before implementation, add tests for stable cursor ordering, newly inserted inci
 
 A fresh read-only migration-ledger query returned the live migration history through `20261116042927_responder_incident_claiming`. It does not contain:
 
-- `20261116170000_api_operation_audit_and_fk_indexes.sql` from PR #316;
-- `20261116180000_harden_field_claim_exclusivity.sql` from PR #317;
-- `20261116200000_harden_dispatch_claimability_lifecycle.sql` from PR #319;
-- `20261116210000_protect_profile_identity_metadata.sql` from PR #320; or
-- `20261117010000_restrict_legacy_admin_user_list_rpc.sql` from PR #321.
+- `20261122050811_api_operation_audit_and_fk_indexes.sql` from PR #316;
+- `20261122050813_harden_field_claim_exclusivity.sql` from PR #317;
+- `20261122050818_harden_dispatch_claimability_lifecycle.sql` from PR #319;
+- `20261122050820_protect_profile_identity_metadata.sql` from PR #320; or
+- `20261122050823_restrict_legacy_admin_user_list_rpc.sql` from PR #321.
 
 These migrations are still pending PR review/merge and have not been applied to the live database. In particular, `public.api_operation_logs` is not yet a live table. Do not describe PR #316 audit persistence as active production coverage.
 
@@ -398,12 +398,12 @@ Do not merge based solely on the green exact-head workflows. Before merging the 
 
 The six implementation migrations are uniquely timestamped and sort in a deterministic sequence under the repository's filename-glob replay:
 
-1. #316 — `20261116170000_api_operation_audit_and_fk_indexes.sql`
-2. #317 — `20261116180000_harden_field_claim_exclusivity.sql`
-3. #318 — `20261116190000_validate_requester_location_edits.sql`
-4. #319 — `20261116200000_harden_dispatch_claimability_lifecycle.sql`
-5. #320 — `20261116210000_protect_profile_identity_metadata.sql`
-6. #321 — `20261117010000_restrict_legacy_admin_user_list_rpc.sql`
+1. #316 — `20261122050811_api_operation_audit_and_fk_indexes.sql`
+2. #317 — `20261122050813_harden_field_claim_exclusivity.sql`
+3. #318 — `20261122050815_validate_requester_location_edits.sql`
+4. #319 — `20261122050818_harden_dispatch_claimability_lifecycle.sql`
+5. #320 — `20261122050820_protect_profile_identity_metadata.sql`
+6. #321 — `20261122050823_restrict_legacy_admin_user_list_rpc.sql`
 
 Static review found no duplicate migration filename and no obvious forward reference from these new migrations to a later migration. Their principal objects are based on earlier schema/functions: the audit migration adds a new table and indexes existing FK columns; field-claim and location-edit migrations replace existing RPCs; claimability adds a log table, trigger functions, and RPC replacement; profile metadata replaces an existing profile guard; the Admin migration revokes execution on the existing legacy function. This is a source-level dependency assessment, not proof of successful PostgreSQL execution.
 

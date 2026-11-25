@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 inventory = (ROOT / "tools/check_storage_bucket_inventory.sql").read_text(encoding="utf-8").lower()
 storage_test = (ROOT / "tools/test_incident_chat_storage_policies.sql").read_text(encoding="utf-8").lower()
-policy_migration = (ROOT / "supabase/migrations/20261123180000_account_lifecycle_chat_idempotency_guards.sql").read_text(encoding="utf-8").lower()
+policy_migration = (ROOT / "supabase/migrations/20261125020840_account_lifecycle_chat_idempotency_guards.sql").read_text(encoding="utf-8").lower()
 
 # A new bucket must fail the release contract until its ownership, policy,
 # retention, and suspended-session behavior are explicitly reviewed.

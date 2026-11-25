@@ -7,8 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 gate = (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 home = (ROOT / "backend/web/src/pages/Home.tsx").read_text()
 admin = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
-migration = (ROOT / "supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql").read_text().lower()
-audit_page_migration = (ROOT / "supabase/migrations/20261122140000_admin_audit_server_pagination.sql").read_text().lower()
+migration = (ROOT / "supabase/migrations/20261122050858_require_totp_for_admin_rpcs.sql").read_text().lower()
+audit_page_migration = (ROOT / "supabase/migrations/20261125020814_admin_audit_server_pagination.sql").read_text().lower()
 
 for marker in (
     'factortype: "totp"',
@@ -323,7 +323,7 @@ for marker in (
 # The unified investigation feed is a separate callable Admin endpoint. Keep its
 # trusted MFA check inside the database function and before any source-history reads.
 investigation_migration = (
-    ROOT / "supabase/migrations/20261122160000_admin_investigation_events.sql"
+    ROOT / "supabase/migrations/20261122120710_admin_investigation_events.sql"
 ).read_text().lower()
 investigation_wrapper = re.search(
     r"create or replace function public[.]api_admin_list_investigation_events[(].*?as [$]function[$](.*?)[$]function[$];",
