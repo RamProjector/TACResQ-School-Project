@@ -6,7 +6,7 @@ ADMIN_CSS = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text(encoding
 SOURCE = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text(encoding="utf-8")
 GUIDE = (ROOT / "docs/admin-portal-operator-guide.md").read_text(encoding="utf-8")
 
-# Desktop sidebar has its own vertical scroll region; mobile keeps horizontal section navigation.
+# Desktop sidebar scrolls independently; mobile switches to an overlay drawer while preserving workspace width.
 assert ".admin-shell > .admin-sidebar {" in CSS
 sidebar = CSS.split(".admin-shell > .admin-sidebar {", 1)[1].split("}", 1)[0]
 for required in ("height: 100vh", "height: 100dvh", "min-height: 0", "overflow-y: auto", "overscroll-behavior-y: contain", "-webkit-overflow-scrolling: touch"):
@@ -14,8 +14,16 @@ for required in ("height: 100vh", "height: 100dvh", "min-height: 0", "overflow-y
 assert "@media (max-width: 900px)" in CSS
 mobile_sidebar = CSS.split("@media (max-width: 900px)", 1)[1].split("/* Keep one primary panel surface", 1)[0]
 assert "overflow: visible" in mobile_sidebar
-assert ".admin-navigation" in ADMIN_CSS and "overflow-x: auto" in ADMIN_CSS
+assert ".admin-navigation" in ADMIN_CSS
 assert '<nav className="admin-navigation" aria-label="Admin sections">' in SOURCE
+assert 'const ADMIN_SIDEBAR_COLLAPSED_KEY = "tacresq.admin.sidebar-collapsed.v1";' in SOURCE
+assert "readAdminSidebarCollapsed()" in SOURCE
+assert "window.localStorage.setItem(ADMIN_SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed))" in SOURCE
+assert 'className={"admin-sidebar" + (mobileSidebarOpen ? " admin-sidebar--mobile-open" : "")}' in SOURCE
+assert 'aria-controls="admin-primary-sidebar"' in SOURCE
+assert "document.addEventListener(\"keydown\", closeOnEscape)" in SOURCE
+assert 'document.body.style.overflow = "hidden"' in SOURCE
+assert "setMobileSidebarOpen(false);" in SOURCE
 
 # Nested panels are visually flattened into subsections, not card-on-card surfaces.
 assert ".admin-shell .admin-panel .admin-panel {" in CSS
@@ -112,6 +120,14 @@ assert ".admin-shell--sidebar-collapsed {" in ADMIN_CSS
 assert ".admin-shell--sidebar-collapsed .admin-nav-item span" in ADMIN_CSS
 assert "@media (max-width: 900px)" in ADMIN_CSS
 assert ".admin-sidebar-toggle:focus-visible" in ADMIN_CSS
+
+
+# Mobile drawer overlays rather than shrinking the main workspace and keeps its own vertical scroll.
+for required in (".admin-sidebar--mobile-open", ".admin-sidebar-backdrop", ".admin-mobile-sidebar-toggle", ".admin-mobile-sidebar-close", "position: fixed", "transform: translateX(-105%)", "overflow-y: auto", "@media (prefers-reduced-motion: reduce)"):
+    assert required in CSS, f"Mobile navigation drawer is missing {required}"
+assert ".admin-shell--sidebar-collapsed .admin-nav-item span { display: initial; opacity: 1; transform: none; }" in CSS
+assert "aria-expanded={mobileSidebarOpen}" in SOURCE
+assert "aria-current={activeSection === id ? \"page\" : undefined}" in SOURCE
 
 
 # Repeated directory actions expose the affected account in their accessible names.
