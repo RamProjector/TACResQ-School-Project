@@ -2,11 +2,11 @@
 
 ## Available sections
 
-- **Overview:** paginated account summary and reachability checks for the configured Laravel, Supabase Auth, and database probes. Reachability is not an end-to-end emergency-readiness check.
+- **Overview:** compact operational snapshot with the exact account-directory count for the active directory filters, a protected count of recorded investigation-feed events since Manila midnight, a five-event preview from those same today's records, and reachability checks for the configured Laravel, Supabase Auth, and database probes. The event count is not limited to the five preview rows, but it covers only sources integrated into the protected investigation feed; it is not a complete count of every action or denied attempt. Reachability is not an end-to-end emergency-readiness check.
 - **User management:** server-side account search and role filtering, paginated results, and reason-required role changes. Admin accounts remain operator-managed and cannot be promoted or demoted from this page.
 - **Security:** administrator TOTP/AAL2 controls and security guidance. A branch implementation is not proof that a production migration or setting has been deployed.
   The Security workspace also shows a five-event preview from the protected authentication investigation feed, with a refresh action and a route to the full Activity Log. The preview is limited to events currently collected by that source and is not a complete sign-in/session history; an empty result is not proof that no sign-ins occurred.
-- **Reports:** aggregate incident request counts, current status breakdown, daily request volume, and average/median time to first assignment for 7-, 30-, or 90-day windows.
+- **Analytics & reports:** aggregate incident request totals, a current-status distribution chart, daily request-volume chart, and average/median time to first assignment for 7-, 30-, or 90-day windows. Status distribution describes the current status of requests created in the selected period; it is not a chart of historical status transitions.
 - **Activity log:** read-only, paginated investigation history plus a separate bounded account lifecycle history section. Its visible source inventory explains which event types are included and which remain unavailable.
 - **Data & continuity:** combines the Backup & recovery and Attachment safeguards views. Both are evidence/readiness workspaces; neither controls live backups or exposes attachment contents. The former Attachment storage URL remains supported as an internal view.
 - **Settings:** browser-local display and accessibility preferences, with Notifications and Privacy & data guidance kept read-only until their backend/governance requirements are verified. Authenticator and session controls are centralized in Security.
@@ -14,14 +14,14 @@
 
 ## Analytics CSV export
 
-The Reports section can export the currently loaded aggregate report as CSV. The export includes:
+The Analytics & reports section can export the currently loaded aggregate report as CSV. The export includes:
 - Reporting timezone and period boundaries
 - Total, pending, active, resolved, and cancelled request counts
 - Average and median time to first assignment
 - Count of requests with a valid assignment time
 - Daily request totals
 
-The export intentionally excludes requester names, phone numbers, descriptions, incident coordinates, responder identities, and raw audit details. It exports only the same aggregate summary already returned to the Reports page; it does not issue a second query or expand the caller's data access.
+The export intentionally excludes requester names, phone numbers, descriptions, incident coordinates, responder identities, and raw audit details. It exports only the same aggregate summary already returned to the Analytics & reports page; it does not issue a second query or expand the caller's data access.
 
 ## Account lifecycle safety boundary
 
