@@ -408,6 +408,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     if (url.searchParams.get("adminPage") !== route) {
       url.searchParams.set("adminPage", route);
       if (section !== "settings") url.searchParams.delete("adminSettings");
+      else if (url.searchParams.get("adminSettings") === "security") url.searchParams.set("adminSettings", "general");
       window.history.pushState({}, "", url.toString());
     }
   }
