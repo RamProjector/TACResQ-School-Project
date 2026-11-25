@@ -267,14 +267,15 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const visiblePages = Array.from({ length: Math.min(5, pageCount) }, (_, index) => firstVisiblePage + index);
   const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
   const rangeEnd = Math.min((page + 1) * PAGE_SIZE, total);
+  const notificationReadCount = events.filter((event) =>
+    event.source === "app_action_audit_logs" && event.event_type === "notification_marked_read"
+  ).length;
 
   return (
     <section className="audit-page" aria-labelledby="audit-page-title" aria-busy={loading}>
       <div className="audit-page__intro">
         <div>
-          <p className="admin-eyebrow">ACCOUNTABILITY · READ-ONLY INVESTIGATION</p>
           <h2 id="audit-page-title"><Clock3 size={20} /> Audit history</h2>
-          <p>Review recorded account, authentication, incident, and responder activity. Open an entry for its context; technical record identifiers stay out of the main feed.</p>
         </div>
         <button className="admin-refresh" type="button" onClick={() => {
           setLoading(true);
@@ -284,10 +285,10 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         </button>
       </div>
 
-      <div className="audit-page__coverage" role="note">
-        <strong>Coverage boundaries</strong>
-        <span>Seven source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.</span>
-      </div>
+      <details className="audit-page__coverage-details">
+        <summary>Audit coverage and limitations</summary>
+        <div className="audit-page__coverage"><strong>Coverage boundaries</strong><span>Seven source readers are queried; this describes feed integration, not proof that every source writer or provider setting is active. A zero-row result means no matching records were returned, not that no activity occurred. Supabase Auth capture is conditional on optional Postgres storage being enabled. Denied privileged RPC attempts, device-security events, and direct-client API/Storage activity are not included.</span></div>
+      </details>
 
       <details className="audit-page__coverage-details">
         <summary>Included sources and known limitations</summary>
@@ -386,6 +387,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
 
       <div className="audit-page__summary" role="status" aria-live="polite">
         <span>{loading ? "Loading activity…" : error ? "Results unavailable" : total.toLocaleString() + " matching events"}</span>
+        <span>{loading || error ? "Notification reads: —" : "Notification reads on this page: " + notificationReadCount.toLocaleString()}</span>
         <span>{lastSuccessfulRefresh ? "Updated " + formatDate(lastSuccessfulRefresh) + " · Asia/Manila" : "Not yet refreshed"}</span>
       </div>
 
