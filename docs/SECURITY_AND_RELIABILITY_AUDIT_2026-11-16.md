@@ -8,7 +8,7 @@ The highest-priority confirmed defect was in field self-claiming:
 
 - `api_claim_incident(bigint)` accepted any claimable incident except closed states, including `on_scene` and `transporting`, while `api_claimable_incidents()` exposed only `pending` and `assigned`.
 - A unit's claim transaction locked only the target incident, not the unit profile, and did not check whether the unit already belonged to another active incident. Concurrent claims against different incidents could therefore both pass the availability check.
-- The new migration `20261116180000_harden_field_claim_exclusivity.sql` fixes this by aligning lifecycle states, locking incident then profile (matching dispatcher assignment lock order), rechecking identity/duty, rejecting another active assignment, and hiding claim opportunities from busy/already-assigned units.
+- The new migration `20261122050813_harden_field_claim_exclusivity.sql` fixes this by aligning lifecycle states, locking incident then profile (matching dispatcher assignment lock order), rechecking identity/duty, rejecting another active assignment, and hiding claim opportunities from busy/already-assigned units.
 
 The migration is committed to a dedicated PR and has **not** been applied to live Supabase.
 
