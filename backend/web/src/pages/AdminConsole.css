@@ -1939,3 +1939,10 @@
 @media (prefers-reduced-motion:reduce) {
   .admin-analytics-status-chart__track i { transition:none; }
 }
+
+.admin-account-activity { display:grid; justify-items:start; gap:10px; margin-top:12px; }
+.admin-account-activity__results { width:100%; border:1px solid #e8ece5; border-radius:12px; padding:12px; background:#fbfcf8; }
+.admin-account-activity__results > p { display:flex; align-items:center; gap:7px; margin:0; color:#687a73; font-size:11px; line-height:1.5; }
+.admin-account-activity__results ul { display:grid; gap:10px; margin:10px 0 0; padding:0; list-style:none; }
+.admin-account-activity__results li { display:grid; gap:3px; padding-top:9px; border-top:1px solid #e8ece5; color:#354943; font-size:11px; line-height:1.45; }
+.admin-account-activity__results li small { color:#82908a; font-size:10px; }
