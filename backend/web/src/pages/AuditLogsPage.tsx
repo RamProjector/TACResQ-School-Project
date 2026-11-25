@@ -134,8 +134,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<AdminInvestigationCategory>("all");
   const [source, setSource] = useState<AdminInvestigationSource>("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState(() => new URLSearchParams(window.location.search).get("auditFrom") ?? "");
+  const [to, setTo] = useState(() => new URLSearchParams(window.location.search).get("auditTo") ?? "");
   const [actorId, setActorId] = useState("");
   const [targetId, setTargetId] = useState("");
   const [incidentId, setIncidentId] = useState("");
