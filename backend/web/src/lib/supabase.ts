@@ -270,7 +270,7 @@ export async function setAdminAccountStatus(profileId: number, expectedStatus: "
   });
   if (error) {
     if (error.code === "40001") throw new Error("This account was changed by another administrator. Refresh the directory and review its current status before trying again.");
-    if (["42501", "22023", "P0002"].includes(error.code ?? "")) throwAdminError(error);
+    if (["42501", "22023", "P0002", "55006"].includes(error.code ?? "")) throwAdminError(error);
     throw new Error("The account status change for profile #" + profileId + " could not be confirmed. Refresh the directory and lifecycle history before retrying.");
   }
   const result = data as Record<string, unknown> | null;
