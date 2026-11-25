@@ -24,7 +24,7 @@
 ## Follow-on review
 
 - Review Overview cards and shortcuts for duplicate information already present in the destination workspaces.
-- Standardize page-level refresh controls and freshness labels without implying that unrelated datasets refresh together.
+- Standardized refresh controls and freshness labels across dependency diagnostics, Reports, Security authentication preview, and both Activity Log feeds. Each control remains scoped to its own dataset; loading, unavailable, and last-retrieved states are explicit.
 - Review each page's loading, error, empty, and stale-data states.
 - Verify navigation and legacy URLs with browser Back/Forward, keyboard-only operation, and narrow viewport widths.
 - Reconcile Help text and operator documentation with the consolidated navigation.
