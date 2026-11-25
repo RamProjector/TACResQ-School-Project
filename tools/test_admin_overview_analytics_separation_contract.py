@@ -33,6 +33,7 @@ assert "todayActivityLoading" in ADMIN
 assert "todayActivityRequest.current" in ADMIN
 
 # Analytics owns aggregate charts and performance over selectable periods.
+assert "admin-analytics-status-grid" not in ADMIN
 assert "Request status distribution" in ADMIN
 assert "CURRENT STATUS MIX" in ADMIN
 assert "admin-analytics-status-chart__track" in ADMIN
