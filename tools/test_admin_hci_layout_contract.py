@@ -38,6 +38,8 @@ assert ".admin-sidebar-expand" in ADMIN_CSS
 assert "transition:grid-template-columns .24s" in ADMIN_CSS
 assert 'aria-label="Expand navigation"' in SOURCE
 assert 'aria-label="Collapse navigation"' in SOURCE
+assert 'aria-expanded={true}' in SOURCE
+assert 'aria-expanded={false}' in SOURCE
 assert "inert={sidebarCollapsed && !mobileSidebarOpen}" in SOURCE
 assert "aria-hidden={sidebarCollapsed && !mobileSidebarOpen}" in SOURCE
 assert "sidebarExpandRef.current?.focus()" in SOURCE
