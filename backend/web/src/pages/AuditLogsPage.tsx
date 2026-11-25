@@ -280,8 +280,8 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <button className="admin-refresh" type="button" onClick={() => {
           setLoading(true);
           setRefreshVersion((current) => current + 1);
-        }} disabled={loading || Boolean(dateRangeError)}>
-          <RefreshCw size={15} className={loading ? "admin-spin" : undefined} /> {loading ? "Refreshing…" : "Refresh"}
+        }} disabled={loading || Boolean(dateRangeError)} aria-label="Refresh investigation activity">
+          <RefreshCw size={15} className={loading ? "admin-spin" : undefined} /> {loading ? "Refreshing…" : error ? "Retry" : "Refresh"}
         </button>
       </div>
 
@@ -323,7 +323,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
             <p>Trusted account-status transitions recorded by the database. This history is separate from ordinary role changes.</p>
           </div>
           <div className="audit-page__lifecycle-actions">
-            <span>{lifecycleError ? "Unavailable" : lifecycleTotal.toLocaleString() + " recorded"}{lifecycleLastCheckedAt && !lifecycleError ? " · Updated " + formatDate(lifecycleLastCheckedAt) + " (Asia/Manila)" : ""}</span>
+            <span className="admin-data-freshness" data-state={lifecycleError ? "error" : lifecycleLoading ? "loading" : lifecycleLastCheckedAt ? "success" : "empty"} role="status" aria-live="polite">{lifecycleError ? "Unavailable" : lifecycleLoading ? "Refreshing history…" : lifecycleTotal.toLocaleString() + " recorded" + (lifecycleLastCheckedAt ? " · Updated " + formatDate(lifecycleLastCheckedAt) + " · Asia/Manila" : " · Not yet checked")}</span>
             <button className="admin-refresh" type="button" onClick={() => setLifecycleRefreshVersion((current) => current + 1)} disabled={lifecycleLoading}>
               <RefreshCw size={15} className={lifecycleLoading ? "admin-spin" : undefined} /> {lifecycleError ? "Retry history" : "Refresh history"}
             </button>
@@ -388,7 +388,7 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
       <div className="audit-page__summary" role="status" aria-live="polite">
         <span>{loading ? "Loading activity…" : error ? "Results unavailable" : total.toLocaleString() + " matching events"}</span>
         <span>{loading || error ? "Notification reads: —" : "Notification reads on this page: " + notificationReadCount.toLocaleString()}</span>
-        <span>{lastSuccessfulRefresh ? "Updated " + formatDate(lastSuccessfulRefresh) + " · Asia/Manila" : "Not yet refreshed"}</span>
+        <span className="admin-data-freshness" data-state={error ? "error" : loading ? "loading" : lastSuccessfulRefresh ? "success" : "empty"}>{error ? "Unavailable" : loading ? "Refreshing…" : lastSuccessfulRefresh ? "Updated " + formatDate(lastSuccessfulRefresh) + " · Asia/Manila" : "Not yet refreshed"}</span>
       </div>
 
       <p className="audit-page__copy-error" role="status" aria-live="polite">{copyError || (copiedEventId ? "Technical reference copied." : "")}</p>
