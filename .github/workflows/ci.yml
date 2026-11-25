@@ -44,6 +44,9 @@ jobs:
       - name: Test TACResQ automated code reviewer
         run: python3 tools/test_tacresq_code_reviewer.py
 
+      - name: Check Admin HCI layout and form contracts
+        run: python3 tools/test_admin_hci_layout_contract.py
+
       - name: Check GitHub Actions workflow security
         run: python3 tools/test_workflow_security.py
 

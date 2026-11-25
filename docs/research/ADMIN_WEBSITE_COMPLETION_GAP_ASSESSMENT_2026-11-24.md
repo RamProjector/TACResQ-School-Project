@@ -364,3 +364,21 @@ Added responsive styling, a Help Centre entry, access-review boundary, source-co
 The Security workspace now states the exact account-suspension boundary: the database transition function exists in the stacked foundation branch, but EXECUTE remains revoked from client roles. Same-valid-JWT authorization coverage, migration/deployment verification, session-revocation behavior, and the Admin UI workflow remain incomplete. The portal continues to expose no suspend/reactivate action.
 
 This is intentional. The security design explicitly prohibits enabling the transition until the remaining authorization surfaces and regression matrix are closed. Adding a UI button or assuming the existence of a SECURITY DEFINER function makes no account safer and could falsely imply that suspension is enforced. Updated the source-contract test and operator guide to preserve this release gate. No RPC grant, schema, production account, or session was changed.
+
+
+## 16. UI/HCI follow-up — panel hierarchy, sizing, and forms (2026-11-25)
+
+A focused source review identified a presentation-system issue rather than a missing feature: the Admin portal's visual rules are distributed across three stylesheets loaded in sequence, with repeated breakpoint definitions for the sidebar/navigation and numerous bordered content tiles inside primary panels. This makes local adjustments difficult to reason about and increases the chance that responsive overrides conflict. The review also found a nested panel in User Management's lifecycle-history area, while several workspace sections use separately bordered cards for health items, analytics, settings, recovery, and attachment guidance.
+
+The next refinement should use a clear surface hierarchy:
+
+- One primary panel per workspace task. Nested sections should use headings, whitespace, and divider lines rather than a second panel border/background/shadow.
+- Reserve bordered cards for genuinely independent, selectable, or actionable objects. Do not style every informational paragraph, metric, and subsection as a card.
+- Let cards and content blocks size to their own content. Grid items should not be forced to match a neighboring item's height unless equal-height alignment materially improves comparison.
+- Use a consistent panel inset and spacing scale. Icons must remain aligned with their text and have sufficient inset from panel boundaries; long text must wrap without pushing controls out of the layout.
+- Keep standard forms primarily single-column. Put persistent labels above controls, keep short hint text adjacent to the field, associate hints/errors programmatically, and group related choices with fieldset/legend. Validation feedback should appear beside the relevant field.
+- Keep responsive DOM and visual order aligned. At narrow widths, controls and content should reflow without two-dimensional page scrolling; only genuinely two-dimensional data such as wide tables may retain a dedicated horizontal scroll region.
+
+These recommendations are grounded in the [UK Parliament Design System form guidance](https://designsystem.parliament.uk/how-tos/designing-forms/), the [Home Office form accessibility guidance](https://design.homeoffice.gov.uk/accessibility/interactivity/forms), [USWDS form accessibility guidance](https://designsystem.digital.gov/components/form/), and WCAG 2.2 criteria for [Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow), [Text Spacing](https://www.w3.org/WAI/WCAG22/Understanding/text-spacing), and [Target Size (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum). These sources inform design decisions; repository source-contract tests do not establish full WCAG conformance.
+
+The implementation scope is presentation-only: no account permissions, API behavior, data access, production settings, or operational workflows are changed. Desktop sidebar scrolling and mobile horizontal navigation remain distinct behaviors. Browser-based checks at short viewport heights, 320 CSS-pixel width, 200% text zoom, keyboard-only operation, and screen-reader form navigation remain required manual acceptance work.

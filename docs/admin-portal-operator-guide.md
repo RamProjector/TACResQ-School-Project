@@ -331,3 +331,14 @@ Important implementation limits:
 - Object bytes require a separate encrypted backup and isolated restore test; database metadata alone cannot recover attachments.
 
 Before any cleanup or retention feature is implemented, the project owner must approve the retention basis, grace period, storage budget, deletion authority, and a bounded/audited service-side process. Keep cleanup disabled until those decisions and tests are complete.
+
+
+## Admin workspace layout and form usability
+
+The desktop Admin sidebar is an independently scrollable region when its navigation exceeds the viewport. The mobile layout retains the horizontally scrollable section row; it does not inherit the desktop sidebar's vertical scroll container. The security note and version information remain part of the desktop sidebar's scrollable content.
+
+Admin sections use one primary panel surface. When a subsection is nested inside a panel, it is presented as a heading/content group separated by a divider rather than another bordered panel. Small information groups and metric collections should not add repeated card borders or shadows inside the parent surface. Content tiles should size to their content instead of stretching to the tallest neighboring tile.
+
+Forms follow a consistent vertical sequence: visible label, concise hint when needed, control, then inline validation or status feedback. Labels remain visible while editing; placeholders are examples, not replacements for labels. Related radio buttons and checkboxes should be grouped with a fieldset and legend. Use a single column for ordinary data-entry flows; use multiple columns only for short, independent fields where the reading order remains clear. Form controls must stay within their parent width, long labels and help text must wrap, and actions should remain aligned with the form content.
+
+Icons and symbols are decorative unless they convey a state or action. Keep them vertically centered with their associated text, prevent flex/grid shrinkage, and provide enough inset spacing that neither the icon nor the focus outline touches or clips against the panel edge. Preserve visible keyboard focus, touch scrolling, text enlargement, and reflow. These are implementation safeguards, not a substitute for browser-based keyboard, zoom, and screen-reader acceptance testing.
