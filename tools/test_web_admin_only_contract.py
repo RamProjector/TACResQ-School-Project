@@ -326,6 +326,17 @@ assert "@media print {" in admin_resolution_css and ".admin-toast-region { displ
 assert ".admin-form-hint {" in admin_resolution_css
 assert ".admin-reason-count {" in admin_resolution_css
 
+
+# Keep the account-lifecycle capability summary aligned with the enabled website workflow.
+assert "current Active/Suspended state" in admin_console
+assert "Suspension and reactivation are available for non-Admin accounts." in admin_console
+assert "must be released or completed before suspension" in admin_console
+
+# Translate the database's active-assignment guard into an actionable Admin message.
+supabase_client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
+assert 'error.code === "55006"' in supabase_client
+assert "Release or complete this account’s active incident assignments before suspending it." in supabase_client
+
 # MFA factor management stays unavailable without a TOTP-verified AAL2 session.
 assert 'const canManageFactors = snapshot?.currentLevel === "aal2" && snapshot.usedTotp === true;' in admin_security
 assert 'disabled={busy || !canManageFactors || (factor.status === "verified" && verifiedFactors.length <= 1)}' in admin_security

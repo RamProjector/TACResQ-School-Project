@@ -1,6 +1,6 @@
 # Account suspension — account-state and operational-continuity contract
 
-**Status:** schema and partial server-side enforcement are committed on `security/admin-account-suspension-runtime-foundation`. An atomic Admin suspend/reactivate RPC is implemented but its EXECUTE grant is deliberately revoked from all client roles; no Admin control is exposed, and full enforcement is not yet complete. No account has been suspended in a connected environment; no live Supabase migration has been applied.
+**Status (PR #347 current implementation):** the website Admin directory now displays Active/Suspended state and exposes reasoned suspend/reactivate controls for non-Admin accounts. The authenticated lifecycle RPC is granted to `authenticated` and requires an active AAL2/TOTP Admin, rejects self-change and Admin targets, checks the expected current state under a target-row lock, blocks suspension while active incident assignments remain, and writes the immutable audit event in the same transaction. This document retains the staged design history below; it is not evidence that the migrations have been applied to a live Supabase project. No production account has been changed and no live migration has been applied.
 
 ## Implemented database foundation
 
@@ -16,7 +16,7 @@ Migrations `20261123090000` through `20261123170000` currently:
 - Guard notification list/detail, incident-chat history, and claimable-incident discovery read RPCs; the field-unit directory now rejects suspended dispatchers and excludes suspended units.
 - Make incident-chat Storage policy identity checks fail closed for suspended callers. The Storage replay contract now tests prior-object download denial, new upload denial, chat-history denial, and chat-message denial with the same still-valid JWT.
 - Update the notification Edge Function to reject suspended actors and filter recipients to active profiles before FCM token lookup.
-- Implement an internal Admin account-status transition RPC with AAL2/TOTP, a shared advisory lock coordinated with Admin role changes, actor/target row locking, self-suspension and Admin-target exclusion, idempotent transitions, and atomic immutable audit insertion. The RPC is not yet executable by client roles.
+- Implement the Admin account-status transition RPC with AAL2/TOTP, a shared advisory lock coordinated with Admin role changes, expected-state compare-and-set, actor/target row locking, self-change and Admin-target exclusion, active-assignment protection, idempotent transitions, and atomic immutable audit insertion. The final website migration grants the narrowly scoped RPC to authenticated clients; its internal checks remain authoritative.
 
 All existing profiles receive the default `active` state. Role, duty status, identity, incident assignments, and account status remain separate concepts.
 
@@ -26,10 +26,10 @@ All existing profiles receive the default `active` state. Role, duty status, ide
 - Inventory every Storage bucket and prove upload/download denial for each account-owned bucket.
 - Run isolated Supabase Edge Function tests for actor denial, suspended-recipient filtering, and zero FCM/Google OAuth calls on denied paths.
 - Verify every Laravel/Sanctum bridge route and establish immutable Auth-user mapping before claiming account-state enforcement there.
-- Complete remaining read/idempotent RPC and server-bridge coverage, then grant EXECUTE on the already-implemented Admin transition RPC only after the full same-valid-JWT release matrix passes.
+- Complete the remaining same-valid-JWT and concurrency validation for any newly discovered RPC, Storage, Edge Function, or bridge path; do not infer live-provider behavior from source-contract tests alone.
 - Add investigation-feed rendering for lifecycle audit events.
 - Add disposable Supabase concurrency tests proving that operations either complete before the suspension lock wins or observe the suspended state afterward.
-- Add the Admin directory state, confirmation/reason UI, and suspended-account UX only after backend coverage is complete.
+- Complete manual website acceptance against an isolated test project after the reviewed migrations are applied there; verify suspend, protected-operation denial with the same still-valid JWT, audit history, reactivation, and restoration of access.
 
 ## Lifecycle state contract
 
@@ -40,7 +40,7 @@ The implemented columns are:
 - `suspended_by`: nullable profile-ID snapshot of the administrator who applied the current suspension; cleared on reactivation.
 - `suspension_reason`: nullable bounded text (10–500 characters); cleared on reactivation while the immutable audit ledger retains the historical reason.
 
-Only the trusted Admin transition transaction may change lifecycle fields. Authenticated clients have no direct update privilege for them, and the transition RPC itself currently has no client EXECUTE grant.
+Only the trusted Admin transition transaction may change lifecycle fields. Authenticated clients have no direct update privilege for them. The narrowly scoped transition RPC is executable by authenticated clients but independently enforces active Admin identity, AAL2/TOTP, expected-state compare-and-set, target restrictions, active-assignment protection, and atomic audit insertion.
 
 ## Suspension transaction and operational continuity
 
@@ -84,4 +84,4 @@ Reactivation changes only account lifecycle state. It must not silently restore 
 
 ## Release gate
 
-Keep this PR draft until the remaining RPC, Storage, Edge Function, bridge, Admin transition, and concurrency boundaries are implemented and tested on one exact commit. Do not apply the migrations to a connected project or expose Admin controls before that gate is met.
+Keep production use gated on isolated-project migration and manual acceptance. The PR implementation and automated checks do not authorize applying migrations to a connected production project, changing real accounts, or claiming immediate invalidation of already-issued JWTs.

@@ -1214,12 +1214,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                     <tr><th scope="row">Overview and dependency reachability</th><td>Admin portal</td><td>Fixed reachability probes only; not emergency-service readiness.</td></tr>
                     <tr><th scope="row">Recovery &amp; continuity</th><td>Admin portal · read-only guidance</td><td>Links operator procedures and states evidence gaps; no backup, restore, or provider configuration actions are connected.</td></tr>
                     <tr><th scope="row">Attachment storage</th><td>Admin portal · read-only guidance</td><td>Summarizes source and dated inspection evidence only; no live bucket query, object listing, media access, or cleanup action is available.</td></tr>
-                    <tr><th scope="row">Account directory</th><td>Admin + AAL2 + TOTP</td><td>Bounded, read-only account listing. It does not expose a complete authentication history or suspension state.</td></tr>
+                    <tr><th scope="row">Account directory</th><td>Admin + AAL2 + TOTP</td><td>Bounded account directory with current Active/Suspended state; it is not a complete authentication history.</td></tr>
                     <tr><th scope="row">Change an ordinary account role</th><td>Admin + AAL2 + TOTP; reason required</td><td>Only requester, responder, driver, and dispatcher roles. Admin promotion/demotion is trusted-operator-only; active incident assignments block changes.</td></tr>
                     <tr><th scope="row">Activity and investigation history</th><td>Admin + AAL2 + TOTP</td><td>Read-only, source-bounded history. Denied privileged RPC attempts and some direct-client operations are not comprehensively recorded.</td></tr>
                     <tr><th scope="row">Aggregate reports</th><td>Admin + AAL2 + TOTP</td><td>Aggregate request metrics only; no requester names, contact details, descriptions, or coordinates in the report export.</td></tr>
                     <tr><th scope="row">Authenticator and session controls</th><td>Current signed-in Admin account</td><td>Self-service factor/session operations only; not arbitrary management of another user's factors or sessions.</td></tr>
-                    <tr><th scope="row">Suspend or reactivate accounts</th><td><span className="admin-role admin-role--pending">Unavailable</span></td><td>Do not treat duty status as suspension. The portal must not expose this mutation before its security release gates pass.</td></tr>
+                    <tr><th scope="row">Suspend or reactivate accounts</th><td>Admin + AAL2 + TOTP; reason required</td><td>Suspension and reactivation are available for non-Admin accounts. Active incident assignments must be released or completed before suspension; duty status remains separate.</td></tr>
                   </tbody>
                 </table>
               </div>

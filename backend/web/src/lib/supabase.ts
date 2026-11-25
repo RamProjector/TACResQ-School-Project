@@ -175,6 +175,7 @@ function throwAdminError(error: { code?: string; message?: string } | null) {
   if (error.code === "42501") throw new Error("Administrator access and a verified authenticator session are required.");
   if (error.code === "22023") throw new Error(error.message || "The requested administrative change is not valid.");
   if (error.code === "P0002") throw new Error("The selected account could not be found.");
+  if (error.code === "55006") throw new Error("Release or complete this account’s active incident assignments before suspending it.");
   if (error.code === "PGRST202") throw new Error("The audit-history database function is not installed. The database migration must be applied before this page can load.");
   if (error.code === "PGRST301" || error.code === "PGRST302") throw new Error("Your administrator session could not be verified. Sign in again and complete the authenticator check.");
   if (error.code === "57014") throw new Error("The audit query took too long. Narrow the date range or search filters and try again.");
