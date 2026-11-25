@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = (ROOT / "supabase/migrations/20261023031810_requester_single_active_and_cancel.sql").read_text().lower()
 GUARD_FIX = (ROOT / "supabase/migrations/20261112215815_allow_requester_pending_cancellation.sql").read_text().lower()
-DISPATCHER_FIX = (ROOT / "supabase/migrations/20261117234000_dispatch_managed_incident_progress.sql").read_text().lower()
+DISPATCHER_FIX = (ROOT / "supabase/migrations/20261122050825_dispatch_managed_incident_progress.sql").read_text().lower()
 SCREEN = (ROOT / "app/src/main/java/com/tacresq/app/ui/requester/RequesterScreen.kt").read_text()
 REPO = (ROOT / "app/src/main/java/com/tacresq/app/data/repo/TacRepository.kt").read_text()
 API = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
