@@ -101,3 +101,14 @@ assert "@media (prefers-reduced-motion: reduce)" in ADMIN_CSS
 forced_colors = CSS.split("@media (forced-colors: active)", 1)[1].split("}", 1)[0]
 assert ".admin-settings-nav" in forced_colors
 assert ".admin-analytics-data__table-wrap" in forced_colors
+
+
+# The desktop navigation rail can collapse without removing accessible section names.
+assert 'const [sidebarCollapsed, setSidebarCollapsed] = useState(false);' in SOURCE
+assert 'aria-pressed={sidebarCollapsed}' in SOURCE
+assert 'aria-label={label} title={sidebarCollapsed ? label : undefined}' in SOURCE
+assert 'PanelLeftClose' in SOURCE and 'PanelLeftOpen' in SOURCE
+assert ".admin-shell--sidebar-collapsed {" in ADMIN_CSS
+assert ".admin-shell--sidebar-collapsed .admin-nav-item span" in ADMIN_CSS
+assert "@media (max-width: 900px)" in ADMIN_CSS
+assert ".admin-sidebar-toggle:focus-visible" in ADMIN_CSS
