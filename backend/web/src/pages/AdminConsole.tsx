@@ -107,7 +107,7 @@ const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashb
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "users", label: "User management", icon: Users },
   { id: "security", label: "Security", icon: ShieldAlert },
-  { id: "analytics", label: "Reports", icon: BarChart3 },
+  { id: "analytics", label: "Analytics & reports", icon: BarChart3 },
   { id: "audit", label: "Activity log", icon: History },
   { id: "recovery", label: "Data & continuity", icon: HardDrive },
   { id: "settings", label: "Settings", icon: Settings },
@@ -147,6 +147,21 @@ function getManilaAnalyticsRange(days: 7 | 30 | 90, now = new Date()) {
   // Manila uses UTC+08:00. Start at local midnight and include today plus
   // the preceding days so daily buckets align with the database calendar.
   const from = new Date(Date.UTC(year, month - 1, day - (days - 1), 0, 0, 0) - 8 * 60 * 60 * 1000);
+  return { from: from.toISOString(), to: now.toISOString() };
+}
+
+function getManilaTodayRange(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  const year = Number(part("year"));
+  const month = Number(part("month"));
+  const day = Number(part("day"));
+  const from = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 8 * 60 * 60 * 1000);
   return { from: from.toISOString(), to: now.toISOString() };
 }
 
@@ -241,6 +256,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [authenticationEventsLoading, setAuthenticationEventsLoading] = useState(false);
   const [authenticationEventsError, setAuthenticationEventsError] = useState<string | null>(null);
   const [authenticationEventsLoadedAt, setAuthenticationEventsLoadedAt] = useState<string | null>(null);
+  const [todayActivityEvents, setTodayActivityEvents] = useState<AdminInvestigationEvent[]>([]);
+  const [todayActivityCount, setTodayActivityCount] = useState<number | null>(null);
+  const [todayActivityLoading, setTodayActivityLoading] = useState(false);
+  const [todayActivityError, setTodayActivityError] = useState<string | null>(null);
+  const [todayActivityLoadedAt, setTodayActivityLoadedAt] = useState<string | null>(null);
+  const todayActivityRequest = useRef(0);
   const roleToastTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -304,6 +325,47 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     void refreshAuthenticationEvents();
     return () => { authenticationEventsRequest.current += 1; };
   }, [activeSection, refreshAuthenticationEvents]);
+  const refreshTodayActivity = useCallback(async () => {
+    const requestId = ++todayActivityRequest.current;
+    setTodayActivityLoading(true);
+    setTodayActivityError(null);
+    setTodayActivityEvents([]);
+    setTodayActivityCount(null);
+    setTodayActivityLoadedAt(null);
+    try {
+      const range = getManilaTodayRange();
+      // The protected investigation RPC returns an exact total_count over its
+      // approved event sources; limit=5 bounds the preview without counting
+      // only the displayed rows.
+      const result = await getAdminInvestigationEventsPage(
+        5, 0, "", "all", "all", range.from, range.to, null, null, null
+      );
+      if (requestId !== todayActivityRequest.current) return;
+      setTodayActivityEvents(result.events);
+      setTodayActivityCount(result.total_count);
+      setTodayActivityLoadedAt(new Date().toISOString());
+    } catch (cause) {
+      if (requestId !== todayActivityRequest.current) return;
+      setTodayActivityEvents([]);
+      setTodayActivityCount(null);
+      setTodayActivityError(cause instanceof Error ? cause.message : "Today's recorded activity is unavailable.");
+    } finally {
+      if (requestId === todayActivityRequest.current) setTodayActivityLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSection !== "overview") {
+      todayActivityRequest.current += 1;
+      setTodayActivityLoading(false);
+      return;
+    }
+    void refreshTodayActivity();
+    return () => {
+      todayActivityRequest.current += 1;
+    };
+  }, [activeSection, refreshTodayActivity]);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsPage, setSettingsPage] = useState<AdminSettingsPage>(() => resolveSettingsPage(window.location.search));
   const adminHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -910,13 +972,38 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </div>
           )}
 
-          <section className="admin-metrics" aria-label="Account summary" aria-describedby="admin-overview-metrics-context" hidden={activeSection !== "overview"}>
-            <article><span>MATCHING ACCOUNTS</span><strong>{directoryError ? "Unavailable" : loading && users.length === 0 ? "Loading" : totalUsers.toLocaleString()}</strong><small>Across all directory pages; follows the active search and role filters</small></article>
-            <article><span>REQUESTERS · CURRENT PAGE</span><strong>{directoryError ? "Unavailable" : refreshing || directoryFilterPending ? "Updating" : users.filter((user) => user.role === "requester").length}</strong><small>Loaded page only; not a system-wide total</small></article>
-            <article><span>FIELD UNITS · CURRENT PAGE</span><strong>{directoryError ? "Unavailable" : refreshing || directoryFilterPending ? "Updating" : users.filter((user) => user.role === "responder" || user.role === "driver").length}</strong><small>Responders and drivers on the loaded page only</small></article>
-            <article><span>AUDIT HISTORY</span><strong>Activity feed</strong><small>Searchable read-only history across seven event sources</small></article>
+          <section className="admin-metrics" aria-label="Operational snapshot" aria-describedby="admin-overview-metrics-context" hidden={activeSection !== "overview"}>
+            <article><span>MATCHING ACCOUNTS</span><strong>{directoryError ? "Unavailable" : loading && users.length === 0 ? "Loading" : totalUsers.toLocaleString()}</strong><small>Exact directory total for the current search and role filters</small></article>
+            <article><span>RECORDED EVENTS TODAY</span><strong>{todayActivityError ? "Unavailable" : todayActivityLoading ? "Loading" : todayActivityCount === null ? "—" : todayActivityCount.toLocaleString()}</strong><small>Protected investigation-feed records since Manila midnight</small></article>
           </section>
-          <p id="admin-overview-metrics-context" className="admin-panel__footnote" hidden={activeSection !== "overview"}>Counts follow the current directory search and role filters. Requester and field-unit breakdowns describe only the currently loaded page of up to {pageSize} profiles; they are not system-wide role totals. Current directory page: {totalUsers === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(totalUsers / pageSize))}. Last successful directory retrieval: {directoryLoadedAt ? formatManilaDateTime(directoryLoadedAt) : "not yet retrieved"} (Asia/Manila). This is the retrieval time, not each profile’s last-updated time.</p>
+          <p id="admin-overview-metrics-context" className="admin-panel__footnote" hidden={activeSection !== "overview"}>Matching accounts follows the active directory search and role filters. Today's activity is an exact count from the protected investigation feed, not a count of the five preview rows; it covers only the event sources currently integrated into that feed and is not a complete record of every action or denied attempt.</p>
+          <section className="admin-panel admin-overview-activity" aria-labelledby="admin-overview-activity-title" aria-busy={todayActivityLoading} hidden={activeSection !== "overview"}>
+            <div className="admin-panel__heading">
+              <div><p className="admin-eyebrow">TODAY · ASIA/MANILA</p><h2 id="admin-overview-activity-title"><Activity size={18} /> Recent recorded activity</h2></div>
+              <div className="admin-overview-activity__actions">
+                <span className="admin-data-freshness" data-state={todayActivityError ? "error" : todayActivityLoading ? "loading" : todayActivityLoadedAt ? "success" : "empty"} role="status" aria-live="polite">{todayActivityError ? "Unavailable" : todayActivityLoading ? "Loading…" : todayActivityLoadedAt ? "Updated " + formatManilaDateTime(todayActivityLoadedAt) : "Not yet retrieved"}</span>
+                <button type="button" className="admin-refresh" onClick={() => void refreshTodayActivity()} disabled={todayActivityLoading}><RefreshCw size={14} className={todayActivityLoading ? "admin-spin" : ""} /> {todayActivityError ? "Retry" : "Refresh"}</button>
+                <button type="button" className="admin-refresh" onClick={() => navigateToSection("audit")}>Open Activity Log</button>
+              </div>
+            </div>
+            {todayActivityError ? (
+              <div className="admin-health-unavailable" role="alert">Today's recorded activity could not be loaded. {todayActivityError}</div>
+            ) : todayActivityLoading ? (
+              <div className="admin-empty" role="status"><LoaderCircle size={17} className="admin-spin" /> Loading today's recorded activity…</div>
+            ) : todayActivityEvents.length === 0 ? (
+              <div className="admin-empty" role="status">{todayActivityCount === 0 ? "No events are recorded in the integrated investigation sources today." : "No activity preview is available."}</div>
+            ) : (
+              <ol className="admin-overview-activity__list">
+                {todayActivityEvents.map((event) => (
+                  <li key={event.event_id}>
+                    <div><strong>{event.summary}</strong><small>{event.actor_label}</small></div>
+                    <time dateTime={event.occurred_at}>{formatManilaDateTime(event.occurred_at)}</time>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <p className="admin-panel__footnote">This preview includes only recorded events available through the protected investigation feed. It does not represent complete authentication, API failure, device-security, or notification-delivery monitoring.</p>
+          </section>
 
           <section className="admin-panel admin-overview-shortcuts" aria-labelledby="admin-overview-shortcuts-title" hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
@@ -925,7 +1012,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </div>
             <div className="admin-overview-shortcuts__grid">
               <button type="button" onClick={() => navigateToSection("users")}><Users size={18} /><span><strong>User management</strong><small>Search accounts and review operational roles</small></span><span aria-hidden="true">→</span></button>
-              <button type="button" onClick={() => navigateToSection("analytics")}><BarChart3 size={18} /><span><strong>Request reports</strong><small>Review incident volume and assignment timing</small></span><span aria-hidden="true">→</span></button>
+              <button type="button" onClick={() => navigateToSection("analytics")}><BarChart3 size={18} /><span><strong>Analytics &amp; reports</strong><small>Review request trends and dispatch performance</small></span><span aria-hidden="true">→</span></button>
               <button type="button" onClick={() => navigateToSection("audit")}><History size={18} /><span><strong>Activity log</strong><small>Inspect recorded administrative and operational events</small></span><span aria-hidden="true">→</span></button>
               <button type="button" onClick={() => navigateToContinuityPage("recovery")}><HardDrive size={18} /><span><strong>Data &amp; continuity</strong><small>Review backup, restore, and attachment safeguards</small></span><span aria-hidden="true">→</span></button>
             </div>
@@ -1134,12 +1221,25 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals.</p>
                   <div className="admin-analytics-metrics">
                     <article><span>TOTAL REQUESTS</span><strong>{analytics.total_requests.toLocaleString()}</strong><small>Created during selected period</small></article>
-                    <article><span>PENDING</span><strong>{analytics.pending.toLocaleString()}</strong><small>Currently awaiting assignment</small></article>
-                    <article><span>ACTIVE</span><strong>{analytics.active.toLocaleString()}</strong><small>Assigned, en route, on scene or transporting</small></article>
-                    <article><span>RESOLVED</span><strong>{analytics.resolved.toLocaleString()}</strong><small>Currently marked resolved</small></article>
-                    <article><span>CANCELLED</span><strong>{analytics.cancelled.toLocaleString()}</strong><small>Currently marked cancelled</small></article>
                   </div>
                   <div className="admin-analytics-detail-grid">
+                    <section className="admin-analytics-card admin-analytics-status-chart" aria-labelledby="admin-status-distribution-title">
+                      <p className="admin-eyebrow">CURRENT STATUS MIX</p><h3 id="admin-status-distribution-title">Request status distribution</h3>
+                      <p className="admin-panel__footnote">Current status of requests created in the selected reporting period; this is not a historical status-transition chart.</p>
+                      <div className="admin-analytics-status-chart__rows">
+                        {[
+                          { label: "Pending", value: analytics.pending },
+                          { label: "Active", value: analytics.active },
+                          { label: "Resolved", value: analytics.resolved },
+                          { label: "Cancelled", value: analytics.cancelled },
+                        ].map((item) => (
+                          <div className="admin-analytics-status-chart__row" key={item.label}>
+                            <div><span>{item.label}</span><strong>{item.value.toLocaleString()}</strong></div>
+                            <div className="admin-analytics-status-chart__track" aria-hidden="true"><i style={{ width: (analytics.total_requests > 0 ? Math.min(100, item.value / analytics.total_requests * 100) : 0) + "%" }} /></div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
                     <section className="admin-analytics-card" aria-labelledby="admin-assignment-time-title">
                       <p className="admin-eyebrow">DISPATCH EFFICIENCY</p><h3 id="admin-assignment-time-title">Time to first assignment</h3>
                       <div className="admin-analytics-time"><strong>{analytics.average_assignment_minutes === null ? "—" : analytics.average_assignment_minutes.toLocaleString() + " min"}</strong><span>Average</span></div>
