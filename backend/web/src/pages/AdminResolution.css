@@ -862,7 +862,7 @@
   .admin-shell .admin-pagination button,
   .admin-shell .admin-account-details,
   .admin-shell .admin-modal__actions button,
-  .admin-shell .admin-analytics-date-presets button {
+  .admin-shell .audit-page__date-presets button {
     transition:
       color 150ms ease,
       background-color 150ms ease,
@@ -877,7 +877,7 @@
   .admin-shell .admin-pagination button:hover:not(:disabled),
   .admin-shell .admin-account-details:hover,
   .admin-shell .admin-modal__actions button:hover:not(:disabled),
-  .admin-shell .admin-analytics-date-presets button:hover {
+  .admin-shell .audit-page__date-presets button:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 11px rgba(20, 42, 49, .08);
   }
@@ -904,7 +904,7 @@
   .admin-shell .admin-pagination button,
   .admin-shell .admin-account-details,
   .admin-shell .admin-modal__actions button,
-  .admin-shell .admin-analytics-date-presets button {
+  .admin-shell .audit-page__date-presets button {
     transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
   }
   .admin-shell .admin-nav-item:hover,
@@ -912,8 +912,10 @@
   .admin-shell .admin-pagination button:hover:not(:disabled),
   .admin-shell .admin-account-details:hover,
   .admin-shell .admin-modal__actions button:hover:not(:disabled),
-  .admin-shell .admin-analytics-date-presets button:hover {
+  .admin-shell .audit-page__date-presets button:hover {
     transform: none;
     box-shadow: none;
   }
 }
+
+.admin-shell .admin-panel .admin-panel::before { display: none; }
