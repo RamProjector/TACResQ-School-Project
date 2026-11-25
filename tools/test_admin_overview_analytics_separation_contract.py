@@ -56,6 +56,7 @@ assert "Search recorded administrative, authentication, incident, and responder 
 assert ".admin-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr));" in CSS
 assert ".admin-overview-activity__list" in CSS
 assert ".admin-analytics-status-chart__rows" in CSS
+assert ".admin-analytics-metrics { display:grid; grid-template-columns:minmax(0,320px);" in CSS
 assert ".admin-analytics-card--wide { grid-column:1 / -1; }" in CSS
 assert "@media (prefers-reduced-motion:reduce)" in CSS
 
