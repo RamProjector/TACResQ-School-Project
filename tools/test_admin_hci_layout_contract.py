@@ -28,6 +28,7 @@ assert 'role={mobileSidebarOpen ? "dialog" : undefined}' in SOURCE
 assert 'aria-modal={mobileSidebarOpen ? true : undefined}' in SOURCE
 assert 'document.body.style.overflow = "hidden"' in SOURCE
 assert "closeMobileSidebar(true);" in SOURCE
+assert "visibility: hidden" in CSS and "visibility: visible" in CSS
 
 # Desktop collapse fully retracts the sidebar; the expand control remains in the workspace header.
 assert "grid-template-columns: 0 minmax(0, 1fr)" in ADMIN_CSS
