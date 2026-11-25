@@ -6,7 +6,7 @@ styles = Path("backend/web/src/pages/AdminConsole.css").read_text()
 # The recovery workspace is a first-class, URL-addressable Admin section.
 assert 'type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "settings" | "help";' in source
 assert 'type AdminContinuityPage = "recovery" | "attachments";' in source
-assert '{ id: "recovery", label: "Recovery & continuity", icon: HardDrive }' in source
+assert '{ id: "recovery", label: "Data & continuity", icon: HardDrive }' in source
 assert '"recovery", "attachments", "settings", "help"' in source
 assert '{activeSection === "recovery" && (' in source
 assert 'id="admin-recovery-title"' in source
