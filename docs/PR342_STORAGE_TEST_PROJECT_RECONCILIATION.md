@@ -10,7 +10,7 @@ Read-only inspection on 2026-11-23 established:
 
 - `private.incident_chat_upload_policy` exists and contains the singleton row with `reservation_ttl_seconds = 900` and `uploads_per_minute = 20`.
 - The live table has `singleton`, `reservation_ttl_seconds`, `uploads_per_minute`, and `updated_at`; it is missing `reservation_enforcement_enabled`.
-- The repository migration `20261122210000_incident_chat_upload_reservations.sql` defines `reservation_enforcement_enabled boolean NOT NULL DEFAULT false`.
+- The repository migration `20261123045607_20261122210000_incident_chat_upload_reservations.sql` defines `reservation_enforcement_enabled boolean NOT NULL DEFAULT false`.
 - Migration history contains version `20261122145444` named `20261122210000_incident_chat_upload_reservations`, plus version `20261122145856` named `test_pr342_storage_policy_review_fixes`. The latter has no matching migration file on this PR branch.
 - The live Storage insert policy references `private.tacresq_upload_reservation_allows_insert` and uses `COALESCE(metadata->>'size', metadata->>'contentLength')`; the read policy checks incident-chat participation.
 - The bucket is private, limited to 5 MiB, and permits JPEG, PNG, and WebP.
@@ -73,7 +73,7 @@ The earlier original migration statement logged at 14:54:44 UTC also confirms th
 
 ## Forward-only source correction
 
-Added `supabase/migrations/20261122213000_reconcile_incident_chat_upload_policy.sql` in commit `95cf2bd5b7f15f1ca465efe20d4d03e8753de167`.
+Added `supabase/migrations/20261123045609_20261122213000_reconcile_incident_chat_upload_policy.sql` in commit `95cf2bd5b7f15f1ca465efe20d4d03e8753de167`.
 
 The migration:
 - adds the missing boolean column with `NOT NULL DEFAULT false` if absent;

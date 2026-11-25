@@ -75,8 +75,8 @@ Do not remove all email or phone fields from the database, profile model, or non
 
 - `backend/web/src/pages/AdminConsole.tsx`: directory columns, search placeholder, and role-change confirmation.
 - `supabase/migrations/20261112215712_admin_server_side_user_pagination.sql`: paginated directory response fields and server-side role check.
-- `supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql`: privileged RPC assurance wrapper and internal function boundary.
-- `supabase/migrations/20261122090000_admin_analytics_summary.sql`: aggregate-only analytics response.
+- `supabase/migrations/20261122050858_require_totp_for_admin_rpcs.sql`: privileged RPC assurance wrapper and internal function boundary.
+- `supabase/migrations/20261122050856_admin_analytics_summary.sql`: aggregate-only analytics response.
 - `supabase/migrations/20261112215653_admin_role_audit_foundation.sql`: role-change audit schema and event scope.
 
 This review is based on repository source at the time of writing. It does not establish the state of a live Supabase project, production data, deployed migrations, or operational policy.

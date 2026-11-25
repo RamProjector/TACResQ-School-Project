@@ -19,7 +19,7 @@
 
 ## Shared Admin MFA helper
 
-Current implementation: `private.tacresq_require_admin_mfa()` in `20261122123000_require_totp_for_admin_rpcs.sql`.
+Current implementation: `private.tacresq_require_admin_mfa()` in `20261122050858_require_totp_for_admin_rpcs.sql`.
 
 Observed checks:
 - `auth.uid()` must be present.
@@ -64,11 +64,11 @@ Observed checks:
 ## Source files inspected
 
 - `supabase/migrations/20261112215653_admin_role_audit_foundation.sql`
-- `supabase/migrations/20261122123000_require_totp_for_admin_rpcs.sql`
-- `supabase/migrations/20261122140000_admin_audit_server_pagination.sql`
-- `supabase/migrations/20261122160000_admin_investigation_events.sql`
-- `supabase/migrations/20261123170000_account_lifecycle_admin_transition_rpc.sql`
-- `supabase/migrations/20261123200000_admin_account_lifecycle_audit_reader.sql`
+- `supabase/migrations/20261122050858_require_totp_for_admin_rpcs.sql`
+- `supabase/migrations/20261125020814_admin_audit_server_pagination.sql`
+- `supabase/migrations/20261122120710_admin_investigation_events.sql`
+- `supabase/migrations/20261125020838_account_lifecycle_admin_transition_rpc.sql`
+- `supabase/migrations/20261125020844_admin_account_lifecycle_audit_reader.sql`
 - `tools/test_admin_totp_contract.py`
 - `tools/test_supabase_migration_replay.sh`
 
@@ -77,7 +77,7 @@ No connected Supabase project was queried or modified. These are repository migr
 
 ## PR #347 lifecycle implementation follow-up
 
-Migration `20261123170000_account_lifecycle_admin_transition_rpc.sql` adds `api_admin_set_account_status(bigint,text,text)` as a public SECURITY DEFINER entry point. It delegates actor authorization to the shared Admin MFA helper, serializes against profile changes, validates the transition and reason, and writes the lifecycle audit row in the same transaction. Migration `20261123200000_admin_account_lifecycle_audit_reader.sql` adds the bounded `api_admin_list_account_lifecycle_events(integer,integer)` reader behind the same Admin MFA boundary. Both signatures are included in the clean-replay callable inventory; they remain staged and are not live-deployed.
+Migration `20261125020838_account_lifecycle_admin_transition_rpc.sql` adds `api_admin_set_account_status(bigint,text,text)` as a public SECURITY DEFINER entry point. It delegates actor authorization to the shared Admin MFA helper, serializes against profile changes, validates the transition and reason, and writes the lifecycle audit row in the same transaction. Migration `20261125020844_admin_account_lifecycle_audit_reader.sql` adds the bounded `api_admin_list_account_lifecycle_events(integer,integer)` reader behind the same Admin MFA boundary. Both signatures are included in the clean-replay callable inventory; they remain staged and are not live-deployed.
 
 
 **Callable inventory note:** `api_admin_set_account_status(bigint,text,text)` is intentionally not counted as an authenticated-callable public function because client EXECUTE remains revoked. The bounded `api_admin_list_account_lifecycle_events(integer,integer)` reader is client-callable after the shared Admin MFA gate and is counted in the 22-signature baseline.

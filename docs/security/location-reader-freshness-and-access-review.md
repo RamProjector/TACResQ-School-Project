@@ -74,7 +74,7 @@ A client-supplied capture time should never be treated as proof of physical pres
 
 - `supabase/migrations/20261112215429_isolate_per_responder_location_writer.sql`
 - `supabase/migrations/20261112215554_isolate_multi_responder_location_reader.sql`
-- `supabase/migrations/20261118090000_restrict_incident_assignment_table_privileges.sql`
+- `supabase/migrations/20261122050839_restrict_incident_assignment_table_privileges.sql`
 - `supabase/migrations/20261023103737_per_responder_assignment_status.sql`
 
 No schema, RPC, client, or production configuration was changed in this review.
