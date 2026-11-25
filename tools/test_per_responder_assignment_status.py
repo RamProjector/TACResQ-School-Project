@@ -4,8 +4,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 legacy_schema = (ROOT / "supabase/migrations/20261023103737_per_responder_assignment_status.sql").read_text()
-dispatcher_sql = (ROOT / "supabase/migrations/20261117234000_dispatch_managed_incident_progress.sql").read_text()
-profile_guard = (ROOT / "supabase/migrations/20261118001000_allow_dispatcher_progress_duty_sync.sql").read_text()
+dispatcher_sql = (ROOT / "supabase/migrations/20261122050825_dispatch_managed_incident_progress.sql").read_text()
+profile_guard = (ROOT / "supabase/migrations/20261122050827_allow_dispatcher_progress_duty_sync.sql").read_text()
 models = (ROOT / "app/src/main/java/com/tacresq/app/data/model/Models.kt").read_text()
 api = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/SupabaseTacApi.kt").read_text()
 api_interface = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/TacApi.kt").read_text()

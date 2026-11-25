@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 migration = (
-    ROOT / "supabase/migrations/20261116150000_pin_api_units_search_path.sql"
+    ROOT / "supabase/migrations/20261122050807_pin_api_units_search_path.sql"
 ).read_text().lower()
 definition = (
     ROOT / "supabase/migrations/20261023081706_dispatch_team_assignment.sql"
