@@ -368,11 +368,11 @@ These helpers are local navigation only. They do not change account data, permis
 
 ## Collapsible desktop navigation and mobile drawer
 
-The desktop Admin sidebar can be collapsed from the control beside the sidebar brand. Its compact rail retains the existing Lucide SVG section icons, active-page indicator, accessible navigation names, and per-item tooltips. The selected section and its URL are unchanged when the rail is collapsed. The collapsed preference is stored locally in this browser and restored on the next visit; if browser storage is unavailable, the control still works for the current page session.
+The desktop Admin sidebar can be collapsed from the control beside the sidebar brand. Collapsing fully retracts the sidebar and removes its grid track so the workspace takes the available width; it does not leave a narrow icon rail. A persistent expand control appears in the workspace header while the sidebar is retracted. Focus moves to that control on collapse and returns to the sidebar control on expansion. The collapsed navigation is removed from keyboard and assistive-technology navigation while hidden. The selected section and its URL are unchanged. The collapsed preference is stored locally in this browser and restored on the next visit; if browser storage is unavailable, the control still works for the current page session.
 
 At tablet and mobile widths, the desktop collapse control is replaced by a menu button in the top bar. It opens the same navigation as a left-side drawer over the full-width workspace. The drawer has its own vertical scroll region, a visible close control, a dimmed backdrop, and Escape-key dismissal. Choosing a section closes the drawer and preserves the existing route/navigation behavior. Background page scrolling is locked while the drawer is open. If the desktop rail was saved as collapsed, the mobile drawer still displays the full navigation labels.
 
-The desktop rail transition and mobile drawer animation respect reduced-motion preferences. Keyboard focus remains visible, the drawer receives focus when opened, and Escape returns focus to the menu trigger. These controls change only presentation and navigation visibility; they do not alter authentication, permissions, account data, or available Admin capabilities.
+The desktop workspace expansion and mobile drawer animation respect reduced-motion preferences. Keyboard focus remains visible, the drawer receives focus when opened, and Escape returns focus to the menu trigger. These controls change only presentation and navigation visibility; they do not alter authentication, permissions, account data, or available Admin capabilities.
 
 
 ## Account directory action clarity and row scanning
