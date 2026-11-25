@@ -34,6 +34,7 @@ import {
   getAdminAnalyticsSummary,
   getAdminAccountLifecycleEvents,
   getAdminDependencyHealth,
+  getAdminInvestigationEventsPage,
   getAdminUsersPage,
   getMyProfile,
   setAdminUserRole,
@@ -43,6 +44,7 @@ import type {
   AdminAnalyticsSummary,
   AdminAccountLifecycleEvent,
   AdminDependencyHealth,
+  AdminInvestigationEvent,
   AdminManagedRole,
   AdminUser,
   TacruProfile,
@@ -232,6 +234,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [roleToast, setRoleToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [lifecycleEvents, setLifecycleEvents] = useState<AdminAccountLifecycleEvent[]>([]);
   const [lifecycleHistoryError, setLifecycleHistoryError] = useState<string | null>(null);
+  const [recentAuthenticationEvents, setRecentAuthenticationEvents] = useState<AdminInvestigationEvent[]>([]);
+  const [authenticationEventsLoading, setAuthenticationEventsLoading] = useState(false);
+  const [authenticationEventsError, setAuthenticationEventsError] = useState<string | null>(null);
+  const [authenticationEventsLoadedAt, setAuthenticationEventsLoadedAt] = useState<string | null>(null);
   const roleToastTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -272,6 +278,28 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     return () => window.clearTimeout(timer);
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
+  const authenticationEventsRequest = useRef(0);
+  const refreshAuthenticationEvents = useCallback(async () => {
+    const requestId = ++authenticationEventsRequest.current;
+    setAuthenticationEventsLoading(true);
+    setAuthenticationEventsError(null);
+    try {
+      const result = await getAdminInvestigationEventsPage(5, 0, "", "authentication", "all", null, null, null, null, null);
+      if (requestId !== authenticationEventsRequest.current) return;
+      setRecentAuthenticationEvents(result.events);
+      setAuthenticationEventsLoadedAt(new Date().toISOString());
+    } catch (cause) {
+      if (requestId !== authenticationEventsRequest.current) return;
+      setAuthenticationEventsError(cause instanceof Error ? cause.message : "Authentication activity could not be loaded.");
+    } finally {
+      if (requestId === authenticationEventsRequest.current) setAuthenticationEventsLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (activeSection !== "security") return;
+    void refreshAuthenticationEvents();
+    return () => { authenticationEventsRequest.current += 1; };
+  }, [activeSection, refreshAuthenticationEvents]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsPage, setSettingsPage] = useState<AdminSettingsPage>(() => resolveSettingsPage(window.location.search));
   const adminHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -1247,6 +1275,41 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               </div>
             </section>
             <AdminSecurityStatus />
+            <section className="admin-panel admin-security-events" aria-labelledby="admin-security-events-title" aria-busy={authenticationEventsLoading}>
+              <div className="admin-panel__heading">
+                <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">AUTHENTICATION ACTIVITY</p><h2 id="admin-security-events-title"><History size={19} /> Recent authentication events</h2></div><AdminHelpTip label="About authentication events" message="This is a five-event preview from the existing protected investigation feed. It includes only events currently collected by the connected authentication source; it is not a complete sign-in or session history." /></div>
+                <div className="admin-analytics-controls">
+                  <span className="admin-count">{authenticationEventsLoadedAt ? "Retrieved " + formatManilaDateTime(authenticationEventsLoadedAt) : "No result yet"}</span>
+                  <button className="admin-refresh" type="button" onClick={() => { void refreshAuthenticationEvents(); }} disabled={authenticationEventsLoading}><RefreshCw size={15} className={authenticationEventsLoading ? "admin-spin" : ""} /> Refresh</button>
+                </div>
+              </div>
+              {authenticationEventsError ? (
+                <div className="admin-health-unavailable" role="alert">{authenticationEventsError} <button className="admin-filter-reset" type="button" onClick={() => { void refreshAuthenticationEvents(); }} disabled={authenticationEventsLoading}>Retry</button></div>
+              ) : authenticationEventsLoading && recentAuthenticationEvents.length === 0 ? (
+                <div className="admin-empty" role="status"><LoaderCircle size={18} className="admin-spin" /> Loading authentication activity…</div>
+              ) : recentAuthenticationEvents.length === 0 ? (
+                <p className="admin-panel__footnote" role="status">No authentication events were returned by the connected source for this preview. This does not prove that no sign-ins occurred.</p>
+              ) : (
+                <div className="admin-table-wrap">
+                  <table className="admin-table">
+                    <caption className="admin-table-caption">Latest five authentication events returned by the protected investigation feed</caption>
+                    <thead><tr><th scope="col">Event</th><th scope="col">Account / actor</th><th scope="col">Recorded (Manila)</th><th scope="col">Source</th></tr></thead>
+                    <tbody>{recentAuthenticationEvents.map((event) => (
+                      <tr key={event.event_id}>
+                        <td>{event.summary}</td>
+                        <td>{event.actor_label}</td>
+                        <td className="admin-date">{formatDate(event.occurred_at)}</td>
+                        <td><code>{event.source}</code></td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+              <div className="admin-settings-actions">
+                <span className="admin-panel__footnote">Preview only · five most recent returned records · source coverage may be incomplete.</span>
+                <button className="admin-filter-reset" type="button" onClick={() => navigateToSection("audit")}>Open activity log</button>
+              </div>
+            </section>
             <section className="admin-panel admin-access-review" aria-labelledby="admin-access-review-title">
               <div className="admin-panel__heading">
                 <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">LEAST-PRIVILEGE REVIEW</p><h2 id="admin-access-review-title"><ShieldCheck size={19} /> Admin access review</h2></div><AdminHelpTip label="About Admin access review" message="This matrix summarizes the current Admin portal boundary from the repository. It is not a live scan of every database policy, API, Storage object, or user permission." /></div>
