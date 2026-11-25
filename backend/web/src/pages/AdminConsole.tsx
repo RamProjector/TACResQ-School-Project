@@ -571,7 +571,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         window.history.pushState({}, "", currentUrl.toString());
         return;
       }
-      closeMobileSidebar(true);
+      setMobileSidebarOpen(false);
       setActiveSection(resolveAdminSection(window.location.search));
       setSettingsPage(resolveSettingsPage(window.location.search));
       setContinuityPage(new URLSearchParams(window.location.search).get("adminPage") === "attachments" ? "attachments" : "recovery");
