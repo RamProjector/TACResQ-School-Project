@@ -7,9 +7,9 @@ ROOT = Path(__file__).resolve().parents[1]
 fake = (ROOT / "app/src/main/java/com/tacresq/app/data/remote/FakeTacApi.kt").read_text()
 responder = (ROOT / "app/src/main/java/com/tacresq/app/ui/responder/ResponderScreen.kt").read_text()
 dispatcher = (ROOT / "app/src/main/java/com/tacresq/app/ui/dispatcher/DispatcherScreen.kt").read_text()
-team_sql = (ROOT / "supabase/migrations/20261116180000_harden_field_claim_exclusivity.sql").read_text()
+team_sql = (ROOT / "supabase/migrations/20261122050813_harden_field_claim_exclusivity.sql").read_text()
 duty_sql = (ROOT / "supabase/migrations/20261023081706_dispatch_team_assignment.sql").read_text()
-profile_guard = (ROOT / "supabase/migrations/20261118001000_allow_dispatcher_progress_duty_sync.sql").read_text()
+profile_guard = (ROOT / "supabase/migrations/20261122050827_allow_dispatcher_progress_duty_sync.sql").read_text()
 
 # Signing in must not silently put a field unit on duty.
 assert 'DutyStatus.OFF_DUTY' in fake
