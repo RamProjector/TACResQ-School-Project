@@ -24,7 +24,7 @@ assert "disabled={analyticsLoading || !analytics || Boolean(analyticsError)}" in
 assert "const filename = exportAnalyticsCsv(analytics)" in SOURCE
 
 assert "setAnalyticsLoadedAt(new Date().toISOString())" in SOURCE
-assert "Report retrieved " in SOURCE
+assert '"Updated "' in SOURCE and '"Asia/Manila"' in SOURCE
 assert "role=\"status\" aria-live=\"polite\"" in SOURCE
 assert "setAnalyticsExportNotice(\"Export prepared: \" + filename)" in SOURCE
 assert "window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)" in exporter
