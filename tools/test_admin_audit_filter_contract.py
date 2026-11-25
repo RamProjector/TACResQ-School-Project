@@ -39,7 +39,7 @@ assert ".audit-page__date-presets button[aria-pressed=\"true\"]" in ADMIN_CSS
 assert ".audit-page__date-presets button:focus-visible" in ADMIN_CSS
 
 # Results and metadata are invalidated immediately, before the debounced request.
-query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, refreshVersion, dateRangeError]);", 1)[0]
+query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", 1)[0]
 assert query_effect.index("setEvents([]);") < query_effect.index("window.setTimeout")
 assert query_effect.index("setTotal(0);") < query_effect.index("window.setTimeout")
 assert query_effect.index("setLoading(true);") < query_effect.index("window.setTimeout")
@@ -76,7 +76,7 @@ assert "text-align:left;" in ADMIN_CSS
 
 
 # Clipboard success/error feedback is scoped to the active audit query.
-query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, refreshVersion, dateRangeError]);", 1)[0]
+query_effect = AUDIT_PAGE.split("useEffect(() => {", 2)[1].split("}, [page, query, category, source, from, to, actorId, targetId, incidentId, actorFilterId, targetFilterId, incidentFilterId, idFilterError, refreshVersion, dateRangeError]);", 1)[0]
 assert query_effect.index("setCopiedEventId(null);") < query_effect.index("if (dateRangeError)")
 assert query_effect.index("setCopyError(null);") < query_effect.index("if (dateRangeError)")
 
@@ -98,3 +98,31 @@ assert "chat-message sends, notification-read changes, and field-unit duty-statu
 assert "do not expose message content" in AUDIT_PAGE
 assert 'Object.entries(value as Record<string, unknown>)' in AUDIT_PAGE
 assert 'boundedAuditText(formatDetailLabel(key)) + ": " + formatDetailValue(item, depth + 1)' in AUDIT_PAGE
+
+
+# Actor, target, and incident filters must reach the protected server query.
+# Empty values mean "all"; malformed, non-positive, fractional, or unsafe IDs
+# are rejected locally rather than silently becoming an unfiltered request.
+assert "function parseOptionalPositiveId(value: string): number | null" in AUDIT_PAGE
+assert r"/^[1-9]\\d*$/.test(value)" in AUDIT_PAGE
+assert "Number.isSafeInteger(parsed)" in AUDIT_PAGE
+for marker in (
+    'const [actorId, setActorId] = useState("")',
+    'const [targetId, setTargetId] = useState("")',
+    'const [incidentId, setIncidentId] = useState("")',
+    "const actorFilterId = parseOptionalPositiveId(actorId)",
+    "const targetFilterId = parseOptionalPositiveId(targetId)",
+    "const incidentFilterId = parseOptionalPositiveId(incidentId)",
+    "Actor, target, and incident filters must be positive whole numbers.",
+    "actorFilterId,",
+    "targetFilterId,",
+    "incidentFilterId,",
+    'Actor profile ID',
+    'Target profile ID',
+    'Incident ID',
+    "setActorId(\\"\\")",
+    "setTargetId(\\"\\")",
+    "setIncidentId(\\"\\")",
+    "idFilterError",
+):
+    assert marker in AUDIT_PAGE, f"Missing server-backed audit identifier filter contract: {marker}"
