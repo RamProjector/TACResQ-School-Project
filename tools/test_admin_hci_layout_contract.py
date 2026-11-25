@@ -52,3 +52,34 @@ reduced = CSS.rsplit("@media (prefers-reduced-motion: reduce)", 1)[1]
 assert "transform: none" in reduced
 assert "animation: admin-dialog-enter" in CSS
 assert ".audit-page__date-presets button" in CSS
+
+
+# Intentional scroll regions have visible, themed scrollbar affordances across engines.
+for required in (
+    "scrollbar-width: thin",
+    "scrollbar-color: var(--admin-scrollbar-thumb) var(--admin-scrollbar-track)",
+    "scrollbar-gutter: stable",
+    "::-webkit-scrollbar",
+    "::-webkit-scrollbar-track",
+    "::-webkit-scrollbar-thumb",
+    "::-webkit-scrollbar-thumb:hover",
+    ".admin-sidebar",
+    ".admin-navigation",
+    ".admin-table-wrap",
+    ".admin-analytics-bars",
+    ".admin-modal",
+):
+    assert required in CSS, f"Admin scrollbar affordance is missing {required}"
+assert "scrollbar-color: auto" in CSS  # preserve forced-colors user-agent behavior
+
+# Audit subcontent is presented as a restrained hierarchy rather than nested cards.
+for selector in (
+    ".admin-shell .audit-page__coverage",
+    ".admin-shell .audit-page__coverage-details",
+    ".admin-shell .audit-page__lifecycle",
+    ".admin-shell .audit-page__filters",
+    ".admin-shell .audit-event-card",
+    ".admin-shell .audit-event-card__details",
+):
+    assert selector in CSS, f"Minimal audit surface rule missing {selector}"
+assert ".admin-shell .audit-event-card {\n  padding-inline: 0;\n  border-bottom: 1px solid #e5eae2;" in CSS
