@@ -31,7 +31,7 @@ for marker in (
     'void refreshAuthenticationEvents();',
     'formatManilaDateTime(authenticationEventsLoadedAt)',
     'aria-live="polite"',
-    'authenticationEventsLoading ? "Refreshing…"',
+    'authenticationEventsError ? "Unavailable" : authenticationEventsLoading ? "Refreshing…"',
 
     'navigateToSection("audit")',
 ):
