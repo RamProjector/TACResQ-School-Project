@@ -11,6 +11,8 @@ import {
   ShieldAlert,
   ArrowDownUp,
   ArrowUp,
+  PanelLeftClose,
+  PanelLeftOpen,
   CheckCircle2,
   CircleHelp,
   Settings,
@@ -270,6 +272,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     return () => window.clearTimeout(timer);
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsPage, setSettingsPage] = useState<AdminSettingsPage>(() => resolveSettingsPage(window.location.search));
   const adminHeadingRef = useRef<HTMLHeadingElement>(null);
   const previousAdminLocation = useRef({ section: activeSection, settingsPage });
@@ -750,7 +753,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const ActiveSectionIcon = adminSections.find((section) => section.id === activeSection)?.icon ?? LayoutDashboard;
 
   return (
-    <div className={"admin-shell" + (preferences.density === "compact" ? " admin-shell--compact" : "") + (preferences.reducedMotion ? " admin-shell--reduced-motion" : "") + (preferences.highContrast ? " admin-shell--high-contrast" : "") + (!preferences.contextualHelp ? " admin-shell--hide-context-help" : "")}>
+    <div className={"admin-shell" + (sidebarCollapsed ? " admin-shell--sidebar-collapsed" : "") + (preferences.density === "compact" ? " admin-shell--compact" : "") + (preferences.reducedMotion ? " admin-shell--reduced-motion" : "") + (preferences.highContrast ? " admin-shell--high-contrast" : "") + (!preferences.contextualHelp ? " admin-shell--hide-context-help" : "")}>
       <a className="admin-skip-link" href="#admin-workspace-main">Skip to admin content</a>
       <div className="admin-toast-region" aria-atomic="true">
         {roleToast && (
@@ -788,7 +791,19 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
       <main className="admin-main" id="admin-workspace-main" tabIndex={-1}>
         <header className="admin-topbar">
-          <div className="admin-breadcrumb" aria-label="Current location"><span>TACRESQ</span><b aria-hidden="true">/</b><span>ADMIN</span><b aria-hidden="true">/</b><strong aria-current="page">{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</strong></div>
+          <div className="admin-topbar__leading">
+            <button
+              className="admin-sidebar-toggle"
+              type="button"
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-pressed={sidebarCollapsed}
+              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <PanelLeftClose size={17} aria-hidden="true" />}
+            </button>
+            <div className="admin-breadcrumb" aria-label="Current location"><span>TACRESQ</span><b aria-hidden="true">/</b><span>ADMIN</span><b aria-hidden="true">/</b><strong aria-current="page">{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</strong></div>
+          </div>
           <div className="admin-topbar__right">
             <span className="admin-access-pill"><ShieldCheck size={14} /> ADMIN ACCESS</span>
             <div className="admin-user">
