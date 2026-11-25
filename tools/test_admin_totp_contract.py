@@ -49,7 +49,7 @@ assert "!root?.contains(document.activeElement)" in admin and "(event.shiftKey ?
 audit_page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 supabase_client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 assert 'import AuditLogsPage from "@/pages/AuditLogsPage"' in admin
-assert 'const route = new URLSearchParams(search).get("adminPage") ?? "overview";' in admin
+assert 'const params = new URLSearchParams(search);' in admin and 'const route = params.get("adminPage") ?? "overview";' in admin
 assert "resolveAdminSection(window.location.search)" in admin
 assert 'window.history.pushState' in admin
 assert 'activeSection === "audit" && <AuditLogsPage profile={profile} />' in admin
