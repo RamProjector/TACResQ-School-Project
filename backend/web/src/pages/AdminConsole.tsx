@@ -408,8 +408,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         return;
       }
       if (event.key !== "Tab") return;
-      const focusable = mobileSidebarRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
-      if (!focusable?.length) {
+      const focusable = Array.from(mobileSidebarRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []).filter((element) => element.getClientRects().length > 0);
+      if (focusable.length === 0) {
         event.preventDefault();
         return;
       }
@@ -510,7 +510,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function navigateToSettingsPage(page: AdminSettingsPage) {
     if (page !== settingsPage && !confirmDiscardPreferenceChanges()) return;
-    setMobileSidebarOpen(false);
+    closeMobileSidebar(true);
     setSettingsPage(page);
     const url = new URL(window.location.href);
     if (url.searchParams.get("adminSettings") !== page) {
@@ -522,7 +522,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function navigateToContinuityPage(page: AdminContinuityPage) {
     if (activeSection !== "recovery" && !confirmDiscardPreferenceChanges()) return;
-    setMobileSidebarOpen(false);
+    closeMobileSidebar(true);
     setActiveSection("recovery");
     setContinuityPage(page);
     const url = new URL(window.location.href);
@@ -533,7 +533,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function navigateToSection(section: AdminSection) {
     if (section !== activeSection && !confirmDiscardPreferenceChanges()) return;
-    setMobileSidebarOpen(false);
+    closeMobileSidebar(true);
     setActiveSection(section);
     const url = new URL(window.location.href);
     const route = section === "audit" ? "audit-logs" : section;
@@ -547,7 +547,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function navigateToTodayActivityLog() {
     if (activeSection !== "audit" && !confirmDiscardPreferenceChanges()) return;
-    setMobileSidebarOpen(false);
+    closeMobileSidebar(true);
     const range = getManilaTodayRange();
     setActiveSection("audit");
     const url = new URL(window.location.href);
@@ -571,7 +571,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         window.history.pushState({}, "", currentUrl.toString());
         return;
       }
-      setMobileSidebarOpen(false);
+      closeMobileSidebar(true);
       setActiveSection(resolveAdminSection(window.location.search));
       setSettingsPage(resolveSettingsPage(window.location.search));
       setContinuityPage(new URLSearchParams(window.location.search).get("adminPage") === "attachments" ? "attachments" : "recovery");
