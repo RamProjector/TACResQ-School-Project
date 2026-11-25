@@ -21,6 +21,7 @@ import {
   RotateCcw,
   LoaderCircle,
   LogOut,
+  Menu,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -83,6 +84,15 @@ const DEFAULT_ADMIN_PREFERENCES: AdminPreferences = {
 };
 
 const ADMIN_PREFERENCES_KEY = "tacresq.admin.preferences.v1";
+const ADMIN_SIDEBAR_COLLAPSED_KEY = "tacresq.admin.sidebar-collapsed.v1";
+
+function readAdminSidebarCollapsed() {
+  try {
+    return window.localStorage.getItem(ADMIN_SIDEBAR_COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
 
 function readAdminPreferences(): AdminPreferences {
   try {
@@ -371,7 +381,31 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     };
   }, [activeSection, refreshTodayActivity]);
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readAdminSidebarCollapsed());
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const mobileSidebarTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileSidebarCloseRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ADMIN_SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
+    } catch {
+      // The layout remains usable when browser storage is unavailable.
+    }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    mobileSidebarCloseRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setMobileSidebarOpen(false);
+      mobileSidebarTriggerRef.current?.focus();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [mobileSidebarOpen]);
   const [settingsPage, setSettingsPage] = useState<AdminSettingsPage>(() => resolveSettingsPage(window.location.search));
   const adminHeadingRef = useRef<HTMLHeadingElement>(null);
   const previousAdminLocation = useRef({ section: activeSection, settingsPage, continuityPage });
@@ -448,6 +482,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function navigateToSettingsPage(page: AdminSettingsPage) {
     if (page !== settingsPage && !confirmDiscardPreferenceChanges()) return;
+    setMobileSidebarOpen(false);
     setSettingsPage(page);
     const url = new URL(window.location.href);
     if (url.searchParams.get("adminSettings") !== page) {
@@ -459,6 +494,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function navigateToContinuityPage(page: AdminContinuityPage) {
     if (activeSection !== "recovery" && !confirmDiscardPreferenceChanges()) return;
+    setMobileSidebarOpen(false);
     setActiveSection("recovery");
     setContinuityPage(page);
     const url = new URL(window.location.href);
@@ -469,6 +505,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function navigateToSection(section: AdminSection) {
     if (section !== activeSection && !confirmDiscardPreferenceChanges()) return;
+    setMobileSidebarOpen(false);
     setActiveSection(section);
     const url = new URL(window.location.href);
     const route = section === "audit" ? "audit-logs" : section;
@@ -482,6 +519,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   function navigateToTodayActivityLog() {
     if (activeSection !== "audit" && !confirmDiscardPreferenceChanges()) return;
+    setMobileSidebarOpen(false);
     const range = getManilaTodayRange();
     setActiveSection("audit");
     const url = new URL(window.location.href);
@@ -505,6 +543,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         window.history.pushState({}, "", currentUrl.toString());
         return;
       }
+      setMobileSidebarOpen(false);
       setActiveSection(resolveAdminSection(window.location.search));
       setSettingsPage(resolveSettingsPage(window.location.search));
       setContinuityPage(new URLSearchParams(window.location.search).get("adminPage") === "attachments" ? "attachments" : "recovery");
@@ -968,8 +1007,23 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           </div>
         )}
       </div>
-      <aside className="admin-sidebar">
-        <Brand inverse />
+      <aside id="admin-primary-sidebar" className={"admin-sidebar" + (mobileSidebarOpen ? " admin-sidebar--mobile-open" : "")} aria-label="Primary navigation">
+        <div className="admin-sidebar__header">
+          <Brand inverse />
+          <button
+            className="admin-sidebar-toggle"
+            type="button"
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-pressed={sidebarCollapsed}
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <PanelLeftClose size={17} aria-hidden="true" />}
+          </button>
+          <button ref={mobileSidebarCloseRef} className="admin-mobile-sidebar-close" type="button" aria-label="Close navigation" onClick={() => setMobileSidebarOpen(false)}>
+            <X size={19} aria-hidden="true" />
+          </button>
+        </div>
         <div className="admin-sidebar__context">
           <span>ADMIN WORKSPACE</span>
           <p>Manage accounts, security, and activity.</p>
@@ -992,19 +1046,21 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <div className="admin-sidebar__version">TACRESQ · PRIVILEGED ACCESS</div>
         </div>
       </aside>
+      {mobileSidebarOpen && <button className="admin-sidebar-backdrop" type="button" aria-label="Close navigation" tabIndex={-1} onClick={() => setMobileSidebarOpen(false)} />}
 
       <main className="admin-main" id="admin-workspace-main" tabIndex={-1}>
         <header className="admin-topbar">
           <div className="admin-topbar__leading">
             <button
-              className="admin-sidebar-toggle"
+              ref={mobileSidebarTriggerRef}
+              className="admin-mobile-sidebar-toggle"
               type="button"
-              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-pressed={sidebarCollapsed}
-              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              aria-label="Open navigation"
+              aria-expanded={mobileSidebarOpen}
+              aria-controls="admin-primary-sidebar"
+              onClick={() => setMobileSidebarOpen(true)}
             >
-              {sidebarCollapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <PanelLeftClose size={17} aria-hidden="true" />}
+              <Menu size={19} aria-hidden="true" />
             </button>
             <div className="admin-breadcrumb" aria-label="Current location"><span>TACRESQ</span><b aria-hidden="true">/</b><span>ADMIN</span><b aria-hidden="true">/</b><strong aria-current="page">{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</strong></div>
           </div>
