@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ADMIN = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text(encoding="utf-8")
 CSS = (ROOT / "backend/web/src/pages/AdminConsole.css").read_text(encoding="utf-8")
 GUIDE = (ROOT / "docs/admin-portal-operator-guide.md").read_text(encoding="utf-8")
+AUDIT = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text(encoding="utf-8")
 
 # Overview stays an operational snapshot, not a second historical analytics page.
 assert '{ id: "analytics", label: "Analytics & reports", icon: BarChart3 }' in ADMIN
@@ -15,7 +16,12 @@ assert "REQUESTERS · CURRENT PAGE" not in ADMIN
 assert "FIELD UNITS · CURRENT PAGE" not in ADMIN
 assert 'id="admin-overview-activity-title"' in ADMIN
 assert "Recent recorded activity" in ADMIN
-assert 'onClick={() => navigateToSection("audit")}>Open Activity Log</button>' in ADMIN
+assert 'onClick={navigateToTodayActivityLog}>Open Today in Activity Log</button>' in ADMIN
+assert "function navigateToTodayActivityLog()" in ADMIN
+assert 'url.searchParams.set("auditFrom", range.date)' in ADMIN
+assert 'url.searchParams.set("auditTo", range.date)' in ADMIN
+assert 'get("auditFrom") ?? ""' in AUDIT
+assert 'get("auditTo") ?? ""' in AUDIT
 
 # Today's count is the protected RPC total, not the five visible preview records.
 assert 'function getManilaTodayRange(now = new Date())' in ADMIN
