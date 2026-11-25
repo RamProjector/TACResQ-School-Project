@@ -1090,6 +1090,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <p className="admin-panel__footnote">Reporting window: {formatManilaDateTime(analytics.period_start)} – {formatManilaDateTime(analytics.period_end)} (Asia/Manila). The range starts at Manila midnight and includes today’s partial totals. {analyticsLoadedAt ? "Report retrieved " + formatManilaDateTime(analyticsLoadedAt) + "." : ""}</p>
                   <div className="admin-analytics-metrics">
                     <article><span>TOTAL REQUESTS</span><strong>{analytics.total_requests.toLocaleString()}</strong><small>Created during selected period</small></article>
+                    <article><span>PENDING</span><strong>{analytics.pending.toLocaleString()}</strong><small>Currently awaiting assignment</small></article>
                     <article><span>ACTIVE</span><strong>{analytics.active.toLocaleString()}</strong><small>Assigned, en route, on scene or transporting</small></article>
                     <article><span>RESOLVED</span><strong>{analytics.resolved.toLocaleString()}</strong><small>Currently marked resolved</small></article>
                     <article><span>CANCELLED</span><strong>{analytics.cancelled.toLocaleString()}</strong><small>Currently marked cancelled</small></article>
