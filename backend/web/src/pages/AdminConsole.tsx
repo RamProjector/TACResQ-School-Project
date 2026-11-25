@@ -933,7 +933,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                     <tr><td colSpan={6}><div className="admin-empty"><Users size={20} /><strong>{directoryError ? "User data is unavailable" : "No accounts match this filter"}</strong><span>{directoryError ? "The page does not substitute demo accounts for live data." : "Try another search or role filter."}</span>{directoryError && <button className="admin-filter-reset" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>Retry account directory</button>}</div></td></tr>
                   ) : filteredUsers.map((user) => (
                     <Fragment key={user.id}>
-                      <tr>
+                      <tr className={expandedAccountId === user.id ? "admin-account-row--expanded" : undefined}>
                         <td><div className="admin-account"><span className="admin-account__avatar">{initials(user.name)}</span><span><strong>{user.name}</strong><small>{user.email}</small><small className="admin-account__id">Profile #{user.id}</small></span></div></td>
                         <td><span className={"admin-role admin-role--" + user.role}>{displayRole(user.role)}</span></td>
                         <td><span className={"admin-account-status admin-account-status--" + user.account_status}>{user.account_status === "active" ? "Active" : "Suspended"}</span></td>
