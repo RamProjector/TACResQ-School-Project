@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-migration = (ROOT / "supabase/migrations/20261117010000_restrict_legacy_admin_user_list_rpc.sql").read_text()
+migration = (ROOT / "supabase/migrations/20261122050823_restrict_legacy_admin_user_list_rpc.sql").read_text()
 web_api = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 admin_ui = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
 
