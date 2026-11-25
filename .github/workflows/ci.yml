@@ -242,6 +242,8 @@ jobs:
         run: python3 tools/test_admin_totp_contract.py
       - name: Check pending MFA cleanup on gate sign-out
         run: python3 tools/test_admin_gate_signout_cleanup_contract.py
+      - name: Check Admin pending MFA cleanup contract
+        run: python3 tools/test_admin_pending_mfa_cleanup_contract.py
 
       - name: Check dependency health monitoring safety contract
         run: python3 tools/test_dependency_health_monitoring_contract.py
@@ -504,22 +506,9 @@ jobs:
           echo "ANDROID_RELEASE_SIGNING_CONFIGURED=true" >> "$GITHUB_ENV"
           echo "configured=true" >> "$GITHUB_OUTPUT"
 
-      - name: Verify patched Android build-tool dependencies (retry transient Maven rate limits)
+      - name: Verify patched Android build-tool dependencies
         if: hashFiles('gradlew') != ''
-        shell: bash
-        run: |
-          set -euo pipefail
-          for attempt in 1 2 3; do
-            if ./gradlew --no-daemon verifyBuildToolDependencySecurity; then
-              exit 0
-            fi
-            if [[ "$attempt" -lt 3 ]]; then
-              echo "Gradle dependency verification failed; retrying in $((attempt * 30)) seconds (attempt $((attempt + 1))/3)."
-              sleep $((attempt * 30))
-            fi
-          done
-          echo "::error::Patched build-tool dependency verification failed after three attempts."
-          exit 1
+        run: ./gradlew --no-daemon verifyBuildToolDependencySecurity
 
       - name: Build demo-mode debug APK
         if: hashFiles('gradlew') != ''

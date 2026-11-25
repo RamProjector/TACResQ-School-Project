@@ -21,6 +21,12 @@ assert 'if (state === "enroll" && factorId)' in gate
 assert "await cancelEnrollment();" in gate
 assert 'if (state === "checking" && preparation.current)' in gate
 assert "const prepared = await preparation.current;" in gate
-assert "getSupabase().auth.mfa.unenroll({" in gate
 assert "factorId: prepared.factorId" in gate
+assert "Cleanup is best-effort" in gate
+assert "Sign-out must remain possible" in gate
+assert "onSignOut();" in gate[gate.index("async function handleSignOut()"):gate.index("async function cancelEnrollment()")]
+cancel_start = gate.index("async function cancelEnrollment()")
+cancel_end = gate.index("async function verifyCode", cancel_start)
+cancel = gate[cancel_start:cancel_end]
+assert "finally {" in cancel and "onSignOut();" in cancel[cancel.index("finally {"):], "Sign-out must complete even when pending-factor cleanup fails"
 assert 'onClick={() => { void handleSignOut(); }} disabled={busy}' in gate

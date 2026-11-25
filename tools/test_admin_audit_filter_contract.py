@@ -94,7 +94,7 @@ assert "if (!visibleEventIds.current.has(eventId)) return;" in copy_handler
 # the UI and operator guide without implying comprehensive activity tracking.
 assert 'app_action_audit_logs: "App actions"' in AUDIT_PAGE
 assert "<strong>App actions</strong>" in AUDIT_PAGE
-assert "chat-message sends, notification reads, and field-unit duty-status changes" in AUDIT_PAGE
+assert "chat-message sends, notification-read changes, and field-unit duty-status changes" in AUDIT_PAGE
 assert "do not expose message content" in AUDIT_PAGE
 assert 'Object.entries(value as Record<string, unknown>)' in AUDIT_PAGE
 assert 'boundedAuditText(formatDetailLabel(key)) + ": " + formatDetailValue(item, depth + 1)' in AUDIT_PAGE

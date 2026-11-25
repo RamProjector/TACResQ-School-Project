@@ -96,7 +96,7 @@ popstate_guard = ADMIN.split("const syncSectionFromLocation = () => {", 1)[1].sp
 assert "if (preferencesDirty && !confirmDiscardPreferenceChanges())" in popstate_guard
 assert "window.history.pushState({}, \"\", currentUrl.toString());" in popstate_guard
 assert "setActiveSection(resolveAdminSection(window.location.search));" in popstate_guard
-assert "confirmDiscardPreferenceChanges" in ADMIN.split("}, [activeSection, settingsPage, preferencesDirty,", 1)[1].split("]);", 1)[0]
+assert "}, [activeSection, settingsPage, preferencesDirty, confirmDiscardPreferenceChanges]);" in ADMIN
 
 # Dynamic confirmations for destructive security actions are announced to
 # assistive technology when their controls appear.
