@@ -926,7 +926,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <button type="button" onClick={() => navigateToSection("users")}><Users size={18} /><span><strong>User management</strong><small>Search accounts and review operational roles</small></span><span aria-hidden="true">→</span></button>
               <button type="button" onClick={() => navigateToSection("analytics")}><BarChart3 size={18} /><span><strong>Request reports</strong><small>Review incident volume and assignment timing</small></span><span aria-hidden="true">→</span></button>
               <button type="button" onClick={() => navigateToSection("audit")}><History size={18} /><span><strong>Activity log</strong><small>Inspect recorded administrative and operational events</small></span><span aria-hidden="true">→</span></button>
-              <button type="button" onClick={() => navigateToContinuityPage("recovery")}><HardDrive size={18} /><span><strong>Data &amp; continuity</strong><small>Review backup, restore, and attachment safeguards</span><span aria-hidden="true">→</span></button>
+              <button type="button" onClick={() => navigateToContinuityPage("recovery")}><HardDrive size={18} /><span><strong>Data &amp; continuity</strong><small>Review backup, restore, and attachment safeguards</small></span><span aria-hidden="true">→</span></button>
             </div>
           </section>
 
