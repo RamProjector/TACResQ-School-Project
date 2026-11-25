@@ -8,7 +8,8 @@
   The Security workspace also shows a five-event preview from the protected authentication investigation feed, with a refresh action and a route to the full Activity Log. The preview is limited to events currently collected by that source and is not a complete sign-in/session history; an empty result is not proof that no sign-ins occurred.
 - **Reports:** aggregate incident request counts, current status breakdown, daily request volume, and average/median time to first assignment for 7-, 30-, or 90-day windows.
 - **Activity log:** read-only, paginated investigation history plus a separate bounded account lifecycle history section. Its visible source inventory explains which event types are included and which remain unavailable.
-- **Settings:** browser-local display and accessibility preferences, with Notifications, Security & sessions, and Privacy & data guidance kept read-only until their backend/governance requirements are verified.
+- **Data & continuity:** combines the Backup & recovery and Attachment safeguards views. Both are evidence/readiness workspaces; neither controls live backups or exposes attachment contents. The former Attachment storage URL remains supported as an internal view.
+- **Settings:** browser-local display and accessibility preferences, with Notifications and Privacy & data guidance kept read-only until their backend/governance requirements are verified. Authenticator and session controls are centralized in Security.
 - **Help & about:** searchable operator guidance for the available Admin workspaces and their capability boundaries.
 
 ## Analytics CSV export
@@ -99,7 +100,7 @@ Contextual question-mark disclosures in Settings work with pointer, keyboard, an
 
 ### Settings subpages
 
-Settings is divided into URL-backed subpages: **General**, **Accessibility**, **Notifications**, **Security & sessions**, and **Privacy & data**. The selected subpage is represented by the `adminSettings` query parameter and is restored by browser Back/Forward navigation. General and Accessibility expose the working local display preferences. Notifications, Security & sessions, and Privacy & data explain the currently unavailable controls and link to existing verified capabilities where applicable; they do not present inert toggles or promise unsupported data-rights operations.
+Settings is divided into URL-backed subpages: **General**, **Accessibility**, **Notifications**, and **Privacy & data**. The selected subpage is represented by the `adminSettings` query parameter and is restored by browser Back/Forward navigation. General and Accessibility expose the working local display preferences. Notifications and Privacy & data explain the currently unavailable controls and do not present inert toggles or promise unsupported data-rights operations. Authenticator enrollment, factor management, and session assurance have one home in the Security workspace.
 
 
 ## Contextual help across core workspaces
@@ -319,7 +320,7 @@ The page performs no exports, copies, restores, provider probes, scheduling, or 
 
 ## Attachment storage workspace
 
-The Admin sidebar includes a read-only **Attachment storage** workspace for incident-chat image safeguards and known evidence gaps. It is not a media browser and must never expose attachment bytes, object paths, signed URLs, message contents, or coordinates to an administrator solely because of the Admin role.
+The **Data & continuity → Attachment safeguards** view provides read-only incident-chat image safeguards and known evidence gaps. It is not a media browser and must never expose attachment bytes, object paths, signed URLs, message contents, or coordinates to an administrator solely because of the Admin role.
 
 The page presents the last repository-recorded live bucket inspection date (22 November 2026) as historical evidence, not a current provider check. That inspection recorded a private `incident-chat-attachments` bucket, a 5 MiB limit, JPEG/PNG/WebP allowlist, and authenticated INSERT/SELECT policies without authenticated UPDATE/DELETE. Re-check the provider before relying on those values for an operational decision.
 
