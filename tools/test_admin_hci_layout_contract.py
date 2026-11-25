@@ -112,3 +112,12 @@ assert ".admin-shell--sidebar-collapsed {" in ADMIN_CSS
 assert ".admin-shell--sidebar-collapsed .admin-nav-item span" in ADMIN_CSS
 assert "@media (max-width: 900px)" in ADMIN_CSS
 assert ".admin-sidebar-toggle:focus-visible" in ADMIN_CSS
+
+
+# Repeated directory actions expose the affected account in their accessible names.
+assert 'aria-label={(expandedAccountId === user.id ? "Hide details for " : "View details for ") + user.name}' in SOURCE
+assert 'aria-label={(user.account_status === "active" ? "Suspend account for " : "Reactivate account for ") + user.name}' in SOURCE
+assert 'aria-label={"Change role for " + user.name}' in SOURCE
+assert ".admin-table tbody tr:not(.admin-account-details-row):hover > td" in ADMIN_CSS
+assert ".admin-table tbody tr:not(.admin-account-details-row):focus-within > td" in ADMIN_CSS
+assert ".admin-table tbody tr.admin-account-row--expanded > td" in ADMIN_CSS
