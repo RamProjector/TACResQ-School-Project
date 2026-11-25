@@ -388,6 +388,16 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     }
   }
 
+  function navigateToContinuityPage(page: AdminContinuityPage) {
+    if (activeSection !== "recovery" && !confirmDiscardPreferenceChanges()) return;
+    setActiveSection("recovery");
+    setContinuityPage(page);
+    const url = new URL(window.location.href);
+    url.searchParams.set("adminPage", page);
+    url.searchParams.delete("adminSettings");
+    window.history.pushState({}, "", url.toString());
+  }
+
   function navigateToSection(section: AdminSection) {
     if (section !== activeSection && !confirmDiscardPreferenceChanges()) return;
     setActiveSection(section);
@@ -1262,7 +1272,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["overview", "service reachability", "dependencies", "health", "incident workflow", "laravel", "supabase"])}><h3>Overview & service reachability</h3><p>The Overview probes Laravel, Supabase Auth, and the database. A reachable dependency does not prove that incident creation, assignment, mapping, push delivery, or the full emergency workflow works.</p><button type="button" onClick={() => navigateToSection("overview")}>Open Overview <span aria-hidden="true">→</span></button></article>
                 <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["user management", "accounts", "roles", "duty status", "role changes", "permissions"])}><h3>User management</h3><p>Search and filter accounts, then change eligible operational roles with a required reason. Admin accounts are operator-managed. Duty status is not an account suspension or sign-in state.</p><button type="button" onClick={() => navigateToSection("users")}>Open User management <span aria-hidden="true">→</span></button></article>
                 <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["security", "authenticator", "totp", "aal2", "mfa", "factor", "sessions"])}><h3>Security & authenticator</h3><p>Use a verified authenticator for the required AAL2 session. Keep the only verified factor available. The current Security page is not a complete security-event monitoring centre.</p><button type="button" onClick={() => navigateToSection("security")}>Open Security <span aria-hidden="true">→</span></button></article>
-                <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["attachments", "storage", "media", "upload", "image", "orphan", "retention", "chat attachment"])}><h3>Attachment storage</h3><p>Review the private incident-chat bucket safeguards, upload reservation rollout state, object lifecycle gaps, and storage evidence limitations. This is not a live media browser or bucket monitor.</p><button type="button" onClick={() => navigateToSection("attachments")}>Open Attachment storage <span aria-hidden="true">→</span></button></article>
+                <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["attachments", "storage", "media", "upload", "image", "orphan", "retention", "chat attachment"])}><h3>Attachment safeguards</h3><p>Review private incident-chat storage safeguards, upload-reservation rollout state, object lifecycle gaps, and storage evidence limitations inside Data &amp; continuity. This is not a live media browser or bucket monitor.</p><button type="button" onClick={() => navigateToContinuityPage("attachments")}>Open attachment safeguards <span aria-hidden="true">→</span></button></article>
                 <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["recovery", "backup", "restore", "disaster recovery", "continuity", "storage backup", "rpo", "rto"])}><h3>Recovery &amp; continuity</h3><p>Review documented database and Storage backup procedures, Auth/configuration gaps, and isolated restore-drill requirements. This workspace does not show live backup or restore evidence.</p><button type="button" onClick={() => navigateToSection("recovery")}>Open Recovery &amp; continuity <span aria-hidden="true">→</span></button></article>
                 <article className="admin-help-card" hidden={!matchesAdminHelp(normalizedHelpQuery, ["reports", "activity log", "audit", "aggregate", "events", "metrics", "privacy"])}><h3>Reports & Activity Log</h3><p>Reports contain aggregate request metrics. Activity Log contains only events collected by its connected sources; missing sources must not be interpreted as zero activity.</p><div><button type="button" onClick={() => navigateToSection("analytics")}>Open Reports <span aria-hidden="true">→</span></button><button type="button" onClick={() => navigateToSection("audit")}>Open Activity Log <span aria-hidden="true">→</span></button></div></article>
               </div>
@@ -1364,8 +1374,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           )}
           {activeSection === "recovery" && (
             <nav className="admin-continuity-nav" aria-label="Data and continuity views">
-              <button type="button" className={continuityPage === "recovery" ? "admin-continuity-nav__item is-active" : "admin-continuity-nav__item"} aria-current={continuityPage === "recovery" ? "page" : undefined} onClick={() => { setContinuityPage("recovery"); const url = new URL(window.location.href); url.searchParams.set("adminPage", "recovery"); window.history.pushState({}, "", url.toString()); }}>Backup &amp; recovery</button>
-              <button type="button" className={continuityPage === "attachments" ? "admin-continuity-nav__item is-active" : "admin-continuity-nav__item"} aria-current={continuityPage === "attachments" ? "page" : undefined} onClick={() => { setContinuityPage("attachments"); const url = new URL(window.location.href); url.searchParams.set("adminPage", "attachments"); window.history.pushState({}, "", url.toString()); }}>Attachment safeguards</button>
+              <button type="button" className={continuityPage === "recovery" ? "admin-continuity-nav__item is-active" : "admin-continuity-nav__item"} aria-current={continuityPage === "recovery" ? "page" : undefined} onClick={() => navigateToContinuityPage("recovery")}>Backup &amp; recovery</button>
+              <button type="button" className={continuityPage === "attachments" ? "admin-continuity-nav__item is-active" : "admin-continuity-nav__item"} aria-current={continuityPage === "attachments" ? "page" : undefined} onClick={() => navigateToContinuityPage("attachments")}>Attachment safeguards</button>
             </nav>
           )}
           {activeSection === "recovery" && continuityPage === "recovery" && (
