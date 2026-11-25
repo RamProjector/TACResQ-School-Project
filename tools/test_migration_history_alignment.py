@@ -48,78 +48,69 @@ EXPECTED = {
     "20261114153546_fcm_delivery_queue_hardening.sql",
     "20261114153550_fcm_token_account_switch.sql",
     "20261116042927_responder_incident_claiming.sql",
+    "20261122050807_pin_api_units_search_path.sql",
+    "20261122050809_optimize_rls_policy_initplans.sql",
+    "20261122050811_api_operation_audit_and_fk_indexes.sql",
+    "20261122050813_harden_field_claim_exclusivity.sql",
+    "20261122050815_validate_requester_location_edits.sql",
+    "20261122050818_harden_dispatch_claimability_lifecycle.sql",
+    "20261122050820_protect_profile_identity_metadata.sql",
+    "20261122050823_restrict_legacy_admin_user_list_rpc.sql",
+    "20261122050825_dispatch_managed_incident_progress.sql",
+    "20261122050827_allow_dispatcher_progress_duty_sync.sql",
+    "20261122050832_dispatch_request_edit_notifications.sql",
+    "20261122050834_incident_assignment_event_history.sql",
+    "20261122050837_dispatcher_release_incident_assignment.sql",
+    "20261122050839_restrict_incident_assignment_table_privileges.sql",
+    "20261122050841_restrict_operational_table_writes.sql",
+    "20261122050843_restrict_core_table_destructive_privileges.sql",
+    "20261122050845_device_security_registry_foundation.sql",
+    "20261122050847_bound_device_registry_metadata.sql",
+    "20261122050850_public_data_free_dependency_health_rpc.sql",
+    "20261122050851_notify_dispatcher_of_requester_cancellation.sql",
+    "20261122050856_admin_analytics_summary.sql",
+    "20261122050858_require_totp_for_admin_rpcs.sql",
+    "20261122120710_admin_investigation_events.sql",
+    "20261123045605_20261122200000_admin_directory_contact_minimization.sql",
+    "20261123045607_20261122210000_incident_chat_upload_reservations.sql",
+    "20261123045609_20261122213000_reconcile_incident_chat_upload_policy.sql",
+    "20261123045611_20261122230000_app_action_audit_coverage.sql",
+    "20261125020814_admin_audit_server_pagination.sql",
+    "20261125020816_pin_incident_assignee_helper_search_path.sql",
+    "20261125020817_pin_dispatch_progress_rpc_search_path.sql",
+    "20261125020819_account_lifecycle_foundation.sql",
+    "20261125020821_account_lifecycle_restrictive_rls.sql",
+    "20261125020823_account_lifecycle_identity_helpers.sql",
+    "20261125020825_account_lifecycle_write_guard_triggers.sql",
+    "20261125020826_account_lifecycle_admin_mfa_guard.sql",
+    "20261125020833_account_lifecycle_read_rpc_guards.sql",
+    "20261125020835_account_lifecycle_assignment_helper_guard.sql",
+    "20261125020836_account_lifecycle_helper_volatility.sql",
+    "20261125020838_account_lifecycle_admin_transition_rpc.sql",
+    "20261125020840_account_lifecycle_chat_idempotency_guards.sql",
+    "20261125020842_account_lifecycle_write_rpc_entry_guards.sql",
+    "20261125020844_admin_account_lifecycle_audit_reader.sql",
+    "20261125020846_account_lifecycle_fcm_token_guards.sql",
+    "20261125020853_fcm_delivery_claim_active_recipient_guard.sql",
+    "20261125020856_account_lifecycle_dispatch_progress_guard.sql",
+    "20261125020857_account_lifecycle_team_assignment_guard.sql",
+    "20261125020859_account_lifecycle_assignment_release_guard.sql",
+    "20261125020901_account_lifecycle_location_writer_guard.sql",
+    "20261125020903_account_lifecycle_dispatcher_directory_guard.sql",
+    "20261125020905_account_lifecycle_requester_edit_guard.sql",
+    "20261125020907_account_lifecycle_claimability_and_responder_read_guard.sql",
+    "20261125020913_account_lifecycle_duty_status_guard.sql",
+    "20261125020914_reconcile_active_account_rls_inventory.sql",
+    "20261125020916_secure_fcm_self_unregister_rpc.sql",
+    "20261125020918_secure_fcm_delivery_token_cleanup_rpc.sql",
+    "20261125020920_prevent_suspending_assigned_field_units.sql",
+    "20261125020922_guard_active_assignment_targets.sql",
+    "20261125020924_admin_website_account_lifecycle_controls.sql",
+    "20261125020926_admin_account_lifecycle_compare_and_set.sql",
 }
-# Repository migrations not yet confirmed in the live Supabase ledger are
-# allowlisted so independent PRs/deployment batches can proceed in either order.
-PENDING = {
-    "20261125110000_admin_account_lifecycle_compare_and_set.sql",
-    "20261125100000_admin_website_account_lifecycle_controls.sql",
-    "20261116150000_pin_api_units_search_path.sql",
-    "20261116153000_optimize_rls_policy_initplans.sql",
-    "20261116170000_api_operation_audit_and_fk_indexes.sql",
-    "20261116180000_harden_field_claim_exclusivity.sql",
-    "20261116190000_validate_requester_location_edits.sql",
-    "20261116200000_harden_dispatch_claimability_lifecycle.sql",
-    "20261116210000_protect_profile_identity_metadata.sql",
-    "20261117010000_restrict_legacy_admin_user_list_rpc.sql",
-    "20261117234000_dispatch_managed_incident_progress.sql",
-    "20261118001000_allow_dispatcher_progress_duty_sync.sql",
-    "20261118003000_dispatch_request_edit_notifications.sql",
-    "20261118010000_incident_assignment_event_history.sql",
-    "20261118011000_dispatcher_release_incident_assignment.sql",
-    "20261118090000_restrict_incident_assignment_table_privileges.sql",
-    "20261118092000_restrict_operational_table_writes.sql",
-    "20261118100000_restrict_core_table_destructive_privileges.sql",
-    "20261119090000_device_security_registry_foundation.sql",
-    "20261119100000_bound_device_registry_metadata.sql",
-    "20261119110000_public_data_free_dependency_health_rpc.sql",
-    "20261120070000_notify_dispatcher_of_requester_cancellation.sql",
-    "20261122090000_admin_analytics_summary.sql",
-    "20261122123000_require_totp_for_admin_rpcs.sql",
-    "20261122140000_admin_audit_server_pagination.sql",
-    "20261122150000_pin_incident_assignee_helper_search_path.sql",
-    "20261122153000_pin_dispatch_progress_rpc_search_path.sql",
-    "20261122160000_admin_investigation_events.sql",
-    "20261122200000_admin_directory_contact_minimization.sql",
-    "20261122210000_incident_chat_upload_reservations.sql",
-    "20261122230000_app_action_audit_coverage.sql",
-    "20261122213000_reconcile_incident_chat_upload_policy.sql",
-    # Follow-on account-lifecycle callable guards are staged and not confirmed in
-    # the live Supabase migration ledger.
-    "20261123220000_fcm_delivery_claim_active_recipient_guard.sql",
-    "20261124070000_account_lifecycle_dispatch_progress_guard.sql",
-    "20261124080000_account_lifecycle_team_assignment_guard.sql",
-    "20261124090000_account_lifecycle_assignment_release_guard.sql",
-    "20261124100000_account_lifecycle_location_writer_guard.sql",
-    "20261124110000_account_lifecycle_dispatcher_directory_guard.sql",
-    "20261124120000_account_lifecycle_requester_edit_guard.sql",
-    "20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql",
-    "20261124140000_account_lifecycle_duty_status_guard.sql",
-    # Account-lifecycle runtime PR #347 migrations are pending review/deployment;
-    # allow them on that branch without implying they exist in the live ledger.
-    "20261123090000_account_lifecycle_foundation.sql",
-    "20261123100000_account_lifecycle_restrictive_rls.sql",
-    "20261123110000_account_lifecycle_identity_helpers.sql",
-    "20261123120000_account_lifecycle_write_guard_triggers.sql",
-    "20261123130000_account_lifecycle_admin_mfa_guard.sql",
-    "20261123140000_account_lifecycle_read_rpc_guards.sql",
-    "20261123150000_account_lifecycle_assignment_helper_guard.sql",
-    "20261123160000_account_lifecycle_helper_volatility.sql",
-    "20261123170000_account_lifecycle_admin_transition_rpc.sql",
-    "20261123180000_account_lifecycle_chat_idempotency_guards.sql",
-    "20261123190000_account_lifecycle_write_rpc_entry_guards.sql",
-    "20261123200000_admin_account_lifecycle_audit_reader.sql",
-    "20261123210000_account_lifecycle_fcm_token_guards.sql",
-    "20261124190000_prevent_suspending_assigned_field_units.sql",
-    "20261124200000_guard_active_assignment_targets.sql",
-    # Additional account-lifecycle enforcement migrations are staged on PR #347;
-    # allowlisted as repository files only, not as proof of live application.
-    "20261124150000_reconcile_active_account_rls_inventory.sql",
-    # PR #348 FCM self-unregister RPC is staged for review/deployment; do not
-    # treat repository presence as proof that the live Supabase ledger applied it.
-    "20261124170000_secure_fcm_self_unregister_rpc.sql",
-    "20261124180000_secure_fcm_delivery_token_cleanup_rpc.sql",
-}
+# Every repository migration now matches a version recorded in the live
+# Supabase migration ledger. New pending migrations must be added explicitly.
+PENDING = set()
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
     f"Applied migration files missing from repository. Missing={sorted(EXPECTED - actual)}"
@@ -226,7 +217,7 @@ for required in (
     assert required in attachments, f"Missing private incident-image attachment contract: {required}"
 print("PASS: incident chat image attachments use private Storage policies and server-verified object metadata.")
 
-api_audit = (MIGRATIONS / "20261116170000_api_operation_audit_and_fk_indexes.sql").read_text()
+api_audit = (MIGRATIONS / "20261122050811_api_operation_audit_and_fk_indexes.sql").read_text()
 for required in (
     "CREATE TABLE public.api_operation_logs",
     "actor_auth_user_id uuid",
@@ -329,7 +320,7 @@ print("PASS: public signup enforces name/contact requirements and always provisi
 
 
 # Device registry remains backend-only until server-side proof verification exists.
-device_security = (MIGRATIONS / "20261119090000_device_security_registry_foundation.sql").read_text()
+device_security = (MIGRATIONS / "20261122050845_device_security_registry_foundation.sql").read_text()
 for required in (
     "CREATE TABLE IF NOT EXISTS public.user_devices",
     "CREATE TABLE IF NOT EXISTS public.device_sessions",
@@ -377,11 +368,11 @@ for required in (
 ):
     assert required in core_privileges, f"Missing exact core-table privilege assertion: {required}"
 assert "PostgreSQL has_table_privilege(..., 'UPDATE') intentionally returns false" in core_privileges
-core_migration = (MIGRATIONS / "20261118100000_restrict_core_table_destructive_privileges.sql").read_text()
+core_migration = (MIGRATIONS / "20261122050843_restrict_core_table_destructive_privileges.sql").read_text()
 assert "incident creation, updates, and assignment use authorization-checked RPCs" in core_migration
 print("PASS: core privilege runtime contract checks narrow updates and RPC-only client creation.")
 
-device_bounds = (MIGRATIONS / "20261119100000_bound_device_registry_metadata.sql").read_text()
+device_bounds = (MIGRATIONS / "20261122050847_bound_device_registry_metadata.sql").read_text()
 for required in (
     "user_devices_device_model_length_check",
     "user_devices_app_version_length_check",
@@ -404,7 +395,7 @@ print("PASS: device registry metadata and event payloads are bounded; challenges
 
 
 # Public dependency probe is intentionally data-free and cannot mutate state.
-dependency_health = (MIGRATIONS / "20261119110000_public_data_free_dependency_health_rpc.sql").read_text()
+dependency_health = (MIGRATIONS / "20261122050850_public_data_free_dependency_health_rpc.sql").read_text()
 for required in (
     "CREATE OR REPLACE FUNCTION public.api_dependency_health()",
     "RETURNS text",
