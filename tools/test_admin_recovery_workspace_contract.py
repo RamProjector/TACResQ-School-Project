@@ -7,7 +7,8 @@ styles = Path("backend/web/src/pages/AdminConsole.css").read_text()
 assert 'type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "settings" | "help";' in source
 assert 'type AdminContinuityPage = "recovery" | "attachments";' in source
 assert '{ id: "recovery", label: "Data & continuity", icon: HardDrive }' in source
-assert '"recovery", "attachments", "settings", "help"' in source
+assert '["overview", "users", "security", "analytics", "recovery", "settings", "help"]' in source
+assert 'if (route === "attachments") return "recovery";' in source
 assert '{activeSection === "recovery" && (' in source
 assert 'id="admin-recovery-title"' in source
 
