@@ -61,7 +61,8 @@ type AdminConsoleProps = {
 type RoleFilter = "all" | AdminManagedRole | "admin";
 type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "attachments" | "settings" | "help";
 
-type AdminSettingsPage = "general" | "accessibility" | "notifications" | "security" | "privacy";
+type AdminSettingsPage = "general" | "accessibility" | "notifications" | "privacy";
+type AdminContinuityPage = "recovery" | "attachments";
 
 type AdminPageSize = 10 | 25 | 50 | 100;
 
@@ -108,8 +109,7 @@ const adminSections: { id: AdminSection; label: string; icon: typeof LayoutDashb
   { id: "security", label: "Security", icon: ShieldAlert },
   { id: "analytics", label: "Reports", icon: BarChart3 },
   { id: "audit", label: "Activity log", icon: History },
-  { id: "recovery", label: "Recovery & continuity", icon: HardDrive },
-  { id: "attachments", label: "Attachment storage", icon: Images },
+  { id: "recovery", label: "Data & continuity", icon: HardDrive },
   { id: "settings", label: "Settings", icon: Settings },
   { id: "help", label: "Help & about", icon: BookOpen },
 ];
@@ -117,13 +117,14 @@ const roleOptions: AdminManagedRole[] = ["requester", "responder", "driver", "di
 
 function resolveSettingsPage(search: string): AdminSettingsPage {
   const page = new URLSearchParams(search).get("adminSettings");
-  return ["general", "accessibility", "notifications", "security", "privacy"].includes(page ?? "") ? page as AdminSettingsPage : "general";
+  return ["general", "accessibility", "notifications", "privacy"].includes(page ?? "") ? page as AdminSettingsPage : "general";
 }
 
 function resolveAdminSection(search: string): AdminSection {
   const route = new URLSearchParams(search).get("adminPage") ?? "overview";
   if (route === "audit-logs") return "audit";
-  return ["overview", "users", "security", "analytics", "recovery", "attachments", "settings", "help"].includes(route) ? route as AdminSection : "overview";
+  if (route === "attachments") return "recovery";
+  return ["overview", "users", "security", "analytics", "recovery", "settings", "help"].includes(route) ? route as AdminSection : "overview";
 }
 
 function displayRole(role: string) {
@@ -278,6 +279,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     return () => window.clearTimeout(timer);
   }, [query]);
   const [activeSection, setActiveSection] = useState<AdminSection>(() => resolveAdminSection(window.location.search));
+  const [continuityPage, setContinuityPage] = useState<AdminContinuityPage>(() => new URLSearchParams(window.location.search).get("adminPage") === "attachments" ? "attachments" : "recovery");
   const authenticationEventsRequest = useRef(0);
   const refreshAuthenticationEvents = useCallback(async () => {
     const requestId = ++authenticationEventsRequest.current;
@@ -303,14 +305,15 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsPage, setSettingsPage] = useState<AdminSettingsPage>(() => resolveSettingsPage(window.location.search));
   const adminHeadingRef = useRef<HTMLHeadingElement>(null);
-  const previousAdminLocation = useRef({ section: activeSection, settingsPage });
+  const previousAdminLocation = useRef({ section: activeSection, settingsPage, continuityPage });
   useEffect(() => {
     const previous = previousAdminLocation.current;
     const locationChanged = previous.section !== activeSection ||
-      (activeSection === "settings" && previous.settingsPage !== settingsPage);
-    previousAdminLocation.current = { section: activeSection, settingsPage };
+      (activeSection === "settings" && previous.settingsPage !== settingsPage) ||
+      (activeSection === "recovery" && previous.continuityPage !== continuityPage);
+    previousAdminLocation.current = { section: activeSection, settingsPage, continuityPage };
     if (locationChanged) adminHeadingRef.current?.focus();
-  }, [activeSection, settingsPage]);
+  }, [activeSection, settingsPage, continuityPage]);
   const [preferences, setPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
   const [savedPreferences, setSavedPreferences] = useState<AdminPreferences>(() => readAdminPreferences());
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
@@ -412,10 +415,11 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       }
       setActiveSection(resolveAdminSection(window.location.search));
       setSettingsPage(resolveSettingsPage(window.location.search));
+      setContinuityPage(new URLSearchParams(window.location.search).get("adminPage") === "attachments" ? "attachments" : "recovery");
     };
     window.addEventListener("popstate", syncSectionFromLocation);
     return () => window.removeEventListener("popstate", syncSectionFromLocation);
-  }, [activeSection, settingsPage, preferencesDirty, confirmDiscardPreferenceChanges]);
+  }, [activeSection, settingsPage, continuityPage, preferencesDirty, confirmDiscardPreferenceChanges]);
 
   const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -871,7 +875,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <div>
                 <p className="admin-eyebrow">ADMINISTRATION</p>
                 <h1 ref={adminHeadingRef} tabIndex={-1}>{adminSections.find((section) => section.id === activeSection)?.label ?? "Overview"}</h1>
-                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review account status and manage operational roles with auditable reasons." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed."  : activeSection === "recovery" ? "Review documented backup and restore procedures, evidence requirements, and recovery capabilities that remain unverified." : activeSection === "attachments" ? "Review private incident-chat attachment safeguards, lifecycle controls, and storage evidence that is not connected to this portal." : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
+                <p>{activeSection === "overview" ? "A live overview of account governance and the dependencies currently checked by the portal." : activeSection === "users" ? "Review account status and manage operational roles with auditable reasons." : activeSection === "security" ? "Review your current administrator session, authenticator protection, and the security controls verified by this branch." : activeSection === "analytics" ? "Review request volume, current status distribution, and assignment timing for a selected reporting period." : activeSection === "audit" ? "Search recorded administrative, authentication, incident, and responder activity in one read-only feed."  : activeSection === "recovery" ? (continuityPage === "recovery" ? "Review backup, restore, and continuity evidence." : "Review private incident attachment safeguards and storage evidence.") : activeSection === "settings" ? "Personal display and accessibility preferences for this browser. These settings do not change TACResQ-wide policy." : activeSection === "help" ? "Guidance for using the Admin portal, understanding its limits, and finding the right workspace." : "Administrative workspace. Capabilities are shown only when their supporting backend controls are available."}</p>
               </div>
             </div>
             {(activeSection === "overview" || activeSection === "users") && <button className="admin-refresh" type="button" onClick={() => { void refresh(); }} disabled={refreshing}>
@@ -1164,12 +1168,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           {activeSection === "settings" && (
             <section className="admin-panel admin-settings-panel" aria-labelledby="admin-settings-title">
               <div className="admin-panel__heading">
-                <div><p className="admin-eyebrow">YOUR WORKSPACE</p><h2 id="admin-settings-title"><Settings size={19} /> {settingsPage === "general" ? "General & appearance" : settingsPage === "accessibility" ? "Accessibility" : settingsPage === "notifications" ? "Notifications" : settingsPage === "security" ? "Security & sessions" : "Privacy & data"}</h2></div>
+                <div><p className="admin-eyebrow">YOUR WORKSPACE</p><h2 id="admin-settings-title"><Settings size={19} /> {settingsPage === "general" ? "General & appearance" : settingsPage === "accessibility" ? "Accessibility" : settingsPage === "notifications" ? "Notifications" : "Privacy & data"}</h2></div>
                 <span className="admin-count">{preferencesDirty ? "Unsaved changes" : "Saved on this device"}</span>
               </div>
-              <p className="admin-settings-intro">These settings are separated by purpose. Personal display preferences affect only this browser; notification, security, and privacy controls remain read-only until their backend and governance requirements are verified.</p>
+              <p className="admin-settings-intro">Display preferences are saved on this browser. Notification and privacy sections remain informational until their backend and governance requirements are verified.</p>
               <nav className="admin-settings-nav" aria-label="Settings pages">
-                {([["general", "General"], ["accessibility", "Accessibility"], ["notifications", "Notifications"], ["security", "Security & sessions"], ["privacy", "Privacy & data"]] as const).map(([id, label]) => <button key={id} type="button" className={settingsPage === id ? "admin-settings-nav__item admin-settings-nav__item--active" : "admin-settings-nav__item"} aria-current={settingsPage === id ? "page" : undefined} onClick={() => navigateToSettingsPage(id)}>{label}</button>)}
+                {([["general", "General"], ["accessibility", "Accessibility"], ["notifications", "Notifications"], ["privacy", "Privacy & data"]] as const).map(([id, label]) => <button key={id} type="button" className={settingsPage === id ? "admin-settings-nav__item admin-settings-nav__item--active" : "admin-settings-nav__item"} aria-current={settingsPage === id ? "page" : undefined} onClick={() => navigateToSettingsPage(id)}>{label}</button>)}
               </nav>
               {settingsPage === "general" && <div className="admin-settings-grid">
                 <article className="admin-settings-card">
@@ -1241,14 +1245,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                 <p>Emergency notification preferences are not configurable from this Admin portal. This section intentionally provides no quiet-hours or suppression toggle, because no verified preference-enforcement workflow is connected here.</p>
                 <div className="admin-settings-status"><span>Preference controls</span><strong>Unavailable — no verified settings service</strong></div>
               </div>}
-              {settingsPage === "security" && <div className="admin-settings-subsection">
-                <p className="admin-eyebrow">SECURITY & SESSIONS</p>
-                <h3>Administrator session protection</h3>
-                <p>Authenticator enrollment and current-session assurance are managed in the Security workspace. This Settings subpage does not expose password changes, session revocation, or account lock controls because no separate verified Admin settings workflow is connected.</p>
-                <div className="admin-settings-status"><span>Authenticator controls</span><strong>Available in Security workspace</strong></div>
-                <div className="admin-settings-status"><span>Session/device management</span><strong>Not available in this portal</strong></div>
-                <button className="admin-refresh" type="button" onClick={() => navigateToSection("security")}>Open Security workspace <span aria-hidden="true">→</span></button>
-              </div>}
+
             </section>
           )}
           {activeSection === "help" && (
@@ -1367,6 +1364,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </>
           )}
           {activeSection === "recovery" && (
+            <nav className="admin-continuity-nav" aria-label="Data and continuity views">
+              <button type="button" className={continuityPage === "recovery" ? "admin-continuity-nav__item is-active" : "admin-continuity-nav__item"} aria-current={continuityPage === "recovery" ? "page" : undefined} onClick={() => { setContinuityPage("recovery"); const url = new URL(window.location.href); url.searchParams.set("adminPage", "recovery"); window.history.pushState({}, "", url.toString()); }}>Backup &amp; recovery</button>
+              <button type="button" className={continuityPage === "attachments" ? "admin-continuity-nav__item is-active" : "admin-continuity-nav__item"} aria-current={continuityPage === "attachments" ? "page" : undefined} onClick={() => { setContinuityPage("attachments"); const url = new URL(window.location.href); url.searchParams.set("adminPage", "attachments"); window.history.pushState({}, "", url.toString()); }}>Attachment safeguards</button>
+            </nav>
+          )}
+          {activeSection === "recovery" && continuityPage === "recovery" && (
             <section className="admin-panel admin-recovery-panel" aria-labelledby="admin-recovery-title">
               <div className="admin-panel__heading">
                 <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">BUSINESS CONTINUITY</p><h2 id="admin-recovery-title"><HardDrive size={19} /> Backup &amp; recovery readiness</h2></div><AdminHelpTip label="About recovery readiness" message="This workspace summarizes documented procedures and known gaps. It is not connected to backup jobs, provider snapshots, off-site storage, or restore evidence." /></div>
@@ -1435,7 +1438,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             </section>
           )}
 
-          {activeSection === "attachments" && (
+          {activeSection === "recovery" && continuityPage === "attachments" && (
             <section className="admin-panel admin-attachment-panel" aria-labelledby="admin-attachment-title">
               <div className="admin-panel__heading">
                 <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">PRIVATE INCIDENT MEDIA</p><h2 id="admin-attachment-title"><Images size={19} /> Attachment storage safeguards</h2></div><AdminHelpTip label="About attachment storage" message="This view summarizes source and dated inspection evidence. It does not query the live bucket, list files, download media, or change Storage policy." /></div>
