@@ -29,6 +29,19 @@ assert 'aria-modal={mobileSidebarOpen ? true : undefined}' in SOURCE
 assert 'document.body.style.overflow = "hidden"' in SOURCE
 assert "closeMobileSidebar(true);" in SOURCE
 
+# Desktop collapse fully retracts the sidebar; the expand control remains in the workspace header.
+assert "grid-template-columns: 0 minmax(0, 1fr)" in ADMIN_CSS
+assert "width: 0" in ADMIN_CSS and "overflow: hidden" in ADMIN_CSS
+assert "76px minmax(0, 1fr)" not in ADMIN_CSS
+assert ".admin-sidebar-expand" in ADMIN_CSS
+assert "transition:grid-template-columns .24s" in ADMIN_CSS
+assert 'aria-label="Expand navigation"' in SOURCE
+assert 'aria-label="Collapse navigation"' in SOURCE
+assert "inert={sidebarCollapsed && !mobileSidebarOpen}" in SOURCE
+assert "aria-hidden={sidebarCollapsed && !mobileSidebarOpen}" in SOURCE
+assert "sidebarExpandRef.current?.focus()" in SOURCE
+assert "sidebarCollapseRef.current?.focus()" in SOURCE
+
 # Nested panels are visually flattened into subsections, not card-on-card surfaces.
 assert ".admin-shell .admin-panel .admin-panel {" in CSS
 nested_panel = CSS.split(".admin-shell .admin-panel .admin-panel {", 1)[1].split("}", 1)[0]
