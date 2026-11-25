@@ -30,6 +30,9 @@ for marker in (
     'No authentication events were returned',
     'void refreshAuthenticationEvents();',
     'formatManilaDateTime(authenticationEventsLoadedAt)',
+    'aria-live="polite"',
+    'authenticationEventsLoading ? "Refreshing…"',
+
     'navigateToSection("audit")',
 ):
     assert marker in console, f"Missing authentication preview behavior: {marker}"
