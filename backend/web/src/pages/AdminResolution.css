@@ -1085,6 +1085,7 @@
 .admin-sidebar-backdrop { display: none; }
 
 @media (max-width: 900px) {
+  .admin-shell { grid-template-columns: minmax(0,1fr); }
   .admin-shell > .admin-sidebar {
     position: fixed;
     z-index: 50;
