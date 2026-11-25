@@ -259,6 +259,7 @@ jobs:
         run: python3 tools/test_admin_analytics_export_contract.py
       - name: Check Admin attachment storage workspace contract
         run: python3 tools/test_admin_attachment_storage_workspace_contract.py
+        run: python3 tools/test_admin_overview_analytics_separation_contract.py
       - name: Check Admin audit loading state contract
         run: python3 tools/test_admin_audit_busy_state_contract.py
       - name: Check Admin audit date filter contract
