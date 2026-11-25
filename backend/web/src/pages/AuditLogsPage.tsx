@@ -396,9 +396,14 @@ export default function AuditLogsPage({ profile }: AuditLogsPageProps) {
         <label><span>Source</span><select value={source} onChange={(event) => { setPage(0); setSource(event.target.value as AdminInvestigationSource); }}><option value="all">All sources</option>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label><span>From</span><input type="date" value={from} max={to || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setFrom(event.target.value); }} /></label>
         <label><span>To</span><input type="date" value={to} min={from || undefined} aria-invalid={Boolean(dateRangeError)} onChange={(event) => { setPage(0); setTo(event.target.value); }} /></label>
-        <label><span>Actor profile ID</span><input type="number" inputMode="numeric" min="1" step="1" value={actorId} aria-invalid={Boolean(actorId.trim() && actorFilterId === null)} onChange={(event) => { setPage(0); setActorId(event.target.value); }} placeholder="Any actor" /></label>
-        <label><span>Target profile ID</span><input type="number" inputMode="numeric" min="1" step="1" value={targetId} aria-invalid={Boolean(targetId.trim() && targetFilterId === null)} onChange={(event) => { setPage(0); setTargetId(event.target.value); }} placeholder="Any target" /></label>
-        <label><span>Incident ID</span><input type="number" inputMode="numeric" min="1" step="1" value={incidentId} aria-invalid={Boolean(incidentId.trim() && incidentFilterId === null)} onChange={(event) => { setPage(0); setIncidentId(event.target.value); }} placeholder="Any incident" /></label>
+        <details className="audit-page__technical-filters">
+          <summary>Technical reference filters</summary>
+          <div className="audit-page__filters">
+            <label><span>Actor profile reference</span><input type="number" inputMode="numeric" min="1" step="1" value={actorId} aria-invalid={Boolean(actorId.trim() && actorFilterId === null)} onChange={(event) => { setPage(0); setActorId(event.target.value); }} placeholder="Any actor" /></label>
+            <label><span>Target profile reference</span><input type="number" inputMode="numeric" min="1" step="1" value={targetId} aria-invalid={Boolean(targetId.trim() && targetFilterId === null)} onChange={(event) => { setPage(0); setTargetId(event.target.value); }} placeholder="Any target" /></label>
+            <label><span>Incident reference</span><input type="number" inputMode="numeric" min="1" step="1" value={incidentId} aria-invalid={Boolean(incidentId.trim() && incidentFilterId === null)} onChange={(event) => { setPage(0); setIncidentId(event.target.value); }} placeholder="Any incident" /></label>
+          </div>
+        </details>
         <div className="audit-page__date-presets" role="group" aria-label="Quick date range">
           <span>Quick range</span>
           {[7, 30, 90].map((days) => <button key={days} type="button" aria-pressed={isDatePresetSelected(days, from, to)} onClick={() => { setPage(0); setFrom(manilaDateOffset(days - 1)); setTo(manilaDateOffset(0)); }}>{days} days</button>)}
