@@ -31,6 +31,9 @@ assert "not a complete record of every action or denied attempt" in ADMIN
 assert "todayActivityError ? \"Unavailable\"" in ADMIN
 assert "todayActivityLoading" in ADMIN
 assert "todayActivityRequest.current" in ADMIN
+activity_effect = ADMIN.split('useEffect(() => {\n    if (activeSection !== "overview")', 1)[1].split("}, [activeSection, refreshTodayActivity]);", 1)[0]
+for cleared_state in ("setTodayActivityEvents([]);", "setTodayActivityCount(null);", "setTodayActivityError(null);", "setTodayActivityLoadedAt(null);"):
+    assert cleared_state in activity_effect
 
 # Analytics owns aggregate charts and performance over selectable periods.
 assert "admin-analytics-status-grid" not in ADMIN
