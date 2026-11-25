@@ -1231,7 +1231,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                               <p>
                                 These are the account fields currently returned by the protected Admin directory.
                                 Duty status is operational availability, not sign-in or suspension status.
-                                This view does not include authentication history or a complete account activity timeline.
+                                The preview below uses only event sources currently integrated into the protected investigation feed; it is not a complete account activity timeline.
                               </p>
                               <div className="admin-account-activity">
                                 <button
