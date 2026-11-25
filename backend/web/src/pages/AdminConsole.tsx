@@ -1567,7 +1567,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <thead><tr><th scope="col">Capability</th><th scope="col">Current authorization</th><th scope="col">Boundary / limitation</th></tr></thead>
                   <tbody>
                     <tr><th scope="row">Overview and dependency reachability</th><td>Admin portal</td><td>Fixed reachability probes only; not emergency-service readiness.</td></tr>
-                    <tr><th scope="row">Recovery &amp; continuity</th><td>Admin portal · read-only guidance</td><td>Links operator procedures and states evidence gaps; no backup, restore, or provider configuration actions are connected.</td></tr>
+                    <tr><th scope="row">Data &amp; continuity</th><td>Admin portal · read-only guidance</td><td>Links operator procedures and states evidence gaps; no backup, restore, or provider configuration actions are connected.</td></tr>
                     <tr><th scope="row">Attachment storage</th><td>Admin portal · read-only guidance</td><td>Summarizes source and dated inspection evidence only; no live bucket query, object listing, media access, or cleanup action is available.</td></tr>
                     <tr><th scope="row">Account directory</th><td>Admin + AAL2 + TOTP</td><td>Bounded account directory with current Active/Suspended state; it is not a complete authentication history.</td></tr>
                     <tr><th scope="row">Change an ordinary account role</th><td>Admin + AAL2 + TOTP; reason required</td><td>Only requester, responder, driver, and dispatcher roles. Admin promotion/demotion is trusted-operator-only; active incident assignments block changes.</td></tr>
