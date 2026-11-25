@@ -1055,7 +1055,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
             type="button"
             aria-label="Collapse navigation"
             title="Collapse navigation"
-            aria-pressed={false}
+            aria-controls="admin-primary-sidebar"
+            aria-expanded={true}
             onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
           >
             <PanelLeftClose size={17} aria-hidden="true" />
