@@ -1279,7 +1279,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <div className="admin-panel__heading">
                 <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">AUTHENTICATION ACTIVITY</p><h2 id="admin-security-events-title"><History size={19} /> Recent authentication events</h2></div><AdminHelpTip label="About authentication events" message="This is a five-event preview from the existing protected investigation feed. It includes only events currently collected by the connected authentication source; it is not a complete sign-in or session history." /></div>
                 <div className="admin-analytics-controls">
-                  <span className="admin-count">{authenticationEventsLoadedAt ? "Retrieved " + formatManilaDateTime(authenticationEventsLoadedAt) : "No result yet"}</span>
+                  <span className="admin-count" role="status" aria-live="polite">{authenticationEventsLoading ? "Refreshing…" : authenticationEventsLoadedAt ? "Retrieved " + formatManilaDateTime(authenticationEventsLoadedAt) : "No result yet"}</span>
                   <button className="admin-refresh" type="button" onClick={() => { void refreshAuthenticationEvents(); }} disabled={authenticationEventsLoading}><RefreshCw size={15} className={authenticationEventsLoading ? "admin-spin" : ""} /> Refresh</button>
                 </div>
               </div>
