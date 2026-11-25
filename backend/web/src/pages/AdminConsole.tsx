@@ -358,6 +358,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     if (activeSection !== "overview") {
       todayActivityRequest.current += 1;
       setTodayActivityLoading(false);
+      setTodayActivityEvents([]);
+      setTodayActivityCount(null);
+      setTodayActivityError(null);
+      setTodayActivityLoadedAt(null);
       return;
     }
     void refreshTodayActivity();
