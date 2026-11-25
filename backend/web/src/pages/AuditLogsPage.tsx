@@ -111,7 +111,7 @@ function actorDisplay(event: AdminInvestigationEvent, profile: TacruProfile) {
 }
 
 function parseOptionalPositiveId(value: string): number | null {
-  if (!value.trim() || !/^[1-9]\\d*$/.test(value)) return null;
+  if (!value.trim() || !/^[1-9]\d*$/.test(value)) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
