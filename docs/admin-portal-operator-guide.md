@@ -374,3 +374,11 @@ The desktop Admin sidebar can be collapsed from the top bar to give data tables 
 ## Account directory action clarity and row scanning
 
 Repeated actions in the account directory include the affected account's name in their accessible labels, so assistive-technology users can distinguish identical controls across rows. The visible button labels remain concise. Table rows receive a restrained hover/focus-within surface to help track a row across wide columns; this is only a reading aid and does not encode role, account status, or duty status. Expanded account details retain a separate background and the existing explicit status text. Motion on row highlighting is removed when reduced motion is requested.
+
+## User Management account activity preview
+
+Expanded account details can load a compact, read-only activity preview for the selected profile. The preview reuses the existing `api_admin_list_investigation_events` RPC and therefore retains its Admin TOTP/AAL2 requirement and source-specific minimization. It makes two bounded reads (five events where the profile is the actor and five where the profile is the target), deduplicates overlapping event IDs, sorts by event time, and displays at most ten recent rows.
+
+The preview is on demand; opening account details does not automatically query the investigation feed. It shows the event summary, source, and Asia/Manila timestamp only. It does not display raw event details, request payloads, coordinates, contact data, messages, attachment contents, or secrets. A zero-result message means no matching rows were returned by the currently integrated sources; it is not proof that the profile has no activity. Coverage, source retention, and optional Auth Audit Log availability remain limitations. For a full filtered investigation, use the Activity Log workspace.
+
+If the Admin session no longer satisfies the RPC's TOTP/AAL2 requirement, the preview reports the protected read failure rather than falling back to an unprotected query. Closing the expanded account row cancels the active preview state. This preview does not alter account status, role, duty status, or audit records.
