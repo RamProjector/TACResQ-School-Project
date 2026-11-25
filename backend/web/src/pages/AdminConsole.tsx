@@ -121,7 +121,9 @@ function resolveSettingsPage(search: string): AdminSettingsPage {
 }
 
 function resolveAdminSection(search: string): AdminSection {
-  const route = new URLSearchParams(search).get("adminPage") ?? "overview";
+  const params = new URLSearchParams(search);
+  const route = params.get("adminPage") ?? "overview";
+  if (route === "settings" && params.get("adminSettings") === "security") return "security";
   if (route === "audit-logs") return "audit";
   if (route === "attachments") return "recovery";
   return ["overview", "users", "security", "analytics", "recovery", "settings", "help"].includes(route) ? route as AdminSection : "overview";
