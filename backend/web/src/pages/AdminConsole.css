@@ -1740,3 +1740,75 @@
     transition: none;
   }
 }
+
+
+/* Desktop operators can reclaim workspace width without losing navigation context. */
+.admin-topbar__leading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 13px;
+}
+.admin-sidebar-toggle {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dfe5dc;
+  border-radius: 7px;
+  color: #536b62;
+  background: #fffefa;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+.admin-sidebar-toggle:hover {
+  border-color: #b9cbbd;
+  color: #29463f;
+  background: #f4f8f2;
+}
+.admin-sidebar-toggle:focus-visible {
+  outline: 3px solid rgba(243,106,67,.55);
+  outline-offset: 2px;
+}
+@media (min-width: 901px) {
+  .admin-shell--sidebar-collapsed {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+  .admin-shell--sidebar-collapsed .admin-sidebar {
+    align-items: stretch;
+    padding-inline: 12px;
+  }
+  .admin-shell--sidebar-collapsed .admin-sidebar > .brand {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .admin-shell--sidebar-collapsed .admin-sidebar .brand__wordmark,
+  .admin-shell--sidebar-collapsed .admin-sidebar__context,
+  .admin-shell--sidebar-collapsed .admin-navigation__group-label,
+  .admin-shell--sidebar-collapsed .admin-sidebar__bottom {
+    display: none;
+  }
+  .admin-shell--sidebar-collapsed .admin-nav-item {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+  .admin-shell--sidebar-collapsed .admin-nav-item span {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .admin-sidebar-toggle {
+    display: none;
+  }
+  .admin-shell--sidebar-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar-toggle {
+    transition: none;
+  }
+}
