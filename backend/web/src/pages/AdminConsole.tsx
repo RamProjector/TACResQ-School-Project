@@ -439,6 +439,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const modalRoot = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const requestVersion = useRef(0);
+  const dependencyHealthRequestVersion = useRef(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
 
   // Provide a predictable shortcut to the account search without intercepting
@@ -517,6 +518,23 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
     };
   }, [target, lifecycleTarget, saving]);
 
+  async function retryDependencyHealth() {
+    const requestId = ++dependencyHealthRequestVersion.current;
+    setDependencyHealthLoading(true);
+    setDependencyHealthError(null);
+    try {
+      const nextHealth = await getAdminDependencyHealth();
+      if (requestId !== dependencyHealthRequestVersion.current) return;
+      setDependencyHealth(nextHealth);
+    } catch {
+      if (requestId !== dependencyHealthRequestVersion.current) return;
+      setDependencyHealth(null);
+      setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
+    } finally {
+      if (requestId === dependencyHealthRequestVersion.current) setDependencyHealthLoading(false);
+    }
+  }
+
   const refresh = useCallback(async () => {
     const requestId = ++requestVersion.current;
     setRefreshing(true);
@@ -553,22 +571,23 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
         });
     }
     if (activeSection === "overview") {
+      const dependencyRequestId = ++dependencyHealthRequestVersion.current;
       setDependencyHealth(null);
       setDependencyHealthError(null);
       setDependencyHealthLoading(true);
       void getAdminDependencyHealth()
         .then((nextHealth) => {
-          if (requestId !== requestVersion.current) return;
+          if (dependencyRequestId !== dependencyHealthRequestVersion.current) return;
           setDependencyHealth(nextHealth);
           setDependencyHealthError(null);
         })
         .catch(() => {
-          if (requestId !== requestVersion.current) return;
+          if (dependencyRequestId !== dependencyHealthRequestVersion.current) return;
           setDependencyHealth(null);
           setDependencyHealthError("Dependency diagnostics are unavailable. User management and audit data remain independently available.");
         })
         .finally(() => {
-          if (requestId === requestVersion.current) setDependencyHealthLoading(false);
+          if (dependencyRequestId === dependencyHealthRequestVersion.current) setDependencyHealthLoading(false);
         });
     }
     try {
@@ -896,7 +915,12 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <section className="admin-panel admin-health-panel" aria-labelledby="admin-health-title" aria-describedby="admin-health-limitations" aria-busy={dependencyHealthLoading} hidden={activeSection !== "overview"}>
             <div className="admin-panel__heading">
               <div className="admin-panel__title-with-help"><div><p className="admin-eyebrow">SERVICE REACHABILITY</p><h2 id="admin-health-title"><ShieldCheck size={19} /> Dependency reachability</h2></div><AdminHelpTip label="About dependency reachability" message="These probes only confirm that Laravel, Supabase Auth, and the database responded within the configured threshold. They do not verify incident creation, assignment, routing, location accuracy, or push delivery." /></div>
-              <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatManilaDateTime(dependencyHealth.checked_at) + " (Asia/Manila)" : "No verified result"}</span>
+              <div className="admin-health-actions">
+                <span className="admin-count">{dependencyHealthLoading ? "Checking…" : dependencyHealth ? "Last checked " + formatManilaDateTime(dependencyHealth.checked_at) + " (Asia/Manila)" : "No verified result"}</span>
+                <button type="button" className="admin-button admin-button--quiet" onClick={() => void retryDependencyHealth()} disabled={dependencyHealthLoading} aria-label="Refresh dependency diagnostics">
+                  <RefreshCw size={14} aria-hidden="true" /> {dependencyHealthLoading ? "Checking…" : "Refresh"}
+                </button>
+              </div>
             </div>
             {dependencyHealthError ? (
               <div className="admin-health-unavailable" role="status">{dependencyHealthError}</div>
