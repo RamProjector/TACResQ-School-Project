@@ -919,3 +919,137 @@
 }
 
 .admin-shell .admin-panel .admin-panel::before { display: none; }
+
+
+/* Persistent scrollbar affordances for the Admin workspace's intentional scroll regions. */
+.admin-shell {
+  --admin-scrollbar-track: #edf1ec;
+  --admin-scrollbar-thumb: #9aaea0;
+  --admin-scrollbar-thumb-hover: #6f8b79;
+}
+.admin-shell :where(
+  .admin-sidebar,
+  .admin-navigation,
+  .admin-table-wrap,
+  .admin-analytics-bars,
+  .admin-modal,
+  [data-scrollable="true"]
+) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--admin-scrollbar-thumb) var(--admin-scrollbar-track);
+}
+.admin-shell :where(.admin-sidebar, .admin-modal) {
+  scrollbar-gutter: stable;
+}
+.admin-shell :where(
+  .admin-sidebar,
+  .admin-navigation,
+  .admin-table-wrap,
+  .admin-analytics-bars,
+  .admin-modal,
+  [data-scrollable="true"]
+)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.admin-shell :where(
+  .admin-sidebar,
+  .admin-navigation,
+  .admin-table-wrap,
+  .admin-analytics-bars,
+  .admin-modal,
+  [data-scrollable="true"]
+)::-webkit-scrollbar-track {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--admin-scrollbar-track);
+  background-clip: padding-box;
+}
+.admin-shell :where(
+  .admin-sidebar,
+  .admin-navigation,
+  .admin-table-wrap,
+  .admin-analytics-bars,
+  .admin-modal,
+  [data-scrollable="true"]
+)::-webkit-scrollbar-thumb {
+  min-height: 28px;
+  border: 2px solid var(--admin-scrollbar-track);
+  border-radius: 999px;
+  background: var(--admin-scrollbar-thumb);
+  background-clip: padding-box;
+}
+.admin-shell :where(
+  .admin-sidebar,
+  .admin-navigation,
+  .admin-table-wrap,
+  .admin-analytics-bars,
+  .admin-modal,
+  [data-scrollable="true"]
+)::-webkit-scrollbar-thumb:hover {
+  background: var(--admin-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+@media (forced-colors: active) {
+  .admin-shell :where(
+    .admin-sidebar,
+    .admin-navigation,
+    .admin-table-wrap,
+    .admin-analytics-bars,
+    .admin-modal,
+    [data-scrollable="true"]
+  ) {
+    scrollbar-color: auto;
+  }
+}
+
+/* A single quiet surface per task; nested audit information reads as grouped content. */
+.admin-shell .audit-page__coverage,
+.admin-shell .audit-page__coverage-details,
+.admin-shell .audit-page__lifecycle,
+.admin-shell .audit-page__filters,
+.admin-shell .audit-event-card,
+.admin-shell .audit-event-card__details {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.admin-shell .audit-page__coverage {
+  padding-inline: 0;
+  border-bottom: 1px solid #e5eae2;
+}
+.admin-shell .audit-page__coverage-details {
+  border-bottom: 1px solid #e5eae2;
+}
+.admin-shell .audit-page__coverage-details > summary {
+  padding-inline: 0;
+}
+.admin-shell .audit-page__coverage-grid {
+  padding-inline: 0;
+}
+.admin-shell .audit-page__lifecycle {
+  padding-inline: 0;
+  border-top: 1px solid #e5eae2;
+}
+.admin-shell .audit-page__filters {
+  padding-inline: 0;
+  border-bottom: 1px solid #e5eae2;
+}
+.admin-shell .audit-event-card {
+  padding-inline: 0;
+  border-bottom: 1px solid #e5eae2;
+}
+.admin-shell .audit-event-card__details {
+  padding-inline: 0;
+  border-top: 1px solid #e5eae2;
+}
+@media (max-width: 760px) {
+  .admin-shell .audit-page__lifecycle,
+  .admin-shell .audit-page__filters {
+    padding-inline: 0;
+  }
+  .admin-shell .audit-event-card {
+    padding-inline: 0;
+  }
+}
