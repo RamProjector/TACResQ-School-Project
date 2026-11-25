@@ -1,5 +1,5 @@
 /* Admin console — shares TACResQ's palette while keeping privileged workflows distinct. */
-.admin-shell { display:grid; min-height:100vh; grid-template-columns:238px minmax(0,1fr); color:var(--ink); background:var(--paper); }
+.admin-shell { display:grid; min-height:100vh; grid-template-columns:238px minmax(0,1fr); color:var(--ink); background:var(--paper); transition:grid-template-columns .24s cubic-bezier(.2,.7,.2,1); }
 .admin-sidebar { position:sticky; top:0; display:flex; height:100vh; flex-direction:column; padding:26px 18px 17px; color:#eaf0eb; background:var(--ink-deep); }
 .admin-sidebar > .brand { padding:0 8px 30px; }
 .admin-sidebar__label { padding:0 10px 12px; color:#829891; font:600 9px var(--mono); letter-spacing:.13em; }
@@ -1779,32 +1779,36 @@
 }
 @media (min-width: 901px) {
   .admin-shell--sidebar-collapsed {
-    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-columns: 0 minmax(0, 1fr);
   }
-  .admin-shell--sidebar-collapsed .admin-sidebar {
-    align-items: stretch;
-    padding-inline: 12px;
-  }
-  .admin-shell--sidebar-collapsed .admin-sidebar > .brand {
-    justify-content: center;
+  .admin-shell--sidebar-collapsed > .admin-sidebar {
+    width: 0;
+    min-width: 0;
     padding-inline: 0;
+    overflow: hidden;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
   }
-  .admin-shell--sidebar-collapsed .admin-sidebar .brand__wordmark,
-  .admin-shell--sidebar-collapsed .admin-sidebar__context,
-  .admin-shell--sidebar-collapsed .admin-navigation__group-label,
-  .admin-shell--sidebar-collapsed .admin-sidebar__bottom {
-    display: none;
+  .admin-sidebar-expand {
+    display: inline-grid;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid #dfe7dd;
+    border-radius: 8px;
+    color: #536b63;
+    background: #fffefa;
+    cursor: pointer;
+    transition: color .18s ease, background .18s ease, border-color .18s ease;
   }
-  .admin-shell--sidebar-collapsed .admin-nav-item {
-    justify-content: center;
-    gap: 0;
-    padding-inline: 0;
-  }
-  .admin-shell--sidebar-collapsed .admin-nav-item span {
-    display: none;
-  }
+  .admin-sidebar-expand:hover { border-color: #d2dfd2; color: #29463f; background: #f1f5ef; }
+  .admin-sidebar-expand:focus-visible { outline: 2px solid rgba(243,106,67,.65); outline-offset: 2px; }
 }
 @media (max-width: 900px) {
+  .admin-shell { transition: none; }
+  .admin-sidebar-expand { display: none; }
   .admin-sidebar-toggle {
     display: none;
   }
@@ -1813,7 +1817,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .admin-sidebar-toggle {
+  .admin-shell { transition: none; }
+  .admin-sidebar-toggle, .admin-sidebar-expand {
     transition: none;
   }
 }
