@@ -1821,3 +1821,36 @@
 .admin-table tbody tr.admin-account-row--expanded > td { background: #f1f6ef; }
 .admin-table .admin-account-actions button:focus-visible { position: relative; z-index: 1; outline: 3px solid rgba(243,106,67,.55); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .admin-table tbody tr:not(.admin-account-details-row) > td { transition: none; } }
+
+
+/* Compact audit controls and readable count chips. */
+.audit-page__intro { align-items:center; padding:14px 18px; }
+.audit-page__intro h2 { font-size:19px; }
+.audit-page__intro > div > p:last-child { display:none; }
+.audit-page__summary { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; }
+.audit-page__summary > span { display:inline-flex; align-items:center; min-height:28px; padding:5px 9px; border:1px solid #e1e8df; border-radius:7px; background:#fffefa; }
+.audit-page__coverage-details { overflow:hidden; }
+.audit-page__coverage-details > summary { cursor:pointer; color:#64776d; font-size:11px; font-weight:600; }
+.audit-page__coverage-details[open] > .audit-page__coverage { margin:0 12px 12px; }
+@media (min-width:901px) {
+  .admin-shell .admin-sidebar { transition: width .22s ease, padding .22s ease; }
+  .admin-shell { transition: grid-template-columns .22s cubic-bezier(.2,.7,.2,1); }
+  .admin-sidebar .brand__wordmark, .admin-sidebar__context, .admin-navigation__group-label, .admin-sidebar__bottom, .admin-nav-item span { transition: opacity .14s ease, transform .18s ease; }
+  .admin-shell--sidebar-collapsed .admin-sidebar .brand__wordmark,
+  .admin-shell--sidebar-collapsed .admin-sidebar__context,
+  .admin-shell--sidebar-collapsed .admin-navigation__group-label,
+  .admin-shell--sidebar-collapsed .admin-sidebar__bottom,
+  .admin-shell--sidebar-collapsed .admin-nav-item span { opacity:0; transform:translateX(-5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell, .admin-shell .admin-sidebar, .admin-sidebar .brand__wordmark,
+  .admin-sidebar__context, .admin-navigation__group-label, .admin-sidebar__bottom,
+  .admin-nav-item span { transition:none !important; }
+}
+
+.admin-info-disclosure { padding:10px 12px; border:1px solid #e2e8df; border-radius:9px; background:#fffefa; }
+.admin-info-disclosure + .admin-info-disclosure { margin-top:8px; }
+.admin-info-disclosure summary { cursor:pointer; color:#435d53; font-size:11px; font-weight:650; }
+.admin-info-disclosure p { margin:8px 0; color:#71817b; font-size:10px; line-height:1.6; }
+.admin-info-disclosure a { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; }
+.admin-info-disclosure[open] { border-color:#cbd9ca; background:#fbfcf8; }
