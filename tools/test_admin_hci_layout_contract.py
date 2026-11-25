@@ -97,3 +97,7 @@ assert 'preferences.reducedMotion ? "auto" : "smooth"' in SOURCE
 assert ".admin-search kbd {" in ADMIN_CSS
 assert ".admin-back-to-top {" in ADMIN_CSS
 assert "@media (prefers-reduced-motion: reduce)" in ADMIN_CSS
+
+forced_colors = CSS.split("@media (forced-colors: active)", 1)[1].split("}", 1)[0]
+assert ".admin-settings-nav" in forced_colors
+assert ".admin-analytics-data__table-wrap" in forced_colors
