@@ -1291,13 +1291,13 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <div><p className="admin-eyebrow">DATABASE</p><span className="admin-recovery-state">Procedure documented</span></div>
                   <h3>PostgreSQL data &amp; schema</h3>
                   <p>The documented export separates schema, data, and custom roles. The Supabase CLI dump excludes managed Auth and Storage schemas. No export or destination is verified here.</p>
-                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/postgres-logical-backup-procedure.md" target="_blank" rel="noreferrer">Open database backup procedure <span aria-hidden="true">↗</span></a>
+                  <details className="admin-info-disclosure"><summary>Database backup procedure</summary><p>Steps for creating and verifying a logical database backup. Use this as an operator reference; the portal does not start a backup.</p><a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/postgres-logical-backup-procedure.md" target="_blank" rel="noreferrer">Open procedure <span aria-hidden="true">↗</span></a></details>
                 </article>
                 <article className="admin-recovery-card">
                   <div><p className="admin-eyebrow">ATTACHMENTS</p><span className="admin-recovery-state">Separate procedure</span></div>
                   <h3>Storage object bytes</h3>
                   <p>Incident attachments require a separate object copy and manifest. Database metadata alone cannot recover deleted object bytes. No off-site object copy or restore is verified here.</p>
-                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/storage-object-backup-procedure.md" target="_blank" rel="noreferrer">Open Storage backup procedure <span aria-hidden="true">↗</span></a>
+                  <details className="admin-info-disclosure"><summary>Storage object backup</summary><p>Explains the separate backup and verification steps for uploaded objects, which are not covered by a database dump alone.</p><a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/storage-object-backup-procedure.md" target="_blank" rel="noreferrer">Open procedure <span aria-hidden="true">↗</span></a></details>
                 </article>
                 <article className="admin-recovery-card">
                   <div><p className="admin-eyebrow">IDENTITY &amp; CONFIGURATION</p><span className="admin-recovery-state">Recovery unresolved</span></div>
@@ -1309,19 +1309,19 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
                   <div><p className="admin-eyebrow">APPLICATION HOSTING</p><span className="admin-recovery-state">Source-controlled</span></div>
                   <h3>Render Admin portal &amp; API</h3>
                   <p>Git preserves source history, not the deployed runtime configuration. Render filesystems are ephemeral by default; do not use the service filesystem as a backup destination. Environment values and secret files require separate protected recovery.</p>
-                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/RENDER_DEPLOYMENT.md" target="_blank" rel="noreferrer">Open deployment guide <span aria-hidden="true">↗</span></a>
+                  <details className="admin-info-disclosure"><summary>Render deployment guide</summary><p>Deployment configuration, release sequence, and post-deploy checks for the hosted web service.</p><a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/RENDER_DEPLOYMENT.md" target="_blank" rel="noreferrer">Open guide <span aria-hidden="true">↗</span></a></details>
                 </article>
                 <article className="admin-recovery-card">
                   <div><p className="admin-eyebrow">NOTIFICATIONS</p><span className="admin-recovery-state">Execution not verified</span></div>
                   <h3>FCM dispatcher continuity</h3>
                   <p>The documented Render web-service startup does not launch the FCM dispatcher, scheduler, or worker. Credential availability is not proof of queue execution or device delivery.</p>
-                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/FCM_OPERATIONS_RUNBOOK.md" target="_blank" rel="noreferrer">Open FCM operations runbook <span aria-hidden="true">↗</span></a>
+                  <details className="admin-info-disclosure"><summary>Push notification operations</summary><p>Operational guidance for Firebase Cloud Messaging delivery and troubleshooting.</p><a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/FCM_OPERATIONS_RUNBOOK.md" target="_blank" rel="noreferrer">Open runbook <span aria-hidden="true">↗</span></a></details>
                 </article>
                 <article className="admin-recovery-card">
                   <div><p className="admin-eyebrow">VALIDATION</p><span className="admin-recovery-state">No drill recorded</span></div>
                   <h3>Isolated restore drill</h3>
                   <p>A successful manifest check is not a restore test. Recovery requires an approved isolated project, database and Storage restore validation, Auth recovery, application smoke checks, and reviewer acceptance.</p>
-                  <a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/isolated-restore-drill-checklist.md" target="_blank" rel="noreferrer">Open restore-drill checklist <span aria-hidden="true">↗</span></a>
+                  <details className="admin-info-disclosure"><summary>Restore-drill checklist</summary><p>Checklist for validating recovery in an isolated environment before relying on a backup.</p><a href="https://github.com/RamProjector/TACResQ-School-Project/blob/main/docs/security/isolated-restore-drill-checklist.md" target="_blank" rel="noreferrer">Open checklist <span aria-hidden="true">↗</span></a></details>
                 </article>
               </div>
               <section className="admin-recovery-next" aria-labelledby="admin-recovery-next-title">
