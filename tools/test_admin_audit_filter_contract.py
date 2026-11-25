@@ -16,9 +16,9 @@ assert "The start date must be on or before the end date." in FILTERS
 
 # Invalid ranges must stop before the protected RPC is called.
 assert "getAuditDateRangeError(from, to)" in AUDIT_PAGE
-assert "if (dateRangeError)" in AUDIT_PAGE
-assert "setError(dateRangeError)" in AUDIT_PAGE
-assert "Boolean(dateRangeError)" in AUDIT_PAGE
+assert "if (dateRangeError || idFilterError)" in AUDIT_PAGE
+assert 'setError(dateRangeError || idFilterError || "Invalid audit filter.")' in AUDIT_PAGE
+assert "Boolean(dateRangeError || idFilterError)" in AUDIT_PAGE
 assert "getAdminInvestigationEventsPage(" in AUDIT_PAGE
 
 # Keyboard focus and reduced-motion preferences must be explicitly respected.
