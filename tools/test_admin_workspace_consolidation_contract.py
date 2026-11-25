@@ -35,3 +35,9 @@ assert ".admin-continuity-nav__item.is-active" in styles
 assert ".admin-continuity-nav__item:focus-visible" in styles
 
 print("PASS: Admin features are consolidated without removing legacy attachment deep links.")
+
+
+# Settings must distinguish browser-local preferences from informational sections.
+assert 'settingsPage === "general" || settingsPage === "accessibility"' in source
+assert 'settingsPage === "notifications" ? "Emergency notification delivery preferences are not connected here; this page does not suppress or delay alerts."' in source
+assert '"Read-only guidance"' in source
