@@ -318,7 +318,7 @@ Important recovery boundaries shown in the workspace:
 
 The page performs no exports, copies, restores, provider probes, scheduling, or configuration changes. Before any live backup/restore integration is added, approve ownership, target and destination, encryption/key recovery, access controls, retention, evidence storage, and production-change boundaries. Use the [backup and disaster-recovery research plan](security/backup-disaster-recovery-research-and-implementation-plan.md) and [isolated restore-drill checklist](security/isolated-restore-drill-checklist.md) as the source procedures.
 
-## Attachment storage workspace
+## Attachment safeguards
 
 The **Data & continuity → Attachment safeguards** view provides read-only incident-chat image safeguards and known evidence gaps. It is not a media browser and must never expose attachment bytes, object paths, signed URLs, message contents, or coordinates to an administrator solely because of the Admin role.
 
