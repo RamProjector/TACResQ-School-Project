@@ -35,6 +35,9 @@ assert "incident queue" in web_readme.lower()
 
 # Keep the portal focused on implemented administrative capabilities.
 admin_console = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
+admin_supabase = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
+assert "p_expected_account_status" in admin_supabase.split("api_admin_set_account_status:", 1)[1].split("\n", 1)[0], "Admin lifecycle RPC type must match the compare-and-set SQL signature."
+assert "p_expected_account_status: expectedStatus" in admin_supabase, "Admin lifecycle RPC call must send the expected status for compare-and-set."
 audit_page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 for page in ('"overview"', '"users"', '"security"', '"analytics"', '"audit"'):
     assert page in admin_console
