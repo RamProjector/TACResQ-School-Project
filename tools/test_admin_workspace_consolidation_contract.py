@@ -10,6 +10,7 @@ styles = (root / "backend/web/src/pages/AdminConsole.css").read_text(encoding="u
 assert 'label: "Data & continuity"' in page
 assert 'type AdminContinuityPage = "recovery" | "attachments"' in page
 assert 'if (route === "settings" && params.get("adminSettings") === "security") return "security";' in page
+assert 'else if (url.searchParams.get("adminSettings") === "security") url.searchParams.set("adminSettings", "general");' in page
 assert 'if (route === "attachments") return "recovery";' in page
 assert 'activeSection === "recovery" && continuityPage === "recovery"' in page
 assert 'activeSection === "recovery" && continuityPage === "attachments"' in page
