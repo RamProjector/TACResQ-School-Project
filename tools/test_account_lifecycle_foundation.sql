@@ -45,22 +45,31 @@ BEGIN
      OR has_function_privilege('anon', 'private.tacresq_require_admin_mfa()', 'EXECUTE') THEN
     RAISE EXCEPTION 'The shared Admin MFA helper must remain internal to protected wrappers';
   END IF;
-  IF EXISTS (
-    SELECT 1
-      FROM pg_catalog.pg_proc p
-     WHERE p.oid IN (
-       to_regprocedure('private.tacresq_actor_role()'),
-       to_regprocedure('private.tacresq_auth_profile_id()')
-     )
-       AND (
-         p.prosecdef IS DISTINCT FROM true
-         OR p.provolatile IS DISTINCT FROM 'v'
-         OR NOT (coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
-         OR p.prosrc NOT ILIKE '%account_status = ''active''%'
-         OR p.prosrc NOT ILIKE '%FOR SHARE%'
-       )
+  -- The actor-role helper is evaluated by RLS/read-only APIs and must not
+  -- acquire a row lock. Mutation entry points retain the dedicated active
+  -- account FOR SHARE guard; profile-id resolution remains locking because
+  -- it protects the storage identity path.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc p
+    WHERE p.oid = to_regprocedure('private.tacresq_actor_role()')
+      AND p.prosecdef
+      AND p.provolatile = 's'
+      AND coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']
+      AND p.prosrc ILIKE '%account_status = ''active''%'
+      AND p.prosrc NOT ILIKE '%FOR SHARE%'
   ) THEN
-    RAISE EXCEPTION 'Actor-role and profile-ID helpers must enforce active state with a VOLATILE, pinned, share-locking definer body';
+    RAISE EXCEPTION 'Actor-role helper must be STABLE, pinned, active-state filtered, and non-locking for read-only RLS';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc p
+    WHERE p.oid = to_regprocedure('private.tacresq_auth_profile_id()')
+      AND p.prosecdef
+      AND p.provolatile = 'v'
+      AND coalesce(p.proconfig, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']
+      AND p.prosrc ILIKE '%account_status = ''active''%'
+      AND p.prosrc ILIKE '%FOR SHARE%'
+  ) THEN
+    RAISE EXCEPTION 'Profile-ID helper must retain its VOLATILE share-locking active-state guard';
   END IF;
 
   IF NOT EXISTS (
