@@ -59,7 +59,7 @@ type AdminConsoleProps = {
 };
 
 type RoleFilter = "all" | AdminManagedRole | "admin";
-type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "attachments" | "settings" | "help";
+type AdminSection = "overview" | "users" | "security" | "analytics" | "audit" | "recovery" | "settings" | "help";
 
 type AdminSettingsPage = "general" | "accessibility" | "notifications" | "privacy";
 type AdminContinuityPage = "recovery" | "attachments";
