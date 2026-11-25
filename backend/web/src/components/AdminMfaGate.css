@@ -3,3 +3,8 @@
 .mfa-enrollment label { margin:15px 0 7px; color:#32474b; font-size:12px; font-weight:700; }
 .mfa-enrollment input { width:100%; min-height:44px; padding:0 12px; border:1px solid #d7ddd6; border-radius:7px; color:var(--ink); background:#f8f9f4; font-family:var(--mono); font-size:12px; letter-spacing:.04em; }
 .mfa-help { margin:9px 0 0; color:#788683; font-size:11px; line-height:1.55; }
+
+.mfa-secret-field { display:flex; align-items:stretch; gap:8px; }
+.mfa-secret-field input { min-width:0; flex:1; }
+.mfa-secret-field .button { flex:0 0 auto; white-space:nowrap; }
+@media (max-width:420px) { .mfa-secret-field { flex-direction:column; } .mfa-secret-field .button { align-self:flex-start; } }

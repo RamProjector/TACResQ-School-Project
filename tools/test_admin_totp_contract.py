@@ -36,7 +36,7 @@ assert "complete administrative audit history" not in admin.lower(), "Do not imp
 assert "page * pageSize >= userPage.total_count" in admin, "User management must recover when the current page becomes out of range after the account set shrinks."
 assert "Math.ceil(userPage.total_count / pageSize) - 1" in admin, "Out-of-range user pagination must return to the last valid page instead of showing a false empty state."
 assert "const [debouncedQuery, setDebouncedQuery] = useState(\"\")" in admin, "User search must keep a debounced query separate from the live input."
-assert "window.setTimeout(() => {" in admin and "setDebouncedQuery(query.trim())" in admin and "}, 250)" in admin, "User directory search must debounce server requests."
+assert "window.setTimeout(() => {" in admin and "setDebouncedQuery(query.trim())" in admin and "}, 250)" in admin, "User directory search must debounce and normalize server queries."
 assert "getAdminUsersPage(pageSize, page * pageSize, debouncedQuery, roleFilter)" in admin, "User directory RPC must use the debounced query."
 # Overview dependency probes must run independently of the account-directory RPC.
 refresh_body = admin.split("const refresh = useCallback(async () => {", 1)[1].split("}, [activeSection, page, debouncedQuery, roleFilter]);", 1)[0]
@@ -88,6 +88,14 @@ assert "api_admin_list_account_lifecycle_events" in supabase_client
 assert (ROOT / "docs/security/admin-session-revocation-and-auth-audit-boundaries.md").exists()
 
 # The Security page reports live Supabase Auth state without exposing factor secrets.
+# Initial enrollment must hide the password-equivalent TOTP setup key by default,
+# expose it only through an explicit accessible control, and clear it after use.
+assert 'type={showSecret ? "text" : "password"}' in gate
+assert 'aria-label={showSecret ? "Hide manual setup key" : "Show manual setup key"}' in gate
+assert "setSecret(\"\")" in gate, "Initial TOTP enrollment must clear the setup key after verification/cancellation."
+assert 'type="text" readOnly value={secret}' not in gate, "Do not render the initial TOTP setup key in clear text by default."
+gate_css = (ROOT / "backend/web/src/components/AdminMfaGate.css").read_text()
+assert ".mfa-secret-field" in gate_css and "@media (max-width:420px)" in gate_css, "The secret reveal control must remain usable on narrow screens."
 security_status = (ROOT / "backend/web/src/components/AdminSecurityStatus.tsx").read_text()
 assert 'import AdminSecurityStatus from "@/components/AdminSecurityStatus"' in admin
 assert "<AdminSecurityStatus />" in admin
@@ -297,6 +305,20 @@ assert audit_insert > profile_update, (
     "The role update and its audit event must remain in the same RPC transaction"
 )
 assert "trim(p_reason)" in role_body and "user_role_changed" in role_body
+
+# The Admin Security page exposes a readable, source-backed permission matrix.
+# Keep this as a portal capability summary, not a fabricated live policy scan.
+for marker in (
+    "Admin access review",
+    "Single Admin role",
+    "Admin + AAL2 + TOTP",
+    "Admin promotion/demotion is trusted-operator-only",
+    "Denied privileged RPC attempts and some direct-client operations are not comprehensively recorded",
+    "Suspend or reactivate accounts",
+    "This is a reviewed portal capability summary, not a live per-user permission calculation",
+    "Admin access does not implicitly grant dispatch or field-unit powers",
+):
+    assert marker in admin, f"Admin access review omits permission boundary: {marker}"
 
 # The unified investigation feed is a separate callable Admin endpoint. Keep its
 # trusted MFA check inside the database function and before any source-history reads.

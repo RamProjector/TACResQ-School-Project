@@ -4,7 +4,7 @@ DECLARE
   assignment_table regclass := to_regclass('public.incident_assignments');
   assign_rpc regprocedure := to_regprocedure('public.api_assign_incident_team(bigint,bigint[])');
   claim_rpc regprocedure := to_regprocedure('public.api_claim_incident(bigint)');
-  private_assign_rpc regprocedure := to_regprocedure('private.tacresq_assign_incident_team(bigint,bigint[])');
+  private_assign_rpc regprocedure := to_regprocedure('private.tacresq_assign_incident_team_guarded(bigint,bigint[])');
 BEGIN
   IF assignment_table IS NULL OR assign_rpc IS NULL OR claim_rpc IS NULL OR private_assign_rpc IS NULL THEN
     RAISE EXCEPTION 'Expected incident assignment table and guarded assignment/claim RPCs';
@@ -43,7 +43,9 @@ BEGIN
 
   IF has_function_privilege('anon', assign_rpc, 'EXECUTE')
      OR has_function_privilege('anon', claim_rpc, 'EXECUTE')
-     OR has_function_privilege('anon', private_assign_rpc, 'EXECUTE') THEN
+     OR has_function_privilege('anon', private_assign_rpc, 'EXECUTE')
+     OR has_function_privilege('authenticated', 'private.tacresq_assign_incident_team(bigint,bigint[])', 'EXECUTE')
+     OR has_function_privilege('anon', 'private.tacresq_assign_incident_team(bigint,bigint[])', 'EXECUTE') THEN
     RAISE EXCEPTION 'anon must not execute assignment or claim RPCs';
   END IF;
 END;

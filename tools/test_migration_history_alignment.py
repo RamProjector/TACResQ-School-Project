@@ -52,6 +52,8 @@ EXPECTED = {
 # Repository migrations not yet confirmed in the live Supabase ledger are
 # allowlisted so independent PRs/deployment batches can proceed in either order.
 PENDING = {
+    "20261125110000_admin_account_lifecycle_compare_and_set.sql",
+    "20261125100000_admin_website_account_lifecycle_controls.sql",
     "20261116150000_pin_api_units_search_path.sql",
     "20261116153000_optimize_rls_policy_initplans.sql",
     "20261116170000_api_operation_audit_and_fk_indexes.sql",
@@ -110,8 +112,13 @@ PENDING = {
     "20261123210000_account_lifecycle_fcm_token_guards.sql",
     "20261124190000_prevent_suspending_assigned_field_units.sql",
     "20261124200000_guard_active_assignment_targets.sql",
-    "20261125100000_admin_website_account_lifecycle_controls.sql",
-    "20261125110000_admin_account_lifecycle_compare_and_set.sql",
+    # Additional account-lifecycle enforcement migrations are staged on PR #347;
+    # allowlisted as repository files only, not as proof of live application.
+    "20261124150000_reconcile_active_account_rls_inventory.sql",
+    # PR #348 FCM self-unregister RPC is staged for review/deployment; do not
+    # treat repository presence as proof that the live Supabase ledger applied it.
+    "20261124170000_secure_fcm_self_unregister_rpc.sql",
+    "20261124180000_secure_fcm_delivery_token_cleanup_rpc.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (

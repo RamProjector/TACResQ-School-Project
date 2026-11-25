@@ -1,15 +1,10 @@
 BEGIN;
 
--- Preserve the existing dispatcher assignment implementation as a private
--- internal routine. The new public entry point serializes against lifecycle
--- transitions by locking and rechecking the active dispatcher profile first.
-ALTER FUNCTION public.api_assign_incident_team(bigint, bigint[]) SET SCHEMA private;
-ALTER FUNCTION private.api_assign_incident_team(bigint, bigint[])
-  RENAME TO tacresq_assign_incident_team_internal;
-REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team_internal(bigint, bigint[])
-  FROM PUBLIC, anon, authenticated;
-
-CREATE OR REPLACE FUNCTION public.api_assign_incident_team(
+-- Serialize assignment against account suspension without exposing a
+-- SECURITY DEFINER function in the public Data API schema. The original
+-- private assignment implementation remains private and independently checks
+-- the dispatcher role; this guard additionally requires an active account.
+CREATE OR REPLACE FUNCTION private.tacresq_assign_incident_team_guarded(
   p_id bigint,
   p_user_ids bigint[]
 )
@@ -35,8 +30,37 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  RETURN private.tacresq_assign_incident_team_internal(p_id, p_user_ids);
+  RETURN private.tacresq_assign_incident_team(p_id, p_user_ids);
 END;
+$function$;
+
+-- Prevent authenticated clients from bypassing the active-account guard by
+-- invoking the underlying implementation directly.
+REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team(bigint, bigint[])
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION private.tacresq_assign_incident_team_guarded(bigint, bigint[])
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.tacresq_assign_incident_team_guarded(bigint, bigint[])
+  TO authenticated;
+
+-- SECURITY INVOKER wrappers execute with the caller's schema privileges.
+-- USAGE exposes only name resolution; each private function still requires its
+-- own explicit EXECUTE grant, and the private schema remains outside the Data API.
+GRANT USAGE ON SCHEMA private TO authenticated;
+
+-- Public API functions remain SECURITY INVOKER; only the private helper is
+-- privileged and it pins search_path to pg_catalog.
+CREATE OR REPLACE FUNCTION public.api_assign_incident_team(
+  p_id bigint,
+  p_user_ids bigint[]
+)
+RETURNS jsonb
+LANGUAGE sql
+VOLATILE
+SECURITY INVOKER
+SET search_path = pg_catalog
+AS $function$
+  SELECT private.tacresq_assign_incident_team_guarded(p_id, p_user_ids);
 $function$;
 
 REVOKE ALL ON FUNCTION public.api_assign_incident_team(bigint, bigint[])

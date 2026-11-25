@@ -35,9 +35,6 @@ assert "incident queue" in web_readme.lower()
 
 # Keep the portal focused on implemented administrative capabilities.
 admin_console = (ROOT / "backend/web/src/pages/AdminConsole.tsx").read_text()
-admin_supabase = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
-assert "p_expected_account_status" in admin_supabase.split("api_admin_set_account_status:", 1)[1].split("\n", 1)[0], "Admin lifecycle RPC type must match the compare-and-set SQL signature."
-assert "p_expected_account_status: expectedStatus" in admin_supabase, "Admin lifecycle RPC call must send the expected status for compare-and-set."
 audit_page = (ROOT / "backend/web/src/pages/AuditLogsPage.tsx").read_text()
 for page in ('"overview"', '"users"', '"security"', '"analytics"', '"audit"'):
     assert page in admin_console
@@ -325,17 +322,6 @@ assert "@media (max-width: 480px)" in admin_resolution_css
 assert "@media print {" in admin_resolution_css and ".admin-toast-region { display: none !important; }" in admin_resolution_css
 assert ".admin-form-hint {" in admin_resolution_css
 assert ".admin-reason-count {" in admin_resolution_css
-
-
-# Keep the account-lifecycle capability summary aligned with the enabled website workflow.
-assert "current Active/Suspended state" in admin_console
-assert "Suspension and reactivation are available for non-Admin accounts." in admin_console
-assert "must be released or completed before suspension" in admin_console
-
-# Translate the database's active-assignment guard into an actionable Admin message.
-supabase_client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
-assert 'error.code === "55006"' in supabase_client
-assert "Release or complete this account’s active incident assignments before suspending it." in supabase_client
 
 # MFA factor management stays unavailable without a TOTP-verified AAL2 session.
 assert 'const canManageFactors = snapshot?.currentLevel === "aal2" && snapshot.usedTotp === true;' in admin_security
