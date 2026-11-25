@@ -335,6 +335,7 @@ assert "must be released or completed before suspension" in admin_console
 # Translate the database's active-assignment guard into an actionable Admin message.
 supabase_client = (ROOT / "backend/web/src/lib/supabase.ts").read_text()
 assert 'error.code === "55006"' in supabase_client
+assert '["42501", "22023", "P0002", "55006"].includes(error.code ?? "")' in supabase_client
 assert "Release or complete this account’s active incident assignments before suspending it." in supabase_client
 
 # MFA factor management stays unavailable without a TOTP-verified AAL2 session.
