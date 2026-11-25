@@ -106,6 +106,9 @@ psql -v ON_ERROR_STOP=1 -f tools/check_storage_bucket_inventory.sql
 # Verify account lifecycle schema, immutable audit, and same-valid-JWT state lookup.
 psql -v ON_ERROR_STOP=1 -f tools/test_account_lifecycle_foundation.sql
 
+# Verify profile reads and api_me remain valid in PostgreSQL READ ONLY transactions.
+psql -v ON_ERROR_STOP=1 -f tools/test_read_only_account_profile_rls.sql
+
 psql -v ON_ERROR_STOP=1 <<'SQL'
 -- The Auth -> profile trigger is a privileged account-lifecycle boundary.
 -- Fail replay if it disappears, is disabled, or loses its expected definer mode.

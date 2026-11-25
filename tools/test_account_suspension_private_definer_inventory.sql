@@ -15,6 +15,7 @@ DECLARE
     'private.tacresq_auth_profile_id()',
     'private.tacresq_auth_profile_id_for_token_cleanup()',
     'private.tacresq_current_account_active()',
+    'private.tacresq_current_account_active_read()',
     'private.tacresq_dispatch_update_incident_status(bigint,text)',
     'private.tacresq_is_incident_assignee(bigint)',
     'private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamp with time zone)',
@@ -76,11 +77,11 @@ BEGIN
       unexpected_signature;
   END IF;
 
-  IF cardinality(expected_signatures) <> 12 THEN
-    RAISE EXCEPTION 'Private callable-definer inventory must contain exactly 12 signatures; found %',
+  IF cardinality(expected_signatures) <> 13 THEN
+    RAISE EXCEPTION 'Private callable-definer inventory must contain exactly 13 signatures; found %',
       cardinality(expected_signatures);
   END IF;
 END;
 $account_suspension_private_definer_inventory$;
 
-\echo 'PASS: all 12 authenticated-callable private SECURITY DEFINER helpers remain inventoried; no new callable helper is unreviewed.'
+\echo 'PASS: all 13 authenticated-callable private SECURITY DEFINER helpers remain inventoried; no new callable helper is unreviewed.'
