@@ -3,6 +3,14 @@
 ## Objective
 Complete the TACResQ Admin website using verified repository and backend capabilities. Keep each page focused on its own decision-making purpose, remove repeated information, and prefer working controls and source-backed data over decorative status cards. Never present an unconnected integration as operational.
 
+## Admin application shell and navigation
+
+The Admin Console uses one application shell for its authenticated workspaces, preserving the existing route state and permission-aware page actions. Desktop navigation can fully retract to a zero-width grid track; the main workspace receives the reclaimed width and a persistent expand control remains in the workspace header. The hidden sidebar is removed from keyboard and assistive-technology navigation. The preference is browser-local and does not trigger a server request.
+
+At tablet and mobile widths, the shell uses a full-width workspace with the same navigation in an off-canvas drawer. The drawer has independent scrolling, backdrop and Escape dismissal, focus management, background-scroll locking, and full labels even when the desktop preference is collapsed. Reduced-motion preferences disable the shell and drawer transitions.
+
+Automated source-contract coverage is included in `tools/test_admin_hci_layout_contract.py`. Actual desktop/tablet/mobile browser verification remains a separate acceptance step and must not be inferred from source tests alone.
+
 ## Current page capability and remaining work
 
 | Page | Implemented capability | Remaining work / dependency |
