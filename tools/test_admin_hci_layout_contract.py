@@ -85,3 +85,15 @@ for selector in (
 ):
     assert selector in CSS, f"Minimal audit surface rule missing {selector}"
 assert ".admin-shell .audit-event-card {\n  padding-inline: 0;\n  border-bottom: 1px solid #e5eae2;" in CSS
+
+
+# Common navigation quality-of-life controls remain keyboard and motion aware.
+assert 'const directorySearchRef = useRef<HTMLInputElement>(null);' in SOURCE
+assert 'event.key !== "/"' in SOURCE
+assert "directorySearchRef.current?.focus();" in SOURCE
+assert '<kbd aria-hidden="true">/</kbd>' in SOURCE
+assert 'className="admin-back-to-top"' in SOURCE
+assert 'preferences.reducedMotion ? "auto" : "smooth"' in SOURCE
+assert ".admin-search kbd {" in ADMIN_CSS
+assert ".admin-back-to-top {" in ADMIN_CSS
+assert "@media (prefers-reduced-motion: reduce)" in ADMIN_CSS
