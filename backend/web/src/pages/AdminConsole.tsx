@@ -396,6 +396,8 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
 
   useEffect(() => {
     if (!mobileSidebarOpen) return;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     mobileSidebarCloseRef.current?.focus();
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -404,7 +406,10 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
       mobileSidebarTriggerRef.current?.focus();
     };
     document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = previousBodyOverflow;
+    };
   }, [mobileSidebarOpen]);
   const [settingsPage, setSettingsPage] = useState<AdminSettingsPage>(() => resolveSettingsPage(window.location.search));
   const adminHeadingRef = useRef<HTMLHeadingElement>(null);
