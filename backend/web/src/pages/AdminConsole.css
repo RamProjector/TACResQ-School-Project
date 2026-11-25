@@ -32,6 +32,10 @@
 .admin-heading p:last-child { margin:11px 0 0; color:#718081; font-size:13px; line-height:1.6; }
 .admin-refresh { display:inline-flex; align-items:center; gap:8px; min-height:39px; padding:0 13px; border:1px solid #d7ded6; border-radius:7px; color:#4f6566; background:#fffefa; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
 .admin-refresh:disabled { cursor:wait; opacity:.6; }
+.admin-data-freshness { display:inline-flex; min-width:0; align-items:center; color:#758582; font-size:10px; line-height:1.45; }
+.admin-data-freshness[data-state="loading"] { color:#607a72; }
+.admin-data-freshness[data-state="error"] { color:#9a493f; }
+.admin-data-freshness[data-state="empty"] { color:#899491; }
 .admin-spin { animation:admin-rotation 1s linear infinite; }
 @keyframes admin-rotation { to { transform:rotate(360deg); } }
 .admin-banner { display:flex; align-items:flex-start; gap:10px; margin-bottom:18px; padding:12px 14px; border:1px solid #dfe4dc; border-radius:7px; font-size:12px; line-height:1.5; }
