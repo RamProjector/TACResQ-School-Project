@@ -1,7 +1,7 @@
 # Admin account suspension: preliminary authorization-surface inventory
 
 **Branch:** security/admin-account-suspension  
-**Status:** source inventory plus first database foundation; NOT an exhaustive release checklist and NOT proof of runtime suspension. Migration `20261123090000_account_lifecycle_foundation.sql` adds default-active profile lifecycle fields, an append-only audit ledger, and `private.tacresq_current_account_active()`. Direct authenticated access to public RLS-enabled tables with table- or column-level client grants is now guarded by a restrictive policy. SECURITY DEFINER/invoker RPCs, Storage, Edge Functions, and bridge routes remain unguarded; no account has been suspended and no connected project was modified.
+**Status:** source inventory plus first database foundation; NOT an exhaustive release checklist and NOT proof of runtime suspension. Migration `20261125020819_account_lifecycle_foundation.sql` adds default-active profile lifecycle fields, an append-only audit ledger, and `private.tacresq_current_account_active()`. Direct authenticated access to public RLS-enabled tables with table- or column-level client grants is now guarded by a restrictive policy. SECURITY DEFINER/invoker RPCs, Storage, Edge Functions, and bridge routes remain unguarded; no account has been suspended and no connected project was modified.
 
 This inventory is intentionally conservative. A path is not marked covered merely because it checks a role or because it uses RLS. Suspension requires an independent current-account-state check. Each row remains **not yet guarded** until an implementation and negative test prove that a suspended caller is rejected.
 
@@ -11,7 +11,7 @@ This inventory is intentionally conservative. A path is not marked covered merel
 |---|---|---|---|
 | Current profile | public.api_me() in the core/profile migrations | Returns profile resolved from auth.uid(); current definition is invoker | Not guarded; must deny or return a clearly defined suspended state without exposing protected data |
 | Role resolution | private.tacresq_actor_role() in 20261015081107_harden_rpc_exposure.sql | SECURITY DEFINER role lookup by auth.uid(); fixed-search-path hardening exists in later migration | Not guarded; role helper does not currently check account state |
-| Direct public-table access | `20261123100000_account_lifecycle_restrictive_rls.sql` | Restrictive `FOR ALL` policy on RLS-enabled public tables with direct authenticated grants | Guarded for current account state; RPC/Storage paths remain separate |
+| Direct public-table access | `20261125020821_account_lifecycle_restrictive_rls.sql` | Restrictive `FOR ALL` policy on RLS-enabled public tables with direct authenticated grants | Guarded for current account state; RPC/Storage paths remain separate |
 | Incident creation and cancellation | api_create_incident_v4, api_cancel_my_incident and related versioned RPCs | Ownership/role checks and idempotency/active-request rules | Not proven; inspect final effective definitions and direct table grants |
 | Incident read and update | api_my_incidents, api_all_incidents, api_update_my_incident, api_update_incident_status | RLS plus caller/dispatcher/assignment checks | Not proven; invoker and definer paths must be distinguished |
 | Dispatcher assignment | api_assign_incident_team and private assignment implementation | Dispatcher role, target-unit eligibility, active-incident and locking checks | Not proven; suspended dispatcher and suspended target unit both require rejection |

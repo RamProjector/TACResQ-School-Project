@@ -8,7 +8,7 @@ This review follows the Android responder/driver location foreground service thr
 
 ### 1. Dispatcher release is constrained by the database
 
-The dispatcher release RPC in `supabase/migrations/20261118011000_dispatcher_release_incident_assignment.sql`:
+The dispatcher release RPC in `supabase/migrations/20261122050837_dispatcher_release_incident_assignment.sql`:
 
 - Requires an authenticated profile with the dispatcher role.
 - Locks the incident row before changing membership.

@@ -17,7 +17,7 @@ The current Audit Logs page is accurately limited to administrative role changes
 A read-only inspection was performed against the connected TACResQ Supabase project on 2026-11-22. The project reported `ACTIVE_HEALTHY` on PostgreSQL 17.11.
 
 - The deployed migration ledger currently ends at `20261122050858_require_totp_for_admin_rpcs`.
-- The branch migration `20261122140000_admin_audit_server_pagination.sql` is **not applied** in the connected database.
+- The branch migration `20261125020814_admin_audit_server_pagination.sql` is **not applied** in the connected database.
 - The deployed legacy `api_admin_list_audit_logs(integer)` exists, but `api_admin_list_audit_logs_page(...)` does not. The current branch has since moved the page to `api_admin_list_investigation_events(...)`; the older page RPC migration remains in the branch for compatibility but is no longer a direct dependency of the updated page. The new investigation migration depends on the already-deployed Admin TOTP helper and must still be reviewed and applied separately.
 - All reviewed event relations exist in the connected database: `admin_audit_logs`, `incident_status_logs`, `incident_assignment_events`, `incident_claimability_logs`, `incident_request_edit_logs`, `api_operation_logs`, `device_security_events`, `fcm_delivery_attempts`, and `auth.audit_log_entries`.
 - The read-only count snapshot returned 1 Admin role-change record, 2 incident status records, and 0 records in assignment history, claimability history, API operation telemetry, device security events, Auth Audit Logs, and FCM delivery attempts. These are point-in-time counts, not a claim that those sources are configured or operational end-to-end.

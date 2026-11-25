@@ -103,6 +103,6 @@ Before enabling any new collector:
 - `backend/src/app/SupabaseBridge.php`
 - `backend/src/app/ApiOperationAuditLogger.php`
 - `docs/API.md`
-- `supabase/migrations/20261116170000_api_operation_audit_and_fk_indexes.sql`
+- `supabase/migrations/20261122050811_api_operation_audit_and_fk_indexes.sql`
 
 This is a source-code review, not verification of the live Supabase project's Auth log configuration or retention settings.
