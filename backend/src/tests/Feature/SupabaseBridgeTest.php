@@ -75,6 +75,7 @@ class SupabaseBridgeTest extends TestCase
     public function test_bridge_limits_authenticated_users_independently_of_shared_ip(): void
     {
         Http::fake([
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_me' => Http::response(['id' => 7], 200),
             'https://tacresq-bridge.example.test/auth/v1/user' => Http::response([
                 'id' => 'auth-user-rate-limit',
                 'email' => 'requester@example.test',
@@ -133,6 +134,7 @@ class SupabaseBridgeTest extends TestCase
     public function test_rpc_uses_validated_callers_token_and_never_a_service_role_key(): void
     {
         Http::fake([
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_me' => Http::response(['id' => 7], 200),
             'https://tacresq-bridge.example.test/auth/v1/user' => Http::response([
                 'id' => 'auth-user-123',
                 'email' => 'requester@example.test',
@@ -153,6 +155,11 @@ class SupabaseBridgeTest extends TestCase
             ->assertJsonPath('id', 42);
 
         Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/rest/v1/rpc/api_me')
+                && $request->hasHeader('Authorization', 'Bearer valid-supabase-access-token')
+                && $request->hasHeader('apikey', 'sb_publishable_test_only');
+        });
+        Http::assertSent(function ($request) {
             return str_contains($request->url(), '/rest/v1/rpc/api_create_incident_v4')
                 && $request->hasHeader('Authorization', 'Bearer valid-supabase-access-token')
                 && $request->hasHeader('apikey', 'sb_publishable_test_only')
@@ -163,6 +170,7 @@ class SupabaseBridgeTest extends TestCase
     public function test_rpc_without_arguments_is_forwarded_as_empty_json_object(): void
     {
         Http::fake([
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_me' => Http::response(['id' => 7], 200),
             'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(['id' => 'auth-user-123'], 200),
             'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => Http::response([], 200),
         ]);
@@ -218,6 +226,7 @@ class SupabaseBridgeTest extends TestCase
     public function test_upstream_server_errors_are_sanitized(): void
     {
         Http::fake([
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_me' => Http::response(['id' => 7], 200),
             'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(['id' => 'auth-user-123'], 200),
             'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => Http::response([
                 'message' => 'private database details',
@@ -231,6 +240,7 @@ class SupabaseBridgeTest extends TestCase
     public function test_rpc_connection_failure_returns_a_sanitized_502(): void
     {
         Http::fake([
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_me' => Http::response(['id' => 7], 200),
             'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(['id' => 'auth-user-123'], 200),
             'https://tacresq-bridge.example.test/rest/v1/rpc/api_units' => function () {
                 throw new ConnectionException('private connection detail');
@@ -250,6 +260,56 @@ class SupabaseBridgeTest extends TestCase
             'CONTENT_TYPE' => 'application/json',
             'HTTP_ACCEPT' => 'application/json',
         ], '{}');
+    }
+
+    public function test_suspended_or_unprovisioned_profile_is_denied_before_bridge_rpc(): void
+    {
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response([
+                'id' => 'auth-user-suspended',
+                'email' => 'suspended@example.test',
+            ], 200),
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_me' => Http::response(null, 200),
+        ]);
+
+        $this->postEmptyRpc('api_create_incident_v4', 'valid-supabase-access-token')
+            ->assertForbidden()
+            ->assertExactJson(['message' => 'An active TACResQ profile is required.']);
+
+        Http::assertSentCount(2);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/rest/v1/rpc/api_create_incident_v4'));
+    }
+
+    public function test_bridge_me_does_not_return_auth_identity_without_active_profile(): void
+    {
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response([
+                'id' => 'auth-user-suspended',
+                'email' => 'suspended@example.test',
+            ], 200),
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_me' => Http::response(null, 200),
+        ]);
+
+        $this->withToken('valid-supabase-access-token')->getJson('/api/bridge/me')
+            ->assertForbidden()
+            ->assertExactJson(['message' => 'An active TACResQ profile is required.']);
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_active_profile_preflight_outage_fails_closed_as_502(): void
+    {
+        Http::fake([
+            'https://tacresq-bridge.example.test/auth/v1/user' => Http::response(['id' => 'auth-user-123'], 200),
+            'https://tacresq-bridge.example.test/rest/v1/rpc/api_me' => Http::response(['message' => 'database unavailable'], 503),
+        ]);
+
+        $this->postEmptyRpc('api_units', 'valid-supabase-access-token')
+            ->assertStatus(502)
+            ->assertExactJson(['message' => 'Supabase is temporarily unavailable. Please retry.']);
+
+        Http::assertSentCount(2);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/rest/v1/rpc/api_units'));
     }
 
     public function test_auth_upstream_outage_returns_502_not_a_false_invalid_session(): void

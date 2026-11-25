@@ -1,11 +1,12 @@
 # Account-suspension private callable-definer source trace — batch 23
 
-**Scope:** the ten private `SECURITY DEFINER` functions that the clean replay reports as directly executable by `authenticated`. This is a source-level trace of current authorization assumptions, not a claim that suspension is enforced.
+**Scope:** the eleven private `SECURITY DEFINER` functions that the clean replay reports as directly executable by `authenticated`. This is a source-level trace of current authorization assumptions, not a claim that suspension is enforced.
 
 ## Function-by-function findings
 
 | Private helper | Current authorization behavior observed in source | Suspension gap / implementation requirement |
 |---|---|---|
+| `private.tacresq_current_account_active()` | Resolves the caller through `auth.uid()`, locks the matching profile `FOR SHARE`, and returns true only while the account is active. It is a directly authenticated-callable SECURITY DEFINER helper used by restrictive direct-table RLS policies. | Keep the exact authenticated-only grant and pinned search path. This helper protects direct table access but does not replace independent checks inside SECURITY DEFINER RPCs or Storage authorization paths. |
 | `private.tacresq_auth_profile_id()` | Resolves `profiles.id` by `auth.uid()`. It does not check role, duty, or account state. Used by the chat authorization helper and incident-chat Storage policies. | Must not return a usable identity to a suspended account for protected chat/Storage operations. Preserve identity lookup only where a narrowly defined cleanup or suspended-state flow needs it. |
 | `private.tacresq_auth_can_access_incident_chat(bigint)` | Resolves the profile through `tacresq_auth_profile_id()`; returns false only when no profile exists, then delegates to the shared incident-chat membership/access predicate. | A suspended profile currently remains eligible for the downstream membership predicate. Guard before delegation; also guard Storage read and insert policies so a client cannot bypass message RPC checks. |
 | `private.tacresq_actor_role()` | Returns the caller's profile role for RLS and RPC role decisions. The inspected definition is a SECURITY DEFINER profile lookup by `auth.uid()`. | Returning `dispatcher`, `requester`, `responder`, or `driver` for a suspended profile can preserve authorization in policies and wrappers. Define an explicit suspended-account result and test every policy that consumes it. |
@@ -34,4 +35,4 @@
 
 ## Validation boundary
 
-This batch records source behavior and the guard locations required by the next implementation. It adds no account-state column, migration, runtime guard, UI, or live Supabase change. The ten-function SQL inventory gate only ensures the callable surface does not silently drift; it does not prove authorization safety.
+This batch records source behavior and the guard locations required by the next implementation. It adds no account-state column, migration, runtime guard, UI, or live Supabase change. The eleven-function SQL inventory gate only ensures the callable surface does not silently drift; it does not prove authorization safety.

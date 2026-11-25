@@ -6,6 +6,20 @@ function base64Url(value: string | Uint8Array): string {
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
+function isUnregisteredFcmError(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  const error = (payload as { error?: unknown }).error;
+  if (!error || typeof error !== "object") return false;
+  const errorObject = error as { status?: unknown; details?: unknown };
+  if (errorObject.status === "UNREGISTERED") return true;
+  const details = errorObject.details;
+  if (!Array.isArray(details)) return false;
+  return details.some((detail) => {
+    if (!detail || typeof detail !== "object") return false;
+    const item = detail as { "@type"?: unknown; errorCode?: unknown };
+    return item["@type"] === "type.googleapis.com/google.firebase.fcm.v1.FcmError" && item.errorCode === "UNREGISTERED";
+  });
+}
 async function getGoogleAccessToken(account: Record<string, string>): Promise<string> {
   const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const issuedAt = Math.floor(Date.now() / 1000);
@@ -33,20 +47,62 @@ Deno.serve(async (request: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleEnvName = ["SUPABASE", "SERVICE_ROLE", "KEY"].join("_");
   const serviceKey = Deno.env.get(serviceRoleEnvName);
-  const serviceAccountSecret = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON");
   if (!supabaseUrl || !serviceKey) return json({ error: "Supabase server configuration is missing" }, 503);
-  if (!serviceAccountSecret) return json({ error: "FCM is not configured; add the FCM service-account secret" }, 503);
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: userResult, error: authError } = await admin.auth.getUser(userToken);
   if (authError || !userResult.user) return json({ error: "Invalid or expired session" }, 401);
-  let payload: { event?: string; incident_id?: number };
-  try { payload = await request.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
-  const event = payload.event;
-  const incidentId = Number(payload.incident_id);
-  if (!event || !Number.isSafeInteger(incidentId) || incidentId <= 0) return json({ error: "event and positive incident_id are required" }, 400);
+  const maxBodyBytes = 8192;
+  const declaredBodyLength = request.headers.get("Content-Length");
+  if (declaredBodyLength !== null && /^\d+$/.test(declaredBodyLength)
+      && Number(declaredBodyLength) > maxBodyBytes) {
+    return json({ error: "Request body is too large" }, 413);
+  }
+  const bodyReader = request.body?.getReader();
+  if (!bodyReader) return json({ error: "Invalid JSON body" }, 400);
+  const bodyChunks: Uint8Array[] = [];
+  let totalBodyBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await bodyReader.read();
+      if (done) break;
+      totalBodyBytes += value.byteLength;
+      if (totalBodyBytes > maxBodyBytes) {
+        try { await bodyReader.cancel(); } catch { /* The oversized request is already rejected. */ }
+        return json({ error: "Request body is too large" }, 413);
+      }
+      bodyChunks.push(value);
+    }
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
+  const bodyBytes = new Uint8Array(totalBodyBytes);
+  let bodyOffset = 0;
+  for (const chunk of bodyChunks) {
+    bodyBytes.set(chunk, bodyOffset);
+    bodyOffset += chunk.byteLength;
+  }
+  let rawBody: string;
+  try { rawBody = new TextDecoder("utf-8", { fatal: true }).decode(bodyBytes); }
+  catch { return json({ error: "Invalid JSON body" }, 400); }
+  let payload: unknown;
+  try { payload = JSON.parse(rawBody); } catch { return json({ error: "Invalid JSON body" }, 400); }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return json({ error: "JSON body must be an object" }, 400);
+  }
+  const requestData = payload as { event?: unknown; incident_id?: unknown };
+  const event = requestData.event;
+  const rawIncidentId = requestData.incident_id;
+  const incidentId = typeof rawIncidentId === "number"
+    ? rawIncidentId
+    : typeof rawIncidentId === "string" && /^\d+$/.test(rawIncidentId)
+      ? Number(rawIncidentId)
+      : Number.NaN;
+  if (typeof event !== "string" || !Number.isSafeInteger(incidentId) || incidentId <= 0) {
+    return json({ error: "event and positive incident_id are required" }, 400);
+  }
   if (!["incident_created", "incident_assigned", "incident_status"].includes(event)) return json({ error: "Unsupported incident event" }, 400);
-  const { data: actor, error: actorError } = await admin.from("profiles").select("id,role").eq("auth_user_id", userResult.user.id).single();
-  if (actorError || !actor) return json({ error: "TACRU profile not found" }, 403);
+  const { data: actor, error: actorError } = await admin.from("profiles").select("id,role,account_status").eq("auth_user_id", userResult.user.id).single();
+  if (actorError || !actor || actor.account_status !== "active") return json({ error: "Active TACResQ account required" }, 403);
   const { data: incident, error: incidentError } = await admin.from("incidents").select("id,requester_id,assigned_to,status").eq("id", incidentId).single();
   if (incidentError || !incident) return json({ error: "Incident not found" }, 404);
   let targetProfileIds: number[] = [];
@@ -54,7 +110,8 @@ Deno.serve(async (request: Request) => {
   let body = `Incident #${incidentId} was updated.`;
   if (event === "incident_created") {
     if (actor.role !== "requester" || actor.id !== incident.requester_id) return json({ error: "Not allowed to notify for this incident" }, 403);
-    const { data: dispatchers } = await admin.from("profiles").select("id").eq("role", "dispatcher");
+    const { data: dispatchers, error: dispatcherError } = await admin.from("profiles").select("id").eq("role", "dispatcher").eq("account_status", "active");
+    if (dispatcherError) return json({ error: "Could not resolve notification recipients" }, 500);
     targetProfileIds = (dispatchers ?? []).map((profile) => profile.id as number);
     title = "New emergency request";
     body = `Incident #${incidentId} is waiting in the dispatch queue.`;
@@ -70,26 +127,63 @@ Deno.serve(async (request: Request) => {
     body = `Incident #${incidentId} status: ${incident.status}.`;
   }
   if (targetProfileIds.length === 0) return json({ sent: 0, reason: "No target accounts are provisioned" });
+
+  // Resolve every recipient against current account state before loading any
+  // FCM registration. A stale assignment must not notify a suspended account.
+  const { data: activeRecipients, error: recipientError } = await admin
+    .from("profiles")
+    .select("id")
+    .in("id", targetProfileIds)
+    .eq("account_status", "active");
+  if (recipientError) return json({ error: "Could not verify notification recipients" }, 500);
+  targetProfileIds = (activeRecipients ?? []).map((profile) => profile.id as number);
+  if (targetProfileIds.length === 0) return json({ sent: 0, reason: "No active target accounts are provisioned" });
+
   const { data: registrations, error: tokenError } = await admin.from("fcm_tokens").select("id,profile_id,token").in("profile_id", targetProfileIds);
   if (tokenError) return json({ error: "Could not load notification registrations" }, 500);
   if (!registrations?.length) return json({ sent: 0, reason: "Recipients have not registered an FCM token" });
+  const serviceAccountSecret = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON");
+  if (!serviceAccountSecret) return json({ error: "FCM is not configured; add the FCM service-account secret" }, 503);
   let googleAccount: Record<string, string>;
   try {
     googleAccount = JSON.parse(serviceAccountSecret);
     if (!googleAccount.client_email || !googleAccount.private_key || !googleAccount.project_id || !googleAccount.token_uri) throw new Error("missing service-account fields");
+    const tokenUri = new URL(googleAccount.token_uri);
+    if (tokenUri.protocol !== "https:" || tokenUri.hostname !== "oauth2.googleapis.com" || tokenUri.pathname !== "/token" || tokenUri.port || tokenUri.username || tokenUri.password || tokenUri.search || tokenUri.hash) throw new Error("unsupported OAuth token endpoint");
+    if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(googleAccount.project_id)) throw new Error("invalid Firebase project identifier");
   } catch { return json({ error: "FCM service-account secret is not valid JSON or lacks required fields" }, 503); }
-  const accessToken = await getGoogleAccessToken(googleAccount);
+  let accessToken: string;
+  try {
+    accessToken = await getGoogleAccessToken(googleAccount);
+  } catch {
+    console.error("Google OAuth token request failed.");
+    return json({ error: "Notification provider authentication failed" }, 502);
+  }
   let sent = 0;
   const invalidTokenIds: number[] = [];
   for (const registration of registrations) {
-    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${googleAccount.project_id}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token: registration.token, notification: { title, body }, data: { event, incident_id: String(incidentId) }, android: { priority: "HIGH" } } }) });
-    if (response.ok) sent++;
-    else {
-      const errorBody = await response.text();
-      if (response.status === 404 || errorBody.includes("UNREGISTERED")) invalidTokenIds.push(registration.id as number);
-      console.error(`FCM send failed (${response.status}) for registration ${registration.id}`);
+    try {
+      const response = await fetch(`https://fcm.googleapis.com/v1/projects/${googleAccount.project_id}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token: registration.token, notification: { title, body }, data: { event, incident_id: String(incidentId) }, android: { priority: "HIGH" } } }) });
+      if (response.ok) sent++;
+      else {
+        let errorPayload: unknown = null;
+        try { errorPayload = await response.json(); } catch { /* Ignore malformed provider bodies. */ }
+        if (isUnregisteredFcmError(errorPayload)) invalidTokenIds.push(registration.id as number);
+        console.error(`FCM send failed (${response.status}) for registration ${registration.id}`);
+      }
+    } catch {
+      console.error(`FCM network request failed for registration ${registration.id}`);
     }
   }
-  if (invalidTokenIds.length) await admin.from("fcm_tokens").delete().in("id", invalidTokenIds);
-  return json({ sent, attempted: registrations.length });
+  let cleanupPending = false;
+  if (invalidTokenIds.length) {
+    try {
+      const { error: cleanupError } = await admin.from("fcm_tokens").delete().in("id", invalidTokenIds);
+      if (cleanupError) cleanupPending = true;
+    } catch {
+      cleanupPending = true;
+    }
+    if (cleanupPending) console.error("Invalid FCM registration cleanup failed.");
+  }
+  return json({ sent, attempted: registrations.length, ...(cleanupPending ? { cleanup_pending: true } : {}) });
 });

@@ -37,6 +37,14 @@ case "$FAKE_DOCKER_MODE" in
     echo 'Compose stack started'
     exit 0
     ;;
+  github-504-once)
+    if [ "$count" -eq 1 ]; then
+      echo 'The GitHub API archive could not be downloaded (HTTP/2 504)' >&2
+      exit 1
+    fi
+    echo 'Compose stack started'
+    exit 0
+    ;;
   permanent)
     echo 'Dockerfile syntax error: invalid instruction' >&2
     exit 17
@@ -85,6 +93,14 @@ esac
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.calls(), 2)
         self.assertIn("502 Bad Gateway", result.stdout)
+        self.assertIn("Compose stack started", result.stdout)
+        self.assertIn("retrying", result.stderr)
+
+    def test_retries_github_api_http2_504_and_then_succeeds(self) -> None:
+        result = self.run_script("github-504-once")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.calls(), 2)
+        self.assertIn("HTTP/2 504", result.stdout)
         self.assertIn("Compose stack started", result.stdout)
         self.assertIn("retrying", result.stderr)
 

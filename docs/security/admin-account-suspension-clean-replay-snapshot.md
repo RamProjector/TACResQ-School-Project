@@ -2,7 +2,7 @@
 
 **Branch:** `security/admin-account-suspension`  
 **Original replay source commit:** `4f16baf73b38c295baec6d72698233a73a74cac8`  
-**Current reviewed baseline:** 21 public and 10 authenticated-callable private SECURITY DEFINER functions, including the later incident-image reservation RPC.  
+**Current reviewed baseline:** 23 public and 11 authenticated-callable private SECURITY DEFINER functions, including the later incident-image reservation RPC.  
 **Source:** CI job `Replay Supabase migrations on clean PostgreSQL` (run `45072734414`)  
 **Purpose:** Record the effective catalog discovered after replaying the repository migrations. This is a point-in-time inventory, not a statement that any endpoint is suspension-safe.
 
@@ -10,17 +10,17 @@
 
 | Surface | Observed |
 |---|---:|
-| Authenticated-callable public functions | 73 |
-| Public `SECURITY DEFINER` functions | 21 |
-| Public `SECURITY INVOKER` functions | 52 |
+| Authenticated-callable public functions | 74 |
+| Public `SECURITY DEFINER` functions | 23 |
+| Public `SECURITY INVOKER` functions | 51 |
 | Public ordinary/partitioned tables inventoried | 20 |
 | Authenticated Storage object policies | 2 |
 
-The earlier preliminary review referenced 18 public authenticated-callable definer functions. The original replay snapshot below reported 20; the later incident-chat upload-reservation migration adds `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, bringing the current reviewed baseline to **21**. The current branch's executable contract locks all 21 signatures and separately locks ten authenticated-callable private SECURITY DEFINER helpers. Re-run clean replay after every migration change.
+The earlier preliminary review referenced 18 public authenticated-callable definer functions. The original replay snapshot reported 20; the incident-chat upload-reservation migration added `api_reserve_incident_image_upload(bigint,text,bigint,uuid)`, and the account-lifecycle foundation added the authenticated-callable `api_admin_list_account_lifecycle_events(integer,integer)` reader and the guarded `api_assign_incident_team(bigint,bigint[])` SECURITY DEFINER wrapper, bringing the current callable baseline to **23**. The `api_admin_set_account_status(bigint,text,text)` transition routine remains staged with client EXECUTE revoked and is intentionally excluded. The current branch's executable contract locks all 23 signatures and separately locks eleven authenticated-callable private SECURITY DEFINER helpers. Re-run clean replay after every migration change.
 
 ## Public authenticated-callable SECURITY DEFINER functions
 
-These 20 effective signatures were reported by the original replay. The current baseline adds `api_reserve_incident_image_upload(bigint,text,bigint,uuid)` as signature 16; the current 21-signature exact list is enforced by `tools/test_account_suspension_definer_inventory.sql`.
+The original replay reported 20 effective signatures. The current baseline adds the upload-reservation RPC and two Admin lifecycle RPCs; the current 23-signature exact list is enforced by `tools/test_account_suspension_definer_inventory.sql`.
 
 1. `api_admin_analytics_summary(timestamptz,timestamptz)`
 2. `api_admin_list_audit_logs(integer)`
@@ -43,6 +43,12 @@ These 20 effective signatures were reported by the original replay. The current 
 19. `api_set_incident_claimable(bigint,boolean)`
 20. `api_units()`
 21. `api_update_my_incident(bigint,text,text,double precision,double precision,real,text,timestamptz,text,boolean)`
+22. `api_admin_list_account_lifecycle_events(integer,integer)`
+23. `api_assign_incident_team(bigint,bigint[])`
+
+## Private authenticated-callable SECURITY DEFINER functions
+
+The clean replay separately inventories eleven private SECURITY DEFINER helpers with effective `authenticated` EXECUTE. The list includes `private.tacresq_current_account_active()` plus the ten helpers in [batch 23](admin-account-suspension-rpc-review-batch-23-private-callable-definer-source-trace.md). The SQL inventory contract rejects new callable private definers and any `anon`/`PUBLIC` EXECUTE grant. This is a callable-surface inventory, not proof that each helper is safe in every caller context.
 
 Every callable definer entry point remains an independent review target. A wrapper's role check, MFA check, or ownership check does not automatically establish a current account-state check. The private implementation called by a wrapper must also be inspected, and direct authenticated grants to private functions must be treated as callable entry points.
 
@@ -93,7 +99,7 @@ PostgreSQL combines permissive policies with OR and restrictive policies with AN
 
 ## Next implementation gates
 
-1. Build an explicit per-signature review matrix for all 21 public definer functions and every authenticated-callable private definer function.
+1. Build an explicit per-signature review matrix for all 23 public definer functions and all eleven authenticated-callable private definer functions.
 2. Trace each public wrapper into private functions and triggers; record the exact current authorization checks and whether they are sufficient for suspension.
 3. Inventory all direct authenticated table operations in Android, web, and Laravel, mapping each to its effective RLS/grant enforcement.
 4. Add account-state enforcement only after the matrix covers every direct and indirect path, including Storage.
@@ -101,3 +107,6 @@ PostgreSQL combines permissive policies with OR and restrictive policies with AN
 6. Add a regression assertion that the audit-log AAL2 policy remains restrictive.
 
 No connected Supabase project was queried or modified to produce this snapshot. The snapshot came from the repository's isolated CI PostgreSQL replay. It is not evidence of the live LifeLink or TACResQ project catalog.
+
+
+The staged `api_admin_set_account_status(bigint,text,text)` routine is SECURITY DEFINER but has no authenticated, anon, or PUBLIC EXECUTE grant. It is therefore not included in the callable totals above; it must remain unavailable to client routes until the complete access-surface and runtime validation gates are approved.

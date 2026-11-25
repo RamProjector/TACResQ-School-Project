@@ -48,3 +48,10 @@
 ## Evidence boundaries
 
 Reviewed migration source for incident creation and one-time location, requester single-active/cancellation, requester edit workflow and urgent location correction, latest requester location validation, dispatcher progress, and dispatcher edit notifications. No SQL was executed, no live catalog or user/incident records were queried, no migrations were applied, and no runtime concurrency test was performed.
+## Account lifecycle boundary added November 24
+
+The forward migration `20261124120000_account_lifecycle_requester_edit_guard.sql` now moves the existing SECURITY DEFINER edit body behind `private.tacresq_update_my_incident_internal(...)` and revokes client-role EXECUTE on that implementation. The public `api_update_my_incident(...)` signature and default confirmation argument remain available to authenticated clients.
+
+The public wrapper first resolves the caller from `auth.uid()`, requires `account_status = 'active'` and requester role, and holds a `FOR SHARE` lock on the profile row while delegating to the preserved implementation. This serializes an edit with a lifecycle transition that updates the same profile row: if suspension commits first, the edit is denied; if the edit obtains the lock first, the edit completes before suspension can commit.
+
+The private implementation retains the existing incident ownership/assignment checks, field validation, edit cooldown, confirmation requirement, and before/after edit-log insertion. This is a source/migration design claim only until the new migration and SQL replay contract are executed in a disposable PostgreSQL environment. It has not been applied to a connected Supabase project.

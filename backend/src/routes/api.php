@@ -69,6 +69,11 @@ Route::post('/login', function (Request $request) use ($userJson) {
     }
 
     RateLimiter::clear($accountKey);
+    if ($user->is_suspended) {
+        return response()->json([
+            'message' => 'This local TACResQ account is suspended. Contact an administrator for assistance.',
+        ], 403)->header('Cache-Control', 'no-store, private');
+    }
     return response()->json(['token' => $user->createToken('android')->plainTextToken, 'user' => $userJson($user)])
         ->header('Cache-Control', 'no-store, private');
 });
@@ -100,18 +105,18 @@ Route::post('/register', function (Request $request) use ($userJson) {
         ->header('Cache-Control', 'no-store, private');
 });
 
-Route::middleware('auth:sanctum')->group(function () use ($userJson, $incidentJson, $onlyRoles) {
+Route::middleware(['auth:sanctum', 'account.active'])->group(function () use ($userJson, $incidentJson, $onlyRoles) {
     Route::post('/logout', fn (Request $request) => tap(
         response()->noContent()->header('Cache-Control', 'no-store, private'),
         fn () => $request->user()->currentAccessToken()?->delete()
-    ));
+    ))->withoutMiddleware('account.active');
     // Self-service recovery control: invalidate every Sanctum personal access
     // token for this account, including the token used for this request.
     Route::post('/logout-all', function (Request $request) {
         $request->user()->tokens()->delete();
         return response()->json(['message' => 'All Laravel API tokens have been revoked.'], 200)
             ->header('Cache-Control', 'no-store, private');
-    })->middleware('throttle:10,1');
+    })->middleware('throttle:10,1')->withoutMiddleware('account.active');
     Route::post('/change-password', function (Request $request) use ($userJson) {
         $data = $request->validate([
             'current_password' => ['required', 'string', 'max:72'],
@@ -457,6 +462,28 @@ Route::get('/bridge/me', function (Request $request, \App\SupabaseBridge $bridge
     }
     RateLimiter::hit($userRateKey, 60);
 
+    // Supabase Auth validity alone is not application authorization. Resolve
+    // the caller's profile through the user's JWT so active-account RLS is
+    // evaluated by Postgres before this bridge returns identity information.
+    $profile = $bridge->callRpc($token, 'api_me', []);
+    if ($profile['status'] >= 500) {
+        return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+    if ($profile['status'] >= 400 || !is_array($profile['body']) || !isset($profile['body']['id'])) {
+        app(\App\ApiOperationAuditLogger::class)->record(
+            'supabase',
+            'bridge.active_profile',
+            'rejected',
+            403,
+            0,
+            null,
+            'active_profile_required',
+            $request->attributes->get('correlation_id'),
+        );
+        return response()->json(['message' => 'An active TACResQ profile is required.'], 403);
+    }
+
+
     return response()->json([
         'id' => $user['id'],
         'email' => $user['email'] ?? null,
@@ -509,6 +536,27 @@ Route::post('/bridge/rpc/{function}', function (
             ->header('Retry-After', (string) RateLimiter::availableIn($userRateKey));
     }
     RateLimiter::hit($userRateKey, 60);
+
+    // Verify current application account state with the original caller JWT.
+    // Never infer the TACResQ profile from Auth email or user metadata.
+    $profile = $bridge->callRpc($token, 'api_me', []);
+    if ($profile['status'] >= 500) {
+        return response()->json(['message' => 'Supabase is temporarily unavailable. Please retry.'], 502);
+    }
+    if ($profile['status'] >= 400 || !is_array($profile['body']) || !isset($profile['body']['id'])) {
+        app(\App\ApiOperationAuditLogger::class)->record(
+            'supabase',
+            'bridge.active_profile',
+            'rejected',
+            403,
+            0,
+            null,
+            'active_profile_required',
+            $request->attributes->get('correlation_id'),
+        );
+        return response()->json(['message' => 'An active TACResQ profile is required.'], 403);
+    }
+
 
     $result = $bridge->callRpc($token, $function, $arguments);
     if ($result['status'] >= 500) {
@@ -1043,3 +1091,100 @@ Route::post('/route-preview', function (Request $request, \App\SupabaseBridge $b
         'instructions' => $instructions,
     ]);
 })->middleware('throttle:600,1');
+
+
+// Local Laravel Admin TOTP enrollment is deliberately separate from Supabase Auth.
+// The secret is returned once for authenticator setup and stored only encrypted.
+Route::middleware(['auth:sanctum', 'account.active'])->prefix('admin/security/totp')->group(function () {
+    Route::post('/enroll', function (Request $request) {
+        $user = $request->user();
+        abort_unless($user !== null && $user->role === 'admin', 403, 'Administrator access is required.');
+
+        $data = $request->validate([
+            'current_password' => ['required', 'string', 'max:72'],
+        ]);
+        $result = DB::transaction(function () use ($user, $data) {
+            $lockedUser = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            if ($lockedUser->role !== 'admin'
+                || $lockedUser->is_suspended
+                || !Hash::check($data['current_password'], $lockedUser->password)) {
+                return null;
+            }
+
+            $existing = DB::table('local_admin_totp_credentials')
+                ->where('user_id', $lockedUser->id)
+                ->lockForUpdate()
+                ->first();
+            abort_if($existing !== null && $existing->confirmed_at !== null, 409, 'A confirmed authenticator is already enrolled. Contact the account recovery administrator to replace it.');
+
+            $totp = app(\App\Services\LocalAdminTotpService::class);
+            $secret = $totp->generateSecret();
+            DB::table('local_admin_totp_credentials')->updateOrInsert(
+                ['user_id' => $lockedUser->id],
+                [
+                    'secret_ciphertext' => $totp->encryptSecret($secret),
+                    'confirmed_at' => null,
+                    'expires_at' => now()->addMinutes(10),
+                    'last_used_step' => null,
+                    'last_used_code_hash' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            );
+
+            return [
+                'secret' => $secret,
+                'label' => 'TACResQ:'.$lockedUser->email,
+            ];
+        }, 3);
+
+        if ($result === null) {
+            return response()->json(['message' => 'Administrator re-authentication failed.'], 403)
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        $label = rawurlencode($result['label']);
+        $issuer = rawurlencode('TACResQ');
+        $uri = 'otpauth://totp/'.$label.'?secret='.$result['secret'].'&issuer='.$issuer.'&algorithm=SHA1&digits=6&period=30';
+
+        return response()->json([
+            'secret' => $result['secret'],
+            'otpauth_uri' => $uri,
+            'message' => 'Add this account to an authenticator app, then confirm with its current six-digit code. The secret is shown only in this response.',
+        ])->header('Cache-Control', 'no-store, private');
+    })->middleware('throttle:3,1');
+
+    Route::post('/confirm', function (Request $request) {
+        $user = $request->user();
+        abort_unless($user !== null && $user->role === 'admin', 403, 'Administrator access is required.');
+        $data = $request->validate([
+            'current_password' => ['required', 'string', 'max:72'],
+            'totp_code' => ['required', 'string', 'regex:/^\d{6}$/'],
+        ]);
+
+        $confirmed = DB::transaction(function () use ($user, $data) {
+            $lockedUser = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            if ($lockedUser->role !== 'admin'
+                || $lockedUser->is_suspended
+                || !Hash::check($data['current_password'], $lockedUser->password)) {
+                return null;
+            }
+
+            return app(\App\Services\LocalAdminTotpService::class)
+                ->confirmEnrollment($lockedUser, $data['totp_code']);
+        }, 3);
+
+        if ($confirmed === null) {
+            return response()->json(['message' => 'Administrator re-authentication failed.'], 403)
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        if (!$confirmed) {
+            return response()->json(['message' => 'The authenticator code is invalid or the enrollment has expired.'], 422)
+                ->header('Cache-Control', 'no-store, private');
+        }
+
+        return response()->json(['enabled' => true, 'message' => 'Authenticator verification is enabled for this local Admin account.'])
+            ->header('Cache-Control', 'no-store, private');
+    })->middleware('throttle:5,1');
+});

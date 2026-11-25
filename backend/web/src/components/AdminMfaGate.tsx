@@ -87,6 +87,39 @@ export default function AdminMfaGate({ children, onSignOut }: {
     return () => { active = false; };
   }, []);
 
+  async function handleSignOut() {
+    if (busy) return;
+    if (state === "enroll" && factorId) {
+      await cancelEnrollment();
+      return;
+    }
+    if (state === "checking" && preparation.current) {
+      setBusy(true);
+      setError(null);
+      try {
+        const prepared = await preparation.current;
+        if (prepared.state === "enroll") {
+          // Cleanup is best-effort. An Auth outage must never trap an
+          // administrator in an authenticated session or block sign-out.
+          try {
+            const { error: unenrollError } = await getSupabase().auth.mfa.unenroll({
+              factorId: prepared.factorId,
+            });
+            if (unenrollError) throw unenrollError;
+          } catch {
+            // The pending factor can be cleaned up on a later authenticated visit.
+          }
+        }
+      } catch {
+        // MFA preparation may fail because Auth is unavailable. Sign-out must
+        // remain possible even when the security setup service is unavailable.
+      }
+      onSignOut();
+      return;
+    }
+    onSignOut();
+  }
+
   async function cancelEnrollment() {
     if (state !== "enroll" || !factorId || busy) return;
     setBusy(true);
@@ -96,10 +129,14 @@ export default function AdminMfaGate({ children, onSignOut }: {
       // Never enumerate and remove other pending factors from another device.
       const { error: unenrollError } = await getSupabase().auth.mfa.unenroll({ factorId });
       if (unenrollError) throw unenrollError;
+      setSecret("");
+      setQrCode("");
+      setCode("");
+    } catch {
+      // Cancellation includes signing out. Do not keep the administrator
+      // authenticated merely because Supabase could not remove this factor.
+    } finally {
       onSignOut();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The pending setup could not be cancelled.");
-      setBusy(false);
     }
   }
 
@@ -131,7 +168,7 @@ export default function AdminMfaGate({ children, onSignOut }: {
 
   return (
     <main className="gate-screen">
-      <header className="gate-header"><Brand /><button className="button button--quiet" type="button" onClick={onSignOut}><LogOut size={16} /> Sign out</button></header>
+      <header className="gate-header"><Brand /><button className="button button--quiet" type="button" onClick={() => { void handleSignOut(); }} disabled={busy}><LogOut size={16} /> Sign out</button></header>
       <section className="gate-card">
         <div className="gate-icon"><ShieldCheck size={24} /></div>
         <p className="eyebrow">TACRESQ · ADMINISTRATOR MFA</p>

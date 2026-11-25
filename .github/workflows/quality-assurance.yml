@@ -1,6 +1,9 @@
 name: TACResQ quality assurance
 
 on:
+  pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       stress_requests:
@@ -15,6 +18,8 @@ permissions:
 
 jobs:
   screen-capture:
+    # Capture the prototype gallery on PRs as well as scheduled/manual QA; this is advisory visual evidence, not native-app acceptance.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     name: Capture every prototype screen and activity
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -38,6 +43,8 @@ jobs:
           if-no-files-found: error
 
   stress:
+    # Run the bounded, disposable local-stack smoke test on every PR as well as scheduled/manual QA.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     name: Local stack stress smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 25

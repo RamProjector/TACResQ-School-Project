@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -51,6 +50,15 @@ jobs:
       - name: Check notification account-state rollout boundary
         run: python3 tools/test_notification_account_state_rollout.py
 
+      - name: Check notification Edge Function account-state authorization order
+        run: python3 tools/test_account_lifecycle_notification_edge_contract.py
+
+      - name: Check Storage bucket inventory and suspended-session contract
+        run: python3 tools/test_storage_bucket_inventory_contract.py
+
+      - name: Check callable authorization catalog completeness
+        run: python3 tools/test_account_lifecycle_callable_inventory_contract.py
+
       - name: Run offline dispatcher workflow test
         run: python3 tools/test_workflow.py
 
@@ -59,6 +67,9 @@ jobs:
 
       - name: Check Admin investigation and app-action audit contracts
         run: python3 tools/test_admin_investigation_events_contract.py
+
+      - name: Check Admin account-lifecycle audit reader and pagination
+        run: python3 tools/test_admin_lifecycle_audit_reader_contract.py
 
       - name: Check inline authentication validation
         run: python3 tools/test_auth_inline_validation.py
@@ -78,6 +89,15 @@ jobs:
         run: python3 tools/test_authenticated_mutation_throttles.py
       - name: Check privacy-safe bridge rate-limit keys
         run: python3 tools/test_bridge_rate_limit_key_privacy.py
+
+      - name: Check Laravel bridge account lifecycle enforcement
+        run: python3 tools/test_laravel_bridge_account_lifecycle_contract.py
+
+      - name: Check separate Laravel Sanctum identity boundary
+        run: python3 tools/test_sanctum_identity_boundary.py
+
+      - name: Check local Laravel Sanctum suspension enforcement
+        run: python3 tools/test_local_sanctum_account_lifecycle.py
 
       - name: Check Laravel assignment duty-state visibility
         run: python3 tools/test_laravel_assignment_duty_state.py
@@ -220,11 +240,50 @@ jobs:
 
       - name: Check administrator TOTP MFA enforcement
         run: python3 tools/test_admin_totp_contract.py
+      - name: Check pending MFA cleanup on gate sign-out
+        run: python3 tools/test_admin_gate_signout_cleanup_contract.py
 
       - name: Check dependency health monitoring safety contract
         run: python3 tools/test_dependency_health_monitoring_contract.py
       - name: Check administrator dependency health visibility contract
         run: python3 tools/test_admin_dependency_health_contract.py
+
+      - name: Check Admin analytics loading and stale-state contract
+        run: python3 tools/test_admin_analytics_busy_state_contract.py
+      - name: Check Admin analytics CSV export safety contract
+        run: python3 tools/test_admin_analytics_export_contract.py
+      - name: Check Admin attachment storage workspace contract
+        run: python3 tools/test_admin_attachment_storage_workspace_contract.py
+      - name: Check Admin audit loading state contract
+        run: python3 tools/test_admin_audit_busy_state_contract.py
+      - name: Check Admin audit date filter contract
+        run: python3 tools/test_admin_audit_filter_contract.py
+      - name: Check Admin audit high-contrast accessibility contract
+        run: python3 tools/test_admin_audit_high_contrast_contract.py
+      - name: Check Admin audit pagination announcement contract
+        run: python3 tools/test_admin_audit_pagination_announcement_contract.py
+      - name: Check Admin directory pagination contract
+        run: python3 tools/test_admin_directory_pagination_contract.py
+      - name: Check Admin help search contract
+        run: python3 tools/test_admin_help_search_contract.py
+      - name: Check Admin mobile navigation contract
+        run: python3 tools/test_admin_mobile_navigation_contract.py
+      - name: Check Admin navigation focus contract
+        run: python3 tools/test_admin_navigation_focus_contract.py
+      - name: Check Admin overview health contract
+        run: python3 tools/test_admin_overview_health_contract.py
+      - name: Check Admin pending MFA cleanup contract
+        run: python3 tools/test_admin_pending_mfa_cleanup_contract.py
+      - name: Check Admin preferences accessibility contract
+        run: python3 tools/test_admin_preferences_accessibility_contract.py
+      - name: Check Admin privacy workspace contract
+        run: python3 tools/test_admin_privacy_workspace_contract.py
+      - name: Check Admin recovery workspace contract
+        run: python3 tools/test_admin_recovery_workspace_contract.py
+      - name: Check Admin role dialog scroll-lock contract
+        run: python3 tools/test_admin_role_dialog_scroll_lock_contract.py
+      - name: Check Admin security analytics UI contract
+        run: python3 tools/test_admin_security_analytics_ui_contract.py
 
       - name: Check GPS location-disabled regression
         run: python3 tools/test_location_disabled_regression.py
@@ -413,7 +472,7 @@ jobs:
             exit 1
           fi
           yes | "$SDKMANAGER" --licenses >/dev/null
-          "$SDKMANAGER" --install "platforms;android-37.0" "build-tools;36.0.0"
+          "$SDKMANAGER" --install "platforms;android-37.2" "build-tools;36.0.0"
 
       - name: Set up Gradle
         if: hashFiles('gradlew') != ''
@@ -444,6 +503,23 @@ jobs:
           echo "ANDROID_SIGNING_STORE_FILE=$RUNNER_TEMP/tacresq-signing/release.jks" >> "$GITHUB_ENV"
           echo "ANDROID_RELEASE_SIGNING_CONFIGURED=true" >> "$GITHUB_ENV"
           echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Verify patched Android build-tool dependencies (retry transient Maven rate limits)
+        if: hashFiles('gradlew') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ./gradlew --no-daemon verifyBuildToolDependencySecurity; then
+              exit 0
+            fi
+            if [[ "$attempt" -lt 3 ]]; then
+              echo "Gradle dependency verification failed; retrying in $((attempt * 30)) seconds (attempt $((attempt + 1))/3)."
+              sleep $((attempt * 30))
+            fi
+          done
+          echo "::error::Patched build-tool dependency verification failed after three attempts."
+          exit 1
 
       - name: Build demo-mode debug APK
         if: hashFiles('gradlew') != ''
@@ -602,6 +678,13 @@ jobs:
         run: |
           docker compose exec -T api php artisan migrate --force
           docker compose exec -T api php artisan migrate:status --database=pgsql
+
+      - name: Require PostgreSQL-backed local Sanctum lifecycle tests
+        working-directory: backend
+        run: >-
+          docker compose exec -T api sh -ec
+          'DB_CONNECTION=pgsql TACRESQ_REQUIRE_POSTGRES_LIFECYCLE=1
+          php artisan test --filter=LocalSanctumAccountLifecycleTest'
 
       - name: Run Laravel feature tests
         working-directory: backend

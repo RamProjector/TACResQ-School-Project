@@ -1,0 +1,103 @@
+name: TACResQ authenticated Render bridge smoke role
+
+on:
+  workflow_call:
+    inputs:
+      expected_role:
+        description: Expected profile role returned by api_me
+        required: true
+        type: string
+    secrets:
+      SUPABASE_PUBLISHABLE_KEY:
+        required: true
+      TEST_EMAIL:
+        required: true
+      TEST_PASSWORD:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  authenticated-read:
+    name: Verify ${{ inputs.expected_role }} account
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Sign in and verify role through the live Render bridge
+        env:
+          BASE_URL: https://tacresq-school-project.onrender.com
+          SUPABASE_URL: https://kttguamhznoflzagfutr.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          EXPECTED_ROLE: ${{ inputs.expected_role }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.request
+
+          expected_role = os.environ["EXPECTED_ROLE"]
+          if expected_role not in {"requester", "responder", "driver", "dispatcher"}:
+              print("::error::Unsupported expected role.")
+              sys.exit(1)
+
+          email = os.environ.get("TEST_EMAIL", "")
+          password = os.environ.get("TEST_PASSWORD", "")
+          publishable_key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "")
+          if not email or not password or not publishable_key:
+              print("::error::A required explicitly passed smoke-test secret is missing.")
+              sys.exit(1)
+
+          def post_json(url, headers, payload):
+              request = urllib.request.Request(
+                  url,
+                  data=json.dumps(payload).encode("utf-8"),
+                  headers={**headers, "Content-Type": "application/json"},
+                  method="POST",
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=15) as response:
+                      return response.status, json.loads(response.read())
+              except urllib.error.HTTPError as error:
+                  return error.code, None
+              except (urllib.error.URLError, TimeoutError, ValueError):
+                  return None, None
+
+          auth_status, auth_body = post_json(
+              os.environ["SUPABASE_URL"].rstrip("/") + "/auth/v1/token?grant_type=password",
+              {"apikey": publishable_key},
+              {"email": email, "password": password},
+          )
+          if auth_status != 200 or not isinstance(auth_body, dict):
+              print(f"::error::Supabase sign-in failed for the {expected_role} test account (HTTP {auth_status or 'network error'}); response body suppressed.")
+              sys.exit(1)
+
+          access_token = auth_body.get("access_token")
+          if not isinstance(access_token, str) or not access_token:
+              print("::error::Supabase sign-in response contained no access token.")
+              sys.exit(1)
+
+          rpc_status, rpc_body = post_json(
+              os.environ["BASE_URL"].rstrip("/") + "/api/bridge/rpc/api_me",
+              {"Authorization": "Bearer " + access_token},
+              {},
+          )
+          access_token = None
+          auth_body = None
+          if rpc_status != 200 or not isinstance(rpc_body, dict):
+              print(f"::error::Authenticated api_me call failed for the {expected_role} account (HTTP {rpc_status or 'network error'}); response body suppressed.")
+              sys.exit(1)
+
+          actual_role = rpc_body.get("role")
+          if actual_role != expected_role:
+              print(f"::error::Role mismatch: expected {expected_role}, received {actual_role if isinstance(actual_role, str) else 'missing/invalid'}.")
+              sys.exit(1)
+
+          print(f"Supabase sign-in and live Render api_me role check passed for {expected_role}. No profile data or credentials logged.")
+          PY

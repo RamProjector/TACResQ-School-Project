@@ -3,7 +3,6 @@ name: TACResQ Render live smoke
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main]
     paths:
       - "backend/Dockerfile"
       - "backend/router.php"

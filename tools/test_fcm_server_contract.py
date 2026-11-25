@@ -18,9 +18,17 @@ dockerfile = read("backend/Dockerfile")
 env = read("backend/.env.example")
 base_migration = read("supabase/migrations/20261105235016_fcm_delivery_attempts.sql")
 queue_migration = read("supabase/migrations/20261114153546_fcm_delivery_queue_hardening.sql")
+claim_migration = read("supabase/migrations/20261123220000_fcm_delivery_claim_active_recipient_guard.sql")
 queue_test = read("tools/test_fcm_delivery_queue.sql")
 docs = read("docs/FCM_SETUP.md")
+fcm_lifecycle = read("supabase/migrations/20261123210000_account_lifecycle_fcm_token_guards.sql")
+account_write_guard = read("supabase/migrations/20261123120000_account_lifecycle_write_guard_triggers.sql")
 
+contract = read("backend/src/app/Contracts/FcmClientContract.php")
+provider = read("backend/src/app/Providers/AppServiceProvider.php")
+assert "interface FcmClientContract" in contract
+assert "implements \\App\\Contracts\\FcmClientContract" in transport
+assert "FcmClientContract::class, FcmHttpV1Client::class" in provider
 assert "ApplicationDefaultCredentials::getCredentials" in transport
 assert "->timeout(10)" in transport
 assert "->timeout(10)" in dispatcher
@@ -45,7 +53,8 @@ assert "GOOGLE_APPLICATION_CREDENTIALS" in env
 assert "google/auth:^1.48" in dockerfile
 assert "api_claim_fcm_delivery_batch" in dispatcher
 assert "p_lease_seconds" in dispatcher
-assert "min($limit ?? (int) config('tacru.fcm_batch_limit', 50), 50)" in dispatcher
+assert "$configuredLimit = (int) config('tacru.fcm_batch_limit', 50);" in dispatcher
+assert "$limit = $limit ?? max(1, min($configuredLimit, 50));" in dispatcher
 assert "fcm_delivery_attempts" in dispatcher
 assert "next_attempt_at" in dispatcher
 assert "attempt_count" in dispatcher
@@ -57,8 +66,32 @@ assert "PHP_QUERY_RFC3986" in dispatcher
 assert "$this->tableUrl('fcm_tokens').'?'.$query" in dispatcher
 assert "$this->client()->delete($this->tableUrl('fcm_tokens'), [" not in dispatcher
 assert "permanent_failure" in dispatcher
+assert "persistAttemptSafely" in dispatcher
+assert "FCM delivery ledger update failed for attempt" in dispatcher
+assert "continue;" in dispatcher
+assert "catch (\\Throwable $exception)" in dispatcher
+assert "Log::warning(" in dispatcher
+assert "$exception->getMessage()" not in dispatcher
+assert "persistAttemptSafely(" in dispatcher
+assert "use InvalidArgumentException;" in dispatcher
+assert "FCM dispatch limit must be between 1 and 50." in dispatcher
+assert "if ($limit !== null && ($limit < 1 || $limit > 50))" in dispatcher
+assert "catch (\\Throwable)" in dispatcher
+assert "Logging must not turn a recoverable ledger failure into a batch abort." in dispatcher
+assert "permanent_failure" in dispatcher
+assert "TRANSPORT_FAILURE" in dispatcher
+assert "'TOKEN_CLEANUP_FAILURE'" in dispatcher
+assert "logCleanupFailureSafely" in dispatcher
+assert "FCM invalid-token cleanup failed for attempt." in dispatcher
+assert "Do not misclassify a PostgREST cleanup failure as an FCM transport failure." in dispatcher
+assert "catch (\\Throwable $cleanupException)" in dispatcher
+assert "catch (\\Throwable)" in dispatcher
 assert "tacresq:dispatch-fcm" in command
 assert "--check-config" in command
+assert "FILTER_VALIDATE_INT" in command
+assert "$parsedLimit < 1 || $parsedLimit > 50" in command
+assert "The --limit option must be an integer between 1 and 50." in command
+assert "return self::INVALID;" in command
 assert "checkConfiguration" in dispatcher
 assert dispatcher.index("$this->checkConfiguration();") < dispatcher.index("api_claim_fcm_delivery_batch")
 assert "assertCredentialsAvailable" in transport
@@ -72,9 +105,27 @@ assert "p_limit > 50" in queue_migration
 assert "existing.attempt_count < 8" in queue_migration
 assert "existing.next_attempt_at <= statement_timestamp()" in queue_migration
 assert "WHERE n.read_at IS NULL" in queue_migration
+assert "SELECT candidates.notification_id, candidates.profile_id, candidates.token" in claim_migration
+assert "FROM candidates" in claim_migration
+assert "api_claim_fcm_delivery_batch" in claim_migration
+assert "SECURITY DEFINER" in claim_migration
+assert "SET search_path = pg_catalog" in claim_migration
 assert "GRANT EXECUTE ON FUNCTION public.api_claim_fcm_delivery_batch(integer, integer)" in queue_migration
 assert "TO service_role" in queue_migration
 assert "FROM PUBLIC, anon, authenticated" in queue_migration
+
+unregister_body = fcm_lifecycle.split("CREATE OR REPLACE FUNCTION public.api_unregister_fcm_token", 1)[1].split("$function$;", 1)[0]
+assert "SECURITY DEFINER" in unregister_body
+assert "SET search_path = pg_catalog" in unregister_body
+assert "private.tacresq_auth_profile_id_for_token_cleanup()" in unregister_body
+assert "set_config('tacresq.allow_suspended_fcm_self_cleanup', 'on', true)" in unregister_body
+assert "set_config('tacresq.allow_suspended_fcm_self_cleanup', NULL, true)" in unregister_body
+for required in (
+    "TG_TABLE_NAME = 'fcm_tokens'",
+    "current_setting('tacresq.allow_suspended_fcm_self_cleanup', true) = 'on'",
+    "OLD.profile_id = private.tacresq_auth_profile_id_for_token_cleanup()",
+):
+    assert required in account_write_guard, f"Suspended FCM cleanup trigger exception is not narrowly scoped: {required}"
 assert "permanent_failure" in queue_migration
 assert "service_role" in queue_test and "authenticated" in queue_test
 assert "A second worker claim must not reclaim a live lease" in queue_test
@@ -88,6 +139,33 @@ assert "typed `google.rpc.BadRequest` field-violation detail" in docs
 assert "SUPABASE_SECRET_KEY" in docs
 assert "Do not expose this command" in docs
 assert "--check-config" in docs
+assert "at-least-once, not exactly-once" in docs
+assert "stable notification identifier" in docs
+
+dispatcher_tests = read("backend/src/tests/Feature/FcmNotificationDispatcherTest.php")
+assert "array_is_list($claimedAttempts)" in dispatcher
+assert "foreach ($claimedAttempts as $attempt)" in dispatcher
+assert "if (!is_array($attempt))" in dispatcher
+assert "'tokens' => count($claimedAttempts)" in dispatcher
+assert "test_object_claim_payload_is_rejected_as_not_a_delivery_list" in dispatcher_tests
+assert "test_non_array_claim_row_is_counted_as_skipped_without_blocking_valid_rows" in dispatcher_tests
+assert "test_invalid_explicit_limit_is_rejected_before_queue_claim" in dispatcher_tests
+assert "test_successful_send_is_written_to_delivery_ledger" in dispatcher_tests
+assert "test_ledger_failure_for_one_attempt_does_not_stop_later_recipients" in dispatcher_tests
+assert "test_invalid_token_cleanup_failure_is_recorded_as_retryable_cleanup_error" in dispatcher_tests
+assert "test_malformed_claimed_attempt_is_skipped_without_sending" in dispatcher_tests
+assert "test_invalid_token_is_marked_only_after_successful_cleanup" in dispatcher_tests
+assert "test_retryable_provider_result_is_persisted_as_failed_with_backoff" in dispatcher_tests
+assert "test_missing_server_configuration_fails_before_queue_claim" in dispatcher_tests
+assert "test_claim_service_failure_aborts_before_any_send" in dispatcher_tests
+assert "test_configured_batch_limit_is_clamped_to_database_cap" in dispatcher_tests
+assert "test_permanent_provider_failure_is_not_treated_as_invalid_token" in dispatcher_tests
+assert "test_send_exception_is_recorded_and_later_recipient_is_processed" in dispatcher_tests
+assert "test_invalid_token_cleanup_failure_does_not_stop_next_recipient" in dispatcher_tests
+assert "test_missing_fcm_project_id_fails_before_queue_claim" in dispatcher_tests
+assert "test_non_array_claim_response_is_rejected_before_send" in dispatcher_tests
+assert "test_empty_queue_returns_zero_counts_without_sending" in dispatcher_tests
+assert "test_cleanup_failure_log_contains_only_attempt_and_exception_class" in dispatcher_tests
 # The trusted sender must not expose a public route or use a client-visible key.
 assert "Route::post('/internal/push" not in read("backend/src/routes/api.php")
 assert "supabase_publishable_key" not in dispatcher

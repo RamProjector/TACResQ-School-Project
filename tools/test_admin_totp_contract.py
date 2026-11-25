@@ -36,7 +36,7 @@ assert "complete administrative audit history" not in admin.lower(), "Do not imp
 assert "page * pageSize >= userPage.total_count" in admin, "User management must recover when the current page becomes out of range after the account set shrinks."
 assert "Math.ceil(userPage.total_count / pageSize) - 1" in admin, "Out-of-range user pagination must return to the last valid page instead of showing a false empty state."
 assert "const [debouncedQuery, setDebouncedQuery] = useState(\"\")" in admin, "User search must keep a debounced query separate from the live input."
-assert "window.setTimeout(() => {" in admin and "setDebouncedQuery(query)" in admin and "}, 250)" in admin, "User directory search must debounce server requests."
+assert "window.setTimeout(() => {" in admin and "setDebouncedQuery(query.trim())" in admin and "}, 250)" in admin, "User directory search must debounce server requests."
 assert "getAdminUsersPage(pageSize, page * pageSize, debouncedQuery, roleFilter)" in admin, "User directory RPC must use the debounced query."
 # Overview dependency probes must run independently of the account-directory RPC.
 refresh_body = admin.split("const refresh = useCallback(async () => {", 1)[1].split("}, [activeSection, page, debouncedQuery, roleFilter]);", 1)[0]
@@ -79,6 +79,12 @@ assert "Actor profile ID" not in audit_page and "Target profile ID" not in audit
 assert "This interface is read-only." in audit_page
 assert "Authentication events depend on Supabase Auth Audit Logs Postgres storage" in audit_page
 assert "Denied privileged RPC attempts are not yet durably represented in this feed." in audit_page
+assert "const lifecyclePageSize = 5;" in audit_page and "getAdminAccountLifecycleEvents(lifecyclePageSize, lifecyclePage * lifecyclePageSize)" in audit_page, "Audit history must load the separate trusted account lifecycle source with bounded pagination."
+assert "Account suspension and reactivation" in audit_page
+assert "No account suspension or reactivation events have been recorded." in audit_page
+assert "Account lifecycle history will appear after the reviewed database migration is applied." in supabase_client
+assert "api_admin_list_account_lifecycle_events" in supabase_client
+
 assert (ROOT / "docs/security/admin-session-revocation-and-auth-audit-boundaries.md").exists()
 
 # The Security page reports live Supabase Auth state without exposing factor secrets.
@@ -110,6 +116,11 @@ assert "onSignOut()" in gate_cancel, "Cancelling initial MFA setup must sign out
 assert "auth.mfa.unenroll(" not in gate.split("async function prepareAdminMfa()", 1)[1].split("export default function AdminMfaGate", 1)[0], "Sign-in preparation must not delete pending factors from other devices."
 assert "snapshot.factors.length >= 10" in security_status
 assert "Backup authenticator" in security_status and "separate device" in security_status
+assert "{verifiedFactors.length < 2 && (" in security_status, "The Security page must prominently warn when fewer than two verified factors are enrolled."
+assert "Add a backup authenticator to prevent lockout" in security_status
+assert '"Primary factor locked" : "Remove"' in security_status, "The sole verified factor must be visibly locked rather than presenting a contradictory Remove action."
+assert "A verified factor can be removed only when another verified factor remains" in security_status, "Security guidance must match the supported secondary-factor removal flow."
+assert "This page cannot remove verified factors" not in security_status
 assert "availableFactors" in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 assert "Authenticator device" in (ROOT / "backend/web/src/components/AdminMfaGate.tsx").read_text()
 # Global session revocation is limited to the current Admin account and requires

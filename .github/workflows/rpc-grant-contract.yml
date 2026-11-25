@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -43,6 +42,8 @@ jobs:
           python-version: '3.11'
       - name: Verify anonymous RPC grants are restricted
         run: python3 tools/test_rpc_grants.py
+      - name: Verify account lifecycle foundation contract
+        run: python3 tools/test_account_lifecycle_foundation.py
       - name: Replay migrations and verify existing database contracts
         run: bash tools/test_supabase_migration_replay.sh
       - name: Verify incident assignment table privileges

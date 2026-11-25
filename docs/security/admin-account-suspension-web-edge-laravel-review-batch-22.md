@@ -86,3 +86,18 @@ For any later suspension feature:
 - backend/src/config/tacru.php — service-only Supabase secret configuration and explicit bridge allowlist.
 
 No connected Supabase project, production data, Auth session, Render deployment, or account record was changed. No account-state migration or UI is included.
+
+
+## PR #347 implementation addendum — Laravel Supabase bridge
+
+The optional Supabase bridge now performs an active-profile preflight for both `GET /bridge/me` and `POST /bridge/rpc/{function}` after Supabase Auth validates the caller's bearer token:
+
+1. It invokes `api_me` using the same original caller JWT and publishable key.
+2. The `api_me` invoker query is subject to the restrictive `profiles` RLS policy installed by the account-lifecycle migration. A suspended profile is invisible, so the RPC returns no profile.
+3. The bridge returns 403 and does not forward the requested RPC or return Auth identity data when the profile is missing.
+4. An upstream profile-preflight error fails closed as a sanitized 502; it is not misreported as a suspended account.
+5. No email or user-metadata join is used, and no service-role credential is used for the preflight.
+
+Feature coverage was added in `backend/src/tests/Feature/SupabaseBridgeTest.php` for suspended/unprovisioned profile denial on both bridge routes, preflight outage behavior, and preservation of the caller JWT. The lifecycle SQL regression now asserts that `api_me()` cannot resolve a suspended profile under the same still-valid JWT. CI now also runs `tools/test_laravel_bridge_account_lifecycle_contract.py`, which locks the Auth-validation → per-user rate-limit → active-profile preflight → denial-audit ordering on both routes and prevents the requested RPC from running before the profile gate. This source contract complements (and does not replace) the Laravel feature-test job.
+
+**Boundary remains explicit:** this does not cover the separate Laravel Sanctum `User` records or their personal-access tokens. No immutable identity mapping to Supabase profiles exists, so a Supabase Admin suspension does not claim to suspend those legacy accounts. If Sanctum remains a supported account domain, it needs its own lifecycle state, privileged management path, audit, and tests; do not link accounts by email.

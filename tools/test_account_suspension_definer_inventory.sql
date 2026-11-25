@@ -11,11 +11,14 @@ DECLARE
   public_invoker_count integer;
   expected_signatures text[] := ARRAY[
     'public.api_admin_analytics_summary(timestamp with time zone,timestamp with time zone)',
+    'public.api_admin_list_account_lifecycle_events(integer,integer)',
     'public.api_admin_list_audit_logs(integer)',
     'public.api_admin_list_audit_logs_page(integer,integer,text,text,timestamp with time zone,timestamp with time zone,bigint,bigint)',
     'public.api_admin_list_investigation_events(integer,integer,text,text,text,timestamp with time zone,timestamp with time zone,bigint,bigint,bigint)',
     'public.api_admin_list_users_page(integer,integer,text,text)',
     'public.api_admin_set_user_role(bigint,text,text)',
+    'public.api_admin_set_account_status(bigint,text,text,text)',
+    'public.api_assign_incident_team(bigint,bigint[])',
     'public.api_cancel_my_incident(bigint)',
     'public.api_claim_incident(bigint)',
     'public.api_claimable_incidents()',
@@ -25,6 +28,7 @@ DECLARE
     'public.api_my_notification(bigint)',
     'public.api_my_notifications(integer)',
     'public.api_register_fcm_token(text)',
+    'public.api_unregister_fcm_token(text)',
     'public.api_reserve_incident_image_upload(bigint,text,bigint,uuid)',
     'public.api_send_incident_image_message(bigint,text,text,text,bigint,uuid)',
     'public.api_send_incident_message(bigint,text,uuid)',
@@ -86,8 +90,8 @@ BEGIN
       unexpected_signature;
   END IF;
 
-  IF cardinality(expected_signatures) <> 21 THEN
-    RAISE EXCEPTION 'Inventory contract must contain exactly 21 classified signatures; found %',
+  IF cardinality(expected_signatures) <> 25 THEN
+    RAISE EXCEPTION 'Inventory contract must contain exactly 25 classified signatures; found %',
       cardinality(expected_signatures);
   END IF;
 
@@ -102,14 +106,14 @@ BEGIN
     AND p.prokind = 'f'
     AND has_function_privilege('authenticated', p.oid, 'EXECUTE');
 
-  IF public_callable_count <> 73
-     OR public_definer_count <> 21
-     OR public_invoker_count <> 52 THEN
+  IF public_callable_count <> 75
+     OR public_definer_count <> 25
+     OR public_invoker_count <> 50 THEN
     RAISE EXCEPTION
-      'Public callable function baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 73/21/52',
+      'Public callable function baseline drifted: total %, SECURITY DEFINER %, SECURITY INVOKER %; expected 75/25/50',
       public_callable_count, public_definer_count, public_invoker_count;
   END IF;
 END;
 $account_suspension_definer_inventory$;
 
-\echo 'PASS: all 21 public SECURITY DEFINER signatures and the 73/21/52 public callable baseline remain inventoried.'
+\echo 'PASS: all 25 public SECURITY DEFINER signatures and the 75/25/50 public callable baseline remain inventoried.'

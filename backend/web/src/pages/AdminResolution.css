@@ -1,0 +1,581 @@
+/* TACResQ Admin resolution system. Fluid within fixed layout tiers; content remains readable at every tier. */
+.admin-shell {
+  --admin-ui-font: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --admin-ui-text: 13px;
+  --admin-ui-small: 12px;
+  --admin-ui-label: 11px;
+  --admin-ui-title: clamp(29px, 2.2vw, 40px);
+  --admin-ui-gutter: 36px;
+  --admin-ui-gap: 20px;
+  font-family: var(--admin-ui-font);
+  font-size: var(--admin-ui-text);
+  line-height: 1.5;
+}
+.admin-shell :where(button, input, select, textarea) { font: inherit; }
+.admin-shell :where(p, li, dd, td, small) { line-height: 1.55; }
+.admin-shell :where(h1, h2, h3) { text-wrap: balance; }
+.admin-workspace {
+  width: min(100%, 1680px);
+  padding-inline: var(--admin-ui-gutter);
+}
+.admin-heading h1 { font-size: var(--admin-ui-title); line-height: 1.12; }
+.admin-heading p:last-child { max-width: 72ch; font-size: var(--admin-ui-text); }
+.admin-panel__heading h2 { font-size: 17px; line-height: 1.3; }
+.admin-eyebrow, .admin-table th { font-size: var(--admin-ui-label); }
+.admin-table td, .admin-search input, .admin-role-filter select { font-size: var(--admin-ui-small); }
+.admin-metrics { gap: 14px; }
+.admin-metrics article { min-width: 0; }
+.admin-metrics article > span { font-size: var(--admin-ui-label); }
+.admin-metrics small, .admin-panel__footnote { font-size: var(--admin-ui-label); }
+.admin-topbar { padding-inline: var(--admin-ui-gutter); }
+.admin-panel { min-width: 0; }
+.admin-main, .admin-workspace, .admin-panel { min-width: 0; }
+
+@media (min-width: 1920px) {
+  .admin-shell { --admin-ui-gutter: 44px; --admin-ui-gap: 24px; --admin-ui-text: 14px; }
+  .admin-workspace { width: min(100%, 1800px); }
+  .admin-table th, .admin-table td { padding-inline: 18px; }
+}
+@media (min-width: 1440px) and (max-width: 1919px) {
+  .admin-shell { --admin-ui-gutter: 36px; }
+  .admin-workspace { width: min(100%, 1680px); }
+}
+@media (min-width: 1201px) and (max-width: 1439px) {
+  .admin-shell { --admin-ui-gutter: 28px; --admin-ui-gap: 18px; }
+}
+@media (min-width: 901px) and (max-width: 1200px) {
+  .admin-shell { --admin-ui-gutter: 22px; --admin-ui-text: 12.5px; }
+  .admin-heading { align-items: flex-start; }
+  .admin-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 761px) and (max-width: 900px) {
+  .admin-shell { --admin-ui-gutter: 18px; --admin-ui-text: 12.5px; }
+  .admin-workspace { padding-top: 24px; }
+  .admin-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-topbar__right { gap: 12px; }
+}
+@media (max-width: 760px) {
+  .admin-shell { --admin-ui-gutter: 16px; --admin-ui-text: 13px; --admin-ui-small: 12px; }
+  .admin-workspace { padding: 22px var(--admin-ui-gutter) 28px; }
+  .admin-sidebar {
+    position: sticky;
+    z-index: 8;
+    top: 0;
+    height: auto;
+    min-height: 0;
+    padding: 12px var(--admin-ui-gutter);
+    gap: 12px;
+  }
+  .admin-sidebar > .brand { padding: 0; }
+  .admin-sidebar__context, .admin-sidebar__bottom { display: none; }
+  .admin-navigation {
+    min-width: 0;
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 2px 0 5px;
+    scrollbar-width: thin;
+  }
+  .admin-navigation__group-label { display: none; }
+  .admin-nav-entry { flex: 0 0 auto; }
+  .admin-nav-item { min-height: 40px; white-space: nowrap; }
+  .admin-topbar { min-height: 60px; padding-inline: var(--admin-ui-gutter); }
+  .admin-heading { align-items: flex-start; gap: 14px; }
+  .admin-heading__identity { align-items: flex-start; }
+}
+@media (max-width: 480px) {
+  .admin-shell { --admin-ui-gutter: 12px; --admin-ui-title: 27px; }
+  .admin-sidebar { padding: 10px var(--admin-ui-gutter); }
+  .admin-sidebar > .brand .brand__wordmark small { display: none; }
+  .admin-topbar { min-height: 54px; gap: 8px; }
+  .admin-breadcrumb { min-width: 0; font-size: 8px; }
+  .admin-topbar__right { min-width: 0; gap: 8px; }
+  .admin-access-pill { display: none; }
+  .admin-user { padding-left: 8px; }
+  .admin-user > span:last-child { display: none; }
+  .admin-signout { padding-left: 8px; }
+  .admin-signout span { display: none; }
+  .admin-workspace { padding-top: 18px; }
+  .admin-heading__icon { width: 42px; height: 42px; border-radius: 11px; }
+  .admin-heading p:last-child { font-size: 12px; }
+  .admin-panel { margin-bottom: 16px; }
+}
+
+
+/* Consistent section rhythm for the Audit, Security, and Reports workspaces. */
+.audit-page { display: grid; min-width: 0; gap: 20px; }
+.audit-page__intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e5eae2;
+}
+.audit-page__intro > div { min-width: 0; max-width: 78ch; }
+.audit-page__intro h2 { display: flex; align-items: center; gap: 9px; margin: 0; color: var(--ink-deep); font-size: 21px; line-height: 1.3; }
+.audit-page__intro h2 svg { flex: 0 0 auto; color: #648b78; }
+.audit-page__intro p:last-child { margin: 8px 0 0; color: #687b7c; font-size: var(--admin-ui-text); line-height: 1.65; }
+.audit-page__coverage, .audit-page__coverage-details, .audit-page__lifecycle {
+  min-width: 0;
+  border: 1px solid #e0e7df;
+  border-radius: 11px;
+  background: rgba(255,254,250,.94);
+}
+.audit-page__coverage { display: grid; gap: 5px; padding: 14px 16px; color: #64736f; font-size: var(--admin-ui-small); line-height: 1.6; }
+.audit-page__coverage strong { color: #405d54; font-size: var(--admin-ui-small); }
+.audit-page__coverage-details { overflow: clip; }
+.audit-page__coverage-details > summary { padding: 14px 16px; color: #405d54; font-size: var(--admin-ui-small); font-weight: 700; cursor: pointer; }
+.audit-page__coverage-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; padding: 0 16px 16px; }
+.audit-page__coverage-grid section { min-width: 0; }
+.audit-page__coverage-grid h3 { margin: 0 0 9px; color: #334e4c; font-size: 13px; }
+.audit-page__coverage-grid ul { display: grid; gap: 10px; margin: 0; padding-left: 18px; }
+.audit-page__coverage-grid li { padding-left: 2px; color: #526965; font-size: var(--admin-ui-small); }
+.audit-page__coverage-grid li span { display: block; margin-top: 2px; color: #7a8982; font-size: var(--admin-ui-label); }
+.audit-page__lifecycle { padding: 18px; }
+.audit-page__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.audit-page__heading > div { min-width: 0; }
+.audit-page__heading h3 { margin: 0; color: #304b4c; font-size: 16px; line-height: 1.35; }
+.audit-page__heading p { max-width: 70ch; margin: 5px 0 0; color: #71817a; font-size: var(--admin-ui-small); }
+.audit-page__heading > span { flex: 0 0 auto; color: #6d8075; font-size: var(--admin-ui-label); }
+.audit-page__filters {
+  display: grid;
+  grid-template-columns: minmax(220px,2fr) repeat(2,minmax(130px,1fr)) repeat(2,minmax(130px,.8fr)) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 15px;
+  border: 1px solid #e0e7df;
+  border-radius: 11px;
+  background: #fffefa;
+}
+.audit-page__filters > label { display: grid; min-width: 0; gap: 6px; color: #657771; font-size: var(--admin-ui-label); font-weight: 650; }
+.audit-page__filters > label > span { padding-left: 2px; }
+.audit-page__filters :where(select,input[type="date"]) { width: 100%; min-width: 0; min-height: 42px; padding: 0 10px; border: 1px solid #dce4db; border-radius: 8px; color: #3d5554; background: #fff; font: inherit; }
+.audit-page__filters .audit-page__search { align-self: end; min-width: 0; }
+.audit-page__reset { min-height: 42px; padding: 0 13px; border: 1px solid #dce4db; border-radius: 8px; color: #4d665d; background: #f8faf5; font-size: var(--admin-ui-small); font-weight: 650; cursor: pointer; }
+.audit-page__reset:disabled { cursor: not-allowed; opacity: .5; }
+.audit-page__summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; color: #72827a; font-size: var(--admin-ui-label); }
+.audit-page__list { display: grid; min-width: 0; gap: 12px; }
+.audit-event-card { min-width: 0; padding: 17px 18px; border: 1px solid #e2e9e1; border-radius: 11px; background: #fffefa; }
+.audit-event-card__heading h3 { overflow-wrap: anywhere; font-size: 15px; line-height: 1.4; }
+.audit-event-card__meta { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.audit-event-card__meta > span { min-width: 0; }
+.audit-event-card__meta strong { overflow-wrap: anywhere; font-size: var(--admin-ui-small); }
+.audit-event-card__details { overflow-wrap: anywhere; }
+.audit-page__lifecycle-pagination { flex-wrap: wrap; }
+.audit-page :where(button, input, select, summary):focus-visible {
+  outline: 3px solid rgba(243,106,67,.45);
+  outline-offset: 2px;
+}
+
+
+/* Predictable reflow for reports, metrics, audit cards, and data-heavy tables. */
+.admin-analytics-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.admin-analytics-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.admin-analytics-detail-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.admin-analytics-card, .admin-analytics-detail-grid > * { min-width: 0; }
+.admin-analytics-bars { min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; }
+.admin-analytics-bar-column { min-width: 0; }
+.admin-analytics-status-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.admin-health-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
+.admin-health-item { min-width: 0; overflow-wrap: anywhere; }
+.admin-roadmap-content { min-width: 0; }
+.admin-roadmap-content :where(p,li) { overflow-wrap: anywhere; }
+.admin-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-gutter: stable; }
+.admin-table { min-width: 760px; }
+.admin-table th, .admin-table td { white-space: normal; }
+.admin-table th { white-space: nowrap; }
+.admin-table td { overflow-wrap: anywhere; }
+.admin-account { min-width: 190px; }
+.admin-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.admin-pagination > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.admin-modal { width: min(100%, 540px); max-height: min(88dvh, 760px); overflow-y: auto; overscroll-behavior: contain; }
+.admin-banner { overflow-wrap: anywhere; }
+.admin-metrics strong { font-size: clamp(22px,1.9vw,32px); }
+.admin-shell :where(input,select,textarea,button) { max-width: 100%; }
+@media (max-width: 1200px) {
+  .admin-health-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-analytics-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .audit-page__filters { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .audit-page__filters .audit-page__search { grid-column: 1 / -1; }
+}
+@media (max-width: 900px) {
+  .admin-analytics-detail-grid { grid-template-columns: minmax(0,1fr); }
+  .admin-analytics-status-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .audit-page__filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .audit-page__filters .audit-page__search { grid-column: 1 / -1; }
+  .audit-page__reset { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .admin-health-grid, .admin-analytics-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-analytics-controls { align-items: stretch; }
+  .admin-analytics-controls > * { min-width: min(100%,180px); }
+  .admin-pagination { align-items: stretch; flex-direction: column; }
+  .admin-pagination > div { width: 100%; }
+  .admin-pagination button { flex: 1 1 auto; }
+  .admin-modal { max-height: 92dvh; }
+  .audit-page { gap: 14px; }
+  .audit-page__intro { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .audit-page__intro > button { align-self: flex-start; }
+  .audit-page__coverage-grid { grid-template-columns: minmax(0,1fr); }
+  .audit-page__lifecycle { padding: 14px; }
+  .audit-event-card { padding: 14px; }
+}
+@media (max-width: 520px) {
+  .admin-health-grid, .admin-analytics-metrics, .admin-analytics-status-grid { grid-template-columns: minmax(0,1fr); }
+  .admin-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-metrics article { min-height: 112px; }
+  .admin-metrics strong { font-size: clamp(20px,6vw,26px); }
+  .audit-page__filters { grid-template-columns: minmax(0,1fr); padding: 12px; }
+  .audit-page__filters .audit-page__search, .audit-page__reset { grid-column: auto; }
+  .audit-page__heading { flex-direction: column; }
+  .audit-event-card__meta { grid-template-columns: minmax(0,1fr); }
+  .audit-event-card__top { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .admin-analytics-controls > * { width: 100%; }
+  .admin-table { min-width: 760px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *, .admin-shell *::before, .admin-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+
+/* Header and navigation resilience for intermediate desktop and tablet widths. */
+.admin-main, .admin-topbar, .admin-topbar__right, .admin-breadcrumb { min-width: 0; }
+.admin-breadcrumb { flex: 1 1 auto; overflow: hidden; }
+.admin-breadcrumb strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-topbar__right { flex: 0 1 auto; }
+.admin-user { min-width: 0; }
+.admin-user > span:last-child { min-width: 0; }
+.admin-user strong { display: block; max-width: min(24vw,240px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-signout { flex: 0 0 auto; white-space: nowrap; }
+@media (min-width: 761px) and (max-width: 1100px) {
+  .admin-shell { grid-template-columns: 196px minmax(0,1fr); }
+  .admin-sidebar { min-width: 0; padding-inline: 12px; }
+  .admin-nav-item { min-width: 0; gap: 9px; padding-inline: 10px; }
+  .admin-nav-item span { overflow: hidden; text-overflow: ellipsis; }
+  .admin-workspace { padding-inline: 20px; }
+  .admin-topbar { gap: 12px; padding-inline: 20px; }
+  .admin-access-pill { padding-inline: 9px; }
+  .admin-user strong { max-width: 150px; }
+}
+@media (max-width: 760px) {
+  .admin-sidebar { min-width: 0; }
+  .admin-navigation { width: 100%; max-width: 100%; }
+  .admin-nav-entry { flex: 0 0 auto; }
+  .admin-nav-item { min-height: 42px; padding-inline: 12px; }
+  .admin-topbar { align-items: center; }
+  .admin-breadcrumb { font-size: 9px; }
+  .admin-user strong { max-width: 120px; }
+}
+@media (max-width: 480px) {
+  .admin-topbar { flex-wrap: wrap; padding-block: 10px; }
+  .admin-breadcrumb { flex-basis: 100%; }
+  .admin-topbar__right { width: 100%; justify-content: flex-end; }
+  .admin-user strong { max-width: 160px; }
+}
+
+
+/* Audit detail panels use a stable definition-list grid and safe long-value wrapping. */
+.audit-event-card__details {
+  min-width: 0;
+  margin-top: 14px;
+  padding: 15px;
+  border: 1px solid #e4eae2;
+  border-radius: 9px;
+  background: #f8faf6;
+}
+.audit-event-card__details > p { margin: 0 0 12px; color: #536b63; font-size: var(--admin-ui-small); }
+.audit-event-card__details dl {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 12px 18px;
+  margin: 0;
+}
+.audit-event-card__details dl > div { display: grid; min-width: 0; gap: 4px; }
+.audit-event-card__details dt { color: #78877f; font-size: var(--admin-ui-label); font-weight: 650; }
+.audit-event-card__details dd { min-width: 0; margin: 0; color: #405954; font-size: var(--admin-ui-small); overflow-wrap: anywhere; }
+.audit-event-card__details code { white-space: normal; overflow-wrap: anywhere; }
+.audit-event-card__details button { min-height: 32px; margin-left: 8px; }
+.audit-event-card__references {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e9e1;
+}
+.audit-event-card__references > summary { color: #506a60; font-size: var(--admin-ui-small); font-weight: 700; cursor: pointer; }
+.audit-event-card__references dl { margin-top: 12px; }
+.audit-page__coverage-details > summary { min-height: 44px; display: flex; align-items: center; }
+.audit-page__coverage-grid li strong { color: #435c53; }
+.audit-page__coverage-grid li span { max-width: 66ch; line-height: 1.55; }
+.audit-page__lifecycle-loading { display: flex; align-items: center; gap: 8px; }
+.audit-page__copy-error { min-height: 1.5em; color: #a34d3a; font-size: var(--admin-ui-small); }
+@media (max-width: 760px) {
+  .audit-event-card__details { padding: 12px; }
+  .audit-event-card__details dl { grid-template-columns: minmax(0,1fr); gap: 10px; }
+}
+
+
+/* Directory controls and result context stay aligned without hiding operational metadata. */
+.admin-directory-status {
+  margin: 0;
+  padding: 0 var(--admin-ui-gutter) 12px;
+  color: #6d7d76;
+  font-size: var(--admin-ui-small);
+  line-height: 1.55;
+}
+.admin-toolbar { align-items: end; }
+.admin-search { min-width: 0; }
+.admin-search input { min-width: 0; width: 100%; }
+.admin-role-filter { min-width: 180px; }
+.admin-role-filter select { min-width: 0; }
+.admin-filter-reset, .admin-change-role { min-height: 40px; white-space: nowrap; }
+.admin-table-caption {
+  padding: 10px 16px;
+  color: #718078;
+  text-align: left;
+  font-size: var(--admin-ui-label);
+  line-height: 1.5;
+}
+.admin-table-wrap { border-radius: 0 0 10px 10px; }
+.admin-table td > .admin-empty { min-height: 128px; }
+.admin-pagination > span { min-width: 0; color: #687a72; font-size: var(--admin-ui-small); line-height: 1.5; }
+.admin-pagination button { min-height: 38px; }
+.admin-table-scroll-hint { padding-inline: 14px; }
+@media (max-width: 900px) {
+  .admin-toolbar { align-items: stretch; }
+  .admin-search { flex: 1 1 100%; }
+  .admin-role-filter { flex: 1 1 180px; }
+}
+@media (max-width: 520px) {
+  .admin-directory-status { padding: 0 12px 12px; }
+  .admin-role-filter { min-width: 0; }
+  .admin-filter-reset { width: 100%; }
+  .admin-pagination > span { overflow-wrap: anywhere; }
+  .admin-table-caption { padding-inline: 12px; }
+}
+
+
+/* Shared interaction affordances across all Admin sections and nested controls. */
+.admin-shell :where(button, [role="button"], input, select, textarea, summary) { accent-color: #397a63; }
+.admin-shell :where(button, select, input, textarea) { min-height: 40px; }
+.admin-shell :where(button:disabled, select:disabled, input:disabled, textarea:disabled) { cursor: not-allowed; }
+.admin-shell :where(button:not(:disabled), summary) { touch-action: manipulation; }
+.admin-shell :where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #e66f4c;
+  outline-offset: 3px;
+}
+.admin-nav-item:focus-visible { position: relative; z-index: 2; }
+.admin-skip-link {
+  position: fixed;
+  z-index: 1000;
+  top: 10px;
+  left: 10px;
+  width: auto;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  color: #fff;
+  background: #263f3c;
+  font-size: 13px;
+  font-weight: 700;
+  transform: translateY(-160%);
+}
+.admin-skip-link:focus { transform: translateY(0); }
+.admin-main:focus { outline: none; }
+@media (prefers-contrast: more) {
+  .admin-shell :where(button, input, select, textarea, .admin-panel, .admin-table-wrap) { border-color: currentColor; }
+  .admin-shell :where(.admin-eyebrow, .admin-panel__footnote, .admin-directory-status) { color: #344d45; }
+}
+@media (forced-colors: active) {
+  .admin-shell :where(button, input, select, textarea, summary) { border: 1px solid ButtonText; }
+  .admin-shell :where(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid Highlight; }
+  .admin-nav-item--active { outline: 1px solid Highlight; }
+}
+
+
+/* Printer-friendly administrative evidence: preserve content, suppress app chrome. */
+@media print {
+  @page { size: auto; margin: 14mm; }
+  .admin-shell {
+    display: block !important;
+    color: #172b27 !important;
+    background: #fff !important;
+    font-size: 10pt;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .admin-sidebar, .admin-topbar, .admin-skip-link, .admin-refresh,
+  .admin-signout, .admin-modal-scrim, .admin-pagination,
+  .admin-toolbar, .audit-page__filters, .audit-page__copy-error,
+  .admin-table-scroll-hint { display: none !important; }
+  .admin-main, .admin-workspace { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+  .admin-heading { margin: 0 0 14pt !important; padding: 0 0 10pt !important; border-bottom: 1px solid #aebbb4; }
+  .admin-heading h1 { color: #172b27 !important; font-size: 20pt !important; }
+  .admin-panel, .admin-metrics article, .audit-page__lifecycle, .audit-event-card,
+  .audit-page__coverage, .audit-page__coverage-details {
+    break-inside: avoid-page;
+    box-shadow: none !important;
+    border-color: #b8c4bc !important;
+    background: #fff !important;
+  }
+  .admin-metrics { display: grid !important; grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+  .admin-table-wrap { overflow: visible !important; }
+  .admin-table { width: 100% !important; min-width: 0 !important; table-layout: auto; }
+  .admin-table th, .admin-table td { padding: 5pt !important; color: #172b27 !important; font-size: 8pt !important; overflow-wrap: anywhere; }
+  .admin-table th { white-space: normal !important; }
+  .audit-page, .audit-page__list { display: block !important; overflow: visible !important; }
+  .audit-event-card { margin: 0 0 10pt !important; }
+  .audit-event-card__details, .audit-event-card__references { display: block !important; }
+  .audit-event-card__details dl { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-footer { margin-top: 14pt; color: #52635b !important; border-top: 1px solid #b8c4bc; }
+  a { color: #172b27 !important; text-decoration: none !important; }
+}
+
+
+/* Keep administrative table evidence legible across printed page breaks. */
+@media print {
+  .admin-table thead { display: table-header-group; }
+  .admin-table tfoot { display: table-footer-group; }
+  .admin-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .admin-table th { background: #eef2ee !important; }
+}
+
+
+/* Long identifiers and audit metadata must not escape the printable page box. */
+@media print {
+  .audit-event-card__details dd,
+  .audit-event-card__details code,
+  .audit-event-card__references dd,
+  .admin-account small,
+  .admin-table td {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+  .audit-event-card__details dl { gap: 7pt 12pt; }
+}
+
+
+/* Narrow viewport guardrails also help users who zoom without rotating a device. */
+@media (max-width: 360px) {
+  .admin-workspace { padding-inline: 10px; }
+  .admin-topbar { gap: 8px; }
+  .admin-topbar__right { gap: 8px; }
+  .admin-user { max-width: 100%; }
+  .admin-user strong { max-width: min(42vw, 132px); }
+  .admin-metrics { grid-template-columns: minmax(0,1fr); }
+  .admin-metrics article { min-width: 0; }
+  .audit-event-card__details,
+  .audit-page__lifecycle { padding: 10px; }
+  .admin-pagination > div { flex-direction: column; }
+  .admin-pagination button { width: 100%; }
+}
+
+
+/* Keep privileged role-change guidance and validation visible within the dialog. */
+.admin-modal__error {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #d9a49a;
+  border-radius: 8px;
+  color: #873b31;
+  background: #fff5f2;
+  font-size: var(--admin-ui-small);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.admin-form-hint {
+  margin: -4px 0 8px;
+  color: #65766e;
+  font-size: var(--admin-ui-small);
+  line-height: 1.5;
+}
+.admin-reason-count {
+  margin-top: 5px;
+  color: #65766e;
+  font-size: var(--admin-ui-label);
+  line-height: 1.45;
+  text-align: right;
+}
+@media (max-width: 520px) {
+  .admin-modal__error { padding: 9px 10px; }
+  .admin-reason-count { text-align: left; }
+}
+
+
+/* Short-lived feedback for privileged role changes; does not block dialog controls. */
+.admin-toast-region {
+  position: fixed;
+  z-index: 120;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  display: grid;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.admin-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 15px;
+  border: 1px solid #d7e1d9;
+  border-left: 4px solid #4b8064;
+  border-radius: 10px;
+  background: #fffefa;
+  color: #29463b;
+  box-shadow: 0 12px 34px rgba(23, 43, 35, .2);
+  font-size: 13px;
+  line-height: 1.5;
+  pointer-events: auto;
+  overflow-wrap: anywhere;
+}
+.admin-toast--error {
+  border-color: #e8c7c3;
+  border-left-color: #b5473d;
+  color: #782f2a;
+}
+.admin-toast--success {
+  border-left-color: #3d7958;
+}
+.admin-toast > span { flex: 1 1 auto; min-width: 0; }
+.admin-toast > button {
+  display: grid;
+  flex: 0 0 32px;
+  place-items: center;
+  width: 32px;
+  min-height: 32px;
+  margin: -5px -5px 0 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.admin-toast > button:hover { background: rgba(38, 67, 54, .08); }
+.admin-toast > button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .admin-toast-region {
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    width: calc(100vw - 20px);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .admin-toast { animation: admin-toast-enter 160ms ease-out both; }
+  @keyframes admin-toast-enter {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+@media print {
+  .admin-toast-region { display: none !important; }
+}

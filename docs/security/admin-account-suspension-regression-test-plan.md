@@ -115,3 +115,8 @@ Do not implement the account-state migration until:
 - exact-head CI and human review pass.
 
 This plan intentionally prefers a complete, evidence-backed enforcement layer over a premature Suspend button.
+## Anonymous callable review gate
+
+After each clean PostgreSQL migration replay, run tools/check_account_suspension_authorization_surface.sql and classify every effective anon-callable routine in both public and private schemas. Record the intended unauthenticated use, schema exposure, owner, SECURITY DEFINER/INVOKER mode, search_path, nested helper calls, and read/write effects. Check inherited and PUBLIC EXECUTE access as well as explicit role grants.
+
+Do not infer that the anonymous surface is empty from the Python source contract. The catalog query must be executed against the disposable replay database, and every newly discovered or changed signature must be reviewed before account lifecycle transition grants are considered.

@@ -47,7 +47,7 @@ The clean replay printed these callable private functions. Each is directly call
 | `private.tacresq_assign_incident_team(bigint,bigint[])` | Dispatcher team assignment, target eligibility, locking, and writes. | Active dispatcher and active selected units, under the existing lock protocol. |
 | `private.tacresq_auth_can_access_incident_chat(bigint)` | Determines caller chat membership/access. | Suspended caller must never receive a positive access result. |
 | `private.tacresq_auth_profile_id()` | Resolves current profile identity. | Define safe semantics for suspended identity lookup; do not let a valid profile ID alone grant downstream access. |
-| `private.tacresq_dispatch_update_incident_status(bigint,text)` | Dispatcher incident/assignment progress mutation. | Active dispatcher required before mutation. |
+| `private.tacresq_dispatch_update_incident_status(bigint,text)` | Dispatcher incident/assignment progress mutation, called by the SECURITY INVOKER `api_update_incident_status` wrapper. | **Guard added in migration `20261124070000`:** requires an active dispatcher and takes a `FOR SHARE` profile lock before incident mutation; the clean-replay SQL contract checks volatility, pinned search path, and authenticated-only EXECUTE. |
 | `private.tacresq_is_incident_assignee(bigint)` | Caller assignment-membership predicate used by policies and RPCs. | Suspended caller must not pass the membership predicate as an authorization grant. |
 | `private.tacresq_record_location_v2(bigint,double precision,double precision,real,timestamptz)` | Validated field GPS write. | Active assigned field unit required before insert. |
 | `private.tacresq_release_incident_assignment(bigint,bigint)` | Field-unit assignment release. | Active actor required for normal release; preserve operational continuity. |
@@ -69,3 +69,24 @@ Still, do not assume extension exposure is harmless: keep the extension schema a
 5. Add executable same-still-valid-JWT negative tests for each protected surface and explicit positive tests for any intentionally retained data-free exception.
 
 No account-state migration, UI, connected Supabase operation, or production data change is included in this batch.
+
+
+## Follow-up implementation — dispatcher progress entry point
+
+The direct private callable was re-reviewed after the public invoker/private definer call edge was traced. Its earlier implementation checked only the dispatcher role, which allowed a still-valid JWT belonging to a suspended dispatcher to reach incident progress writes if this private function remained executable. Migration `20261124070000_account_lifecycle_dispatch_progress_guard.sql` closes that specific gap by resolving the actor from `auth.uid()`, requiring `account_status = 'active'`, and holding a `FOR SHARE` lock on the profile row through the transaction. It preserves the existing incident transition validation, assignment-status synchronization, and duty-status updates.
+
+The replay contract in `tools/test_account_lifecycle_foundation.sql` verifies the effective function is VOLATILE, SECURITY DEFINER, pinned to `search_path = pg_catalog`, checks active status and the share lock, and remains executable only by `authenticated`. The Python inventory contract ties those assertions to the migration and replay test. This is source/replay-contract coverage; it is not a claim that a disposable PostgreSQL replay or live project has been executed in this turn.
+
+
+## Follow-up implementation — assignment and GPS write authorization
+
+The callable review now includes the team-assignment, release, and per-responder GPS write call edges. The three original write implementations are preserved as private internal routines with client EXECUTE revoked. Their callable wrappers now acquire a `FOR SHARE` lock on the authenticated profile while requiring `account_status = 'active'`; assignment/release require the dispatcher role, while GPS recording requires responder/driver. The single-member legacy assignment alias routes through the guarded team-assignment wrapper.
+
+Review boundary: the wrappers retain the existing operation-specific validation and mutation logic by delegation. The migration replay SQL checks the effective wrapper attributes and client grants and confirms that the preserved internal functions are inaccessible to client roles. It does not yet prove concurrency behavior in a disposable Supabase-compatible database; that replay remains a required validation step before PR #347 can leave draft.
+
+
+## Dispatcher read-path follow-up
+
+The responder/driver directory and dispatcher incident queue are now included in the account-lifecycle read review. `api_units()` previously used a raw dispatcher-role lookup inside a SECURITY DEFINER body; it now delegates through a private, non-client-callable implementation after an active-profile `FOR SHARE` lock. `api_all_incidents()` uses the shared active-aware role helper while remaining SECURITY INVOKER.
+
+The added replay contract checks these distinctions explicitly. It does not establish runtime behavior until the complete migration chain is replayed against a disposable PostgreSQL/Supabase-compatible database and the resulting privilege catalog is inspected.

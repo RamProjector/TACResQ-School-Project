@@ -39,6 +39,8 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000162', true);
   PERFORM public.api_assign_incident_team(incident_id, ARRAY[responder_id]);
   PERFORM set_config('test.incident_id', incident_id::text, false);
+  PERFORM set_config('test.requester_profile_id', requester_id::text, false);
+  PERFORM set_config('test.responder_profile_id', responder_id::text, false);
 END;
 $image_chat_fixture$;
 
@@ -602,8 +604,7 @@ VALUES (
   format(
     '%s/%s/00000000-0000-4000-8000-000000000222.jpg',
     current_setting('test.incident_id')::bigint,
-    (SELECT id FROM public.profiles
-      WHERE auth_user_id = '00000000-0000-4000-8000-000000000161')
+    current_setting('test.responder_profile_id')::bigint
   ),
   '{"mimetype":"image/jpeg","size":"5"}'::jsonb
 );
@@ -645,3 +646,129 @@ $stored_size_mismatch_test$;
 RESET ROLE;
 
 SELECT 'PASS: stored object size mismatch is rejected during image-message finalization.' AS result;
+
+-- A requester with the same still-valid JWT must lose chat and Storage access
+-- immediately after the trusted profile-state change commits.
+SELECT set_config('request.jwt.claim.sub', '', false);
+UPDATE public.profiles
+   SET account_status = 'suspended',
+       suspended_at = clock_timestamp(),
+       suspended_by = (
+         SELECT id FROM public.profiles
+          WHERE auth_user_id = '00000000-0000-4000-8000-000000000162'
+       ),
+       suspension_reason = 'Synthetic Storage suspension contract'
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000160';
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000160', false);
+SET ROLE authenticated;
+DO $suspended_storage_and_chat_denial$
+DECLARE
+  incident_id bigint := current_setting('test.incident_id')::bigint;
+  requester_profile_id bigint := private.tacresq_auth_profile_id();
+  existing_image_path text;
+  new_image_path text;
+  visible_count integer;
+  denied boolean;
+BEGIN
+  IF requester_profile_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Suspended requester must not resolve an active profile ID';
+  END IF;
+
+  existing_image_path := format(
+    '%s/%s/00000000-0000-4000-8000-000000000204.jpg',
+    incident_id,
+    current_setting('test.responder_profile_id')::bigint
+  );
+  SELECT count(*) INTO visible_count
+    FROM storage.objects
+   WHERE bucket_id = 'incident-chat-attachments'
+     AND name = existing_image_path;
+  IF visible_count <> 0 THEN
+    RAISE EXCEPTION 'Suspended requester must not download previously uploaded incident images';
+  END IF;
+
+  denied := false;
+  BEGIN
+    PERFORM public.api_my_incident_messages(incident_id, 50, NULL);
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Suspended requester must not read incident chat history';
+  END IF;
+
+  new_image_path := format(
+    '%s/%s/00000000-0000-4000-8000-000000000223.jpg',
+    incident_id,
+    current_setting('test.requester_profile_id')::bigint
+  );
+  denied := false;
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name, metadata)
+    VALUES (
+      'incident-chat-attachments',
+      new_image_path,
+      '{"mimetype":"image/jpeg","size":"4"}'::jsonb
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Suspended requester must not upload new incident images';
+  END IF;
+
+END;
+$suspended_storage_and_chat_denial$;
+RESET ROLE;
+
+-- Restore only this disposable fixture so later replay checks are independent.
+SELECT set_config('request.jwt.claim.sub', '', false);
+UPDATE public.profiles
+   SET account_status = 'active',
+       suspended_at = NULL,
+       suspended_by = NULL,
+       suspension_reason = NULL
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000160';
+
+SELECT 'PASS: suspended requester with an unexpired JWT is denied chat and Storage access.' AS result;
+
+-- A dispatcher is also an incident-chat participant. Use its independent,
+-- unsaturated message budget to prove suspended message writes hit the row
+-- trigger rather than a rate-limit/idempotency branch.
+SELECT set_config('request.jwt.claim.sub', '', false);
+UPDATE public.profiles
+   SET account_status = 'suspended',
+       suspended_at = clock_timestamp(),
+       suspended_by = id,
+       suspension_reason = 'Synthetic suspended dispatcher chat contract'
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000162';
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000162', false);
+SET ROLE authenticated;
+DO $suspended_dispatcher_chat_write$
+DECLARE
+  denied boolean := false;
+BEGIN
+  BEGIN
+    PERFORM public.api_send_incident_message(
+      current_setting('test.incident_id')::bigint,
+      'Suspended dispatcher message must fail',
+      '00000000-0000-4000-8000-000000000224'::uuid
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    denied := true;
+  END;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'Suspended dispatcher must not send incident chat messages';
+  END IF;
+END;
+$suspended_dispatcher_chat_write$;
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', '', false);
+UPDATE public.profiles
+   SET account_status = 'active',
+       suspended_at = NULL,
+       suspended_by = NULL,
+       suspension_reason = NULL
+ WHERE auth_user_id = '00000000-0000-4000-8000-000000000162';
+
+SELECT 'PASS: suspended dispatcher chat write is denied.' AS result;

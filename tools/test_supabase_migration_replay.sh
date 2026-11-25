@@ -100,6 +100,12 @@ psql -v ON_ERROR_STOP=1 -f tools/test_account_suspension_private_definer_invento
 # The same read-only check can be run manually against a deployed test project.
 psql -v ON_ERROR_STOP=1 -f tools/check_incident_chat_upload_schema.sql
 
+# Inventory every application Storage bucket and fail closed on unreviewed buckets.
+psql -v ON_ERROR_STOP=1 -f tools/check_storage_bucket_inventory.sql
+
+# Verify account lifecycle schema, immutable audit, and same-valid-JWT state lookup.
+psql -v ON_ERROR_STOP=1 -f tools/test_account_lifecycle_foundation.sql
+
 psql -v ON_ERROR_STOP=1 <<'SQL'
 -- The Auth -> profile trigger is a privileged account-lifecycle boundary.
 -- Fail replay if it disappears, is disabled, or loses its expected definer mode.
@@ -234,21 +240,37 @@ $$;
 DO $dispatch_test$
 DECLARE
   public_rpc_definer boolean;
+  public_rpc_settings text[];
+  public_rpc_source text;
   private_rpc_definer boolean;
   private_rpc_settings text[];
 BEGIN
-  SELECT prosecdef INTO public_rpc_definer
-    FROM pg_proc WHERE oid = to_regprocedure('public.api_assign_incident_team(bigint,bigint[])');
-  SELECT prosecdef, proconfig INTO private_rpc_definer, private_rpc_settings
-    FROM pg_proc WHERE oid = to_regprocedure('private.tacresq_assign_incident_team(bigint,bigint[])');
-  IF public_rpc_definer IS DISTINCT FROM false THEN
-    RAISE EXCEPTION 'Public team-assignment RPC must be SECURITY INVOKER';
+  SELECT prosecdef, proconfig, prosrc
+    INTO public_rpc_definer, public_rpc_settings, public_rpc_source
+    FROM pg_catalog.pg_proc
+   WHERE oid = to_regprocedure('public.api_assign_incident_team(bigint,bigint[])');
+  SELECT prosecdef, proconfig
+    INTO private_rpc_definer, private_rpc_settings
+    FROM pg_catalog.pg_proc
+   WHERE oid = to_regprocedure('private.tacresq_assign_incident_team_internal(bigint,bigint[])');
+  IF public_rpc_definer IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Public team-assignment wrapper must be SECURITY DEFINER';
   END IF;
-  IF private_rpc_definer IS DISTINCT FROM true THEN
-    RAISE EXCEPTION 'Private team-assignment implementation must retain SECURITY DEFINER';
+  IF NOT (coalesce(public_rpc_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog'])
+     OR public_rpc_source NOT ILIKE '%account_status = ''active''%'
+     OR public_rpc_source NOT ILIKE '%FOR SHARE%'
+     OR public_rpc_source NOT ILIKE '%tacresq_assign_incident_team_internal%' THEN
+    RAISE EXCEPTION 'Public team-assignment wrapper must pin search_path and lock an active dispatcher before delegation';
+  END IF;
+  IF private_rpc_definer IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'Private team-assignment implementation must remain SECURITY INVOKER inside the guarded definer wrapper';
   END IF;
   IF NOT (coalesce(private_rpc_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
     RAISE EXCEPTION 'Private team-assignment implementation must pin search_path to pg_catalog';
+  END IF;
+  IF has_function_privilege('authenticated', 'private.tacresq_assign_incident_team_internal(bigint,bigint[])', 'EXECUTE')
+     OR has_function_privilege('anon', 'private.tacresq_assign_incident_team_internal(bigint,bigint[])', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Private team-assignment implementation must not be client-callable';
   END IF;
 END;
 $dispatch_test$;

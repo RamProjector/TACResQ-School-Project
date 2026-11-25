@@ -1,38 +1,38 @@
 # Admin account suspension: security design and implementation gates
 
-**Status:** design and repository inventory required; no account state, Auth user, session, or production data has been changed.
+**Status (25 Nov 2026):** The website Admin User Management page now displays Active/Suspended state, exposes Suspend/Reactivate actions with a required reason and confirmation, and shows recent lifecycle audit events. The protected transition RPC is granted to authenticated clients only and independently requires AAL2/TOTP plus an active Admin profile. The website controls depend on migration `20261125100000_admin_website_account_lifecycle_controls.sql`. Exact-head PostgreSQL replay, RPC-grant, TypeScript build, and same-valid-JWT validation are still required before runtime sign-off. Android Admin UI is intentionally outside this website-first phase. Auth session revocation and connected-project deployment are NOT implemented. No account has been suspended and no live Supabase project or user data was changed.
 
 ## Goal
 
 Give an authorized administrator a reversible way to suspend and reactivate a non-admin TACResQ account. Suspension must stop the account from using the Android app, direct Supabase APIs, Storage, and any Laravel bridge path. It must not be confused with responder/driver duty status.
 
-The first implementation must not expose administrator provisioning, promotion/demotion, account deletion, password changes, or arbitrary Auth metadata editing.
+The first implementation must not expose administrator provisioning, promotion/demotion, account deletion, password changes, or arbitrary Auth metadata editing. The Admin transition RPC is implemented but its EXECUTE grant remains revoked from client roles until remaining access surfaces are covered.
 
 ## Repository facts confirmed
 
 - The Admin web directory currently returns id, name, email, role, duty status, and creation time. It does not return account-enabled/suspended state.
-- The existing role-change RPC is a SECURITY DEFINER function. It locks the target profile, blocks Admin targets, blocks role changes while a field unit has an active incident, and writes an append-only admin_audit_logs record.
-- private.tacresq_actor_role() currently resolves the role directly from public.profiles and does not check account status.
+- The existing role-change RPC is a SECURITY DEFINER function. It locks the target profile, blocks Admin targets, blocks role changes while a field unit has an active incident, writes an append-only admin_audit_logs record, and now shares an advisory serialization lock with the staged account lifecycle transition.
+- private.tacresq_actor_role() and private.tacresq_auth_profile_id() now resolve only active profiles and acquire a profile share lock. Other callable RPCs still require explicit review.
 - Some RLS policies use that helper, but several RPCs and policies query public.profiles directly. Therefore changing only the helper or adding a UI toggle would not establish complete suspension enforcement.
 - Android and the web portal call Supabase directly for important operations. Laravel is not a universal API gateway and cannot be treated as the only enforcement point.
 - The Web Admin initializes a browser Supabase client and directly calls Admin RPCs; its MFA gate is not the authorization boundary. Preserve the database-enforced AAL2/TOTP wrapper and restrictive audit-log policy when adding active-account checks.
 - The repository also contains a separate legacy Laravel Sanctum authentication path backed by Laravel User records and personal-access tokens. Its identity mapping/support status relative to Supabase Auth users and public.profiles is not established by source review. Do not assume a Supabase suspension state automatically blocks those tokens, and do not join identities by email. Before claiming complete account suspension, explicitly decide whether the legacy Sanctum routes remain supported and, if so, define their own server-side account-state/revocation contract.
 - The optional Render Supabase bridge validates the Supabase bearer token and forwards that same caller JWT to allowlisted PostgREST RPCs. It is useful transport defense, but does not itself resolve current profile account state; database enforcement remains mandatory.
-- Storage has independent policies and must receive an explicit active-account check too.
-- The existing audit model supports role-change events, and the investigation feed has a fixed source allowlist. Suspension events need a trusted, append-only audit representation and explicit feed coverage.
+- Incident-chat Storage policies now use the account-aware profile/chat helpers and have same-valid-JWT upload/download denial coverage. Other Storage buckets still require inventory and tests.
+- The existing audit model supports role-change events, and the investigation feed has a fixed source allowlist. The foundation migration adds a private-to-clients, RLS-enabled, append-only `account_lifecycle_audit_logs` ledger. The trusted state-transition RPC is implemented but not exposed to clients; investigation-feed coverage is still outstanding.
 
 ## Security model
 
 ### 1. Separate account access from duty status
 
-Add a constrained account state to public.profiles, independent of duty_status:
+The foundation migration now adds a constrained account state to `public.profiles`, independent of `duty_status`:
 
 - active
 - suspended
 
 New profiles default to active. A suspension record includes suspended_at, suspended_by, and a required reason. Reactivation records the actor, timestamp, and reason in the immutable administrative audit history. Do not reuse off_duty or change the person's role to simulate suspension.
 
-Only non-admin profiles can be suspended or reactivated through the portal. Administrator accounts remain trusted-operator-only, consistent with the existing provisioning boundary.
+Only non-admin profiles can be suspended or reactivated through the portal. The internal transition RPC rejects Admin targets entirely; administrator provisioning/recovery remains trusted-operator-only, consistent with the existing provisioning boundary.
 
 ### 2. Enforce at every authorization boundary
 
@@ -44,7 +44,7 @@ A status column is not an authorization control by itself. Before enabling the U
 - The Laravel Supabase bridge and other backend routes that accept a Supabase bearer token.
 - Admin RPCs, including directory and investigation endpoints.
 
-Use one narrowly scoped private helper for current-caller active-state checks, with a fixed pg_catalog search path, explicit grants, and regression tests. Add restrictive RLS policies where appropriate, but do not assume RLS protects SECURITY DEFINER functions: each definer entry point must explicitly reject suspended callers before doing work. Verify every path rather than assuming the role helper covers them.
+The foundation migration adds `private.tacresq_current_account_active()` with a fixed `pg_catalog` search path and an explicit authenticated-only EXECUTE grant. It reads and share-locks the current profile row rather than trusting JWT metadata; the Admin transition RPC and role-change wrapper use a shared advisory lock, and the transition locks the target profile `FOR UPDATE`. The helper is used by restrictive policies on public tables with direct authenticated privileges and by a row-level write guard on every public table, which rejects writes from suspended end-user JWTs even inside SECURITY DEFINER functions. The actor-role, chat profile-ID, incident-assignee, and Admin MFA helpers now fail closed for suspended callers; Admin MFA still requires AAL2/TOTP. Notification list/detail, incident-chat history, claimable-incident discovery, field-unit directory, SOS create/cancel idempotency, and incident-claim entry paths are guarded. Incident-chat Storage INSERT/SELECT policies fail closed through account-aware helpers, with same-valid-JWT upload/download/chat tests. The notification Edge Function rejects suspended actors and filters recipients to active profiles. Other Storage buckets, remaining idempotent/read RPCs, Edge Function runtime tests, and bridge routes remain under review. The Admin transition RPC is implemented but its EXECUTE grant is revoked from client roles until those gates are closed.
 
 ### 3. Treat already-issued JWTs correctly
 
@@ -95,7 +95,7 @@ The audit write and state mutation must be in one database transaction. Clients 
 ## Rollout gates
 
 - First produce an inventory of all public RPCs, direct table policies, Storage policies, and Laravel Supabase bridge calls, with each entry marked guarded/tested.
-- Implement database schema, enforcement, and audit migration before any UI control.
+- The schema/audit foundation and internal transition RPC exist on this branch. Complete remaining enforcement and tests before granting RPC execution or adding UI controls.
 - Run all checks on a clean disposable PostgreSQL database and use synthetic accounts only.
 - Do not apply the migration to either connected Supabase project without explicit approval.
 - Only after the server-side contract is complete, add directory status, confirmation dialog, required reason, stale-target revalidation, and audit feed labels.
@@ -108,3 +108,23 @@ The audit write and state mutation must be in one database transaction. Clients 
 - No automatic incident cancellation, release, or reassignment.
 - No new paid service, third-party auth product, or stack change.
 - No fake "force sign-out all devices" success message.
+
+### Regression gate — audit identity preflight
+
+Added a source regression gate for the local audit-identity migration: it must take an ACCESS EXCLUSIVE lock before checking unattributed rows, fail with an explicit audit-preserving remediation message, and only then enforce NOT NULL. Rollback only relaxes nullability; it does not rewrite audit history.
+
+### Regression gate — append only trigger
+
+Added explicit regression assertions for the append-only audit trigger's UPDATE/DELETE and TRUNCATE coverage, SQLSTATE, and ordinary invoker execution. This checks source structure only; database-owner and privileged-role bypass behavior still needs a disposable PostgreSQL test.
+
+### Regression gate — recorder input
+
+Added recorder invariants ensuring audit appends require an open transaction, distinct positive actor/target identifiers, a bounded nonblank reason, and one of the two supported transitions. The recorder must not mutate account state or update/delete existing audit rows.
+
+### Regression gate — admin reauth
+
+Added source-order checks proving local Admin reauthentication locks and re-reads the account before checking role, suspension, password, and one-time TOTP consumption. The contract also pins the five-attempt throttle, 15-minute failure window, Retry-After, and no-store response.
+
+### Regression gate — sanctum guard headers
+
+Added a narrow middleware regression gate for early suspended-account denial, HTTP 403, no-store/private caching, and the intentionally retained self-service logout bypass. No new bypass route is introduced.

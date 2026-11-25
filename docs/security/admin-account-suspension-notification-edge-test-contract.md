@@ -1,27 +1,33 @@
 # Notification Edge Function: account-state enforcement test contract
 
 **Scope:** `supabase/functions/tacresq-notify/index.ts`  
-**Status:** acceptance specification only. The current schema has no account lifecycle column, so this document does not add a query for a nonexistent field or alter notification behavior.
+**Status:** actor and recipient account-state checks are implemented in the current PR branch. A CI source-order contract now verifies the authorization gates precede incident/token reads and OAuth/FCM calls. Isolated Supabase Edge Function tests and deployment verification are still required; no live function was deployed.
 
 ## Current source behavior
 
-The function validates the bearer token with `auth.getUser`, loads the actor's `profiles.id,role`, verifies incident/event ownership, resolves target profiles, and loads their FCM registrations through a service-role client. Service-role reads bypass ordinary RLS. The current profile query does not establish account lifecycle state, and recipient selection does not filter suspended profiles.
+The function validates the bearer token with `auth.getUser`, loads the actor's `profiles.id,role,account_status`, and rejects any actor not currently active before loading incident data. Existing role and incident relationship checks remain. After event-specific target resolution, it filters target profiles to `account_status = active` before loading FCM registrations. These service-role reads bypass ordinary RLS, so the explicit filters are required.
 
 Consequently, this Edge Function is an explicit future enforcement boundary; it must not be treated as protected by database RLS alone.
 
-## Required implementation after the account-state migration exists
+## Implemented branch behavior
 
 1. Resolve the actor from the verified Auth UUID, never from a client-supplied profile ID.
-2. Read the actor's current account lifecycle state from the authoritative profile row before loading incident data or performing notification side effects.
-3. Fail closed on missing profile, lookup error, missing/unknown lifecycle state, or any state other than `active`.
+2. Read the actor's current account lifecycle state from the authoritative profile row before loading incident data or performing notification side effects. **Implemented.**
+3. Fail closed on missing profile, lookup error, missing/unknown lifecycle state, or any state other than `active`. **Implemented.**
 4. Keep the existing role and incident relationship checks. An active account is not automatically authorized for an event.
-5. Resolve target profile IDs using the existing event-specific logic, then load only active target profiles.
-6. Fetch FCM registrations only for those active target IDs. Do not infer recipient eligibility from token existence.
+5. Resolve target profile IDs using the existing event-specific logic, then load only active target profiles. **Implemented.**
+6. Fetch FCM registrations only for those active target IDs. Do not infer recipient eligibility from token existence. **Implemented.**
+7. Accept numeric incident IDs supplied as numbers or digit-only strings, then require a positive safe integer. **Implemented.**
+8. Bound the request body to 8 KiB using the declared Content-Length when present and a streaming byte counter that cancels oversized bodies even when the header is absent. Decode UTF-8 strictly before JSON parsing; oversized bodies return HTTP 413. **Implemented.**
 7. Preserve current no-recipient and no-token responses; do not leak whether a suspended target has a token.
 8. Do not delete historical FCM registrations or incident records as a side effect of suspension.
 9. Do not put service-role credentials in client code or return them in error messages.
 
-## Edge Function negative-test matrix
+## Automated source-level coverage
+
+`tools/test_account_lifecycle_notification_edge_contract.py` checks that the actor account-state lookup and fail-closed decision precede incident lookup; recipient active-state filtering precedes token lookup; token lookup precedes Google OAuth and FCM send calls; and request parsing enforces the streaming body cap and incident-ID validation. This is a source-level regression check only. It does not execute Deno, mock network calls, or prove provider behavior.
+
+## Remaining Edge Function negative-test matrix
 
 Run against an isolated Supabase test project with synthetic Auth users and FCM tokens. Mock the FCM HTTP endpoint; never send real notifications during tests.
 
@@ -36,6 +42,9 @@ Run against an isolated Supabase test project with synthetic Auth users and FCM 
 | Unknown lifecycle value | Authenticated actor | Any | Fail closed |
 | Active actor, wrong role/incident | Active but unauthorized actor | Any | Existing 403 behavior remains |
 | Active actor, no active recipients | Active authorized actor | Suspended/non-provisioned targets | `sent: 0`; no FCM call |
+| Oversized request body, with or without Content-Length | Authenticated actor | Any | Streaming reader cancels at 8 KiB and returns 413 before JSON parsing or database/provider work |
+| Numeric incident ID as digit-only string | Active authorized actor | Active recipient | Same behavior as positive safe-integer numeric ID |
+| Non-digit, zero, negative, or unsafe incident ID | Authenticated actor | Any | 400; no incident/recipient/provider work |
 | Active actor, invalid FCM token | Active authorized actor | Active recipient with invalid token | Existing invalid-token cleanup remains scoped to that token |
 
 ## Test instrumentation requirements
@@ -49,4 +58,4 @@ Run against an isolated Supabase test project with synthetic Auth users and FCM 
 
 ## Release gate
 
-The account-state migration, Edge Function implementation, and these tests must land as a coordinated change. Do not deploy this function against the existing schema with an assumed `account_status` field. Do not claim suspended-account enforcement until tests prove actor denial and recipient filtering on the deployed function using the same still-valid JWT issued before suspension.
+The migration and actor/recipient source checks now land together in this PR. Before deployment, run the isolated Edge Function negative-test matrix, verify zero FCM/Google OAuth calls for denied cases, and test with the same still-valid JWT issued before suspension. The function has not been deployed.

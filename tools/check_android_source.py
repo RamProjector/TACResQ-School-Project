@@ -378,8 +378,20 @@ if (ROOT / "gradlew").is_file():
     properties = (ROOT / "gradle/wrapper/gradle-wrapper.properties").read_text(
         encoding="utf-8"
     )
-    if "gradle-9.9.0-bin.zip" not in properties:
-        raise SystemExit("Unexpected Gradle distribution; review wrapper version and checksum.")
+    distribution_match = re.search(
+        r"^distributionUrl=.*?/gradle-([0-9]+\.[0-9]+(?:\.[0-9]+)?)-bin\.zip$",
+        properties,
+        re.MULTILINE,
+    )
+    if not distribution_match:
+        raise SystemExit(
+            "Unexpected Gradle distribution; expected a versioned official binary distribution."
+        )
+    distribution_version = distribution_match.group(1)
+    if tuple(int(part) for part in distribution_version.split(".")) < (9, 9, 0):
+        raise SystemExit(
+            f"Gradle {distribution_version} is older than the repository minimum 9.9.0."
+        )
     print(
         f"Android Gradle project OK: {len(kotlin_files)} Kotlin files; "
         "wrapper files present and JAR checksum matches."

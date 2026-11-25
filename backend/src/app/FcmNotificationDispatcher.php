@@ -2,14 +2,18 @@
 
 namespace App;
 
+use App\Contracts\FcmClientContract;
+
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use RuntimeException;
 
 class FcmNotificationDispatcher
 {
     private const CLAIM_LEASE_SECONDS = 600;
 
-    public function __construct(private readonly FcmHttpV1Client $fcm)
+    public function __construct(private readonly FcmClientContract $fcm)
     {
     }
 
@@ -24,19 +28,28 @@ class FcmNotificationDispatcher
         // Validate ADC before claiming queue rows. A broken/missing credential must
         // not consume delivery attempts or move valid work into retry backoff.
         $this->checkConfiguration();
-        $limit = max(1, min($limit ?? (int) config('tacru.fcm_batch_limit', 50), 50));
+        if ($limit !== null && ($limit < 1 || $limit > 50)) {
+            throw new InvalidArgumentException('FCM dispatch limit must be between 1 and 50.');
+        }
+        $configuredLimit = (int) config('tacru.fcm_batch_limit', 50);
+        $limit = $limit ?? max(1, min($configuredLimit, 50));
 
         $response = $this->client()->post($this->rpcUrl('api_claim_fcm_delivery_batch'), [
             'p_limit' => $limit,
             'p_lease_seconds' => self::CLAIM_LEASE_SECONDS,
         ]);
-        if (!$response->successful() || !is_array($response->json())) {
+        $claimedAttempts = $response->json();
+        if (!$response->successful() || !is_array($claimedAttempts) || !array_is_list($claimedAttempts)) {
             throw new RuntimeException('Supabase FCM delivery queue claim failed.');
         }
 
-        $attempts = array_values(array_filter($response->json(), 'is_array'));
+        // Preserve every claimed row in the batch count. A malformed row is
+        // observable as skipped work rather than silently disappearing.
         $notificationIds = [];
-        foreach ($attempts as $attempt) {
+        foreach ($claimedAttempts as $attempt) {
+            if (!is_array($attempt)) {
+                continue;
+            }
             $id = (int) ($attempt['notification_id'] ?? 0);
             if ($id > 0) {
                 $notificationIds[$id] = true;
@@ -45,14 +58,18 @@ class FcmNotificationDispatcher
 
         $stats = [
             'notifications' => count($notificationIds),
-            'tokens' => count($attempts),
+            'tokens' => count($claimedAttempts),
             'sent' => 0,
             'invalid_tokens' => 0,
             'failed' => 0,
             'skipped' => 0,
         ];
 
-        foreach ($attempts as $attempt) {
+        foreach ($claimedAttempts as $attempt) {
+            if (!is_array($attempt)) {
+                $stats['skipped']++;
+                continue;
+            }
             $attemptId = (int) ($attempt['attempt_id'] ?? 0);
             $notificationId = (int) ($attempt['notification_id'] ?? 0);
             $profileId = (int) ($attempt['profile_id'] ?? 0);
@@ -80,16 +97,31 @@ class FcmNotificationDispatcher
                 );
 
                 if ($result['sent']) {
-                    $this->updateAttempt($attemptId, 'sent', $result['provider_message_name'], null);
+                    $this->persistAttemptSafely($attemptId, 'sent', $result['provider_message_name'], null);
                     $stats['sent']++;
                 } elseif ($result['invalid_token']) {
                     // FCM UNREGISTERED is the definitive signal that this token is
                     // no longer registered. Do not delete tokens for INVALID_ARGUMENT.
-                    $this->deleteToken($token);
-                    $this->updateAttempt($attemptId, 'invalid_token', null, $result['error_code']);
+                    try {
+                        $this->deleteToken($token);
+                    } catch (\Throwable $cleanupException) {
+                        // Keep this delivery retryable until token cleanup succeeds.
+                        // Do not misclassify a PostgREST cleanup failure as an FCM transport failure.
+                        $this->logCleanupFailureSafely($attemptId, $cleanupException);
+                        $this->persistAttemptSafely(
+                            $attemptId,
+                            'failed',
+                            null,
+                            'TOKEN_CLEANUP_FAILURE',
+                            $this->nextAttemptAt($attemptCount, 0, null),
+                        );
+                        $stats['failed']++;
+                        continue;
+                    }
+                    $this->persistAttemptSafely($attemptId, 'invalid_token', null, $result['error_code']);
                     $stats['invalid_tokens']++;
                 } elseif ($result['retryable']) {
-                    $this->updateAttempt(
+                    $this->persistAttemptSafely(
                         $attemptId,
                         'failed',
                         null,
@@ -102,7 +134,7 @@ class FcmNotificationDispatcher
                     );
                     $stats['failed']++;
                 } else {
-                    $this->updateAttempt(
+                    $this->persistAttemptSafely(
                         $attemptId,
                         'permanent_failure',
                         null,
@@ -113,7 +145,7 @@ class FcmNotificationDispatcher
             } catch (\Throwable) {
                 // Transport or ledger-update failures retain the attempt for a
                 // bounded retry. A worker crash leaves the claim leased for 10 min.
-                $this->updateAttempt(
+                $this->persistAttemptSafely(
                     $attemptId,
                     'failed',
                     null,
@@ -146,6 +178,34 @@ class FcmNotificationDispatcher
         }
     }
 
+    /**
+     * A failed ledger write must not abort delivery attempts for other recipients.
+     * Leave the row claimed; the bounded lease allows a later worker to recover it.
+     */
+    private function persistAttemptSafely(
+        int $id,
+        string $status,
+        ?string $providerName,
+        ?string $errorCode,
+        ?string $nextAttemptAt = null,
+    ): bool {
+        try {
+            $this->updateAttempt($id, $status, $providerName, $errorCode, $nextAttemptAt);
+            return true;
+        } catch (\Throwable $exception) {
+            // Do not log provider payloads, tokens, or exception messages.
+            try {
+                Log::warning('FCM delivery ledger update failed for attempt.', [
+                    'attempt_id' => $id,
+                    'exception' => $exception::class,
+                ]);
+            } catch (\Throwable) {
+                // Logging must not turn a recoverable ledger failure into a batch abort.
+            }
+            return false;
+        }
+    }
+
     private function updateAttempt(
         int $id,
         string $status,
@@ -173,6 +233,18 @@ class FcmNotificationDispatcher
         $response = $this->client()->patch($this->tableUrl('fcm_delivery_attempts').'?'.$query, $payload);
         if (!$response->successful()) {
             throw new RuntimeException('Supabase FCM delivery ledger update failed.');
+        }
+    }
+
+    private function logCleanupFailureSafely(int $attemptId, \Throwable $exception): void
+    {
+        try {
+            Log::warning('FCM invalid-token cleanup failed for attempt.', [
+                'attempt_id' => $attemptId,
+                'exception' => $exception::class,
+            ]);
+        } catch (\Throwable) {
+            // Logging is best-effort and must not interrupt processing of the batch.
         }
     }
 

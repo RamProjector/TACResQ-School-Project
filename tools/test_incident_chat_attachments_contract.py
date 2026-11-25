@@ -221,4 +221,43 @@ assert "^[0-9]+$" in inventory, "Inventory size metadata parsing must use a comp
 assert inventory.count("WITH bucket AS") == 1, "Inventory must contain one complete query, not duplicated fragments"
 assert inventory.rstrip().endswith(";"), "Inventory query must terminate cleanly"
 
+
+# The Storage surface currently consists of one application bucket. Keep the
+# inventory fail-closed so adding another bucket forces a fresh security review.
+inventory_sql = read("tools/check_storage_bucket_inventory.sql")
+identity_migration = read("supabase/migrations/20261123110000_account_lifecycle_identity_helpers.sql")
+for required in (
+    "FROM storage.buckets",
+    "unknown_bucket_ids",
+    "Unreviewed Storage bucket(s) detected",
+    "incident-chat-attachments",
+    "tacresq_incident_chat_attachment_insert",
+    "tacresq_incident_chat_attachment_read",
+    "tacresq_auth_profile_id",
+    "tacresq_auth_can_access_incident_chat",
+    "object_count",
+    "declared_object_bytes",
+):
+    assert required in inventory_sql, f"Storage bucket inventory contract missing: {required}"
+assert "DELETE " not in inventory_sql.upper()
+assert "UPDATE " not in inventory_sql.upper()
+assert not any(line.lstrip().upper().startswith("INSERT INTO ") for line in inventory_sql.splitlines())
+assert "DROP " not in inventory_sql.upper()
+for required in (
+    "CREATE OR REPLACE FUNCTION private.tacresq_auth_profile_id()",
+    "p.account_status = 'active'",
+    "FOR SHARE",
+):
+    assert required.lower() in identity_migration.lower(), (
+        f"Storage active-account identity guard missing: {required}"
+    )
+for required in (
+    "suspended requester must not download previously uploaded incident images",
+    "suspended requester must not upload new incident images",
+    "suspended requester with an unexpired jwt is denied chat and storage access",
+):
+    assert required.lower() in storage_tests.lower(), (
+        f"Same-valid-JWT Storage suspension regression missing: {required}"
+    )
+
 print("PASS: incident chat images use private, incident-authorized storage and bounded Android image attachments.")

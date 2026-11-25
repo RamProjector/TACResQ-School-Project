@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export type TacruRole = "requester" | "responder" | "driver" | "dispatcher" | "admin";
 export type AdminManagedRole = Exclude<TacruRole, "admin">;
-export interface AdminUser { id: number; name: string; email: string; role: TacruRole; duty_status: DutyStatus | null; created_at: string; }
+export interface AdminUser { id: number; name: string; email: string; role: TacruRole; duty_status: DutyStatus | null; account_status: "active" | "suspended"; created_at: string; }
 export interface AdminAuditEvent { id: number; actor_user_id: number | null; actor_identity: string; target_user_id: number | null; action: "user_role_changed"; old_role: TacruRole; new_role: TacruRole; reason: string; created_at: string; }
 export type AdminInvestigationCategory = "all" | "administrative" | "authentication" | "incident" | "assignment";
 export type AdminInvestigationSource = "all" | "admin_audit_logs" | "supabase_auth_audit_logs" | "incident_status_logs" | "incident_claimability_logs" | "incident_request_edit_logs" | "incident_assignment_events" | "app_action_audit_logs";
@@ -21,6 +21,8 @@ export interface AdminInvestigationEvent {
   details: Record<string, unknown>;
 }
 export interface AdminInvestigationPage { events: AdminInvestigationEvent[]; total_count: number; }
+export interface AdminAccountLifecycleEvent { id: number; actor_profile_id: number; actor_identity: string; target_profile_id: number; target_name: string; action: "account_suspended" | "account_reactivated"; previous_status: "active" | "suspended"; new_status: "active" | "suspended"; reason: string; created_at: string; }
+export interface AdminAccountLifecyclePage { events: AdminAccountLifecycleEvent[]; total_count: number; }
 export interface AdminRoleChangeResult { id: number; name: string; email: string; old_role: AdminManagedRole; role: AdminManagedRole; duty_status: DutyStatus | null; }
 export type DutyStatus = "off_duty" | "available" | "en_route" | "on_scene" | "transporting";
 export type IncidentType = "medical" | "fire" | "vehicular" | "disaster" | "other";
@@ -72,8 +74,10 @@ type TacruDatabase = {
       api_active_responder_locations: { Args: Record<string, never>; Returns: ResponderLocation[] };
       api_admin_list_users_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_role: string }; Returns: { users: AdminUser[]; total_count: number } };
       api_admin_set_user_role: { Args: { p_user_id: number; p_role: AdminManagedRole; p_reason: string }; Returns: AdminRoleChangeResult };
+      api_admin_set_account_status: { Args: { p_target_profile_id: number; p_expected_account_status: "active" | "suspended"; p_account_status: "active" | "suspended"; p_reason: string }; Returns: Record<string, unknown> };
       api_admin_list_audit_logs: { Args: { p_limit: number }; Returns: AdminAuditEvent[] };
       api_admin_list_audit_logs_page: { Args: { p_limit: number; p_offset: number; p_query: string; p_action: string; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null }; Returns: { events: AdminAuditEvent[]; total_count: number } };
+      api_admin_list_account_lifecycle_events: { Args: { p_limit: number; p_offset: number }; Returns: AdminAccountLifecyclePage };
       api_admin_list_investigation_events: { Args: { p_limit: number; p_offset: number; p_query: string; p_category: AdminInvestigationCategory; p_source: AdminInvestigationSource; p_from: string | null; p_to: string | null; p_actor_user_id: number | null; p_target_user_id: number | null; p_incident_id: number | null }; Returns: AdminInvestigationPage };
       api_admin_analytics_summary: { Args: { p_from: string; p_to: string }; Returns: AdminAnalyticsSummary };
       api_dependency_health: { Args: Record<string, never>; Returns: string };
@@ -171,6 +175,7 @@ function throwAdminError(error: { code?: string; message?: string } | null) {
   if (error.code === "42501") throw new Error("Administrator access and a verified authenticator session are required.");
   if (error.code === "22023") throw new Error(error.message || "The requested administrative change is not valid.");
   if (error.code === "P0002") throw new Error("The selected account could not be found.");
+  if (error.code === "55006") throw new Error("Release or complete this account’s active incident assignments before suspending it.");
   if (error.code === "PGRST202") throw new Error("The audit-history database function is not installed. The database migration must be applied before this page can load.");
   if (error.code === "PGRST301" || error.code === "PGRST302") throw new Error("Your administrator session could not be verified. Sign in again and complete the authenticator check.");
   if (error.code === "57014") throw new Error("The audit query took too long. Narrow the date range or search filters and try again.");
@@ -219,6 +224,7 @@ export async function getAdminUsersPage(limit: number, offset: number, query: st
       || typeof user.email !== "string" || !user.email.trim()
       || !roles.has(user.role)
       || (user.duty_status !== null && !dutyStatuses.has(user.duty_status))
+      || !["active", "suspended"].includes(user.account_status)
       || typeof user.created_at !== "string"
       || !Number.isFinite(Date.parse(user.created_at))
     ) {
@@ -257,6 +263,21 @@ export async function setAdminUserRole(userId: number, role: AdminManagedRole, r
     throw new Error("The role change outcome for profile #" + userId + " could not be confirmed because the service returned an invalid confirmation. Do not retry yet: refresh the account directory, then open Audit Logs, select “Admin role changes”, filter Target profile ID to " + userId + ", and refresh the audit results.");
   }
   return result;
+}
+export async function setAdminAccountStatus(profileId: number, expectedStatus: "active" | "suspended", status: "active" | "suspended", reason: string): Promise<void> {
+  const { data, error } = await getSupabase().rpc("api_admin_set_account_status", {
+    p_target_profile_id: profileId, p_expected_account_status: expectedStatus, p_account_status: status, p_reason: reason,
+  });
+  if (error) {
+    if (error.code === "40001") throw new Error("This account was changed by another administrator. Refresh the directory and review its current status before trying again.");
+    if (["42501", "22023", "P0002"].includes(error.code ?? "")) throwAdminError(error);
+    throw new Error("The account status change for profile #" + profileId + " could not be confirmed. Refresh the directory and lifecycle history before retrying.");
+  }
+  const result = data as Record<string, unknown> | null;
+  if (!result || !["changed", "unchanged"].includes(String(result.status))
+    || result.target_profile_id !== profileId || result.account_status !== status) {
+    throw new Error("The account status change for profile #" + profileId + " returned an invalid confirmation. Refresh the directory and lifecycle history before retrying.");
+  }
 }
 export async function getAdminAnalyticsSummary(from: string, to: string): Promise<AdminAnalyticsSummary> {
   const { data, error } = await getSupabase().rpc("api_admin_analytics_summary", {
@@ -363,6 +384,39 @@ export async function getAdminInvestigationEventsPage(
       throw new Error("The investigation service returned duplicate event identifiers.");
     }
     eventIds.add(event.event_id);
+  }
+  return page;
+}
+
+export async function getAdminAccountLifecycleEvents(limit = 5, offset = 0): Promise<AdminAccountLifecyclePage> {
+  const { data, error } = await getSupabase().rpc("api_admin_list_account_lifecycle_events", {
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error?.code === "PGRST202") {
+    throw new Error("Account lifecycle history will appear after the reviewed database migration is applied.");
+  }
+  throwAdminError(error);
+  if (!data || typeof data !== "object") throw new Error("The account lifecycle service returned an invalid page.");
+  const page = data as unknown as AdminAccountLifecyclePage;
+  if (!Array.isArray(page.events) || !Number.isSafeInteger(page.total_count) || page.total_count < 0 || page.events.length > limit || page.total_count < offset + page.events.length) {
+    throw new Error("The account lifecycle service returned an invalid page.");
+  }
+  const ids = new Set<number>();
+  for (const event of page.events) {
+    if (!event || !Number.isSafeInteger(event.id) || event.id < 1 || ids.has(event.id)
+      || !Number.isSafeInteger(event.actor_profile_id) || event.actor_profile_id < 1
+      || !Number.isSafeInteger(event.target_profile_id) || event.target_profile_id < 1
+      || typeof event.actor_identity !== "string" || !event.actor_identity.trim()
+      || typeof event.target_name !== "string" || !event.target_name.trim()
+      || !["account_suspended", "account_reactivated"].includes(event.action)
+      || !["active", "suspended"].includes(event.previous_status)
+      || !["active", "suspended"].includes(event.new_status)
+      || typeof event.reason !== "string" || event.reason.length < 10 || event.reason.length > 500
+      || typeof event.created_at !== "string" || !Number.isFinite(Date.parse(event.created_at))) {
+      throw new Error("The account lifecycle service returned an invalid event.");
+    }
+    ids.add(event.id);
   }
   return page;
 }

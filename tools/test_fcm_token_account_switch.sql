@@ -5,7 +5,9 @@ BEGIN;
 DO $token_rpc_privileges$
 DECLARE
   register_oid regprocedure := to_regprocedure('public.api_register_fcm_token(text)');
+  unregister_oid regprocedure := to_regprocedure('public.api_unregister_fcm_token(text)');
   function_settings text[];
+  unregister_settings text[];
 BEGIN
   IF register_oid IS NULL THEN
     RAISE EXCEPTION 'FCM registration RPC is missing';
@@ -20,6 +22,19 @@ BEGIN
   SELECT proconfig INTO function_settings FROM pg_proc WHERE oid = register_oid;
   IF NOT (coalesce(function_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
     RAISE EXCEPTION 'FCM registration RPC must pin search_path to pg_catalog';
+  END IF;
+  IF unregister_oid IS NULL
+     OR NOT has_function_privilege('authenticated', unregister_oid, 'EXECUTE')
+     OR has_function_privilege('anon', unregister_oid, 'EXECUTE')
+     OR (SELECT prosecdef FROM pg_catalog.pg_proc WHERE oid = unregister_oid) IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'FCM self-unregister RPC must be an authenticated-only SECURITY DEFINER boundary';
+  END IF;
+  SELECT proconfig INTO unregister_settings FROM pg_catalog.pg_proc WHERE oid = unregister_oid;
+  IF NOT (coalesce(unregister_settings, ARRAY[]::text[]) @> ARRAY['search_path=pg_catalog']) THEN
+    RAISE EXCEPTION 'FCM self-unregister RPC must pin search_path to pg_catalog';
+  END IF;
+  IF has_table_privilege('authenticated', 'public.fcm_tokens', 'DELETE') THEN
+    RAISE EXCEPTION 'Authenticated clients must not receive direct FCM token DELETE privilege';
   END IF;
 END;
 $token_rpc_privileges$;
@@ -74,6 +89,118 @@ BEGIN
   END IF;
 END;
 $token_owner_assertion$;
+
+-- Suspend the second account and exercise the same still-valid JWT. Registration,
+-- direct reads, and direct writes must fail/return no rows, while self-cleanup
+-- remains available so sign-out can remove this installation's token.
+UPDATE public.profiles
+   SET account_status = 'suspended',
+       suspended_at = statement_timestamp(),
+       suspended_by = (
+         SELECT id FROM public.profiles
+          WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000201'
+       ),
+       suspension_reason = 'Synthetic FCM lifecycle test'
+ WHERE auth_user_id = 'f2000000-1111-4111-8111-000000000202';
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'f2000000-1111-4111-8111-000000000202', true);
+
+DO $suspended_registration_denied$
+BEGIN
+  BEGIN
+    PERFORM public.api_register_fcm_token('fcm-suspended-registration-token-000000000202');
+    RAISE EXCEPTION 'Suspended account unexpectedly registered an FCM token';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+END;
+$suspended_registration_denied$;
+
+DO $suspended_direct_read_denied$
+DECLARE
+  visible_count bigint;
+BEGIN
+  SELECT count(*) INTO visible_count
+    FROM public.fcm_tokens
+   WHERE token = 'fcm-installation-token-account-switch-000000000201';
+  IF visible_count <> 0 THEN
+    RAISE EXCEPTION 'Suspended account unexpectedly read its FCM token row';
+  END IF;
+END;
+$suspended_direct_read_denied$;
+
+DO $suspended_direct_update_denied$
+DECLARE
+  changed_count bigint;
+BEGIN
+  BEGIN
+    UPDATE public.fcm_tokens
+       SET updated_at = statement_timestamp()
+     WHERE token = 'fcm-installation-token-account-switch-000000000201';
+    GET DIAGNOSTICS changed_count = ROW_COUNT;
+  EXCEPTION WHEN insufficient_privilege THEN
+    -- Direct UPDATE privilege is intentionally revoked; zero-row RLS denial
+    -- is also acceptable when a deployment grants the statement but filters it.
+    changed_count := 0;
+  END;
+  IF changed_count <> 0 THEN
+    RAISE EXCEPTION 'Suspended account unexpectedly updated an FCM token row';
+  END IF;
+END;
+$suspended_direct_update_denied$;
+
+DO $suspended_direct_write_denied$
+BEGIN
+  BEGIN
+    INSERT INTO public.fcm_tokens(profile_id, token)
+    VALUES (
+      (SELECT private.tacresq_auth_profile_id_for_token_cleanup()),
+      'fcm-suspended-direct-insert-token-000000000202'
+    );
+    RAISE EXCEPTION 'Suspended account unexpectedly inserted an FCM token directly';
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN
+    NULL;
+  END;
+END;
+$suspended_direct_write_denied$;
+
+-- A caller-supplied marker must not turn direct table access into an
+-- authorization path. The RPC owns and clears this transaction-local marker.
+SELECT set_config('tacresq.allow_suspended_fcm_self_cleanup', 'on', true);
+DO $suspended_self_cleanup$
+BEGIN
+  PERFORM public.api_unregister_fcm_token('fcm-installation-token-account-switch-000000000201');
+END;
+$suspended_self_cleanup$;
+DO $suspended_cleanup_marker_reset$
+BEGIN
+  IF current_setting('tacresq.allow_suspended_fcm_self_cleanup', true) = 'on' THEN
+    RAISE EXCEPTION 'FCM self-unregister RPC must clear its transaction-local cleanup marker';
+  END IF;
+END;
+$suspended_cleanup_marker_reset$;
+RESET ROLE;
+
+DO $suspended_token_cleanup_assertion$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.fcm_tokens
+     WHERE token = 'fcm-installation-token-account-switch-000000000201'
+  ) THEN
+    RAISE EXCEPTION 'Suspended account must be able to remove its own FCM token';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.fcm_tokens
+     WHERE token IN (
+       'fcm-suspended-registration-token-000000000202',
+       'fcm-suspended-direct-insert-token-000000000202'
+     )
+  ) THEN
+    RAISE EXCEPTION 'Suspended account must not create or rotate FCM tokens';
+  END IF;
+END;
+$suspended_token_cleanup_assertion$;
 
 ROLLBACK;
 SELECT 'PASS: FCM installation token ownership follows the authenticated account without exposing client table access.' AS result;

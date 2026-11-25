@@ -82,6 +82,36 @@ PENDING = {
     "20261122210000_incident_chat_upload_reservations.sql",
     "20261122230000_app_action_audit_coverage.sql",
     "20261122213000_reconcile_incident_chat_upload_policy.sql",
+    # Follow-on account-lifecycle callable guards are staged and not confirmed in
+    # the live Supabase migration ledger.
+    "20261123220000_fcm_delivery_claim_active_recipient_guard.sql",
+    "20261124070000_account_lifecycle_dispatch_progress_guard.sql",
+    "20261124080000_account_lifecycle_team_assignment_guard.sql",
+    "20261124090000_account_lifecycle_assignment_release_guard.sql",
+    "20261124100000_account_lifecycle_location_writer_guard.sql",
+    "20261124110000_account_lifecycle_dispatcher_directory_guard.sql",
+    "20261124120000_account_lifecycle_requester_edit_guard.sql",
+    "20261124130000_account_lifecycle_claimability_and_responder_read_guard.sql",
+    "20261124140000_account_lifecycle_duty_status_guard.sql",
+    # Account-lifecycle runtime PR #347 migrations are pending review/deployment;
+    # allow them on that branch without implying they exist in the live ledger.
+    "20261123090000_account_lifecycle_foundation.sql",
+    "20261123100000_account_lifecycle_restrictive_rls.sql",
+    "20261123110000_account_lifecycle_identity_helpers.sql",
+    "20261123120000_account_lifecycle_write_guard_triggers.sql",
+    "20261123130000_account_lifecycle_admin_mfa_guard.sql",
+    "20261123140000_account_lifecycle_read_rpc_guards.sql",
+    "20261123150000_account_lifecycle_assignment_helper_guard.sql",
+    "20261123160000_account_lifecycle_helper_volatility.sql",
+    "20261123170000_account_lifecycle_admin_transition_rpc.sql",
+    "20261123180000_account_lifecycle_chat_idempotency_guards.sql",
+    "20261123190000_account_lifecycle_write_rpc_entry_guards.sql",
+    "20261123200000_admin_account_lifecycle_audit_reader.sql",
+    "20261123210000_account_lifecycle_fcm_token_guards.sql",
+    "20261124190000_prevent_suspending_assigned_field_units.sql",
+    "20261124200000_guard_active_assignment_targets.sql",
+    "20261125100000_admin_website_account_lifecycle_controls.sql",
+    "20261125110000_admin_account_lifecycle_compare_and_set.sql",
 }
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
