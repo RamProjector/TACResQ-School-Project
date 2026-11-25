@@ -110,7 +110,10 @@ EXPECTED = {
 }
 # Every repository migration now matches a version recorded in the live
 # Supabase migration ledger. New pending migrations must be added explicitly.
-PENDING = set()
+PENDING = {
+    # PR #365: staged read-only-safe account profile RLS correction; not yet in live migration ledger.
+    "20261125120000_read_only_account_profile_rls.sql",
+}
 actual = {path.name for path in MIGRATIONS.glob("*.sql")}
 assert EXPECTED <= actual, (
     f"Applied migration files missing from repository. Missing={sorted(EXPECTED - actual)}"
