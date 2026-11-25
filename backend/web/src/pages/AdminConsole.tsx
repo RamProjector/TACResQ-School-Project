@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   ShieldAlert,
   ArrowDownUp,
+  ArrowUp,
   CheckCircle2,
   CircleHelp,
   Settings,
@@ -260,6 +261,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const directorySearchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setPage(0);
@@ -406,6 +408,33 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
   const modalRoot = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const requestVersion = useRef(0);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  // Provide a predictable shortcut to the account search without intercepting
+  // keystrokes while the operator is editing another control.
+  useEffect(() => {
+    const focusDirectorySearch = (event: KeyboardEvent) => {
+      if (activeSection !== "users" || target || lifecycleTarget ||
+          event.key !== "/" || event.altKey || event.ctrlKey || event.metaKey) return;
+      const element = event.target;
+      if (element instanceof HTMLElement &&
+          (element.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName))) return;
+      event.preventDefault();
+      directorySearchRef.current?.focus();
+      directorySearchRef.current?.select();
+    };
+    document.addEventListener("keydown", focusDirectorySearch);
+    return () => document.removeEventListener("keydown", focusDirectorySearch);
+  }, [activeSection, target, lifecycleTarget]);
+
+  // Long Admin pages retain a quick, keyboard-accessible route back to the
+  // workspace header. Respect the operator's reduced-motion preference.
+  useEffect(() => {
+    const updateScrollPosition = () => setShowBackToTop(window.scrollY > 480);
+    updateScrollPosition();
+    window.addEventListener("scroll", updateScrollPosition, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrollPosition);
+  }, []);
 
   // Return keyboard focus to the control that opened the role-change dialog.
   useEffect(() => {
@@ -870,7 +899,7 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
               <span className="admin-count">{directoryError ? "Account results unavailable" : totalUsers === 0 ? "0 matching accounts" : (page * pageSize + 1) + "–" + Math.min((page + 1) * pageSize, totalUsers) + " of " + totalUsers + " matching"}</span>
             </div>
             <div className="admin-toolbar">
-              <label className="admin-search"><Search size={16} aria-hidden="true" /><input id="admin-directory-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder="Search name, email or profile ID" aria-label="Search users" aria-controls="admin-account-directory-table" aria-describedby="admin-directory-status" /></label>
+              <label className="admin-search"><Search size={16} aria-hidden="true" /><input ref={directorySearchRef} id="admin-directory-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder="Search name, email or profile ID" aria-label="Search users" aria-controls="admin-account-directory-table" aria-describedby="admin-directory-status" /></label>
               <label className="admin-role-filter"><span>Role</span><select id="admin-directory-role-filter" value={roleFilter} onChange={(event) => { setPage(0); setRoleFilter(event.target.value as RoleFilter); }} aria-label="Filter users by role" aria-controls="admin-account-directory-table" aria-describedby="admin-directory-status"><option value="all">All roles</option><option value="requester">Requester</option><option value="responder">Responder</option><option value="driver">Driver</option><option value="dispatcher">Dispatcher</option><option value="admin">Admin</option></select></label>
               <label className="admin-page-size"><span>Rows</span><select id="admin-directory-page-size" value={pageSize} onChange={(event) => { setPage(0); setPageSize(Number(event.target.value) as 10 | 25 | 50 | 100); }} aria-label="Accounts per page" aria-controls="admin-account-directory-table"><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
               {hasDirectoryFilters && <button className="admin-filter-reset" type="button" onClick={() => { setQuery(""); setDebouncedQuery(""); setRoleFilter("all"); setPage(0); }} disabled={refreshing}>Clear filters</button>}
@@ -1361,6 +1390,18 @@ export default function AdminConsole({ profile, onSignOut }: AdminConsoleProps) 
           <footer className="admin-footer"><span>TACRESQ · ADMINISTRATION</span><span>Administrator permissions are checked before each action</span></footer>
         </div>
       </main>
+
+      {showBackToTop && (
+        <button
+          className="admin-back-to-top"
+          type="button"
+          aria-label="Back to top"
+          title="Back to top"
+          onClick={() => window.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" })}
+        >
+          <ArrowUp size={18} aria-hidden="true" />
+        </button>
+      )}
 
       {(target || lifecycleTarget) && (
         <div className="admin-modal-scrim" ref={modalRoot} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) { setTarget(null); setLifecycleTarget(null); setReason(""); } }}>
