@@ -108,6 +108,10 @@ BEGIN
     END IF;
   END LOOP;
 
+  IF NOT has_function_privilege('anon', 'public.api_dependency_health()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'The fixed-result dependency health probe must remain available to anon';
+  END IF;
+
   SELECT p.oid::regprocedure::text
     INTO unexpected_signature
   FROM pg_catalog.pg_proc AS p
