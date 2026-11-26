@@ -141,6 +141,7 @@ UNAPPLIED_DRAFTS = {
 UNAPPLIED_FORWARD_MIGRATIONS = {
     "20261126160000_revoke_service_role_admin_audit_access.sql",
     "20261126170000_restrict_profile_update_to_duty_status.sql",
+    "20261126180000_restrict_device_registry_sequences.sql",
 }
 # Applied live migration with no recoverable source file in this branch.
 # Keep this gap explicit; do not synthesize SQL from the ledger name.
