@@ -2824,3 +2824,165 @@ Useful references: [W3C navigation design](https://www.w3.org/WAI/curricula/desi
 7. Run source/API regression tests to ensure UI changes do not change authorization, data scope, mutation semantics, or backend calls.
 
 **Evidence boundary:** These are design requirements derived from Material and W3C guidance and the already documented TACResQ source audit. They do not assert that the current UI or backend already implements every behavior, and they do not authorize new data access, privileges, APIs, or paid dependencies.
+
+
+---
+
+## 38. Admin IPS information architecture, wayfinding, and navigation hierarchy
+
+**Research date:** 2026-11-26.  
+**Scope:** Refine the existing Admin portal's navigation and page organization using task-oriented information architecture. Preserve existing routes, the eight verified primary sections, current permissions, and TACResQ's established theme. This section does not authorize new pages or backend capabilities.
+
+### 38.1 Organize around administrator tasks, not backend components
+
+An administrator should be able to predict where a task lives from its purpose. Navigation should describe the work and the information being handled, not expose internal implementation details such as Supabase tables, Laravel services, RPC names, or database schemas.
+
+Use these principles:
+- Group destinations by the administrator's recurring task and mental model.
+- Put frequent, high-consequence tasks where they are easy to find without making every destination visually compete.
+- Keep labels concrete and recognizable; avoid abstract labels that require users to learn the product's internal vocabulary.
+- Avoid using the organization's internal technical architecture as the primary navigation hierarchy.
+- Do not create a new navigation destination merely because a backend table, provider, or log source exists.
+- Keep help and explanatory material available without turning the main navigation into a documentation index.
+
+This aligns with government information-architecture guidance to structure navigation around user needs and common tasks rather than internal organizational structures. See [GCIS information architecture guidance](https://www.gcis.gov.za/guidelines/website/information-architecture) and [GOV.UK service navigation](https://design-system.service.gov.uk/patterns/navigate-a-service/).
+
+### 38.2 Retain the eight existing primary destinations
+
+The current source-backed primary destinations remain the baseline:
+
+1. Overview
+2. User management
+3. Security
+4. Analytics & reports
+5. Activity log
+6. Data & continuity
+7. Settings
+8. Help & about
+
+Do not merge or rename these solely to make the sidebar shorter. First test whether users can predict where representative tasks belong. A future label adjustment is acceptable only if it improves comprehension and route compatibility is preserved.
+
+The current group headings (Workspace, Governance, Data & Continuity, Preferences & Support) may be refined after task-based validation, but must not introduce artificial categories or hide destinations behind deep nested menus. A group heading is an aid to scanning, not a separate route.
+
+### 38.3 Navigation labels and page identity
+
+- Use short, noun-based labels that describe a destination: “User management”, “Activity log”, “Settings”.
+- Avoid ambiguous labels such as “Manage”, “Records”, “Monitor”, or “System” without a clear object.
+- Keep the same label in the sidebar, page heading, breadcrumb, and help references unless there is a documented reason to use a shorter contextual form.
+- Give every route a unique, descriptive document title and one clear page-level heading.
+- Do not repeat the same label as a large eyebrow, page title, subtitle, and first panel title.
+- Keep action labels verb-led and distinguish them from destination labels.
+- Use “Security” for the current administrator security workspace; do not relabel it “Security monitoring” while provider/session coverage is incomplete.
+- Use “Activity log” only with its source-coverage limitations; do not imply complete system-wide audit coverage.
+- Keep “Data & continuity” descriptive of its current guidance/evidence scope, not an operational backup console.
+
+W3C navigation guidance recommends descriptive page titles, clear names, consistent current-page indication, multiple navigation strategies, and a way to bypass repeated blocks. See [W3C Navigation Design](https://www.w3.org/WAI/curricula/designer-modules/navigation-design/).
+
+### 38.4 Current-location and wayfinding contract
+
+Every Admin page should answer three questions without forcing the user to infer context:
+1. Where am I? — persistent selected navigation state and a descriptive page title.
+2. What can I do here? — concise page actions and task-specific content.
+3. How do I return or move elsewhere? — persistent primary navigation and browser-history compatibility.
+
+Implementation requirements:
+- Expose the current destination programmatically (for example, the active link state) as well as visually.
+- Keep navigation order, placement, labels, and interaction behavior consistent across routes.
+- Use breadcrumbs only when they add real hierarchy or context. With a shallow eight-destination portal, a breadcrumb such as “Admin / User management” may add noise; the selected sidebar item and page title may be sufficient.
+- If a detail view introduces a meaningful parent-child hierarchy, show a concise breadcrumb or back-to-list affordance that returns to the preserved list context.
+- Do not use breadcrumbs as a replacement for browser back, primary navigation, or a clear page title.
+- Preserve search/filter/sort/page state when moving from a result list into a detail pane and back, where technically practical.
+- Keep a skip link to the main content and meaningful navigation/main landmarks.
+- Do not auto-navigate when a menu item receives keyboard focus; navigation occurs only after activation.
+
+### 38.5 Navigation versus search
+
+Navigation and search solve different problems:
+- Navigation communicates the overall structure and stable destinations.
+- Search finds records or content within a defined data scope.
+- A page-level filter narrows the current result set.
+- Help search finds operator guidance, not user accounts or incident data.
+
+Therefore:
+- Do not add a universal global search field unless there is a defined cross-source index, permission model, retention policy, pagination contract, and clear user need.
+- Keep “Search users” within User management, “Search investigation events” within Activity log, and help search within Help & about.
+- State the search scope in the field label or adjacent context.
+- Do not imply that a result set spans Android, Supabase Auth, Laravel Sanctum, Storage, Edge Functions, or other sources unless the backend query actually spans those sources.
+- Search results must not bypass record-level authorization or reveal the existence of records the user cannot access.
+- Keep filters local to the stream they affect; investigation and account-lifecycle history remain separate datasets and independent navigational contexts.
+
+### 38.6 Role-aware navigation without confusing visibility and authorization
+
+- The Admin portal remains an administrator workspace, not a general user-role switchboard.
+- Only show destinations the signed-in principal is authorized to use, but keep server/database authorization authoritative.
+- A hidden item is not a security control; direct route entry and direct RPC invocation must still be rejected by the trusted boundary.
+- Do not show disabled destinations for features that do not exist merely to advertise future functionality.
+- If access is denied after a route is opened (for example, because the session or account state changed), explain that access is no longer available and provide a safe route back. Do not leave a blank page or silently redirect without context.
+- Do not expose Admin provisioning, arbitrary permission editing, cross-system identity linking, or user-session administration as navigation destinations without source-backed implementation and approval.
+
+### 38.7 Sidebar behavior and hierarchy
+
+- Keep the desktop sidebar as the persistent primary navigation.
+- Use group headings only when they reduce scanning effort; do not create groups containing a single item unless the separation has a clear semantic reason.
+- Avoid more than one nested level for this eight-destination portal unless evidence shows a genuine need.
+- Keep all eight destinations reachable in the expanded state without excessive scrolling at common desktop heights.
+- In collapsed mode, preserve accessible names and provide tooltips on pointer hover and keyboard focus; do not rely on icon shape alone.
+- The selected destination must remain visually and programmatically identifiable in both expanded and collapsed states.
+- The collapse control remains inside the sidebar header. The mobile drawer opener remains in the topbar outside the closed drawer.
+- At compact widths, use the temporary drawer behavior already specified in Section 36; do not add a second competing navigation bar.
+- Ensure long labels wrap or truncate safely without causing horizontal overflow; the full accessible name remains available.
+
+### 38.8 Help, settings, and account controls are not interchangeable
+
+- Help & about contains instructions, definitions, troubleshooting, and grounded product information.
+- Settings contains user-adjustable preferences and clearly identified read-only guidance. It must not imply that browser-local preferences are global system policy.
+- Security contains current administrator authentication assurance and authenticator controls supported by the source.
+- Account/profile controls in the topbar identify the signed-in administrator and expose account-level actions only when implemented.
+- Sign-out must remain discoverable and must not be hidden inside an unrelated Settings or Help page.
+- Do not duplicate the same setting across the topbar, Settings, and Security.
+
+### 38.9 Information scent and task validation
+
+Before changing group names or nesting, validate navigation with realistic administrator tasks rather than asking whether the sidebar “looks clean”. Use representative scenarios:
+- Find a user and inspect the current role/status.
+- Change an eligible user's role with a reason.
+- Review an account suspension/reactivation history.
+- Check the current administrator's MFA assurance.
+- Find a recorded investigation event and inspect its source.
+- Export a date-bounded analytics report.
+- Determine whether backup or attachment safeguards have live evidence.
+- Change a browser-local accessibility preference.
+- Find the operator guidance for an unavailable or stale source.
+
+For each task, record:
+- first destination selected;
+- whether the label matched the user's expectation;
+- wrong turns and backtracking;
+- time to reach the correct information;
+- whether the user misunderstood a capability or data-coverage boundary;
+- whether keyboard-only navigation worked.
+
+Use short moderated task tests or card sorting with actual intended administrators when available. Do not claim validation from developer intuition alone. If no participants are available, document the exercise as an expert heuristic review rather than user research.
+
+### 38.10 Acceptance criteria
+
+- The eight source-backed destinations remain reachable and route-compatible.
+- Every label accurately describes the current page capability and does not imply unsupported functionality.
+- Current location is clear visually and programmatically.
+- Search scope is explicit; no misleading global search is introduced.
+- Detail navigation preserves list context where practical.
+- Navigation order, labels, and placement remain consistent across routes.
+- All destinations work with keyboard, screen reader, touch, zoom, and collapsed sidebar.
+- Hidden navigation items do not substitute for backend authorization.
+- No new route, permission, data source, provider integration, or paid dependency is introduced by this IA work.
+
+### 38.11 Research references
+
+- [W3C — Navigation Design](https://www.w3.org/WAI/curricula/designer-modules/navigation-design/)
+- [GOV.UK Design System — Navigate a service](https://design-system.service.gov.uk/patterns/navigate-a-service/)
+- [GOV.UK Design System — Service navigation](https://design-system.service.gov.uk/components/service-navigation/)
+- [Government Communication and Information System — Information architecture](https://www.gcis.gov.za/guidelines/website/information-architecture)
+- [Home Office User-Centred Design Manual — Navigation](https://design.homeoffice.gov.uk/accessibility/page-structure/navigation)
+- [Microsoft Learn — Information architecture principles](https://learn.microsoft.com/en-us/sharepoint/information-architecture-principles)
+
+**Evidence boundary:** Section 38 is research and design specification. It does not claim that navigation has been restructured or usability-tested, and it does not authorize new Admin capabilities or backend changes.
