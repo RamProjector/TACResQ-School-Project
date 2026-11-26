@@ -238,6 +238,19 @@ for migration, expected in (
 assert "has_function_privilege('anon', routine_oid, 'execute')" in foundation_replay
 print("Expanded account-lifecycle callable replay source contract passed.")
  
+# Guard the evidence-based service-role writer matrix and its PostgREST test boundary.
+admin_plan = (ROOT / "docs/TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md").read_text(encoding="utf-8").lower()
+for required in (
+    "### 73.6 candidate least-privilege service-role matrix (not yet migrated)",
+    "apioperationauditlogger",
+    "fcmnotificationdispatcher",
+    "tacresq-notify",
+    "column-only postgrest patch behavior must be verified",
+    "do not replace the existing broad grants until that integration test",
+):
+    assert required in admin_plan, f"Service-role writer matrix is incomplete: {required}"
+
+ 
 # Service-role default ACL research must retain the explicit deployment boundary.
 admin_plan = (ROOT / "docs/TACRESQ_UI_FUNCTIONALITY_MASTER_PLAN.md").read_text(encoding="utf-8").lower()
 for required in (
