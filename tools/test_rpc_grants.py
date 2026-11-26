@@ -260,13 +260,17 @@ RPC_OWNED_SEQUENCES = (
     "profiles_id_seq",
     "user_notifications_id_seq",
 )
+sequence_revoke = re.search(
+    r"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+(.*?)\s+"
+    r"FROM\s+PUBLIC,\s*anon,\s*authenticated,\s*service_role\s*;",
+    SERVICE_ROLE_SEQUENCE_MIGRATION,
+    re.IGNORECASE | re.DOTALL,
+)
+assert sequence_revoke, "Missing explicit RPC/trigger-owned sequence revoke"
 for sequence_name in RPC_OWNED_SEQUENCES:
-    assert re.search(
-        rf"REVOKE\s+ALL\s+PRIVILEGES\s+ON\s+SEQUENCE\s+"
-        rf"public\.{sequence_name}\s*,?",
-        SERVICE_ROLE_SEQUENCE_MIGRATION,
-        re.IGNORECASE,
-    ), f"Missing sequence privilege reduction for {sequence_name}"
+    assert f"public.{sequence_name}" in sequence_revoke.group(1), (
+        f"Missing sequence privilege reduction for {sequence_name}"
+    )
 assert re.search(
     r"GRANT\s+USAGE,\s*SELECT\s+ON\s+SEQUENCE\s+"
     r"public\.api_operation_logs_id_seq\s+TO\s+service_role\s*;",
