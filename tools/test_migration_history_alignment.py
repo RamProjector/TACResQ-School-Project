@@ -136,6 +136,12 @@ LIVE_VERSION_ALIASES = {
 UNAPPLIED_DRAFTS = {
     "20261126100000_revoke_incident_trigger_function_client_execute.sql",
 }
+# New forward migrations on PR #370. They are not present in the connected
+# project's migration ledger and must remain unapplied until explicit approval.
+UNAPPLIED_FORWARD_MIGRATIONS = {
+    "20261126160000_revoke_service_role_admin_audit_access.sql",
+    "20261126170000_restrict_profile_update_to_duty_status.sql",
+}
 # Applied live migration with no recoverable source file in this branch.
 # Keep this gap explicit; do not synthesize SQL from the ledger name.
 LIVE_LEDGER_SOURCE_GAPS = {
@@ -155,9 +161,9 @@ assert actual <= EXPECTED | PENDING, (
 # Keep three distinct classes separate: exact applied-source baseline,
 # version aliases already represented in the live ledger, and genuinely
 # unapplied drafts. This test is static; it does not query the hosted ledger.
-assert PENDING == set(LIVE_VERSION_ALIASES) | UNAPPLIED_DRAFTS, (
-    "Pending migration inventory must be exactly the reviewed version aliases "
-    "plus explicitly unapplied drafts"
+assert PENDING == set(LIVE_VERSION_ALIASES) | UNAPPLIED_DRAFTS | UNAPPLIED_FORWARD_MIGRATIONS, (
+    "Pending migration inventory must be exactly the reviewed version aliases, "
+    "unapplied drafts, and unapplied forward migrations"
 )
 local_versions = {path[:14] for path in actual}
 for source_file, (live_version, live_name) in LIVE_VERSION_ALIASES.items():
