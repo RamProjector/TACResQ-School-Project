@@ -9374,7 +9374,7 @@ Added `tools/test_service_role_admin_audit_privileges.sql` and wired it into the
 - the existing authenticated Admin RPC grants remain present.
 - authenticated retains only the existing direct SELECT table grant; direct audit-table writes remain unavailable.
 
-Extended `tools/test_rpc_grants.py` with a source-level contract that verifies the forward migration contains the table, sequence and exact function revocations, adds no grants, and is included in migration replay. The source contract is not a substitute for the SQL catalog test; both are required.
+Extended `tools/test_rpc_grants.py` with a source-level contract that verifies the forward migration contains the table, sequence and exact function revocations, adds no grants, and is included in migration replay. The source contract is not a substitute for the SQL catalog test; both are required. The disposable replay now seeds the live `postgres/public` default EXECUTE grant to service_role before applying migrations, and the SQL contract asserts that fixture is present. This is necessary because the original replay harness did not model the hosted function default ACL; without that fixture, the future-`api_admin_*` assertion could pass while failing to reproduce the hosted default-grant behavior.
 
 ### 64.4 Explicitly deferred privilege work
 
