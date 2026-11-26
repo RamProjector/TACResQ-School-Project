@@ -372,17 +372,18 @@ assert 'const existingNames = new Set(currentTotpFactors.map((factor) => factor.
 
 
 # The explicit High contrast preference covers the shared workspace and dense Admin pages.
+high_contrast_rules = admin_css.split("User-selected high contrast applies to the complete Admin workspace", 1)[1].split("@media (max-width:900px)", 1)[0]
 for selector in (
-    ".admin-shell--high-contrast .admin-recovery-card",
-    ".admin-shell--high-contrast .admin-attachment-card",
-    ".admin-shell--high-contrast .admin-analytics-card",
-    ".admin-shell--high-contrast .admin-health-item",
-    ".admin-shell--high-contrast .audit-event-card",
-    ".admin-shell--high-contrast .admin-modal",
-    ".admin-shell--high-contrast .admin-settings-nav__item",
-    ".admin-shell--high-contrast :where(button, a, input, select, textarea, summary):focus-visible",
+    ".admin-recovery-card",
+    ".admin-attachment-card",
+    ".admin-analytics-card",
+    ".admin-health-item",
+    ".audit-event-card",
+    ".admin-modal",
+    ".admin-settings-nav__item",
 ):
-    assert selector in admin_css, f"High contrast is missing {selector}"
+    assert selector in high_contrast_rules, f"High contrast is missing {selector}"
+assert ".admin-shell--high-contrast :where(button, a, input, select, textarea, summary):focus-visible" in high_contrast_rules
 assert "color-scheme: light;" in admin_css
 assert "outline: 3px solid #8b3d20;" in admin_css
 assert ".admin-shell--high-contrast .admin-table th" in admin_css
