@@ -640,6 +640,32 @@ UPDATE public.profiles
    SET role = 'admin', duty_status = NULL
  WHERE auth_user_id = '00000000-0000-4000-8000-000000000995';
 
+-- Reuse a valid responder JWT to prove the invoker duty-status RPC still has
+-- its narrow column grants while direct lifecycle-field mutation is denied.
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000993', false);
+SELECT set_config('request.jwt.claims', '', false);
+SET ROLE authenticated;
+DO $profile_update_boundary$
+BEGIN
+  PERFORM public.api_set_duty_status('available');
+  BEGIN
+    UPDATE public.profiles
+       SET account_status = 'suspended',
+           suspended_at = clock_timestamp(),
+           suspended_by = (
+             SELECT id FROM public.profiles
+              WHERE auth_user_id = auth.uid()
+           ),
+           suspension_reason = 'Direct self-suspension must be denied'
+     WHERE auth_user_id = auth.uid();
+    RAISE EXCEPTION 'Authenticated responder unexpectedly changed account lifecycle fields directly';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+END;
+$profile_update_boundary$;
+RESET ROLE;
+
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000995', false);
 SELECT set_config(
   'request.jwt.claims',
